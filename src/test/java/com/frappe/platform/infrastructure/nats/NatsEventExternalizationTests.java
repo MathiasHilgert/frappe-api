@@ -67,11 +67,14 @@ class NatsEventExternalizationTests {
 
     @Test
     void publishesExactlyOneMessageWithEnvelopeHeadersOnceAcked() throws Exception {
+        // Given
         var subject = "frappe.platform.tab-closed.v3";
         var event = new TabClosed(ids.newId(), clock.instant(), ids.newId(), 7, 3, "closed by waiter");
 
+        // When
         publish(event);
 
+        // Then
         await().until(() -> readBack(event) != null);
         assertThat(storedOn(subject)).isEqualTo(1);
         var message = jsm().getLastMessage(NatsStreamProvisioner.STREAM, subject);
@@ -90,15 +93,18 @@ class NatsEventExternalizationTests {
 
     @Test
     void storesAnEventRepublishedFromTheRegistryOnce() throws Exception {
+        // Given
         var subject = "frappe.platform.tab-reopened.v1";
         var event = new TabReopened(ids.newId(), clock.instant(), ids.newId(), 2, 1);
         publish(event);
         await().until(() -> readBack(event) != null);
 
+        // When
         // A retry after a lost ack, or a second instance, externalizes the event deserialized from the registry.
         externalizer.externalize(readBack(event).getEvent()).join();
         externalizer.externalize(event).join();
 
+        // Then
         assertThat(storedOn(subject)).isEqualTo(1);
         assertThat(jsm().getLastMessage(NatsStreamProvisioner.STREAM, subject)
                         .getHeaders()
@@ -108,6 +114,7 @@ class NatsEventExternalizationTests {
 
     @Test
     void closesTheConnectionOnlyAfterTheExternalizerStops() {
+        // When / Then
         // Spring destroys dependents first, so the externalizer must depend on the NATS client.
         assertThat(beans.getDependenciesForBean("natsEventExternalizer")).contains("natsClient");
     }

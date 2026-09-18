@@ -6,11 +6,9 @@ import io.nats.client.Nats;
 import io.nats.client.Options;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
@@ -26,13 +24,15 @@ class NatsClient implements SmartLifecycle, AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(NatsClient.class);
     private static final Duration DRAIN_TIMEOUT = Duration.ofSeconds(10);
+    private static final int UNLIMITED_RECONNECTS = -1;
 
     private final NatsProperties properties;
     private final Consumer<Connection> onConnected;
     private final AtomicReference<Connection> connection = new AtomicReference<>();
-    private volatile boolean running;
+    // One thread: setups for rapid reconnects run one after another, never concurrently.
     private final ExecutorService setup = Executors.newSingleThreadExecutor(
             Thread.ofVirtual().name("nats-setup").factory());
+    private volatile boolean running;
     private volatile Thread connector;
 
     NatsClient(NatsProperties properties, Consumer<Connection> onConnected) {
@@ -53,23 +53,27 @@ class NatsClient implements SmartLifecycle, AutoCloseable {
     @Override
     public void start() {
         running = true;
-        boolean connected;
+        if (connectAtStartup()) {
+            return;
+        }
+        log.atWarn()
+                .addKeyValue(LogFields.NATS_URL, properties.url())
+                .log(
+                        "NATS is unavailable; starting without it. Externalized events stay incomplete and are"
+                                + " published once NATS is reachable (run 'docker compose up -d nats' or set FRAPPE_NATS_URL).");
+        connector = Thread.ofVirtual().name("nats-connect").start(this::connectUntilReachable);
+    }
+
+    // An interrupt here must not leave the application silently without NATS: keep the flag, retry in the background.
+    private boolean connectAtStartup() {
         try {
-            connected = tryConnect();
+            return tryConnect();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             log.atWarn()
                     .addKeyValue(LogFields.NATS_URL, properties.url())
                     .log("Interrupted while connecting to NATS; retrying in the background");
-            connected = false;
-        }
-        if (!connected) {
-            log.atWarn()
-                    .addKeyValue(LogFields.NATS_URL, properties.url())
-                    .log(
-                            "NATS is unavailable; starting without it. Externalized events stay incomplete and are"
-                                    + " published once NATS is reachable (run 'docker compose up -d nats' or set FRAPPE_NATS_URL).");
-            connector = Thread.ofVirtual().name("nats-connect").start(this::connectUntilReachable);
+            return false;
         }
     }
 
@@ -98,28 +102,7 @@ class NatsClient implements SmartLifecycle, AutoCloseable {
         setup.shutdownNow();
         var current = connection.getAndSet(null);
         if (current != null) {
-            shutdown(current, DRAIN_TIMEOUT);
-        }
-    }
-
-    /** Drains, then closes; an interrupt still closes the connection and keeps the interrupt flag. */
-    static void shutdown(Connection connection, Duration timeout) {
-        try {
-            connection.drain(timeout).get();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            closeQuietly(connection);
-        } catch (TimeoutException | ExecutionException | IllegalStateException e) {
-            log.warn("NATS drain did not finish cleanly; closing: {}", e.toString());
-            closeQuietly(connection);
-        }
-    }
-
-    private static void closeQuietly(Connection connection) {
-        try {
-            connection.close();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            NatsConnectionCloser.drainAndClose(current, DRAIN_TIMEOUT);
         }
     }
 
@@ -139,7 +122,7 @@ class NatsClient implements SmartLifecycle, AutoCloseable {
             connection.compareAndSet(null, connected);
             // close() may have run meanwhile: only the side that removes the connection shuts it down.
             if (!running && connection.compareAndSet(connected, null)) {
-                shutdown(connected, DRAIN_TIMEOUT);
+                NatsConnectionCloser.drainAndClose(connected, DRAIN_TIMEOUT);
             }
             return true;
         } catch (IOException e) {
@@ -156,7 +139,7 @@ class NatsClient implements SmartLifecycle, AutoCloseable {
                 .connectionName(properties.connectionName())
                 .connectionTimeout(properties.connectionTimeout())
                 .reconnectWait(properties.reconnectWait())
-                .maxReconnects(-1)
+                .maxReconnects(UNLIMITED_RECONNECTS)
                 .connectionListener(this::onEvent)
                 .build();
     }

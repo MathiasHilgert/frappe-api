@@ -16,18 +16,22 @@ class NatsSubjectsTest {
 
     @Test
     void buildsSubjectFromModuleEventNameAndVersion() {
+        // Given
         var event = new PersonSessionOpened(UUID.randomUUID(), Instant.EPOCH, UUID.randomUUID(), 1, 2);
 
+        // When / Then
         assertThat(NatsSubjects.of(event)).isEqualTo("frappe.platform.person-session-opened.v2");
     }
 
     @Test
     void namesEventTypeAsModuleAndKebabName() {
+        // When / Then
         assertThat(NatsSubjects.eventType(PersonSessionOpened.class)).isEqualTo("platform.person-session-opened");
     }
 
     @Test
     void rejectsEventsOutsideTheFrappeBasePackage() {
+        // When / Then
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> NatsSubjects.eventType(String.class))
                 .withMessageContaining("java.lang.String")

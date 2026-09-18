@@ -27,12 +27,14 @@ class NatsExternalizationRoutingTest {
 
     @Test
     void selectsOnlyExternalizedEvents() {
+        // When / Then
         assertThat(configuration.supports(new NotAnEnvelope("x"))).isTrue();
         assertThat(configuration.supports(new NotExternalized("x"))).isFalse();
     }
 
     @Test
     void explainsWhenAnExternalizedEventLacksTheEnvelope() {
+        // When / Then
         assertThatExceptionOfType(InvalidExternalizedEventException.class)
                 .isThrownBy(() -> configuration.determineTarget(new NotAnEnvelope("x")))
                 .withMessageContaining(NotAnEnvelope.class.getName())
@@ -41,8 +43,10 @@ class NatsExternalizationRoutingTest {
 
     @Test
     void rejectsACustomTargetBecauseTheSubjectIsDerived() {
+        // Given
         var event = new CustomSubject(null, null, null, 1, 1);
 
+        // When / Then
         assertThatExceptionOfType(InvalidExternalizedEventException.class)
                 .isThrownBy(() -> configuration.determineTarget(event))
                 .withMessageContaining(CustomSubject.class.getName())

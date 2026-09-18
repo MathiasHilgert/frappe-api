@@ -15,12 +15,14 @@ class NatsStreamProvisionerTest {
 
     @Test
     void provisioningFailureNamesTheServerError() throws Exception {
+        // Given
         var connection = mock(Connection.class);
         var management = mock(JetStreamManagement.class);
         var error = new JetStreamApiException(Error.convert(new Status(500, "insufficient resources")));
         when(connection.jetStreamManagement()).thenReturn(management);
         when(management.getStreamInfo("FRAPPE")).thenThrow(error);
 
+        // When / Then
         assertThatExceptionOfType(NatsProvisioningException.class)
                 .isThrownBy(() -> new NatsStreamProvisioner().provision(connection))
                 .withMessageContaining("FRAPPE")

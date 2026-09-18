@@ -28,20 +28,24 @@ class NatsStreamProvisioningTests {
 
     @Test
     void createsTheFrappeStreamOnConnect() throws Exception {
+        // When / Then
         assertMatchesCode(awaitStream().getConfiguration());
     }
 
     @Test
     void restartWithAnExistingDriftedStreamSucceedsAndRestoresTheConfig() throws Exception {
+        // Given
         var jsm = jsm();
         var drifted = StreamConfiguration.builder(awaitStream().getConfiguration())
                 .maxAge(Duration.ofDays(1))
                 .build();
         jsm.updateStream(drifted);
 
+        // When
         provisioner.provision(client.connection());
         provisioner.provision(client.connection());
 
+        // Then
         assertMatchesCode(jsm.getStreamInfo("FRAPPE").getConfiguration());
     }
 

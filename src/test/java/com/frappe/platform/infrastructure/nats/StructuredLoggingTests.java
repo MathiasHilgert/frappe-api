@@ -31,6 +31,7 @@ class StructuredLoggingTests {
 
     @Test
     void usesEcsInTheBaseConfigAndPlainTextLocally() throws IOException {
+        // When / Then
         assertThat(load("application.properties").getProperty(FORMAT_PROPERTY)).isEqualTo("ecs");
         assertThat(load("application-local.properties").getProperty(FORMAT_PROPERTY))
                 .isEmpty();

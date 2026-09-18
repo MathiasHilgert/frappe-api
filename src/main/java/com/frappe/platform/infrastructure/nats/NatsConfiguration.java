@@ -1,58 +1,70 @@
 package com.frappe.platform.infrastructure.nats;
 
-import com.frappe.platform.DomainEvent;
-import io.nats.client.Connection;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.annotation.AnnotatedElementUtils;
-import org.springframework.dao.DataAccessException;
 import org.springframework.modulith.events.EventExternalizationConfiguration;
-import org.springframework.modulith.events.EventPublication;
-import org.springframework.modulith.events.Externalized;
 import org.springframework.modulith.events.IncompleteEventPublications;
-import org.springframework.modulith.events.RoutingTarget;
 import org.springframework.modulith.events.support.EventExternalizerModuleListener;
 import tools.jackson.databind.json.JsonMapper;
 
+/** Wires the NATS relay: connection, stream setup and the Spring Modulith externalizer. */
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(NatsProperties.class)
 class NatsConfiguration {
 
-    private static final Logger log = LoggerFactory.getLogger(NatsConfiguration.class);
-
+    /**
+     * Stream provisioning, shared by connect setup and tests.
+     *
+     * @return the provisioner
+     */
     @Bean
     NatsStreamProvisioner natsStreamProvisioner() {
         return new NatsStreamProvisioner();
     }
 
-    /** On every (re)connect: make the stream match the code, then resubmit publications that failed meanwhile. */
+    /**
+     * The NATS connection owner; runs {@link NatsConnectSetup} on every (re)connect.
+     *
+     * @param properties connection settings
+     * @param provisioner stream provisioning
+     * @param externalization selects NATS publications for resubmission
+     * @param incompletePublications registry resubmission, looked up lazily
+     * @return the client
+     */
     @Bean
     NatsClient natsClient(
             NatsProperties properties,
             NatsStreamProvisioner provisioner,
             EventExternalizationConfiguration externalization,
-            ObjectProvider<IncompleteEventPublications> incomplete) {
-        return new NatsClient(
-                properties, connection -> onConnected(connection, provisioner, externalization, incomplete));
+            ObjectProvider<IncompleteEventPublications> incompletePublications) {
+        return new NatsClient(properties, new NatsConnectSetup(provisioner, externalization, incompletePublications));
     }
 
     /**
-     * Externalizes every event annotated with {@code @Externalized}; it must implement {@link DomainEvent}, which
-     * defines its subject {@code frappe.<module>.<event-kebab>.v<eventVersion>}.
+     * Externalizes every event annotated with {@code @Externalized}; replaces Modulith's default configuration.
+     *
+     * @return the selection and routing rules
      */
     @Bean
     EventExternalizationConfiguration eventExternalizationConfiguration() {
         return EventExternalizationConfiguration.externalizing()
                 .select(EventExternalizationConfiguration.annotatedAsExternalized())
-                .routeAll(event -> RoutingTarget.forTarget(subjectOf(event)).withoutKey())
+                .routeAll(ExternalizedEventRouter::route)
                 .build();
     }
 
-    /** Depends on {@link NatsClient}, so Spring destroys it before the connection closes. */
+    /**
+     * The Modulith listener publishing through {@link NatsEventTransport}. It depends on {@link NatsClient}, so Spring
+     * destroys it before the connection closes.
+     *
+     * @param configuration selection and routing rules
+     * @param natsClient the connection owner
+     * @param properties publish timeout
+     * @param jsonMapper payload serializer
+     * @return the externalizer
+     */
     @Bean
     EventExternalizerModuleListener natsEventExternalizer(
             EventExternalizationConfiguration configuration,
@@ -61,36 +73,5 @@ class NatsConfiguration {
             JsonMapper jsonMapper) {
         return new EventExternalizerModuleListener(
                 configuration, new NatsEventTransport(natsClient, properties.publishTimeout(), jsonMapper));
-    }
-
-    private static void onConnected(
-            Connection connection,
-            NatsStreamProvisioner provisioner,
-            EventExternalizationConfiguration externalization,
-            ObjectProvider<IncompleteEventPublications> incomplete) {
-        try {
-            provisioner.provision(connection);
-            incomplete.ifAvailable(publications -> publications.resubmitIncompletePublications(
-                    publication -> publication.getStatus() == EventPublication.Status.FAILED
-                            && externalization.supports(publication.getEvent())));
-        } catch (NatsProvisioningException | DataAccessException e) {
-            // Setup runs on a background executor: this is the last place the failure can be reported.
-            log.error("NATS connected but setup failed; publications stay incomplete until the next connect", e);
-        }
-    }
-
-    private static String subjectOf(Object event) {
-        if (!(event instanceof DomainEvent domainEvent)) {
-            throw new InvalidExternalizedEventException(event.getClass().getName()
-                    + " is @Externalized but does not implement " + DomainEvent.class.getName());
-        }
-        var subject = NatsSubjects.of(domainEvent);
-        var annotation = AnnotatedElementUtils.findMergedAnnotation(event.getClass(), Externalized.class);
-        if (annotation != null && !annotation.value().isEmpty()) {
-            throw new InvalidExternalizedEventException(event.getClass().getName() + " declares @Externalized(\""
-                    + annotation.value() + "\"), but the subject is derived (" + subject
-                    + "); remove the annotation value");
-        }
-        return subject;
     }
 }

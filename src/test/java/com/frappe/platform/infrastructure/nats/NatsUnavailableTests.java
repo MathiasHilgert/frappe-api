@@ -63,6 +63,7 @@ class NatsUnavailableTests {
 
     @Test
     void failsWithinTheTimeoutAndKeepsThePublicationIncompleteForRetry() {
+        // Given
         var event = new GuestLeft(ids.newId(), clock.instant(), ids.newId(), 1, 1);
         var docker = DockerClientFactory.instance().client();
         var container = natsContainer.getContainerId();
@@ -71,12 +72,14 @@ class NatsUnavailableTests {
         try {
             transactions.executeWithoutResult(status -> events.publishEvent(event));
 
+            // When
             await().atMost(Duration.ofSeconds(4)).until(() -> isFailed(event));
             assertThat(isCompleted(event)).isFalse();
         } finally {
             docker.unpauseContainerCmd(container).exec();
         }
 
+        // Then
         incomplete.resubmitIncompletePublications(publication -> matches(publication, event));
         await().until(() -> isCompleted(event));
     }

@@ -85,13 +85,16 @@ class NatsStartsWithoutNatsTests {
 
     @Test
     void startsWithoutNatsAndPublishesPendingEventsOnceItIsUp() throws Exception {
+        // Given
         var event = new OrderPlaced(ids.newId(), clock.instant(), ids.newId(), 1, 1);
 
         transactions.executeWithoutResult(status -> events.publishEvent(event));
         await().atMost(Duration.ofSeconds(5)).until(() -> isFailed(event));
 
+        // When
         NATS.start();
 
+        // Then
         await().atMost(Duration.ofSeconds(20)).until(() -> isCompleted(event));
         try (var connection = Nats.connect("nats://localhost:" + PORT)) {
             var message = connection
