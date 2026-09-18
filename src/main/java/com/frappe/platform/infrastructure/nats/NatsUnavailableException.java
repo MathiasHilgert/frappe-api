@@ -13,4 +13,14 @@ final class NatsUnavailableException extends RuntimeException {
     NatsUnavailableException(String message) {
         super(message);
     }
+
+    /**
+     * Creates the exception for a connection that failed underneath the caller.
+     *
+     * @param message actionable description
+     * @param cause the client library's failure
+     */
+    NatsUnavailableException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

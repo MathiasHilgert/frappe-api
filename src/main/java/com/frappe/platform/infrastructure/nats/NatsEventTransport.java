@@ -61,9 +61,7 @@ class NatsEventTransport implements EventExternalizationTransport {
         var event = (DomainEvent) payload;
         var subject = target.getTarget();
         try {
-            var ack = client.connection()
-                    .jetStream(options)
-                    .publish(subject, headers(event), json.writeValueAsBytes(event));
+            var ack = client.publish(subject, headers(event), json.writeValueAsBytes(event), options);
             log.atDebug()
                     .addKeyValue(LogFields.EVENT_ID, event.eventId())
                     .addKeyValue(LogFields.SUBJECT, subject)
@@ -83,7 +81,7 @@ class NatsEventTransport implements EventExternalizationTransport {
                     .addKeyValue(LogFields.EVENT_ID, event.eventId())
                     .addKeyValue(LogFields.SUBJECT, subject)
                     .setCause(e)
-                    .log(failure.getMessage());
+                    .log("{}", failure.getMessage());
             return CompletableFuture.failedFuture(failure);
         }
     }

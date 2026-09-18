@@ -1,5 +1,6 @@
 package com.frappe.platform.infrastructure.nats;
 
+import java.net.URI;
 import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
@@ -20,4 +21,18 @@ record NatsProperties(
         @DefaultValue("frappe-api") String connectionName,
         @DefaultValue("2s") Duration connectionTimeout,
         @DefaultValue("2s") Duration reconnectWait,
-        @DefaultValue("5s") Duration publishTimeout) {}
+        @DefaultValue("5s") Duration publishTimeout) {
+
+    private static final int UNDEFINED_PORT = -1;
+
+    /**
+     * The URL without credentials, safe for logs and messages.
+     *
+     * @return {@code scheme://host:port}
+     */
+    String redactedUrl() {
+        var uri = URI.create(url);
+        var port = uri.getPort() == UNDEFINED_PORT ? "" : ":" + uri.getPort();
+        return uri.getScheme() + "://" + uri.getHost() + port;
+    }
+}

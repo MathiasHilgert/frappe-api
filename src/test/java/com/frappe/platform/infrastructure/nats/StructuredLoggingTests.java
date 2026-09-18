@@ -27,7 +27,8 @@ import tools.jackson.databind.json.JsonMapper;
 class StructuredLoggingTests {
 
     private static final String FORMAT_PROPERTY = "logging.structured.format.console";
-    private static final String UNREACHABLE_URL = "nats://localhost:1";
+    private static final String UNREACHABLE_URL = "nats://frappe:s3cret@localhost:1";
+    private static final String REDACTED_URL = "nats://localhost:1";
 
     @Test
     void usesEcsInTheBaseConfigAndPlainTextLocally() throws IOException {
@@ -64,7 +65,8 @@ class StructuredLoggingTests {
                 .orElseThrow();
         var json = ecs(load("application.properties").getProperty(FORMAT_PROPERTY), warning);
         assertThat(json.path("log").path("level").asString()).isEqualTo("WARN");
-        assertThat(json.path("natsUrl").asString()).isEqualTo(UNREACHABLE_URL);
+        assertThat(json.path("nats").path("url").asString()).isEqualTo(REDACTED_URL);
+        assertThat(json.toString()).doesNotContain("s3cret");
         assertThat(json.path("ecs").path("version").isMissingNode()).isFalse();
     }
 

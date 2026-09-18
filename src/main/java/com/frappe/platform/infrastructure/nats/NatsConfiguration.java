@@ -18,7 +18,7 @@ class NatsConfiguration {
     NatsConfiguration() {}
 
     /**
-     * Stream provisioning, shared by connect setup and tests.
+     * Creates or updates the {@code FRAPPE} stream to match the code.
      *
      * @return the provisioner
      */

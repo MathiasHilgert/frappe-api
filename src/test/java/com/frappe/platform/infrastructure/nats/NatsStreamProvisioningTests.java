@@ -42,6 +42,7 @@ class NatsStreamProvisioningTests {
         jsm.updateStream(drifted);
 
         // When
+        // Provisioning runs on every reconnect, so it must be idempotent: running it twice changes nothing more.
         provisioner.provision(client.connection());
         provisioner.provision(client.connection());
 
