@@ -2,7 +2,7 @@ plugins {
 	java
 	id("org.springframework.boot") version "4.1.1"
 	id("io.spring.dependency-management") version "1.1.7"
-	id("com.diffplug.spotless") version "7.2.1"
+	id("com.diffplug.spotless") version "8.10.2"
 }
 
 group = "com.frappe"
@@ -59,7 +59,7 @@ tasks.withType<Test> {
 
 spotless {
 	java {
-		palantirJavaFormat()
+		palantirJavaFormat("2.98.0")
 		removeUnusedImports()
 		trimTrailingWhitespace()
 		endWithNewline()

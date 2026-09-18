@@ -20,13 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Gradle itself runs on Temurin 21: palantir-java-format (used by
-      # Spotless) does not yet support JDK 25 as the host JVM. The Gradle
-      # toolchain (foojay resolver, settings.gradle.kts) auto-provisions
-      # Temurin 25 to compile, test and run the application.
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          java-version: 25
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew check
