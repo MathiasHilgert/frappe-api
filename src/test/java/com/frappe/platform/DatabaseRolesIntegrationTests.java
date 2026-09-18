@@ -12,9 +12,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
+@ActiveProfiles("local")
 class DatabaseRolesIntegrationTests {
 
     @Autowired

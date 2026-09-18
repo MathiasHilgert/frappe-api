@@ -74,3 +74,8 @@ spotless {
 tasks.named("check") {
 	dependsOn("spotlessCheck")
 }
+
+tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+	// Zero-config local run; SPRING_PROFILES_ACTIVE still wins when set.
+	systemProperty("spring.profiles.active", System.getenv("SPRING_PROFILES_ACTIVE") ?: "local")
+}

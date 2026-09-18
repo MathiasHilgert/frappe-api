@@ -13,6 +13,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
 
 /**
  * Uses {@code src/test/resources/db/migration/fixture}, a later migration with no GRANT of its own, as a stand-in for
@@ -20,6 +21,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
+@ActiveProfiles("local")
 class DefaultPrivilegesIntegrationTests {
 
     @Autowired
