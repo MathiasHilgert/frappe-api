@@ -31,7 +31,7 @@ Strict TDD. Runner: `./gradlew test` (in-memory exporters / `TestObservationRegi
 - [x] T4 NATS publish observation in the FAPI-5 transport; test
 - [x] T5 Business metrics facade from domain events + tag policy guard (no tenant/entity tags); tests
 - [x] T6 `otel-lgtm` in compose + README (how to open Grafana); manual check documented
-- [ ] T7 Skill `observing-the-api` + vendored skills + AGENTS.md routing; Ticket Standard note for Plane (orchestrator updates the page)
+- [x] T7 Skill `observing-the-api` + vendored skills + AGENTS.md routing; Ticket Standard note for Plane (orchestrator updates the page)
 - [ ] T8 `./gradlew check` green; PR per template
 
 ## Acceptance (from ticket and comments)
@@ -93,6 +93,17 @@ Design as requested, with justified deviations:
 - Manual check (isolated compose project `frappe-fapi7-otelcheck`, only `otel-lgtm`; app via `bootRun` on port 18087 against this ticket's Testcontainers Postgres, OTLP endpoints set explicitly since 5432 is taken by another project): Tempo search `service.name=frappe-api` returned `http get /actuator/health` traces containing `connection` JDBC spans; Prometheus listed `http_server_requests_*`, `hikaricp_connections_active`, `jvm_*`. Torn down with `down -v`.
 - Finding: Loki stays empty; OTLP log export needs the OpenTelemetry Logback appender, not wired (out of this ticket's acceptance; logs are ECS JSON on stdout with `trace.id`). README says so. Follow-up candidate.
 - Incident: the first manual `bootRun` pointed `FRAPPE_NATS_URL` at a NATS container of another test run for a few seconds; the provisioner reported the `FRAPPE` stream "up to date" (no change) and the app was restarted with NATS unreachable.
+
+### T7
+- Own skill `.agents/skills/observing-the-api` (`SKILL.md` with the 10-line primary example, `references/conventions.md`, `references/slos.md`); `writing-code/references/observability.md` (tag policy), `testing-code/references/observability-tests.md` (`TestObservationRegistry`, in-memory exporter, business metric assertions); routing in `AGENTS.md`.
+- Vendored unmodified from clones (upstream `LICENSE` copied into each directory; recorded in `THIRD_PARTY.md`): `grafana/skills@05196628` (`opentelemetry`, `promql`, `prometheus-label-strategy`), `wshobson/agents@4236bb91` (`slo-implementation`, MIT), `jabrena/plinth@9a3dc292` (`126-java-exception-handling`, `181-java-observability-logging`, `182-java-observability-metrics-micrometer`, `183-java-observability-tracing-opentelemetry`).
+- Conflicts found (ours win, listed in `observing-the-api`): Java agent and `OTEL_*` config vs Boot starter and `management.*`; `tenant_id` tolerated as a label vs never; `http_requests_total` example names vs Micrometer's `http_server_requests_seconds_*`; hand-built meters in services vs event declarations; OTel API manual spans vs Micrometer Observation in adapters; `logback.xml` and manual MDC vs Boot ECS properties; exceptions for validation and Maven vs `Result` and Gradle.
+
+### Ticket Standard addition (draft for the orchestrator to put in Plane)
+
+Under **Contracts**, add:
+
+> **Business metrics.** List every business metric the feature records, or write "none" with the reason. One line per metric: full name (`frappe.<module>.<noun>.<past-participle>`), type (counter / distribution), unit for distributions (`items`, `seconds`, `bytes`, `money`), tags (enum or boolean event fields only; never tenant, branch, user or entity ids) and the domain event it is declared on (`@Counted` / `@Measured`, or a `BusinessMetricsDeclaration` when the annotations cannot express it). Example: `frappe.order.tabs.closed` — counter — tags `channel` — on `TabClosed`. Acceptance includes a test per metric (`assertThatBusinessMetric`). Infrastructure telemetry (HTTP, database, messaging, JVM) is automatic and is never listed or hand-written; reviewers reject missing business metrics and hand-written technical metrics or spans.
 
 ## Next step
 T0.
