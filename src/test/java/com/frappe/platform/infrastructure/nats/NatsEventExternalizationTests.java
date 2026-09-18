@@ -6,7 +6,8 @@ import static org.awaitility.Awaitility.await;
 import com.frappe.TestNatsConfiguration;
 import com.frappe.TestcontainersConfiguration;
 import com.frappe.platform.DomainEvent;
-import com.frappe.platform.Uuid7;
+import com.frappe.platform.IdGenerator;
+import com.frappe.platform.infrastructure.ids.TestIds;
 import io.nats.client.JetStreamManagement;
 import io.nats.client.api.StreamInfoOptions;
 import java.nio.charset.StandardCharsets;
@@ -44,6 +45,8 @@ class NatsEventExternalizationTests {
 
     final Clock clock = Clock.fixed(Instant.parse("2026-09-18T12:00:00Z"), ZoneOffset.UTC);
 
+    final IdGenerator ids = TestIds.withClock(clock);
+
     @Autowired
     ApplicationEventPublisher events;
 
@@ -65,7 +68,7 @@ class NatsEventExternalizationTests {
     @Test
     void publishesExactlyOneMessageWithEnvelopeHeadersOnceAcked() throws Exception {
         var subject = "frappe.platform.tab-closed.v3";
-        var event = new TabClosed(Uuid7.next(clock), clock.instant(), Uuid7.next(clock), 7, 3, "closed by waiter");
+        var event = new TabClosed(ids.newId(), clock.instant(), ids.newId(), 7, 3, "closed by waiter");
 
         publish(event);
 
@@ -88,7 +91,7 @@ class NatsEventExternalizationTests {
     @Test
     void storesAnEventRepublishedFromTheRegistryOnce() throws Exception {
         var subject = "frappe.platform.tab-reopened.v1";
-        var event = new TabReopened(Uuid7.next(clock), clock.instant(), Uuid7.next(clock), 2, 1);
+        var event = new TabReopened(ids.newId(), clock.instant(), ids.newId(), 2, 1);
         publish(event);
         await().until(() -> readBack(event) != null);
 

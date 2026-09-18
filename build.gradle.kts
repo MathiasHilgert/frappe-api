@@ -27,6 +27,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
 	implementation("org.flywaydb:flyway-database-postgresql")
+	implementation("com.github.f4b6a3:uuid-creator:6.1.1")
 	implementation("io.nats:jnats:2.26.2")
 	implementation("org.springframework.modulith:spring-modulith-events-core")
 	implementation("org.springframework.modulith:spring-modulith-observability-api")

@@ -6,7 +6,8 @@ import static org.awaitility.Awaitility.await;
 import com.frappe.TestNatsConfiguration;
 import com.frappe.TestcontainersConfiguration;
 import com.frappe.platform.DomainEvent;
-import com.frappe.platform.Uuid7;
+import com.frappe.platform.IdGenerator;
+import com.frappe.platform.infrastructure.ids.TestIds;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -40,6 +41,8 @@ class NatsUnavailableTests {
 
     final Clock clock = Clock.fixed(Instant.parse("2026-09-18T12:00:00Z"), ZoneOffset.UTC);
 
+    final IdGenerator ids = TestIds.withClock(clock);
+
     @Autowired
     GenericContainer<?> natsContainer;
 
@@ -60,7 +63,7 @@ class NatsUnavailableTests {
 
     @Test
     void failsWithinTheTimeoutAndKeepsThePublicationIncompleteForRetry() {
-        var event = new GuestLeft(Uuid7.next(clock), clock.instant(), Uuid7.next(clock), 1, 1);
+        var event = new GuestLeft(ids.newId(), clock.instant(), ids.newId(), 1, 1);
         var docker = DockerClientFactory.instance().client();
         var container = natsContainer.getContainerId();
 

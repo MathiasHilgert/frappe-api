@@ -78,6 +78,9 @@ RED (after stubs `NatsClient`/new `provision(Connection)`): 21 tests, 10 failed:
 - [x] M4 `NatsClientTest` cleaned; provisioner test moved to `NatsStreamProvisionerTest`.
 RED: `drainsTheConnectionOnceEvenWhenClosedTwice`, `runsConnectSetupOneAtATime`, `keepsRetryingAndTheInterruptWhenStartupIsInterrupted` failed (6 tests, 3 failed). GREEN: 6/6.
 
+### Hardening (PR #10 review)
+- [x] H1 UUIDv7 via `com.github.f4b6a3:uuid-creator` 6.1.1 (latest on Maven Central, verified from `maven-metadata.xml`; API from the sources jar: `TimeOrderedEpochFactory.builder().withClock(clock).withIncrementPlus1().build().create()`, lock-protected). Kernel interface `com.frappe.platform.IdGenerator`; `UuidV7IdGenerator` + `Clock`/`IdGenerator` beans (`@ConditionalOnMissingBean`) in `platform.infrastructure.ids`; `Uuid7` removed. RED: `generatesVersion7IdsThatStrictlyIncreaseWithinTheSameMillisecond` failed against a `randomUUID()` stub; GREEN.
+
 ### Pending
 - Stopgap until FAPI-6: the app runs as `frappe_app` without DDL (FAPI-4, #9). The registry table now comes from the test-only fixture migration `src/test/resources/db/migration/fixture/V202609181950__event_publication_stopgap.sql` (`platform.event_publication`), and `NatsEventExternalizationTests`, `NatsUnavailableTests` and `NatsStartsWithoutNatsTests` set `spring.jpa.properties.hibernate.default_schema=platform`. FAPI-6 deletes the stopgap migration and the `default_schema` properties, gives its real migration a later version than `V202609181950`, and test databases must be reset (drop the reused `frappe_fapi_*` Postgres containers) because their Flyway history contains the stopgap.
 

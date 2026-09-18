@@ -6,7 +6,8 @@ import static org.awaitility.Awaitility.await;
 import com.frappe.TestNatsConfiguration;
 import com.frappe.TestcontainersConfiguration;
 import com.frappe.platform.DomainEvent;
-import com.frappe.platform.Uuid7;
+import com.frappe.platform.IdGenerator;
+import com.frappe.platform.infrastructure.ids.TestIds;
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.PortBinding;
 import com.github.dockerjava.api.model.Ports;
@@ -63,6 +64,8 @@ class NatsStartsWithoutNatsTests {
 
     final Clock clock = Clock.fixed(Instant.parse("2026-09-18T12:00:00Z"), ZoneOffset.UTC);
 
+    final IdGenerator ids = TestIds.withClock(clock);
+
     @Autowired
     ApplicationEventPublisher events;
 
@@ -82,7 +85,7 @@ class NatsStartsWithoutNatsTests {
 
     @Test
     void startsWithoutNatsAndPublishesPendingEventsOnceItIsUp() throws Exception {
-        var event = new OrderPlaced(Uuid7.next(clock), clock.instant(), Uuid7.next(clock), 1, 1);
+        var event = new OrderPlaced(ids.newId(), clock.instant(), ids.newId(), 1, 1);
 
         transactions.executeWithoutResult(status -> events.publishEvent(event));
         await().atMost(Duration.ofSeconds(5)).until(() -> isFailed(event));
