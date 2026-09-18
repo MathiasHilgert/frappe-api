@@ -21,6 +21,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Import;
 import org.springframework.modulith.events.CompletedEventPublications;
 import org.springframework.modulith.events.Externalized;
+import org.springframework.modulith.events.support.EventExternalizerModuleListener;
 import org.springframework.transaction.support.TransactionTemplate;
 
 // The JPA publication registry has no migration yet (FAPI-6); let Hibernate create it for this test only.
@@ -48,6 +49,9 @@ class NatsEventExternalizationTests {
 
     @Autowired
     Connection connection;
+
+    @Autowired
+    EventExternalizerModuleListener externalizer;
 
     @Test
     void publishesExactlyOneMessageWithEnvelopeHeadersOnceAcked() throws Exception {
@@ -77,10 +81,10 @@ class NatsEventExternalizationTests {
         var event = tabClosed();
         var before = storedOnSubject();
 
-        publish(event);
-        publish(event);
+        // A resubmission after a lost ack, or a second instance, externalizes the same event again.
+        externalizer.externalize(event).join();
+        externalizer.externalize(event).join();
 
-        await().until(() -> completedCount(event) == 2);
         assertThat(storedOnSubject()).isEqualTo(before + 1);
     }
 
@@ -93,14 +97,9 @@ class NatsEventExternalizationTests {
     }
 
     private boolean isCompleted(DomainEvent event) {
-        return completedCount(event) > 0;
-    }
-
-    private long completedCount(DomainEvent event) {
         return completed.findAll().stream()
-                .filter(it ->
-                        it.getEvent() instanceof DomainEvent e && e.eventId().equals(event.eventId()))
-                .count();
+                .anyMatch(it ->
+                        it.getEvent() instanceof DomainEvent e && e.eventId().equals(event.eventId()));
     }
 
     private long storedOnSubject() throws Exception {
