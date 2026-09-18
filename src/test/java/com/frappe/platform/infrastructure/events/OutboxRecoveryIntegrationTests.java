@@ -33,16 +33,13 @@ import org.testcontainers.containers.GenericContainer;
 
 /**
  * Recovery without a NATS reconnect: pausing the container fails the publish (timeout) while the client stays
- * connected, so only the scheduled resubmission and the staleness monitor can bring the publication home.
+ * connected, so only the scheduled recovery (stuck detection and resubmission) can bring the publication home.
  */
 @SpringBootTest(
         properties = {
             "frappe.nats.publish-timeout=1s",
             "frappe.outbox.recovery.interval=500ms",
-            "spring.modulith.events.staleness.published=2s",
-            "spring.modulith.events.staleness.processing=2s",
-            "spring.modulith.events.staleness.resubmitted=2s",
-            "spring.modulith.events.staleness.check-interval=500ms"
+            "frappe.outbox.recovery.stuck-after=2s"
         })
 @Import({TestcontainersConfiguration.class, TestNatsConfiguration.class})
 @ActiveProfiles("local")

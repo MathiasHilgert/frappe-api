@@ -1,5 +1,6 @@
 package com.frappe.platform.infrastructure.events;
 
+import java.time.Clock;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.modulith.events.FailedEventPublications;
@@ -8,8 +9,8 @@ import org.springframework.scheduling.annotation.SchedulingConfigurer;
 import org.springframework.scheduling.config.ScheduledTaskRegistrar;
 
 /**
- * Schedules outbox recovery. {@link EnableScheduling} also activates Spring Modulith's staleness monitor
- * ({@code spring.modulith.events.staleness.*}), which marks stuck publications failed so this job resubmits them.
+ * Schedules outbox recovery. Spring Modulith's staleness monitor ({@code spring.modulith.events.staleness.*}) stays
+ * off: it judges every status by the publication date, so this job detects stuck attempts itself.
  */
 @Configuration(proxyBeanMethods = false)
 @EnableScheduling
@@ -23,10 +24,16 @@ class OutboxRecoveryConfiguration implements SchedulingConfigurer {
      * Creates the configuration; instantiated by Spring.
      *
      * @param failedPublications Modulith's entry point for resubmitting failed publications
-     * @param properties recovery interval and batch size
+     * @param outbox recovery queries on the outbox tables
+     * @param properties recovery settings
+     * @param clock the application clock
      */
-    OutboxRecoveryConfiguration(FailedEventPublications failedPublications, OutboxRecoveryProperties properties) {
-        this.resubmitter = new FailedPublicationResubmitter(failedPublications, properties);
+    OutboxRecoveryConfiguration(
+            FailedEventPublications failedPublications,
+            OutboxRecoveryRepository outbox,
+            OutboxRecoveryProperties properties,
+            Clock clock) {
+        this.resubmitter = new FailedPublicationResubmitter(failedPublications, outbox, properties, clock);
         this.properties = properties;
     }
 

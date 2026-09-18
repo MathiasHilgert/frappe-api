@@ -8,8 +8,6 @@ import com.frappe.platform.DomainEvent;
 import com.frappe.platform.DomainEventPublisher;
 import com.frappe.platform.IdGenerator;
 import com.frappe.platform.infrastructure.ids.TestIds;
-import java.io.IOException;
-import java.net.ServerSocket;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -38,7 +36,7 @@ class DomainEventPublisherIntegrationTests {
 
     @DynamicPropertySource
     static void unreachableNats(DynamicPropertyRegistry registry) {
-        registry.add("frappe.nats.url", () -> "nats://localhost:" + closedPort());
+        registry.add("frappe.nats.url", () -> "nats://localhost:" + TestPorts.closedPort());
     }
 
     @Externalized
@@ -110,13 +108,5 @@ class DomainEventPublisherIntegrationTests {
                 Integer.class,
                 "%" + event.eventId() + "%");
         return rows == null ? 0 : rows;
-    }
-
-    private static int closedPort() {
-        try (var socket = new ServerSocket(0)) {
-            return socket.getLocalPort();
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
-        }
     }
 }

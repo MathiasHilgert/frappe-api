@@ -9,5 +9,8 @@ final class LogFields {
     /** Pause until the next resubmission run, ISO-8601 duration. */
     static final String RECOVERY_INTERVAL = "frappe.outbox.recovery_interval";
 
+    /** Most publications resubmitted per recovery run. */
+    static final String BATCH_SIZE = "frappe.outbox.batch_size";
+
     private LogFields() {}
 }
