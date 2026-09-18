@@ -17,7 +17,9 @@ Load before creating or changing any production code, migration or configuration
 - Domain is pure Java: no Spring, JPA, Jackson or Jakarta imports.
 - Expected business failures return `Result`; exceptions only for bugs and infrastructure faults.
 - Never read another module's tables, entities or internal packages; use its events, or its `Api` for an unavoidable synchronous read.
-- IDs are UUIDv7 created in the domain; money is `Money`; time comes from an injected `Clock`, never `Instant.now()`.
+- IDs are UUIDv7 from the injected `IdGenerator`; money is `Money`; time comes from an injected `Clock`, never `Instant.now()`.
+- Infrastructure faults: dedicated exceptions with cause, catch only expected types, log or rethrow (never both).
+- Logs are ECS JSON with context in key/values; Javadoc on every type and member (`check` enforces doclint).
 - English identifiers and API; user-facing text via message bundles.
 - `./gradlew spotlessApply check` green before handing over.
 
@@ -30,6 +32,11 @@ Load before creating or changing any production code, migration or configuration
 | JPA entities, MapStruct, Flyway, schemas, RLS, locking | `references/persistence.md` |
 | Publishing or consuming events, outbox, NATS, inbox | `references/domain-events.md` |
 | Controllers, `/v1`, validation, errors, OpenAPI, i18n, sessions, RBAC | `references/http-api.md` |
+| Creating ids, reading time | `references/ids.md` |
+| Logging | `references/logging.md` |
+| Exceptions, catching, interrupts | `references/errors.md` |
+| Javadoc, comments, package-info | `references/documentation.md` |
+| Any class or test: structure, naming, immutability | `references/clean-code.md` |
 
 Touching several layers: read each matching reference before editing that layer.
 

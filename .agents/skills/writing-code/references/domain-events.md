@@ -3,7 +3,7 @@
 ## Naming and shape
 
 - Past-tense `record` implementing `com.frappe.platform.DomainEvent`: `TabClosed`, `PersonSessionOpened`.
-- Envelope (from `DomainEvent`): `UUID eventId` (UUIDv7 via `Uuid7.next(clock)`, created once when the event is raised, never on retry), `Instant occurredAt` (UTC, injected `Clock`), `UUID aggregateId`, `long aggregateVersion` (increases per aggregate), `int eventVersion` (payload schema version). Then `tenantId` and only the data consumers need. No entities, no domain objects with behavior.
+- Envelope (from `DomainEvent`): `UUID eventId` (UUIDv7 from the injected `IdGenerator`, created once when the event is raised, never on retry), `Instant occurredAt` (UTC, injected `Clock`), `UUID aggregateId`, `long aggregateVersion` (increases per aggregate), `int eventVersion` (payload schema version). Then `tenantId` and only the data consumers need. No entities, no domain objects with behavior.
 - Events other modules consume live in the module root package (public); module-private events stay internal.
 
 ## Externalizing to NATS (one step)
