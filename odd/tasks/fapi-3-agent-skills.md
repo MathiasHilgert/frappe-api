@@ -24,7 +24,7 @@ Strict TDD enabled; no production code. Helper script verified by running it aga
 - [x] T5 `writing-code` skill + references
 - [x] T6 `testing-code` skill + references (Testcontainers reuse, per-ticket DB)
 - [x] T7 `optimizing-performance` skill + references
-- [ ] T8 Eval scenarios, README link, PR opened with green CI
+- [x] T8 Eval scenarios, README link, PR opened with green CI
 
 ## Progress / evidence
 - T1 `28e210c`: `.agents/{skills,agents}`, `.claude -> .agents`, `CLAUDE.md -> AGENTS.md` (git mode 120000), not ignored (`git check-ignore` rc=1).
@@ -32,7 +32,7 @@ Strict TDD enabled; no production code. Helper script verified by running it aga
 - T3 `fb892c4`: shellcheck 0.11.0 clean; `show FAPI-1`, `list`, `list in-progress` OK against Plane; no-op `move FAPI-3 in-progress` OK; error paths (unknown key, bad state, missing key, unreadable file) exit 1 with messages. `comment`/`create` not exercised live (would mutate Plane).
 - T4 `6c11718`: skill + 6 references + 4 subagents + evals. Cleanup text in `running-in-parallel.md` adjusted in `e1b5a79`.
 - T5 `15dda5c`, T6 `e1b5a79`, T7 `9608490`: skills + references + evals (evals shipped with each skill instead of in T8).
-- T8: README section, `./gradlew check` green locally.
+- T8 `0df8700`: README section, `./gradlew check` green locally. PR #8 opened, 7/7 checks green, FAPI-3 moved to In Review.
 
 ## Next step
-Open PR, watch CI, move FAPI-3 to In Review.
+Human review of PR #8; on "merge": squash merge and move FAPI-3 to Done.
