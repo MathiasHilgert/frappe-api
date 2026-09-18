@@ -7,6 +7,9 @@ import io.nats.client.Options;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -28,6 +31,8 @@ class NatsClient implements SmartLifecycle, AutoCloseable {
     private final Consumer<Connection> onConnected;
     private final AtomicReference<Connection> connection = new AtomicReference<>();
     private volatile boolean running;
+    private final ExecutorService setup = Executors.newSingleThreadExecutor(
+            Thread.ofVirtual().name("nats-setup").factory());
     private volatile Thread connector;
 
     NatsClient(NatsProperties properties, Consumer<Connection> onConnected) {
@@ -48,7 +53,15 @@ class NatsClient implements SmartLifecycle, AutoCloseable {
     @Override
     public void start() {
         running = true;
-        if (!tryConnect()) {
+        boolean connected;
+        try {
+            connected = tryConnect();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Interrupted while connecting to NATS at {}; retrying in the background", properties.url());
+            connected = false;
+        }
+        if (!connected) {
             log.warn(
                     "NATS is unavailable at {}; starting without it. Externalized events stay incomplete and are"
                             + " published once NATS is reachable (run 'docker compose up -d nats' or set FRAPPE_NATS_URL).",
@@ -67,6 +80,11 @@ class NatsClient implements SmartLifecycle, AutoCloseable {
         return running;
     }
 
+    boolean isRetrying() {
+        var loop = connector;
+        return loop != null && loop.isAlive();
+    }
+
     @Override
     public void close() {
         running = false;
@@ -74,7 +92,8 @@ class NatsClient implements SmartLifecycle, AutoCloseable {
         if (loop != null) {
             loop.interrupt();
         }
-        var current = connection.get();
+        setup.shutdownNow();
+        var current = connection.getAndSet(null);
         if (current != null) {
             shutdown(current, DRAIN_TIMEOUT);
         }
@@ -111,20 +130,18 @@ class NatsClient implements SmartLifecycle, AutoCloseable {
         }
     }
 
-    private boolean tryConnect() {
+    private boolean tryConnect() throws InterruptedException {
         try {
             var connected = Nats.connect(options());
-            connection.set(connected);
-            if (!running) {
+            connection.compareAndSet(null, connected);
+            // close() may have run meanwhile: only the side that removes the connection shuts it down.
+            if (!running && connection.compareAndSet(connected, null)) {
                 shutdown(connected, DRAIN_TIMEOUT);
             }
             return true;
         } catch (IOException e) {
             log.debug("NATS at {} not reachable: {}", properties.url(), e.getMessage());
             return false;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return true;
         }
     }
 
@@ -139,12 +156,20 @@ class NatsClient implements SmartLifecycle, AutoCloseable {
                 .build();
     }
 
-    private void onEvent(Connection source, Events event) {
+    private void submitSetup(Connection source) {
+        try {
+            setup.execute(() -> onConnected.accept(source));
+        } catch (RejectedExecutionException e) {
+            log.debug("NATS client closed; skipping connect setup");
+        }
+    }
+
+    void onEvent(Connection source, Events event) {
         switch (event) {
             case CONNECTED, RECONNECTED -> {
                 connection.compareAndSet(null, source);
                 log.info("NATS {} at {}", event.getEvent(), properties.url());
-                Thread.ofVirtual().name("nats-on-connect").start(() -> onConnected.accept(source));
+                submitSetup(source);
             }
             case DISCONNECTED ->
                 log.warn(

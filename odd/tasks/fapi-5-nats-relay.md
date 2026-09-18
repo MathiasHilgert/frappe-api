@@ -20,7 +20,7 @@ Events leave the process through NATS JetStream with at-least-once delivery and 
 - Selection and routing: our own `EventExternalizationConfiguration` bean replaces the `@ConditionalOnMissingBean` default: `externalizing().select(annotatedAsExternalized()).routeAll(...)` computing `frappe.<module>.<event-kebab>.v<n>` from the `DomainEvent`.
 - jnats 2.26.2: `Nats.connect(Options)` with `Options.builder().server(..).connectionName(..).maxReconnects(-1)`; `Connection.drain(Duration)` for graceful close; `JetStreamManagement.getStreamInfo/addStream/updateStream` (missing stream → `JetStreamApiException#getErrorCode() == 404`; no named constant in 2.26.2); `StreamConfiguration.builder().name/subjects/retentionPolicy/maxAge/replicas/duplicateWindow/storageType`; `JetStreamOptions.builder().requestTimeout(Duration)`; `JetStream.publish(String, Headers, byte[])` returns `PublishAck` (`isDuplicate()`); `Headers.put(String, String...)`; `NatsJetStreamConstants.MSG_ID_HDR = "Nats-Msg-Id"`.
 - No NATS Testcontainers module on Maven Central (`org.testcontainers:*nats*` not found); tests use `GenericContainer("nats:2.12-alpine")` with `-js`.
-- The JPA registry table `event_publication` does not exist (no migration yet; FAPI-4/FAPI-6). Pipeline integration tests set `spring.jpa.hibernate.ddl-auto=update` locally in the test only.
+- The JPA registry table `event_publication` does not exist (no migration yet; FAPI-4/FAPI-6). Pipeline integration tests get it from the test-only fixture migration `V202609181950__event_publication_stopgap.sql` (`platform.event_publication`, see Pending).
 
 ## Out of scope
 Writing to the outbox and switching the registry to JDBC (FAPI-6); consumers and inbox; OpenTelemetry propagation.
@@ -71,11 +71,18 @@ TDD mode: strict (brief + CLAUDE.md), runner `FRAPPE_TEST_DB=frappe_fapi_5 ./gra
 
 RED (after stubs `NatsClient`/new `provision(Connection)`): 21 tests, 10 failed: `NatsClientTest` x3 (close not invoked; message lacked server description; `UnsupportedOperationException` instead of "not connected"), `rejectsACustomTargetBecauseTheSubjectIsDerived` (no throwable), `startsWithoutNatsAndPublishesPendingEventsOnceItIsUp` (context failed to load: cannot connect), provisioning/externalization tests (no `natsClient` bean). GREEN: 21/21 pass; log shows `WARN NATS is unavailable at nats://localhost:<port>; starting without it...` then `NATS opened`.
 
+### Re-review minors
+- [x] M1 close/connect race: only the side that removes the connection atomically (`getAndSet(null)` / `compareAndSet`) drains it.
+- [x] M2 Interrupt during the startup attempt: flag restored, WARN, background retry still starts.
+- [x] M3 Connect setup (provisioning + resubmission) runs on one single-thread executor, shut down in `close()`.
+- [x] M4 `NatsClientTest` cleaned; provisioner test moved to `NatsStreamProvisionerTest`.
+RED: `drainsTheConnectionOnceEvenWhenClosedTwice`, `runsConnectSetupOneAtATime`, `keepsRetryingAndTheInterruptWhenStartupIsInterrupted` failed (6 tests, 3 failed). GREEN: 6/6.
+
 ### Pending
-- Stopgap until FAPI-6: after rebasing on FAPI-4 (#9) the app runs as `frappe_app` without DDL, so `ddl-auto=update` no longer works. The registry table now comes from the test-only fixture migration `src/test/resources/db/migration/fixture/V202609181950__event_publication_stopgap.sql` (`platform.event_publication`), and `NatsEventExternalizationTests`, `NatsUnavailableTests` and `NatsStartsWithoutNatsTests` set `spring.jpa.properties.hibernate.default_schema=platform`. FAPI-6 deletes both when it adds the real outbox migration.
+- Stopgap until FAPI-6: the app runs as `frappe_app` without DDL (FAPI-4, #9). The registry table now comes from the test-only fixture migration `src/test/resources/db/migration/fixture/V202609181950__event_publication_stopgap.sql` (`platform.event_publication`), and `NatsEventExternalizationTests`, `NatsUnavailableTests` and `NatsStartsWithoutNatsTests` set `spring.jpa.properties.hibernate.default_schema=platform`. FAPI-6 deletes the stopgap migration and the `default_schema` properties, gives its real migration a later version than `V202609181950`, and test databases must be reset (drop the reused `frappe_fapi_*` Postgres containers) because their Flyway history contains the stopgap.
 
 ### Rebase on origin/main (FAPI-4, 4a89108)
 Kept FAPI-4's `TestcontainersConfiguration`, `application.properties` and `application-local.properties` unchanged (NATS needs no env-specific default: `NatsProperties` defaults to compose's URL). `TestNatsConfiguration` added to `FrappeApiApplicationTests` and `TestFrappeApiApplication`; NATS tests use `@ActiveProfiles("local")`. `FRAPPE_TEST_DB=frappe_fapi_5 ./gradlew check`: BUILD SUCCESSFUL.
 
 ## Next step
-Open the PR per template; FAPI-6 adds the `event_publication` migration (tests set `ddl-auto=update` until then).
+Open the PR per template; FAPI-6 replaces the stopgap fixture migration with the real `event_publication` migration (see Pending).
