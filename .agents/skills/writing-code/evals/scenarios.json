@@ -1,0 +1,28 @@
+[
+  {
+    "query": "Add a Tab aggregate in the order module that can be closed only once.",
+    "expected_behavior": [
+      "Places Tab in com.frappe.order.domain as a final class with private state and a version field",
+      "close() returns a Result failure when already closed instead of throwing",
+      "Registers a TabClosed record event with a UUIDv7 eventId and uses an injected Clock",
+      "Has no Spring or JPA imports in the domain package"
+    ]
+  },
+  {
+    "query": "Persist branches in the organization module with tenant isolation.",
+    "expected_behavior": [
+      "Creates a separate BranchEntity in infrastructure.persistence with @Version and a MapStruct mapper",
+      "Adds a forward-only Flyway migration in the organization schema with tenant_id and an index leading with tenant_id",
+      "Enables and forces RLS with a policy on app.tenant_id",
+      "Requires a test proving another tenant's rows are invisible"
+    ]
+  },
+  {
+    "query": "The kitchen module should react when an order course is fired.",
+    "expected_behavior": [
+      "Consumes the order module's public event rather than reading order tables or internals",
+      "Makes the consumer idempotent via an inbox insert keyed by eventId in the same transaction",
+      "Dispatches a kitchen command through the bus from the consumer"
+    ]
+  }
+]

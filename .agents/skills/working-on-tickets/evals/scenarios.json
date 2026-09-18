@@ -1,0 +1,29 @@
+[
+  {
+    "query": "Pick up FAPI-12 and get it to a PR.",
+    "expected_behavior": [
+      "Runs plane.sh show FAPI-12 and plane.sh list in-progress before any code change",
+      "Stops if a blocking dependency is not Done",
+      "Creates a worktree at ~/Projects/nulled/frappe-api-worktrees/FAPI-12 on a <type>/fapi-12-<slug> branch from origin/main and moves the ticket to in-progress",
+      "Chooses writer and reviewer models from choosing-models.md based on size and sensitive areas",
+      "Runs reviews before opening the PR, opens the PR per template with the Plane link, watches CI, moves the ticket to in-review and reports PR URL plus checks table"
+    ]
+  },
+  {
+    "query": "FAPI-14 (identity) and FAPI-15 (identity) are both Todo, and FAPI-16 (catalog) too. Work on them in parallel.",
+    "expected_behavior": [
+      "Refuses to run FAPI-14 and FAPI-15 in parallel because they share the identity module",
+      "Checks blocks relations before running FAPI-16 alongside one identity ticket",
+      "Uses one worktree and one database (frappe_fapi_N) per ticket and does not start docker compose per agent"
+    ]
+  },
+  {
+    "query": "The PR for FAPI-9 has two review comments from me about the RLS policy. Handle them.",
+    "expected_behavior": [
+      "Reads the PR comments with gh",
+      "Treats the change as sensitive (tenancy/RLS) and spawns one opus fixer rather than editing inline",
+      "Pushes, re-watches CI with gh pr checks --watch and reports what changed per comment",
+      "Does not merge the PR and does not move the ticket to done"
+    ]
+  }
+]

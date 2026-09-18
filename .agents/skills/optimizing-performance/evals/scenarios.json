@@ -1,0 +1,27 @@
+[
+  {
+    "query": "GET /v1/branches/{id}/tabs takes 2 seconds for big branches. Make it faster.",
+    "expected_behavior": [
+      "Captures a baseline (trace, query count or EXPLAIN ANALYZE as the app role with app.tenant_id set) before changing code",
+      "Checks for N+1 and replaces aggregate loading with a paginated projection query",
+      "Ensures the supporting index leads with tenant_id",
+      "Reports before/after numbers with the method used"
+    ]
+  },
+  {
+    "query": "The outbox relay is falling behind in production.",
+    "expected_behavior": [
+      "Measures outbox lag and unpublished row count first",
+      "Checks the index used to find unpublished publications and cleanup of completed ones",
+      "Does not propose skipping the outbox or publishing directly to NATS"
+    ]
+  },
+  {
+    "query": "We get connection timeouts under load since enabling virtual threads.",
+    "expected_behavior": [
+      "Identifies the Hikari pool as the concurrency limit and inspects pending connections and acquisition time",
+      "Recommends sizing against Postgres max_connections across instances and adding statement timeouts",
+      "Frames recommendations as guidance to validate, not measured facts"
+    ]
+  }
+]
