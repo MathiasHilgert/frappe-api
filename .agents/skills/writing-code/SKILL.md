@@ -13,7 +13,7 @@ Load before creating or changing any production code, migration or configuration
 
 ## Hard Rules
 
-- Module `com.frappe.<module>`: root package holds only the public `XxxApi` and published events; everything else lives in `internal.domain`, `internal.application`, `internal.infrastructure.{web,persistence}`.
+- Module `com.frappe.<module>`: root package holds only the public `XxxApi` and published events; everything else lives in `domain`, `application`, `infrastructure.{web,persistence}` (subpackages are internal by Modulith rules; no `internal` marker).
 - Domain is pure Java: no Spring, JPA, Jackson or Jakarta imports.
 - Expected business failures return `Result`; exceptions only for bugs and infrastructure faults.
 - Never read another module's tables, entities or internal packages; use its events, or its `Api` for an unavoidable synchronous read.

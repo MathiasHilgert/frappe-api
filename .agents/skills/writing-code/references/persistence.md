@@ -1,6 +1,6 @@
 # Persistence
 
-Package: `com.frappe.<module>.internal.infrastructure.persistence`. For generic Postgres guidance load `supabase-postgres-best-practices`.
+Package: `com.frappe.<module>.infrastructure.persistence`. For generic Postgres guidance load `supabase-postgres-best-practices`.
 
 ## JPA entities
 

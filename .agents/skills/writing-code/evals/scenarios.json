@@ -2,7 +2,7 @@
   {
     "query": "Add a Tab aggregate in the order module that can be closed only once.",
     "expected_behavior": [
-      "Places Tab in com.frappe.order.internal.domain as a final class with private state and a version field",
+      "Places Tab in com.frappe.order.domain as a final class with private state and a version field",
       "close() returns a Result failure when already closed instead of throwing",
       "Registers a TabClosed record event with a UUIDv7 eventId and uses an injected Clock",
       "Has no Spring or JPA imports in the domain package"

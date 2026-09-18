@@ -1,6 +1,6 @@
 # Unit tests
 
-Scope: aggregates, value objects, domain services. Package mirrors production (`com.frappe.<module>.internal.domain`).
+Scope: aggregates, value objects, domain services. Package mirrors production (`com.frappe.<module>.domain`).
 
 ## Rules
 

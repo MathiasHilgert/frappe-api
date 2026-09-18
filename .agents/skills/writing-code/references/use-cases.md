@@ -1,6 +1,6 @@
 # Use cases (CQRS bus)
 
-Package: `com.frappe.<module>.internal.application`.
+Package: `com.frappe.<module>.application`.
 
 ## Shape
 

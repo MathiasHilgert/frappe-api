@@ -1,6 +1,6 @@
 # HTTP API
 
-Package: `com.frappe.<module>.internal.infrastructure.web`.
+Package: `com.frappe.<module>.infrastructure.web`.
 
 ## Endpoints
 

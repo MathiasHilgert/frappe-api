@@ -1,6 +1,6 @@
 # Domain modeling
 
-Package: `com.frappe.<module>.internal.domain`. No framework imports.
+Package: `com.frappe.<module>.domain`. No framework imports.
 
 ## Aggregates
 
