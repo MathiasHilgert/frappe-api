@@ -28,7 +28,7 @@ Strict TDD. Runner: `./gradlew test` (in-memory exporters / `TestObservationRegi
 - [x] T1 Starter + Modulith observability + OTLP config per profile; test: request produces HTTP and DB spans (in-memory exporter)
 - [x] T2 Trace/span ids in ECS logs; test
 - [x] T3 OTLP endpoint down → API keeps serving; test
-- [ ] T4 NATS publish observation in the FAPI-5 transport; test
+- [x] T4 NATS publish observation in the FAPI-5 transport; test
 - [ ] T5 Business metrics facade from domain events + tag policy guard (no tenant/entity tags); tests
 - [ ] T6 `otel-lgtm` in compose + README (how to open Grafana); manual check documented
 - [ ] T7 Skill `observing-the-api` + vendored skills + AGENTS.md routing; Ticket Standard note for Plane (orchestrator updates the page)
@@ -68,6 +68,10 @@ Strict TDD. Runner: `./gradlew test` (in-memory exporters / `TestObservationRegi
 
 ### T3
 - `OtlpUnavailableTests.keepsServingWhileTheOtlpEndpointIsUnreachable`: both exporters pointed at `localhost:1`, export rounds every 50–100 ms; all requests `200`, the registry only logs `WARN Failed to publish metrics to OTLP receiver`. No RED possible: this is a characterization test of the SDK design (batch span processor and meter registry export on their own threads, drop on failure); it guards against a future synchronous exporter or a failing customizer.
+
+### T4
+- RED `NatsEventTransportTest.observesASuccessfulPublishWithTheSubjectAsALowCardinalityKey` / `observesAFailedPublishWithItsError`: compilation failed, `NatsEventTransport` had no `ObservationRegistry` (no observation existed).
+- GREEN: `NatsPublishObservation` (name `nats.publish`, contextual name `publish <subject>`, low keys `messaging.system=nats`, `messaging.destination.name=<subject>`, high key `messaging.message.id=<eventId>`), started around the publish in `NatsEventTransport`, error recorded on failure, stopped in `finally`. Shared-file footprint: one constructor parameter in `NatsEventTransport` and one bean parameter in `NatsConfiguration` (FAPI-6 overlap kept minimal). Span kind stays INTERNAL: a PRODUCER span needs a `SenderContext` that injects headers, which is trace propagation (FAPI-8).
 
 ## Next step
 T0.

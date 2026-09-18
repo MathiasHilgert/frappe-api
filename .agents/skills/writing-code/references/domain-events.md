@@ -30,6 +30,7 @@ public record TabClosed(UUID eventId, Instant occurredAt, UUID aggregateId, long
 - Aggregates register events; the handler publishes the pulled events through Spring's `ApplicationEventPublisher` inside the command transaction.
 - Spring Modulith's event publication registry writes each event to the Postgres outbox in that same transaction. All events go through it, including those consumed inside the same module.
 - After commit, the relay publishes to JetStream synchronously and the publication is marked complete only after the ack. If NATS is down the publish fails after `publish-timeout` and the publication stays incomplete for resubmission; nothing blocks indefinitely.
+- Every publish is observed once in the transport (`nats.publish`: a span `publish <subject>` and a timer tagged `messaging.system`, `messaging.destination.name`, `error`; the event id is a span attribute only). Do not add telemetry around publishing elsewhere.
 - No ordering across instances: consumers order per aggregate with `aggregateVersion`.
 
 ## Consuming
