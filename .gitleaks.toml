@@ -1,0 +1,4 @@
+title = "frappe-api gitleaks config"
+
+[extend]
+useDefault = true

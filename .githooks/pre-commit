@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+	echo "pre-commit: gitleaks is not installed (see README 'Git hooks' section)." >&2
+	echo "pre-commit: install it with 'mise use -g gitleaks' or via Homebrew." >&2
+	exit 1
+fi
+
+gitleaks git --pre-commit --staged --redact --verbose --config .gitleaks.toml
