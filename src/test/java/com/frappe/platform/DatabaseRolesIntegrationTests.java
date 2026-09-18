@@ -46,6 +46,7 @@ class DatabaseRolesIntegrationTests {
             strings = {
                 "create table public.app_probe (id int)",
                 "create schema app_probe",
+                "create temporary table app_probe (id int)",
             })
     void appRoleCannotRunDdl(String ddl) {
         assertThatThrownBy(() -> jdbc.execute(ddl))

@@ -42,6 +42,7 @@ Strict TDD. Runner: `./gradlew test` (JUnit 5, Testcontainers Postgres 18, `FRAP
 - T3 RED: `DefaultPrivilegesIntegrationTests` 5/5 failed (`schema "fixture" does not exist`). GREEN: 5/5 pass after the grant-free test migration `src/test/resources/db/migration/fixture/V202609181946__create_fixture_probe.sql`: CRUD as `frappe_app` succeeds; create/alter/drop/truncate rejected. The privileges themselves were already in the T1 bootstrap, so RED here is the missing later table, not missing grants.
 - T4 docs only (persistence + integration-tests references, README). Boot check on a clean volume (`COMPOSE_PROJECT_NAME=frappe-fapi-4`, then `down -v`): app started, history row `platform/V202609181945__create_platform_schema.sql` installed by `frappe_owner`, schema `platform` owned by `frappe_owner`.
 - T5 partial: `FRAPPE_TEST_DB=frappe_fapi_4 ./gradlew cleanTest check` BUILD SUCCESSFUL, 15 tests, 0 failures. PR pending (human).
+- Review fix 3 RED: `DatabaseRolesIntegrationTests.appRoleCannotRunDdl[3]` (`create temporary table`) failed: the temp table was created. GREEN 5/5 after the script revokes `temporary` on the database and `all` on schema `public` from `public`. Script made idempotent (`\gexec` guarded by `pg_roles`); re-ran twice in the test container, exit 0.
 
 ## Next step
 Review, push and PR per template (human decision).
