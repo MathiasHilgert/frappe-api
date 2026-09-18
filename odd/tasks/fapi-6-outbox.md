@@ -26,7 +26,7 @@ Strict TDD. Runner: `./gradlew test` (Testcontainers Postgres 18 + per-context N
 - [x] T2 `DomainEventPublisher` port + adapter; commit → one row per event; rollback → no row
 - [x] T3 ARCHIVE: acked event moves to `platform.event_publication_archive`
 - [x] T4 Scheduled resubmission of failed/stale publications: NATS down → recovers → published once and archived
-- [ ] T5 Docs (`writing-code` events reference: how a handler publishes), `./gradlew check` green, PR per template
+- [x] T5 Docs (`writing-code` events reference: how a handler publishes), `./gradlew check` green, PR per template
 
 ## Acceptance (from ticket)
 - Commit → one publication row per event in `platform.event_publication`.
@@ -53,6 +53,7 @@ Strict TDD. Runner: `./gradlew test` (Testcontainers Postgres 18 + per-context N
 - T2 RED: `DomainEventPublisherIntegrationTests` did not compile (no `DomainEventPublisher`). GREEN: `committedTransactionStoresOnePublicationRowPerEvent`, `rolledBackTransactionStoresNoPublicationRow`, `publishingOutsideATransactionFailsFast` pass. Second RED: `publishAll` outside a transaction did not fail (interface default method self-invoked `publish`, bypassing the proxy); fixed with class-level `@Transactional(MANDATORY)` and an explicit `publishAll`. Full suite green.
 - T3 RED: `OutboxArchiveIntegrationTests.acknowledgedPublicationMovesToTheArchive` failed with `ConditionTimeoutException` (the property already shipped with T1; RED observed by removing it locally, so the default UPDATE mode kept the row in `event_publication`). GREEN with `spring.modulith.events.completion-mode=archive`; full suite green.
 - T4 RED: `OutboxRecoveryIntegrationTests.failedPublicationIsResubmittedOnceNatsRecoversAndArchived` and `stalePublicationIsMarkedFailedThenResubmittedAndArchived` timed out (`ConditionTimeoutException`, nothing resubmits while the NATS connection survives a pause); `FailedPublicationResubmitterTest` did not compile. GREEN: `FailedPublicationResubmitter` (scheduled fixed delay, `FailedEventPublications.resubmit` with batch size = max in flight, WARN with `frappe.outbox.recovery_interval` on `DataAccessException`), `OutboxRecoveryProperties` (`frappe.outbox.recovery.interval=1m`, `batch-size=100`, validated at startup), `@EnableScheduling` activating the staleness monitor, staleness 1m for all three statuses. One interim failure (2 messages on the subject) came from FAILED rows of earlier runs in the reused database being delivered too; the test now counts by `Nats-Msg-Id`. Full `check --rerun-tasks`: 53 tests, 0 failures.
+- T5: `writing-code` `domain-events.md` (publishing through `DomainEventPublisher`, archive, three recovery paths, config) and `use-cases.md` handler example updated. `FRAPPE_TEST_DB=frappe_fapi_6 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 53 tests, 0 failures. PR not opened (orchestrator/human decision).
 
 ## Next step
-T0.
+Review, then PR per template (human decision).

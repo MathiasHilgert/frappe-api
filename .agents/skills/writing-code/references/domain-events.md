@@ -27,10 +27,29 @@ public record TabClosed(UUID eventId, Instant occurredAt, UUID aggregateId, long
 
 ## Publishing (outbox)
 
-- Aggregates register events; the handler publishes the pulled events through Spring's `ApplicationEventPublisher` inside the command transaction.
-- Spring Modulith's event publication registry writes each event to the Postgres outbox in that same transaction. All events go through it, including those consumed inside the same module.
-- After commit, the relay publishes to JetStream synchronously and the publication is marked complete only after the ack. If NATS is down the publish fails after `publish-timeout` and the publication stays incomplete for resubmission; nothing blocks indefinitely.
-- Every publish is observed once in the transport (`nats.publish`: a span `publish <subject>` and a timer tagged `messaging.system`, `messaging.destination.name`, `error`; the event id is a span attribute only). Do not add telemetry around publishing elsewhere.
+- Aggregates register events; the command handler saves the aggregate, then hands the pulled events to the kernel port `com.frappe.platform.DomainEventPublisher`, inside the command transaction. Never inject Spring's `ApplicationEventPublisher` in application code.
+
+```java
+@Transactional
+public Result<TabId, TabError> handle(CloseTab cmd) {
+    return tabs.byId(cmd.tabId())
+            .flatMap(tab -> tab.close(clock))
+            .map(tab -> {
+                tabs.save(tab);
+                events.publishAll(tab.pullEvents()); // stored with the aggregate, or not at all
+                return tab.id();
+            });
+}
+```
+
+- The adapter (`platform.infrastructure.events`) is `@Transactional(propagation = MANDATORY)`: publishing outside a transaction throws `IllegalTransactionStateException`, because the event could not reach the outbox atomically.
+- Spring Modulith's JDBC event publication registry writes one row per interested listener to `platform.event_publication` in that transaction; rollback leaves no row. All events go through it, including those consumed inside the same module. The tables are the official Modulith 2.1.1 Postgres DDL, created by Flyway (`db/migration/platform`); `spring.modulith.events.jdbc.schema-initialization.enabled=false`.
+- After commit, the relay publishes to JetStream synchronously and the publication completes only after the ack. Completion mode `ARCHIVE` then moves the row to `platform.event_publication_archive` (purging the archive is a follow-up). If NATS is down the publish fails after `publish-timeout` and the row stays in `event_publication` as `FAILED`; nothing blocks indefinitely.
+- Recovery, three paths, all deduplicated by JetStream on `eventId`:
+  1. Every NATS (re)connect resubmits failed externalized publications.
+  2. `frappe.outbox.recovery.*` (defaults in `OutboxRecoveryProperties`: `interval` 1m, `batch-size` 100) resubmits failed publications on a fixed delay, at most `batch-size` in flight. It covers publishes that failed while the connection survived.
+  3. The Modulith staleness monitor (`spring.modulith.events.staleness.{published,processing,resubmitted}=1m`) marks publications stuck by a dead instance as failed, so path 2 picks them up. Keep all three durations set: a zero duration marks that status failed immediately.
+- `republish-outstanding-events-on-restart` stays off (Modulith issue #526; it would resubmit in-flight publications of every instance).
 - No ordering across instances: consumers order per aggregate with `aggregateVersion`.
 
 ## Consuming

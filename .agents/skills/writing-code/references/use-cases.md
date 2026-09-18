@@ -14,12 +14,17 @@ Package: `com.frappe.<module>.application`.
 class CloseTabHandler implements CommandHandler<CloseTab, Result<TabId, TabError>> {
     private final Tabs tabs;          // domain port, implemented in persistence
     private final Clock clock;
+    private final DomainEventPublisher events; // platform kernel port, writes to the outbox
 
     @Transactional
     public Result<TabId, TabError> handle(CloseTab cmd) {
         return tabs.byId(cmd.tabId())
                 .flatMap(tab -> tab.close(clock))
-                .map(tab -> { tabs.save(tab); return tab.id(); });
+                .map(tab -> {
+                    tabs.save(tab);
+                    events.publishAll(tab.pullEvents());
+                    return tab.id();
+                });
     }
 }
 ```
