@@ -25,7 +25,7 @@ Strict TDD. Runner: `./gradlew test` (Testcontainers Postgres 18 + per-context N
 - [x] T1 Switch to JDBC registry + Flyway migration of both tables in `platform`; remove the stopgap; FAPI-5 tests green on the real tables
 - [x] T2 `DomainEventPublisher` port + adapter; commit → one row per event; rollback → no row
 - [x] T3 ARCHIVE: acked event moves to `platform.event_publication_archive`
-- [ ] T4 Scheduled resubmission of failed/stale publications: NATS down → recovers → published once and archived
+- [x] T4 Scheduled resubmission of failed/stale publications: NATS down → recovers → published once and archived
 - [ ] T5 Docs (`writing-code` events reference: how a handler publishes), `./gradlew check` green, PR per template
 
 ## Acceptance (from ticket)
@@ -52,6 +52,7 @@ Strict TDD. Runner: `./gradlew test` (Testcontainers Postgres 18 + per-context N
 - T1 RED: `FlywayMigrationIntegrationTests` `startupRecordsPlatformMigrationInSingleHistory`, `startupCreatesTheOutboxTablesOwnedByOwnerRole`, `outboxTablesCarryTheOfficialRegistryIndexes` failed (5 run, 3 failed: no archive table, no outbox migration). GREEN: all 45 tests pass, including FAPI-5 NATS tests on the real tables without `hibernate.default_schema`. The first green attempt hit `FlywayValidateException` on the reused `frappe_fapi_6` container (stopgap already applied); reset documented in `testing-code/references/integration-tests.md`.
 - T2 RED: `DomainEventPublisherIntegrationTests` did not compile (no `DomainEventPublisher`). GREEN: `committedTransactionStoresOnePublicationRowPerEvent`, `rolledBackTransactionStoresNoPublicationRow`, `publishingOutsideATransactionFailsFast` pass. Second RED: `publishAll` outside a transaction did not fail (interface default method self-invoked `publish`, bypassing the proxy); fixed with class-level `@Transactional(MANDATORY)` and an explicit `publishAll`. Full suite green.
 - T3 RED: `OutboxArchiveIntegrationTests.acknowledgedPublicationMovesToTheArchive` failed with `ConditionTimeoutException` (the property already shipped with T1; RED observed by removing it locally, so the default UPDATE mode kept the row in `event_publication`). GREEN with `spring.modulith.events.completion-mode=archive`; full suite green.
+- T4 RED: `OutboxRecoveryIntegrationTests.failedPublicationIsResubmittedOnceNatsRecoversAndArchived` and `stalePublicationIsMarkedFailedThenResubmittedAndArchived` timed out (`ConditionTimeoutException`, nothing resubmits while the NATS connection survives a pause); `FailedPublicationResubmitterTest` did not compile. GREEN: `FailedPublicationResubmitter` (scheduled fixed delay, `FailedEventPublications.resubmit` with batch size = max in flight, WARN with `frappe.outbox.recovery_interval` on `DataAccessException`), `OutboxRecoveryProperties` (`frappe.outbox.recovery.interval=1m`, `batch-size=100`, validated at startup), `@EnableScheduling` activating the staleness monitor, staleness 1m for all three statuses. One interim failure (2 messages on the subject) came from FAILED rows of earlier runs in the reused database being delivered too; the test now counts by `Nats-Msg-Id`. Full `check --rerun-tasks`: 53 tests, 0 failures.
 
 ## Next step
 T0.
