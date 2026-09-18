@@ -10,6 +10,9 @@ import org.springframework.context.annotation.Configuration;
 @Configuration(proxyBeanMethods = false)
 class IdConfiguration {
 
+    /** Creates the configuration; instantiated by Spring. */
+    IdConfiguration() {}
+
     /**
      * The UTC system clock, the only time source of the application.
      *

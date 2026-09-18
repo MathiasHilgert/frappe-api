@@ -17,6 +17,9 @@ class RequiredDatabaseSettings implements EnvironmentPostProcessor, Ordered {
             "spring.datasource.password", "FRAPPE_APP_PASSWORD",
             "spring.flyway.password", "FRAPPE_OWNER_PASSWORD");
 
+    /** Creates the post-processor; instantiated by Spring Boot from {@code spring.factories}. */
+    RequiredDatabaseSettings() {}
+
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
         var missing = REQUIRED.entrySet().stream()

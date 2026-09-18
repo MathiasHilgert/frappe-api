@@ -16,13 +16,38 @@ import java.util.UUID;
  */
 public interface DomainEvent {
 
+    /**
+     * Identity of this occurrence, a UUIDv7 created once and kept across retries.
+     *
+     * @return the event id
+     */
     UUID eventId();
 
+    /**
+     * When the change happened, in UTC.
+     *
+     * @return the occurrence instant
+     */
     Instant occurredAt();
 
+    /**
+     * The aggregate that changed.
+     *
+     * @return the aggregate id
+     */
     UUID aggregateId();
 
+    /**
+     * Version of the aggregate after the change; increases per aggregate so consumers can drop stale events.
+     *
+     * @return the aggregate version
+     */
     long aggregateVersion();
 
+    /**
+     * Schema version of the payload.
+     *
+     * @return the event schema version
+     */
     int eventVersion();
 }

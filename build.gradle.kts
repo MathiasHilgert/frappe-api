@@ -74,8 +74,19 @@ spotless {
 	}
 }
 
+// Javadoc is part of the gate: every type and member (package level and up) documented, warnings are errors.
+tasks.javadoc {
+	(options as StandardJavadocDocletOptions).apply {
+		memberLevel = JavadocMemberLevel.PACKAGE
+		encoding = "UTF-8"
+		addBooleanOption("Xdoclint:all", true)
+		addBooleanOption("Werror", true)
+		addBooleanOption("quiet", true)
+	}
+}
+
 tasks.named("check") {
-	dependsOn("spotlessCheck")
+	dependsOn("spotlessCheck", "javadoc")
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {

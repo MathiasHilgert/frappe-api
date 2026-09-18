@@ -36,6 +36,15 @@ final class NatsStreamProvisioner {
     private static final Logger log = LoggerFactory.getLogger(NatsStreamProvisioner.class);
     private static final int NOT_FOUND = 404;
 
+    /** Creates the provisioner. */
+    NatsStreamProvisioner() {}
+
+    /**
+     * Creates the stream, or updates it to {@link #CONFIGURATION} when it exists.
+     *
+     * @param connection a live connection
+     * @throws NatsProvisioningException if the server rejects the request or is unreachable
+     */
     void provision(Connection connection) {
         try {
             var management = connection.jetStreamManagement();

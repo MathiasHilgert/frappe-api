@@ -14,6 +14,9 @@ import tools.jackson.databind.json.JsonMapper;
 @EnableConfigurationProperties(NatsProperties.class)
 class NatsConfiguration {
 
+    /** Creates the configuration; instantiated by Spring. */
+    NatsConfiguration() {}
+
     /**
      * Stream provisioning, shared by connect setup and tests.
      *

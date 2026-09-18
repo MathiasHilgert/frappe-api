@@ -22,10 +22,19 @@ import tools.jackson.databind.json.JsonMapper;
  */
 class NatsEventTransport implements EventExternalizationTransport {
 
+    /** Header: event type, {@code <module>.<event-kebab>}. */
     static final String EVENT_TYPE = "Frappe-Event-Type";
+
+    /** Header: payload schema version. */
     static final String EVENT_VERSION = "Frappe-Event-Version";
+
+    /** Header: id of the changed aggregate. */
     static final String AGGREGATE_ID = "Frappe-Aggregate-Id";
+
+    /** Header: aggregate version after the change. */
     static final String AGGREGATE_VERSION = "Frappe-Aggregate-Version";
+
+    /** Header: ISO-8601 UTC instant of the change. */
     static final String OCCURRED_AT = "Frappe-Occurred-At";
 
     private static final Logger log = LoggerFactory.getLogger(NatsEventTransport.class);
@@ -34,6 +43,13 @@ class NatsEventTransport implements EventExternalizationTransport {
     private final JetStreamOptions options;
     private final JsonMapper json;
 
+    /**
+     * Creates the transport.
+     *
+     * @param client owner of the connection
+     * @param publishTimeout how long to wait for the JetStream ack
+     * @param json payload serializer
+     */
     NatsEventTransport(NatsClient client, Duration publishTimeout, JsonMapper json) {
         this.client = client;
         this.options = JetStreamOptions.builder().requestTimeout(publishTimeout).build();

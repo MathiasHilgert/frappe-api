@@ -35,12 +35,23 @@ class NatsClient implements SmartLifecycle, AutoCloseable {
     private volatile boolean running;
     private volatile Thread connector;
 
+    /**
+     * Creates the client; nothing connects before {@link #start()}.
+     *
+     * @param properties connection settings
+     * @param onConnected setup to run after every (re)connect
+     */
     NatsClient(NatsProperties properties, Consumer<Connection> onConnected) {
         this.properties = properties;
         this.onConnected = onConnected;
     }
 
-    /** The live connection; fails with a clear message while NATS has not been reached yet. */
+    /**
+     * The live connection.
+     *
+     * @return the connection
+     * @throws NatsUnavailableException while NATS has not been reached yet
+     */
     Connection connection() {
         var current = connection.get();
         if (current == null) {
@@ -87,6 +98,11 @@ class NatsClient implements SmartLifecycle, AutoCloseable {
         return running;
     }
 
+    /**
+     * Whether the background loop is still trying to reach NATS.
+     *
+     * @return {@code true} while retrying
+     */
     boolean isRetrying() {
         var loop = connector;
         return loop != null && loop.isAlive();
@@ -152,6 +168,12 @@ class NatsClient implements SmartLifecycle, AutoCloseable {
         }
     }
 
+    /**
+     * Reacts to jnats connection events: tracks the connection and schedules the connect setup.
+     *
+     * @param source the connection reporting the event
+     * @param event what happened
+     */
     void onEvent(Connection source, Events event) {
         switch (event) {
             case CONNECTED, RECONNECTED -> {
