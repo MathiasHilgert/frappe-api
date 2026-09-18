@@ -17,7 +17,12 @@ usage rights are granted.
 
 ## Prerequisites
 
-- Java 25 (Temurin recommended, e.g. via [mise](https://mise.jdx.dev))
+- Java 25 (Temurin recommended, e.g. via [mise](https://mise.jdx.dev)) — the
+  application compiles and runs on this version via the Gradle toolchain.
+- Java 21 (Temurin) to *run Gradle itself*: `palantir-java-format`, used by
+  Spotless, does not yet support JDK 25 as the host JVM. Point `JAVA_HOME`
+  at a JDK 21 install when invoking `./gradlew`; Gradle's toolchain support
+  auto-provisions JDK 25 for compiling and running the app and tests.
 - Docker (for local infra and Testcontainers-based tests)
 - [gitleaks](https://github.com/gitleaks/gitleaks) (`mise use -g gitleaks` or via Homebrew)
 
