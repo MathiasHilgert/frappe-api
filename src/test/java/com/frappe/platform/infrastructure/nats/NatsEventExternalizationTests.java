@@ -72,6 +72,18 @@ class NatsEventExternalizationTests {
                 .contains("\"note\":\"closed by waiter\"");
     }
 
+    @Test
+    void storesAnEventPublishedTwiceWithinTheDuplicateWindowOnce() throws Exception {
+        var event = tabClosed();
+        var before = storedOnSubject();
+
+        publish(event);
+        publish(event);
+
+        await().until(() -> completedCount(event) == 2);
+        assertThat(storedOnSubject()).isEqualTo(before + 1);
+    }
+
     private TabClosed tabClosed() {
         return new TabClosed(Uuid7.next(clock), clock.instant(), Uuid7.next(clock), 7, 3, "closed by waiter");
     }
@@ -81,9 +93,14 @@ class NatsEventExternalizationTests {
     }
 
     private boolean isCompleted(DomainEvent event) {
+        return completedCount(event) > 0;
+    }
+
+    private long completedCount(DomainEvent event) {
         return completed.findAll().stream()
-                .anyMatch(it ->
-                        it.getEvent() instanceof DomainEvent e && e.eventId().equals(event.eventId()));
+                .filter(it ->
+                        it.getEvent() instanceof DomainEvent e && e.eventId().equals(event.eventId()))
+                .count();
     }
 
     private long storedOnSubject() throws Exception {
