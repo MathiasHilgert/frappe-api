@@ -1,0 +1,71 @@
+package com.frappe.platform.infrastructure.nats;
+
+import com.frappe.platform.DomainEvent;
+import io.nats.client.JetStream;
+import io.nats.client.impl.Headers;
+import io.nats.client.support.NatsJetStreamConstants;
+import java.util.concurrent.CompletableFuture;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.modulith.events.RoutingTarget;
+import org.springframework.modulith.events.support.EventExternalizationTransport;
+import tools.jackson.databind.json.JsonMapper;
+
+/**
+ * Publishes a {@link DomainEvent} to JetStream and completes only after the ack, so the publication registry marks the
+ * event published only once the stream stored it. {@code Nats-Msg-Id} is the event id: re-publishing within the
+ * stream's duplicate window is stored once.
+ */
+class NatsEventTransport implements EventExternalizationTransport {
+
+    static final String EVENT_TYPE = "Frappe-Event-Type";
+    static final String EVENT_VERSION = "Frappe-Event-Version";
+    static final String AGGREGATE_ID = "Frappe-Aggregate-Id";
+    static final String AGGREGATE_VERSION = "Frappe-Aggregate-Version";
+    static final String OCCURRED_AT = "Frappe-Occurred-At";
+
+    private static final Logger log = LoggerFactory.getLogger(NatsEventTransport.class);
+
+    private final JetStream jetStream;
+    private final JsonMapper json;
+
+    NatsEventTransport(JetStream jetStream, JsonMapper json) {
+        this.jetStream = jetStream;
+        this.json = json;
+    }
+
+    @Override
+    public CompletableFuture<?> externalize(Object payload, RoutingTarget target) {
+        var event = (DomainEvent) payload;
+        var subject = target.getTarget();
+        try {
+            var ack = jetStream.publish(subject, headers(event), json.writeValueAsBytes(event));
+            log.debug(
+                    "Published {} {} to {} (seq {}{})",
+                    event.getClass().getSimpleName(),
+                    event.eventId(),
+                    subject,
+                    ack.getSeqno(),
+                    ack.isDuplicate() ? ", duplicate ignored by stream" : "");
+            return CompletableFuture.completedFuture(ack);
+        } catch (Exception e) {
+            log.warn(
+                    "Publishing {} {} to {} failed; publication stays incomplete for retry: {}",
+                    event.getClass().getSimpleName(),
+                    event.eventId(),
+                    subject,
+                    e.toString());
+            return CompletableFuture.failedFuture(e);
+        }
+    }
+
+    private static Headers headers(DomainEvent event) {
+        return new Headers()
+                .put(NatsJetStreamConstants.MSG_ID_HDR, event.eventId().toString())
+                .put(EVENT_TYPE, NatsSubjects.eventType(event.getClass()))
+                .put(EVENT_VERSION, String.valueOf(event.eventVersion()))
+                .put(AGGREGATE_ID, event.aggregateId().toString())
+                .put(AGGREGATE_VERSION, String.valueOf(event.aggregateVersion()))
+                .put(OCCURRED_AT, event.occurredAt().toString());
+    }
+}

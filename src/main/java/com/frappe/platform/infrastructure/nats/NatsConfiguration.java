@@ -1,6 +1,8 @@
 package com.frappe.platform.infrastructure.nats;
 
+import com.frappe.platform.DomainEvent;
 import io.nats.client.Connection;
+import io.nats.client.JetStreamOptions;
 import io.nats.client.Nats;
 import io.nats.client.Options;
 import java.io.IOException;
@@ -12,6 +14,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.modulith.events.EventExternalizationConfiguration;
+import org.springframework.modulith.events.RoutingTarget;
+import org.springframework.modulith.events.support.EventExternalizerModuleListener;
+import tools.jackson.databind.json.JsonMapper;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(NatsProperties.class)
@@ -51,6 +57,40 @@ class NatsConfiguration {
         var provisioner = new NatsStreamProvisioner(natsConnection.jetStreamManagement());
         provisioner.provision();
         return provisioner;
+    }
+
+    /**
+     * Externalizes every event annotated with {@code @Externalized}; it must implement {@link DomainEvent}, which
+     * defines its subject {@code frappe.<module>.<event-kebab>.v<eventVersion>}.
+     */
+    @Bean
+    EventExternalizationConfiguration eventExternalizationConfiguration() {
+        return EventExternalizationConfiguration.externalizing()
+                .select(EventExternalizationConfiguration.annotatedAsExternalized())
+                .routeAll(event -> RoutingTarget.forTarget(NatsSubjects.of(requireDomainEvent(event)))
+                        .withoutKey())
+                .build();
+    }
+
+    @Bean
+    EventExternalizerModuleListener natsEventExternalizer(
+            EventExternalizationConfiguration configuration,
+            Connection natsConnection,
+            NatsProperties properties,
+            JsonMapper jsonMapper)
+            throws IOException {
+        var jetStream = natsConnection.jetStream(JetStreamOptions.builder()
+                .requestTimeout(properties.publishTimeout())
+                .build());
+        return new EventExternalizerModuleListener(configuration, new NatsEventTransport(jetStream, jsonMapper));
+    }
+
+    private static DomainEvent requireDomainEvent(Object event) {
+        if (event instanceof DomainEvent domainEvent) {
+            return domainEvent;
+        }
+        throw new IllegalStateException(
+                event.getClass().getName() + " is @Externalized but does not implement " + DomainEvent.class.getName());
     }
 
     /** Drains in-flight messages, then closes, when the context shuts down. */
