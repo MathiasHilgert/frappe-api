@@ -45,12 +45,12 @@ class NatsStreamProvisioner {
                         .log("NATS stream created");
             }
         } catch (JetStreamApiException e) {
-            throw new IllegalStateException(
+            throw new NatsProvisioningException(
                     "Cannot provision NATS stream " + STREAM + ": server error " + e.getErrorCode() + " "
                             + e.getErrorDescription(),
                     e);
         } catch (IOException e) {
-            throw new IllegalStateException("Cannot provision NATS stream " + STREAM + ": " + e.getMessage(), e);
+            throw new NatsProvisioningException("Cannot provision NATS stream " + STREAM + ": " + e.getMessage(), e);
         }
     }
 

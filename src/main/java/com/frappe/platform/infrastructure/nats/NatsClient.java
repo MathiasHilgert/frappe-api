@@ -44,7 +44,7 @@ class NatsClient implements SmartLifecycle, AutoCloseable {
     Connection connection() {
         var current = connection.get();
         if (current == null) {
-            throw new IllegalStateException("NATS at " + properties.url()
+            throw new NatsUnavailableException("NATS at " + properties.url()
                     + " is not connected yet; the publication stays incomplete and is resubmitted once it connects");
         }
         return current;

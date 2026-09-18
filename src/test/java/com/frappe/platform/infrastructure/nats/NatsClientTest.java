@@ -1,7 +1,7 @@
 package com.frappe.platform.infrastructure.nats;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -42,7 +42,7 @@ class NatsClientTest {
                         Duration.ofSeconds(1)),
                 connection -> {});
 
-        assertThatIllegalStateException()
+        assertThatExceptionOfType(NatsUnavailableException.class)
                 .isThrownBy(client::connection)
                 .withMessageContaining("nats://localhost:1")
                 .withMessageContaining("not connected");

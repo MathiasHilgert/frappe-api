@@ -1,15 +1,18 @@
 package com.frappe.platform.infrastructure.nats;
 
 import com.frappe.platform.DomainEvent;
+import io.nats.client.JetStreamApiException;
 import io.nats.client.JetStreamOptions;
 import io.nats.client.impl.Headers;
 import io.nats.client.support.NatsJetStreamConstants;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.modulith.events.RoutingTarget;
 import org.springframework.modulith.events.support.EventExternalizationTransport;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -54,15 +57,18 @@ class NatsEventTransport implements EventExternalizationTransport {
                             ack.getSeqno(),
                             ack.isDuplicate());
             return CompletableFuture.completedFuture(ack);
-        } catch (Exception e) {
+        } catch (IOException | JetStreamApiException | NatsUnavailableException | JacksonException e) {
+            // The failed future is the result, not a rethrow: this is the one place with the event context to log.
+            var failure = new EventPublicationException(
+                    "Publishing " + event.getClass().getSimpleName() + " " + event.eventId() + " to " + subject
+                            + " failed; the publication stays incomplete for retry",
+                    e);
             log.atWarn()
                     .addKeyValue(LogFields.EVENT_ID, event.eventId())
                     .addKeyValue(LogFields.SUBJECT, subject)
-                    .log(
-                            "Publishing {} failed; publication stays incomplete for retry: {}",
-                            event.getClass().getSimpleName(),
-                            e.toString());
-            return CompletableFuture.failedFuture(e);
+                    .setCause(e)
+                    .log(failure.getMessage());
+            return CompletableFuture.failedFuture(failure);
         }
     }
 

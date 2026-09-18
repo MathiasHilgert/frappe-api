@@ -1,7 +1,7 @@
 package com.frappe.platform.infrastructure.nats;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.modulith.events.EventExternalizationConfiguration;
@@ -33,7 +33,7 @@ class NatsExternalizationRoutingTest {
 
     @Test
     void explainsWhenAnExternalizedEventLacksTheEnvelope() {
-        assertThatIllegalStateException()
+        assertThatExceptionOfType(InvalidExternalizedEventException.class)
                 .isThrownBy(() -> configuration.determineTarget(new NotAnEnvelope("x")))
                 .withMessageContaining(NotAnEnvelope.class.getName())
                 .withMessageContaining("DomainEvent");
@@ -43,7 +43,7 @@ class NatsExternalizationRoutingTest {
     void rejectsACustomTargetBecauseTheSubjectIsDerived() {
         var event = new CustomSubject(null, null, null, 1, 1);
 
-        assertThatIllegalStateException()
+        assertThatExceptionOfType(InvalidExternalizedEventException.class)
                 .isThrownBy(() -> configuration.determineTarget(event))
                 .withMessageContaining(CustomSubject.class.getName())
                 .withMessageContaining("custom.subject")

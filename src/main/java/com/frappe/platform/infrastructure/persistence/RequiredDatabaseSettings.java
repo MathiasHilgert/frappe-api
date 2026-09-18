@@ -25,7 +25,7 @@ class RequiredDatabaseSettings implements EnvironmentPostProcessor, Ordered {
                 .sorted()
                 .toList();
         if (!missing.isEmpty()) {
-            throw new IllegalStateException("Missing database setting(s) " + String.join(", ", missing)
+            throw new MissingDatabaseSettingsException("Missing database setting(s) " + String.join(", ", missing)
                     + ". Set them as environment variables, or run with the 'local' profile"
                     + " (./gradlew bootRun activates it) for the compose.yaml defaults.");
         }

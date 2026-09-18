@@ -1,6 +1,6 @@
 package com.frappe.platform.infrastructure.nats;
 
-import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -21,10 +21,11 @@ class NatsStreamProvisionerTest {
         when(connection.jetStreamManagement()).thenReturn(management);
         when(management.getStreamInfo("FRAPPE")).thenThrow(error);
 
-        assertThatIllegalStateException()
+        assertThatExceptionOfType(NatsProvisioningException.class)
                 .isThrownBy(() -> new NatsStreamProvisioner().provision(connection))
                 .withMessageContaining("FRAPPE")
                 .withMessageContaining("insufficient resources")
-                .withMessageNotContaining("-js");
+                .withMessageNotContaining("-js")
+                .withCause(error);
     }
 }

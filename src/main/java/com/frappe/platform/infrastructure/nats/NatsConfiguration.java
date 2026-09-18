@@ -9,6 +9,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.dao.DataAccessException;
 import org.springframework.modulith.events.EventExternalizationConfiguration;
 import org.springframework.modulith.events.EventPublication;
 import org.springframework.modulith.events.Externalized;
@@ -72,20 +73,21 @@ class NatsConfiguration {
             incomplete.ifAvailable(publications -> publications.resubmitIncompletePublications(
                     publication -> publication.getStatus() == EventPublication.Status.FAILED
                             && externalization.supports(publication.getEvent())));
-        } catch (RuntimeException e) {
-            log.error("NATS connected but setup failed; publications stay incomplete: {}", e.getMessage(), e);
+        } catch (NatsProvisioningException | DataAccessException e) {
+            // Setup runs on a background executor: this is the last place the failure can be reported.
+            log.error("NATS connected but setup failed; publications stay incomplete until the next connect", e);
         }
     }
 
     private static String subjectOf(Object event) {
         if (!(event instanceof DomainEvent domainEvent)) {
-            throw new IllegalStateException(event.getClass().getName() + " is @Externalized but does not implement "
-                    + DomainEvent.class.getName());
+            throw new InvalidExternalizedEventException(event.getClass().getName()
+                    + " is @Externalized but does not implement " + DomainEvent.class.getName());
         }
         var subject = NatsSubjects.of(domainEvent);
         var annotation = AnnotatedElementUtils.findMergedAnnotation(event.getClass(), Externalized.class);
         if (annotation != null && !annotation.value().isEmpty()) {
-            throw new IllegalStateException(event.getClass().getName() + " declares @Externalized(\""
+            throw new InvalidExternalizedEventException(event.getClass().getName() + " declares @Externalized(\""
                     + annotation.value() + "\"), but the subject is derived (" + subject
                     + "); remove the annotation value");
         }
