@@ -4,7 +4,8 @@ Scope: persistence adapters, Flyway migrations, RLS, HTTP end to end, NATS relay
 
 ## Containers
 
-- Declare containers as `@Bean` in `TestcontainersConfiguration`; tests `@Import` it. Match production images (`postgres:18-alpine`, `nats:2.12-alpine`).
+- Declare containers as `@Bean` in `TestcontainersConfiguration` (Postgres, reused) and `TestNatsConfiguration` (NATS, fresh per context, not reused, so tests may pause it or change the stream); tests `@Import` what they need. Match production images (`postgres:18-alpine`, `nats:2.12-alpine`).
+- Log format tests: capture events with a Logback `ListAppender` and render them with Boot's `StructuredLogEncoder`; never re-initialize the JVM-wide logging system (cached contexts share it).
 - Postgres is the exception to `@ServiceConnection`: it would connect as the container superuser. The container runs the roles init script and only `spring.datasource.url` is registered, so the app connects as `frappe_app` and Flyway as `frappe_owner`, exactly as in production.
 - Never H2 or embedded substitutes: RLS, schemas and SQL dialect must be real.
 - Enable reuse so runs and worktrees skip container startup:

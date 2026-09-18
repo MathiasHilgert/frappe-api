@@ -27,6 +27,9 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
 	implementation("org.flywaydb:flyway-database-postgresql")
+	implementation("com.github.f4b6a3:uuid-creator:6.1.1")
+	implementation("io.nats:jnats:2.26.2")
+	implementation("org.springframework.modulith:spring-modulith-events-core")
 	implementation("org.springframework.modulith:spring-modulith-observability-api")
 	implementation("org.springframework.modulith:spring-modulith-starter-core")
 	implementation("org.springframework.modulith:spring-modulith-starter-jpa")
@@ -71,8 +74,19 @@ spotless {
 	}
 }
 
+// Javadoc is part of the gate: every type and member (package level and up) documented, warnings are errors.
+tasks.javadoc {
+	(options as StandardJavadocDocletOptions).apply {
+		memberLevel = JavadocMemberLevel.PACKAGE
+		encoding = "UTF-8"
+		addBooleanOption("Xdoclint:all", true)
+		addBooleanOption("Werror", true)
+		addBooleanOption("quiet", true)
+	}
+}
+
 tasks.named("check") {
-	dependsOn("spotlessCheck")
+	dependsOn("spotlessCheck", "javadoc")
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {

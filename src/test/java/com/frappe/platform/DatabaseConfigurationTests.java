@@ -17,6 +17,7 @@ class DatabaseConfigurationTests {
 
         assertThatThrownBy(() -> app.run())
                 .hasStackTraceContaining("Missing database setting")
-                .hasStackTraceContaining("FRAPPE_DB_URL");
+                .hasStackTraceContaining("FRAPPE_DB_URL")
+                .hasStackTraceContaining("MissingDatabaseSettingsException");
     }
 }

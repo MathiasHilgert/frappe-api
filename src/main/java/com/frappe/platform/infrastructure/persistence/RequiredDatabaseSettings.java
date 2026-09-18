@@ -17,6 +17,9 @@ class RequiredDatabaseSettings implements EnvironmentPostProcessor, Ordered {
             "spring.datasource.password", "FRAPPE_APP_PASSWORD",
             "spring.flyway.password", "FRAPPE_OWNER_PASSWORD");
 
+    /** Creates the post-processor; instantiated by Spring Boot from {@code spring.factories}. */
+    RequiredDatabaseSettings() {}
+
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
         var missing = REQUIRED.entrySet().stream()
@@ -25,7 +28,7 @@ class RequiredDatabaseSettings implements EnvironmentPostProcessor, Ordered {
                 .sorted()
                 .toList();
         if (!missing.isEmpty()) {
-            throw new IllegalStateException("Missing database setting(s) " + String.join(", ", missing)
+            throw new MissingDatabaseSettingsException("Missing database setting(s) " + String.join(", ", missing)
                     + ". Set them as environment variables, or run with the 'local' profile"
                     + " (./gradlew bootRun activates it) for the compose.yaml defaults.");
         }

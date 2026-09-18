@@ -31,7 +31,7 @@ public final class Tab {
 ## Value objects
 
 - `record` with validation in the compact constructor; invalid input from users goes through a `static Result<…> of(...)` factory instead of throwing.
-- Typed IDs: `record TabId(UUID value)` with `static TabId next()` using UUIDv7.
+- Typed IDs: `record TabId(UUID value)`; the value comes from the injected `IdGenerator` (see `ids.md`), never a static generator.
 
 ## Money
 
