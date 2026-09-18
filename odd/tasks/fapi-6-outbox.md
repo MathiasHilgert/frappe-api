@@ -23,7 +23,7 @@ Strict TDD. Runner: `./gradlew test` (Testcontainers Postgres 18 + per-context N
 ## Tasks
 - [x] T0 Read Modulith 2.1.1 JDBC registry sources: official Postgres DDL, schema property, archive mode, resubmission API; record here
 - [x] T1 Switch to JDBC registry + Flyway migration of both tables in `platform`; remove the stopgap; FAPI-5 tests green on the real tables
-- [ ] T2 `DomainEventPublisher` port + adapter; commit → one row per event; rollback → no row
+- [x] T2 `DomainEventPublisher` port + adapter; commit → one row per event; rollback → no row
 - [ ] T3 ARCHIVE: acked event moves to `platform.event_publication_archive`
 - [ ] T4 Scheduled resubmission of failed/stale publications: NATS down → recovers → published once and archived
 - [ ] T5 Docs (`writing-code` events reference: how a handler publishes), `./gradlew check` green, PR per template
@@ -50,6 +50,7 @@ Strict TDD. Runner: `./gradlew test` (Testcontainers Postgres 18 + per-context N
 ## Progress / evidence
 - T0 done: findings above.
 - T1 RED: `FlywayMigrationIntegrationTests` `startupRecordsPlatformMigrationInSingleHistory`, `startupCreatesTheOutboxTablesOwnedByOwnerRole`, `outboxTablesCarryTheOfficialRegistryIndexes` failed (5 run, 3 failed: no archive table, no outbox migration). GREEN: all 45 tests pass, including FAPI-5 NATS tests on the real tables without `hibernate.default_schema`. The first green attempt hit `FlywayValidateException` on the reused `frappe_fapi_6` container (stopgap already applied); reset documented in `testing-code/references/integration-tests.md`.
+- T2 RED: `DomainEventPublisherIntegrationTests` did not compile (no `DomainEventPublisher`). GREEN: `committedTransactionStoresOnePublicationRowPerEvent`, `rolledBackTransactionStoresNoPublicationRow`, `publishingOutsideATransactionFailsFast` pass. Second RED: `publishAll` outside a transaction did not fail (interface default method self-invoked `publish`, bypassing the proxy); fixed with class-level `@Transactional(MANDATORY)` and an explicit `publishAll`. Full suite green.
 
 ## Next step
 T0.
