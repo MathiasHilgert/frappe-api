@@ -5,10 +5,18 @@ services:
       - 'POSTGRES_DB=frappe'
       - 'POSTGRES_USER=frappe'
       - 'POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-frappe}'
+      - 'FRAPPE_OWNER_PASSWORD=${FRAPPE_OWNER_PASSWORD:-frappe_owner}'
+      - 'FRAPPE_APP_PASSWORD=${FRAPPE_APP_PASSWORD:-frappe_app}'
+    labels:
+      # The app connects as frappe_app and Flyway as frappe_owner (application.properties),
+      # not as the bootstrap superuser Spring Boot would derive from this service.
+      org.springframework.boot.ignore: 'true'
+    volumes:
+      - './docker/postgres/initdb:/docker-entrypoint-initdb.d:ro'
     ports:
       - '5432:5432'
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U frappe -d frappe']
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U frappe -d frappe']
       interval: 5s
       timeout: 5s
       retries: 5

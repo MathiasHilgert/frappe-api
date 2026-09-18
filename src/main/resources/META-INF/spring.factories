@@ -1,0 +1,2 @@
+org.springframework.boot.EnvironmentPostProcessor=\
+com.frappe.platform.infrastructure.persistence.RequiredDatabaseSettings

@@ -4,7 +4,8 @@ Scope: persistence adapters, Flyway migrations, RLS, HTTP end to end, NATS relay
 
 ## Containers
 
-- Declare containers as `@Bean @ServiceConnection` in `TestcontainersConfiguration`; tests `@Import` it. Match production images (`postgres:18-alpine`, `nats:2.12-alpine`).
+- Declare containers as `@Bean` in `TestcontainersConfiguration`; tests `@Import` it. Match production images (`postgres:18-alpine`, `nats:2.12-alpine`).
+- Postgres is the exception to `@ServiceConnection`: it would connect as the container superuser. The container runs the roles init script and only `spring.datasource.url` is registered, so the app connects as `frappe_app` and Flyway as `frappe_owner`, exactly as in production.
 - Never H2 or embedded substitutes: RLS, schemas and SQL dialect must be real.
 - Enable reuse so runs and worktrees skip container startup:
   - `~/.testcontainers.properties`: `testcontainers.reuse.enable=true`
@@ -15,7 +16,7 @@ Scope: persistence adapters, Flyway migrations, RLS, HTTP end to end, NATS relay
 Name the database from the environment so parallel worktrees never share data:
 
 ```java
-@Bean @ServiceConnection
+@Bean
 PostgreSQLContainer postgres() {
     var db = Optional.ofNullable(System.getenv("FRAPPE_TEST_DB")).orElse("frappe");
     return new PostgreSQLContainer(DockerImageName.parse("postgres:18-alpine"))

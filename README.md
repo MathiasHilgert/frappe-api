@@ -91,6 +91,22 @@ docker compose up -d
 
 Spring Boot's Docker Compose support also starts these services when the application runs locally.
 
+On first start Postgres creates two roles: `frappe_owner` runs the Flyway migrations and owns the schemas, `frappe_app` is what the application uses at runtime (data access only, no DDL). Local passwords default to the role names; override them with `FRAPPE_OWNER_PASSWORD` and `FRAPPE_APP_PASSWORD` in compose and the application.
+
+Postgres runs the roles script automatically only on a new data volume. If startup fails with `password authentication failed for user "frappe_app"`, your volume predates the roles; the script is idempotent, so run it on the existing volume (keeps your data):
+
+```bash
+docker compose exec postgres /docker-entrypoint-initdb.d/01-frappe-roles.sh
+```
+
+### Run the application
+
+```bash
+./gradlew bootRun
+```
+
+Migrations run on startup. `bootRun` activates the `local` profile (`application-local.properties`), which points at the compose database with the default passwords; set `SPRING_PROFILES_ACTIVE` to override. Outside `local` there are no defaults: startup fails unless `FRAPPE_DB_URL`, `FRAPPE_APP_PASSWORD` and `FRAPPE_OWNER_PASSWORD` are set.
+
 ### Build and test
 
 Run the full quality gate (formatting check, module boundary verification, tests):
