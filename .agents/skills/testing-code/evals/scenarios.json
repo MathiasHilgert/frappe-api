@@ -1,0 +1,28 @@
+[
+  {
+    "query": "Implement 'a closed tab cannot be closed again' test-first.",
+    "expected_behavior": [
+      "Writes a plain JUnit + AssertJ domain test without Spring before production code",
+      "Runs it and reports the RED failure before implementing",
+      "Uses a fixed Clock and asserts the Result failure and that no event was registered",
+      "Reports GREEN and ./gradlew check results"
+    ]
+  },
+  {
+    "query": "Add a test that tenants cannot see each other's branches.",
+    "expected_behavior": [
+      "Uses Testcontainers Postgres, never H2",
+      "Runs as the application role, not the table owner",
+      "Sets app.tenant_id per transaction and asserts only that tenant's rows are visible and cross-tenant updates affect zero rows"
+    ]
+  },
+  {
+    "query": "My module test for OrderPlaced -> kitchen tasks is flaky and slow when two worktrees run tests at the same time.",
+    "expected_behavior": [
+      "Uses Scenario API to wait for the state change instead of sleeps",
+      "Enables Testcontainers reuse and a per-ticket database via FRAPPE_TEST_DB",
+      "Makes tests create their own tenant and IDs rather than assuming empty tables",
+      "Checks consumer idempotency by publishing the event twice"
+    ]
+  }
+]
