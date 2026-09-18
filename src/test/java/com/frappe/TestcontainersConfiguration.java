@@ -17,6 +17,8 @@ public class TestcontainersConfiguration {
 
     @Bean
     public PostgreSQLContainer postgresContainer() {
+        // One database name per worktree (FRAPPE_TEST_DB=frappe_fapi_<n>): reused containers are keyed by
+        // their configuration, so worktrees sharing a name would share one container and its data.
         var db = Optional.ofNullable(System.getenv("FRAPPE_TEST_DB")).orElse("frappe");
         return new PostgreSQLContainer(DockerImageName.parse("postgres:18-alpine"))
                 .withDatabaseName(db)

@@ -19,6 +19,8 @@ Package: `com.frappe.<module>.infrastructure.persistence`. For generic Postgres 
 - Migrations under `src/main/resources/db/migration/<module>/`, `V<yyyyMMddHHmm>__<description>.sql`. One Flyway instance and one history table (`platform.flyway_schema_history`) for the whole database.
 - Review rule: reject a migration outside `db/migration/<module>/`, or with any unqualified object name. Every DDL names its schema (`create table ordering.tab`, never `create table tab`), and only touches the module's own schema.
 - A module's first migration creates its schema (`create schema if not exists <module>;`); add the schema to `spring.flyway.schemas` when the module lands.
+- Test-only fixture migrations (`src/test/resources/db/migration/<fixture>/`) are exempt from `spring.flyway.schemas`; they exist only in the test database.
+- Nothing in the database enforces the folder or qualified-name rule: `frappe_owner` may create any schema. The rule is enforced in review.
 - Forward-only; never edit a merged migration. Add a new one.
 - `uuid` primary keys (UUIDv7 from the domain), `timestamptz` for instants, `bigint` minor units + `char(3)` currency for money.
 
