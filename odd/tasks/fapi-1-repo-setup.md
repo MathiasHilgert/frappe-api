@@ -100,3 +100,13 @@ ab1be2f ci: run gitleaks and gradle check on pull requests
 
 ## Next step
 FAPI-1 is complete on branch `chore/fapi-1-repo-setup`. Awaiting explicit user decision on remote creation/push (see ticket's out-of-scope note) and on the two flagged out-of-band requests above.
+
+## Follow-up (parent)
+- JDK 21 workaround reverted: root cause was outdated Spotless 7.2.1 / Palantir 2.66. Spotless 8.10.2 + Palantir 2.98.0 run on a Java 25 Gradle daemon; `./gradlew check` → BUILD SUCCESSFUL on Temurin 25. CI uses setup-java 25. Commit `build: upgrade spotless and palantir to run gradle on java 25`.
+- README rewritten from Plane docs (product, personas, roadmap, architecture). Commit `docs: describe product, roadmap and architecture in readme`.
+- gitleaks full-history scan: no leaks; no Plane key in history.
+- GitHub repo created (public): https://github.com/MathiasHilgert/frappe-api. `main` = 49cdf9e, branch `chore/fapi-1-repo-setup` pushed. Secret scanning + push protection enabled. PR not opened (user decision).
+- Known follow-up: `event_publication` table missing at shutdown (Modulith JPA registry) → create it via Flyway when the outbox ticket lands.
+
+## Next step
+Open PR for FAPI-1 when the user decides; CI runs for the first time there.
