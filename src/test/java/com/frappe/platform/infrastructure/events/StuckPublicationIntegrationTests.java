@@ -11,7 +11,10 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -49,6 +52,18 @@ class StuckPublicationIntegrationTests {
 
     @Autowired
     OutboxRecoveryRepository repository;
+
+    final List<UUID> inserted = new ArrayList<>();
+
+    // Rows dated in 2100 are never recovered by the real clock, so they would stay and skew later runs.
+    @AfterEach
+    void deleteInsertedRows() {
+        for (var table : List.of("platform.event_publication", "platform.event_publication_dead_letter")) {
+            jdbc.sql("delete from " + table + " where id = any(?)")
+                    .param(inserted.toArray(UUID[]::new))
+                    .update();
+        }
+    }
 
     @Test
     void inFlightResubmissionOfAnOldEventIsNotReleased() {
@@ -90,6 +105,7 @@ class StuckPublicationIntegrationTests {
 
     private UUID insert(String status, Instant publishedAt, Instant lastResubmittedAt) {
         var id = ids.newId();
+        inserted.add(id);
         var event = new Probe(ids.newId(), publishedAt, ids.newId(), 1, 1);
         jdbc.sql("""
                         insert into platform.event_publication (id, listener_id, event_type, serialized_event,

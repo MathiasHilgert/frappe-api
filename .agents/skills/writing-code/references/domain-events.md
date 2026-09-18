@@ -47,10 +47,29 @@ public Result<TabId, TabError> handle(CloseTab cmd) {
 - After commit, the relay publishes to JetStream synchronously and the publication completes only after the ack. Completion mode `ARCHIVE` then moves the row to `platform.event_publication_archive` (purging the archive is a follow-up). If NATS is down the publish fails after `publish-timeout` and the row stays in `event_publication` as `FAILED`; nothing blocks indefinitely.
 - Recovery has two paths. Both can deliver an event twice (an attempt judged stuck that was only slow, two instances): JetStream drops duplicates by `Nats-Msg-Id` only within its 10-minute window; after that the consumer inbox on `eventId` is the guarantee.
   1. Every NATS (re)connect resubmits failed externalized publications.
-  2. `frappe.outbox.recovery.*` (defaults in `OutboxRecoveryProperties`: `interval` 1m, `batch-size` 100, `stuck-after` 5m) runs on a fixed delay. It first fails attempts stuck without outcome, judged by `last_resubmission_date` or, for a first attempt, `publication_date`; then it resubmits failed publications, at most `batch-size` in flight. It covers publishes that failed while the connection survived and publications left behind by a dead instance. Keep `stuck-after` above `frappe.nats.publish-timeout` plus the slowest listener.
+  2. `frappe.outbox.recovery.*` (defaults in `OutboxRecoveryProperties`: `interval` 1m, `batch-size` 100, `stuck-after` 5m, `max-attempts` 24, `max-backoff` 1h) runs on a fixed delay:
+     1. Fails attempts stuck without outcome, judged by `last_resubmission_date` or, for a first attempt, `publication_date`. Keep `stuck-after` above `frappe.nats.publish-timeout` plus the slowest listener.
+     2. Moves failed publications with `completion_attempts >= max-attempts` to `platform.event_publication_dead_letter` and logs each once at ERROR (`frappe.outbox.publication_id`, `event_type`, `listener_id`, `completion_attempts`, `dead_letter_reason`).
+     3. Resubmits failed publications whose backoff elapsed (`interval` doubling per attempt, capped at `max-backoff`; about 18 hours of retries with the defaults), least recently attempted first, at most `batch-size` in flight. A publication that keeps failing waits longer and goes to the back, so it never starves newer failures.
+     4. Refreshes the gauge `frappe.outbox.dead.letters`; alert on any value above zero.
 - Spring Modulith's staleness monitor (`spring.modulith.events.staleness.*`) stays off: it judges every status by `publication_date`, so it would fail an old event in the middle of its resubmission and cause concurrent duplicate runs.
 - `republish-outstanding-events-on-restart` stays off (Modulith issue #526; it would resubmit in-flight publications of every instance).
 - No ordering across instances: consumers order per aggregate with `aggregateVersion`.
+
+
+### Dead letters: manual replay
+
+Fix the cause first (deploy the missing consumer, restore the event class, bring NATS back). Then move the row back as `frappe_app`; the next recovery run resubmits it with a fresh attempt budget:
+
+```sql
+with replay as (
+    delete from platform.event_publication_dead_letter where id = :publication_id returning *)
+insert into platform.event_publication (id, listener_id, event_type, serialized_event, publication_date, status,
+    completion_attempts)
+select id, listener_id, event_type, serialized_event, publication_date, 'FAILED', 0 from replay;
+```
+
+Drop `where id = ...` to replay all, or filter by `reason` / `event_type`. To discard a dead letter, delete it and record why in the incident.
 
 ## Consuming
 

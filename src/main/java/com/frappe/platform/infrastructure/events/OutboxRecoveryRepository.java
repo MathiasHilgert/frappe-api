@@ -1,13 +1,18 @@
 package com.frappe.platform.infrastructure.events;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 /**
- * Recovery queries on the outbox tables that Spring Modulith's registry does not offer. Owns SQL on {@code
- * platform.event_publication} only for recovery; the registry stays the writer of the normal lifecycle.
+ * Recovery queries on the outbox tables that Spring Modulith's registry does not offer: stuck detection, fair retry
+ * selection and dead letters. The registry stays the writer of the normal publication lifecycle.
  */
 @Repository
 class OutboxRecoveryRepository {
@@ -21,6 +26,44 @@ class OutboxRecoveryRepository {
                set status = 'FAILED'
              where status in ('PUBLISHED', 'PROCESSING', 'RESUBMITTED')
                and coalesce(last_resubmission_date, publication_date) < ?
+            """;
+
+    // Failed rows whose backoff elapsed (base * 2^(attempts - 1), capped; the exponent is bounded so the interval
+    // cannot overflow), least recently attempted first: a row that keeps failing goes to the back of the queue and
+    // waits longer each time, so it cannot starve newer failures.
+    private static final String FIND_RETRYABLE = """
+            select id
+              from platform.event_publication
+             where status = 'FAILED'
+               and coalesce(last_resubmission_date, publication_date)
+                   <= ?::timestamptz - make_interval(secs => least(
+                          ?::float8 * power(2, least(greatest(coalesce(completion_attempts, 0) - 1, 0), 30)),
+                          ?::float8))
+             order by coalesce(last_resubmission_date, publication_date), id
+             limit ?
+            """;
+
+    private static final String COUNT_IN_FLIGHT = """
+            select count(*) from platform.event_publication where status = 'RESUBMITTED'
+            """;
+
+    // Move in one statement: a row is either still retried or a dead letter, never both or neither.
+    private static final String DEAD_LETTER_EXHAUSTED = """
+            with exhausted as (
+                delete from platform.event_publication
+                 where status = 'FAILED' and coalesce(completion_attempts, 0) >= ?
+                returning *)
+            insert into platform.event_publication_dead_letter (id, listener_id, event_type, serialized_event,
+                publication_date, completion_date, status, completion_attempts, last_resubmission_date,
+                dead_lettered_at, reason)
+            select id, listener_id, event_type, serialized_event, publication_date, completion_date, status,
+                   completion_attempts, last_resubmission_date, ?, ?
+              from exhausted
+            returning id, event_type, listener_id, completion_attempts, reason
+            """;
+
+    private static final String COUNT_DEAD_LETTERS = """
+            select count(*) from platform.event_publication_dead_letter
             """;
 
     private final JdbcClient jdbc;
@@ -45,5 +88,66 @@ class OutboxRecoveryRepository {
         return jdbc.sql(RELEASE_STUCK)
                 .param(Timestamp.from(attemptStartedBefore))
                 .update();
+    }
+
+    /**
+     * Selects failed publications due for another attempt, least recently attempted first.
+     *
+     * @param now the current instant
+     * @param limit most ids to return
+     * @param baseBackoff wait after the first attempt; doubles with every further attempt
+     * @param maxBackoff cap of the wait
+     * @return publication ids, in retry order
+     */
+    List<UUID> findRetryable(Instant now, int limit, Duration baseBackoff, Duration maxBackoff) {
+        return jdbc.sql(FIND_RETRYABLE)
+                .params(Timestamp.from(now), seconds(baseBackoff), seconds(maxBackoff), limit)
+                .query(UUID.class)
+                .list();
+    }
+
+    /**
+     * Counts publications currently being resubmitted.
+     *
+     * @return publications in status {@code RESUBMITTED}
+     */
+    long countInFlight() {
+        return jdbc.sql(COUNT_IN_FLIGHT).query(Long.class).single();
+    }
+
+    /**
+     * Moves failed publications that used up their attempts to the dead-letter table.
+     *
+     * @param maxAttempts attempts after which a publication is given up
+     * @param now when they are dead-lettered
+     * @return the moved publications
+     */
+    List<DeadLetter> deadLetterExhausted(int maxAttempts, Instant now) {
+        return jdbc.sql(DEAD_LETTER_EXHAUSTED)
+                .params(maxAttempts, Timestamp.from(now), DeadLetterReason.MAX_ATTEMPTS_EXHAUSTED.name())
+                .query(OutboxRecoveryRepository::deadLetter)
+                .list();
+    }
+
+    /**
+     * Counts all dead letters.
+     *
+     * @return rows in {@code platform.event_publication_dead_letter}
+     */
+    long countDeadLetters() {
+        return jdbc.sql(COUNT_DEAD_LETTERS).query(Long.class).single();
+    }
+
+    private static DeadLetter deadLetter(ResultSet row, int rowNumber) throws SQLException {
+        return new DeadLetter(
+                row.getObject("id", UUID.class),
+                row.getString("event_type"),
+                row.getString("listener_id"),
+                row.getInt("completion_attempts"),
+                DeadLetterReason.valueOf(row.getString("reason")));
+    }
+
+    private static double seconds(Duration duration) {
+        return duration.toMillis() / 1000.0;
     }
 }

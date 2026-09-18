@@ -43,10 +43,11 @@ class FlywayMigrationIntegrationTests {
     void startupCreatesTheOutboxTablesOwnedByOwnerRole() {
         var owners = jdbc.queryForList(
                 "select tableowner from pg_tables where schemaname = 'platform'"
-                        + " and tablename in ('event_publication', 'event_publication_archive')",
+                        + " and tablename in ('event_publication', 'event_publication_archive',"
+                        + " 'event_publication_dead_letter')",
                 String.class);
 
-        assertThat(owners).containsExactly("frappe_owner", "frappe_owner");
+        assertThat(owners).containsExactly("frappe_owner", "frappe_owner", "frappe_owner");
     }
 
     @Test

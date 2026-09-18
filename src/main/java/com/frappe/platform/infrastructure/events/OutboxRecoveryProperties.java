@@ -12,12 +12,17 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  *     recovering NATS receives after an outage
  * @param stuckAfter how long an attempt may run without outcome before it counts as stuck and is failed for retry;
  *     must exceed {@code frappe.nats.publish-timeout} plus the slowest listener, or a live attempt is retried twice
+ * @param maxAttempts attempts after which a publication is moved to the dead-letter table
+ * @param maxBackoff cap of the wait between attempts; the wait starts at {@code interval} and doubles per attempt,
+ *     so with the defaults a publication is retried for about 18 hours before it becomes a dead letter
  */
 @ConfigurationProperties("frappe.outbox.recovery")
 record OutboxRecoveryProperties(
         @DefaultValue("1m") Duration interval,
         @DefaultValue("100") int batchSize,
-        @DefaultValue("5m") Duration stuckAfter) {
+        @DefaultValue("5m") Duration stuckAfter,
+        @DefaultValue("24") int maxAttempts,
+        @DefaultValue("1h") Duration maxBackoff) {
 
     /**
      * Validates the settings so a misconfiguration fails at startup, not in the first scheduled run.

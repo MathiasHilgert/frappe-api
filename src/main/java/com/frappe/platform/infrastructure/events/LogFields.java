@@ -12,5 +12,20 @@ final class LogFields {
     /** Most publications resubmitted per recovery run. */
     static final String BATCH_SIZE = "frappe.outbox.batch_size";
 
+    /** Id of the publication (registry row), not of the event. */
+    static final String PUBLICATION_ID = "frappe.outbox.publication_id";
+
+    /** Fully qualified class name of the event. */
+    static final String EVENT_TYPE = "frappe.outbox.event_type";
+
+    /** Listener the publication targets. */
+    static final String LISTENER_ID = "frappe.outbox.listener_id";
+
+    /** Attempts made so far. */
+    static final String COMPLETION_ATTEMPTS = "frappe.outbox.completion_attempts";
+
+    /** Why a publication became a dead letter. */
+    static final String DEAD_LETTER_REASON = "frappe.outbox.dead_letter_reason";
+
     private LogFields() {}
 }
