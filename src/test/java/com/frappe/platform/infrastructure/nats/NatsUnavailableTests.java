@@ -22,13 +22,16 @@ import org.springframework.modulith.events.EventPublication;
 import org.springframework.modulith.events.Externalized;
 import org.springframework.modulith.events.IncompleteEventPublications;
 import org.springframework.modulith.events.core.EventPublicationRegistry;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
 
-// The JPA publication registry has no migration yet (FAPI-6); let Hibernate create it for this test only.
-@SpringBootTest(properties = {"spring.jpa.hibernate.ddl-auto=update", "frappe.nats.publish-timeout=1s"})
+// Stopgap until FAPI-6: the registry table comes from a test-only fixture migration in the platform schema.
+@SpringBootTest(
+        properties = {"spring.jpa.properties.hibernate.default_schema=platform", "frappe.nats.publish-timeout=1s"})
 @Import({TestcontainersConfiguration.class, TestNatsConfiguration.class})
+@ActiveProfiles("local")
 class NatsUnavailableTests {
 
     @Externalized

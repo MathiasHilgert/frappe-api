@@ -28,20 +28,22 @@ import org.springframework.modulith.events.CompletedEventPublications;
 import org.springframework.modulith.events.EventPublication;
 import org.springframework.modulith.events.Externalized;
 import org.springframework.modulith.events.core.EventPublicationRegistry;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.GenericContainer;
 
-// The JPA publication registry has no migration yet (FAPI-6); let Hibernate create it for this test only.
+// Stopgap until FAPI-6: the registry table comes from a test-only fixture migration in the platform schema.
 @SpringBootTest(
         properties = {
-            "spring.jpa.hibernate.ddl-auto=update",
+            "spring.jpa.properties.hibernate.default_schema=platform",
             "frappe.nats.connection-timeout=500ms",
             "frappe.nats.reconnect-wait=200ms",
             "frappe.nats.publish-timeout=1s"
         })
 @Import(TestcontainersConfiguration.class)
+@ActiveProfiles("local")
 class NatsStartsWithoutNatsTests {
 
     static final int PORT = freePort();

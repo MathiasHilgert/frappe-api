@@ -24,11 +24,13 @@ import org.springframework.modulith.events.CompletedEventPublications;
 import org.springframework.modulith.events.EventPublication;
 import org.springframework.modulith.events.Externalized;
 import org.springframework.modulith.events.support.EventExternalizerModuleListener;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionTemplate;
 
-// The JPA publication registry has no migration yet (FAPI-6); let Hibernate create it for this test only.
-@SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=update")
+// Stopgap until FAPI-6: the registry table comes from a test-only fixture migration in the platform schema.
+@SpringBootTest(properties = "spring.jpa.properties.hibernate.default_schema=platform")
 @Import({TestcontainersConfiguration.class, TestNatsConfiguration.class})
+@ActiveProfiles("local")
 class NatsEventExternalizationTests {
 
     @Externalized

@@ -72,7 +72,10 @@ TDD mode: strict (brief + CLAUDE.md), runner `FRAPPE_TEST_DB=frappe_fapi_5 ./gra
 RED (after stubs `NatsClient`/new `provision(Connection)`): 21 tests, 10 failed: `NatsClientTest` x3 (close not invoked; message lacked server description; `UnsupportedOperationException` instead of "not connected"), `rejectsACustomTargetBecauseTheSubjectIsDerived` (no throwable), `startsWithoutNatsAndPublishesPendingEventsOnceItIsUp` (context failed to load: cannot connect), provisioning/externalization tests (no `natsClient` bean). GREEN: 21/21 pass; log shows `WARN NATS is unavailable at nats://localhost:<port>; starting without it...` then `NATS opened`.
 
 ### Pending
-- `spring.jpa.hibernate.ddl-auto=update` in `NatsEventExternalizationTests`, `NatsUnavailableTests` and `NatsStartsWithoutNatsTests` is a stopgap until FAPI-6 adds the registry migration.
+- Stopgap until FAPI-6: after rebasing on FAPI-4 (#9) the app runs as `frappe_app` without DDL, so `ddl-auto=update` no longer works. The registry table now comes from the test-only fixture migration `src/test/resources/db/migration/fixture/V202609181950__event_publication_stopgap.sql` (`platform.event_publication`), and `NatsEventExternalizationTests`, `NatsUnavailableTests` and `NatsStartsWithoutNatsTests` set `spring.jpa.properties.hibernate.default_schema=platform`. FAPI-6 deletes both when it adds the real outbox migration.
+
+### Rebase on origin/main (FAPI-4, 4a89108)
+Kept FAPI-4's `TestcontainersConfiguration`, `application.properties` and `application-local.properties` unchanged (NATS needs no env-specific default: `NatsProperties` defaults to compose's URL). `TestNatsConfiguration` added to `FrappeApiApplicationTests` and `TestFrappeApiApplication`; NATS tests use `@ActiveProfiles("local")`. `FRAPPE_TEST_DB=frappe_fapi_5 ./gradlew check`: BUILD SUCCESSFUL.
 
 ## Next step
 Open the PR per template; FAPI-6 adds the `event_publication` migration (tests set `ddl-auto=update` until then).
