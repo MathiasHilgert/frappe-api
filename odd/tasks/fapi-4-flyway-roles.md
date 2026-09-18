@@ -22,7 +22,7 @@ Strict TDD. Runner: `./gradlew test` (JUnit 5, Testcontainers Postgres 18, `FRAP
 ## Tasks
 - [x] T1 Bootstrap roles: init SQL shared by compose and Testcontainers; test that both roles exist and `frappe_app` cannot create objects (RED → GREEN)
 - [x] T2 Flyway as owner, app datasource as `frappe_app`; first migration creates `platform`; test schema + history row
-- [ ] T3 Default privileges: test that a table created by a later migration (test-only migration) is DML-accessible to `frappe_app` and DDL is rejected
+- [x] T3 Default privileges: test that a table created by a later migration (test-only migration) is DML-accessible to `frappe_app` and DDL is rejected
 - [ ] T4 Document the convention in `.agents/skills/writing-code` persistence reference; README local setup if needed
 - [ ] T5 `./gradlew check` green; PR per template
 
@@ -39,6 +39,7 @@ Strict TDD. Runner: `./gradlew test` (JUnit 5, Testcontainers Postgres 18, `FRAP
 - T1 RED: `DatabaseRolesIntegrationTests` 4/4 failed: `bootstrapCreatesOwnerAndAppRoles` (roles absent), `applicationConnectsAsUnprivilegedAppRole` (connected as superuser `test`), `appRoleCannotRunDdl` x2 (DDL succeeded as superuser). GREEN: 4/4 pass after `docker/postgres/initdb/01-frappe-roles.sh`, compose mount, app/Flyway credentials and Testcontainers wiring (no `@ServiceConnection`, it would force the superuser).
 
 - T2 RED: `FlywayMigrationIntegrationTests.startupRecordsPlatformMigrationInSingleHistory` failed (expected size 1 but was 0: no `platform/` migration in history). GREEN: 3/3 pass after `db/migration/platform/V202609181945__create_platform_schema.sql`. Note: `spring.flyway.schemas=platform` makes Flyway create the schema (as owner) to host the history table; the migration is `create schema if not exists`, so it stays the documented first step and is a no-op on that path.
+- T3 RED: `DefaultPrivilegesIntegrationTests` 5/5 failed (`schema "fixture" does not exist`). GREEN: 5/5 pass after the grant-free test migration `src/test/resources/db/migration/fixture/V202609181946__create_fixture_probe.sql`: CRUD as `frappe_app` succeeds; create/alter/drop/truncate rejected. The privileges themselves were already in the T1 bootstrap, so RED here is the missing later table, not missing grants.
 
 ## Next step
 T1.
