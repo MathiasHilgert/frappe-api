@@ -58,14 +58,17 @@ class NatsClient implements SmartLifecycle, AutoCloseable {
             connected = tryConnect();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            log.warn("Interrupted while connecting to NATS at {}; retrying in the background", properties.url());
+            log.atWarn()
+                    .addKeyValue(LogFields.NATS_URL, properties.url())
+                    .log("Interrupted while connecting to NATS; retrying in the background");
             connected = false;
         }
         if (!connected) {
-            log.warn(
-                    "NATS is unavailable at {}; starting without it. Externalized events stay incomplete and are"
-                            + " published once NATS is reachable (run 'docker compose up -d nats' or set FRAPPE_NATS_URL).",
-                    properties.url());
+            log.atWarn()
+                    .addKeyValue(LogFields.NATS_URL, properties.url())
+                    .log(
+                            "NATS is unavailable; starting without it. Externalized events stay incomplete and are"
+                                    + " published once NATS is reachable (run 'docker compose up -d nats' or set FRAPPE_NATS_URL).");
             connector = Thread.ofVirtual().name("nats-connect").start(this::connectUntilReachable);
         }
     }
@@ -140,7 +143,9 @@ class NatsClient implements SmartLifecycle, AutoCloseable {
             }
             return true;
         } catch (IOException e) {
-            log.debug("NATS at {} not reachable: {}", properties.url(), e.getMessage());
+            log.atDebug()
+                    .addKeyValue(LogFields.NATS_URL, properties.url())
+                    .log("NATS not reachable: {}", e.getMessage());
             return false;
         }
     }
@@ -168,13 +173,16 @@ class NatsClient implements SmartLifecycle, AutoCloseable {
         switch (event) {
             case CONNECTED, RECONNECTED -> {
                 connection.compareAndSet(null, source);
-                log.info("NATS {} at {}", event.getEvent(), properties.url());
+                log.atInfo()
+                        .addKeyValue(LogFields.NATS_URL, properties.url())
+                        .addKeyValue(LogFields.CONNECTION_EVENT, event.name())
+                        .log("NATS {}", event.getEvent());
                 submitSetup(source);
             }
             case DISCONNECTED ->
-                log.warn(
-                        "NATS disconnected from {}; publications fail and stay incomplete until it reconnects",
-                        properties.url());
+                log.atWarn()
+                        .addKeyValue(LogFields.NATS_URL, properties.url())
+                        .log("NATS disconnected; publications fail and stay incomplete until it reconnects");
             default -> log.debug("NATS {}", event.getEvent());
         }
     }

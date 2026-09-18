@@ -45,21 +45,23 @@ class NatsEventTransport implements EventExternalizationTransport {
             var ack = client.connection()
                     .jetStream(options)
                     .publish(subject, headers(event), json.writeValueAsBytes(event));
-            log.debug(
-                    "Published {} {} to {} (seq {}{})",
-                    event.getClass().getSimpleName(),
-                    event.eventId(),
-                    subject,
-                    ack.getSeqno(),
-                    ack.isDuplicate() ? ", duplicate ignored by stream" : "");
+            log.atDebug()
+                    .addKeyValue(LogFields.EVENT_ID, event.eventId())
+                    .addKeyValue(LogFields.SUBJECT, subject)
+                    .log(
+                            "Published {} (seq {}, duplicate {})",
+                            event.getClass().getSimpleName(),
+                            ack.getSeqno(),
+                            ack.isDuplicate());
             return CompletableFuture.completedFuture(ack);
         } catch (Exception e) {
-            log.warn(
-                    "Publishing {} {} to {} failed; publication stays incomplete for retry: {}",
-                    event.getClass().getSimpleName(),
-                    event.eventId(),
-                    subject,
-                    e.toString());
+            log.atWarn()
+                    .addKeyValue(LogFields.EVENT_ID, event.eventId())
+                    .addKeyValue(LogFields.SUBJECT, subject)
+                    .log(
+                            "Publishing {} failed; publication stays incomplete for retry: {}",
+                            event.getClass().getSimpleName(),
+                            e.toString());
             return CompletableFuture.failedFuture(e);
         }
     }

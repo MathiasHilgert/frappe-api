@@ -33,10 +33,16 @@ class NatsStreamProvisioner {
             var management = connection.jetStreamManagement();
             if (exists(management)) {
                 management.updateStream(CONFIGURATION);
-                log.info("NATS stream {} up to date (subjects {})", STREAM, CONFIGURATION.getSubjects());
+                log.atInfo()
+                        .addKeyValue(LogFields.STREAM, STREAM)
+                        .addKeyValue(LogFields.SUBJECT, CONFIGURATION.getSubjects())
+                        .log("NATS stream up to date");
             } else {
                 management.addStream(CONFIGURATION);
-                log.info("NATS stream {} created (subjects {})", STREAM, CONFIGURATION.getSubjects());
+                log.atInfo()
+                        .addKeyValue(LogFields.STREAM, STREAM)
+                        .addKeyValue(LogFields.SUBJECT, CONFIGURATION.getSubjects())
+                        .log("NATS stream created");
             }
         } catch (JetStreamApiException e) {
             throw new IllegalStateException(
