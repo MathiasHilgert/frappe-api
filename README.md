@@ -131,6 +131,10 @@ flowchart LR
     DepReview --> Merge
 ```
 
+## Working with agents
+
+Coding agents start at [`AGENTS.md`](AGENTS.md) (`CLAUDE.md` links to it): golden rules and a table routing each situation to a skill in `.agents/skills` (`.claude` links to `.agents`). The `working-on-tickets` skill runs a Plane ticket from pick-up to PR, with `.agents/skills/working-on-tickets/scripts/plane.sh` for Plane (needs `PLANE_API_KEY` in your environment).
+
 ## Documentation
 
 Product documentation, architecture decisions and tickets live in Plane.

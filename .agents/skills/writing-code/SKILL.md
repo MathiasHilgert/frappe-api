@@ -46,8 +46,4 @@ List files changed per layer, migrations added, events published/consumed, publi
 
 ## References
 
-- `references/domain-modeling.md`
-- `references/use-cases.md`
-- `references/persistence.md`
-- `references/domain-events.md`
-- `references/http-api.md`
+- `references/*.md` — one file per row of Decision Gates.

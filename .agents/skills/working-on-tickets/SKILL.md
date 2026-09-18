@@ -52,10 +52,4 @@ Report to the human: ticket key and title, PR URL, checks table (name → result
 
 ## References
 
-- `references/picking-a-ticket.md`
-- `references/choosing-models.md`
-- `references/keeping-plane-in-sync.md`
-- `references/running-in-parallel.md`
-- `references/reviewing.md`
-- `references/shipping-a-pr.md`
-- `scripts/plane.sh` — run `plane.sh --help`
+- `references/*.md` — one file per row of Decision Gates; `scripts/plane.sh` (run `plane.sh --help`).
