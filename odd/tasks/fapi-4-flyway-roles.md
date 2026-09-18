@@ -20,10 +20,10 @@ RLS and `tenant_id`; the outbox tables (FAPI-6).
 Strict TDD. Runner: `./gradlew test` (JUnit 5, Testcontainers Postgres 18, `FRAPPE_TEST_DB=frappe_fapi_4`). RED before each behavior.
 
 ## Tasks
-- [x] T1 Bootstrap roles: init SQL shared by compose and Testcontainers; test that both roles exist and `frappe_app` cannot create objects (RED → GREEN)
-- [x] T2 Flyway as owner, app datasource as `frappe_app`; first migration creates `platform`; test schema + history row
-- [x] T3 Default privileges: test that a table created by a later migration (test-only migration) is DML-accessible to `frappe_app` and DDL is rejected
-- [ ] T4 Document the convention in `.agents/skills/writing-code` persistence reference; README local setup if needed
+- [x] T1 (67bfd3e) Bootstrap roles: init SQL shared by compose and Testcontainers; test that both roles exist and `frappe_app` cannot create objects (RED → GREEN)
+- [x] T2 (525fecf) Flyway as owner, app datasource as `frappe_app`; first migration creates `platform`; test schema + history row
+- [x] T3 (5e59e0a) Default privileges: test that a table created by a later migration (test-only migration) is DML-accessible to `frappe_app` and DDL is rejected
+- [x] T4 Document the convention in `.agents/skills/writing-code` persistence reference; README local setup if needed
 - [ ] T5 `./gradlew check` green; PR per template
 
 ## Acceptance (from ticket)
@@ -40,6 +40,8 @@ Strict TDD. Runner: `./gradlew test` (JUnit 5, Testcontainers Postgres 18, `FRAP
 
 - T2 RED: `FlywayMigrationIntegrationTests.startupRecordsPlatformMigrationInSingleHistory` failed (expected size 1 but was 0: no `platform/` migration in history). GREEN: 3/3 pass after `db/migration/platform/V202609181945__create_platform_schema.sql`. Note: `spring.flyway.schemas=platform` makes Flyway create the schema (as owner) to host the history table; the migration is `create schema if not exists`, so it stays the documented first step and is a no-op on that path.
 - T3 RED: `DefaultPrivilegesIntegrationTests` 5/5 failed (`schema "fixture" does not exist`). GREEN: 5/5 pass after the grant-free test migration `src/test/resources/db/migration/fixture/V202609181946__create_fixture_probe.sql`: CRUD as `frappe_app` succeeds; create/alter/drop/truncate rejected. The privileges themselves were already in the T1 bootstrap, so RED here is the missing later table, not missing grants.
+- T4 docs only (persistence + integration-tests references, README). Boot check on a clean volume (`COMPOSE_PROJECT_NAME=frappe-fapi-4`, then `down -v`): app started, history row `platform/V202609181945__create_platform_schema.sql` installed by `frappe_owner`, schema `platform` owned by `frappe_owner`.
+- T5 partial: `FRAPPE_TEST_DB=frappe_fapi_4 ./gradlew cleanTest check` BUILD SUCCESSFUL, 15 tests, 0 failures. PR pending (human).
 
 ## Next step
-T1.
+Review, push and PR per template (human decision).

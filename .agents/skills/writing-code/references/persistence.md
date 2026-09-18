@@ -16,9 +16,16 @@ Package: `com.frappe.<module>.infrastructure.persistence`. For generic Postgres 
 
 ## Flyway
 
-- Migrations under `src/main/resources/db/migration/<module>/`, `V<yyyyMMddHHmm>__<description>.sql`.
+- Migrations under `src/main/resources/db/migration/<module>/`, `V<yyyyMMddHHmm>__<description>.sql`. One Flyway instance and one history table (`platform.flyway_schema_history`) for the whole database.
+- Review rule: reject a migration outside `db/migration/<module>/`, or with any unqualified object name. Every DDL names its schema (`create table ordering.tab`, never `create table tab`), and only touches the module's own schema.
+- A module's first migration creates its schema (`create schema if not exists <module>;`); add the schema to `spring.flyway.schemas` when the module lands.
 - Forward-only; never edit a merged migration. Add a new one.
 - `uuid` primary keys (UUIDv7 from the domain), `timestamptz` for instants, `bigint` minor units + `char(3)` currency for money.
+
+## Roles
+
+- `frappe_owner` runs Flyway (`spring.flyway.user/password`) and owns every schema and table. `frappe_app` is the runtime role (`spring.datasource.username/password`): `USAGE` on schemas and DML on tables, never DDL, never an owner.
+- Both are created by `docker/postgres/initdb/01-frappe-roles.sh` (compose and Testcontainers), which also sets `alter default privileges for role frappe_owner`, so new schemas, tables and sequences are usable by `frappe_app` without a `GRANT` in the migration. Do not add grants to migrations; change the bootstrap script instead.
 
 ## Tenancy and RLS
 
