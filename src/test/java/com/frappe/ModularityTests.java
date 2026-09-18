@@ -6,16 +6,15 @@ import org.springframework.modulith.docs.Documenter;
 
 class ModularityTests {
 
-	ApplicationModules modules = ApplicationModules.of(FrappeApiApplication.class);
+    ApplicationModules modules = ApplicationModules.of(FrappeApiApplication.class);
 
-	@Test
-	void verifiesModularStructure() {
-		modules.verify();
-	}
+    @Test
+    void verifiesModularStructure() {
+        modules.verify();
+    }
 
-	@Test
-	void writesDocumentation() {
-		new Documenter(modules).writeDocumentation();
-	}
-
+    @Test
+    void writesDocumentation() {
+        new Documenter(modules).writeDocumentation();
+    }
 }
