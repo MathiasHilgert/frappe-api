@@ -26,7 +26,7 @@ Strict TDD. Runner: `./gradlew test` (in-memory exporters / `TestObservationRegi
 ## Tasks
 - [x] T0 Verify Boot 4.1.1 starter auto-config (property names, what it instruments, JDBC instrumentation choice) from sources; record here
 - [x] T1 Starter + Modulith observability + OTLP config per profile; test: request produces HTTP and DB spans (in-memory exporter)
-- [ ] T2 Trace/span ids in ECS logs; test
+- [x] T2 Trace/span ids in ECS logs; test
 - [ ] T3 OTLP endpoint down → API keeps serving; test
 - [ ] T4 NATS publish observation in the FAPI-5 transport; test
 - [ ] T5 Business metrics facade from domain events + tag policy guard (no tenant/entity tags); tests
@@ -60,6 +60,11 @@ Strict TDD. Runner: `./gradlew test` (in-memory exporters / `TestObservationRegi
 - RED `RequestTracingTests.aRequestProducesAnHttpServerSpanWithDatabaseSpansInTheSameTrace`: first run (sampling 0.1, no JDBC instrumentation) timed out waiting for the server span; with local sampling 1.0 but without `datasource-micrometer-spring-boot` it failed with `Expecting ArrayList ["http get /test/observability-probe"] to contain ["query"]`.
 - GREEN after adding `datasource-micrometer-spring-boot` 2.3.0: server span `http get /test/observability-probe` plus `connection`, `query` (`jdbc.query[0]=select 1`) and `result-set` spans in the same trace.
 - `observesApplicationModuleEntriesAndListeners`: guard test (no RED, the processor already came with FAPI-5's runtime dependency). Spring Modulith observes only controllers, exposed module API types and listeners to other modules' events, and `ApplicationModules` excludes test classes, so a test-only listener cannot prove a listener span; the end-to-end listener span is proven with the first business module (open question).
+
+### T2
+- RED `TraceCorrelationLoggingTests.writesTheTraceAndSpanIdsAsEcsFields`: `expected "4bf9…4736" but was ""` (MDC ids rendered as `traceId`/`spanId`).
+- GREEN with `logging.structured.json.rename[traceId]=trace.id` / `[spanId]=span.id`. Boot writes renamed members as flat dotted keys (`"trace.id":…`), the same shape the official ecs-logging libraries emit; ECS accepts dotted and nested forms.
+- `RequestTracingTests.logLinesOfARequestCarryItsTraceAndSpanIds`: characterization (Boot's default log correlation), first run failed only because the in-memory exporter kept spans of the previous test; fixed with `@BeforeEach spans.reset()`, then GREEN.
 
 ## Next step
 T0.

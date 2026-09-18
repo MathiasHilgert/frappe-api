@@ -3,6 +3,9 @@ package com.frappe.platform.infrastructure.observability;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.frappe.TestNatsConfiguration;
 import com.frappe.TestcontainersConfiguration;
 import io.opentelemetry.api.trace.SpanKind;
@@ -10,7 +13,9 @@ import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import java.time.Duration;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.micrometer.tracing.test.autoconfigure.AutoConfigureTracing;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
@@ -64,6 +69,7 @@ class RequestTracingTests {
 
         @GetMapping(PROBE_PATH)
         Integer probe() {
+            LoggerFactory.getLogger(ProbeController.class).info("Probing the database");
             return jdbc.sql("select 1").query(Integer.class).single();
         }
     }
@@ -76,6 +82,11 @@ class RequestTracingTests {
 
     @Autowired
     ApplicationContext context;
+
+    @BeforeEach
+    void forgetEarlierSpans() {
+        spans.reset();
+    }
 
     @Test
     void aRequestProducesAnHttpServerSpanWithDatabaseSpansInTheSameTrace() {
@@ -97,6 +108,29 @@ class RequestTracingTests {
         var processor =
                 ClassUtils.resolveClassName(MODULE_OBSERVABILITY, getClass().getClassLoader());
         assertThat(context.getBeanNamesForType(processor)).hasSize(1);
+    }
+
+    @Test
+    void logLinesOfARequestCarryItsTraceAndSpanIds() {
+        // Given the probe's log events are captured
+        var logger = (Logger) LoggerFactory.getLogger(ProbeController.class);
+        var captured = new ListAppender<ILoggingEvent>();
+        captured.start();
+        logger.addAppender(captured);
+
+        // When
+        try {
+            http.get().uri(PROBE_PATH).exchange().expectStatus().isOk();
+        } finally {
+            logger.detachAppender(captured);
+        }
+
+        // Then
+        var server = await().atMost(Duration.ofSeconds(10)).until(this::probeServerSpan, span -> span != null);
+        assertThat(captured.list).singleElement().satisfies(event -> {
+            assertThat(event.getMDCPropertyMap()).containsEntry("traceId", server.getTraceId());
+            assertThat(event.getMDCPropertyMap()).containsEntry("spanId", server.getSpanId());
+        });
     }
 
     private SpanData probeServerSpan() {
