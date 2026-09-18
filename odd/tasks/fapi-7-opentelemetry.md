@@ -27,7 +27,7 @@ Strict TDD. Runner: `./gradlew test` (in-memory exporters / `TestObservationRegi
 - [x] T0 Verify Boot 4.1.1 starter auto-config (property names, what it instruments, JDBC instrumentation choice) from sources; record here
 - [x] T1 Starter + Modulith observability + OTLP config per profile; test: request produces HTTP and DB spans (in-memory exporter)
 - [x] T2 Trace/span ids in ECS logs; test
-- [ ] T3 OTLP endpoint down → API keeps serving; test
+- [x] T3 OTLP endpoint down → API keeps serving; test
 - [ ] T4 NATS publish observation in the FAPI-5 transport; test
 - [ ] T5 Business metrics facade from domain events + tag policy guard (no tenant/entity tags); tests
 - [ ] T6 `otel-lgtm` in compose + README (how to open Grafana); manual check documented
@@ -65,6 +65,9 @@ Strict TDD. Runner: `./gradlew test` (in-memory exporters / `TestObservationRegi
 - RED `TraceCorrelationLoggingTests.writesTheTraceAndSpanIdsAsEcsFields`: `expected "4bf9…4736" but was ""` (MDC ids rendered as `traceId`/`spanId`).
 - GREEN with `logging.structured.json.rename[traceId]=trace.id` / `[spanId]=span.id`. Boot writes renamed members as flat dotted keys (`"trace.id":…`), the same shape the official ecs-logging libraries emit; ECS accepts dotted and nested forms.
 - `RequestTracingTests.logLinesOfARequestCarryItsTraceAndSpanIds`: characterization (Boot's default log correlation), first run failed only because the in-memory exporter kept spans of the previous test; fixed with `@BeforeEach spans.reset()`, then GREEN.
+
+### T3
+- `OtlpUnavailableTests.keepsServingWhileTheOtlpEndpointIsUnreachable`: both exporters pointed at `localhost:1`, export rounds every 50–100 ms; all requests `200`, the registry only logs `WARN Failed to publish metrics to OTLP receiver`. No RED possible: this is a characterization test of the SDK design (batch span processor and meter registry export on their own threads, drop on failure); it guards against a future synchronous exporter or a failing customizer.
 
 ## Next step
 T0.
