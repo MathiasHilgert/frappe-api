@@ -27,6 +27,7 @@ Load before writing production code (tests come first), when writing or fixing t
 | Aggregate, value object, domain rule | `references/unit-tests.md` |
 | A use case through the module, events published/consumed, boundaries | `references/module-tests.md` |
 | Persistence, migrations, RLS, HTTP end to end, NATS | `references/integration-tests.md` |
+| Observations, spans, business metrics | `references/observability-tests.md` |
 
 Generic Spring Boot 4 testing detail: skills `321-frameworks-spring-boot-testing-unit-tests`, `322-frameworks-spring-boot-testing-integration-tests`; Modulith test APIs: `305-frameworks-spring-boot-modulith`. Frappé rules here win on conflict.
 
