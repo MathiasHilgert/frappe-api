@@ -8,7 +8,7 @@ Diagrams: Mermaid, no colors or styles.
 
 <!-- One or two sentences: what changes and why it matters. -->
 
-**Ticket:** FAPI-<number>
+**Ticket:** [FAPI-<number>](https://app.plane.so/nulled-software/browse/FAPI-<number>/)
 
 ## Description
 
