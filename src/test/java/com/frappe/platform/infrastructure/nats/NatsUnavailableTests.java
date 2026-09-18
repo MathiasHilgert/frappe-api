@@ -3,6 +3,7 @@ package com.frappe.platform.infrastructure.nats;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import com.frappe.TestNatsConfiguration;
 import com.frappe.TestcontainersConfiguration;
 import com.frappe.platform.DomainEvent;
 import com.frappe.platform.Uuid7;
@@ -27,7 +28,7 @@ import org.testcontainers.containers.GenericContainer;
 
 // The JPA publication registry has no migration yet (FAPI-6); let Hibernate create it for this test only.
 @SpringBootTest(properties = {"spring.jpa.hibernate.ddl-auto=update", "frappe.nats.publish-timeout=1s"})
-@Import(TestcontainersConfiguration.class)
+@Import({TestcontainersConfiguration.class, TestNatsConfiguration.class})
 class NatsUnavailableTests {
 
     @Externalized

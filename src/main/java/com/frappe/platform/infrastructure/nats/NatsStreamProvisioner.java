@@ -1,5 +1,6 @@
 package com.frappe.platform.infrastructure.nats;
 
+import io.nats.client.Connection;
 import io.nats.client.JetStreamApiException;
 import io.nats.client.JetStreamManagement;
 import io.nats.client.api.RetentionPolicy;
@@ -27,28 +28,27 @@ class NatsStreamProvisioner {
     private static final Logger log = LoggerFactory.getLogger(NatsStreamProvisioner.class);
     private static final int NOT_FOUND = 404;
 
-    private final JetStreamManagement management;
-
-    NatsStreamProvisioner(JetStreamManagement management) {
-        this.management = management;
-    }
-
-    void provision() {
+    void provision(Connection connection) {
         try {
-            if (exists()) {
+            var management = connection.jetStreamManagement();
+            if (exists(management)) {
                 management.updateStream(CONFIGURATION);
                 log.info("NATS stream {} up to date (subjects {})", STREAM, CONFIGURATION.getSubjects());
             } else {
                 management.addStream(CONFIGURATION);
                 log.info("NATS stream {} created (subjects {})", STREAM, CONFIGURATION.getSubjects());
             }
-        } catch (IOException | JetStreamApiException e) {
+        } catch (JetStreamApiException e) {
             throw new IllegalStateException(
-                    "Cannot provision NATS stream " + STREAM + "; is JetStream enabled (nats-server -js)?", e);
+                    "Cannot provision NATS stream " + STREAM + ": server error " + e.getErrorCode() + " "
+                            + e.getErrorDescription(),
+                    e);
+        } catch (IOException e) {
+            throw new IllegalStateException("Cannot provision NATS stream " + STREAM + ": " + e.getMessage(), e);
         }
     }
 
-    private boolean exists() throws IOException, JetStreamApiException {
+    private boolean exists(JetStreamManagement management) throws IOException, JetStreamApiException {
         try {
             management.getStreamInfo(STREAM);
             return true;

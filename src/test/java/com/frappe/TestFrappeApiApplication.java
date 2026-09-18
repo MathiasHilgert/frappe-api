@@ -6,7 +6,7 @@ public class TestFrappeApiApplication {
 
     public static void main(String[] args) {
         SpringApplication.from(FrappeApiApplication::main)
-                .with(TestcontainersConfiguration.class)
+                .with(TestcontainersConfiguration.class, TestNatsConfiguration.class)
                 .withAdditionalProfiles("local")
                 .run(args);
     }

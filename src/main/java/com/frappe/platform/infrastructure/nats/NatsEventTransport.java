@@ -1,9 +1,10 @@
 package com.frappe.platform.infrastructure.nats;
 
 import com.frappe.platform.DomainEvent;
-import io.nats.client.JetStream;
+import io.nats.client.JetStreamOptions;
 import io.nats.client.impl.Headers;
 import io.nats.client.support.NatsJetStreamConstants;
+import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,11 +27,13 @@ class NatsEventTransport implements EventExternalizationTransport {
 
     private static final Logger log = LoggerFactory.getLogger(NatsEventTransport.class);
 
-    private final JetStream jetStream;
+    private final NatsClient client;
+    private final JetStreamOptions options;
     private final JsonMapper json;
 
-    NatsEventTransport(JetStream jetStream, JsonMapper json) {
-        this.jetStream = jetStream;
+    NatsEventTransport(NatsClient client, Duration publishTimeout, JsonMapper json) {
+        this.client = client;
+        this.options = JetStreamOptions.builder().requestTimeout(publishTimeout).build();
         this.json = json;
     }
 
@@ -39,7 +42,9 @@ class NatsEventTransport implements EventExternalizationTransport {
         var event = (DomainEvent) payload;
         var subject = target.getTarget();
         try {
-            var ack = jetStream.publish(subject, headers(event), json.writeValueAsBytes(event));
+            var ack = client.connection()
+                    .jetStream(options)
+                    .publish(subject, headers(event), json.writeValueAsBytes(event));
             log.debug(
                     "Published {} {} to {} (seq {}{})",
                     event.getClass().getSimpleName(),

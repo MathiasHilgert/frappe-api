@@ -3,10 +3,10 @@ package com.frappe.platform.infrastructure.nats;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import com.frappe.TestNatsConfiguration;
 import com.frappe.TestcontainersConfiguration;
 import com.frappe.platform.DomainEvent;
 import com.frappe.platform.Uuid7;
-import io.nats.client.Connection;
 import io.nats.client.JetStreamManagement;
 import io.nats.client.api.StreamInfoOptions;
 import java.nio.charset.StandardCharsets;
@@ -16,24 +16,28 @@ import java.time.ZoneOffset;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Import;
 import org.springframework.modulith.events.CompletedEventPublications;
+import org.springframework.modulith.events.EventPublication;
 import org.springframework.modulith.events.Externalized;
 import org.springframework.modulith.events.support.EventExternalizerModuleListener;
 import org.springframework.transaction.support.TransactionTemplate;
 
 // The JPA publication registry has no migration yet (FAPI-6); let Hibernate create it for this test only.
 @SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=update")
-@Import(TestcontainersConfiguration.class)
+@Import({TestcontainersConfiguration.class, TestNatsConfiguration.class})
 class NatsEventExternalizationTests {
-
-    static final String SUBJECT = "frappe.platform.tab-closed.v3";
 
     @Externalized
     record TabClosed(
             UUID eventId, Instant occurredAt, UUID aggregateId, long aggregateVersion, int eventVersion, String note)
+            implements DomainEvent {}
+
+    @Externalized
+    record TabReopened(UUID eventId, Instant occurredAt, UUID aggregateId, long aggregateVersion, int eventVersion)
             implements DomainEvent {}
 
     final Clock clock = Clock.fixed(Instant.parse("2026-09-18T12:00:00Z"), ZoneOffset.UTC);
@@ -48,21 +52,24 @@ class NatsEventExternalizationTests {
     CompletedEventPublications completed;
 
     @Autowired
-    Connection connection;
+    NatsClient client;
 
     @Autowired
     EventExternalizerModuleListener externalizer;
 
+    @Autowired
+    ConfigurableListableBeanFactory beans;
+
     @Test
     void publishesExactlyOneMessageWithEnvelopeHeadersOnceAcked() throws Exception {
-        var event = tabClosed();
-        var before = storedOnSubject();
+        var subject = "frappe.platform.tab-closed.v3";
+        var event = new TabClosed(Uuid7.next(clock), clock.instant(), Uuid7.next(clock), 7, 3, "closed by waiter");
 
         publish(event);
 
-        await().until(() -> isCompleted(event));
-        assertThat(storedOnSubject()).isEqualTo(before + 1);
-        var message = jsm().getLastMessage(NatsStreamProvisioner.STREAM, SUBJECT);
+        await().until(() -> readBack(event) != null);
+        assertThat(storedOn(subject)).isEqualTo(1);
+        var message = jsm().getLastMessage(NatsStreamProvisioner.STREAM, subject);
         var headers = message.getHeaders();
         assertThat(headers.getFirst("Nats-Msg-Id")).isEqualTo(event.eventId().toString());
         assertThat(headers.getFirst("Frappe-Event-Type")).isEqualTo("platform.tab-closed");
@@ -77,38 +84,48 @@ class NatsEventExternalizationTests {
     }
 
     @Test
-    void storesAnEventPublishedTwiceWithinTheDuplicateWindowOnce() throws Exception {
-        var event = tabClosed();
-        var before = storedOnSubject();
+    void storesAnEventRepublishedFromTheRegistryOnce() throws Exception {
+        var subject = "frappe.platform.tab-reopened.v1";
+        var event = new TabReopened(Uuid7.next(clock), clock.instant(), Uuid7.next(clock), 2, 1);
+        publish(event);
+        await().until(() -> readBack(event) != null);
 
-        // A resubmission after a lost ack, or a second instance, externalizes the same event again.
-        externalizer.externalize(event).join();
+        // A retry after a lost ack, or a second instance, externalizes the event deserialized from the registry.
+        externalizer.externalize(readBack(event).getEvent()).join();
         externalizer.externalize(event).join();
 
-        assertThat(storedOnSubject()).isEqualTo(before + 1);
+        assertThat(storedOn(subject)).isEqualTo(1);
+        assertThat(jsm().getLastMessage(NatsStreamProvisioner.STREAM, subject)
+                        .getHeaders()
+                        .getFirst("Nats-Msg-Id"))
+                .isEqualTo(event.eventId().toString());
     }
 
-    private TabClosed tabClosed() {
-        return new TabClosed(Uuid7.next(clock), clock.instant(), Uuid7.next(clock), 7, 3, "closed by waiter");
+    @Test
+    void closesTheConnectionOnlyAfterTheExternalizerStops() {
+        // Spring destroys dependents first, so the externalizer must depend on the NATS client.
+        assertThat(beans.getDependenciesForBean("natsEventExternalizer")).contains("natsClient");
     }
 
     private void publish(DomainEvent event) {
         transactions.executeWithoutResult(status -> events.publishEvent(event));
     }
 
-    private boolean isCompleted(DomainEvent event) {
+    private EventPublication readBack(DomainEvent event) {
         return completed.findAll().stream()
-                .anyMatch(it ->
-                        it.getEvent() instanceof DomainEvent e && e.eventId().equals(event.eventId()));
+                .filter(it ->
+                        it.getEvent() instanceof DomainEvent e && e.eventId().equals(event.eventId()))
+                .findFirst()
+                .orElse(null);
     }
 
-    private long storedOnSubject() throws Exception {
-        var state = jsm().getStreamInfo(NatsStreamProvisioner.STREAM, StreamInfoOptions.filterSubjects(SUBJECT))
+    private long storedOn(String subject) throws Exception {
+        var state = jsm().getStreamInfo(NatsStreamProvisioner.STREAM, StreamInfoOptions.filterSubjects(subject))
                 .getStreamState();
-        return state.getSubjectMap().getOrDefault(SUBJECT, 0L);
+        return state.getSubjectMap().getOrDefault(subject, 0L);
     }
 
     private JetStreamManagement jsm() throws Exception {
-        return connection.jetStreamManagement();
+        return client.connection().jetStreamManagement();
     }
 }

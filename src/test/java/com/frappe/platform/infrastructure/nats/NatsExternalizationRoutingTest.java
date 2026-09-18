@@ -14,6 +14,15 @@ class NatsExternalizationRoutingTest {
 
     record NotExternalized(String value) {}
 
+    @Externalized("custom.subject")
+    record CustomSubject(
+            java.util.UUID eventId,
+            java.time.Instant occurredAt,
+            java.util.UUID aggregateId,
+            long aggregateVersion,
+            int eventVersion)
+            implements com.frappe.platform.DomainEvent {}
+
     final EventExternalizationConfiguration configuration = new NatsConfiguration().eventExternalizationConfiguration();
 
     @Test
@@ -28,5 +37,16 @@ class NatsExternalizationRoutingTest {
                 .isThrownBy(() -> configuration.determineTarget(new NotAnEnvelope("x")))
                 .withMessageContaining(NotAnEnvelope.class.getName())
                 .withMessageContaining("DomainEvent");
+    }
+
+    @Test
+    void rejectsACustomTargetBecauseTheSubjectIsDerived() {
+        var event = new CustomSubject(null, null, null, 1, 1);
+
+        assertThatIllegalStateException()
+                .isThrownBy(() -> configuration.determineTarget(event))
+                .withMessageContaining(CustomSubject.class.getName())
+                .withMessageContaining("custom.subject")
+                .withMessageContaining("frappe.platform.custom-subject.v1");
     }
 }

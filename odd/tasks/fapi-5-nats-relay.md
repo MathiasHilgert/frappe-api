@@ -60,5 +60,19 @@ TDD mode: strict (brief + CLAUDE.md), runner `FRAPPE_TEST_DB=frappe_fapi_5 ./gra
 
 `FRAPPE_TEST_DB=frappe_fapi_5 ./gradlew check --rerun-tasks`: BUILD SUCCESSFUL twice; 15 tests, 0 failures.
 
+### Review fixes (human decision: the API must start when NATS is down)
+- [x] R1 NATS optional at startup. `Nats.connectReconnectOnConnect(Options)` exists in 2.26.2 but blocks the caller in its reconnect loop (with `maxReconnects(-1)`, forever), and `connectAsynchronously` leaves no handle to close a never-connected attempt. Chosen: `NatsClient` (SmartLifecycle) tries `Nats.connect` once at start, logs a WARN and retries on a virtual thread every `reconnect-wait`; after that jnats reconnects forever. A connection listener provisions the stream and resubmits FAILED externalized publications on every CONNECTED/RECONNECTED. Transport fails with "not connected yet" while there is no connection.
+- [x] R2 Test isolation: NATS moved to `TestNatsConfiguration`, fresh non-reused container per Spring context; subjects are unique per test and counts are absolute.
+- [x] R3 Dedup through the real path: publish in a transaction, read the event back from `CompletedEventPublications`, re-externalize it (plus the direct call), one stored message with the original `Nats-Msg-Id`.
+- [x] R4 Shutdown order: `natsEventExternalizer` depends on `natsClient` (asserted), so it is destroyed first; `NatsClient.shutdown` restores the interrupt flag and still closes.
+- [x] R5 Provisioner errors carry the server code and description.
+- [x] R6 Defaults only in `NatsProperties`; `application.properties` lines removed. `spring-modulith-events-core` kept: without the explicit declaration it is not on `compileClasspath` (`./gradlew dependencies --configuration compileClasspath` shows no `events-core`, compile fails on `org.springframework.modulith.events.support`).
+- [x] R7 `@Externalized("value")` on a DomainEvent fails with a message naming the derived subject.
+
+RED (after stubs `NatsClient`/new `provision(Connection)`): 21 tests, 10 failed: `NatsClientTest` x3 (close not invoked; message lacked server description; `UnsupportedOperationException` instead of "not connected"), `rejectsACustomTargetBecauseTheSubjectIsDerived` (no throwable), `startsWithoutNatsAndPublishesPendingEventsOnceItIsUp` (context failed to load: cannot connect), provisioning/externalization tests (no `natsClient` bean). GREEN: 21/21 pass; log shows `WARN NATS is unavailable at nats://localhost:<port>; starting without it...` then `NATS opened`.
+
+### Pending
+- `spring.jpa.hibernate.ddl-auto=update` in `NatsEventExternalizationTests`, `NatsUnavailableTests` and `NatsStartsWithoutNatsTests` is a stopgap until FAPI-6 adds the registry migration.
+
 ## Next step
 Open the PR per template; FAPI-6 adds the `event_publication` migration (tests set `ddl-auto=update` until then).

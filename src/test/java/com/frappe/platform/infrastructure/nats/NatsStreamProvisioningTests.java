@@ -1,9 +1,11 @@
 package com.frappe.platform.infrastructure.nats;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
+import com.frappe.TestNatsConfiguration;
 import com.frappe.TestcontainersConfiguration;
-import io.nats.client.Connection;
+import io.nats.client.JetStreamManagement;
 import io.nats.client.api.RetentionPolicy;
 import io.nats.client.api.StreamConfiguration;
 import java.time.Duration;
@@ -13,33 +15,42 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 
 @SpringBootTest
-@Import(TestcontainersConfiguration.class)
+@Import({TestcontainersConfiguration.class, TestNatsConfiguration.class})
 class NatsStreamProvisioningTests {
 
     @Autowired
-    Connection connection;
+    NatsClient client;
 
     @Autowired
     NatsStreamProvisioner provisioner;
 
     @Test
-    void createsTheFrappeStreamAtStartup() throws Exception {
-        assertMatchesCode(
-                connection.jetStreamManagement().getStreamInfo("FRAPPE").getConfiguration());
+    void createsTheFrappeStreamOnConnect() throws Exception {
+        assertMatchesCode(awaitStream().getConfiguration());
     }
 
     @Test
     void restartWithAnExistingDriftedStreamSucceedsAndRestoresTheConfig() throws Exception {
-        var jsm = connection.jetStreamManagement();
-        var drifted = StreamConfiguration.builder(jsm.getStreamInfo("FRAPPE").getConfiguration())
+        var jsm = jsm();
+        var drifted = StreamConfiguration.builder(awaitStream().getConfiguration())
                 .maxAge(Duration.ofDays(1))
                 .build();
         jsm.updateStream(drifted);
 
-        provisioner.provision();
-        provisioner.provision();
+        provisioner.provision(client.connection());
+        provisioner.provision(client.connection());
 
         assertMatchesCode(jsm.getStreamInfo("FRAPPE").getConfiguration());
+    }
+
+    private io.nats.client.api.StreamInfo awaitStream() throws Exception {
+        var jsm = jsm();
+        await().ignoreExceptions().until(() -> jsm.getStreamInfo("FRAPPE") != null);
+        return jsm.getStreamInfo("FRAPPE");
+    }
+
+    private JetStreamManagement jsm() throws Exception {
+        return client.connection().jetStreamManagement();
     }
 
     private static void assertMatchesCode(StreamConfiguration config) {

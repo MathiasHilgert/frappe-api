@@ -18,11 +18,12 @@ public record TabClosed(UUID eventId, Instant occurredAt, UUID aggregateId, long
         int eventVersion, UUID tenantId, Money total) implements DomainEvent {}
 ```
 
-- Subject: `frappe.<module>.<event-kebab>.v<eventVersion>`, derived from package and class name (`frappe.order.tab-closed.v1`). Leave the annotation's value empty; it is ignored.
+- Subject: `frappe.<module>.<event-kebab>.v<eventVersion>`, derived from package and class name (`frappe.order.tab-closed.v1`). Leave the annotation's value empty; a value fails the publication with a message naming the derived subject.
 - Headers: `Nats-Msg-Id` = `eventId` (JetStream drops re-publishes within the 10-minute duplicate window), `Frappe-Event-Type` (`order.tab-closed`), `Frappe-Event-Version`, `Frappe-Aggregate-Id`, `Frappe-Aggregate-Version`, `Frappe-Occurred-At`. Payload: the record as JSON.
 - Stream `FRAPPE` (`frappe.>`, limits retention, 7 days, 1 replica) is created or updated at startup; its config lives in `NatsStreamProvisioner`, not on the server.
 - `@Externalized` on a class that does not implement `DomainEvent` fails the publication with a message naming the class.
-- Config `frappe.nats.*`: `url` (default `nats://localhost:4222`, compose's NATS; env `FRAPPE_NATS_URL`), `publish-timeout` (5s), `connection-timeout`, `connection-name`.
+- Config `frappe.nats.*` (defaults in `NatsProperties` only): `url` (`nats://localhost:4222`, compose's NATS; env `FRAPPE_NATS_URL`), `publish-timeout` (5s), `connection-timeout` (2s), `reconnect-wait` (2s), `connection-name`.
+- NATS is optional at startup: the API starts with a WARN, keeps reconnecting, and on every (re)connect provisions the stream and resubmits failed externalized publications.
 
 ## Publishing (outbox)
 

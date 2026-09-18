@@ -2,19 +2,17 @@ package com.frappe.platform.infrastructure.nats;
 
 import com.frappe.platform.DomainEvent;
 import io.nats.client.Connection;
-import io.nats.client.JetStreamOptions;
-import io.nats.client.Nats;
-import io.nats.client.Options;
-import java.io.IOException;
-import java.time.Duration;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.modulith.events.EventExternalizationConfiguration;
+import org.springframework.modulith.events.EventPublication;
+import org.springframework.modulith.events.Externalized;
+import org.springframework.modulith.events.IncompleteEventPublications;
 import org.springframework.modulith.events.RoutingTarget;
 import org.springframework.modulith.events.support.EventExternalizerModuleListener;
 import tools.jackson.databind.json.JsonMapper;
@@ -24,39 +22,21 @@ import tools.jackson.databind.json.JsonMapper;
 class NatsConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(NatsConfiguration.class);
-    private static final Duration DRAIN_TIMEOUT = Duration.ofSeconds(10);
-
-    @Bean(destroyMethod = "")
-    Connection natsConnection(NatsProperties properties) throws InterruptedException {
-        var options = Options.builder()
-                .server(properties.url())
-                .connectionName(properties.connectionName())
-                .connectionTimeout(properties.connectionTimeout())
-                .maxReconnects(-1)
-                .connectionListener((connection, event) -> log.info("NATS {}", event))
-                .build();
-        try {
-            var connection = Nats.connect(options);
-            log.info("Connected to NATS at {}", properties.url());
-            return connection;
-        } catch (IOException e) {
-            throw new IllegalStateException(
-                    "Cannot connect to NATS at " + properties.url()
-                            + "; start it with 'docker compose up -d nats' or set FRAPPE_NATS_URL",
-                    e);
-        }
-    }
 
     @Bean
-    NatsConnectionCloser natsConnectionCloser(Connection natsConnection) {
-        return new NatsConnectionCloser(natsConnection);
+    NatsStreamProvisioner natsStreamProvisioner() {
+        return new NatsStreamProvisioner();
     }
 
+    /** On every (re)connect: make the stream match the code, then resubmit publications that failed meanwhile. */
     @Bean
-    NatsStreamProvisioner natsStreamProvisioner(Connection natsConnection) throws IOException {
-        var provisioner = new NatsStreamProvisioner(natsConnection.jetStreamManagement());
-        provisioner.provision();
-        return provisioner;
+    NatsClient natsClient(
+            NatsProperties properties,
+            NatsStreamProvisioner provisioner,
+            EventExternalizationConfiguration externalization,
+            ObjectProvider<IncompleteEventPublications> incomplete) {
+        return new NatsClient(
+                properties, connection -> onConnected(connection, provisioner, externalization, incomplete));
     }
 
     /**
@@ -67,43 +47,48 @@ class NatsConfiguration {
     EventExternalizationConfiguration eventExternalizationConfiguration() {
         return EventExternalizationConfiguration.externalizing()
                 .select(EventExternalizationConfiguration.annotatedAsExternalized())
-                .routeAll(event -> RoutingTarget.forTarget(NatsSubjects.of(requireDomainEvent(event)))
-                        .withoutKey())
+                .routeAll(event -> RoutingTarget.forTarget(subjectOf(event)).withoutKey())
                 .build();
     }
 
+    /** Depends on {@link NatsClient}, so Spring destroys it before the connection closes. */
     @Bean
     EventExternalizerModuleListener natsEventExternalizer(
             EventExternalizationConfiguration configuration,
-            Connection natsConnection,
+            NatsClient natsClient,
             NatsProperties properties,
-            JsonMapper jsonMapper)
-            throws IOException {
-        var jetStream = natsConnection.jetStream(JetStreamOptions.builder()
-                .requestTimeout(properties.publishTimeout())
-                .build());
-        return new EventExternalizerModuleListener(configuration, new NatsEventTransport(jetStream, jsonMapper));
+            JsonMapper jsonMapper) {
+        return new EventExternalizerModuleListener(
+                configuration, new NatsEventTransport(natsClient, properties.publishTimeout(), jsonMapper));
     }
 
-    private static DomainEvent requireDomainEvent(Object event) {
-        if (event instanceof DomainEvent domainEvent) {
-            return domainEvent;
+    private static void onConnected(
+            Connection connection,
+            NatsStreamProvisioner provisioner,
+            EventExternalizationConfiguration externalization,
+            ObjectProvider<IncompleteEventPublications> incomplete) {
+        try {
+            provisioner.provision(connection);
+            incomplete.ifAvailable(publications -> publications.resubmitIncompletePublications(
+                    publication -> publication.getStatus() == EventPublication.Status.FAILED
+                            && externalization.supports(publication.getEvent())));
+        } catch (RuntimeException e) {
+            log.error("NATS connected but setup failed; publications stay incomplete: {}", e.getMessage(), e);
         }
-        throw new IllegalStateException(
-                event.getClass().getName() + " is @Externalized but does not implement " + DomainEvent.class.getName());
     }
 
-    /** Drains in-flight messages, then closes, when the context shuts down. */
-    record NatsConnectionCloser(Connection connection) implements AutoCloseable {
-
-        @Override
-        public void close() throws InterruptedException {
-            try {
-                connection.drain(DRAIN_TIMEOUT).get();
-            } catch (TimeoutException | ExecutionException | IllegalStateException e) {
-                log.warn("NATS drain did not finish cleanly; closing", e);
-                connection.close();
-            }
+    private static String subjectOf(Object event) {
+        if (!(event instanceof DomainEvent domainEvent)) {
+            throw new IllegalStateException(event.getClass().getName() + " is @Externalized but does not implement "
+                    + DomainEvent.class.getName());
         }
+        var subject = NatsSubjects.of(domainEvent);
+        var annotation = AnnotatedElementUtils.findMergedAnnotation(event.getClass(), Externalized.class);
+        if (annotation != null && !annotation.value().isEmpty()) {
+            throw new IllegalStateException(event.getClass().getName() + " declares @Externalized(\""
+                    + annotation.value() + "\"), but the subject is derived (" + subject
+                    + "); remove the annotation value");
+        }
+        return subject;
     }
 }
