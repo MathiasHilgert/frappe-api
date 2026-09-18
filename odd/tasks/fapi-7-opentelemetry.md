@@ -29,8 +29,8 @@ Strict TDD. Runner: `./gradlew test` (in-memory exporters / `TestObservationRegi
 - [x] T2 Trace/span ids in ECS logs; test
 - [x] T3 OTLP endpoint down → API keeps serving; test
 - [x] T4 NATS publish observation in the FAPI-5 transport; test
-- [ ] T5 Business metrics facade from domain events + tag policy guard (no tenant/entity tags); tests
-- [ ] T6 `otel-lgtm` in compose + README (how to open Grafana); manual check documented
+- [x] T5 Business metrics facade from domain events + tag policy guard (no tenant/entity tags); tests
+- [x] T6 `otel-lgtm` in compose + README (how to open Grafana); manual check documented
 - [ ] T7 Skill `observing-the-api` + vendored skills + AGENTS.md routing; Ticket Standard note for Plane (orchestrator updates the page)
 - [ ] T8 `./gradlew check` green; PR per template
 
@@ -72,6 +72,27 @@ Strict TDD. Runner: `./gradlew test` (in-memory exporters / `TestObservationRegi
 ### T4
 - RED `NatsEventTransportTest.observesASuccessfulPublishWithTheSubjectAsALowCardinalityKey` / `observesAFailedPublishWithItsError`: compilation failed, `NatsEventTransport` had no `ObservationRegistry` (no observation existed).
 - GREEN: `NatsPublishObservation` (name `nats.publish`, contextual name `publish <subject>`, low keys `messaging.system=nats`, `messaging.destination.name=<subject>`, high key `messaging.message.id=<eventId>`), started around the publish in `NatsEventTransport`, error recorded on failure, stopped in `finally`. Shared-file footprint: one constructor parameter in `NatsEventTransport` and one bean parameter in `NatsConfiguration` (FAPI-6 overlap kept minimal). Span kind stays INTERNAL: a PRODUCER span needs a `SenderContext` that injects headers, which is trace propagation (FAPI-8).
+
+### T5 (business metrics, extended by the human's mid-ticket requirement)
+Design as requested, with justified deviations:
+- Primary path: kernel annotations `@Counted`, `@Measured` (repeatable), `@MetricTag`, `MetricUnit` in `com.frappe.platform` (plain Java). `BusinessMetricsConfiguration` scans the application packages once at startup (`AnnotatedEventScanner`), validates (`MetricRules`), and `BusinessMetricsRecorder` records after commit.
+- Escape hatch: kernel `BusinessMetrics` fluent API + `BusinessMetricsDeclaration` bean (`metrics.on(TabClosed.class).count("tabs.split", "…").tag("channel", TabClosed::channel).flag("split", TabClosed::split)`), no Micrometer types exposed.
+- Standardized: `frappe.<module>.<name>` from the event's package, lowercase dotted names, no `frappe.` prefix, no `total` suffix, description required, base units (`items`, `seconds`, `bytes`, `minor_units`), money as minor units + `currency` tag, histogram buckets for `SECONDS` (SLO buckets per metric via `management.metrics.distribution.slo.<name>`).
+- Guardrails fail at startup (`InvalidBusinessMetricException` listing every problem) and in tests (`BusinessMetricAssert.assertValidBusinessMetrics`).
+- Test DX: `assertThatBusinessMetric(registry, name).withTag(k, v).hasCount(n).hasTotal(x)`.
+- Deviation 1, tags: allowlist by type (enum or boolean fields only; typed `tag(key, Function<E, Enum>)`/`flag(key, Predicate<E>)` in the fluent API) instead of a central list of keys: bounded by construction, zero maintenance. The human's example `@Tag(key = "branch", from = "branchId")` is rejected on purpose: branch ids are UUIDs, unbounded across tenants; per-branch views come from traces/logs, or later from a bounded dimension.
+- Deviation 2, names: `@MetricTag` instead of `@Tag` (clashes with JUnit's `@Tag` and Micrometer's `Tag`); unit `MONEY` instead of `MONEY_MINOR` (the exported base unit is `minor_units`).
+- Deviation 3, assertion order: `withTag(...)` narrows before `hasCount(...)` (filter then assert) instead of `hasCount(1).withTag(...)`, so a failure names the exact series.
+- Money: there is no `Money` type yet; money is recognized structurally (record with `long minorUnits` and `Currency currency`, the documented shape). The fluent API rejects `MONEY` (needs the currency) and points to `@Measured`.
+- Recording: plain `@EventListener` + `TransactionSynchronization.afterCommit`, because Spring Modulith stores an outbox publication for every `@TransactionalEventListener` (verified in `PersistentApplicationEventMulticaster` 2.1.1). Read failures (null field) are skipped with one WARN; the publisher never sees an exception.
+- Invalid-declaration fixtures live in `src/test/java/fixtures/invalidmetrics`, outside the `com.frappe` scan root, otherwise every Spring test context would (correctly) refuse to start.
+- RED: compilation failed (`Counted`, `Measured`, `MetricTag`, `MetricUnit`, `BusinessMetricDefinitions`, `BusinessMetricsRecorder`, `DeclaredBusinessMetrics`, `InvalidBusinessMetricException` missing). First GREEN run: unit tests green; `BusinessMetricsIntegrationTests` failed twice for test reasons: `expected 1L but was 2L` (cached context shared across tests; fixed with a dedicated `DELIVERY` channel) and the tag guard flagged the JVM memory-pool tag `id` (bounded pool name; guard narrowed to tenant and `<entity>_id`/`<entity>Id` keys). Then GREEN: `BusinessMetricDefinitionsTest` (7), `BusinessMetricsRecorderTest` (4), `DeclaredBusinessMetricsTest` (2), `BusinessMetricsIntegrationTests` (2: committed-only counting, no tenant/entity tag on any meter).
+
+### T6
+- RED `LocalObservabilityStackTest.composeRunsGrafanaOtelLgtmOnTheStandardPorts`: no `otel-lgtm` service. GREEN after adding `grafana/otel-lgtm:0.33.1` (3000, 4317, 4318) to `compose.yaml`.
+- Manual check (isolated compose project `frappe-fapi7-otelcheck`, only `otel-lgtm`; app via `bootRun` on port 18087 against this ticket's Testcontainers Postgres, OTLP endpoints set explicitly since 5432 is taken by another project): Tempo search `service.name=frappe-api` returned `http get /actuator/health` traces containing `connection` JDBC spans; Prometheus listed `http_server_requests_*`, `hikaricp_connections_active`, `jvm_*`. Torn down with `down -v`.
+- Finding: Loki stays empty; OTLP log export needs the OpenTelemetry Logback appender, not wired (out of this ticket's acceptance; logs are ECS JSON on stdout with `trace.id`). README says so. Follow-up candidate.
+- Incident: the first manual `bootRun` pointed `FRAPPE_NATS_URL` at a NATS container of another test run for a few seconds; the provisioner reported the `FRAPPE` stream "up to date" (no change) and the app was restarted with NATS unreachable.
 
 ## Next step
 T0.
