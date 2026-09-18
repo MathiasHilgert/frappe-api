@@ -34,7 +34,33 @@ class FlywayMigrationIntegrationTests {
                 "select script from platform.flyway_schema_history where success and script like 'platform/%'",
                 String.class);
 
-        assertThat(scripts).singleElement().asString().matches("platform/V\\d{12}__create_platform_schema\\.sql");
+        assertThat(scripts)
+                .anyMatch(script -> script.matches("platform/V\\d{12}__create_platform_schema\\.sql"))
+                .anyMatch(script -> script.matches("platform/V\\d{12}__create_event_publication_tables\\.sql"));
+    }
+
+    @Test
+    void startupCreatesTheOutboxTablesOwnedByOwnerRole() {
+        var owners = jdbc.queryForList(
+                "select tableowner from pg_tables where schemaname = 'platform'"
+                        + " and tablename in ('event_publication', 'event_publication_archive')",
+                String.class);
+
+        assertThat(owners).containsExactly("frappe_owner", "frappe_owner");
+    }
+
+    @Test
+    void outboxTablesCarryTheOfficialRegistryIndexes() {
+        var indexes = jdbc.queryForList(
+                "select indexname from pg_indexes where schemaname = 'platform' and tablename like 'event_publication%'",
+                String.class);
+
+        assertThat(indexes)
+                .contains(
+                        "event_publication_serialized_event_hash_idx",
+                        "event_publication_by_completion_date_idx",
+                        "event_publication_archive_serialized_event_hash_idx",
+                        "event_publication_archive_by_completion_date_idx");
     }
 
     @Test

@@ -28,6 +28,13 @@ PostgreSQLContainer postgres() {
 - Run with `FRAPPE_TEST_DB=frappe_fapi_12 ./gradlew check` in the FAPI-12 worktree.
 - The reuse key includes the configuration, so each database name gets its own long-lived container, reused across runs of that ticket. Remove it after merge (`running-in-parallel.md` in `working-on-tickets`).
 - Reused containers keep data between runs: tests create their own tenant/IDs (UUIDv7) and never assume empty tables.
+- A reused database keeps its Flyway history. When a migration it already applied is removed or edited (FAPI-6 deleted the FAPI-5 `event_publication` stopgap fixture), startup fails with `FlywayValidateException: Migrations have failed validation`. Remove that ticket's container and rerun; the next run creates it fresh:
+
+```bash
+for c in $(docker ps -q --filter label=org.testcontainers=true --filter ancestor=postgres:18-alpine); do
+  docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$c" | rg -q '^POSTGRES_DB=frappe_fapi_12$' && docker rm -f "$c"
+done
+```
 
 ## RLS tests
 
