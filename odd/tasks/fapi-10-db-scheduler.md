@@ -30,7 +30,7 @@ Strict TDD (brief and project rule). Runner: `./gradlew test` with `FRAPPE_TEST_
 - [x] T5 Outbox recovery through db-scheduler; remove the lock and `@EnableScheduling`
 - [x] T6 Docs (`writing-code`: declaring a task; outbox recovery, observability, errors), final verification
 - [x] R1 Review: heartbeat 15s × 6 (takeover about 90s), documented and asserted
-- [ ] R2 Review: kernel API without db-scheduler types (`TaskName`, `TaskSchedule`, `EntitySchedule`, plain handlers, task handles); own `Scheduler` bean on the application `Clock`
+- [x] R2 Review: kernel API without db-scheduler types (`TaskName`, `TaskSchedule`, `EntitySchedule`, plain handlers, task handles); own `Scheduler` bean on the application `Clock`
 - [ ] R3 Review: one-time tasks end after their retries (removed, one ERROR, `scheduled.task.exhausted`); recurring retry backoff capped at the next regular run
 - [ ] R4 Review: `OutboxRecoveryTrigger` off the NATS thread, checks the reschedule result; racing test proves both instances pick; tenant note; final verification
 
@@ -110,6 +110,15 @@ Strict TDD (brief and project rule). Runner: `./gradlew test` with `FRAPPE_TEST_
 
 ### Review changes (Sonnet approved; Opus requested changes; orchestrator decisions)
 - R1 RED `SchedulerSettingsIntegrationTests.anExecutionOfADeadInstanceIsTakenOverAfterAboutNinetySeconds`: `expected: 15S but was: 5M` (library default, 30m takeover). GREEN with `db-scheduler.heartbeat-interval=15s`, `missed-heartbeats-limit=6`: 2/2; `scheduling.md` states the takeover time. `./gradlew spotlessApply check`: BUILD SUCCESSFUL.
+- R2 RED: `SchedulingIsolationTest` (ArchUnit: nothing outside `platform.infrastructure.scheduling` depends on `com.github.kagkarlsson..`), run alone against the previous code: violated 29 times (`EntitySchedule implements ScheduleAndData`, `ScheduledTasks`, the outbox task and trigger). The new kernel tests (`TaskNameTest`, `TaskScheduleTest`, `EntityScheduleTest`) and adapter tests (`LibrarySchedulesTest`, `StoredEntityScheduleTest`, `TaskHandlesTest` (9), `SchedulingConfigurationTest`, rewritten `ConventionalScheduledTasksTest`, `OutboxRecoveryTaskTest`, `OutboxRecoveryTriggerTest`) failed to compile. GREEN after:
+  - Kernel, pure Java: `TaskName` (the naming rule), sealed `TaskSchedule` (`fixedDelay`, `daily`, `cron`), `EntitySchedule(cron, zone)` without library types, handles `RecurringTask<T>.runNow(data)`, `OneTimeTask<T>.schedule(key, data, at)`, `EntityTask.schedule/cancel/nextRun`, `TaskSchedulingException`; `ScheduledTasks` takes `Runnable`, `UnaryOperator<T>`, `Consumer<T>`, `Consumer<String>`.
+  - `platform.infrastructure.scheduling`: `LibrarySchedules`, `StoredEntitySchedule` (the stored JSON stays `{"cron":…,"zone":…}`), `RecurringHandle`/`OneTimeHandle`/`EntityHandle` translating library exceptions (currently executing / not found → `false` or `TaskSchedulingException`; shaded `SQLRuntimeException` → `TaskSchedulingException`).
+  - The starter only collects its own `Task` beans, so `SchedulingConfiguration` builds the `Scheduler` bean itself with the starter's public `DbSchedulerConfigurationSupport.buildScheduler(...)` from the declared `ScheduledTask` beans (starter's bean is `@ConditionalOnMissingBean`; same `destroyMethod = "stop"`, `@DependsOnDatabaseInitialization`; start, metrics and health still from the starter). Handles reach the scheduler through `ObjectProvider<Scheduler>` (a real cycle: the scheduler is built from the tasks).
+  - Minor (clock): a `com.github.kagkarlsson.scheduler.Clock` bean `dbSchedulerClock` adapts the application `Clock` (replaces the starter's `SystemClock`, `@ConditionalOnMissingBean`); `SchedulingConfigurationTest` 1/1.
+  - The outbox (`OutboxRecoveryTask`, `OutboxRecoveryTrigger`, `OutboxRecoveryConfiguration`) uses only kernel types.
+  - `TaskHandlesTest.anEntityScheduleIsCreatedOrReplacedAtItsNextCronTime` first failed on the test (`TaskInstance.equals` includes the priority, 90 vs 50); it now matches name, key and data.
+  - Minor (racing): `RacingSchedulersIntegrationTests` rewritten on the kernel API; 100 one-time runs with a 50ms action, and the executions record which instance picked them: both `instance-a` and `instance-b` did (green on its first run, an assertion added to a guard).
+- `./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 63 classes, 239 tests. `scheduling.md` and `errors.md` describe the kernel API.
 
 ## Follow-ups / open questions
 - `OutboxRecoveryTrigger` drops a trigger while a pass runs (as the lock did before). A pass that started just before NATS came back may still fail its publishes; those then wait for the next scheduled pass (1m with the defaults, plus their backoff).

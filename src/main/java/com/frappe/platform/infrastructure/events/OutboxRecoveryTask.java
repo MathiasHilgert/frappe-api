@@ -1,21 +1,22 @@
 package com.frappe.platform.infrastructure.events;
 
+import com.frappe.platform.RecurringTask;
 import com.frappe.platform.ScheduledTasks;
+import com.frappe.platform.TaskName;
+import com.frappe.platform.TaskSchedule;
 import com.frappe.platform.infrastructure.events.OutboxObservations.Trigger;
-import com.github.kagkarlsson.scheduler.task.helper.RecurringTask;
-import com.github.kagkarlsson.scheduler.task.schedule.FixedDelay;
 import java.time.Duration;
 
 /**
- * The outbox recovery as one cluster-wide db-scheduler execution ({@value #NAME}, instance {@value
- * RecurringTask#INSTANCE}): only one pass runs at a time across all instances, without an in-process lock. The stored
- * data is the {@link Trigger} of the next pass: {@link Trigger#SCHEDULED} after every pass, {@link
- * Trigger#TRANSPORT_RECOVERED} when {@link OutboxRecoveryTrigger} moved the execution to now.
+ * The outbox recovery as one cluster-wide scheduled task ({@code platform.outbox-recovery}): only one pass runs at a
+ * time across all instances, without an in-process lock. The stored data is the {@link Trigger} of the next pass:
+ * {@link Trigger#SCHEDULED} after every pass, {@link Trigger#TRANSPORT_RECOVERED} when {@link OutboxRecoveryTrigger}
+ * moved the pass to now.
  */
 final class OutboxRecoveryTask {
 
     /** Task name, the key of the one stored execution. */
-    static final String NAME = "platform.outbox-recovery";
+    static final TaskName NAME = TaskName.of("platform.outbox-recovery");
 
     private OutboxRecoveryTask() {}
 
@@ -29,8 +30,8 @@ final class OutboxRecoveryTask {
      */
     static RecurringTask<Trigger> declare(
             ScheduledTasks tasks, FailedPublicationResubmitter resubmitter, Duration interval) {
-        return tasks.recurring(NAME, FixedDelay.of(interval), Trigger.class, Trigger.SCHEDULED, (instance, context) -> {
-            resubmitter.recover(instance.getData());
+        return tasks.recurring(NAME, TaskSchedule.fixedDelay(interval), Trigger.class, Trigger.SCHEDULED, trigger -> {
+            resubmitter.recover(trigger);
             return Trigger.SCHEDULED;
         });
     }

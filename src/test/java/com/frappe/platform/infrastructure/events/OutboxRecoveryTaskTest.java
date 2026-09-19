@@ -7,13 +7,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.frappe.platform.RecurringTask;
 import com.frappe.platform.ScheduledTasks;
+import com.frappe.platform.TaskName;
+import com.frappe.platform.TaskSchedule;
 import com.frappe.platform.infrastructure.events.OutboxObservations.Trigger;
-import com.github.kagkarlsson.scheduler.task.StateReturningExecutionHandler;
-import com.github.kagkarlsson.scheduler.task.TaskInstance;
-import com.github.kagkarlsson.scheduler.task.helper.RecurringTask;
-import com.github.kagkarlsson.scheduler.task.schedule.FixedDelay;
 import java.time.Duration;
+import java.util.function.UnaryOperator;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -26,14 +26,13 @@ class OutboxRecoveryTaskTest {
     final ScheduledTasks tasks = mock(ScheduledTasks.class);
 
     @SuppressWarnings("unchecked")
-    final ArgumentCaptor<StateReturningExecutionHandler<Trigger>> handler =
-            ArgumentCaptor.forClass(StateReturningExecutionHandler.class);
+    final ArgumentCaptor<UnaryOperator<Trigger>> action = ArgumentCaptor.forClass(UnaryOperator.class);
 
     @Test
     @SuppressWarnings("unchecked")
     void isOneRecurringTaskOnAFixedDelayOfTheRecoveryIntervalStartingAsAScheduledPass() {
         // Given
-        var declared = mock(RecurringTask.class);
+        RecurringTask<Trigger> declared = mock(RecurringTask.class);
         when(tasks.recurring(any(), any(), eq(Trigger.class), any(), any())).thenReturn(declared);
 
         // When
@@ -43,8 +42,8 @@ class OutboxRecoveryTaskTest {
         assertThat(task).isSameAs(declared);
         verify(tasks)
                 .recurring(
-                        eq("platform.outbox-recovery"),
-                        eq(FixedDelay.of(INTERVAL)),
+                        eq(TaskName.of("platform.outbox-recovery")),
+                        eq(TaskSchedule.fixedDelay(INTERVAL)),
                         eq(Trigger.class),
                         eq(Trigger.SCHEDULED),
                         any());
@@ -54,12 +53,10 @@ class OutboxRecoveryTaskTest {
     void runsThePassForTheStoredTriggerAndMakesTheNextOneAScheduledPass() {
         // Given
         OutboxRecoveryTask.declare(tasks, resubmitter, INTERVAL);
-        verify(tasks).recurring(any(), any(), eq(Trigger.class), any(), handler.capture());
-        var instance =
-                new TaskInstance<>("platform.outbox-recovery", RecurringTask.INSTANCE, Trigger.TRANSPORT_RECOVERED);
+        verify(tasks).recurring(any(), any(), eq(Trigger.class), any(), action.capture());
 
         // When
-        var next = handler.getValue().execute(instance, null);
+        var next = action.getValue().apply(Trigger.TRANSPORT_RECOVERED);
 
         // Then
         verify(resubmitter).recover(Trigger.TRANSPORT_RECOVERED);

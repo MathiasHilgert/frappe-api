@@ -1,22 +1,26 @@
 package com.frappe.platform.infrastructure.scheduling;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-import com.frappe.platform.EntitySchedule;
+import com.frappe.platform.ScheduledTask;
+import com.frappe.platform.TaskName;
+import com.frappe.platform.TaskSchedule;
+import com.github.kagkarlsson.scheduler.Scheduler;
 import com.github.kagkarlsson.scheduler.task.Execution;
 import com.github.kagkarlsson.scheduler.task.ExecutionComplete;
 import com.github.kagkarlsson.scheduler.task.ExecutionOperations;
 import com.github.kagkarlsson.scheduler.task.OnStartup;
 import com.github.kagkarlsson.scheduler.task.Task;
 import com.github.kagkarlsson.scheduler.task.TaskInstance;
-import com.github.kagkarlsson.scheduler.task.schedule.FixedDelay;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -32,17 +36,86 @@ class ConventionalScheduledTasksTest {
 
     static final int MAX_RETRIES = 3;
 
-    final ConventionalScheduledTasks tasks =
-            new ConventionalScheduledTasks(new SchedulingProperties(INITIAL_BACKOFF, MAX_RETRIES));
+    static final TaskSchedule HOURLY = TaskSchedule.fixedDelay(Duration.ofHours(1));
+
+    final ConventionalScheduledTasks tasks = new ConventionalScheduledTasks(
+            new SchedulingProperties(INITIAL_BACKOFF, MAX_RETRIES),
+            () -> mock(Scheduler.class),
+            Clock.fixed(DONE, ZoneOffset.UTC));
+
+    @Test
+    void aRecurringTaskRunsItsActionAndIsScheduledAtStartup() {
+        // Given
+        var runs = new ArrayList<String>();
+        var task = tasks.recurring(TaskName.of("platform.probe"), HOURLY, () -> runs.add("ran"));
+
+        // When
+        library(task).execute(new TaskInstance<>("platform.probe", "recurring"), null);
+
+        // Then
+        assertThat(task.name()).isEqualTo(TaskName.of("platform.probe"));
+        assertThat(library(task)).isInstanceOf(OnStartup.class);
+        assertThat(runs).containsExactly("ran");
+    }
+
+    @Test
+    void aRecurringTaskWithStateHandsTheReturnedDataToItsNextRun() {
+        // Given
+        var task = tasks.recurring(
+                TaskName.of("platform.stateful-probe"), HOURLY, String.class, "first", data -> data + "-next");
+        @SuppressWarnings("unchecked")
+        var library = (Task<String>) library(task);
+        var instance = new TaskInstance<>("platform.stateful-probe", "recurring", "first");
+        @SuppressWarnings("unchecked")
+        ExecutionOperations<String> operations = mock(ExecutionOperations.class);
+        var complete = ExecutionComplete.success(new Execution(DONE, instance), DONE, DONE);
+
+        // When
+        library.execute(instance, null).complete(complete, operations);
+
+        // Then
+        verify(operations).reschedule(complete, DONE.plus(Duration.ofHours(1)), "first-next");
+    }
+
+    @Test
+    void aOneTimeTaskHandsItsDataToTheAction() {
+        // Given
+        var received = new ArrayList<String>();
+        var task = tasks.oneTime(TaskName.of("platform.one-time-probe"), String.class, received::add);
+        @SuppressWarnings("unchecked")
+        var library = (Task<String>) library(task);
+
+        // When
+        library.execute(new TaskInstance<>("platform.one-time-probe", "order-1", "payload"), null);
+
+        // Then
+        assertThat(received).containsExactly("payload");
+    }
+
+    @Test
+    void aPerEntityTaskHandsTheEntityKeyToTheAction() {
+        // Given
+        var received = new ArrayList<String>();
+        var task = tasks.perEntity(TaskName.of("platform.entity-probe"), received::add);
+        @SuppressWarnings("unchecked")
+        var library = (Task<StoredEntitySchedule>) library(task);
+        var daily = new StoredEntitySchedule("0 0 4 * * *", ZoneId.of("UTC"));
+
+        // When
+        library.execute(new TaskInstance<>("platform.entity-probe", "branch-42", daily), null);
+
+        // Then
+        assertThat(received).containsExactly("branch-42");
+    }
 
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 2})
     void aFailingRecurringTaskRetriesWithExponentialBackoff(int earlierFailures) {
         // Given
-        var task = tasks.recurring("platform.probe", FixedDelay.ofHours(1), (instance, context) -> {});
+        var task = tasks.recurring(TaskName.of("platform.probe"), HOURLY, () -> {});
 
         // When
-        var retryAt = nextExecutionAfterFailure(task, null, earlierFailures);
+        var retryAt = nextExecutionAfterFailure(library(task), null, earlierFailures);
 
         // Then
         assertThat(retryAt).isEqualTo(DONE.plus(INITIAL_BACKOFF.multipliedBy(1L << earlierFailures)));
@@ -51,50 +124,22 @@ class ConventionalScheduledTasksTest {
     @Test
     void aRecurringTaskFallsBackToItsScheduleOnceItsRetriesAreUsedUp() {
         // Given
-        var task = tasks.recurring("platform.probe", FixedDelay.ofHours(1), (instance, context) -> {});
+        var task = tasks.recurring(TaskName.of("platform.probe"), HOURLY, () -> {});
 
         // When
-        var retryAt = nextExecutionAfterFailure(task, null, MAX_RETRIES);
+        var retryAt = nextExecutionAfterFailure(library(task), null, MAX_RETRIES);
 
         // Then
         assertThat(retryAt).isEqualTo(DONE.plus(Duration.ofHours(1)));
     }
 
     @Test
-    void aRecurringTaskWithStateStartsWithItsInitialDataAndRetriesWithBackoff() {
-        // Given
-        var task = tasks.recurring(
-                "platform.stateful-probe", FixedDelay.ofHours(1), String.class, "first", (instance, context) -> "next");
-
-        // When
-        var retryAt = nextExecutionAfterFailure(task, "first", 1);
-
-        // Then
-        assertThat(task).isInstanceOf(OnStartup.class);
-        assertThat(task.getDataClass()).isEqualTo(String.class);
-        assertThat(retryAt).isEqualTo(DONE.plus(INITIAL_BACKOFF.multipliedBy(2)));
-    }
-
-    @Test
-    void aOneTimeTaskKeepsRetryingAtItsLongestBackoffOnceItsRetriesAreUsedUp() {
-        // Given
-        var task = tasks.oneTime("platform.one-time-probe", String.class, (instance, context) -> {});
-
-        // When
-        var retryAt = nextExecutionAfterFailure(task, "payload", MAX_RETRIES + 5);
-
-        // Then
-        // No work is lost: after the fast retries it keeps trying at the next backoff step (30s × 2³).
-        assertThat(retryAt).isEqualTo(DONE.plus(INITIAL_BACKOFF.multipliedBy(1L << MAX_RETRIES)));
-    }
-
-    @Test
     void aOneTimeTaskRetriesWithExponentialBackoff() {
         // Given
-        var task = tasks.oneTime("platform.one-time-probe", String.class, (instance, context) -> {});
+        var task = tasks.oneTime(TaskName.of("platform.one-time-probe"), String.class, data -> {});
 
         // When
-        var retryAt = nextExecutionAfterFailure(task, "payload", 2);
+        var retryAt = nextExecutionAfterFailure(library(task), "payload", 2);
 
         // Then
         assertThat(retryAt).isEqualTo(DONE.plus(INITIAL_BACKOFF.multipliedBy(4)));
@@ -103,35 +148,29 @@ class ConventionalScheduledTasksTest {
     @Test
     void aPerEntityTaskRetriesWithBackoffThenFallsBackToTheEntitySchedule() {
         // Given
-        var task = tasks.perEntity("platform.entity-probe", (instance, context) -> {});
-        var daily = new EntitySchedule("0 0 4 * * *", ZoneId.of("UTC"));
+        var task = tasks.perEntity(TaskName.of("platform.entity-probe"), entityId -> {});
+        var daily = new StoredEntitySchedule("0 0 4 * * *", ZoneId.of("UTC"));
 
         // When
-        var retryAt = nextExecutionAfterFailure(task, daily, 0);
-        var fallbackAt = nextExecutionAfterFailure(task, daily, MAX_RETRIES);
+        var retryAt = nextExecutionAfterFailure(library(task), daily, 0);
+        var fallbackAt = nextExecutionAfterFailure(library(task), daily, MAX_RETRIES);
 
         // Then
         assertThat(retryAt).isEqualTo(DONE.plus(INITIAL_BACKOFF));
         assertThat(fallbackAt).isEqualTo(Instant.parse("2026-09-19T04:00:00Z"));
     }
 
-    @ParameterizedTest
-    @ValueSource(
-            strings = {"outbox-recovery", "Platform.outbox", "platform.outbox_recovery", "platform.", "platform.a.b"})
-    void rejectsATaskNameThatIsNotModuleDotKebabCase(String name) {
-        assertThatIllegalArgumentException()
-                .isThrownBy(() -> tasks.oneTime(name, String.class, (instance, context) -> {}))
-                .withMessageContaining(name)
-                .withMessageContaining("<module>.<kebab-case-name>");
+    static Task<?> library(ScheduledTask task) {
+        return ((LibraryTask) task).libraryTask();
     }
 
-    private static <T> Instant nextExecutionAfterFailure(Task<T> task, T data, int earlierFailures) {
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    static Instant nextExecutionAfterFailure(Task task, Object data, int earlierFailures) {
         var instance = new TaskInstance<>(task.getName(), "instance", data);
         var execution =
                 new Execution(STARTED, instance, true, "instance-a", null, STARTED, earlierFailures, STARTED, 1);
         var failed = ExecutionComplete.failure(execution, STARTED, DONE, new IllegalStateException("boom"));
-        @SuppressWarnings("unchecked")
-        ExecutionOperations<T> operations = mock(ExecutionOperations.class);
+        ExecutionOperations operations = mock(ExecutionOperations.class);
         var next = ArgumentCaptor.forClass(Instant.class);
 
         task.getFailureHandler().onFailure(failed, operations);

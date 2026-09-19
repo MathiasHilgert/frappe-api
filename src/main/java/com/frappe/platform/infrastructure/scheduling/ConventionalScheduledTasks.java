@@ -1,28 +1,28 @@
 package com.frappe.platform.infrastructure.scheduling;
 
-import com.frappe.platform.EntitySchedule;
+import com.frappe.platform.EntityTask;
+import com.frappe.platform.OneTimeTask;
+import com.frappe.platform.RecurringTask;
 import com.frappe.platform.ScheduledTasks;
+import com.frappe.platform.TaskName;
+import com.frappe.platform.TaskSchedule;
+import com.github.kagkarlsson.scheduler.Scheduler;
 import com.github.kagkarlsson.scheduler.task.FailureHandler;
 import com.github.kagkarlsson.scheduler.task.FailureHandler.OnFailureReschedule;
 import com.github.kagkarlsson.scheduler.task.FailureHandler.OnFailureRescheduleUsingTaskDataSchedule;
 import com.github.kagkarlsson.scheduler.task.FailureHandler.OnFailureRetryLater;
 import com.github.kagkarlsson.scheduler.task.MaxRetriesExceededListener;
-import com.github.kagkarlsson.scheduler.task.StateReturningExecutionHandler;
-import com.github.kagkarlsson.scheduler.task.VoidExecutionHandler;
-import com.github.kagkarlsson.scheduler.task.helper.OneTimeTask;
-import com.github.kagkarlsson.scheduler.task.helper.RecurringTask;
-import com.github.kagkarlsson.scheduler.task.helper.RecurringTaskWithPersistentSchedule;
 import com.github.kagkarlsson.scheduler.task.helper.Tasks;
-import com.github.kagkarlsson.scheduler.task.schedule.Schedule;
-import java.util.regex.Pattern;
+import java.time.Clock;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 
 /**
- * {@link ScheduledTasks} over db-scheduler's {@link Tasks} builders: validates the name and applies the retry
- * convention of {@link SchedulingProperties} through the library's {@link FailureHandler#maxRetries} builder.
+ * {@link ScheduledTasks} over db-scheduler's {@link Tasks} builders: adapts the plain actions to the library's
+ * handlers, translates the schedule and applies the retry convention of {@link SchedulingProperties}.
  */
 final class ConventionalScheduledTasks implements ScheduledTasks {
-
-    private static final Pattern TASK_NAME = Pattern.compile("[a-z][a-z0-9]*\\.[a-z0-9]+(-[a-z0-9]+)*");
 
     private static final double BACKOFF_MULTIPLIER = 2.0;
 
@@ -30,49 +30,57 @@ final class ConventionalScheduledTasks implements ScheduledTasks {
     private static final MaxRetriesExceededListener LOGGED_BY_FAILURE_LOG = complete -> {};
 
     private final SchedulingProperties properties;
+    private final Supplier<Scheduler> scheduler;
+    private final Clock clock;
 
     /**
      * Creates the task factory.
      *
      * @param properties the retry settings
+     * @param scheduler the application's scheduler, looked up when a task is scheduled: it is built from the tasks
+     *     this factory creates
+     * @param clock the application clock
      */
-    ConventionalScheduledTasks(SchedulingProperties properties) {
+    ConventionalScheduledTasks(SchedulingProperties properties, Supplier<Scheduler> scheduler, Clock clock) {
         this.properties = properties;
+        this.scheduler = scheduler;
+        this.clock = clock;
     }
 
     @Override
-    public RecurringTask<Void> recurring(String name, Schedule schedule, VoidExecutionHandler<Void> handler) {
-        return Tasks.recurring(checked(name), schedule)
-                .onFailure(retryingThen(new OnFailureReschedule<>(schedule)))
-                .execute(handler);
+    public RecurringTask<Void> recurring(TaskName name, TaskSchedule schedule, Runnable action) {
+        var librarySchedule = LibrarySchedules.of(schedule);
+        var task = Tasks.recurring(name.value(), librarySchedule)
+                .onFailure(retryingThen(new OnFailureReschedule<>(librarySchedule)))
+                .execute((instance, context) -> action.run());
+        return new RecurringHandle<>(name, task, scheduler, clock);
     }
 
     @Override
     public <T> RecurringTask<T> recurring(
-            String name,
-            Schedule schedule,
-            Class<T> dataType,
-            T initialData,
-            StateReturningExecutionHandler<T> handler) {
-        return Tasks.recurring(checked(name), schedule, dataType)
+            TaskName name, TaskSchedule schedule, Class<T> dataType, T initialData, UnaryOperator<T> action) {
+        var librarySchedule = LibrarySchedules.of(schedule);
+        var task = Tasks.recurring(name.value(), librarySchedule, dataType)
                 .initialData(initialData)
-                .onFailure(retryingThen(new OnFailureReschedule<>(schedule)))
-                .executeStateful(handler);
+                .onFailure(retryingThen(new OnFailureReschedule<>(librarySchedule)))
+                .executeStateful((instance, context) -> action.apply(instance.getData()));
+        return new RecurringHandle<>(name, task, scheduler, clock);
     }
 
     @Override
-    public <T> OneTimeTask<T> oneTime(String name, Class<T> dataType, VoidExecutionHandler<T> handler) {
-        return Tasks.oneTime(checked(name), dataType)
+    public <T> OneTimeTask<T> oneTime(TaskName name, Class<T> dataType, Consumer<T> action) {
+        var task = Tasks.oneTime(name.value(), dataType)
                 .onFailure(retryingThen(new OnFailureRetryLater<>(properties.longestBackoff())))
-                .execute(handler);
+                .execute((instance, context) -> action.accept(instance.getData()));
+        return new OneTimeHandle<>(name, task, scheduler);
     }
 
     @Override
-    public RecurringTaskWithPersistentSchedule<EntitySchedule> perEntity(
-            String name, VoidExecutionHandler<EntitySchedule> handler) {
-        return Tasks.recurringWithPersistentSchedule(checked(name), EntitySchedule.class)
+    public EntityTask perEntity(TaskName name, Consumer<String> action) {
+        var task = Tasks.recurringWithPersistentSchedule(name.value(), StoredEntitySchedule.class)
                 .onFailure(retryingThen(new OnFailureRescheduleUsingTaskDataSchedule<>()))
-                .execute(handler);
+                .execute((instance, context) -> action.accept(instance.getId()));
+        return new EntityHandle(name, task, scheduler, clock);
     }
 
     // Backoff first: most failures are transient (database failover, a dependency restarting). The library counts
@@ -81,13 +89,5 @@ final class ConventionalScheduledTasks implements ScheduledTasks {
         return FailureHandler.<T>maxRetries(properties.maxRetries())
                 .withBackoff(properties.initialBackoff(), BACKOFF_MULTIPLIER)
                 .then(afterRetries, LOGGED_BY_FAILURE_LOG);
-    }
-
-    private static String checked(String name) {
-        if (name == null || !TASK_NAME.matcher(name).matches()) {
-            throw new IllegalArgumentException("Scheduled task name '" + name
-                    + "' must be <module>.<kebab-case-name>, e.g. platform.outbox-recovery");
-        }
-        return name;
     }
 }

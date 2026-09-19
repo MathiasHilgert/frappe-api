@@ -5,17 +5,19 @@ import static org.awaitility.Awaitility.await;
 
 import com.frappe.TestcontainersConfiguration;
 import com.frappe.platform.EntitySchedule;
+import com.frappe.platform.ScheduledTask;
+import com.frappe.platform.TaskName;
+import com.frappe.platform.TaskSchedule;
 import com.github.kagkarlsson.scheduler.Scheduler;
-import com.github.kagkarlsson.scheduler.SchedulerClient.ScheduleOptions;
 import com.github.kagkarlsson.scheduler.SchedulerName;
 import com.github.kagkarlsson.scheduler.boot.autoconfigure.Jackson3Serializer;
+import com.github.kagkarlsson.scheduler.event.ExecutionInterceptor;
 import com.github.kagkarlsson.scheduler.task.ExecutionComplete;
 import com.github.kagkarlsson.scheduler.task.OnStartup;
 import com.github.kagkarlsson.scheduler.task.Task;
-import com.github.kagkarlsson.scheduler.task.TaskInstanceId;
-import com.github.kagkarlsson.scheduler.task.schedule.FixedDelay;
 import io.micrometer.observation.tck.TestObservationRegistry;
 import io.micrometer.observation.tck.TestObservationRegistryAssert;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -29,6 +31,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -39,9 +42,10 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * Two scheduler instances, built like the application's (same table, JSON data, observation and failure log), race for
- * the same executions on the real Postgres as the runtime role. Task names are unique per test, so the application's
- * own scheduler (which does not know them) never picks their rows; they are removed after each test.
+ * Two scheduler instances, built like the application's (same table, JSON data, observation), race for the same
+ * executions on the real Postgres as the runtime role. Tasks are declared through the platform's conventions; instance
+ * A serves their scheduling calls. Task names are unique per test, so the application's own scheduler (which does not
+ * know them) never picks their rows; they are removed after each test.
  */
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
@@ -57,10 +61,18 @@ class RacingSchedulersIntegrationTests {
 
     static final Duration INITIAL_BACKOFF = Duration.ofMillis(300);
 
-    final ConventionalScheduledTasks tasks =
-            new ConventionalScheduledTasks(new SchedulingProperties(INITIAL_BACKOFF, 5));
+    final AtomicReference<Scheduler> instanceA = new AtomicReference<>();
+
+    final ConventionalScheduledTasks tasks = new ConventionalScheduledTasks(
+            new SchedulingProperties(INITIAL_BACKOFF, 5), instanceA::get, Clock.systemUTC());
 
     final TestObservationRegistry observations = TestObservationRegistry.create();
+
+    // Recorded around every execution: which instance picked it (by task instance id), and which due execution it was
+    // (by task name).
+    final ConcurrentHashMap<String, List<String>> pickedBy = new ConcurrentHashMap<>();
+
+    final ConcurrentHashMap<String, List<Instant>> ranExecutionTimes = new ConcurrentHashMap<>();
 
     final List<Scheduler> started = new ArrayList<>();
 
@@ -83,60 +95,58 @@ class RacingSchedulersIntegrationTests {
     @Test
     void everyDueExecutionOfARecurringTaskRunsOnExactlyOneInstance() {
         // Given
-        var ranDueExecutions = new CopyOnWriteArrayList<Instant>();
+        var runs = new AtomicInteger();
         var task = tasks.recurring(
-                uniqueName("race"),
-                FixedDelay.of(Duration.ofMillis(200)),
-                (instance, context) -> ranDueExecutions.add(context.getExecution().executionTime));
+                uniqueName("race"), TaskSchedule.fixedDelay(Duration.ofMillis(200)), runs::incrementAndGet);
 
         // When
         startInstance("instance-a", task);
         startInstance("instance-b", task);
 
         // Then
-        await().atMost(Duration.ofSeconds(20)).until(() -> ranDueExecutions.size() >= 10);
-        assertThat(ranDueExecutions).doesNotHaveDuplicates();
+        await().atMost(Duration.ofSeconds(20)).until(() -> runs.get() >= 10);
+        assertThat(ranExecutionTimes.get(task.name().value())).doesNotHaveDuplicates();
     }
 
     @Test
-    void everyOneTimeExecutionRunsOnExactlyOneInstance() {
+    void everyOneTimeExecutionRunsOnExactlyOneInstanceAndBothInstancesTakeTheirShare() {
         // Given
         var runs = new ConcurrentHashMap<String, AtomicInteger>();
-        var task = tasks.oneTime(
-                uniqueName("race-once"),
-                String.class,
-                (instance, context) -> runs.computeIfAbsent(instance.getId(), id -> new AtomicInteger())
-                        .incrementAndGet());
-        var a = startInstance("instance-a", task);
+        var task = tasks.oneTime(uniqueName("race-once"), String.class, order -> {
+            runs.computeIfAbsent(order, key -> new AtomicInteger()).incrementAndGet();
+            // Slow enough that one instance cannot drain the batch before the other polls.
+            sleep(Duration.ofMillis(50));
+        });
+        startInstance("instance-a", task);
         startInstance("instance-b", task);
 
         // When
-        for (var order = 0; order < 50; order++) {
-            a.scheduleIfNotExists(task.instance("order-" + order, "payload"), Instant.now());
+        for (var order = 0; order < 100; order++) {
+            task.schedule("order-" + order, "order-" + order, Instant.now());
         }
 
         // Then
-        await().atMost(Duration.ofSeconds(20)).until(() -> runs.size() == 50);
+        await().atMost(Duration.ofSeconds(30)).until(() -> runs.size() == 100);
         await().pollDelay(Duration.ofSeconds(1)).until(() -> true);
         assertThat(runs.values()).extracting(AtomicInteger::get).containsOnly(1);
+        assertThat(pickedBy.values().stream().flatMap(List::stream).distinct())
+                .containsExactlyInAnyOrder("instance-a", "instance-b");
     }
 
     @Test
     void anExecutionOfADeadInstanceIsTakenOverOnceItsHeartbeatExpires() throws Exception {
-        // Given an execution running on instance A
+        // Given an execution running on instance A (B is not started yet)
         var runningOnA = new CountDownLatch(1);
         var releaseA = new CompletableFuture<Void>();
-        var ranBy = new CopyOnWriteArrayList<String>();
-        var task = tasks.oneTime(uniqueName("takeover"), String.class, (instance, context) -> {
-            ranBy.add(context.getExecution().pickedBy);
-            if ("instance-a".equals(context.getExecution().pickedBy)) {
+        var task = tasks.oneTime(uniqueName("takeover"), String.class, data -> {
+            if (runningOnA.getCount() > 0) {
                 runningOnA.countDown();
                 // A dead instance never finishes; join() ignores the interrupt of the scheduler's shutdown.
                 releaseA.join();
             }
         });
         var a = startInstance("instance-a", task);
-        a.scheduleIfNotExists(task.instance("close-day", "payload"), Instant.now());
+        task.schedule("close-day", "payload", Instant.now());
         assertThat(runningOnA.await(10, TimeUnit.SECONDS)).isTrue();
 
         try {
@@ -145,8 +155,9 @@ class RacingSchedulersIntegrationTests {
             startInstance("instance-b", task);
 
             // Then
-            await().atMost(Duration.ofSeconds(20)).until(() -> ranBy.contains("instance-b"));
-            assertThat(ranBy).containsExactly("instance-a", "instance-b");
+            await().atMost(Duration.ofSeconds(20))
+                    .until(() -> pickedBy.getOrDefault("close-day", List.of()).contains("instance-b"));
+            assertThat(pickedBy.get("close-day")).containsExactly("instance-a", "instance-b");
         } finally {
             releaseA.complete(null);
         }
@@ -156,16 +167,16 @@ class RacingSchedulersIntegrationTests {
     void aFailingTaskRetriesWithExponentialBackoffAndEveryFailureIsObservedAsAnError() {
         // Given
         var attempts = new CopyOnWriteArrayList<Instant>();
-        var task = tasks.oneTime(uniqueName("flaky"), String.class, (instance, context) -> {
+        var task = tasks.oneTime(uniqueName("flaky"), String.class, data -> {
             attempts.add(Instant.now());
             if (attempts.size() <= 3) {
                 throw new IllegalStateException("attempt " + attempts.size() + " failed");
             }
         });
-        var a = startInstance("instance-a", task);
+        startInstance("instance-a", task);
 
         // When
-        a.scheduleIfNotExists(task.instance("report-2026-09", "payload"), Instant.now());
+        task.schedule("report-2026-09", "payload", Instant.now());
 
         // Then
         await().atMost(Duration.ofSeconds(20)).until(() -> attempts.size() == 4);
@@ -199,39 +210,47 @@ class RacingSchedulersIntegrationTests {
     void aChangedEntityScheduleDrivesTheNextExecutionWithoutARestart() {
         // Given a branch closing its day at 04:00 in São Paulo
         var closedBranches = new CopyOnWriteArrayList<String>();
-        var task =
-                tasks.perEntity(uniqueName("close-day"), (instance, context) -> closedBranches.add(instance.getId()));
-        var a = startInstance("instance-a", task);
+        var task = tasks.perEntity(uniqueName("close-day"), closedBranches::add);
+        startInstance("instance-a", task);
         var saoPaulo = new EntitySchedule("0 0 4 * * *", ZoneId.of("America/Sao_Paulo"));
-        a.schedule(task.schedulableInstance("branch-1", saoPaulo), ScheduleOptions.WHEN_EXISTS_RESCHEDULE);
+        task.schedule("branch-1", saoPaulo);
 
         // When the branch moves to Berlin
         var berlin = saoPaulo.withZone(ZoneId.of("Europe/Berlin"));
-        a.schedule(task.schedulableInstance("branch-1", berlin), ScheduleOptions.WHEN_EXISTS_RESCHEDULE);
+        task.schedule("branch-1", berlin);
 
         // Then the next execution is 04:00 in Berlin, and a schedule that is due runs on the running instance
-        var scheduled = a.getScheduledExecution(TaskInstanceId.of(task.getName(), "branch-1"))
-                .orElseThrow();
-        assertThat(scheduled.getExecutionTime())
-                .isEqualTo(
-                        berlin.getSchedule().getNextExecutionTime(ExecutionComplete.simulatedSuccess(Instant.now())));
-        assertThat(scheduled.getData()).isEqualTo(berlin);
-        a.schedule(
-                task.schedulableInstance("branch-1", new EntitySchedule("* * * * * *", ZoneId.of("Europe/Berlin"))),
-                ScheduleOptions.WHEN_EXISTS_RESCHEDULE);
+        assertThat(task.nextRun("branch-1"))
+                .contains(StoredEntitySchedule.of(berlin)
+                        .getSchedule()
+                        .getNextExecutionTime(ExecutionComplete.simulatedSuccess(Instant.now())));
+        task.schedule("branch-1", new EntitySchedule("* * * * * *", ZoneId.of("Europe/Berlin")));
         await().atMost(Duration.ofSeconds(10)).until(() -> closedBranches.contains("branch-1"));
     }
 
-    private String uniqueName(String prefix) {
+    private TaskName uniqueName(String prefix) {
         var name = "platform." + prefix + "-"
                 + UUID.randomUUID().toString().substring(0, 8).toLowerCase(Locale.ROOT);
         taskNames.add(name);
-        return name;
+        return TaskName.of(name);
     }
 
-    // Built like DbSchedulerConfigurationSupport builds the application's scheduler; fast timings for the test.
+    private ExecutionInterceptor recordingPicks() {
+        return (taskInstance, context, chain) -> {
+            var execution = context.getExecution();
+            pickedBy.computeIfAbsent(taskInstance.getId(), id -> new CopyOnWriteArrayList<>())
+                    .add(execution.pickedBy);
+            ranExecutionTimes
+                    .computeIfAbsent(taskInstance.getTaskName(), name -> new CopyOnWriteArrayList<>())
+                    .add(execution.executionTime);
+            return chain.proceed(taskInstance, context);
+        };
+    }
+
+    // Built like SchedulingConfiguration builds the application's scheduler; fast timings for the test.
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private Scheduler startInstance(String name, Task<?> task) {
+    private Scheduler startInstance(String name, ScheduledTask declared) {
+        Task<?> task = ((LibraryTask) declared).libraryTask();
         var builder = Scheduler.create(dataSource, task instanceof OnStartup ? List.of() : List.of(task))
                 .tableName("platform.scheduled_tasks")
                 .schedulerName(new SchedulerName.Fixed(name))
@@ -240,14 +259,23 @@ class RacingSchedulersIntegrationTests {
                 .heartbeatInterval(HEARTBEAT)
                 .missedHeartbeatsLimit(MISSED_HEARTBEATS)
                 .shutdownMaxWait(Duration.ofMillis(200))
-                .addExecutionInterceptor(new ObservedTaskExecution(observations))
-                .addSchedulerListener(new TaskFailureLog(new SchedulingProperties(INITIAL_BACKOFF, 5)));
+                .addExecutionInterceptor(recordingPicks())
+                .addExecutionInterceptor(new ObservedTaskExecution(observations));
         if (task instanceof OnStartup) {
             builder.startTasks((List) List.of(task));
         }
         var scheduler = builder.build();
         scheduler.start();
         started.add(scheduler);
+        instanceA.compareAndSet(null, scheduler);
         return scheduler;
+    }
+
+    private static void sleep(Duration duration) {
+        try {
+            Thread.sleep(duration);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 }

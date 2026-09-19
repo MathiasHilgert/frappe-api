@@ -1,9 +1,8 @@
 package com.frappe.platform.infrastructure.events;
 
+import com.frappe.platform.RecurringTask;
 import com.frappe.platform.ScheduledTasks;
 import com.frappe.platform.infrastructure.events.OutboxObservations.Trigger;
-import com.github.kagkarlsson.scheduler.Scheduler;
-import com.github.kagkarlsson.scheduler.task.helper.RecurringTask;
 import io.micrometer.observation.ObservationRegistry;
 import java.time.Clock;
 import java.util.Collection;
@@ -18,7 +17,7 @@ import org.springframework.modulith.events.core.EventPublicationRepository;
 import org.springframework.modulith.events.core.EventSerializer;
 
 /**
- * Schedules outbox recovery as a cluster-safe db-scheduler task. Spring Modulith's staleness monitor ({@code
+ * Schedules outbox recovery as a cluster-safe scheduled task. Spring Modulith's staleness monitor ({@code
  * spring.modulith.events.staleness.*}) stays off: it judges every status by the publication date, so the recovery pass
  * detects stuck attempts itself.
  */
@@ -84,13 +83,12 @@ class OutboxRecoveryConfiguration {
     /**
      * Runs a pass at once when a messaging transport came back.
      *
-     * @param scheduler the application's scheduler
-     * @param clock the application clock
+     * @param outboxRecoveryTask the recovery task
      * @return the trigger
      */
     @Bean
-    OutboxRecoveryTrigger outboxRecoveryTrigger(Scheduler scheduler, Clock clock) {
-        return new OutboxRecoveryTrigger(scheduler, clock);
+    OutboxRecoveryTrigger outboxRecoveryTrigger(RecurringTask<Trigger> outboxRecoveryTask) {
+        return new OutboxRecoveryTrigger(outboxRecoveryTask);
     }
 
     // Modulith resolves the target listener from the multicaster's listeners; the context keeps the same set

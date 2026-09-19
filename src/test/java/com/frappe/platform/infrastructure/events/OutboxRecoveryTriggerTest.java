@@ -2,9 +2,7 @@ package com.frappe.platform.infrastructure.events;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -12,16 +10,10 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.frappe.platform.RecurringTask;
+import com.frappe.platform.TaskSchedulingException;
 import com.frappe.platform.infrastructure.MessagingTransportRecovered;
 import com.frappe.platform.infrastructure.events.OutboxObservations.Trigger;
-import com.github.kagkarlsson.scheduler.Scheduler;
-import com.github.kagkarlsson.scheduler.exceptions.TaskInstanceCurrentlyExecutingException;
-import com.github.kagkarlsson.scheduler.exceptions.TaskInstanceNotFoundException;
-import com.github.kagkarlsson.scheduler.task.TaskInstanceId;
-import com.github.kagkarlsson.shaded.jdbc.SQLRuntimeException;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneOffset;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,13 +21,10 @@ import org.slf4j.LoggerFactory;
 
 class OutboxRecoveryTriggerTest {
 
-    static final Instant NOW = Instant.parse("2026-09-18T12:00:00Z");
+    @SuppressWarnings("unchecked")
+    final RecurringTask<Trigger> recovery = mock(RecurringTask.class);
 
-    static final TaskInstanceId RECOVERY = TaskInstanceId.of("platform.outbox-recovery", "recurring");
-
-    final Scheduler scheduler = mock(Scheduler.class);
-
-    final OutboxRecoveryTrigger trigger = new OutboxRecoveryTrigger(scheduler, Clock.fixed(NOW, ZoneOffset.UTC));
+    final OutboxRecoveryTrigger trigger = new OutboxRecoveryTrigger(recovery);
 
     final Logger logger = (Logger) LoggerFactory.getLogger(OutboxRecoveryTrigger.class);
 
@@ -53,32 +42,22 @@ class OutboxRecoveryTriggerTest {
     }
 
     @Test
-    void aRecoveredTransportMovesTheOneRecoveryExecutionToNowAndWakesThePoller() {
+    void aRecoveredTransportRunsTheRecoveryNowIgnoringTheBackoff() {
+        // Given
+        when(recovery.runNow(Trigger.TRANSPORT_RECOVERED)).thenReturn(true);
+
         // When
         trigger.onTransportRecovered(MessagingTransportRecovered.NATS);
 
         // Then
-        verify(scheduler).reschedule(RECOVERY, NOW, Trigger.TRANSPORT_RECOVERED);
-        verify(scheduler).triggerCheckForDueExecutions();
-    }
-
-    @Test
-    void aRunningPassMakesTheTriggerRedundantBecauseItCoversTheSameRows() {
-        // Given
-        when(scheduler.reschedule(any(TaskInstanceId.class), any(), any()))
-                .thenThrow(new TaskInstanceCurrentlyExecutingException("platform.outbox-recovery", "recurring"));
-
-        // When / Then
-        assertThatNoException().isThrownBy(() -> trigger.onTransportRecovered(MessagingTransportRecovered.NATS));
-        verify(scheduler, never()).triggerCheckForDueExecutions();
+        verify(recovery).runNow(Trigger.TRANSPORT_RECOVERED);
         assertThat(logs.list).noneMatch(event -> event.getLevel().isGreaterOrEqual(Level.WARN));
     }
 
     @Test
-    void aTriggerBeforeTheFirstScheduleIsLeftToTheStartupRun() {
+    void aPassThatCouldNotBeMovedIsLeftToTheRunningOrScheduledOne() {
         // Given
-        when(scheduler.reschedule(any(TaskInstanceId.class), any(), any()))
-                .thenThrow(new TaskInstanceNotFoundException("platform.outbox-recovery", "recurring"));
+        when(recovery.runNow(Trigger.TRANSPORT_RECOVERED)).thenReturn(false);
 
         // When / Then
         assertThatNoException().isThrownBy(() -> trigger.onTransportRecovered(MessagingTransportRecovered.NATS));
@@ -88,14 +67,15 @@ class OutboxRecoveryTriggerTest {
     @Test
     void aDatabaseFailureIsLoggedOnceAndLeftToTheScheduledRun() {
         // Given
-        when(scheduler.reschedule(any(TaskInstanceId.class), any(), any()))
-                .thenThrow(new SQLRuntimeException("connection refused"));
+        when(recovery.runNow(Trigger.TRANSPORT_RECOVERED))
+                .thenThrow(new TaskSchedulingException(
+                        "Moving platform.outbox-recovery failed", new RuntimeException("x")));
 
         // When / Then
         assertThatNoException().isThrownBy(() -> trigger.onTransportRecovered(MessagingTransportRecovered.NATS));
         assertThat(logs.list).singleElement().satisfies(event -> {
             assertThat(event.getLevel()).isEqualTo(Level.WARN);
-            assertThat(event.getThrowableProxy().getMessage()).isEqualTo("connection refused");
+            assertThat(event.getThrowableProxy().getMessage()).isEqualTo("Moving platform.outbox-recovery failed");
         });
     }
 }
