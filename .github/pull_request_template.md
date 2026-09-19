@@ -35,6 +35,26 @@ flowchart LR
     A[Module A] -->|EventName| B[Module B]
 ```
 
+## Observability
+
+<!-- Required: every metric and span this change adds or changes. Write "None: <reason>" only when nothing is exposed. Tags list their allowed values (low cardinality only; never tenant, user or entity ids). -->
+
+| Metric | Type | Unit | Tags (allowed values) | Kind | What it answers |
+| --- | --- | --- | --- | --- | --- |
+| `frappe.<module>.<noun>.<past-participle>` | counter / distribution / timer / gauge | items / seconds / bytes / money | `outcome` (`success`, `failure`) | business / infrastructure |  |
+
+| Span / observation | Kind | Key attributes | When |
+| --- | --- | --- | --- |
+|  | internal / server / producer / consumer |  |  |
+
+## Events
+
+<!-- Required: every domain event this change publishes or consumes. Write "None: <reason>" only when there are none. Payloads carry ids, never secrets or personal data beyond what consumers need. -->
+
+| Event | Version | Published by | Consumed by | NATS subject | Externalized | Payload (field: type) | Idempotency | Description |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `PersonRegistered` | 1 | identity | notification | `frappe.identity.person-registered.v1` | yes | `eventId: UUID`, `personId: UUID`, `occurredAt: Instant` | `eventId` |  |
+
 ## Proposed developer experience
 
 <!-- How the change is used: endpoint calls, Api usage, commands to run, configuration. -->

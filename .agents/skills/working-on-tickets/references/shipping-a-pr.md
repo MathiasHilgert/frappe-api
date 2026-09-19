@@ -10,7 +10,7 @@
 
 Title = Conventional Commit of the squash result, e.g. `feat(identity): open and close person sessions`.
 
-Body follows `.github/pull_request_template.md`: keep applicable sections (TL;DR, Ticket link `https://app.plane.so/nulled-software/browse/FAPI-N/`, Description, User story, Architecture with mermaid without colors, Proposed developer experience, Decisions made, Pending decisions, Verification with RED/GREEN evidence and `./gradlew check`). Delete sections that do not apply.
+Body follows `.github/pull_request_template.md`: keep applicable sections (TL;DR, Ticket link `https://app.plane.so/nulled-software/browse/FAPI-N/`, Description, User story, Architecture with mermaid without colors, Observability (table of metrics and spans the change exposes), Events (table of events published or consumed with version, publisher, consumers, subject, payload, idempotency key and description; "None: <reason>" when empty), Proposed developer experience, Decisions made, Pending decisions, Verification with RED/GREEN evidence and `./gradlew check`). Delete sections that do not apply.
 
 ```bash
 gh pr create --base main --title "<title>" --body-file /path/body.md
