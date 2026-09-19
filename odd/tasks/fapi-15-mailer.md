@@ -136,6 +136,9 @@ Recorded per task below as work proceeds.
   `frappe.mail.provider`), `RecordingMailerTest` (compile: no `RecordingMailer`). GREEN after the fixes.
   `MailLibrariesTest` is a guard and passed on first run.
 
+- Merged origin/main d543b58 (machine translation, PR #20); conflicts in `docs/secrets.md` and `application.properties`
+  resolved by keeping both sides. Gate after merge: BUILD SUCCESSFUL, 541 tests, 0 failures. Branch pushed.
+
 ## Engram mirror
 
 Pending: no Engram tool available to this worker; the orchestrator mirrors `odd/fapi-15-mailer/tasks`.
