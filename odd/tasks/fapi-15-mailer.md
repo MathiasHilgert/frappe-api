@@ -47,7 +47,7 @@ Modules' own templates; bounces, webhooks, attachments, marketing mail.
 - [x] T5. Configuration: provider selection, fail-fast settings, compose Mailpit, local properties.
 - [x] T6. Outbox example: listener fails on 5xx, recovery pass sends after the stub recovers.
 - [x] T7. Docs and skills: README, `email.md`, errors/logging/observability references.
-- [ ] T8. Gate `./gradlew spotlessApply check --rerun-tasks` green; commit.
+- [x] T8. Gate `./gradlew spotlessApply check --rerun-tasks` green; commit.
 
 ## Acceptance → tests
 
@@ -87,6 +87,10 @@ Recorded per task below as work proceeds.
 - T7: README (Mail section, variables, Mailpit ports), `writing-code/references/email.md` (new), errors (provider
   failures never reach clients: translate, log once at ERROR, count), logging, observability, i18n, testing
   integration-tests.
+
+- T8: first gate run failed 4 health tests (Boot's mail health indicator DOWN without Mailpit); fixed with
+  `management.health.mail.enabled=false` (mail outage only delays mail). Gate
+  `FRAPPE_TEST_DB=frappe_fapi_15 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 433 tests, 0 failures.
 
 ## Engram mirror
 
