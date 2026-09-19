@@ -32,14 +32,19 @@ Package: `com.frappe.<module>.infrastructure.persistence`. For generic Postgres 
 ## Tenancy and RLS
 
 - Every tenant-scoped table has `tenant_id uuid not null` and an index whose leading column is `tenant_id`.
-- Enable and force RLS, with a policy on the session setting:
+- Enable and force RLS, with a policy on the transaction-local setting `app.tenant_id` for reads and writes (`using` and `with check`):
 
 ```sql
-alter table tabs enable row level security;
-alter table tabs force row level security;
-create policy tenant_isolation on tabs
-  using (tenant_id = current_setting('app.tenant_id')::uuid);
+create index tabs_tenant_id_idx on ordering.tabs (tenant_id);
+alter table ordering.tabs enable row level security;
+alter table ordering.tabs force row level security;
+create policy tenant_isolation on ordering.tabs
+  using (tenant_id = (select nullif(current_setting('app.tenant_id', true), '')::uuid))
+  with check (tenant_id = (select nullif(current_setting('app.tenant_id', true), '')::uuid));
 ```
 
-- The application sets `app.tenant_id` per transaction (`set local`) from the authenticated session; the app role is not the table owner and has no `bypassrls`. Every use case has that transaction: `@CommandUseCase` operations are read-write and `@QueryUseCase` operations read-only `@Transactional`, both enforced by `UseCaseArchitectureTests` (`use-cases.md`).
+- Keep the template exactly: `missing_ok` (`true`) and `nullif(..., '')` make "no tenant" show no rows instead of failing, because a pooled connection that once ran `set_config(..., true)` returns `''` afterwards, not null; `(select ...)` evaluates the setting once per statement, not per row.
+- The tenant is bound through the kernel port `com.frappe.platform.TenantScope` (`callAs`/`runAs`), around the use case call and before its transaction starts. While a tenant is bound, every new transaction begins with `select set_config('app.tenant_id', ?, true)` (bind parameter, transaction-local, set by the platform's `TenantTransactionListener`), so a pooled connection carries nothing to its next use. No tenant bound: nothing is set and tenant-scoped tables show no rows. Binding another tenant inside a bound scope, or binding inside a running transaction, throws `IllegalStateException`. The tenant comes from a verified source only: the request path after the membership check (FAPI-46), the event, or the entity a task processes; never from unverified client input.
+- The app role is not the table owner and has no `bypassrls`. Every use case has a transaction for the setting: `@CommandUseCase` operations are read-write and `@QueryUseCase` operations read-only `@Transactional`, both enforced by `UseCaseArchitectureTests` (`use-cases.md`).
+- Tables that must be found before a tenant exists (identity: people, sessions, pairing) are deliberately not tenant-scoped; record every such exception in the Decision Log.
 - Every new tenant-scoped table ships with a test proving another tenant's rows are invisible.
