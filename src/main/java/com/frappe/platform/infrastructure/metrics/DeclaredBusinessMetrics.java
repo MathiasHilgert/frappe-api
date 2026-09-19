@@ -107,6 +107,10 @@ final class DeclaredBusinessMetrics implements BusinessMetrics {
             var rules = new MetricRules(eventType);
             var fullName = rules.fullName(name, description);
             tagKeys.forEach(rules::tagKey);
+            if (unit == MetricUnit.SECONDS) {
+                rules.reject("metric '" + name + "' records a duration: declare it with @Measured on a Duration field,"
+                        + " which converts it to seconds");
+            }
             if (unit == MetricUnit.MONEY) {
                 rules.reject("metric '" + name + "' records money: declare it with @Measured, which adds the currency");
             }

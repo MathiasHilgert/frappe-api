@@ -3,6 +3,7 @@ package com.frappe.platform.infrastructure.metrics;
 import static com.frappe.platform.infrastructure.metrics.BusinessMetricAssert.assertThatBusinessMetric;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.frappe.RootLevelEvent;
 import com.frappe.platform.MetricUnit;
 import com.frappe.platform.infrastructure.metrics.BusinessMetricDefinitionsTest.Channel;
 import com.frappe.platform.infrastructure.metrics.BusinessMetricDefinitionsTest.Money;
@@ -52,6 +53,22 @@ class DeclaredBusinessMetricsTest {
                 .withTag("split", "true")
                 .hasCount(1);
         assertThatBusinessMetric(registry, "frappe.platform.tabs.items").hasTotal(3);
+    }
+
+    @Test
+    void rejectsSecondsBecauseDurationsAreDeclaredOnDurationFields() {
+        assertThatThrownBy(() -> DeclaredBusinessMetrics.collect(metrics ->
+                        metrics.on(TabClosed.class).measure("tabs.open", "Open time", MetricUnit.SECONDS, event -> 1)))
+                .isInstanceOf(InvalidBusinessMetricException.class)
+                .hasMessageContaining("@Measured on a Duration field");
+    }
+
+    @Test
+    void rejectsAnEventOutsideAModulePackageWithAClearProblem() {
+        assertThatThrownBy(() -> DeclaredBusinessMetrics.collect(
+                        metrics -> metrics.on(RootLevelEvent.class).count("roots.seen", "Roots")))
+                .isInstanceOf(InvalidBusinessMetricException.class)
+                .hasMessageContaining("must live in a module package");
     }
 
     @Test

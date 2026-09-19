@@ -18,6 +18,7 @@ final class MetricRules {
     private static final String PREFIX = "frappe.";
     private static final Pattern NAME = Pattern.compile("[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*");
     private static final Pattern TAG_KEY = Pattern.compile("[a-z][a-z0-9_]*");
+    // Checked after TAG_KEY, so keys are already lowercase snake_case: "<entity>_id", "ids", "tenant..." and "uuid".
     private static final Pattern IDENTIFYING_KEY = Pattern.compile(".*tenant.*|ids?|.*_ids?|.*uuid.*");
 
     private final Class<?> eventType;
@@ -104,6 +105,12 @@ final class MetricRules {
             return "unknown";
         }
         var rest = type.substring(BASE_PACKAGE.length());
-        return rest.substring(0, rest.indexOf('.'));
+        var moduleEnd = rest.indexOf('.');
+        if (moduleEnd < 0) {
+            problems.add("the event must live in a module package 'com.frappe.<module>', not directly in"
+                    + " 'com.frappe'; the metric prefix is derived from it");
+            return "unknown";
+        }
+        return rest.substring(0, moduleEnd);
     }
 }

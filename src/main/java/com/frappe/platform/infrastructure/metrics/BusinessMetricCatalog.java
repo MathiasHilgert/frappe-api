@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 /** Every business metric of the application, indexed by event type; built once at startup. */
 final class BusinessMetricCatalog {
 
+    private final List<BusinessMetric> all;
     private final Map<Class<?>, List<BusinessMetric>> byEventType;
 
     /**
@@ -18,6 +19,7 @@ final class BusinessMetricCatalog {
      */
     BusinessMetricCatalog(Collection<BusinessMetric> metrics) {
         rejectDuplicateNames(metrics);
+        this.all = List.copyOf(metrics);
         this.byEventType = metrics.stream().collect(Collectors.groupingBy(BusinessMetric::eventType));
     }
 
@@ -29,6 +31,15 @@ final class BusinessMetricCatalog {
      */
     List<BusinessMetric> metricsOf(Class<?> eventType) {
         return byEventType.getOrDefault(eventType, List.of());
+    }
+
+    /**
+     * Every metric of the application.
+     *
+     * @return all metrics
+     */
+    List<BusinessMetric> all() {
+        return all;
     }
 
     // A second declaration with the same name would silently merge two meanings into one series.

@@ -4,9 +4,12 @@ import com.frappe.platform.DomainEvent;
 import com.frappe.platform.MetricUnit;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
@@ -15,8 +18,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 /**
  * Records the business metrics of every published domain event once its transaction commits; events of rolled-back
- * transactions are never counted. A metric that cannot be read is skipped with a warning: telemetry never fails the
- * business operation that published the event.
+ * transactions are never counted. This is a telemetry isolation boundary: whatever goes wrong while recording one
+ * metric (a throwing declaration, a missing value, a registry error) is logged once as a WARN and that metric is
+ * skipped; the business caller never sees it, before or after commit.
  */
 class BusinessMetricsRecorder {
 
@@ -24,16 +28,20 @@ class BusinessMetricsRecorder {
 
     private final BusinessMetricCatalog catalog;
     private final MeterRegistry registry;
+    // One meter per metric and tag combination, built once; tag values are bounded by the metric rules.
+    private final Map<MeterKey, Meter> meters = new ConcurrentHashMap<>();
 
     /**
-     * Creates the recorder.
+     * Creates the recorder and checks every metric name against the meters already in the registry.
      *
      * @param catalog the declared metrics
      * @param registry where metrics are recorded
+     * @throws InvalidBusinessMetricException if a metric name is already used by a meter of another type
      */
     BusinessMetricsRecorder(BusinessMetricCatalog catalog, MeterRegistry registry) {
         this.catalog = catalog;
         this.registry = registry;
+        catalog.all().forEach(this::rejectConflictingMeter);
     }
 
     /**
@@ -43,8 +51,6 @@ class BusinessMetricsRecorder {
      */
     @EventListener
     void on(DomainEvent event) {
-        // A plain listener plus a transaction synchronization, not @TransactionalEventListener: Spring Modulith would
-        // store an outbox publication for every event and this listener.
         var metrics = catalog.metricsOf(event.getClass());
         if (metrics.isEmpty()) {
             return;
@@ -53,6 +59,8 @@ class BusinessMetricsRecorder {
             record(event, metrics);
             return;
         }
+        // A plain listener plus a transaction synchronization, not @TransactionalEventListener: Spring Modulith would
+        // store an outbox publication for every event and this listener.
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
@@ -65,7 +73,9 @@ class BusinessMetricsRecorder {
         for (var metric : metrics) {
             try {
                 record(event, metric);
-            } catch (MetricRecordingException e) {
+            } catch (RuntimeException e) {
+                // Deliberately broad (writing-code errors.md, telemetry boundary): declarations are user lambdas and
+                // Micrometer may reject a meter; neither may fail or slow the business operation.
                 log.atWarn()
                         .addKeyValue(LogFields.METRIC, metric.name())
                         .addKeyValue(LogFields.EVENT_TYPE, event.getClass().getName())
@@ -79,17 +89,33 @@ class BusinessMetricsRecorder {
     private void record(DomainEvent event, BusinessMetric metric) {
         var tags = tags(event, metric);
         switch (metric.kind()) {
+            case COUNTER -> ((Counter) meter(metric, tags)).increment();
+            case DISTRIBUTION -> {
+                var measurement = metric.value().read(event);
+                if (!Double.isFinite(measurement.amount()) || measurement.amount() < 0) {
+                    throw new MetricRecordingException("Value " + measurement.amount() + " of "
+                            + event.getClass().getSimpleName() + " is negative or not finite");
+                }
+                if (measurement.currency() != null) {
+                    tags = tags.and(MetricRules.CURRENCY_TAG, measurement.currency());
+                }
+                ((DistributionSummary) meter(metric, tags)).record(measurement.amount());
+            }
+        }
+    }
+
+    private Meter meter(BusinessMetric metric, Tags tags) {
+        return meters.computeIfAbsent(new MeterKey(metric.name(), tags), key -> register(metric, tags));
+    }
+
+    private Meter register(BusinessMetric metric, Tags tags) {
+        return switch (metric.kind()) {
             case COUNTER ->
                 Counter.builder(metric.name())
                         .description(metric.description())
                         .tags(tags)
-                        .register(registry)
-                        .increment();
-            case DISTRIBUTION -> {
-                var measurement = metric.value().read(event);
-                if (measurement.currency() != null) {
-                    tags = tags.and(MetricRules.CURRENCY_TAG, measurement.currency());
-                }
+                        .register(registry);
+            case DISTRIBUTION ->
                 DistributionSummary.builder(metric.name())
                         .description(metric.description())
                         .baseUnit(metric.unit().baseUnit())
@@ -97,9 +123,18 @@ class BusinessMetricsRecorder {
                         // Durations get histogram buckets for latency-style SLOs; override per metric with
                         // management.metrics.distribution.slo.<name>.
                         .publishPercentileHistogram(metric.unit() == MetricUnit.SECONDS)
-                        .register(registry)
-                        .record(measurement.amount());
-            }
+                        .register(registry);
+        };
+    }
+
+    private void rejectConflictingMeter(BusinessMetric metric) {
+        var expected = metric.kind() == BusinessMetric.Kind.COUNTER ? Counter.class : DistributionSummary.class;
+        var conflicting = registry.find(metric.name()).meters().stream()
+                .filter(meter -> !expected.isInstance(meter))
+                .findFirst();
+        if (conflicting.isPresent()) {
+            throw new InvalidBusinessMetricException("Business metric " + metric.name() + " is already registered as "
+                    + conflicting.get().getId().getType() + "; rename the metric");
         }
     }
 
@@ -110,4 +145,7 @@ class BusinessMetricsRecorder {
         }
         return tags;
     }
+
+    /** Identity of one registered series. */
+    private record MeterKey(String name, Tags tags) {}
 }

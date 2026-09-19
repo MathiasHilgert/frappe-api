@@ -29,6 +29,10 @@ public record TabClosed(UUID eventId, Instant occurredAt, UUID aggregateId, long
 - Tenant, branch, user, aggregate and entity ids are never metric tags: they go on spans (high-cardinality key values) and logs.
 - Names: lowercase dotted words, no `frappe.` prefix (added), no `total` suffix, base units (`seconds`, `bytes`, `minor_units`), description required.
 
+## Privacy in spans
+
+JDBC spans carry the SQL text; `jdbc.datasource-proxy.include-parameter-values=false` keeps bound values out. SQL therefore always uses bind parameters, never literals with personal data. Span attributes hold ids and bounded values only, never names, emails, tokens or payloads.
+
 ## Failure
 
-Telemetry never fails a business operation: exporters run on their own threads and drop on failure; a metric value that cannot be read is skipped with one WARN (`frappe.metric`, `frappe.event_type`, `frappe.event_id`).
+Telemetry never fails a business operation: exporters run on their own threads and drop on failure; recording a business metric is an isolation boundary (see `errors.md`): any failure of one metric (throwing declaration, missing, negative or non-finite value, registry conflict) is skipped with one WARN (`frappe.metric`, `frappe.event_type`, `frappe.event_id`). Meter types are checked against the registry at startup, and each series is registered once and reused.
