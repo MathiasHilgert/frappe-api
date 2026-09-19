@@ -1,7 +1,7 @@
 package com.frappe.platform.infrastructure.events;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatNoException;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -32,7 +32,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
-import org.slf4j.event.KeyValuePair;
 import org.springframework.dao.DataAccessResourceFailureException;
 
 class FailedPublicationResubmitterTest {
@@ -240,7 +239,8 @@ class FailedPublicationResubmitterTest {
         when(redelivery.redeliver(publication, NOW)).thenThrow(outage);
 
         // When
-        resubmitter.recover(Trigger.SCHEDULED);
+        assertThatExceptionOfType(DataAccessResourceFailureException.class)
+                .isThrownBy(() -> resubmitter.recover(Trigger.SCHEDULED));
 
         // Then
         TestObservationRegistryAssert.assertThat(observations)
@@ -258,7 +258,8 @@ class FailedPublicationResubmitterTest {
                 .releaseStuckPublications(any());
 
         // When
-        resubmitter.recover(Trigger.SCHEDULED);
+        assertThatExceptionOfType(DataAccessResourceFailureException.class)
+                .isThrownBy(() -> resubmitter.recover(Trigger.SCHEDULED));
 
         // Then
         TestObservationRegistryAssert.assertThat(observations)
@@ -269,21 +270,17 @@ class FailedPublicationResubmitterTest {
     }
 
     @Test
-    void databaseFailureIsLoggedOnceAndRetriedOnTheNextRun() {
+    void aDatabaseFailureFailsThePassSoTheSchedulerRetriesItWithBackoffAndLogsItOnce() {
         // Given
         var outage = new DataAccessResourceFailureException("connection refused");
         doThrow(outage).when(outbox).releaseStuckPublications(any());
 
         // When / Then
-        assertThatNoException().isThrownBy(() -> resubmitter.recover(Trigger.SCHEDULED));
-        assertThat(logs.list).singleElement().satisfies(event -> {
-            assertThat(event.getLevel()).isEqualTo(Level.WARN);
-            assertThat(event.getThrowableProxy().getMessage()).isEqualTo("connection refused");
-            assertThat(event.getKeyValuePairs())
-                    .extracting(KeyValuePair::toString)
-                    .anySatisfy(pair -> assertThat(pair).startsWith("frappe.outbox.recovery_interval"))
-                    .anySatisfy(pair -> assertThat(pair).startsWith("frappe.outbox.batch_size"));
-        });
+        assertThatExceptionOfType(DataAccessResourceFailureException.class)
+                .isThrownBy(() -> resubmitter.recover(Trigger.SCHEDULED))
+                .isSameAs(outage);
+        // Logged by the scheduler's failure handler, not here: log or rethrow, never both.
+        assertThat(logs.list).isEmpty();
     }
 
     record Probe(UUID eventId) {}

@@ -2,7 +2,6 @@ package com.frappe.platform.infrastructure.events;
 
 import com.frappe.platform.infrastructure.events.OutboxObservations.Trigger;
 import com.frappe.platform.infrastructure.events.PublicationRedelivery.Outcome;
-import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 import java.time.Clock;
 import java.time.Duration;
@@ -13,7 +12,6 @@ import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataAccessException;
 
 /**
  * One scheduled recovery run over the outbox:
@@ -74,37 +72,25 @@ final class FailedPublicationResubmitter {
 
     /**
      * Runs one recovery pass and observes it. A pass started by a recovered transport ignores the backoff, because the
-     * pending failures were most likely caused by the outage; the batch still bounds it. A database failure is logged
-     * and the next pass tries again.
+     * pending failures were most likely caused by the outage; the batch still bounds it.
      *
      * @param trigger what started the pass
+     * @throws org.springframework.dao.DataAccessException if the database fails; the scheduler retries the pass with
+     *     backoff, never later than the next regular pass
      */
     void recover(Trigger trigger) {
         var baseBackoff = trigger == Trigger.TRANSPORT_RECOVERED ? Duration.ZERO : properties.interval();
-        var observation = OutboxObservations.recovery(observations, trigger).start();
-        try (var scope = observation.openScope()) {
-            recoverExclusively(baseBackoff, observation);
-        } finally {
-            observation.stop();
-        }
+        // observe() records a failure on the observation and rethrows it: the scheduler retries the pass with backoff
+        // and its failure handler logs it once, so nothing here catches or logs.
+        OutboxObservations.recovery(observations, trigger).observe(() -> recoverPass(baseBackoff));
     }
 
-    private void recoverExclusively(Duration baseBackoff, Observation pass) {
-        try {
-            var now = clock.instant();
-            outbox.releaseStuckPublications(now.minus(properties.stuckAfter()));
-            outbox.deadLetterExhausted(properties.maxAttempts(), now).forEach(this::logDeadLetter);
-            resubmitDueFailures(now, baseBackoff);
-            metrics.recordDeadLetters(outbox.countDeadLetters());
-        } catch (DataAccessException e) {
-            pass.error(e);
-            // Scheduled task boundary: nobody above can handle it, and the next run retries.
-            log.atWarn()
-                    .addKeyValue(LogFields.RECOVERY_INTERVAL, properties.interval())
-                    .addKeyValue(LogFields.BATCH_SIZE, properties.batchSize())
-                    .setCause(e)
-                    .log("Recovering event publications failed; retrying after the recovery interval");
-        }
+    private void recoverPass(Duration baseBackoff) {
+        var now = clock.instant();
+        outbox.releaseStuckPublications(now.minus(properties.stuckAfter()));
+        outbox.deadLetterExhausted(properties.maxAttempts(), now).forEach(this::logDeadLetter);
+        resubmitDueFailures(now, baseBackoff);
+        metrics.recordDeadLetters(outbox.countDeadLetters());
     }
 
     private void resubmitDueFailures(Instant now, Duration baseBackoff) {
