@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.frappe.TestNatsConfiguration;
 import com.frappe.TestcontainersConfiguration;
-import com.frappe.platform.i18n.IcuMessageSource;
 import com.frappe.platform.i18n.Messages;
 import com.frappe.platform.i18n.SupportedLocales;
 import com.frappe.platform.i18n.UserLocalePreference;
@@ -25,6 +24,8 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestTestClient
@@ -42,7 +43,11 @@ class I18nIntegrationTests {
 
         @Bean
         UserLocalePreference portugueseSpeakingTestUser() {
-            return request -> request.getHeader(SIGNED_IN_AS_PORTUGUESE_SPEAKER) != null
+            // Reads the request the way identity will: from Spring's request context, bound before the locale filter.
+            return () -> ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes())
+                                    .getRequest()
+                                    .getHeader(SIGNED_IN_AS_PORTUGUESE_SPEAKER)
+                            != null
                     ? Optional.of(SupportedLocales.PORTUGUESE)
                     : Optional.empty();
         }

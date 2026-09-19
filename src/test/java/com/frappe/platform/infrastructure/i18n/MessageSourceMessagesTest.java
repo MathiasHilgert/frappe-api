@@ -3,7 +3,6 @@ package com.frappe.platform.infrastructure.i18n;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
-import com.frappe.platform.i18n.IcuMessageSource;
 import com.frappe.platform.i18n.SupportedLocales;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;

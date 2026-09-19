@@ -30,14 +30,14 @@ class FailingLocalePortsIntegrationTests {
 
         @Bean
         UserLocalePreference failingUserPreference() {
-            return request -> {
+            return () -> {
                 throw new IllegalStateException("Identity is down");
             };
         }
 
         @Bean
         TenantLocaleDefaults failingTenantDefaults() {
-            return request -> {
+            return () -> {
                 throw new IllegalStateException("Organization is down");
             };
         }

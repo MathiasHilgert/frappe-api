@@ -29,8 +29,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 class LocaleChainResolverTest {
 
-    private static final UserLocalePreference ANONYMOUS = request -> Optional.empty();
-    private static final TenantLocaleDefaults NO_TENANT = request -> Optional.empty();
+    private static final UserLocalePreference ANONYMOUS = () -> Optional.empty();
+    private static final TenantLocaleDefaults NO_TENANT = () -> Optional.empty();
 
     private final Logger logger = (Logger) LoggerFactory.getLogger(LocaleChainResolver.class);
 
@@ -72,7 +72,7 @@ class LocaleChainResolverTest {
     @Test
     void theUsersPreferredLocaleWinsOverAcceptLanguage() {
         // Given
-        var resolver = new LocaleChainResolver(request -> Optional.of(PORTUGUESE), NO_TENANT);
+        var resolver = new LocaleChainResolver(() -> Optional.of(PORTUGUESE), NO_TENANT);
 
         // When / Then
         assertThat(resolver.resolveLocale(requestAccepting("es"))).isEqualTo(PORTUGUESE);
@@ -83,7 +83,7 @@ class LocaleChainResolverTest {
         // Given
         var tenant = TenantLocales.of(Set.of(ENGLISH, SPANISH, PORTUGUESE), PORTUGUESE)
                 .withBranchDefault(SPANISH);
-        var resolver = new LocaleChainResolver(ANONYMOUS, request -> Optional.of(tenant));
+        var resolver = new LocaleChainResolver(ANONYMOUS, () -> Optional.of(tenant));
 
         // When / Then
         assertThat(resolver.resolveLocale(new MockHttpServletRequest())).isEqualTo(SPANISH);
@@ -93,7 +93,7 @@ class LocaleChainResolverTest {
     void withoutHeaderAndBranchDefaultTheBusinessDefaultApplies() {
         // Given
         var tenant = TenantLocales.of(Set.of(ENGLISH, SPANISH, PORTUGUESE), PORTUGUESE);
-        var resolver = new LocaleChainResolver(ANONYMOUS, request -> Optional.of(tenant));
+        var resolver = new LocaleChainResolver(ANONYMOUS, () -> Optional.of(tenant));
 
         // When / Then
         assertThat(resolver.resolveLocale(new MockHttpServletRequest())).isEqualTo(PORTUGUESE);
@@ -103,7 +103,7 @@ class LocaleChainResolverTest {
     void aLanguageTheBusinessDidNotEnableFallsThroughToTheBusinessDefault() {
         // Given
         var tenant = TenantLocales.of(Set.of(SPANISH, PORTUGUESE), PORTUGUESE);
-        var resolver = new LocaleChainResolver(ANONYMOUS, request -> Optional.of(tenant));
+        var resolver = new LocaleChainResolver(ANONYMOUS, () -> Optional.of(tenant));
 
         // When / Then
         assertThat(resolver.resolveLocale(requestAccepting("en"))).isEqualTo(PORTUGUESE);
@@ -113,7 +113,7 @@ class LocaleChainResolverTest {
     void aPreferenceTheBusinessDidNotEnableFallsThroughToAcceptLanguage() {
         // Given
         var tenant = TenantLocales.of(Set.of(SPANISH, PORTUGUESE), PORTUGUESE);
-        var resolver = new LocaleChainResolver(request -> Optional.of(ENGLISH), request -> Optional.of(tenant));
+        var resolver = new LocaleChainResolver(() -> Optional.of(ENGLISH), () -> Optional.of(tenant));
 
         // When / Then
         assertThat(resolver.resolveLocale(requestAccepting("es-MX"))).isEqualTo(SPANISH);
@@ -123,7 +123,7 @@ class LocaleChainResolverTest {
     void endsInEnglishWhenNoTenantDefaultIsAnEnabledLanguage() {
         // Given
         var tenant = TenantLocales.of(Set.of(Locale.FRENCH), Locale.FRENCH);
-        var resolver = new LocaleChainResolver(ANONYMOUS, request -> Optional.of(tenant));
+        var resolver = new LocaleChainResolver(ANONYMOUS, () -> Optional.of(tenant));
 
         // When / Then
         assertThat(resolver.resolveLocale(requestAccepting("es"))).isEqualTo(ENGLISH);
@@ -146,7 +146,7 @@ class LocaleChainResolverTest {
         // Given
         var lookups = new AtomicInteger();
         var resolver = new LocaleChainResolver(
-                request -> {
+                () -> {
                     lookups.incrementAndGet();
                     return Optional.of(SPANISH);
                 },
@@ -178,7 +178,7 @@ class LocaleChainResolverTest {
     void aFailingUserPreferenceCountsAsNoPreferenceAndWarnsOnce() {
         // Given
         var resolver = new LocaleChainResolver(
-                request -> {
+                () -> {
                     throw new IllegalStateException("session store unavailable");
                 },
                 NO_TENANT);
@@ -196,7 +196,7 @@ class LocaleChainResolverTest {
     @Test
     void aFailingTenantLookupEnablesEveryLanguageAndEndsInEnglish() {
         // Given
-        TenantLocaleDefaults failing = request -> {
+        TenantLocaleDefaults failing = () -> {
             throw new IllegalStateException("organization unavailable");
         };
         var resolver = new LocaleChainResolver(ANONYMOUS, failing);

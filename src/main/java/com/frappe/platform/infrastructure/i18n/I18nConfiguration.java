@@ -1,18 +1,17 @@
 package com.frappe.platform.infrastructure.i18n;
 
-import com.frappe.platform.i18n.IcuMessageSource;
 import com.frappe.platform.i18n.Messages;
 import com.frappe.platform.i18n.TenantLocaleDefaults;
 import com.frappe.platform.i18n.UserLocalePreference;
 import java.util.Optional;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.boot.servlet.filter.OrderedFilter;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Role;
 import org.springframework.context.support.AbstractApplicationContext;
-import org.springframework.core.Ordered;
 import org.springframework.web.servlet.DispatcherServlet;
 import org.springframework.web.servlet.LocaleResolver;
 
@@ -26,9 +25,11 @@ class I18nConfiguration {
 
     /**
      * Runs inside the HTTP server observation (Boot orders it at {@code HIGHEST_PRECEDENCE + 1}), so lookups of the
-     * ports are traced with the request, and before security filters, so their error responses carry the headers too.
+     * ports are traced with the request; right after Boot's {@code RequestContextFilter} ({@code -105}), so the ports
+     * can read the current request from {@code RequestContextHolder}; and before security filters ({@code -100}), so
+     * their error responses carry the headers too.
      */
-    static final int CONTENT_LANGUAGE_FILTER_ORDER = Ordered.HIGHEST_PRECEDENCE + 10;
+    static final int CONTENT_LANGUAGE_FILTER_ORDER = OrderedFilter.REQUEST_WRAPPER_FILTER_MAX_ORDER - 104;
 
     /** Creates the configuration; instantiated by Spring. */
     I18nConfiguration() {}
@@ -69,8 +70,8 @@ class I18nConfiguration {
     LocaleResolver localeResolver(
             ObjectProvider<UserLocalePreference> userPreference, ObjectProvider<TenantLocaleDefaults> tenantDefaults) {
         return new LocaleChainResolver(
-                userPreference.getIfAvailable(() -> request -> Optional.empty()),
-                tenantDefaults.getIfAvailable(() -> request -> Optional.empty()));
+                userPreference.getIfAvailable(() -> Optional::empty),
+                tenantDefaults.getIfAvailable(() -> Optional::empty));
     }
 
     /**

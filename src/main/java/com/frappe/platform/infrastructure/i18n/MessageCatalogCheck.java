@@ -1,8 +1,9 @@
-package com.frappe.platform.i18n;
+package com.frappe.platform.infrastructure.i18n;
 
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.joining;
 
+import com.frappe.platform.i18n.SupportedLocales;
 import com.ibm.icu.text.MessageFormat;
 import com.ibm.icu.util.ULocale;
 import java.util.ArrayList;
@@ -37,7 +38,7 @@ final class MessageCatalogCheck {
      */
     static List<CatalogViolation> violations(Collection<MessageCatalog> catalogs) {
         var violations = new ArrayList<CatalogViolation>();
-        var supported = SupportedLocales.all().locales();
+        var supported = SupportedLocales.all();
         catalogs.stream()
                 .filter(catalog -> !supported.contains(catalog.locale()))
                 .forEach(catalog -> violations.add(unsupportedLocale(catalog)));
@@ -54,7 +55,7 @@ final class MessageCatalogCheck {
         byLocale.values()
                 .forEach(sameLocale -> sameLocale.forEach(
                         catalog -> keys.addAll(catalog.messages().keySet())));
-        for (var locale : SupportedLocales.all().locales()) {
+        for (var locale : SupportedLocales.all()) {
             var catalogs = byLocale.getOrDefault(locale, List.of());
             if (catalogs.size() > 1) {
                 violations.add(CatalogViolation.ofCatalog(
@@ -131,7 +132,7 @@ final class MessageCatalogCheck {
 
     private static CatalogViolation missingKey(
             String module, Locale locale, String key, Map<Locale, List<MessageCatalog>> byLocale) {
-        var presentIn = SupportedLocales.all().locales().stream()
+        var presentIn = SupportedLocales.all().stream()
                 .filter(other -> byLocale.getOrDefault(other, List.of()).stream()
                         .anyMatch(catalog -> catalog.messages().containsKey(key)))
                 .map(Locale::toLanguageTag)
@@ -144,9 +145,8 @@ final class MessageCatalogCheck {
     }
 
     private static CatalogViolation unsupportedLocale(MessageCatalog catalog) {
-        var supported = SupportedLocales.all().locales().stream()
-                .map(Locale::toLanguageTag)
-                .collect(joining(", "));
+        var supported =
+                SupportedLocales.all().stream().map(Locale::toLanguageTag).collect(joining(", "));
         return CatalogViolation.ofCatalog(
                 catalog.module(),
                 catalog.locale(),

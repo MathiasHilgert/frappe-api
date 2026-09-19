@@ -1,4 +1,4 @@
-package com.frappe.platform.i18n;
+package com.frappe.platform.infrastructure.i18n;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

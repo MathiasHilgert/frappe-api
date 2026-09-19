@@ -1,4 +1,4 @@
-package com.frappe.platform.i18n;
+package com.frappe.platform.infrastructure.i18n;
 
 /** A message catalog could not be found or read (an I/O failure or a malformed properties file). */
 final class UnreadableMessageCatalogException extends RuntimeException {

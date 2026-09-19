@@ -1,4 +1,4 @@
-package com.frappe.platform.i18n;
+package com.frappe.platform.infrastructure.i18n;
 
 import static com.frappe.platform.i18n.SupportedLocales.ENGLISH;
 import static com.frappe.platform.i18n.SupportedLocales.PORTUGUESE;
@@ -6,6 +6,7 @@ import static com.frappe.platform.i18n.SupportedLocales.SPANISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
+import com.frappe.platform.i18n.SupportedLocales;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -162,7 +163,7 @@ class MessageCatalogCheckTest {
     }
 
     private static List<MessageCatalog> everyLanguage(String module, Map<String, String> messages) {
-        return SupportedLocales.all().locales().stream()
+        return SupportedLocales.all().stream()
                 .map(locale -> new MessageCatalog(module, locale, messages))
                 .toList();
     }

@@ -9,5 +9,8 @@ final class LogFields {
     /** The link of the locale chain a log line is about ({@code user_preference}, {@code tenant_defaults}). */
     static final String LOCALE_LINK = "frappe.locale_link";
 
+    /** The raw {@code Accept-Language} header a request carried. */
+    static final String ACCEPT_LANGUAGE = "http.request.headers.accept_language";
+
     private LogFields() {}
 }

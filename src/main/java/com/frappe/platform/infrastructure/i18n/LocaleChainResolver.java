@@ -69,10 +69,10 @@ final class LocaleChainResolver implements LocaleResolver {
     }
 
     private Locale walkChain(HttpServletRequest request) {
-        var tenant = isolated(TENANT_DEFAULTS_LINK, () -> tenantDefaults.localesFor(request));
-        var enabled = tenant.map(settings -> SupportedLocales.all().restrictedTo(settings.enabledLanguages()))
-                .orElseGet(SupportedLocales::all);
-        return isolated(USER_PREFERENCE_LINK, () -> userPreference.preferredLocale(request))
+        var tenant = isolated(TENANT_DEFAULTS_LINK, () -> tenantDefaults.current());
+        var enabled = tenant.map(settings -> LocaleMatching.all().restrictedTo(settings.enabledLanguages()))
+                .orElseGet(LocaleMatching::all);
+        return isolated(USER_PREFERENCE_LINK, () -> userPreference.preferredLocale())
                 .flatMap(enabled::match)
                 .or(() -> acceptLanguage(request).flatMap(enabled::matchAcceptLanguage))
                 .or(() -> tenant.flatMap(TenantLocales::branchDefault).flatMap(enabled::match))

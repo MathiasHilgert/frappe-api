@@ -1,24 +1,24 @@
 package com.frappe.platform.i18n;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.util.Optional;
 
 /**
- * The locale settings of the business (and branch) a request acts for: the languages the business enabled and its
- * defaults. Organization implements it; until then no request has a business context and every supported language is
- * enabled.
+ * The locale settings of the business (and branch) the current request acts for: the languages the business enabled
+ * and its defaults. Organization implements it; until then no request has a business context and every supported
+ * language is enabled.
  *
- * <p>Implementations are singletons that derive the business from the request they are given (the session of a staff
- * member, or the branch an anonymous diner is browsing). They are called at most once per request.
+ * <p>The platform asks at most once per HTTP request, on the request's thread, before any security filter runs and
+ * with Spring's {@code RequestContextHolder} already bound: implementations derive the business from the current
+ * request (a staff member's session, or the branch an anonymous diner is browsing) in their own web adapter. A failure
+ * counts as "no business context" (every language enabled) and never fails the request.
  */
 @FunctionalInterface
 public interface TenantLocaleDefaults {
 
     /**
-     * Returns the locale settings of the business the request acts for.
+     * Returns the locale settings of the business the current request acts for.
      *
-     * @param request the current request
      * @return the business's locale settings, or empty without a business context
      */
-    Optional<TenantLocales> localesFor(HttpServletRequest request);
+    Optional<TenantLocales> current();
 }

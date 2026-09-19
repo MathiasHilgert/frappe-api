@@ -1,4 +1,4 @@
-package com.frappe.platform.i18n;
+package com.frappe.platform.infrastructure.i18n;
 
 import java.io.IOException;
 import java.io.InputStreamReader;

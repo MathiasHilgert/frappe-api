@@ -1,5 +1,6 @@
-package com.frappe.platform.i18n;
+package com.frappe.platform.infrastructure.i18n;
 
+import com.frappe.platform.i18n.SupportedLocales;
 import com.ibm.icu.text.MessageFormat;
 import com.ibm.icu.util.ULocale;
 import java.util.HashMap;
@@ -16,17 +17,14 @@ import org.springframework.context.support.AbstractMessageSource;
  *
  * <p>Arguments are numbered ({@code {0}}), because {@code MessageSource} passes them as an array. A locale is mapped to
  * its supported language ({@code es-AR} reads the Spanish catalog); an unsupported or missing locale reads the English
- * one. {@link #PSEUDO_LOCALE} (en-XA) reads the English catalog pseudo-localized. Every message is formatted by ICU,
+ * one. {@link SupportedLocales#PSEUDO} (en-XA) reads the English catalog pseudo-localized. Every message is formatted by ICU,
  * with or without arguments, so quoting behaves the same everywhere. Codes the catalogs do not know fall through to
  * Spring's common messages and parent message source.
  */
-public final class IcuMessageSource extends AbstractMessageSource {
+final class IcuMessageSource extends AbstractMessageSource {
 
     /** Where the application's catalogs live: one directory per module below {@code i18n}. */
-    public static final String CATALOG_LOCATIONS = "classpath*:i18n/*/messages_*.properties";
-
-    /** The pseudo-locale en-XA: accented, bracketed English, for tests that prove text comes from the catalogs. */
-    public static final Locale PSEUDO_LOCALE = Locale.forLanguageTag("en-XA");
+    static final String CATALOG_LOCATIONS = "classpath*:i18n/*/messages_*.properties";
 
     private final Map<Locale, Map<String, String>> patternsByLocale;
 
@@ -43,7 +41,7 @@ public final class IcuMessageSource extends AbstractMessageSource {
      * @throws InvalidMessageCatalogsException if the catalogs are incomplete or contain invalid messages, listing every
      *     violation
      */
-    public static IcuMessageSource load(String locationPattern) {
+    static IcuMessageSource load(String locationPattern) {
         var catalogs = MessageCatalogs.load(locationPattern);
         var violations = MessageCatalogCheck.violations(catalogs);
         if (!violations.isEmpty()) {
@@ -54,14 +52,14 @@ public final class IcuMessageSource extends AbstractMessageSource {
 
     private static Map<Locale, Map<String, String>> patternsByLocale(List<MessageCatalog> catalogs) {
         var patterns = new HashMap<Locale, Map<String, String>>();
-        SupportedLocales.all().locales().forEach(locale -> patterns.put(locale, new HashMap<>()));
+        SupportedLocales.all().forEach(locale -> patterns.put(locale, new HashMap<>()));
         catalogs.stream()
                 .filter(catalog -> patterns.containsKey(catalog.locale()))
                 .forEach(catalog -> patterns.get(catalog.locale()).putAll(catalog.messages()));
         var pseudo = new HashMap<String, String>();
         patterns.get(SupportedLocales.FALLBACK)
                 .forEach((code, pattern) -> pseudo.put(code, PseudoLocalization.of(pattern)));
-        patterns.put(PSEUDO_LOCALE, pseudo);
+        patterns.put(SupportedLocales.PSEUDO, pseudo);
         patterns.replaceAll((locale, byCode) -> Map.copyOf(byCode));
         return patterns;
     }
@@ -100,9 +98,9 @@ public final class IcuMessageSource extends AbstractMessageSource {
         if (locale == null) {
             return SupportedLocales.FALLBACK;
         }
-        if (PSEUDO_LOCALE.equals(locale)) {
-            return PSEUDO_LOCALE;
+        if (SupportedLocales.PSEUDO.equals(locale)) {
+            return SupportedLocales.PSEUDO;
         }
-        return SupportedLocales.all().match(locale).orElse(SupportedLocales.FALLBACK);
+        return LocaleMatching.all().match(locale).orElse(SupportedLocales.FALLBACK);
     }
 }

@@ -1,8 +1,9 @@
-package com.frappe.platform.i18n;
+package com.frappe.platform.infrastructure.i18n;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
+import com.frappe.platform.i18n.SupportedLocales;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -58,9 +59,9 @@ class IcuMessageSourceTest {
     @Test
     void pseudoLocalizesTheEnglishCatalogForEnXa() {
         // When / Then
-        assertThat(messages.getMessage("sample.greeting", new Object[] {"Ana"}, IcuMessageSource.PSEUDO_LOCALE))
+        assertThat(messages.getMessage("sample.greeting", new Object[] {"Ana"}, SupportedLocales.PSEUDO))
                 .isEqualTo("[Ĥéĺĺó, Ana!]");
-        assertThat(messages.getMessage("sample.items", new Object[] {2}, IcuMessageSource.PSEUDO_LOCALE))
+        assertThat(messages.getMessage("sample.items", new Object[] {2}, SupportedLocales.PSEUDO))
                 .isEqualTo("[2 íŧéɱš]");
     }
 
