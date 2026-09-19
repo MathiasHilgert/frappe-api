@@ -4,6 +4,7 @@ import com.frappe.identity.domain.Password;
 import com.frappe.identity.domain.PasswordHash;
 import com.frappe.identity.domain.PasswordHasher;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
  * Argon2id with OWASP's baseline parameters: 19 MiB of memory, 2 iterations, parallelism 1, a 16-byte salt and a
@@ -26,13 +27,24 @@ final class Argon2PasswordHasher implements PasswordHasher {
 
     private static final int ITERATIONS = 2;
 
-    private final Argon2PasswordEncoder argon2 =
-            new Argon2PasswordEncoder(SALT_LENGTH, HASH_LENGTH, PARALLELISM, MEMORY_KIB, ITERATIONS);
+    private final PasswordEncoder argon2;
 
-    private final PasswordHash dummyHash = new PasswordHash(argon2.encode(DUMMY_PASSWORD));
+    private final PasswordHash dummyHash;
 
     /** Creates the hasher and its dummy hash (one Argon2 run). */
-    Argon2PasswordHasher() {}
+    Argon2PasswordHasher() {
+        this(new Argon2PasswordEncoder(SALT_LENGTH, HASH_LENGTH, PARALLELISM, MEMORY_KIB, ITERATIONS));
+    }
+
+    /**
+     * Creates the hasher over an encoder; tests pass a counting one.
+     *
+     * @param argon2 the Argon2 encoder, used for hashing, verifying and the dummy hash alike
+     */
+    Argon2PasswordHasher(PasswordEncoder argon2) {
+        this.argon2 = argon2;
+        this.dummyHash = new PasswordHash(argon2.encode(DUMMY_PASSWORD));
+    }
 
     @Override
     public PasswordHash hash(Password password) {

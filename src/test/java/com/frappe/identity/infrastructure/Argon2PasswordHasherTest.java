@@ -79,6 +79,39 @@ class Argon2PasswordHasherTest {
         assertThat(parametersOf(hasher.dummyHash().value())).isEqualTo("$argon2id$v=19$m=19456,t=2,p=1");
     }
 
+    @Test
+    void theDummyVerificationRunsArgon2AgainstTheDummyHash() {
+        // Given
+        var encoder = new CountingEncoder();
+        var counted = new Argon2PasswordHasher(encoder);
+
+        // When
+        counted.verifyDummy(password("correct horse battery staple"));
+
+        // Then
+        assertThat(encoder.verifiedHashes).containsExactly(counted.dummyHash().value());
+    }
+
+    /** The real Argon2 encoder, counting the hashes it verifies against. */
+    private static final class CountingEncoder implements org.springframework.security.crypto.password.PasswordEncoder {
+
+        private final org.springframework.security.crypto.password.PasswordEncoder argon2 =
+                org.springframework.security.crypto.argon2.Argon2PasswordEncoder.defaultsForSpringSecurity_v5_8();
+
+        private final java.util.List<String> verifiedHashes = new java.util.ArrayList<>();
+
+        @Override
+        public String encode(CharSequence rawPassword) {
+            return argon2.encode(rawPassword);
+        }
+
+        @Override
+        public boolean matches(CharSequence rawPassword, String encodedPassword) {
+            verifiedHashes.add(encodedPassword);
+            return argon2.matches(rawPassword, encodedPassword);
+        }
+    }
+
     private static String parametersOf(String encoded) {
         return encoded.substring(0, encoded.lastIndexOf('$', encoded.lastIndexOf('$') - 1));
     }
