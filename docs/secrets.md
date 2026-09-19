@@ -17,22 +17,26 @@ Secrets live in [Bitwarden Secrets Manager](https://bitwarden.com/products/secre
 
 One read-only machine account per environment means a leaked dev token can read dev secrets and nothing else: it cannot write, and it cannot see staging or production.
 
+**Write access to a project is code execution for everyone who consumes it.** Every secret becomes an environment variable of the command that runs with it (`bootRun` on a laptop, a deploy), and variables such as `LD_PRELOAD`, `BASH_ENV` or `JAVA_TOOL_OPTIONS` make that command run code of the writer's choice. Grant write access only to people you would give that power, and keep secret names to `FRAPPE_*` or a known third-party key name (`DEEPL_API_KEY`, `RESEND_API_KEY`, `POSTGRES_PASSWORD`). `scripts/with-secrets.sh` lists the project's secret names first and refuses to run when one is reserved: `PATH`, `HOME`, `IFS`, `BASH_ENV`, `ENV`, `CLASSPATH`, `NODE_OPTIONS`, `PYTHONPATH` and similar, or any name starting with `LD_`, `DYLD_`, `BASH_FUNC_`, `BWS_`, `JAVA_`, `JDK_`, `_JAVA_`, `GRADLE_`, `SPRING_` or `GIT_`. Deploys (FAPI-30) need the same rule.
+
 ## Human setup (once)
 
 1. Go to <https://vault.bitwarden.eu> (or choose **bitwarden.eu** in the "Logging in on" / server dropdown of the login or registration screen) and create the owner account there. Regions are separate: an account or organization exists only in the region where it was created. Turn on two-step login.
 2. **New organization** → Free plan → name `Frappé`. In the organization, subscribe to **Secrets Manager** (Free).
 3. Switch to **Secrets Manager** (product switcher). **New → Project** three times: `frappe-dev`, `frappe-staging`, `frappe-production`.
 4. **New → Machine account** three times: `frappe-dev-reader`, `frappe-staging-reader`, `frappe-production-reader`. In each one, **Projects** tab: add only the matching project with permission **Can read**.
-5. In each machine account, **Access tokens → Create access token**: name it after the holder, expiry **90 days**. The token is shown once and never stored by Bitwarden: put it straight into the holder's password manager (the owner's Bitwarden vault) or the CI/deploy secret store. Never in a file inside the repository, a ticket or a chat.
-6. **Add the secrets** listed in the inventory below to their projects. The secret **name is the environment variable** (`FRAPPE_APP_PASSWORD`), unique within a project (`bws run` refuses duplicates). Put the purpose in the note.
-7. **Install `bws`** 2.1.0 or later: a release from <https://github.com/bitwarden/sdk-sm/releases> (verify the published SHA-256 checksum) or `cargo install bws --locked`. `bws --version`.
-8. **Verify** with the dev token in your shell only (`export BWS_ACCESS_TOKEN=...`, e.g. read from your password manager's CLI; not in `~/.bashrc`):
+5. **Invite developers** (Admin console → Members → Invite) as role **User**, with Secrets Manager access, and grant them **Can read, write** on `frappe-dev` only (project → **People**). Owners and Admins see every project, staging and production included, so keep those roles to the secrets owner.
+6. In each machine account, **Access tokens → Create access token**: name it after the holder, expiry **90 days**. The token is shown once and never stored by Bitwarden: put it straight into the holder's password manager (the owner's Bitwarden vault) or the CI/deploy secret store. Never in a file inside the repository, a ticket or a chat.
+7. **Add the secrets** listed in the inventory below to their projects. The secret **name is the environment variable** (`FRAPPE_APP_PASSWORD`), unique within a project (`bws run` refuses duplicates). Put the purpose in the note.
+8. **Install `bws`** 2.1.0 or later: a release from <https://github.com/bitwarden/sdk-sm/releases> (verify the published SHA-256 checksum) or `cargo install bws --locked`. `bws --version`.
+9. **Verify** with the dev token in your shell only (`export BWS_ACCESS_TOKEN=...`, e.g. read from your password manager's CLI; not in `~/.bashrc`):
    1. `scripts/with-secrets.sh --dry-run ./gradlew bootRun` → `bws` found, token set, project `frappe-dev`.
-   2. `scripts/with-secrets.sh bash -c 'env | cut -d= -f1 | sort'` → the secret **names** of `frappe-dev` appear (names only; never print values).
+   2. `scripts/with-secrets.sh bash -c 'compgen -e | sort'` → the secret **names** of `frappe-dev` appear among the variable names (names only; never print values).
    3. `scripts/with-secrets.sh ./gradlew --no-daemon bootRun` → the app starts with those values.
    4. `test ! -e ~/.config/bws/state && echo "no state file"` → nothing was written.
    5. Read-only and isolation: `BWS_CONFIG_FILE=scripts/bws.toml BWS_PROFILE=frappe-eu bws project list --output tsv` shows only `frappe-dev`, and `BWS_CONFIG_FILE=scripts/bws.toml BWS_PROFILE=frappe-eu bws secret create PROBE x <frappe-dev id>` is refused.
-   6. Record the run (date, `bws --version`, results of 1–5, no values) in FAPI-35.
+   6. Clean up: if the probe was **not** refused, the machine account can write. Delete the `PROBE` secret in the web app, set the machine account's permission back to **Can read**, and repeat step 5.
+   7. Record the run (date, `bws --version`, results of 1–6, no values) in FAPI-35.
 
 ## How `scripts/with-secrets.sh` works
 
@@ -45,7 +49,8 @@ scripts/with-secrets.sh --dry-run ./gradlew bootRun              # what would ru
 - Needs `bws` and `BWS_ACCESS_TOKEN`; without either it explains how to get them and exits 1. The local profile path (`./gradlew bootRun`) keeps working without both.
 - Talks to the EU cloud through the committed, secret-free profile `scripts/bws.toml` (`BWS_CONFIG_FILE` + `BWS_PROFILE=frappe-eu`), which also opts out of the `bws` session state file. `BWS_SERVER_URL` is ignored on purpose: it would override the profile and turn the state file back on.
 - Resolves the project name to its id (`bws project list`), then `bws run --project-id <id> --shell bash -- <command>`. The values exist only in the environment of that command; the token itself is removed from the command's environment by `bws`. Nothing is printed or written to disk.
-- `FRAPPE_SECRETS_PROJECT` changes the default project. The command's exit code is returned.
+- Before running, lists the project's secret names (`bws secret list`; values are held in memory only and dropped at once) and refuses reserved names (see "Layout"); `bws run` lists them again, so a secret added in that moment is not checked, one more reason to limit write access. `BWS_UUIDS_AS_KEYNAMES` is ignored: variables are always named after the secrets.
+- `FRAPPE_SECRETS_PROJECT` changes the default project; `--project` must not be empty. The command's exit code is returned.
 - Prefer `./gradlew --no-daemon ...` (or `./gradlew --stop` afterwards): a Gradle daemon started inside `with-secrets.sh` keeps those variables in memory until it stops.
 - Tests: `scripts/with-secrets.test.sh` (fake `bws`, no network), part of `./gradlew check`.
 
@@ -82,7 +87,7 @@ Read from the environment too, but safe to show: `FRAPPE_DB_URL` (a secret only 
 
 1. In the same PR as the code that reads it: read it as `${NAME}` in `application.properties` with **no default** (startup must fail without it), a harmless default in `application-local.properties` if local runs need one, and a row in the inventory above.
 2. Create it in every project that needs it (**New → Secret**, name = variable, note = purpose). Developers never need production values; `frappe-dev` gets dev or sandbox keys (e.g. DeepL, Resend test keys).
-3. Check: `scripts/with-secrets.sh bash -c 'env | cut -d= -f1 | sort'` lists the name.
+3. Check: `scripts/with-secrets.sh bash -c 'compgen -e | sort'` lists the name.
 
 ### Rotate a secret
 
@@ -103,6 +108,6 @@ Rotate a **machine-account token** by creating a new token for the same holder, 
 A token or value that reached a place it should not (commit, log, ticket, chat, screenshot, shared terminal) is leaked, even if deleted a minute later.
 
 1. **Contain**: leaked token → revoke it at once. Leaked value → rotate it at once (above). Treat every secret a leaked token could read as leaked and rotate those too.
-2. **Clean up**: remove it from the place it leaked to. In git, rotating comes first: this repository is public, and history rewrites do not recall clones. `gitleaks git` confirms the working tree and history are clean afterwards.
+2. **Clean up**: remove it from the place it leaked to. In git, rotating comes first: this repository is public, and history rewrites do not recall clones. Then either rewrite the history (only when the value must not stay readable, e.g. personal data), or keep it and add the finding's fingerprint (from `gitleaks git --redact --report-format json --report-path -`, field `Fingerprint`; verified with gitleaks 8.30) to `.gitleaksignore` with a comment naming the rotation, so the CI scan stays green without ignoring anything else. `gitleaks git` confirms the working tree and history are clean afterwards.
 3. **Investigate**: check the provider's logs (database connections, API usage) for use since the leak, and Bitwarden's event logs where the plan has them.
 4. **Record**: a Plane ticket with what leaked, when, how, what was rotated, and what prevents a repeat. No values in it.

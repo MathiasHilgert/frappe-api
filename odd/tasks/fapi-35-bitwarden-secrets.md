@@ -24,6 +24,8 @@ Strict TDD (project rule, AGENTS.md). Runner: `scripts/with-secrets.test.sh` (he
 - [x] T1 `scripts/with-secrets.sh`: RED test, then script (help, missing `bws`, missing token, dry run, project by name, EU profile, no state file, argument quoting, exit code)
 - [x] T2 `docs/secrets.md`, README section, `writing-code` link
 - [x] T3 Gate: `shellcheck`, `gitleaks`, `./gradlew spotlessApply check -x test`; commit
+- [x] T4 Review (Opus changes requested): CI runs the whole `./gradlew check`; reserved secret names refused; `BWS_UUIDS_AS_KEYNAMES` ignored; empty `--project` rejected; tests for `bws.toml` and newline arguments; docs minors
+- [ ] T5 (human) Live run against `frappe-dev` (see Pending)
 
 ## Acceptance (from ticket)
 - Developer token for frappe-dev: `scripts/with-secrets.sh ./gradlew bootRun` starts the app with the secrets; none written to disk or printed. (Real run: human, after the org exists.)
@@ -47,7 +49,8 @@ Sources: GitHub releases API of `bitwarden/sdk-sm`; `sdk-sm` source at tag `bws-
 - Default project `frappe-dev`; `--project NAME` or `FRAPPE_SECRETS_PROJECT` selects another.
 - `--dry-run` never contacts Bitwarden: it reports whether `bws` and the token are present (never the value) and prints the planned invocation.
 - Exit codes: 2 usage, 1 missing prerequisite or lookup failure, otherwise the command's own exit code.
-- Script test wired into `./gradlew check` (`scriptTests`), so the local gate covers it.
+- Script test wired into `./gradlew check` (`scriptTests`), so the local gate covers it; CI runs the same gate (T4).
+- Reserved names (review): the script lists the project's secret names (`bws secret list`, values held in memory only) and refuses names that steer the shell, linker, JVM, Gradle, Spring or bws (deny-list of exact names and prefixes `LD_ DYLD_ BASH_FUNC_ BWS_ JAVA_ JDK_ _JAVA_ GRADLE_ SPRING_ GIT_`). Naming convention documented as `FRAPPE_*` or a known third-party key; write access to a project is code execution for its consumers. Residual risk: the check and `bws run` list the secrets separately, so a secret added in between is not checked (writers are trusted people; documented).
 
 ## Progress / evidence
 - T0: done (findings above).
@@ -57,10 +60,18 @@ Sources: GitHub releases API of `bitwarden/sdk-sm`; `sdk-sm` source at tag `bws-
 - T1 commit: `a1775a8` (rebased onto `main` d1858e0) chore(platform): run commands with bitwarden secrets injected.
 - T2: `docs/secrets.md` (layout, human setup with verification steps, script behaviour, inventory: app secrets `FRAPPE_APP_PASSWORD`, `FRAPPE_OWNER_PASSWORD`, `FRAPPE_SECRET_PEPPER`, `FRAPPE_VALKEY_URL`, `FRAPPE_NATS_URL` (pepper and Valkey URL added after rebasing onto `main` with FAPI-16 and FAPI-15); infrastructure/tooling `POSTGRES_PASSWORD`, `BWS_ACCESS_TOKEN`, `PLANE_API_KEY`, `GITHUB_TOKEN`; non-secret configuration listed; runbook add/rotate/revoke/leak). README "Secrets" section; `writing-code` hard rule + decision-gate row linking `docs/secrets.md`. Inventory source: `rg '\$\{' src/main/resources`, `@ConfigurationProperties` (`frappe.nats.*`, `frappe.outbox.recovery.*`), `compose.yaml`, `docker/postgres/initdb`, `.github/workflows`.
 - T3: dry run in the real environment (no `bws`, no token): exit 0, reports both missing, EU server, project `frappe-dev`. Real run without `bws`: exit 1 with install help and the local-profile hint. `shellcheck -x scripts/*.sh`: clean. `gitleaks dir .` and `gitleaks git .`: no leaks found. `./gradlew spotlessApply check -x test`: BUILD SUCCESSFUL (includes `scriptTests`: 12 passed). The full `./gradlew check` (Testcontainers suite) was not run for this change, which touches no Java.
-- Pending (human, blocks "Done when"): create the EU organization, projects, machine accounts and tokens; install `bws`; run the verification in `docs/secrets.md` ("Human setup", step 8) and record it in FAPI-35.
+
+- T4 RED: 4 new cases plus assertions; `with-secrets.sh: 29 failure(s) in 16 tests` (reserved names not refused and no `secret list` call; empty `--project` accepted (exit 1 instead of 2); `BWS_UUIDS_AS_KEYNAMES=true` reached bws). The newline-argument and `bws.toml` cases passed at once: they pin behaviour that already existed.
+- T4 GREEN: `with-secrets.sh: 16 tests passed`; shellcheck clean. The UUID row filter avoids awk interval expressions (older mawk).
+- T4 CI: `ci.yml` quality gate steps: spotlessCheck, javadoc, scriptTests, `test --tests ModularityTests`, test, then `./gradlew check` (so every task `check` runs also runs in CI; `./gradlew check --dry-run`: compileJava, processResources, classes, javadoc, scriptTests, spotlessJava(Check), spotlessKotlinGradle(Check), spotlessCheck, compileTestJava, processTestResources, testClasses, test, check). JUnit report path and job summary unchanged; README CI story and diagram updated.
+- T4 docs: `compgen -e | sort` (both places), write access = code execution + naming rule + reserved names, developer invitation as User with Can read, write on `frappe-dev` only (Owners/Admins see every project), probe cleanup step, leak runbook `.gitleaksignore` by fingerprint or history rewrite (fingerprint command verified with gitleaks 8.30.1 on a scratch repo).
+
+## Pending
+- **Human, blocks "Done when"**: create the EU organization, projects, machine accounts, member access and tokens; install `bws`; run the verification in `docs/secrets.md` ("Human setup", step 9, including the live `scripts/with-secrets.sh ./gradlew --no-daemon bootRun` against `frappe-dev`) and record it in FAPI-35.
+- Deploy wiring and the same reserved-name rule for Kamal: FAPI-30.
 
 ## Engram mirror
 Pending: no Engram tools in the implementing agent; the orchestrator mirrors `odd/fapi-35-bitwarden-secrets/tasks`.
 
 ## Next step
-Human setup and the real run against `frappe-dev` (docs/secrets.md, step 8); then PR.
+T5 (human): setup and the live run against `frappe-dev` (docs/secrets.md, step 9); then PR.
