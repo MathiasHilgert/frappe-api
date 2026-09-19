@@ -25,6 +25,7 @@ With two reviewers, send each the same brief separately; neither sees the other'
 - Testcontainers, never H2. `./gradlew check` green.
 - Change stays within ticket scope.
 - Skills and docs reflect the change (`references/keeping-docs-in-sync.md`).
+- The PR's Observability table lists every metric and span the diff adds (name, type, unit, tags with allowed values), and its Events table lists every event published or consumed (version, publisher, consumers, subject, payload, idempotency key); both match the code.
 
 ## Findings format
 
