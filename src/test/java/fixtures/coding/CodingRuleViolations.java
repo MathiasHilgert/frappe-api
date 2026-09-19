@@ -21,6 +21,49 @@ public final class CodingRuleViolations {
         static int counter;
     }
 
+    public static class StaticMutableFinalState {
+
+        static final String[] PATHS = {"/a"};
+
+        static final java.util.List<String> NAMES = new java.util.ArrayList<>();
+
+        static final java.util.concurrent.atomic.AtomicLong COUNTER = new java.util.concurrent.atomic.AtomicLong();
+
+        static final java.util.Map<String, String> CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+
+        static final ClassValue<String> NAMES_BY_CLASS = new ClassValue<>() {
+            @Override
+            protected String computeValue(Class<?> type) {
+                return type.getName();
+            }
+        };
+    }
+
+    public static class ReadsTheLocalDate {
+
+        java.time.LocalDate today() {
+            return java.time.LocalDate.now();
+        }
+    }
+
+    public static class ReadsSystemMillis {
+
+        long millis() {
+            return System.currentTimeMillis();
+        }
+    }
+
+    public static class ClockConfiguration {
+
+        public Clock clock() {
+            return Clock.systemUTC();
+        }
+
+        public Clock anotherClock() {
+            return Clock.systemDefaultZone();
+        }
+    }
+
     public static class ReadsTheWallClock {
 
         Instant now() {
@@ -46,6 +89,8 @@ public final class CodingRuleViolations {
 
         private static final String NAME = "compliant";
 
+        private static final java.util.List<String> NAMES = java.util.List.of("a", "b");
+
         private final Clock clock;
 
         public Compliant(Clock clock) {
@@ -57,7 +102,11 @@ public final class CodingRuleViolations {
         }
 
         String name() {
-            return NAME;
+            return NAME + NAMES;
+        }
+
+        java.time.LocalDate today() {
+            return java.time.LocalDate.now(clock);
         }
     }
 }
