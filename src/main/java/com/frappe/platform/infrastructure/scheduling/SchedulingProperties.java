@@ -9,8 +9,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * is configured under {@code db-scheduler.*} (application.properties).
  *
  * @param initialBackoff wait before the first retry of a failed execution; doubles with every further failure
- * @param maxRetries retries with backoff before a recurring task falls back to its schedule and a one-time task keeps
- *     retrying at the next backoff step; with the defaults 30s, 1m, 2m, 4m, 8m, then every 16m for one-time tasks
+ * @param maxRetries retries with backoff (30s, 1m, 2m, 4m, 8m with the defaults) before a recurring task falls back to
+ *     its schedule and a one-time task is given up
  */
 @ConfigurationProperties("frappe.scheduling")
 record SchedulingProperties(
@@ -35,14 +35,5 @@ record SchedulingProperties(
             throw new IllegalArgumentException(
                     "frappe.scheduling.max-retries must be between 0 and " + MAX_RETRIES_LIMIT + ", was " + maxRetries);
         }
-    }
-
-    /**
-     * The wait after the last retry with backoff, which one-time tasks keep using.
-     *
-     * @return {@code initialBackoff × 2^maxRetries}
-     */
-    Duration longestBackoff() {
-        return initialBackoff.multipliedBy(1L << maxRetries);
     }
 }

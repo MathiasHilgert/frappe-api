@@ -15,6 +15,7 @@ import com.github.kagkarlsson.scheduler.event.ExecutionInterceptor;
 import com.github.kagkarlsson.scheduler.task.ExecutionComplete;
 import com.github.kagkarlsson.scheduler.task.OnStartup;
 import com.github.kagkarlsson.scheduler.task.Task;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.tck.TestObservationRegistry;
 import io.micrometer.observation.tck.TestObservationRegistryAssert;
 import java.time.Clock;
@@ -63,8 +64,10 @@ class RacingSchedulersIntegrationTests {
 
     final AtomicReference<Scheduler> instanceA = new AtomicReference<>();
 
+    final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+
     final ConventionalScheduledTasks tasks = new ConventionalScheduledTasks(
-            new SchedulingProperties(INITIAL_BACKOFF, 5), instanceA::get, Clock.systemUTC());
+            new SchedulingProperties(INITIAL_BACKOFF, 5), instanceA::get, Clock.systemUTC(), meters);
 
     final TestObservationRegistry observations = TestObservationRegistry.create();
 
@@ -204,6 +207,37 @@ class RacingSchedulersIntegrationTests {
                                                             .getValue())
                                             .isEqualTo("success"));
                         }));
+    }
+
+    @Test
+    void aOneTimeTaskThatKeepsFailingEndsAfterItsRetriesAndIsCounted() {
+        // Given one retry only
+        var attempts = new AtomicInteger();
+        var oneRetry = new ConventionalScheduledTasks(
+                new SchedulingProperties(INITIAL_BACKOFF, 1), instanceA::get, Clock.systemUTC(), meters);
+        var name = uniqueName("doomed");
+        var task = oneRetry.oneTime(name, String.class, data -> {
+            attempts.incrementAndGet();
+            throw new IllegalStateException("never works");
+        });
+        startInstance("instance-a", task);
+
+        // When
+        task.schedule("report-2026-10", "payload", Instant.now());
+
+        // Then
+        await().atMost(Duration.ofSeconds(20))
+                .until(() -> meters.get("scheduled.task.exhausted")
+                                .tag("scheduled.task.name", name.value())
+                                .counter()
+                                .count()
+                        == 1.0);
+        assertThat(attempts).hasValue(2);
+        assertThat(jdbc.sql("select count(*) from platform.scheduled_tasks where task_name = ?")
+                        .param(name.value())
+                        .query(Long.class)
+                        .single())
+                .isZero();
     }
 
     @Test

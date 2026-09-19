@@ -10,6 +10,7 @@ import com.github.kagkarlsson.scheduler.boot.config.DbSchedulerProperties;
 import com.github.kagkarlsson.scheduler.serializer.Serializer;
 import com.github.kagkarlsson.scheduler.stats.StatsRegistry;
 import com.github.kagkarlsson.scheduler.task.Task;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import java.time.Clock;
 import java.util.List;
@@ -40,11 +41,13 @@ class SchedulingConfiguration {
      * @param properties the retry settings
      * @param scheduler the application's scheduler; looked up lazily, since it is built from the declared tasks
      * @param clock the application clock
+     * @param meters where one-time tasks count their given-up runs
      * @return the conventions
      */
     @Bean
-    ScheduledTasks scheduledTasks(SchedulingProperties properties, ObjectProvider<Scheduler> scheduler, Clock clock) {
-        return new ConventionalScheduledTasks(properties, scheduler::getObject, clock);
+    ScheduledTasks scheduledTasks(
+            SchedulingProperties properties, ObjectProvider<Scheduler> scheduler, Clock clock, MeterRegistry meters) {
+        return new ConventionalScheduledTasks(properties, scheduler::getObject, clock, meters);
     }
 
     /**
@@ -77,7 +80,8 @@ class SchedulingConfiguration {
     }
 
     /**
-     * The application's scheduler: every declared task, every execution observed, every failure logged. Started by
+     * The application's scheduler: every declared task, every execution observed (failures are logged by each task's
+     * {@link RetryingFailureHandler}). Started by
      * the starter once the context is ready ({@code db-scheduler.delay-startup-until-context-ready}).
      *
      * @param settings {@code db-scheduler.*}
@@ -87,7 +91,6 @@ class SchedulingConfiguration {
      * @param dataSource the application's data source; wrapped transaction-aware, so scheduling joins transactions
      * @param tasks every declared task
      * @param observations where executions are recorded
-     * @param properties the retry settings
      * @return the scheduler
      */
     @Bean(destroyMethod = "stop")
@@ -99,8 +102,7 @@ class SchedulingConfiguration {
             com.github.kagkarlsson.scheduler.Clock clock,
             DataSource dataSource,
             List<ScheduledTask> tasks,
-            ObservationRegistry observations,
-            SchedulingProperties properties) {
+            ObservationRegistry observations) {
         return DbSchedulerConfigurationSupport.buildScheduler(
                 settings,
                 customizer,
@@ -108,7 +110,7 @@ class SchedulingConfiguration {
                 clock,
                 dataSource,
                 libraryTasks(tasks),
-                List.of(new TaskFailureLog(properties)),
+                List.of(),
                 List.of(new ObservedTaskExecution(observations)));
     }
 

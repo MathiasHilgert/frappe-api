@@ -12,8 +12,9 @@ import java.util.function.UnaryOperator;
  *
  * <ul>
  *   <li>A failed run is retried with exponential backoff ({@code frappe.scheduling.initial-backoff}, doubling,
- *       {@code frappe.scheduling.max-retries} times). Afterwards recurring tasks continue on their schedule and
- *       one-time tasks keep retrying at the next backoff step.
+ *       {@code frappe.scheduling.max-retries} times); a recurring task's retry never waits past its next regular
+ *       run. Afterwards recurring tasks continue on their schedule, and a one-time run is given up: removed, logged
+ *       once at ERROR and counted ({@code scheduled.task.exhausted}, tagged with the task name).
  *   <li>Every run is observed ({@code scheduled.task}) and every failure is logged; actions add no telemetry.
  *   <li>Actions throw on failure; they never catch to log.
  * </ul>

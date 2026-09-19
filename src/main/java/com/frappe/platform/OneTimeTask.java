@@ -3,7 +3,9 @@ package com.frappe.platform;
 import java.time.Instant;
 
 /**
- * A task run once per scheduled instance, e.g. a delayed follow-up.
+ * A task run once per scheduled instance, e.g. a delayed follow-up. A run that still fails after its retries is given
+ * up (removed, logged at ERROR, counted as {@code scheduled.task.exhausted}); schedule it again once the cause is
+ * fixed.
  *
  * @param <T> the instance data, stored as JSON
  */

@@ -15,6 +15,7 @@ import com.github.kagkarlsson.scheduler.task.ExecutionOperations;
 import com.github.kagkarlsson.scheduler.task.OnStartup;
 import com.github.kagkarlsson.scheduler.task.Task;
 import com.github.kagkarlsson.scheduler.task.TaskInstance;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -38,10 +39,13 @@ class ConventionalScheduledTasksTest {
 
     static final TaskSchedule HOURLY = TaskSchedule.fixedDelay(Duration.ofHours(1));
 
+    final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+
     final ConventionalScheduledTasks tasks = new ConventionalScheduledTasks(
             new SchedulingProperties(INITIAL_BACKOFF, MAX_RETRIES),
             () -> mock(Scheduler.class),
-            Clock.fixed(DONE, ZoneOffset.UTC));
+            Clock.fixed(DONE, ZoneOffset.UTC),
+            meters);
 
     @Test
     void aRecurringTaskRunsItsActionAndIsScheduledAtStartup() {
@@ -131,6 +135,41 @@ class ConventionalScheduledTasksTest {
 
         // Then
         assertThat(retryAt).isEqualTo(DONE.plus(Duration.ofHours(1)));
+    }
+
+    @Test
+    void aRecurringRetryNeverWaitsLongerThanTheTasksOwnInterval() {
+        // Given a task running every minute
+        var task = tasks.recurring(
+                TaskName.of("platform.probe"), TaskSchedule.fixedDelay(Duration.ofMinutes(1)), () -> {});
+
+        // When the third failure would back off 2 minutes
+        var retryAt = nextExecutionAfterFailure(library(task), null, 2);
+
+        // Then
+        assertThat(retryAt).isEqualTo(DONE.plus(Duration.ofMinutes(1)));
+    }
+
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void aOneTimeTaskEndsOnceItsRetriesAreUsedUp() {
+        // Given
+        var task = tasks.oneTime(TaskName.of("platform.one-time-probe"), String.class, data -> {});
+        var instance = new TaskInstance<>("platform.one-time-probe", "order-1", "payload");
+        var execution = new Execution(STARTED, instance, true, "instance-a", null, STARTED, MAX_RETRIES, STARTED, 1);
+        var failed = ExecutionComplete.failure(execution, STARTED, DONE, new IllegalStateException("boom"));
+        ExecutionOperations operations = mock(ExecutionOperations.class);
+
+        // When
+        library(task).getFailureHandler().onFailure(failed, operations);
+
+        // Then
+        verify(operations).remove();
+        assertThat(meters.get("scheduled.task.exhausted")
+                        .tag("scheduled.task.name", "platform.one-time-probe")
+                        .counter()
+                        .count())
+                .isEqualTo(1.0);
     }
 
     @Test

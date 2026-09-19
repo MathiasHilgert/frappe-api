@@ -25,6 +25,7 @@ import com.github.kagkarlsson.scheduler.exceptions.TaskInstanceNotFoundException
 import com.github.kagkarlsson.scheduler.task.TaskInstance;
 import com.github.kagkarlsson.scheduler.task.TaskInstanceId;
 import com.github.kagkarlsson.shaded.jdbc.SQLRuntimeException;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -42,7 +43,10 @@ class TaskHandlesTest {
     final Scheduler scheduler = mock(Scheduler.class);
 
     final ConventionalScheduledTasks tasks = new ConventionalScheduledTasks(
-            new SchedulingProperties(Duration.ofSeconds(30), 3), () -> scheduler, Clock.fixed(NOW, ZoneOffset.UTC));
+            new SchedulingProperties(Duration.ofSeconds(30), 3),
+            () -> scheduler,
+            Clock.fixed(NOW, ZoneOffset.UTC),
+            new SimpleMeterRegistry());
 
     final com.frappe.platform.RecurringTask<String> recurring = tasks.recurring(
             TaskName.of("platform.recovery-probe"),

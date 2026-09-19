@@ -12,7 +12,7 @@ import io.micrometer.observation.ObservationRegistry;
  * Observes every execution of every scheduled task as {@value #NAME}: a span and a timer tagged with the task name and
  * the outcome (both bounded), the instance id as a span attribute only. The task runs inside the observation, so its
  * queries and log lines join the trace. A failure is recorded as the observation's error and passed on unchanged: the
- * scheduler hands it to the task's failure handler (retry with backoff) and {@link TaskFailureLog} logs it.
+ * scheduler hands it to the task's {@link RetryingFailureHandler}, which logs it and retries with backoff.
  */
 final class ObservedTaskExecution implements ExecutionInterceptor {
 

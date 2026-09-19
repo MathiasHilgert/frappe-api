@@ -61,14 +61,15 @@ closeBusinessDay.schedule(branchId.toString(), new EntitySchedule("0 0 4 * * *",
 
 ## Failures and retries
 
-- Actions throw on failure; they never catch and log. The scheduler retries with exponential backoff (`frappe.scheduling.initial-backoff` 30s, doubling, `frappe.scheduling.max-retries` 5 times). Then a recurring task continues on its schedule and a one-time task keeps retrying at the next step (16m with the defaults).
+- Actions throw on failure; they never catch and log. The scheduler retries with exponential backoff (`frappe.scheduling.initial-backoff` 30s, doubling, `frappe.scheduling.max-retries` 5 times: 30s, 1m, 2m, 4m, 8m); a recurring task's retry never waits past its next regular run.
+- After the retries a recurring task continues on its schedule (until a success resets the count), and a one-time run is given up: its execution is removed, logged once at ERROR and counted as `scheduled.task.exhausted` (tag `scheduled.task.name`; alert on any increase). Once the cause is fixed, schedule it again with the same key.
 - Actions are idempotent: a run taken over from a dead instance, or retried after a failure that happened after its effect, runs again.
 - Keep runs short (batches): on shutdown running executions get `db-scheduler.shutdown-max-wait` (10s, waited at most twice), then another instance takes over once the heartbeat expires: `db-scheduler.heartbeat-interval` 15s × `missed-heartbeats-limit` 6, so an execution of a dead instance resumes elsewhere after about 90s (checked every 30s, twice the heartbeat).
 
 ## Telemetry and logs (automatic)
 
 - Every execution is the observation `scheduled.task`: span `scheduled task <name>` and timer tagged `scheduled.task.name` and `scheduled.task.outcome` (`success`, `failure`); the key is a span attribute only. The action runs inside it, so its queries and log lines join the trace. Do not add telemetry around tasks.
-- Every failure is logged once: WARN while retries remain, ERROR once they are used up, with `frappe.scheduling.task_name`, `frappe.scheduling.task_instance`, `frappe.scheduling.consecutive_failures` and the cause.
+- Every failure is logged once: WARN while retries remain, ERROR once they are used up (a given-up one-time run is its last line), with `frappe.scheduling.task_name`, `frappe.scheduling.task_instance`, `frappe.scheduling.consecutive_failures` and the cause.
 - db-scheduler's own meters (`db_scheduler_*`) and the `db-scheduler` health indicator come from the starter.
 
 ## Configuration

@@ -31,7 +31,7 @@ Strict TDD (brief and project rule). Runner: `./gradlew test` with `FRAPPE_TEST_
 - [x] T6 Docs (`writing-code`: declaring a task; outbox recovery, observability, errors), final verification
 - [x] R1 Review: heartbeat 15s × 6 (takeover about 90s), documented and asserted
 - [x] R2 Review: kernel API without db-scheduler types (`TaskName`, `TaskSchedule`, `EntitySchedule`, plain handlers, task handles); own `Scheduler` bean on the application `Clock`
-- [ ] R3 Review: one-time tasks end after their retries (removed, one ERROR, `scheduled.task.exhausted`); recurring retry backoff capped at the next regular run
+- [x] R3 Review: one-time tasks end after their retries (removed, one ERROR, `scheduled.task.exhausted`); recurring retry backoff capped at the next regular run
 - [ ] R4 Review: `OutboxRecoveryTrigger` off the NATS thread, checks the reschedule result; racing test proves both instances pick; tenant note; final verification
 
 ## Acceptance (from the ticket)
@@ -119,6 +119,8 @@ Strict TDD (brief and project rule). Runner: `./gradlew test` with `FRAPPE_TEST_
   - `TaskHandlesTest.anEntityScheduleIsCreatedOrReplacedAtItsNextCronTime` first failed on the test (`TaskInstance.equals` includes the priority, 90 vs 50); it now matches name, key and data.
   - Minor (racing): `RacingSchedulersIntegrationTests` rewritten on the kernel API; 100 one-time runs with a 50ms action, and the executions record which instance picked them: both `instance-a` and `instance-b` did (green on its first run, an assertion added to a guard).
 - `./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 63 classes, 239 tests. `scheduling.md` and `errors.md` describe the kernel API.
+- R3 RED (compilation): `RetryingFailureHandlerTest` (6) and the new cases in `ConventionalScheduledTasksTest` (`aRecurringRetryNeverWaitsLongerThanTheTasksOwnInterval`, `aOneTimeTaskEndsOnceItsRetriesAreUsedUp`) and `RacingSchedulersIntegrationTests.aOneTimeTaskThatKeepsFailingEndsAfterItsRetriesAndIsCounted`: `RetryingFailureHandler` and the `MeterRegistry` constructor argument missing. GREEN: `RetryingFailureHandler` replaces the library's `maxRetries` builder and `TaskFailureLog` (removed): backoff `initial × 2^(failures-1)`; recurring retries capped at the next regular run (`Schedule.getNextExecutionTime`, the entity's stored schedule for per-entity tasks), then the schedule with ERROR; one-time runs after their retries `ExecutionOperations.remove()`, one ERROR line with the ECS fields, counter `scheduled.task.exhausted{scheduled.task.name}` registered at declaration (reads 0 before the first give-up). Why hand-written: the builder has no cap and a listener cannot tell task kinds apart (verified in `FailureHandler` 16.12.0). Integration: one retry, two attempts, counter 1, row gone. `ScheduledTasks`/`OneTimeTask` Javadoc, `scheduling.md`, `observability.md` updated.
+- `./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 245 tests.
 
 ## Follow-ups / open questions
 - `OutboxRecoveryTrigger` drops a trigger while a pass runs (as the lock did before). A pass that started just before NATS came back may still fail its publishes; those then wait for the next scheduled pass (1m with the defaults, plus their backoff).
