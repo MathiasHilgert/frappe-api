@@ -74,6 +74,7 @@ Values never appear here or anywhere in the repository. Owner: the person who ro
 | `FRAPPE_SECRET_PEPPER` | Server-side HMAC pepper for the Argon2id hashes of one-time codes; never reaches Valkey. At least 32 random characters (`openssl rand -base64 48`), different per environment; `frappe.secrets.pepper` | Mathias Hilgert | `frappe-dev`, `frappe-production` (generated; without Bitwarden a local default that is not a secret) | 180 days; rotating only invalidates outstanding one-time codes |
 | `FRAPPE_VALKEY_URL` | Valkey URL with its credentials (`rediss://user:password@host:6379`); `spring.data.redis.url` | Mathias Hilgert | `frappe-production` (dev: local default `redis://localhost:6379`) | 90 days (the password in it) |
 | `FRAPPE_NATS_URL` | NATS server URL; a secret as soon as it carries credentials (`nats://user:password@host:4222`); `frappe.nats.url` | Mathias Hilgert | `frappe-production` (dev: default `nats://localhost:4222`) | 90 days when it carries credentials |
+| `FRAPPE_DEEPL_API_KEY` | DeepL account key (Free plan, `:fx` suffix — the SDK selects `api-free.deepl.com` from it); `frappe.translation.deepl.api-key`, read by `MachineTranslator`'s DeepL adapter | Mathias Hilgert | `frappe-dev`, `frappe-production` (without Bitwarden: unset, `MachineTranslator.isAvailable()` is `false` and the API still starts) | 180 days |
 
 ### Secrets of the infrastructure (not read by the application)
 
