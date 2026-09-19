@@ -23,7 +23,7 @@ Strict TDD (project standard, `testing-code`). Runner: `./gradlew test` with `FR
 - [x] T1 `Result` in the kernel (pure Java)
 - [x] T2 Messages, handler interfaces, bus ports; startup discovery keyed by message type; duplicate and missing handler failures
 - [x] T3 Observing decorator: one `use_case` observation per dispatch with outcome and error
-- [ ] T4 Postgres proof: rollback leaves neither state nor outbox row; a commit failure is observed as `error`
+- [x] T4 Postgres proof: rollback leaves neither state nor outbox row; a commit failure is observed as `error`
 - [ ] T5 Docs (`writing-code` use cases and observability, `observing-the-api` conventions); verification
 
 ## Acceptance (from ticket)
@@ -67,5 +67,11 @@ Strict TDD (project standard, `testing-code`). Runner: `./gradlew test` with `FR
 - GREEN 6/6: A4 success (`use_case`, contextual name `platform PlaceOrder`, `use_case.name|module|kind`, `outcome=success`, no error, stopped), `Result.Failure` → `outcome=failure` without error, a throwing handler → `outcome=error` with that exception attached and rethrown unchanged, a failing commit → `outcome=error` with the `TransactionSystemException` (the commit runs inside the observation), a query → `use_case.kind=query`, a message without a handler → `outcome=error`.
 - Code: `UseCaseObservationContext` (use case + returned value; outcome `unknown` until the handler returns), `UseCaseObservationConvention` (name, contextual name, the four low-cardinality keys), `UseCaseObservations` (`Observation#observe`, no hand-written catch), `ObservedCommandBus` / `ObservedQueryBus`; `BusConfiguration` exposes only the observed buses. `./gradlew javadoc` green.
 
+### T4 Postgres proof
+- `UseCaseBusIntegrationTests` (`@SpringBootTest`, Testcontainers Postgres and per-context NATS; handlers are `@Bean`s of a nested `@TestConfiguration`, CGLIB-proxied as in production).
+- First run: 3/3 green, but `aCommandFailingOnCommitIsObservedAsAnError` passed for the wrong reason (the table did not exist, so the insert failed inside the handler, which is also `outcome=error`). Tightened: the handler records that it returned, and the timer's `error` tag must name the thrown exception. RED: `Expecting value to be true but was false` (handle never returned). GREEN after the test-only migration `fixture/V202609191100__create_fixture_labelled_probe.sql` (unique label `deferrable initially deferred`): 3/3.
+- A5 `aRolledBackCommandLeavesNeitherItsStateNorItsOutboxRow` (probe row and outbox/archive row absent; timer `use_case{use_case.name=RecordProbe, outcome=error, error=IllegalStateException}` counted once) and the control `aCommittedCommandStoresItsStateAndItsOutboxRow` passed on their first run: they guard behaviour that `@Transactional` and the FAPI-6 outbox already provide, so no RED was possible for them.
+- `aCommandFailingOnCommitIsObservedAsAnError`: every statement succeeds, the deferred constraint fails the commit in the handler's proxy, and the `use_case` timer records `outcome=error` (never `success`) with the commit exception, proving the commit runs inside the observation end to end.
+
 ## Next step
-T4.
+T5.
