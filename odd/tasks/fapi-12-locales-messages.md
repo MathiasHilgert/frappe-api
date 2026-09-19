@@ -118,6 +118,11 @@ Strict TDD, source: project standard (`testing-code`) and the brief. Runner: `./
 - Ports without `HttpServletRequest`: `preferredLocale()` and `current()`. Implementations read the current request through `RequestContextHolder`; the `Content-Language` filter now runs at `REQUEST_WRAPPER_FILTER_MAX_ORDER - 104`, right after Boot's `RequestContextFilter` (-105, verified in `spring-boot-servlet-4.1.1-sources.jar`) and before security (-100). RED: `I18nIntegrationTests.theSignedInUsersPreferenceWinsOverAcceptLanguage` with the stub port reading `RequestContextHolder` and the old order: `Content-Language expected:<[pt]> but was:<[es]>` (no thread-bound request, isolated as "no preference"); GREEN with the new order. All i18n tests and `ModularityTests` green.
 - `i18n.md`: kernel types only, ports read `RequestContextHolder`, `SupportedLocales.PSEUDO`.
 
+### Rebase on main (FAPI-13 routes, commit `d27c071`)
+- Rebased on `origin/main` `e2b78f7` (FAPI-13: declared routes, Spring Security chain). Conflict in `errors.md` resolved by keeping FAPI-13's `HandlerMappingGuard` entry and the localization boundary ("beyond those listed here").
+- After the rebase `I18nIntegrationTests` failed to start: `InvalidRouteException: Invalid HTTP routes` (the probe controllers were nested in a test outside `..infrastructure.web` and had no `@Access`). The probes are now public routes in `src/test/java/com/frappe/platform/infrastructure/web/LocaleProbeRoutes.java` (one class per route, `@Access(Posture.PUBLIC)`, served under `/v1`), following FAPI-13's `ProbeRoutes`. All i18n tests green, including the stub user port reading `RequestContextHolder` with the security chain in place (the locale filter at -104 runs before security at -100).
+- Verification `FRAPPE_TEST_DB=frappe_fapi_12 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 66 classes, 309 tests, 0 failures, 0 skipped.
+
 ## PR summary
 - Locale chain (user preference > `Accept-Language` > branch > business > en) with ICU/CLDR matching, restricted to enabled languages; ports for identity and organization; a failing port never fails a request.
 - `Content-Language` and `Vary: Accept-Language` on every response, errors included.
