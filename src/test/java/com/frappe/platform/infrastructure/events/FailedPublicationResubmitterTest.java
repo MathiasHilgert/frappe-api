@@ -24,6 +24,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -51,7 +52,7 @@ class FailedPublicationResubmitterTest {
     final Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
 
     final FailedPublicationResubmitter resubmitter =
-            new FailedPublicationResubmitter(redelivery, outbox, metrics, properties, clock);
+            new FailedPublicationResubmitter(redelivery, outbox, metrics, properties, clock, Runnable::run);
 
     final Logger logger = (Logger) LoggerFactory.getLogger(FailedPublicationResubmitter.class);
 
@@ -196,7 +197,24 @@ class FailedPublicationResubmitterTest {
     }
 
     @Test
-    void aTriggeredRunWaitsForTheRunningOneInsteadOfOverlapping() throws Exception {
+    void theTriggerHandsThePassToTheExecutorAndReturnsAtOnce() {
+        // Given
+        var handedOff = new ArrayList<Runnable>();
+        var deferred = new FailedPublicationResubmitter(redelivery, outbox, metrics, properties, clock, handedOff::add);
+
+        // When
+        deferred.onTransportRecovered(MessagingTransportRecovered.NATS);
+
+        // Then
+        // The publishing thread (NATS connection setup) did no recovery work itself.
+        verify(outbox, never()).releaseStuckPublications(any());
+        assertThat(handedOff).singleElement();
+        handedOff.getFirst().run();
+        verify(outbox, times(1)).releaseStuckPublications(any());
+    }
+
+    @Test
+    void aTriggerDuringARunningPassIsDroppedBecauseThatPassCoversTheSameRows() throws Exception {
         // Given
         var firstRunStarted = new CountDownLatch(1);
         var releaseFirstRun = new CountDownLatch(1);
@@ -212,17 +230,12 @@ class FailedPublicationResubmitterTest {
         firstRunStarted.await();
 
         // When
-        var triggered = new Thread(() -> resubmitter.onTransportRecovered(MessagingTransportRecovered.NATS));
-        triggered.start();
-        triggered.join(300);
+        resubmitter.onTransportRecovered(MessagingTransportRecovered.NATS);
 
         // Then
-        assertThat(triggered.isAlive()).isTrue();
-        verify(outbox, times(1)).releaseStuckPublications(any());
         releaseFirstRun.countDown();
         scheduled.join();
-        triggered.join();
-        verify(outbox, times(2)).releaseStuckPublications(any());
+        verify(outbox, times(1)).releaseStuckPublications(any());
     }
 
     @Test

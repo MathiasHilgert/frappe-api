@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.PayloadApplicationEvent;
+import org.springframework.dao.DataAccessException;
 import org.springframework.modulith.events.core.EventPublicationRepository;
 import org.springframework.modulith.events.core.EventSerializer;
 import org.springframework.transaction.event.TransactionalApplicationListener;
@@ -127,13 +128,27 @@ class PublicationRedelivery {
         } catch (RuntimeException e) {
             // The one broad catch: listener code is arbitrary, and one failing listener must not abort the batch.
             // Modulith's resubmission catches the same way. Logged here, the boundary that handles it.
-            repository.markFailed(publication.id());
             log.atWarn()
                     .addKeyValue(LogFields.PUBLICATION_ID, publication.id())
                     .addKeyValue(LogFields.LISTENER_ID, publication.listenerId())
                     .setCause(e)
                     .log("Resubmitted event publication failed in its listener; it stays failed for retry");
+            markFailed(publication);
             return Outcome.LISTENER_FAILED;
+        }
+    }
+
+    // Losing this update only delays the retry (the row stays RESUBMITTED until stuck-after), so it must not abort the
+    // batch or the dead letters collected so far.
+    private void markFailed(FailedPublication publication) {
+        try {
+            repository.markFailed(publication.id());
+        } catch (DataAccessException e) {
+            log.atWarn()
+                    .addKeyValue(LogFields.PUBLICATION_ID, publication.id())
+                    .addKeyValue(LogFields.LISTENER_ID, publication.listenerId())
+                    .setCause(e)
+                    .log("Marking the failed resubmission failed; stuck-after releases the publication for retry");
         }
     }
 

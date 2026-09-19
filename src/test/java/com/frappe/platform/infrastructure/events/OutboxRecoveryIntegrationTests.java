@@ -21,6 +21,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.LongStream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -82,12 +83,13 @@ class OutboxRecoveryIntegrationTests {
         var event = new CourseFired(ids.newId(), clock.instant(), ids.newId(), 1, 1);
         withNatsPaused(() -> {
             transactions.executeWithoutResult(status -> publisher.publish(event));
-            await().atMost(Duration.ofSeconds(5)).until(() -> firstAttemptFailed(event));
+            await().atMost(Duration.ofSeconds(5)).until(() -> retriedAtLeastOnce(event));
         });
 
         // When / Then
         await().atMost(Duration.ofSeconds(20)).until(() -> archived(event));
         assertThat(outboxStatus(event)).isNull();
+        assertThat(archivedAttempts(event)).isGreaterThanOrEqualTo(2);
         assertThat(storedMessagesFor(event)).isOne();
     }
 
@@ -97,7 +99,7 @@ class OutboxRecoveryIntegrationTests {
         var event = new DessertServed(ids.newId(), clock.instant(), ids.newId(), 1, 1);
         withNatsPaused(() -> {
             transactions.executeWithoutResult(status -> publisher.publish(event));
-            await().atMost(Duration.ofSeconds(5)).until(() -> firstAttemptFailed(event));
+            await().atMost(Duration.ofSeconds(5)).until(() -> retriedAtLeastOnce(event));
             // Simulates an instance that stored the publication and died before its listener ran.
             jdbc.update(
                     "update platform.event_publication set status = 'PUBLISHED' where serialized_event like ?",
@@ -113,20 +115,24 @@ class OutboxRecoveryIntegrationTests {
     void unreadableRowsBecomeDeadLettersWhileAValidFailureIsStillRecovered() {
         // Given
         var event = new CourseFired(ids.newId(), clock.instant(), ids.newId(), 1, 1);
+        var removedType = new AtomicReference<UUID>();
+        var brokenPayload = new AtomicReference<UUID>();
         withNatsPaused(() -> {
             transactions.executeWithoutResult(status -> publisher.publish(event));
-            await().atMost(Duration.ofSeconds(5)).until(() -> firstAttemptFailed(event));
+            await().atMost(Duration.ofSeconds(5)).until(() -> retriedAtLeastOnce(event));
+            // Copied while NATS is still paused: once it is back, the valid row may be archived at any moment.
+            // Older than the valid row, so they come first in every selection.
+            removedType.set(insertFailedCopyOf(event, "com.frappe.removed.TableMerged", "{}"));
+            brokenPayload.set(insertFailedCopyOf(event, CourseFired.class.getName(), "{\"eventId\": "));
         });
-        // Older than the valid row, so they come first in every selection.
-        var removedType = insertFailedCopyOf(event, "com.frappe.removed.TableMerged", "{}");
-        var brokenPayload = insertFailedCopyOf(event, CourseFired.class.getName(), "{\"eventId\": ");
 
         // When / Then
         await().atMost(Duration.ofSeconds(20)).until(() -> archived(event));
         await().atMost(Duration.ofSeconds(10))
-                .until(() -> deadLetterReason(removedType) != null && deadLetterReason(brokenPayload) != null);
-        assertThat(deadLetterReason(removedType)).isEqualTo("UNKNOWN_EVENT_TYPE");
-        assertThat(deadLetterReason(brokenPayload)).isEqualTo("UNREADABLE_PAYLOAD");
+                .until(() ->
+                        deadLetterReason(removedType.get()) != null && deadLetterReason(brokenPayload.get()) != null);
+        assertThat(deadLetterReason(removedType.get())).isEqualTo("UNKNOWN_EVENT_TYPE");
+        assertThat(deadLetterReason(brokenPayload.get())).isEqualTo("UNREADABLE_PAYLOAD");
     }
 
     @AfterEach
@@ -171,10 +177,28 @@ class OutboxRecoveryIntegrationTests {
     }
 
     // While NATS is paused the 500ms recovery keeps retrying, so the row alternates between FAILED and RESUBMITTED
-    // (an async failure stays RESUBMITTED until stuck-after); either means the first attempt failed.
-    private boolean firstAttemptFailed(DomainEvent event) {
+    // (an async failure stays RESUBMITTED until stuck-after); with two or more attempts the recovery already retried.
+    private boolean retriedAtLeastOnce(DomainEvent event) {
         var status = outboxStatus(event);
-        return "FAILED".equals(status) || "RESUBMITTED".equals(status);
+        return ("FAILED".equals(status) || "RESUBMITTED".equals(status)) && outboxAttempts(event) >= 2;
+    }
+
+    private int outboxAttempts(DomainEvent event) {
+        return jdbc
+                .queryForList(
+                        "select completion_attempts from platform.event_publication where serialized_event like ?",
+                        Integer.class,
+                        pattern(event))
+                .stream()
+                .findFirst()
+                .orElse(0);
+    }
+
+    private int archivedAttempts(DomainEvent event) {
+        return jdbc.queryForObject(
+                "select completion_attempts from platform.event_publication_archive where serialized_event like ?",
+                Integer.class,
+                pattern(event));
     }
 
     private String outboxStatus(DomainEvent event) {

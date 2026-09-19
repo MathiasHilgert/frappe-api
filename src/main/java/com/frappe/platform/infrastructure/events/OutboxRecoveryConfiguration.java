@@ -13,6 +13,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.modulith.events.core.EventPublicationRepository;
 import org.springframework.modulith.events.core.EventSerializer;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.SchedulingConfigurer;
 import org.springframework.scheduling.config.ScheduledTaskRegistrar;
@@ -39,6 +40,7 @@ class OutboxRecoveryConfiguration implements SchedulingConfigurer {
      * @param metrics the dead-letter gauge
      * @param properties recovery settings
      * @param clock the application clock
+     * @param taskScheduler Spring Boot's scheduler, also running passes triggered by a recovered transport
      */
     OutboxRecoveryConfiguration(
             EventPublicationRepository repository,
@@ -47,10 +49,12 @@ class OutboxRecoveryConfiguration implements SchedulingConfigurer {
             OutboxRecoveryRepository outbox,
             DeadLetterMetrics metrics,
             OutboxRecoveryProperties properties,
-            Clock clock) {
+            Clock clock,
+            TaskScheduler taskScheduler) {
         var redelivery =
                 new PublicationRedelivery(repository, serializer, listenersOf(context), context.getClassLoader());
-        this.resubmitter = new FailedPublicationResubmitter(redelivery, outbox, metrics, properties, clock);
+        this.resubmitter = new FailedPublicationResubmitter(
+                redelivery, outbox, metrics, properties, clock, task -> taskScheduler.schedule(task, clock.instant()));
         this.properties = properties;
     }
 

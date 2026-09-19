@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.PayloadApplicationEvent;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.modulith.events.core.EventPublicationRepository;
 import org.springframework.modulith.events.core.EventSerializer;
 import org.springframework.transaction.event.TransactionalApplicationListener;
@@ -121,6 +122,25 @@ class PublicationRedeliveryTest {
         // Then
         assertThat(outcome).isEqualTo(Outcome.UNKNOWN_LISTENER);
         verify(repository, never()).markResubmitted(any(), any());
+    }
+
+    @Test
+    void aFailureToMarkTheFailedDeliveryIsReportedWithoutAbortingTheBatch() {
+        // Given
+        when(listener.getListenerId()).thenReturn(LISTENER_ID);
+        when(serializer.deserialize("{}", Probe.class)).thenReturn(new Probe(UUID.randomUUID()));
+        when(repository.markResubmitted(publication.id(), NOW)).thenReturn(true);
+        doThrow(new IllegalStateException("listener bug")).when(listener).processEvent(any());
+        doThrow(new DataAccessResourceFailureException("connection refused"))
+                .when(repository)
+                .markFailed(publication.id());
+
+        // When
+        var outcome = redelivery.redeliver(publication, NOW);
+
+        // Then
+        // The row stays RESUBMITTED; stuck-after releases it for the next retry.
+        assertThat(outcome).isEqualTo(Outcome.LISTENER_FAILED);
     }
 
     @Test
