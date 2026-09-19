@@ -1,7 +1,10 @@
 package com.frappe.platform.infrastructure.events;
 
 import com.frappe.platform.infrastructure.MessagingTransportRecovered;
+import com.frappe.platform.infrastructure.events.OutboxObservations.Trigger;
 import com.frappe.platform.infrastructure.events.PublicationRedelivery.Outcome;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -47,6 +50,7 @@ final class FailedPublicationResubmitter implements Runnable {
     private final OutboxRecoveryProperties properties;
     private final Clock clock;
     private final Executor triggerExecutor;
+    private final ObservationRegistry observations;
     private final ReentrantLock runLock = new ReentrantLock();
 
     /**
@@ -58,6 +62,7 @@ final class FailedPublicationResubmitter implements Runnable {
      * @param properties recovery settings
      * @param clock the application clock
      * @param triggerExecutor runs passes triggered by a recovered transport, off the publishing thread
+     * @param observations records every pass and redelivery ({@link OutboxObservations})
      */
     FailedPublicationResubmitter(
             PublicationRedelivery redelivery,
@@ -65,19 +70,26 @@ final class FailedPublicationResubmitter implements Runnable {
             DeadLetterMetrics metrics,
             OutboxRecoveryProperties properties,
             Clock clock,
-            Executor triggerExecutor) {
+            Executor triggerExecutor,
+            ObservationRegistry observations) {
         this.redelivery = redelivery;
         this.outbox = outbox;
         this.metrics = metrics;
         this.properties = properties;
         this.clock = clock;
         this.triggerExecutor = triggerExecutor;
+        this.observations = observations;
     }
 
     /** Runs one scheduled recovery pass; a database failure is logged and the next run tries again. */
     @Override
     public void run() {
-        recover(properties.interval());
+        runLock.lock();
+        try {
+            observedPass(Trigger.SCHEDULED, properties.interval());
+        } finally {
+            runLock.unlock();
+        }
     }
 
     /**
@@ -94,25 +106,25 @@ final class FailedPublicationResubmitter implements Runnable {
                 return;
             }
             try {
-                recoverExclusively(Duration.ZERO);
+                observedPass(Trigger.TRANSPORT_RECOVERED, Duration.ZERO);
             } finally {
                 runLock.unlock();
             }
         });
     }
 
-    // One pass at a time per instance: the scheduled pass waits for a triggered one instead of overlapping it, so the
-    // in-flight headroom it computes is never stale.
-    private void recover(Duration baseBackoff) {
-        runLock.lock();
-        try {
-            recoverExclusively(baseBackoff);
+    // One pass at a time per instance (runLock): the scheduled pass waits for a triggered one instead of overlapping
+    // it, so the in-flight headroom it computes is never stale.
+    private void observedPass(Trigger trigger, Duration baseBackoff) {
+        var observation = OutboxObservations.recovery(observations, trigger).start();
+        try (var scope = observation.openScope()) {
+            recoverExclusively(baseBackoff, observation);
         } finally {
-            runLock.unlock();
+            observation.stop();
         }
     }
 
-    private void recoverExclusively(Duration baseBackoff) {
+    private void recoverExclusively(Duration baseBackoff, Observation pass) {
         try {
             var now = clock.instant();
             outbox.releaseStuckPublications(now.minus(properties.stuckAfter()));
@@ -120,6 +132,7 @@ final class FailedPublicationResubmitter implements Runnable {
             resubmitDueFailures(now, baseBackoff);
             metrics.recordDeadLetters(outbox.countDeadLetters());
         } catch (DataAccessException e) {
+            pass.error(e);
             // Scheduled task boundary: nobody above can handle it, and the next run retries.
             log.atWarn()
                     .addKeyValue(LogFields.RECOVERY_INTERVAL, properties.interval())
@@ -140,13 +153,25 @@ final class FailedPublicationResubmitter implements Runnable {
         // delivered are dead-lettered instead of occupying the next selections.
         var undeliverable = new EnumMap<DeadLetterReason, Set<UUID>>(DeadLetterReason.class);
         for (var publication : outbox.findRetryable(now, (int) headroom, baseBackoff, properties.maxBackoff())) {
-            var reason = deadLetterReason(redelivery.redeliver(publication, now));
+            var reason = deadLetterReason(observedRedelivery(publication, now));
             if (reason != null) {
                 undeliverable.computeIfAbsent(reason, key -> new HashSet<>()).add(publication.id());
             }
         }
         undeliverable.forEach(
                 (reason, ids) -> outbox.deadLetterByIds(ids, reason, now).forEach(this::logDeadLetter));
+    }
+
+    private Outcome observedRedelivery(FailedPublication publication, Instant now) {
+        var observation =
+                OutboxObservations.redelivery(observations, publication).start();
+        try (var scope = observation.openScope()) {
+            var outcome = redelivery.redeliver(publication, now);
+            observation.lowCardinalityKeyValue(OutboxObservations.OUTCOME, OutboxObservations.outcomeTag(outcome));
+            return outcome;
+        } finally {
+            observation.stop();
+        }
     }
 
     private static DeadLetterReason deadLetterReason(Outcome outcome) {

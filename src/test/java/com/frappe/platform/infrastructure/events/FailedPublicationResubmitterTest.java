@@ -20,6 +20,8 @@ import ch.qos.logback.core.read.ListAppender;
 import com.frappe.platform.infrastructure.MessagingTransportRecovered;
 import com.frappe.platform.infrastructure.events.PublicationRedelivery.Outcome;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.observation.tck.TestObservationRegistry;
+import io.micrometer.observation.tck.TestObservationRegistryAssert;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -51,8 +53,10 @@ class FailedPublicationResubmitterTest {
 
     final Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
 
-    final FailedPublicationResubmitter resubmitter =
-            new FailedPublicationResubmitter(redelivery, outbox, metrics, properties, clock, Runnable::run);
+    final TestObservationRegistry observations = TestObservationRegistry.create();
+
+    final FailedPublicationResubmitter resubmitter = new FailedPublicationResubmitter(
+            redelivery, outbox, metrics, properties, clock, Runnable::run, observations);
 
     final Logger logger = (Logger) LoggerFactory.getLogger(FailedPublicationResubmitter.class);
 
@@ -183,7 +187,7 @@ class FailedPublicationResubmitterTest {
         resubmitter.run();
 
         // Then
-        assertThat(registry.get("frappe.outbox.dead.letters").gauge().value()).isEqualTo(3.0);
+        assertThat(registry.get("outbox.dead.letters").gauge().value()).isEqualTo(3.0);
     }
 
     @Test
@@ -200,7 +204,8 @@ class FailedPublicationResubmitterTest {
     void theTriggerHandsThePassToTheExecutorAndReturnsAtOnce() {
         // Given
         var handedOff = new ArrayList<Runnable>();
-        var deferred = new FailedPublicationResubmitter(redelivery, outbox, metrics, properties, clock, handedOff::add);
+        var deferred = new FailedPublicationResubmitter(
+                redelivery, outbox, metrics, properties, clock, handedOff::add, observations);
 
         // When
         deferred.onTransportRecovered(MessagingTransportRecovered.NATS);
@@ -236,6 +241,58 @@ class FailedPublicationResubmitterTest {
         releaseFirstRun.countDown();
         scheduled.join();
         verify(outbox, times(1)).releaseStuckPublications(any());
+    }
+
+    @Test
+    void everyPassIsObservedWithItsTrigger() {
+        // When
+        resubmitter.run();
+        resubmitter.onTransportRecovered(MessagingTransportRecovered.NATS);
+
+        // Then
+        TestObservationRegistryAssert.assertThat(observations)
+                .hasNumberOfObservationsWithNameEqualTo("outbox.recovery", 2)
+                .hasAnObservation(
+                        observation -> observation.hasLowCardinalityKeyValue("outbox.recovery.trigger", "scheduled"))
+                .hasAnObservation(observation ->
+                        observation.hasLowCardinalityKeyValue("outbox.recovery.trigger", "transport_recovered"));
+    }
+
+    @Test
+    void everyRedeliveryIsObservedWithItsOutcomeAndPublicationId() {
+        // Given
+        var publication = failedPublication(Probe.class.getName());
+        when(outbox.findRetryable(any(), anyInt(), any(), any())).thenReturn(List.of(publication));
+        when(redelivery.redeliver(publication, NOW)).thenReturn(Outcome.UNREADABLE_PAYLOAD);
+
+        // When
+        resubmitter.run();
+
+        // Then
+        TestObservationRegistryAssert.assertThat(observations)
+                .hasAnObservation(observation -> observation
+                        .hasNameEqualTo("outbox.redelivery")
+                        .hasLowCardinalityKeyValue("outbox.redelivery.outcome", "unreadable_payload")
+                        .hasHighCardinalityKeyValue(
+                                "outbox.publication.id", publication.id().toString()));
+    }
+
+    @Test
+    void aFailedPassIsObservedAsAnError() {
+        // Given
+        doThrow(new DataAccessResourceFailureException("connection refused"))
+                .when(outbox)
+                .releaseStuckPublications(any());
+
+        // When
+        resubmitter.run();
+
+        // Then
+        TestObservationRegistryAssert.assertThat(observations)
+                .hasSingleObservationThat()
+                .hasNameEqualTo("outbox.recovery")
+                .hasError()
+                .hasBeenStopped();
     }
 
     @Test

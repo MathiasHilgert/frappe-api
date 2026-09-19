@@ -1,6 +1,7 @@
 package com.frappe.platform.infrastructure.events;
 
 import com.frappe.platform.infrastructure.MessagingTransportRecovered;
+import io.micrometer.observation.ObservationRegistry;
 import java.time.Clock;
 import java.util.Collection;
 import java.util.function.Supplier;
@@ -41,6 +42,7 @@ class OutboxRecoveryConfiguration implements SchedulingConfigurer {
      * @param properties recovery settings
      * @param clock the application clock
      * @param taskScheduler Spring Boot's scheduler, also running passes triggered by a recovered transport
+     * @param observations records recovery passes and redeliveries
      */
     OutboxRecoveryConfiguration(
             EventPublicationRepository repository,
@@ -50,11 +52,18 @@ class OutboxRecoveryConfiguration implements SchedulingConfigurer {
             DeadLetterMetrics metrics,
             OutboxRecoveryProperties properties,
             Clock clock,
-            TaskScheduler taskScheduler) {
+            TaskScheduler taskScheduler,
+            ObservationRegistry observations) {
         var redelivery =
                 new PublicationRedelivery(repository, serializer, listenersOf(context), context.getClassLoader());
         this.resubmitter = new FailedPublicationResubmitter(
-                redelivery, outbox, metrics, properties, clock, task -> taskScheduler.schedule(task, clock.instant()));
+                redelivery,
+                outbox,
+                metrics,
+                properties,
+                clock,
+                task -> taskScheduler.schedule(task, clock.instant()),
+                observations);
         this.properties = properties;
     }
 

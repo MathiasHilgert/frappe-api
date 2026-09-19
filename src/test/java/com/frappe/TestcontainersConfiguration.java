@@ -15,6 +15,8 @@ import org.testcontainers.utility.MountableFile;
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfiguration {
 
+    private static final int TEST_POOL_SIZE = 4;
+
     @Bean
     public PostgreSQLContainer postgresContainer() {
         // One database name per worktree (FRAPPE_TEST_DB=frappe_fapi_<n>): reused containers are keyed by
@@ -30,6 +32,11 @@ public class TestcontainersConfiguration {
 
     @Bean
     DynamicPropertyRegistrar postgresProperties(PostgreSQLContainer postgres) {
-        return registry -> registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        return registry -> {
+            registry.add("spring.datasource.url", postgres::getJdbcUrl);
+            // Spring caches one context per distinct test configuration, each with its own pool; Hikari's default of
+            // 10 connections per context exhausts Postgres' 100 slots once the suite holds more than a few contexts.
+            registry.add("spring.datasource.hikari.maximum-pool-size", () -> TEST_POOL_SIZE);
+        };
     }
 }
