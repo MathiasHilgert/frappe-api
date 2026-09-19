@@ -23,7 +23,7 @@ Sessions (Postgres), caching, code formats and limit values (identity tickets).
 Strict TDD. Runner: `./gradlew test` with Testcontainers (Postgres reused as `FRAPPE_TEST_DB=frappe_fapi_16`, Valkey and NATS fresh per context). RED observed before each behaviour.
 
 ## Tasks
-- [ ] T0 Verify versions and APIs from the jars (Spring Data Redis, Lettuce, Argon2, Bucket4j lettuce, testcontainers-redis); record here
+- [x] T0 Verify versions and APIs from the jars (Spring Data Redis, Lettuce, Argon2, Bucket4j lettuce, testcontainers-redis); record here
 - [ ] T1 Compose DX: env-overridable host ports, `valkey` service with the service-connection label; README
 - [ ] T2 Valkey wiring: starter, `FRAPPE_VALKEY_URL` required outside `local`, `TestValkeyConfiguration`, starts without Valkey
 - [ ] T3 `ShortLivedSecretStore` put/consume: Argon2 hash only, single use under concurrency, 5 failures, replace, TTL
@@ -45,7 +45,15 @@ Strict TDD. Runner: `./gradlew test` with Testcontainers (Postgres reused as `FR
 `FRAPPE_TEST_DB=frappe_fapi_16 ./gradlew spotlessApply check --rerun-tasks`; boot check with an isolated compose project (`-p frappe-fapi-16`, non-default ports), torn down afterwards.
 
 ## Progress / evidence
-(filled per task)
+
+### T0 findings (verified from the resolved jars and their `-sources` jars from Maven Central)
+- Boot 4.1.1 BOM manages `spring-data-redis` 4.1.1 (Spring Data 2026.0.1), `lettuce-core` 7.5.2.RELEASE, `spring-security-crypto` 7.1.1 and `com.redis:testcontainers-redis` 2.2.4; `spring-boot-starter-data-redis-test` 4.1.1 exists. Not managed: `org.bouncycastle:bcprov-jdk18on` (1.86, latest) and `com.bucket4j:bucket4j_jdk17-lettuce` (8.20.0, latest; pulls `bucket4j_jdk17-core` and `-redis-common` 8.20.0, Lettuce `provided`, so ours is used).
+- BouncyCastle clash: `io.nats:jnats` 2.26.2 depends on `bcprov-lts8on` 2.73.10, which ships the same `org.bouncycastle` classes as `bcprov-jdk18on` (both contain `Argon2BytesGenerator`). Two copies of one package on the classpath make the loaded version order-dependent. Decision: exclude `bcprov-lts8on` from jnats; jnats references only `CipherParameters`, `Ed25519PrivateKeyParameters`, `Ed25519PublicKeyParameters`, `Ed25519Signer` (read from its bytecode), all present in `bcprov-jdk18on` 1.86.
+- `Argon2PasswordEncoder.defaultsForSpringSecurity_v5_8()` (salt 16 B, hash 32 B, parallelism 1, memory 16 MiB, 2 iterations) uses BouncyCastle's `Argon2BytesGenerator`; hashes are self-describing `$argon2id$…` strings with their own salt, so they cannot be compared inside Valkey: `consume` verifies in Java, and the script only compares the stored hash string it verified against.
+- Boot's Redis service connections match the names `redis`, `redis/redis-stack`, `redis/redis-stack-server` (compose and Testcontainers), hence the label and `@ServiceConnection(name = "redis")`; the Testcontainers factory also accepts any `com.redis.testcontainers.RedisContainer`, which waits for `Ready to accept connections` (Valkey logs the same line) and has no image compatibility check.
+- Lettuce under Boot: `LettuceConnectionFactory` connects lazily (`eagerInitialization=false`), shares one native connection, and Boot always sets `TimeoutOptions.enabled()`, so async commands fail after `spring.data.redis.timeout` (default: Lettuce's 60 s, too long for a login path). `LettuceConnection#getNativeConnection()` returns the shared connection's `RedisAsyncCommands<byte[], byte[]>`.
+- Bucket4j 8.20.0 Lettuce: `Bucket4jLettuce.casBasedBuilder(RedisClient)` connects eagerly (would stop startup without Valkey), but `new Bucket4jLettuce.LettuceBasedProxyManagerBuilder<>(RedisApi)` accepts any `RedisApi` (`eval`, `get`, `delete` returning `RedisFuture`), so the proxy manager can run on Spring's lazily opened shared connection (one client, observed by Boot's Lettuce observation). Failures surface as `io.lettuce.core.RedisException` (also for interrupts) or `io.github.bucket4j.TimeoutException` when a request timeout is configured. Buckets: `Bandwidth.builder().capacity(n).refillGreedy(n, period)`, `ExpirationAfterWriteStrategy.basedOnTimeForRefillingBucketUpToMax`.
+- Adding `spring-boot-starter-data-redis` alone turns `/actuator/health` DOWN (503) when no Valkey runs (`OtlpUnavailableTests` failed with `Status expected:<200 OK> but was:<503 SERVICE_UNAVAILABLE>`). Decision: a Valkey outage only affects code and rate-limit flows, which fail with `SecretStoreUnavailableException`; the API stays healthy (like NATS, which has no health contributor), so the Redis health contributor is disabled and proven by a test.
 
 ## Next step
-T0.
+T1.
