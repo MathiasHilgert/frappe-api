@@ -19,8 +19,8 @@ Module-specific error catalogs; Retry-After and rate-limit headers.
 Strict TDD. Mode source: project standard (`testing-code`, CLAUDE.md). Runner: `./gradlew test` (MockMvcTester, Testcontainers Postgres + NATS, `FRAPPE_TEST_DB=frappe_fapi_14`). RED before each behavior.
 
 ## Tasks
-- [ ] T0 Verify Spring 7.0.9 / Boot 4.1.1 / Security 7.1.1 APIs from sources; record here
-- [ ] T1 Kernel contract: `Problem`, `ProblemMapper`, `RequestRefusedException`, `Result#orElseThrow`
+- [x] T0 Verify Spring 7.0.9 / Boot 4.1.1 / Security 7.1.1 APIs from sources; record here
+- [x] T1 Kernel contract: `Problem`, `ProblemMapper`, `RequestRefusedException`, `Result#orElseThrow`
 - [ ] T2 Framework problems: 404, 405 (+`Allow`), malformed body 400, validation 400 with `errors[]`; localized, type/code/traceId, `Content-Language`
 - [ ] T3 401 (and the fail-closed 403) from the security chain as problems
 - [ ] T4 Unexpected failures: generic localized 500 per infrastructure failure kind (database down, SQL error, provider, NATS, Valkey, failing filter); one ERROR log + metric
@@ -48,3 +48,8 @@ Strict TDD. Mode source: project standard (`testing-code`, CLAUDE.md). Runner: `
 - `ExceptionHandlerExceptionResolver` applies `@ControllerAdvice` without selectors to a `null` handler (`AbstractHandlerMethodExceptionResolver#shouldApplyTo`, `HandlerTypePredicate#test(null)` is true without selectors), so Spring Security's entry point / access-denied handler can delegate to the `handlerExceptionResolver` bean (the pattern Spring Security documents).
 - `JacksonJsonHttpMessageConverter` registers `ProblemDetailJacksonMixin` (properties become top-level members) and writes `ProblemDetail` as `application/problem+json`; `HttpEntityMethodProcessor` sets `instance` to the request path when unset.
 - Locale: the `DispatcherServlet` sets `LocaleContextHolder` from our `LocaleResolver`, but the security chain runs before it (only `RequestContextFilter`'s `Accept-Language` locale), so problem text resolves the locale through the `LocaleResolver` bean (cached per request by `LocaleChainResolver`).
+
+### T1 kernel contract
+- RED (compilation): `ProblemTest`, `RequestRefusedExceptionTest` (`Problem`, `RequestRefusedException` missing) and `ResultTest.orElseThrowReturnsTheValueOfASuccess` / `orElseThrowThrowsTheExceptionMadeFromTheError` (`orElseThrow` missing).
+- GREEN: `ProblemTest` 14/14 (params in order and unmodifiable, status only 4xx, kebab-case slug, key required, named non-null params), `RequestRefusedExceptionTest` 2/2 (message names only the failure type), `ResultTest` 10/10. `WebKernelDependenciesTest` (guard, green at once): `com.frappe.platform.web` depends on the JDK and the kernel only.
+- Code: `com.frappe.platform.web.Problem` (record: status, slug, messageKey, ordered params; `of`, `with`, `arguments`), `ProblemMapper<E>` (`failureType`, `problemOf`), `RequestRefusedException` (public, carries the failure), `Result#orElseThrow`.
