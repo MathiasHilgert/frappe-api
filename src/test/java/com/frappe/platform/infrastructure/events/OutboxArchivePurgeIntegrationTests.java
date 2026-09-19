@@ -170,28 +170,18 @@ class OutboxArchivePurgeIntegrationTests {
     void aRowWithMalformedJsonOrANonUuidEventIdStillInsertsWithANullGeneratedEventId() {
         // Given / When
         var malformedJson = UUID.randomUUID();
-        jdbc.update(
-                """
+        jdbc.update("""
                 insert into platform.event_publication_archive (id, listener_id, event_type, serialized_event,
                     publication_date, completion_date, status, completion_attempts)
                 values (?, 'nats.listener', 'com.frappe.Probe', ?, ?, ?, 'COMPLETED', 1)
-                """,
-                malformedJson,
-                "{\"eventId\": ",
-                Timestamp.from(NOW),
-                Timestamp.from(NOW));
+                """, malformedJson, "{\"eventId\": ", Timestamp.from(NOW), Timestamp.from(NOW));
 
         var nonUuidEventId = UUID.randomUUID();
-        jdbc.update(
-                """
+        jdbc.update("""
                 insert into platform.event_publication_archive (id, listener_id, event_type, serialized_event,
                     publication_date, completion_date, status, completion_attempts)
                 values (?, 'nats.listener', 'com.frappe.Probe', ?, ?, ?, 'COMPLETED', 1)
-                """,
-                nonUuidEventId,
-                "{\"eventId\":\"not-a-uuid\"}",
-                Timestamp.from(NOW),
-                Timestamp.from(NOW));
+                """, nonUuidEventId, "{\"eventId\":\"not-a-uuid\"}", Timestamp.from(NOW), Timestamp.from(NOW));
 
         // Then
         assertThat(generatedEventId(malformedJson)).isNull();
