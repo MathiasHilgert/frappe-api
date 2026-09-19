@@ -169,12 +169,14 @@ cmd_create() {
 }
 
 resolve_page_id() {
-  local key=$1 id
+  local key=$1 ids n
   [[ "$key" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] &&
     { printf '%s' "$key"; return; }
-  id=$(api GET "/pages/?per_page=100" | jq -r --arg n "$key" '.results[] | select(.name == $n) | .id' | head -n1)
-  [[ -n "$id" ]] || die "page '$key' not found"
-  printf '%s' "$id"
+  ids=$(api GET "/pages/?per_page=100" | jq -r --arg n "$key" '.results[] | select(.name == $n) | .id')
+  n=$(grep -c . <<<"$ids" 2>/dev/null || true)
+  [[ -n "$ids" ]] || die "page '$key' not found"
+  [[ "$n" -eq 1 ]] || die "page '$key' is ambiguous ($n matches); use the page id"
+  printf '%s' "$ids"
 }
 
 cmd_pages() {
@@ -198,10 +200,11 @@ cmd_page-get() {
   printf 'page %s written to %s\n' "$key" "$out"
 }
 
-# Minifies HTML (collapses whitespace between tags, preserving <pre>...</pre>
-# blocks verbatim for mermaid diagrams), validates that every table row's
-# th/td colwidths sum to ~1000, and prints the minified HTML on success.
-# Prints one error per offending row to stderr and exits 1 otherwise.
+# Minifies HTML (collapses whitespace between tags, preserving multiple or
+# repeated <pre>...</pre> blocks verbatim for mermaid diagrams), validates
+# that every table row's th/td colwidths (including comma-separated colspan
+# values) sum to ~1000, and prints the minified HTML on success. Prints one
+# error per offending row to stderr and exits 1 otherwise.
 minify_and_validate_html() {
   local file=$1
   command -v perl >/dev/null || die "perl is required for page-put"
@@ -221,7 +224,10 @@ minify_and_validate_html() {
     my @errors;
     while ($html =~ m{<tr\b[^>]*>(.*?)</tr>}gs) {
       my $row = $1;
-      my @widths = ($row =~ /colwidth="?(\d+)"?/g);
+      my @widths;
+      while ($row =~ /colwidth="?([\d,]+)"?/g) {
+        push @widths, split(/,/, $1);
+      }
       next unless @widths;
       my $sum = 0;
       $sum += $_ for @widths;
