@@ -20,6 +20,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -51,6 +52,13 @@ class IdentityCodeMailsIntegrationTests {
 
     private static final List<String> LANGUAGES = List.of("en", "es", "pt");
 
+    // Explicit, so a renamed template or a changed naming rule fails the tests.
+    private static final Map<CodePurpose, String> TEMPLATES = Map.of(
+            CodePurpose.SIGN_UP, "notification/sign-up-code",
+            CodePurpose.EMAIL_CHANGE, "notification/email-change-code",
+            CodePurpose.PASSWORD_RESET, "notification/password-reset-code",
+            CodePurpose.ACCOUNT_RECOVERY, "notification/account-recovery-code");
+
     @Autowired
     CodeMailer codeMailer;
 
@@ -68,6 +76,7 @@ class IdentityCodeMailsIntegrationTests {
 
     @BeforeEach
     void captureLogs() {
+        // CodeMailer and the SMTP Mailer deliver synchronously on the calling thread, so capturing it sees every line.
         logs = CapturedLogs.fromCurrentThread();
         root.addAppender(logs);
     }
@@ -122,7 +131,7 @@ class IdentityCodeMailsIntegrationTests {
     void everyCodeMailHasATemplateAndEveryKeyInEachLanguage(CodePurpose purpose, String language) {
         // Given
         var recipient = recipient();
-        var template = "notification/" + purpose.name().toLowerCase(Locale.ROOT).replace('_', '-') + "-code";
+        var template = TEMPLATES.get(purpose);
         var before = fallbacks(template);
 
         // When
@@ -153,6 +162,7 @@ class IdentityCodeMailsIntegrationTests {
     }
 
     static Stream<Arguments> purposesAndLanguages() {
+        assertThat(TEMPLATES).containsOnlyKeys(CodePurpose.values());
         return Stream.of(CodePurpose.values())
                 .flatMap(purpose -> LANGUAGES.stream().map(language -> Arguments.of(purpose, language)));
     }

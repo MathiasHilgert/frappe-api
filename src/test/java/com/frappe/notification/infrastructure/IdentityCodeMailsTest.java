@@ -21,7 +21,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.slf4j.LoggerFactory;
 
 class IdentityCodeMailsTest {
@@ -40,6 +40,7 @@ class IdentityCodeMailsTest {
 
     @BeforeEach
     void captureLogs() {
+        // Mailer.send runs synchronously on the calling thread here, so capturing this thread sees every log line.
         logs = CapturedLogs.fromCurrentThread();
         root.addAppender(logs);
     }
@@ -73,13 +74,17 @@ class IdentityCodeMailsTest {
     }
 
     @ParameterizedTest
-    @EnumSource(CodePurpose.class)
-    void eachPurposeHasItsOwnTemplate(CodePurpose purpose) {
+    @CsvSource({
+        "SIGN_UP, notification/sign-up-code",
+        "EMAIL_CHANGE, notification/email-change-code",
+        "PASSWORD_RESET, notification/password-reset-code",
+        "ACCOUNT_RECOVERY, notification/account-recovery-code"
+    })
+    void eachPurposeHasItsOwnTemplate(CodePurpose purpose, String expected) {
         // When
         mails.send(new CodeMail(RECIPIENT, Locale.of("en"), purpose, CODE, Duration.ofMinutes(15)));
 
         // Then
-        var expected = "notification/" + purpose.name().toLowerCase(Locale.ROOT).replace('_', '-') + "-code";
         assertThat(mailer.sent())
                 .singleElement()
                 .extracting(m -> m.templateId())

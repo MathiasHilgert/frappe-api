@@ -8,12 +8,15 @@ package com.frappe.platform.mail;
  * rolled back, and a failure fails the listener, so the outbox retries it. Delivery is therefore at least once; pass an
  * {@linkplain MailMessage#withIdempotencyKey idempotency key} whenever a retry would send identical content.
  *
+ * <p>Events carry ids only, never an address or a one-time code. A code reaches the mail in memory through an SPI of the
+ * module that owns it, called from that module's listener; notification implements identity's {@code CodeMailer}:
+ *
  * <pre>{@code
- * @ApplicationModuleListener
- * void on(EmailProofRequested event) {
- *     mailer.send(MailMessage.of("identity/email-proof", event.email(), event.locale(), event.tenantLocale(),
- *                     Map.of("code", event.code()))
- *             .withIdempotencyKey("email-proof/" + event.eventId()));
+ * @Override
+ * public void send(CodeMail mail) {
+ *     mailer.send(MailMessage.of("notification/sign-up-code", mail.recipient(), mail.locale(),
+ *             SupportedLocales.FALLBACK, Map.of("code", mail.code(), "minutes", mail.validFor().toMinutes())));
+ *     // no idempotency key: every attempt carries a fresh code
  * }
  * }</pre>
  */
