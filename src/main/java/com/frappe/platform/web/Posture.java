@@ -5,8 +5,8 @@ package com.frappe.platform.web;
  * refuses never reaches it.
  *
  * <p>The HTTP layer authenticates only. Whether the caller may perform the operation (roles per branch) is
- * authorization, decided by the application layer (use cases and the bus) with the access module. Operations with
- * only internal callers simply have no route.
+ * authorization, decided in the application layer by the use case the route calls directly ({@code @CommandUseCase} /
+ * {@code @QueryUseCase}) with the access module. Operations with only internal callers simply have no route.
  */
 public enum Posture {
 

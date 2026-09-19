@@ -21,7 +21,7 @@ class CloseTabRoute {
 | `PUBLIC` | anyone, with or without a token | never |
 | `AUTHENTICATED` | any caller with a resolved session | 401 + `WWW-Authenticate: Bearer` |
 
-**The HTTP layer authenticates, it never authorizes.** A posture only says whether a caller must be authenticated. Whether that caller may perform the operation (roles per branch, ownership, session kind) is authorization and belongs to the application layer: the route passes the `ResolvedSession` into the command or query, and the use case (through the bus) decides with the access module. Operations with only internal callers have no route at all.
+**The HTTP layer authenticates, it never authorizes.** A posture only says whether a caller must be authenticated. Whether that caller may perform the operation (roles per branch, ownership, session kind) is authorization and belongs to the application layer: the route passes the `ResolvedSession` to the use case it calls directly (`@CommandUseCase` / `@QueryUseCase`), and the use case decides with the access module. Operations with only internal callers have no route at all.
 
 - Startup fails, naming the class and the fix, for a route without `@Access`, with two or more mapped methods, or outside a package ending in `.infrastructure.web`.
 - Annotated route classes are the only way to serve a path. Startup fails for any `RouterFunction` bean, any functional mapping with a router function, any handler mapping that serves paths outside the routes (a custom mapping, a bean named `/…`) and any non-actuator mapping ordered before the annotated routes; static resources are off (`spring.web.resources.add-mappings=false`). At runtime (defense in depth) a request no route serves passes through to 404/405 only when no other mapping would serve it, and a matched route is refused when a mapping ordered before the routes would take the request. Only `com.frappe` controllers are routes; framework controllers are not checked.
@@ -112,6 +112,6 @@ The platform answers everything no module maps (`com.frappe.platform.infrastruct
 ## Sessions and RBAC
 
 - Authentication is an opaque server-side session token; only its hash is stored. Session kinds: `person`, `terminal` (with operator PIN), `guest`.
-- Every request resolves the session → principal, tenant and branch (`SessionResolver`, see "Routes and access"); invalid or revoked tokens yield `401` on non-public routes.
-- Authorization is role-based per branch and lives in the application layer (use cases / bus, with the access module), never in routes: check the principal's roles for the target branch, not globally.
+- Every request resolves its bearer token to a `ResolvedSession` (principal id, session id, `SessionKind`) through `SessionResolver` (see "Routes and access"); invalid or revoked tokens yield `401` on non-public routes. Tenant and branch are not part of the session: the use case derives them from the principal and the request's input.
+- Authorization is role-based per branch and lives in the application layer (the use cases, called directly, with the access module), never in routes: check the principal's roles for the target branch, not globally.
 - Set the tenant for RLS from the session, never from a request parameter.
