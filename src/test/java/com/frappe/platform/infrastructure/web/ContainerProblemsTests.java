@@ -68,6 +68,7 @@ class ContainerProblemsTests {
                 .contains("X-Content-Type-Options: nosniff")
                 .contains("X-Frame-Options: DENY")
                 .contains("\"code\":\"method-not-allowed\"")
+                .contains("\"instance\":\"/v1/test/problems/read-only\"")
                 .doesNotContain("X-Secret");
     }
 }

@@ -8,6 +8,7 @@ import org.springframework.boot.webmvc.error.ErrorAttributes;
 import org.springframework.boot.webmvc.error.ErrorController;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -65,7 +66,10 @@ class ProblemErrorController implements ErrorController {
             unexpectedFailures.record(failure, request);
         }
         var problem = problems.forStatus(status, request);
-        return ResponseEntity.status(problem.getStatus()).body(problem);
+        // Set, not negotiated: the problem goes out whatever the client accepts.
+        return ResponseEntity.status(problem.getStatus())
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(problem);
     }
 
     private static HttpStatusCode statusOf(HttpServletRequest request) {

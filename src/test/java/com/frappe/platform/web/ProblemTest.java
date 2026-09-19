@@ -2,6 +2,7 @@ package com.frappe.platform.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -64,6 +65,33 @@ class ProblemTest {
     @Test
     void theMessageKeyIsRequired() {
         assertThatIllegalArgumentException().isThrownBy(() -> Problem.of(409, "tab-already-closed", " "));
+    }
+
+    enum Channel {
+        DINE_IN
+    }
+
+    @Test
+    void paramsAreRawClientValues() {
+        // When / Then
+        assertThatNoException()
+                .isThrownBy(() -> Problem.of(409, "tab-already-closed", "order.tab.already-closed")
+                        .with("text", "T-12")
+                        .with("count", 3)
+                        .with("amount", new java.math.BigDecimal("12.50"))
+                        .with("open", false)
+                        .with("id", java.util.UUID.randomUUID())
+                        .with("channel", Channel.DINE_IN)
+                        .with("closedAt", java.time.Instant.EPOCH)
+                        .with("day", java.time.LocalDate.EPOCH));
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> Problem.of(409, "tab-already-closed", "order.tab.already-closed")
+                        .with("tab", new Object()))
+                .withMessageContaining("tab")
+                .withMessageContaining("String, Number, Boolean, UUID, enum or java.time");
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> Problem.of(409, "tab-already-closed", "order.tab.already-closed")
+                        .with("items", java.util.List.of("a")));
     }
 
     @Test

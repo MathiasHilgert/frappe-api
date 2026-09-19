@@ -1,6 +1,7 @@
 package com.frappe.platform.infrastructure.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -9,6 +10,7 @@ import ch.qos.logback.core.read.ListAppender;
 import com.frappe.TestNatsConfiguration;
 import com.frappe.TestcontainersConfiguration;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -148,7 +150,8 @@ class UnexpectedFailureProblemsTests {
                 .containsEntry("title", title)
                 .containsEntry("params", Map.of());
         assertThat((String) problem.get("traceId")).matches("[0-9a-f]{32}");
-        problem.remove("instance"); // the client's own request path
+        // instance is the request's own path, also when a filter failed and the answer came from the error dispatch
+        assertThat(problem.remove("instance")).isEqualTo(ProblemRoutes.FAILURES_PATH + kind);
         var visible = json.writeValueAsString(problem).toLowerCase(Locale.ROOT);
         assertThat(INTERNALS).noneMatch(visible::contains);
 
@@ -164,6 +167,14 @@ class UnexpectedFailureProblemsTests {
                 .anySatisfy(pair -> assertThat(pair.key + "=" + pair.value)
                         .isEqualTo("url.path=" + ProblemRoutes.FAILURES_PATH + kind));
         assertThat(count(exceptionType)).isEqualTo(before + 1);
+        // and the request's own observation carries the failure (http.server.requests, exception tag), recorded once
+        // the server finished the exchange
+        await().atMost(Duration.ofSeconds(5))
+                .untilAsserted(() -> assertThat(
+                                meters.find("http.server.requests").timers())
+                        .as("http.server.requests with exception=%s", exceptionType)
+                        .anySatisfy(timer ->
+                                assertThat(timer.getId().getTag("exception")).isEqualTo(exceptionType)));
     }
 
     private double count(String exceptionType) {

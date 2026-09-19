@@ -7,6 +7,8 @@ import org.springframework.context.NoSuchMessageException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -59,7 +61,7 @@ class ProblemAdvice extends ResponseEntityExceptionHandler {
             return unexpected(refusal, request);
         }
         try {
-            return ResponseEntity.status(mapped.get().status()).body(problems.mapped(mapped.get(), request));
+            return answer(problems.mapped(mapped.get(), request), new HttpHeaders());
         } catch (NoSuchMessageException missingText) {
             return unexpected(missingText, request);
         }
@@ -79,13 +81,13 @@ class ProblemAdvice extends ResponseEntityExceptionHandler {
     ResponseEntity<Object> unexpected(Exception failure, HttpServletRequest request) {
         // A body cut short also surfaces as the client aborting; reading it failed first, so that decides.
         if (ClientFaults.unreadableRequest(failure)) {
-            return ResponseEntity.badRequest().body(problems.forStatus(HttpStatus.BAD_REQUEST, request));
+            return answer(problems.forStatus(HttpStatus.BAD_REQUEST, request), new HttpHeaders());
         }
         if (ClientFaults.clientGone(failure)) {
             return null; // nobody left to answer, nothing went wrong on our side
         }
         unexpectedFailures.record(failure, request);
-        return ResponseEntity.internalServerError().body(problems.forStatus(HttpStatus.INTERNAL_SERVER_ERROR, request));
+        return answer(problems.forStatus(HttpStatus.INTERNAL_SERVER_ERROR, request), new HttpHeaders());
     }
 
     /**
@@ -97,9 +99,9 @@ class ProblemAdvice extends ResponseEntityExceptionHandler {
      */
     @ExceptionHandler(AuthenticationException.class)
     ResponseEntity<Object> unauthenticated(AuthenticationException refusal, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
-                .body(problems.forStatus(HttpStatus.UNAUTHORIZED, request));
+        var headers = new HttpHeaders();
+        headers.set(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
+        return answer(problems.forStatus(HttpStatus.UNAUTHORIZED, request), headers);
     }
 
     /**
@@ -111,7 +113,7 @@ class ProblemAdvice extends ResponseEntityExceptionHandler {
      */
     @ExceptionHandler(AccessDeniedException.class)
     ResponseEntity<Object> forbidden(AccessDeniedException refusal, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problems.forStatus(HttpStatus.FORBIDDEN, request));
+        return answer(problems.forStatus(HttpStatus.FORBIDDEN, request), new HttpHeaders());
     }
 
     @Override
@@ -128,7 +130,18 @@ class ProblemAdvice extends ResponseEntityExceptionHandler {
         var problem = ex instanceof MethodArgumentNotValidException invalid
                 ? problems.invalidFields(invalid.getBindingResult(), servletRequest)
                 : problems.forStatus(statusCode, servletRequest);
+        var answered = HttpHeaders.copyOf(headers);
+        answered.setContentType(MediaType.APPLICATION_PROBLEM_JSON);
         return super.handleExceptionInternal(
-                ex, problem, headers, HttpStatusCode.valueOf(problem.getStatus()), request);
+                ex, problem, answered, HttpStatusCode.valueOf(problem.getStatus()), request);
+    }
+
+    // The content type is set, not negotiated: whatever the client accepts (even a garbled Accept header), a failure
+    // is answered with its problem, never with an empty 406.
+    private static ResponseEntity<Object> answer(ProblemDetail problem, HttpHeaders headers) {
+        return ResponseEntity.status(problem.getStatus())
+                .headers(headers)
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(problem);
     }
 }

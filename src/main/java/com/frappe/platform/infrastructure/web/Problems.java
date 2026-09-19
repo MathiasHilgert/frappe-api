@@ -141,6 +141,9 @@ final class Problems {
         var locale = locales.resolveLocale(request);
         var body = ProblemDetail.forStatus(status);
         body.setType(URI.create(TYPE_BASE + slug));
+        // The path the client asked for, also on an error dispatch (whose own path is /error). Tomcat only lets
+        // syntactically valid request targets through, so the raw path is a valid URI reference.
+        body.setInstance(URI.create(UnexpectedFailures.originalPath(request)));
         body.setTitle(messages.getMessage(messageKey + ".title", null, locale));
         body.setDetail(messages.getMessage(messageKey + "." + detailSuffix, arguments, locale));
         body.setProperty("code", slug);

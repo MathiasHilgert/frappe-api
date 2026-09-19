@@ -1,10 +1,12 @@
 package com.frappe.platform.web;
 
+import java.time.temporal.TemporalAccessor;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.SequencedMap;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 /**
@@ -24,7 +26,8 @@ import java.util.regex.Pattern;
  * @param status the HTTP status, a client error (4xx): a business failure is never a server fault
  * @param slug the problem type's slug, kebab-case and stable once published
  * @param messageKey the catalog key the title and detail keys start with, such as {@code order.tab.already-closed}
- * @param params the named values of the problem, in the order of the detail's placeholders
+ * @param params the named values of the problem, in the order of the detail's placeholders: String, Number, Boolean,
+ *     UUID, enum or {@code java.time} values only
  */
 public record Problem(int status, String slug, String messageKey, SequencedMap<String, Object> params) {
 
@@ -37,7 +40,8 @@ public record Problem(int status, String slug, String messageKey, SequencedMap<S
      * @param slug the problem type's slug, kebab-case
      * @param messageKey the catalog key, not blank
      * @param params the named values, not {@code null}
-     * @throws IllegalArgumentException for a status outside 4xx, a slug that is not kebab-case or a blank key
+     * @throws IllegalArgumentException for a status outside 4xx, a slug that is not kebab-case, a blank key or a param
+     *     that is not a raw value
      */
     public Problem {
         if (status < 400 || status > 499) {
@@ -51,6 +55,13 @@ public record Problem(int status, String slug, String messageKey, SequencedMap<S
         if (messageKey.isBlank()) {
             throw new IllegalArgumentException("The message key must not be blank");
         }
+        params.forEach((name, value) -> {
+            if (!isRawValue(value)) {
+                throw new IllegalArgumentException(
+                        "Param '" + name + "' is a " + value.getClass().getName()
+                                + "; params are raw values: String, Number, Boolean, UUID, enum or java.time");
+            }
+        });
         params = Collections.unmodifiableSequencedMap(new LinkedHashMap<>(params));
     }
 
@@ -82,6 +93,15 @@ public record Problem(int status, String slug, String messageKey, SequencedMap<S
         var extended = new LinkedHashMap<>(params);
         extended.put(name, value);
         return new Problem(status, slug, messageKey, extended);
+    }
+
+    private static boolean isRawValue(Object value) {
+        return value instanceof String
+                || value instanceof Number
+                || value instanceof Boolean
+                || value instanceof UUID
+                || value instanceof Enum<?>
+                || value instanceof TemporalAccessor;
     }
 
     /**

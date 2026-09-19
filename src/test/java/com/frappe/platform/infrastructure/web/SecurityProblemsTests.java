@@ -96,8 +96,19 @@ class SecurityProblemsTests {
     }
 
     @Test
-    void theErrorDispatchHandlerServesNoRequestOfItsOwn() {
-        assertThat(http.get().uri("/error")).hasStatus(HttpStatus.UNAUTHORIZED);
+    void aFrameworkPathTheChainRefusesIsNotFoundForEveryone() {
+        // Given the error-dispatch handler serves no request of its own (fail closed, REST semantics: nothing here)
+        var anonymous = http.get().uri("/error").exchange();
+        var withSession = http.get()
+                .uri("/error")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + ProblemRoutes.TOKEN)
+                .exchange();
+
+        // Then
+        for (var result : java.util.List.of(anonymous, withSession)) {
+            assertThat(result).hasStatus(HttpStatus.NOT_FOUND).doesNotContainHeader(HttpHeaders.WWW_AUTHENTICATE);
+            assertThat(problemOf(result)).containsEntry("code", "not-found");
+        }
         assertThat(http.get().uri("/v1/error")).hasStatus(HttpStatus.NOT_FOUND);
     }
 

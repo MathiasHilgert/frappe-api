@@ -24,8 +24,13 @@ public final class RequestRefusedException extends RuntimeException {
      * @param failure the business failure the use case returned, not {@code null}
      */
     public RequestRefusedException(Object failure) {
-        super("Request refused with a failure of type "
-                + Objects.requireNonNull(failure, "failure").getClass().getName());
+        // No stack trace: an expected failure on its way to the error handling, never a fault to debug.
+        super(
+                "Request refused with a failure of type "
+                        + Objects.requireNonNull(failure, "failure").getClass().getName(),
+                null,
+                false,
+                false);
         this.failure = failure;
     }
 

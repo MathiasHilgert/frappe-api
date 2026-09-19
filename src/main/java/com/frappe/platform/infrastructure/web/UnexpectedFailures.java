@@ -7,11 +7,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.web.filter.ServerHttpObservationFilter;
 
 /**
  * Records a failure the API answers with the generic internal-error problem: one ERROR log line with the request and
  * the cause (ECS: {@code error.type}, {@code error.message}, {@code error.stack_trace}, plus the trace id), and the
- * counter {@value #METRIC}, tagged with the exception's simple class name only. This is the one place such a failure is
+ * counter {@value #METRIC}, tagged with the exception's simple class name only (behind servlet wrappers); the failure is
+ * also attached to the request's HTTP server observation ({@code http.server.requests}, tag {@code exception}). This is the one place such a failure is
  * logged; the client never sees any of it.
  */
 final class UnexpectedFailures {
@@ -21,6 +23,7 @@ final class UnexpectedFailures {
 
     private static final Logger LOG = LoggerFactory.getLogger(UnexpectedFailures.class);
     private static final String NO_EXCEPTION = "none";
+    private static final String ANONYMOUS = "anonymous";
 
     private final MeterRegistry meters;
 
@@ -40,6 +43,10 @@ final class UnexpectedFailures {
      * @param request the failed request (or its error dispatch)
      */
     void record(@Nullable Throwable failure, HttpServletRequest request) {
+        var cause = failure == null ? null : ClientFaults.unwrap(failure);
+        if (cause != null) {
+            ServerHttpObservationFilter.findObservationContext(request).ifPresent(context -> context.setError(cause));
+        }
         LOG.atError()
                 .addKeyValue(LogFields.HTTP_METHOD, request.getMethod())
                 .addKeyValue(LogFields.URL_PATH, originalPath(request))
@@ -47,15 +54,22 @@ final class UnexpectedFailures {
                 .log("Request failed unexpectedly; answered with the generic internal-error problem");
         Counter.builder(METRIC)
                 .description("Requests answered with the generic internal-error problem")
-                .tag(
-                        "error",
-                        failure == null ? NO_EXCEPTION : failure.getClass().getSimpleName())
+                .tag("error", errorTag(cause))
                 .register(meters)
                 .increment();
     }
 
+    // Bounded by the code base: the simple class name, never empty (anonymous classes have none).
+    private static String errorTag(@Nullable Throwable cause) {
+        if (cause == null) {
+            return NO_EXCEPTION;
+        }
+        var name = cause.getClass().getSimpleName();
+        return name.isEmpty() ? ANONYMOUS : name;
+    }
+
     // An error dispatch has its own path (/error); the request that failed is in the servlet's error attributes.
-    private static String originalPath(HttpServletRequest request) {
+    static String originalPath(HttpServletRequest request) {
         return request.getAttribute(RequestDispatcher.ERROR_REQUEST_URI) instanceof String path
                 ? path
                 : request.getRequestURI();

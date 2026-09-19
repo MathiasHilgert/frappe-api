@@ -22,6 +22,13 @@ class RequestRefusedExceptionTest {
     }
 
     @Test
+    void carriesNoStackTrace() {
+        // An expected failure handed to the error handling: a stack trace would only cost time
+        assertThat(new RequestRefusedException(TabError.ALREADY_CLOSED).getStackTrace())
+                .isEmpty();
+    }
+
+    @Test
     void needsAFailure() {
         assertThatNullPointerException().isThrownBy(() -> new RequestRefusedException(null));
     }

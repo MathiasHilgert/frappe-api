@@ -16,6 +16,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
@@ -80,6 +81,25 @@ class FrameworkProblemsTests {
                 .containsEntry("type", PROBLEMS + "not-found")
                 .containsEntry("code", "not-found")
                 .containsEntry("params", Map.of());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "GET, ;;;garbage, /v1/test/problems/missing, 404",
+        "GET, image/png, /v1/test/problems/missing, 404",
+        "POST, ;;;/, /v1/test/problems/read-only, 405",
+        "GET, image/png, /v1/test/problems/self, 401"
+    })
+    void theProblemIsWrittenWhateverTheClientAccepts(String method, String accept, String path, int status) {
+        // When
+        var result = http.method(HttpMethod.valueOf(method))
+                .uri(path)
+                .header(HttpHeaders.ACCEPT, accept)
+                .exchange();
+
+        // Then
+        assertThat(result).hasStatus(status).hasContentType(MediaType.APPLICATION_PROBLEM_JSON);
+        assertThat(problemOf(result)).containsKey("code");
     }
 
     @Test
