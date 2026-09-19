@@ -8,6 +8,7 @@ import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import java.util.regex.Pattern;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springdoc.core.customizers.OperationCustomizer;
 import org.springframework.core.annotation.AnnotatedElementUtils;
@@ -15,12 +16,15 @@ import org.springframework.web.method.HandlerMethod;
 
 /**
  * Documents each route's posture in the OpenAPI spec: every authenticated operation requires the bearer scheme and
- * documents 401.
+ * documents 401, and every business-scoped operation documents 404.
  */
 final class PostureDocumentation implements OperationCustomizer, OpenApiCustomizer {
 
     /** Name of the bearer security scheme in the spec. */
     static final String BEARER_SCHEME = "bearer";
+
+    /** Paths of business-scoped routes, which answer 404 for a business the caller may not enter. */
+    private static final Pattern BUSINESS_SCOPED = Pattern.compile("^/v1/businesses/\\{[^/{}]+}(/.*)?$");
 
     /** Creates the customizer. */
     PostureDocumentation() {}
@@ -33,6 +37,25 @@ final class PostureDocumentation implements OperationCustomizer, OpenApiCustomiz
                         .type(SecurityScheme.Type.HTTP)
                         .scheme("bearer")
                         .description("An opaque session token, sent as 'Authorization: Bearer <token>' only."));
+        if (openApi.getPaths() == null) {
+            return;
+        }
+        openApi.getPaths().forEach((path, item) -> {
+            if (BUSINESS_SCOPED.matcher(path).matches()) {
+                item.readOperations().forEach(PostureDocumentation::documentBusinessNotFound);
+            }
+        });
+    }
+
+    private static void documentBusinessNotFound(Operation operation) {
+        if (operation.getResponses() == null) {
+            operation.setResponses(new ApiResponses());
+        }
+        operation
+                .getResponses()
+                .addApiResponse(
+                        "404",
+                        new ApiResponse().description("The business does not exist, or the caller may not enter it"));
     }
 
     @Override
