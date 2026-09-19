@@ -14,8 +14,9 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
 /**
  * Outside the local profile the spec stays available and the Scalar API reference is not served. The database
- * credentials, Valkey URL and secret pepper stand in for the environment variables a deployment sets; the database URL
- * comes from the test container, and Valkey is never contacted (connections open lazily).
+ * credentials, Valkey URL, secret pepper and mail settings stand in for the environment variables a deployment sets;
+ * the database URL comes from the test container, Valkey is never contacted (connections open lazily) and no mail is
+ * sent.
  */
 @SpringBootTest(
         properties = {
@@ -23,7 +24,9 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
             "FRAPPE_APP_PASSWORD=frappe_app",
             "FRAPPE_OWNER_PASSWORD=frappe_owner",
             "FRAPPE_VALKEY_URL=redis://localhost:6379",
-            "FRAPPE_SECRET_PEPPER=not-a-secret-not-a-secret-not-a-secret"
+            "FRAPPE_SECRET_PEPPER=not-a-secret-not-a-secret-not-a-secret",
+            "FRAPPE_MAIL_FROM=Frappé <no-reply@frappe.test>",
+            "RESEND_API_KEY=re_not_a_real_key"
         })
 @AutoConfigureMockMvc
 @Import({TestcontainersConfiguration.class, TestNatsConfiguration.class, OpenApiTests.Routes.class})

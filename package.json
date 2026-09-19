@@ -1,0 +1,9 @@
+{
+  "name": "frappe-api-mail-layouts",
+  "private": true,
+  "description": "Build-time tooling only: compiles the MJML mail layouts (src/main/mjml) to HTML for JTE. Run through Gradle (node-gradle), never shipped.",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "mjml": "5.4.1"
+  }
+}

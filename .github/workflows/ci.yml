@@ -45,6 +45,12 @@ jobs:
           java-version: 25
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+      # npm's download cache for the MJML compiler (npm ci, run by Gradle); Node itself comes with the Gradle caches.
+      - name: Cache npm downloads
+        uses: actions/cache@v6
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       # The named steps tell the story; the last one runs ./gradlew check itself, so CI runs every task the local gate
       # runs (tasks already done are up to date).
       - name: Verify formatting

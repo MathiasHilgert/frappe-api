@@ -71,7 +71,7 @@ sequenceDiagram
 
 ## Tech stack
 
-Java 25 · Spring Boot 4.1 · Spring Modulith 2.1 · Gradle (Kotlin DSL) · PostgreSQL 18 + Flyway · NATS JetStream · Valkey 9 · Testcontainers · Spotless + Palantir Java Format · gitleaks · GitHub Actions · OpenTelemetry
+Java 25 · Spring Boot 4.1 · Spring Modulith 2.1 · Gradle (Kotlin DSL) · PostgreSQL 18 + Flyway · NATS JetStream · Valkey 9 · Resend + JTE + MJML (mail) · Testcontainers · Spotless + Palantir Java Format · gitleaks · GitHub Actions · OpenTelemetry
 
 ## Getting started
 
@@ -79,11 +79,12 @@ Java 25 · Spring Boot 4.1 · Spring Modulith 2.1 · Gradle (Kotlin DSL) · Post
 
 - Java 25 (Temurin recommended). The Gradle toolchain can also provision it automatically.
 - Docker, for local infrastructure and Testcontainers-based tests.
+- Nothing for Node.js: the build downloads its own Node (node-gradle, into `.gradle/nodejs`) to compile the MJML mail layouts.
 - [gitleaks](https://github.com/gitleaks/gitleaks), for the pre-commit hook.
 
 ### Local infrastructure
 
-Start Postgres, NATS (JetStream enabled), Valkey and the observability stack (Grafana LGTM), and wait until they are ready:
+Start Postgres, NATS (JetStream enabled), Valkey, Mailpit and the observability stack (Grafana LGTM), and wait until they are ready:
 
 ```bash
 docker compose up -d --wait
@@ -91,13 +92,14 @@ docker compose up -d --wait
 
 Spring Boot's Docker Compose support also starts these services when the application runs locally.
 
-Every host port can be moved with an environment variable (shell or a `.env` file next to `compose.yaml`) when another project already uses it; the `local` profile follows the Postgres and NATS ports, and Spring Boot finds Valkey and Grafana LGTM on any port:
+Every host port can be moved with an environment variable (shell or a `.env` file next to `compose.yaml`) when another project already uses it; the `local` profile follows the Postgres, NATS and Mailpit SMTP ports, and Spring Boot finds Valkey and Grafana LGTM on any port:
 
 | Service | Variable | Default |
 | --- | --- | --- |
 | Postgres | `FRAPPE_POSTGRES_PORT` | `5432` |
 | NATS (client, monitoring) | `FRAPPE_NATS_PORT`, `FRAPPE_NATS_MONITOR_PORT` | `4222`, `8222` |
 | Valkey | `FRAPPE_VALKEY_PORT` | `6379` |
+| Mailpit (SMTP, web UI) | `FRAPPE_MAILPIT_SMTP_PORT`, `FRAPPE_MAILPIT_UI_PORT` | `1025`, `8025` |
 | Grafana, OTLP gRPC, OTLP HTTP | `FRAPPE_GRAFANA_PORT`, `FRAPPE_OTLP_GRPC_PORT`, `FRAPPE_OTLP_HTTP_PORT` | `3000`, `4317`, `4318` |
 
 ```bash
@@ -121,13 +123,20 @@ Valkey 9 holds what is short-lived: verification, reset and email-change codes, 
 - Only Argon2id hashes of codes are stored, computed over an HMAC with a server-side pepper (`FRAPPE_SECRET_PEPPER`) that never reaches Valkey, so a leaked dump cannot be brute-forced offline. Keys hold ids and network addresses, never email addresses. Inspect them with `docker compose exec valkey valkey-cli --scan --pattern 'frappe:*'`.
 - Without Valkey the API still starts and serves, and `/actuator/health` stays UP: only the flows that need a code or a rate limit fail, fast (2 s timeouts), with `SecretStoreUnavailableException`.
 
-### Run the application
+### Mail
+
+Transactional mail (verification, reset and email-change codes) goes through the platform port `Mailer`; modules never use a mail library. Each mail is rendered in one language from a JTE template with text from the ICU catalogs, inside an MJML layout compiled to HTML at build time.
+
+- Locally (`bootRun`) mail goes over SMTP to compose's Mailpit (`axllent/mailpit:v1.31`): open <http://localhost:8025> to read every mail sent. No API key is needed.
+- Outside `local` mail goes through [Resend](https://resend.com). Startup fails unless `RESEND_API_KEY` (the Resend API key, kept in Bitwarden) and `FRAPPE_MAIL_FROM` (the sender, e.g. `Frappé <no-reply@example.com>`, on a domain verified in Resend) are set.
+- Tests never call Resend: they use Mailpit (Testcontainers) or a stub.
+
 
 ```bash
 ./gradlew bootRun
 ```
 
-Migrations run on startup. `bootRun` activates the `local` profile (`application-local.properties`), which points at the compose database with the default passwords; set `SPRING_PROFILES_ACTIVE` to override. Outside `local` there are no defaults: startup fails unless `FRAPPE_DB_URL`, `FRAPPE_APP_PASSWORD`, `FRAPPE_OWNER_PASSWORD`, `FRAPPE_VALKEY_URL` (`redis://host:6379`, `rediss://` for TLS, credentials in the URL) and `FRAPPE_SECRET_PEPPER` (at least 32 random characters, e.g. `openssl rand -base64 48`) are set.
+Migrations run on startup. `bootRun` activates the `local` profile (`application-local.properties`), which points at the compose database with the default passwords; set `SPRING_PROFILES_ACTIVE` to override. Outside `local` there are no defaults: startup fails unless `FRAPPE_DB_URL`, `FRAPPE_APP_PASSWORD`, `FRAPPE_OWNER_PASSWORD`, `FRAPPE_VALKEY_URL` (`redis://host:6379`, `rediss://` for TLS, credentials in the URL), `FRAPPE_SECRET_PEPPER` (at least 32 random characters, e.g. `openssl rand -base64 48`), `RESEND_API_KEY` and `FRAPPE_MAIL_FROM` (see [Mail](#mail)) are set.
 
 Routes live under `/v1`; the OpenAPI spec is at `/v3/api-docs` and, in `local` only, the Scalar API reference at <http://localhost:8080/scalar>. Behind a reverse proxy set `FRAPPE_TRUSTED_PROXIES` to the proxy's addresses (CIDR list, default loopback only): `X-Forwarded-For` is honoured only from those.
 
