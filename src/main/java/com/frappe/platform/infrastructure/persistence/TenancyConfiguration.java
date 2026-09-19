@@ -2,9 +2,11 @@ package com.frappe.platform.infrastructure.persistence;
 
 import com.frappe.platform.TenantScope;
 import javax.sql.DataSource;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionExecutionListener;
 
 /**
@@ -32,10 +34,13 @@ class TenancyConfiguration {
      *
      * @param tenants the tenant scope
      * @param dataSource the application's data source, whose transactional connection the setting goes to
+     * @param transactionManager the transaction manager the listener is added to, looked up on first failure (it
+     *     depends on the listener, so it cannot be injected directly)
      * @return the listener
      */
     @Bean
-    TransactionExecutionListener tenantTransactionListener(TenantScope tenants, DataSource dataSource) {
-        return new TenantTransactionListener(tenants, new JdbcTemplate(dataSource));
+    TransactionExecutionListener tenantTransactionListener(
+            TenantScope tenants, DataSource dataSource, ObjectProvider<PlatformTransactionManager> transactionManager) {
+        return new TenantTransactionListener(tenants, new JdbcTemplate(dataSource), transactionManager::getObject);
     }
 }

@@ -118,17 +118,30 @@ class TenantScopeModuleTests {
     }
 
     @Test
+    void theTestsRunAsTheApplicationRoleWhichRowLevelSecurityBinds() {
+        var role = jdbc.queryForMap("select current_user as name, r.rolbypassrls as bypass,"
+                + " pg_has_role(current_user, t.tableowner, 'USAGE') as owns"
+                + " from pg_roles r, pg_tables t"
+                + " where r.rolname = current_user and t.schemaname = 'fixture' and t.tablename = 'tenant_probe'");
+
+        assertThat(role)
+                .containsEntry("name", "frappe_app")
+                .containsEntry("bypass", false)
+                .containsEntry("owns", false);
+    }
+
+    @Test
     void aPooledConnectionKeepsNoTenantAfterItsTransaction() {
         // Given: the pool hands a thread back the connection it used last
         var boundConnection = tenants.callAs(tenantA, () -> transactions.execute(status -> backendPid()));
 
-        // When
-        var unboundConnection = transactions.execute(status -> backendPid());
-        var visible = list.list();
+        // When: one transaction without a tenant reads the connection and the rows
+        var unbound = transactions.execute(status -> new Sighting(backendPid(), probeIds()));
 
         // Then
-        assertThat(unboundConnection).isEqualTo(boundConnection);
-        assertThat(visible).isEmpty();
+        assertThat(unbound).isNotNull();
+        assertThat(unbound.backendPid()).isEqualTo(boundConnection);
+        assertThat(unbound.probeIds()).isEmpty();
     }
 
     @Test
@@ -171,6 +184,12 @@ class TenantScopeModuleTests {
     private Integer backendPid() {
         return jdbc.queryForObject("select pg_backend_pid()", Integer.class);
     }
+
+    private List<UUID> probeIds() {
+        return jdbc.queryForList("select id from fixture.tenant_probe", UUID.class);
+    }
+
+    private record Sighting(Integer backendPid, List<UUID> probeIds) {}
 
     private List<UUID> awaitSighting(UUID id) {
         return await().atMost(Duration.ofSeconds(10))
