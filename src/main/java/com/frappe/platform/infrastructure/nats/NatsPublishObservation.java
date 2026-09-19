@@ -35,7 +35,9 @@ final class NatsPublishObservation {
             DomainEvent event,
             Optional<W3cTraceContext> creationContext) {
         return Observation.createNotStarted(NAME, () -> LinkedMessageContext.producer(creationContext), registry)
-                .contextualName("publish " + subject)
+                .contextualName(MessagingObservationKeys.PUBLISH + " " + subject)
+                .lowCardinalityKeyValue(MessagingObservationKeys.OPERATION_TYPE, MessagingObservationKeys.SEND)
+                .lowCardinalityKeyValue(MessagingObservationKeys.OPERATION_NAME, MessagingObservationKeys.PUBLISH)
                 .lowCardinalityKeyValue(MessagingObservationKeys.MESSAGING_SYSTEM, MessagingObservationKeys.NATS)
                 .lowCardinalityKeyValue(MessagingObservationKeys.DESTINATION, subject)
                 .highCardinalityKeyValue(

@@ -70,6 +70,8 @@ class NatsProcessObservationsTest {
                 .hasContextualNameEqualTo("process " + SUBJECT)
                 .hasLowCardinalityKeyValue("messaging.system", "nats")
                 .hasLowCardinalityKeyValue("messaging.destination.name", SUBJECT)
+                .hasLowCardinalityKeyValue("messaging.operation.type", "process")
+                .hasLowCardinalityKeyValue("messaging.operation.name", "process")
                 .hasHighCardinalityKeyValue("messaging.message.id", EVENT_ID)
                 .hasBeenStopped()
                 .isInstanceOfSatisfying(LinkedMessageContext.class, context -> {

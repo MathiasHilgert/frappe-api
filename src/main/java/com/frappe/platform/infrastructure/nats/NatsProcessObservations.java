@@ -51,7 +51,9 @@ final class NatsProcessObservations {
         var creationContext = creationContextOf(message);
         var observation = Observation.createNotStarted(
                         NAME, () -> LinkedMessageContext.consumer(creationContext), registry)
-                .contextualName("process " + subject)
+                .contextualName(MessagingObservationKeys.PROCESS + " " + subject)
+                .lowCardinalityKeyValue(MessagingObservationKeys.OPERATION_TYPE, MessagingObservationKeys.PROCESS)
+                .lowCardinalityKeyValue(MessagingObservationKeys.OPERATION_NAME, MessagingObservationKeys.PROCESS)
                 .lowCardinalityKeyValue(MessagingObservationKeys.MESSAGING_SYSTEM, MessagingObservationKeys.NATS)
                 .lowCardinalityKeyValue(MessagingObservationKeys.DESTINATION, subject);
         var messageId = messageId(message);

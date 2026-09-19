@@ -117,6 +117,8 @@ class NatsEventTransportTest {
                 .hasContextualNameEqualTo("publish " + SUBJECT)
                 .hasLowCardinalityKeyValue("messaging.system", "nats")
                 .hasLowCardinalityKeyValue("messaging.destination.name", SUBJECT)
+                .hasLowCardinalityKeyValue("messaging.operation.type", "send")
+                .hasLowCardinalityKeyValue("messaging.operation.name", "publish")
                 .hasHighCardinalityKeyValue("messaging.message.id", EVENT_ID.toString())
                 .hasBeenStarted()
                 .hasBeenStopped()
