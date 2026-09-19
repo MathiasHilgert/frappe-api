@@ -19,8 +19,8 @@ import org.springframework.web.util.UrlPathHelper;
 /**
  * The application's routes, checked at startup: every route class lives in a module's {@code infrastructure.web}
  * package, declares {@link Access} and maps exactly one method. Any violation fails startup with one
- * {@link InvalidRouteException} naming every offending class. Framework controllers (outside {@code com.frappe}) are not
- * routes and are left alone.
+ * {@link InvalidRouteException} naming every offending class. Framework controllers (outside
+ * {@code com.frappe}) are not routes and are left alone.
  *
  * <p>The catalog also tells which handler serves a request, choosing among every annotated mapping exactly as Spring
  * MVC does (exact paths first, then the best match by MVC's own ordering), so the posture enforced before dispatch is

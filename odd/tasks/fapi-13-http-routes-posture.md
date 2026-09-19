@@ -143,6 +143,26 @@ T0 `ce42b24` (plan `bd34405`), T1 `2e683f6`, T2 `0f277bb`, T3 `11a1dd6`, T4 `93b
 ### R10 YAML spec public like the JSON (review minor)
 - RED: the shared spec assertion (`OpenApiTests`, `OpenApiOutsideLocalProfileTests`) now also requests `/v3/api-docs.yaml` → `expected: 200 but was: 401` (springdoc's YAML controller counted as another handler and was refused). GREEN after adding `/v3/api-docs.yaml` to the public documentation paths.
 
+### R11 MAJOR (attack re-review): a functional mapping shadowing a route
+- Finding: a hand-built `RouterFunctionMapping` bean with a router function set in code, ordered before `requestMappingHandlerMapping`, passed the startup check (functional mappings were allowed wholesale) and served an annotated route's path: anonymous `GET /v1/atk/public` → 200 "SHADOW".
+- Verified in Spring MVC 7.0.9 `WebMvcConfigurationSupport`: the framework's own `routerFunctionMapping` has order -1 ("go before RequestMappingHandlerMapping"), so a blanket order rule would reject every stock context.
+- RED `RouteStartupTests` (the context started in all three):
+  - `startupFailsForAFunctionalMappingGivenRoutesInCode`
+  - `startupFailsForAMappingOrderedBeforeTheAnnotatedRoutes` (an empty `SimpleUrlHandlerMapping` at order -1)
+  - `startupFailsForAMappingThatOnlyBorrowsTheActuatorPackage` (test fixture `org.springframework.boot.webmvc.actuate.endpoint.web.ImpostorEndpointHandlerMapping`)
+- RED `HandlerMappingGuardTest.aMappingOrderedBeforeTheRoutesThatGainsRoutesAfterStartupShadowsThem`: compilation, `shadowsRoutes` was missing.
+- Guard: `startupFailsForACustomHandlerMapping` (an `AbstractHandlerMapping` subclass) already failed startup; added as asked.
+- GREEN, `HandlerMappingGuard`:
+  - Mappings are read with `BeanFactoryUtils.beansOfTypeIncludingAncestors`, as `DispatcherServlet` reads them.
+  - Actuator mappings are exempt only by exact type: `WebMvcEndpointHandlerMapping`, `ControllerEndpointHandlerMapping`, `AdditionalHealthEndpointPathsWebMvcHandlerMapping`.
+  - A `RouterFunctionMapping` fails when `getRouterFunction() != null`. Without one it stays allowed at any order, since it serves nothing.
+  - Any other mapping fails when ordered before or equal to the annotated routes.
+  - At runtime a matched route is refused when a mapping ordered before the routes returns a handler for the request (`shadowsRoutes`). This covers a router function fed to the framework's own mapping after the check.
+- The first `HandlerMappingGuardTest` case now feeds its router function after the check, because before the check it is rightly a startup failure.
+- The reviewer's harness (`AttackStartupTests`, `AttackTests`), copied in temporarily and deleted afterwards:
+  - Every startup attack now fails startup and only the baseline starts: custom mapping, bean-name URL, `Object`-typed router function, programmatic RFM, view controller, resource handler, default servlet, static resources on.
+  - The shadow attack context refuses to start ("'shadowMapping' serves a router function").
+
 ### Rework verification
 - After R1–R6: `FRAPPE_TEST_DB=frappe_fapi_13 ./gradlew spotlessApply check --rerun-tasks` BUILD SUCCESSFUL, 52 test classes, 202 tests.
 - After R7–R10 and the Javadoc rewrap: the same command, BUILD SUCCESSFUL, 54 test classes, 214 tests, 0 failures.

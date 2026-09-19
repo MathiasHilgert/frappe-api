@@ -47,6 +47,10 @@ final class RouteAuthorizationManager implements AuthorizationManager<RequestAut
             Supplier<? extends Authentication> authentication, RequestAuthorizationContext context) {
         return switch (routes.match(context.getRequest())) {
             case RouteMatch.ApplicationRoute(var route) -> {
+                // A mapping ordered before the routes that takes this request would run instead of the route.
+                if (otherHandlers.shadowsRoutes(context.getRequest())) {
+                    yield DENIED;
+                }
                 var decision = managers.get(route).authorize(authentication, context);
                 yield decision == null ? DENIED : decision;
             }
