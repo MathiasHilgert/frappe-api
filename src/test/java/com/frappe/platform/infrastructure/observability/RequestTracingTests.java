@@ -128,8 +128,9 @@ class RequestTracingTests {
         // Then
         var server = await().atMost(Duration.ofSeconds(10)).until(this::probeServerSpan, span -> span != null);
         assertThat(captured.list).singleElement().satisfies(event -> {
-            assertThat(event.getMDCPropertyMap()).containsEntry("traceId", server.getTraceId());
-            assertThat(event.getMDCPropertyMap()).containsEntry("spanId", server.getSpanId());
+            var json = EcsLogRenderer.render(event);
+            assertThat(json.path("trace.id").asString()).isEqualTo(server.getTraceId());
+            assertThat(json.path("span.id").asString()).isEqualTo(server.getSpanId());
         });
     }
 
