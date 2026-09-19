@@ -60,7 +60,7 @@ scheduler.schedule(closeBusinessDay.schedulableInstance(branchId.toString(), new
 
 - Handlers throw on failure; they never catch and log. The scheduler retries with exponential backoff (`frappe.scheduling.initial-backoff` 30s, doubling, `frappe.scheduling.max-retries` 5 times). Then a recurring task continues on its schedule and a one-time task keeps retrying at the next step (16m with the defaults) until it succeeds: no work is lost.
 - Handlers are idempotent: an execution taken over from a dead instance, or retried after a failure that happened after its effect, runs again.
-- Long handlers check `context.getSchedulerState().isShuttingDown()` and stop early: on shutdown running executions get `db-scheduler.shutdown-max-wait` (10s, waited at most twice), then another instance takes over after the heartbeat expires (`db-scheduler.heartbeat-interval` 5m × `missed-heartbeats-limit` 6).
+- Long handlers check `context.getSchedulerState().isShuttingDown()` and stop early: on shutdown running executions get `db-scheduler.shutdown-max-wait` (10s, waited at most twice), then another instance takes over once the heartbeat expires: `db-scheduler.heartbeat-interval` 15s × `missed-heartbeats-limit` 6, so an execution of a dead instance resumes elsewhere after about 90s (checked every 30s, twice the heartbeat).
 
 ## Telemetry and logs (automatic)
 
@@ -70,7 +70,7 @@ scheduler.schedule(closeBusinessDay.schedulableInstance(branchId.toString(), new
 
 ## Configuration
 
-- `db-scheduler.*` (application.properties): `table-name=platform.scheduled_tasks` (Flyway owns it, `db/migration/platform`; the library never creates tables), `delay-startup-until-context-ready=true`, `shutdown-max-wait=10s`; library defaults otherwise (polling every 10s).
+- `db-scheduler.*` (application.properties): `table-name=platform.scheduled_tasks` (Flyway owns it, `db/migration/platform`; the library never creates tables), `delay-startup-until-context-ready=true`, `shutdown-max-wait=10s`, `heartbeat-interval=15s`, `missed-heartbeats-limit=6` (takeover after about 90s); library defaults otherwise (polling every 10s).
 - `frappe.scheduling.*`: retry defaults in `SchedulingProperties` only.
 - When the application context stops, the scheduler stops picking new executions first (`SchedulerPausing`); paused test contexts do not run tasks either.
 

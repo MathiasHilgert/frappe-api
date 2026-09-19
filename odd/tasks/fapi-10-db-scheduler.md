@@ -29,6 +29,10 @@ Strict TDD (brief and project rule). Runner: `./gradlew test` with `FRAPPE_TEST_
 - [x] T4 Acceptance: two schedulers racing on real Postgres (exactly once, dead instance taken over, retries with backoff observed as errors, per-entity schedule change without restart)
 - [x] T5 Outbox recovery through db-scheduler; remove the lock and `@EnableScheduling`
 - [x] T6 Docs (`writing-code`: declaring a task; outbox recovery, observability, errors), final verification
+- [x] R1 Review: heartbeat 15s × 6 (takeover about 90s), documented and asserted
+- [ ] R2 Review: kernel API without db-scheduler types (`TaskName`, `TaskSchedule`, `EntitySchedule`, plain handlers, task handles); own `Scheduler` bean on the application `Clock`
+- [ ] R3 Review: one-time tasks end after their retries (removed, one ERROR, `scheduled.task.exhausted`); recurring retry backoff capped at the next regular run
+- [ ] R4 Review: `OutboxRecoveryTrigger` off the NATS thread, checks the reschedule result; racing test proves both instances pick; tenant note; final verification
 
 ## Acceptance (from the ticket)
 - Two application instances, a recurring task due → exactly one executes it.
@@ -103,6 +107,9 @@ Strict TDD (brief and project rule). Runner: `./gradlew test` with `FRAPPE_TEST_
 - New `writing-code/references/scheduling.md`: declaring fixed recurring, one-time and per-entity tasks with `ScheduledTasks`, naming, natural-key instance ids, `EntitySchedule` upserts, transactions, JSON data, failures and retries, idempotent handlers, shutdown, automatic telemetry and logs, configuration, testing. `writing-code/SKILL.md`: hard rule (no `@Scheduled` or in-process locks) and a decision-gate row.
 - Updated: `domain-events.md` (recovery as `platform.outbox-recovery`, trigger via `OutboxRecoveryTrigger`), `observability.md` and `observing-the-api` (`scheduled.task` automatic), `errors.md` (handlers throw; db-scheduler exception types), `testing-code/references/integration-tests.md` (shared table, paused contexts, polling in tests).
 - Verification `FRAPPE_TEST_DB=frappe_fapi_10 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL in 54s, 55 test classes, 216 tests, 0 failures (spotless, javadoc with doclint, tests, `ModularityTests`).
+
+### Review changes (Sonnet approved; Opus requested changes; orchestrator decisions)
+- R1 RED `SchedulerSettingsIntegrationTests.anExecutionOfADeadInstanceIsTakenOverAfterAboutNinetySeconds`: `expected: 15S but was: 5M` (library default, 30m takeover). GREEN with `db-scheduler.heartbeat-interval=15s`, `missed-heartbeats-limit=6`: 2/2; `scheduling.md` states the takeover time. `./gradlew spotlessApply check`: BUILD SUCCESSFUL.
 
 ## Follow-ups / open questions
 - `OutboxRecoveryTrigger` drops a trigger while a pass runs (as the lock did before). A pass that started just before NATS came back may still fail its publishes; those then wait for the next scheduled pass (1m with the defaults, plus their backoff).
