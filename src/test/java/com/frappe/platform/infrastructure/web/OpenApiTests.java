@@ -83,6 +83,7 @@ class OpenApiTests {
 
     /** Shared with the non-local profile test: the spec is the same in every profile. */
     static void assertSpecDocumentsPostures(MockMvcTester http) {
+        assertThat(http.get().uri(SPEC + ".yaml")).hasStatusOk();
         var spec = assertThat(http.get().uri(SPEC)).hasStatusOk().bodyJson();
         spec.extractingPath("$.components.securitySchemes.bearer.type").isEqualTo("http");
         spec.extractingPath("$.components.securitySchemes.bearer.scheme").isEqualTo("bearer");

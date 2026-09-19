@@ -23,8 +23,10 @@ import org.springframework.security.web.context.RequestAttributeSecurityContextR
 @Configuration(proxyBeanMethods = false)
 class SecurityConfiguration {
 
-    /** springdoc's spec and the Scalar API reference; Scalar itself is only served in the local profile. */
-    private static final String[] API_DOCUMENTATION = {"/v3/api-docs", "/v3/api-docs/**", "/scalar", "/scalar/**"};
+    /** springdoc's spec (JSON and YAML) and the Scalar API reference; Scalar is only served in the local profile. */
+    private static final String[] API_DOCUMENTATION = {
+        "/v3/api-docs", "/v3/api-docs.yaml", "/v3/api-docs/**", "/scalar", "/scalar/**"
+    };
 
     /** Until identity provides sessions, no token resolves. */
     private static final SessionResolver NO_SESSIONS = token -> Optional.empty();

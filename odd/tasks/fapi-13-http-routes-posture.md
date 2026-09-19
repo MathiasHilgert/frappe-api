@@ -131,6 +131,18 @@ T0 `ce42b24` (plan `bd34405`), T1 `2e683f6`, T2 `0f277bb`, T3 `11a1dd6`, T4 `93b
   - The context-runner tests set `add-mappings=false` like production.
   - Web tests, `RequestTracingTests`, `FrappeApiApplicationTests` green.
 
+### R9 pinned variants of a protected route (review minor)
+- `RouteAccessTests.noVariantOfAnAuthenticatedRouteRunsItsControllerAnonymously`, parameterized, anonymous caller, controller-call counter stays 0:
+  - `HEAD /v1/test/self` → 401
+  - `GET /v1/test/%73elf` → 401 (decoded, same route)
+  - `GET /v1/test/self/` → 404 (no trailing-slash match in Spring 7)
+  - `OPTIONS /v1/test/self` → 200 (MVC's built-in OPTIONS answer, no controller)
+  - `POST /v1/test/self` → 405
+- These pin behaviour that already held, so there was no RED.
+
+### R10 YAML spec public like the JSON (review minor)
+- RED: the shared spec assertion (`OpenApiTests`, `OpenApiOutsideLocalProfileTests`) now also requests `/v3/api-docs.yaml` → `expected: 200 but was: 401` (springdoc's YAML controller counted as another handler and was refused). GREEN after adding `/v3/api-docs.yaml` to the public documentation paths.
+
 ### Rework verification
 - `FRAPPE_TEST_DB=frappe_fapi_13 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 52 test classes, 202 tests, 0 failures.
 
