@@ -1,26 +1,23 @@
 package com.frappe.identity.domain;
 
-import com.frappe.platform.DomainEvent;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 
 /**
  * A started sign-up: the address as entered, its subject and the language to mail in, kept between "start" and
- * "complete". Every start publishes {@link SignUpStarted}, so a fresh code is mailed. It never becomes the person.
+ * "complete". Every recorded start is announced by {@link SignUpStarted}, so a fresh code is mailed. It never becomes the
+ * person. The store records a start as one upsert by subject, so it returns the stored id and version the event names.
  */
 public final class SignUp {
 
     private final SignUpId id;
-    private EmailAddress email;
+    private final EmailAddress email;
     private final UUID emailSubject;
-    private Locale locale;
-    private Instant startedAt;
+    private final Locale locale;
+    private final Instant startedAt;
     private final long version;
-    private final List<DomainEvent> events = new ArrayList<>();
 
     private SignUp(SignUpId id, EmailAddress email, UUID emailSubject, Locale locale, Instant startedAt, long version) {
         this.id = Objects.requireNonNull(id, "id");
@@ -32,21 +29,18 @@ public final class SignUp {
     }
 
     /**
-     * Starts a sign-up for an address that has none.
+     * A sign-up for an address, to be recorded: new, or replacing the address's stored one (the store keeps the stored
+     * id and raises its version).
      *
-     * @param id the new sign-up's id
+     * @param id the id if the address has no sign-up yet
      * @param email the address as entered
      * @param emailSubject the keyed digest of the canonical address
      * @param locale the language to mail in
      * @param now when it starts
-     * @param eventId the id of the event it publishes
-     * @return the started sign-up, holding its {@link SignUpStarted}
+     * @return the sign-up to record, version 0
      */
-    public static SignUp start(
-            SignUpId id, EmailAddress email, UUID emailSubject, Locale locale, Instant now, UUID eventId) {
-        var signUp = new SignUp(id, email, emailSubject, locale, now, 0);
-        signUp.events.add(new SignUpStarted(eventId, now, id.value(), 0, SignUpStarted.VERSION));
-        return signUp;
+    public static SignUp start(SignUpId id, EmailAddress email, UUID emailSubject, Locale locale, Instant now) {
+        return new SignUp(id, email, emailSubject, locale, now, 0);
     }
 
     /**
@@ -66,30 +60,13 @@ public final class SignUp {
     }
 
     /**
-     * Starts the sign-up again: the latest address as entered and language win, and a new code is to be mailed.
+     * The event announcing this recorded start, so its code is mailed.
      *
-     * @param enteredEmail the address as entered this time
-     * @param newLocale the language to mail in
-     * @param now when it starts again
-     * @param eventId the id of the event it publishes
+     * @param eventId the event's id
+     * @return the event naming this sign-up and its stored version
      */
-    public void restart(EmailAddress enteredEmail, Locale newLocale, Instant now, UUID eventId) {
-        email = Objects.requireNonNull(enteredEmail, "enteredEmail");
-        locale = Objects.requireNonNull(newLocale, "newLocale");
-        startedAt = Objects.requireNonNull(now, "now");
-        // The stored version grows by one with this change, so the event names the version it produces.
-        events.add(new SignUpStarted(eventId, now, id.value(), version + 1, SignUpStarted.VERSION));
-    }
-
-    /**
-     * Hands over the events registered since the last call.
-     *
-     * @return the events, oldest first
-     */
-    public List<DomainEvent> pullEvents() {
-        var pulled = List.copyOf(events);
-        events.clear();
-        return pulled;
+    public SignUpStarted started(UUID eventId) {
+        return new SignUpStarted(eventId, startedAt, id.value(), version, SignUpStarted.VERSION);
     }
 
     /**

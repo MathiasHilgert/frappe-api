@@ -18,9 +18,9 @@ class SignUpTest {
     private static final Instant NOW = Instant.parse("2026-09-19T12:00:00Z");
 
     @Test
-    void startingKeepsTheAddressAsEnteredItsSubjectAndLanguage() {
+    void startingKeepsTheAddressAsEnteredItsSubjectAndLanguageAtVersionZero() {
         // When
-        var signUp = SignUp.start(ID, email("Ana@Example.com"), SUBJECT, Locale.of("es"), NOW, EVENT);
+        var signUp = SignUp.start(ID, email("Ana@Example.com"), SUBJECT, Locale.of("es"), NOW);
 
         // Then
         assertThat(signUp.id()).isEqualTo(ID);
@@ -28,38 +28,19 @@ class SignUpTest {
         assertThat(signUp.emailSubject()).isEqualTo(SUBJECT);
         assertThat(signUp.locale()).isEqualTo(Locale.of("es"));
         assertThat(signUp.startedAt()).isEqualTo(NOW);
+        assertThat(signUp.version()).isZero();
     }
 
     @Test
-    void startingPublishesSignUpStartedWithTheIdOnly() {
-        // Given
-        var signUp = SignUp.start(ID, email("ana@example.com"), SUBJECT, Locale.of("es"), NOW, EVENT);
+    void theStartedEventNamesTheStoredIdAndVersionOnly() {
+        // Given a start recorded over an earlier one
+        var stored = SignUp.reconstitute(ID, email("ana@example.com"), SUBJECT, Locale.of("es"), NOW, 3);
 
         // When
-        var events = signUp.pullEvents();
+        var event = stored.started(EVENT);
 
         // Then
-        assertThat(events).containsExactly(new SignUpStarted(EVENT, NOW, ID.value(), 0, SignUpStarted.VERSION));
-        assertThat(signUp.pullEvents()).isEmpty();
-    }
-
-    @Test
-    void restartingTakesTheLatestAddressAndLanguageAndPublishesTheNextVersion() {
-        // Given
-        var signUp = SignUp.reconstitute(ID, email("ana@example.com"), SUBJECT, Locale.of("es"), NOW, 3);
-        var later = NOW.plusSeconds(60);
-        var eventId = UUID.fromString("01925f6e-0000-7000-8000-000000000004");
-
-        // When
-        signUp.restart(email("ANA@example.com"), Locale.of("pt"), later, eventId);
-
-        // Then
-        assertThat(signUp.email()).isEqualTo(email("ANA@example.com"));
-        assertThat(signUp.locale()).isEqualTo(Locale.of("pt"));
-        assertThat(signUp.startedAt()).isEqualTo(later);
-        assertThat(signUp.version()).isEqualTo(3);
-        assertThat(signUp.pullEvents())
-                .containsExactly(new SignUpStarted(eventId, later, ID.value(), 4, SignUpStarted.VERSION));
+        assertThat(event).isEqualTo(new SignUpStarted(EVENT, NOW, ID.value(), 3, SignUpStarted.VERSION));
     }
 
     private static EmailAddress email(String value) {

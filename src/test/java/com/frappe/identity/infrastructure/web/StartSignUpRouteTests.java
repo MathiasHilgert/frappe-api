@@ -15,7 +15,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -140,6 +144,48 @@ class StartSignUpRouteTests {
                 .containsEntry("title", title)
                 .containsEntry("detail", detail)
                 .containsEntry("params", Map.of());
+    }
+
+    @Test
+    void concurrentStartsForOneAddressAreAllAcceptedIntoOneSignUp() throws Exception {
+        // Given as many starts as the issue cap allows, released at once
+        var email = newEmail();
+        var starts = 5;
+        var gate = new CountDownLatch(1);
+        List<Future<Integer>> statuses;
+        try (var threads = Executors.newFixedThreadPool(starts)) {
+            statuses = IntStream.range(0, starts)
+                    .mapToObj(start -> threads.submit(() -> {
+                        gate.await();
+                        return signUp(email, newClientAddress(), "en")
+                                .getResponse()
+                                .getStatus();
+                    }))
+                    .toList();
+
+            // When
+            gate.countDown();
+
+            // Then
+            for (var status : statuses) {
+                assertThat(status.get()).isEqualTo(HttpStatus.ACCEPTED.value());
+            }
+        }
+        assertThat(signUpRows(email)).isOne();
+        var subject = digests.subjectOf("identity.email", email.toLowerCase(Locale.ROOT));
+        assertThat(jdbc.queryForObject(
+                        "select version from identity.sign_up where email_subject = ?", Long.class, subject))
+                .isEqualTo(starts - 1L);
+        await().atMost(Duration.ofSeconds(10)).until(() -> codeMailsTo(email).size() == starts);
+    }
+
+    @Test
+    void theSpecDocumentsTheEmailValidationCode() {
+        // When
+        var spec = problemOf(http.get().uri("/v3/api-docs").exchange());
+
+        // Then
+        assertThat(spec.toString()).contains("errors[].code email");
     }
 
     @Test

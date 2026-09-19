@@ -15,7 +15,10 @@ import java.util.UUID;
  * @param aggregateVersion the sign-up's version this event produced
  * @param eventVersion the payload's schema version
  */
-@Counted(name = "sign_ups.started", description = "Sign-ups started or restarted, each mailing a new code")
+// Named in the ticket's contract; it counts code requests (every accepted, uncapped start), not distinct sign-ups.
+@Counted(
+        name = "sign_ups.started",
+        description = "Accepted sign-up starts that mail a code, restarts of the same address included")
 public record SignUpStarted(UUID eventId, Instant occurredAt, UUID aggregateId, long aggregateVersion, int eventVersion)
         implements DomainEvent {
 

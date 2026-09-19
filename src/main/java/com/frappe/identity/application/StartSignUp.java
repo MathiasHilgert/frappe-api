@@ -4,6 +4,7 @@ import com.frappe.identity.IdentityLimits;
 import com.frappe.identity.IdentitySecrets;
 import com.frappe.identity.domain.EmailAddress;
 import com.frappe.identity.domain.SignUp;
+import com.frappe.identity.domain.SignUpCapped;
 import com.frappe.identity.domain.SignUpId;
 import com.frappe.identity.domain.SignUps;
 import com.frappe.platform.CommandUseCase;
@@ -22,9 +23,27 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Starts a sign-up: records the address and publishes {@code SignUpStarted}, so identity's listener mails a code after
- * the commit. The work is the same for every address (a keyed digest, the rate limit, the issue cap and one row by
- * subject; no password hashing, no mail, no person lookup), so neither the answer nor its timing reveals whether the
- * address is registered.
+ * the commit.
+ *
+ * <p><b>Same answer, same work.</b> Every accepted start costs a keyed digest, the rate limit, the issue cap and one
+ * upsert statement by subject; no password hashing, no mail, no person lookup, and no branch on whether the address
+ * already has a sign-up. So neither the answer nor its timing reveals whether an address is registered, started or
+ * capped, and concurrent starts for one address all succeed.
+ *
+ * <p><b>The cap is spent before the commit.</b> {@code countIssue} counts in Valkey before the database writes; if the
+ * upsert or the commit then fails (the caller gets the generic 500), that issue stays spent without a code. Accepted:
+ * the cap refills within its window, and an uncounted retry path would let a failing database mint unlimited codes.
+ *
+ * <p><b>Victim denial (accepted by design).</b> Anyone may spend an address's issue cap, 5 codes per hour, and its owner
+ * then gets no code for up to an hour, with the same 202. Answering differently would reveal the address's state. Capped
+ * starts are counted as {@code frappe.identity.sign_ups.capped} (no tags), so such abuse shows on dashboards; the
+ * per-client rate limit bounds how fast one client can do it.
+ *
+ * <p><b>Valkey inside the transaction.</b> The rate limit and the issue cap run inside the use case's transaction, so a
+ * pooled connection may be held across the two Valkey calls (each bounded by {@code spring.data.redis.timeout}, 2 s).
+ * Moving them out would need a command use case without a transaction or a second use case called from the first,
+ * which {@code use-cases.md} (every command operation is {@code @Transactional}; one operation per use case, called by
+ * adapters) and {@code UseCaseArchitectureTests} rule out. Revisit if pool saturation shows under abuse.
  */
 @CommandUseCase
 public class StartSignUp {
@@ -78,7 +97,7 @@ public class StartSignUp {
 
     /**
      * Starts or restarts the sign-up of an address: rate limit per client address, then the address's issue cap, then
-     * the sign-up is recorded. A capped address is accepted without writing anything.
+     * the sign-up is recorded. A capped address is accepted without writing a sign-up; only its count is recorded.
      *
      * @param email the address as entered
      * @param clientAddress the caller's network address, for the rate limit
@@ -93,17 +112,11 @@ public class StartSignUp {
         }
         // Counted here, never in the listener: a retried mail must not spend the cap.
         if (!secrets.countIssue(SecretKey.of(IdentitySecrets.SIGN_UP, subject))) {
+            events.publish(SignUpCapped.of(ids.newId(), clock.instant()));
             return Result.success(Outcome.CAPPED);
         }
-        var now = clock.instant();
-        var signUp = signUps.byEmailSubject(subject)
-                .map(existing -> {
-                    existing.restart(email, locale, now, ids.newId());
-                    return existing;
-                })
-                .orElseGet(() -> SignUp.start(new SignUpId(ids.newId()), email, subject, locale, now, ids.newId()));
-        signUps.save(signUp);
-        events.publishAll(signUp.pullEvents());
+        var stored = signUps.record(SignUp.start(new SignUpId(ids.newId()), email, subject, locale, clock.instant()));
+        events.publish(stored.started(ids.newId()));
         return Result.success(Outcome.STARTED);
     }
 }

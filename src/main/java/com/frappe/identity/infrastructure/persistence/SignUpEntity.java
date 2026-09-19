@@ -8,7 +8,7 @@ import jakarta.persistence.Version;
 import java.time.Instant;
 import java.util.UUID;
 
-/** A row of {@code identity.sign_up}. */
+/** A row of {@code identity.sign_up}, read only: starts are written by one upsert statement ({@link JpaSignUps}). */
 @Entity
 @Table(schema = "identity", name = "sign_up")
 class SignUpEntity {
@@ -28,36 +28,12 @@ class SignUpEntity {
     @Column(name = "started_at", nullable = false)
     private Instant startedAt;
 
-    // Null until persisted, so Spring Data inserts a new row instead of merging.
+    // Raised by the upsert on every restart.
     @Version
-    private Long version;
+    private long version;
 
     /** For JPA. */
     protected SignUpEntity() {}
-
-    /**
-     * A new row.
-     *
-     * @param id the sign-up's id
-     * @param emailSubject the keyed digest of the canonical address
-     */
-    SignUpEntity(UUID id, UUID emailSubject) {
-        this.id = id;
-        this.emailSubject = emailSubject;
-    }
-
-    /**
-     * Copies the changeable state.
-     *
-     * @param enteredEmail the address as entered
-     * @param languageTag the language to mail in
-     * @param startedAtInstant when it last started
-     */
-    void update(String enteredEmail, String languageTag, Instant startedAtInstant) {
-        this.email = enteredEmail;
-        this.locale = languageTag;
-        this.startedAt = startedAtInstant;
-    }
 
     /**
      * The column value.
@@ -107,9 +83,9 @@ class SignUpEntity {
     /**
      * The column value.
      *
-     * @return the stored version, 0 before the first insert
+     * @return the stored version
      */
     long version() {
-        return version == null ? 0 : version;
+        return version;
     }
 }

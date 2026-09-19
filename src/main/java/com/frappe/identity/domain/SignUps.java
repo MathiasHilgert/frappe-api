@@ -1,7 +1,6 @@
 package com.frappe.identity.domain;
 
 import java.util.Optional;
-import java.util.UUID;
 
 /** Port: the stored sign-ups. */
 public interface SignUps {
@@ -15,17 +14,12 @@ public interface SignUps {
     Optional<SignUp> byId(SignUpId id);
 
     /**
-     * Finds the sign-up of an address.
+     * Records a start in one step: inserts the sign-up, or, when its address already has one, replaces that one's
+     * address as entered, language and start time and raises its version. Concurrent starts for one address never
+     * conflict.
      *
-     * @param emailSubject the keyed digest of the canonical address
-     * @return the sign-up, or empty when the address has none
+     * @param start the sign-up to record
+     * @return the stored sign-up: the address's existing id, and the version this start produced
      */
-    Optional<SignUp> byEmailSubject(UUID emailSubject);
-
-    /**
-     * Inserts a new sign-up or updates a stored one.
-     *
-     * @param signUp the sign-up
-     */
-    void save(SignUp signUp);
+    SignUp record(SignUp start);
 }

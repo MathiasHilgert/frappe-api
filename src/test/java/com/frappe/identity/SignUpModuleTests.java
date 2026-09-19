@@ -11,6 +11,7 @@ import com.frappe.TestcontainersConfiguration;
 import com.frappe.identity.application.IdentityRefusal;
 import com.frappe.identity.application.StartSignUp;
 import com.frappe.identity.domain.EmailAddress;
+import com.frappe.identity.domain.SignUpCapped;
 import com.frappe.identity.domain.SignUpStarted;
 import com.frappe.platform.KeyedDigests;
 import com.frappe.platform.Result;
@@ -191,8 +192,34 @@ class SignUpModuleTests {
     }
 
     @Test
-    void theStartedSignUpMetricIsValid() {
-        assertValidBusinessMetrics(SignUpStarted.class);
+    void aCappedStartIsCountedWithoutNamingTheAddress() {
+        // Given an address at its issue cap
+        var email = newEmail();
+        for (var start = 1; start <= 5; start++) {
+            startSignUp.start(new EmailAddress(email), newClientAddress(), Locale.of("en"));
+        }
+        var before = counted("frappe.identity.sign_ups.capped");
+
+        // When
+        startSignUp.start(new EmailAddress(email), newClientAddress(), Locale.of("en"));
+
+        // Then
+        assertThatBusinessMetric(meters, "frappe.identity.sign_ups.capped").hasCount(before + 1);
+        assertThat(meters.find("frappe.identity.sign_ups.capped")
+                        .counter()
+                        .getId()
+                        .getTags())
+                .isEmpty();
+    }
+
+    @Test
+    void theSignUpMetricsAreValid() {
+        assertValidBusinessMetrics(SignUpStarted.class, SignUpCapped.class);
+    }
+
+    private long counted(String name) {
+        var counter = meters.find(name).counter();
+        return counter == null ? 0 : (long) counter.count();
     }
 
     private long startedSignUps() {
