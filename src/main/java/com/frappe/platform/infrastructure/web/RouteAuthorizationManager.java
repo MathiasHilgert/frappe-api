@@ -17,10 +17,13 @@ import org.springframework.security.web.access.intercept.RequestAuthorizationCon
  * its posture: this is authentication enforcement only (is there a caller?), never permissions, which the use case
  * decides. A request no annotated handler serves passes through, so Spring MVC answers 404 or 405 (route shapes are
  * public in the OpenAPI spec anyway), but only when no other handler mapping would serve it. A framework controller or
- * an ambiguous match is refused unless the chain permits its path explicitly: 401 for an anonymous caller, 403 for a
- * caller with a session.
+ * an ambiguous match is refused unless the chain permits its path explicitly, and answered 404 for everyone: there is
+ * no route there.
  */
 final class RouteAuthorizationManager implements AuthorizationManager<RequestAuthorizationContext> {
+
+    /** Request attribute marking a request no route serves and the chain refuses: answered as not found. */
+    static final String NOT_SERVED = RouteAuthorizationManager.class.getName() + ".NOT_SERVED";
 
     private static final AuthorizationDecision DENIED = new AuthorizationDecision(false);
     private static final AuthorizationDecision GRANTED = new AuthorizationDecision(true);
@@ -54,7 +57,11 @@ final class RouteAuthorizationManager implements AuthorizationManager<RequestAut
                 var decision = managers.get(route).authorize(authentication, context);
                 yield decision == null ? DENIED : decision;
             }
-            case RouteMatch.OtherHandler() -> DENIED;
+            case RouteMatch.OtherHandler() -> {
+                // Refused for everyone, and answered as if nothing were here (SecurityRefusals: 404).
+                context.getRequest().setAttribute(NOT_SERVED, Boolean.TRUE);
+                yield DENIED;
+            }
             // No route matches: let Spring MVC answer 404 or 405, unless another handler mapping would serve it.
             case RouteMatch.NoHandler() -> otherHandlers.servesOutsideRoutes(context.getRequest()) ? DENIED : GRANTED;
         };

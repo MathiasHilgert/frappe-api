@@ -54,4 +54,4 @@ Run as the application role, not the superuser/owner, or RLS is bypassed and the
 
 ## HTTP
 
-Use `MockMvcTester` or `RestTestClient` against the full module; assert status, `ProblemDetail` body (`type`, `status`) and `Location` headers.
+Use `MockMvcTester` or `RestTestClient` against the full module; assert status, `ProblemDetail` body (`type`, `code`, `params`, `status`, localized `title`) and `Location` headers. For failures, assert that the body carries nothing of the cause (`UnexpectedFailureProblemsTests`).

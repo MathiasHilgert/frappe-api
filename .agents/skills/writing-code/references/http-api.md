@@ -21,7 +21,7 @@ class CloseTabRoute {
 | `PUBLIC` | anyone, with or without a token | never |
 | `AUTHENTICATED` | any caller with a resolved session | 401 + `WWW-Authenticate: Bearer` |
 
-**The HTTP layer authenticates, it never authorizes.** A posture only says whether a caller must be authenticated. Whether that caller may perform the operation (roles per branch, ownership, session kind) is authorization and belongs to the application layer: the route passes the `ResolvedSession` into the command or query, and the use case (through the bus) decides with the access module. Operations with only internal callers have no route at all.
+**The HTTP layer authenticates, it never authorizes.** A posture only says whether a caller must be authenticated. Whether that caller may perform the operation (roles per branch, ownership, session kind) is authorization and belongs to the application layer: the route passes the `ResolvedSession` to the use case it calls directly (`@CommandUseCase` / `@QueryUseCase`), and the use case decides with the access module. Operations with only internal callers have no route at all.
 
 - Startup fails, naming the class and the fix, for a route without `@Access`, with two or more mapped methods, or outside a package ending in `.infrastructure.web`.
 - Annotated route classes are the only way to serve a path. Startup fails for any `RouterFunction` bean, any functional mapping with a router function, any handler mapping that serves paths outside the routes (a custom mapping, a bean named `/…`) and any non-actuator mapping ordered before the annotated routes; static resources are off (`spring.web.resources.add-mappings=false`). At runtime (defense in depth) a request no route serves passes through to 404/405 only when no other mapping would serve it, and a matched route is refused when a mapping ordered before the routes would take the request. Only `com.frappe` controllers are routes; framework controllers are not checked.
@@ -46,11 +46,63 @@ class CloseTabRoute {
 - Jakarta Bean Validation on request DTOs for shape (required, length, format).
 - Business rules are validated in the domain and come back as `Result` failures.
 
-## Errors (RFC 9457)
+## Errors (RFC 9457 problems)
 
-- Every error is a `ProblemDetail`. Map domain errors in one place per module (`@RestControllerAdvice` or a mapper).
-- `type` is a stable URI per error (`https://frappe.app/problems/tab-already-closed`), `title` and `detail` localized, extra fields as properties.
-- Typical status: validation `400`, unauthenticated `401`, forbidden `403`, missing `404`, rule violation `409`/`422`, optimistic lock `409`.
+Every failure is one shape, `application/problem+json` with `Content-Language`: `type` (stable URI `https://frappe.app/problems/<slug>`), `title` and `detail` (localized, `i18n.md`), `status`, `instance` (the path the client requested), `code` (the slug), `params` (raw values, `{}` when none) and `traceId` (the request's OpenTelemetry trace id). Clients branch on `type` or `code`, never on text. Validation problems add `errors[]`. The content type is set, not negotiated, so the problem goes out whatever `Accept` says.
+
+```json
+{"type": "https://frappe.app/problems/tab-already-closed", "title": "Tab already closed",
+ "status": 409, "detail": "Tab T-12 is already closed.", "instance": "/v1/tabs/T-12/close",
+ "code": "tab-already-closed", "params": {"tabId": "T-12"}, "traceId": "4bf92f3577b34da6a3ce929d0e0e4736"}
+```
+
+### Business failures: `ProblemMapper`
+
+A route turns a failed `Result` into `RequestRefusedException` (kernel, `com.frappe.platform.web`); one `ProblemMapper<E>` bean per failure type, in the module's `infrastructure.web`, decides status, slug and message key in one place:
+
+```java
+@PostMapping("/tabs/{tabId}/close")
+ResponseEntity<Void> close(@PathVariable UUID tabId, ResolvedSession caller) {
+    closeTab.close(new TabId(tabId), caller).orElseThrow(RequestRefusedException::new);
+    return ResponseEntity.noContent().build();
+}
+
+@Component
+class TabProblems implements ProblemMapper<TabError> {
+    public Class<TabError> failureType() { return TabError.class; }
+
+    public Problem problemOf(TabError error) {
+        return switch (error) {
+            case TabError.AlreadyClosed closed ->
+                    Problem.of(409, "tab-already-closed", "order.tab.already-closed").with("tabId", closed.tabId());
+            case TabError.NotFound notFound -> Problem.of(404, "tab-not-found", "order.tab.not-found");
+        };
+    }
+}
+```
+
+- `Problem.of(status, slug, messageKey)`: status 4xx only (a business failure is never a server fault), slug kebab-case and stable once published, key in the module's catalogs. Text: `<messageKey>.title` and `<messageKey>.detail` in all three catalogs; `with(name, value)` params fill the detail's `{0}`, `{1}`… in order and are returned raw: String, Number, Boolean, UUID, enum or `java.time` values only. `RequestRefusedException` carries no stack trace.
+- Two mappers for the same failure type, or one for a subtype of another's, fail startup. A failure without a mapper, or a key missing from the catalogs, is a bug: the client gets the generic 500 problem and it is logged.
+- Typical status: missing `404`, rule violation `409`/`422`, optimistic lock `409`.
+
+### Platform problems
+
+The platform answers everything no module maps (`com.frappe.platform.infrastructure.web`): `ProblemBoundaryFilter` (hands every exception of a request to Spring MVC's exception resolvers), `ProblemAdvice` (a `ResponseEntityExceptionHandler`, replacing Boot's), `SecurityRefusals` (the chain's entry point and access-denied handler, delegating to the same resolvers), `ProblemErrorController` (Boot's `ErrorController` for error dispatches) and `ProblemErrorReportValve` (replaces Tomcat's HTML `ErrorReportValve`: requests Tomcat refuses before any filter, such as a garbled request line, an invalid path or `Host`, get the static English problem of their status, without a trace id). Error dispatches carry `Content-Language`, `Vary` and Spring Security's default headers too (`ErrorDispatchSecurityHeaders`); TRACE is 405 and never echoed. The type follows the status, with text under `platform.problem.<slug>.title|detail`:
+
+| Type (`code`) | Status | When |
+| --- | --- | --- |
+| `invalid-request` | 400 | unreadable, truncated or badly chunked body, bad parameters, validation (`errors[]`) |
+| `unauthenticated` | 401 + `WWW-Authenticate: Bearer` | no token, or one that resolves to no session |
+| `forbidden` | 403 | a caller with a session on a path the chain refuses (actuator endpoints other than health); routes never answer it |
+| `not-found` | 404 | no route serves the path, including framework handlers the chain keeps closed (`/error`), for everyone |
+| `method-not-allowed` | 405 + `Allow` | the path exists, the method does not |
+| `not-acceptable`, `content-too-large`, `unsupported-media-type` | 406, 413, 415 | content negotiation, body size and type |
+| `request-rejected` | other 4xx | any other client error the framework raises |
+| `internal-error` | 500 | anything unexpected (defect or infrastructure fault) |
+
+- `internal-error` is generic on purpose: title "An unexpected error occurred", no params, and nothing of the cause (no exception message or class, SQL, technology or provider name, host, stack trace). The cause goes to one ERROR log line and the counter `http.server.unexpected.errors{error}` (`errors.md`); support finds it by the `traceId`.
+- Validation (`@Valid @RequestBody`): one `errors[]` entry per violated constraint, `{"pointer": "/lines/0/quantity", "code": "min", "params": {"value": 1}, "detail": "must be at least 1"}`: sorted by pointer then code; RFC 6901 pointer into the body, constraint name in kebab-case, only client-meaningful scalar attributes as params (`min`, `max`, `value`, `inclusive`, `integer`, `fraction`; never a pattern, flags or classes), detail from `platform.validation.<code>` (falling back to `platform.validation.invalid`; arguments are the attributes sorted by name).
+- `server.error.include-stacktrace=never` and `include-message=never` stay set as defense in depth.
 
 ## OpenAPI and i18n
 
@@ -60,6 +112,6 @@ class CloseTabRoute {
 ## Sessions and RBAC
 
 - Authentication is an opaque server-side session token; only its hash is stored. Session kinds: `person`, `terminal` (with operator PIN), `guest`.
-- Every request resolves the session → principal, tenant and branch (`SessionResolver`, see "Routes and access"); invalid or revoked tokens yield `401` on non-public routes.
-- Authorization is role-based per branch and lives in the application layer (use cases / bus, with the access module), never in routes: check the principal's roles for the target branch, not globally.
+- Every request resolves its bearer token to a `ResolvedSession` (principal id, session id, `SessionKind`) through `SessionResolver` (see "Routes and access"); invalid or revoked tokens yield `401` on non-public routes. Tenant and branch are not part of the session: the use case derives them from the principal and the request's input.
+- Authorization is role-based per branch and lives in the application layer (the use cases, called directly, with the access module), never in routes: check the principal's roles for the target branch, not globally.
 - Set the tenant for RLS from the session, never from a request parameter.

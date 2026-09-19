@@ -80,6 +80,18 @@ public sealed interface Result<T, E> permits Result.Success, Result.Failure {
     <F> Result<T, F> mapFailure(Function<? super E, ? extends F> mapper);
 
     /**
+     * Returns the value of a success, or throws the exception made from the error of a failure. Meant for the edge that
+     * turns a refusal into the framework's error handling, such as a route throwing
+     * {@code com.frappe.platform.web.RequestRefusedException}; code inside a module composes results instead.
+     *
+     * @param exceptionOf makes the exception to throw from the error
+     * @param <X> the exception type
+     * @return the value of a success
+     * @throws X for a failure
+     */
+    <X extends Throwable> T orElseThrow(Function<? super E, ? extends X> exceptionOf) throws X;
+
+    /**
      * Reduces the result to one value by applying the function of its branch.
      *
      * @param onSuccess applied to the value of a success
@@ -127,6 +139,11 @@ public sealed interface Result<T, E> permits Result.Success, Result.Failure {
         public <R> R fold(Function<? super T, ? extends R> onSuccess, Function<? super E, ? extends R> onFailure) {
             return onSuccess.apply(value);
         }
+
+        @Override
+        public <X extends Throwable> T orElseThrow(Function<? super E, ? extends X> exceptionOf) {
+            return value;
+        }
     }
 
     /**
@@ -166,6 +183,11 @@ public sealed interface Result<T, E> permits Result.Success, Result.Failure {
         @Override
         public <R> R fold(Function<? super T, ? extends R> onSuccess, Function<? super E, ? extends R> onFailure) {
             return onFailure.apply(error);
+        }
+
+        @Override
+        public <X extends Throwable> T orElseThrow(Function<? super E, ? extends X> exceptionOf) throws X {
+            throw exceptionOf.apply(error);
         }
     }
 }
