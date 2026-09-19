@@ -5,7 +5,8 @@ package com.frappe.platform;
  * a Spring bean that implements this interface is all it takes; the bus finds it at startup by the command type.
  *
  * <p>The {@code handle} method (or the class) must be {@code @Transactional}, so the saved state and the outbox rows
- * commit together; startup fails otherwise. Expected failures are returned as {@link Result.Failure}, never thrown.
+ * commit together; startup fails otherwise. Expected failures are returned as {@link Result.Failure}, never thrown; a
+ * returned failure rolls the transaction back, so nothing saved or recorded before the refusal persists.
  * Handlers never create telemetry: the bus observes every dispatch.
  *
  * @param <C> the handled command type, a concrete record

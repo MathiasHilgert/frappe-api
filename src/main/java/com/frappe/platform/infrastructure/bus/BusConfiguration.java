@@ -18,6 +18,17 @@ class BusConfiguration {
     BusConfiguration() {}
 
     /**
+     * Rolls back a command handler's transaction when it returns a failure. Static, as every bean post-processor, so
+     * it is created before (and never delays) the configuration's other beans.
+     *
+     * @return the post-processor
+     */
+    @Bean
+    static RollbackOnFailurePostProcessor rollbackOnFailurePostProcessor() {
+        return new RollbackOnFailurePostProcessor();
+    }
+
+    /**
      * The observed command bus over every {@code CommandHandler} bean.
      *
      * @param beans the bean factory holding the handlers

@@ -47,9 +47,15 @@ class UseCaseBusIntegrationTests {
         REJECTED
     }
 
-    /** Saves a probe row and records {@link ProbeRecorded}; a defect after saving rolls both back. */
-    record RecordProbe(UUID probeId, UUID eventId, boolean defectAfterSaving)
-            implements Command<Result<UUID, ProbeError>> {}
+    /** How {@link RecordProbeHandler} ends after saving and recording its event. */
+    enum Ending {
+        SUCCESS,
+        FAILURE,
+        DEFECT
+    }
+
+    /** Saves a probe row and records {@link ProbeRecorded}, then ends as told. */
+    record RecordProbe(UUID probeId, UUID eventId, Ending ending) implements Command<Result<UUID, ProbeError>> {}
 
     /** Saves two probes with one label; the deferred unique constraint fails the commit, not the insert. */
     record RecordDuplicateLabels(UUID firstId, UUID secondId, String label)
@@ -76,10 +82,11 @@ class UseCaseBusIntegrationTests {
         public Result<UUID, ProbeError> handle(RecordProbe command) {
             jdbc.update("insert into fixture.probe (id, label) values (?, ?)", command.probeId(), "bus");
             events.publish(new ProbeRecorded(command.eventId(), CLOCK.instant(), command.probeId(), 1, 1));
-            if (command.defectAfterSaving()) {
-                throw DEFECT;
-            }
-            return Result.success(command.probeId());
+            return switch (command.ending()) {
+                case SUCCESS -> Result.success(command.probeId());
+                case FAILURE -> Result.failure(ProbeError.REJECTED);
+                case DEFECT -> throw DEFECT;
+            };
         }
     }
 
@@ -141,7 +148,7 @@ class UseCaseBusIntegrationTests {
     @Test
     void aCommittedCommandStoresItsStateAndItsOutboxRow() {
         // Given
-        var command = new RecordProbe(ids.newId(), ids.newId(), false);
+        var command = new RecordProbe(ids.newId(), ids.newId(), Ending.SUCCESS);
 
         // When
         var result = bus.dispatch(command);
@@ -155,7 +162,7 @@ class UseCaseBusIntegrationTests {
     @Test
     void aRolledBackCommandLeavesNeitherItsStateNorItsOutboxRow() {
         // Given
-        var command = new RecordProbe(ids.newId(), ids.newId(), true);
+        var command = new RecordProbe(ids.newId(), ids.newId(), Ending.DEFECT);
 
         // When
         assertThatThrownBy(() -> bus.dispatch(command)).isSameAs(RecordProbeHandler.DEFECT);
@@ -165,6 +172,21 @@ class UseCaseBusIntegrationTests {
         assertThat(outboxRows(command.eventId())).isZero();
         assertThat(useCaseTimerCount("RecordProbe", "error", "IllegalStateException"))
                 .isOne();
+    }
+
+    @Test
+    void aCommandReturningAFailureRollsBackItsStateAndItsOutboxRow() {
+        // Given
+        var command = new RecordProbe(ids.newId(), ids.newId(), Ending.FAILURE);
+
+        // When
+        var result = bus.dispatch(command);
+
+        // Then
+        assertThat(result).isEqualTo(Result.failure(ProbeError.REJECTED));
+        assertThat(probeRows(command.probeId())).isZero();
+        assertThat(outboxRows(command.eventId())).isZero();
+        assertThat(useCaseTimerCount("RecordProbe", "failure", "none")).isOne();
     }
 
     @Test
