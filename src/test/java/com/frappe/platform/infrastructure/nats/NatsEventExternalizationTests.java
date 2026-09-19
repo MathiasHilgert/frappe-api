@@ -28,8 +28,7 @@ import org.springframework.modulith.events.support.EventExternalizerModuleListen
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionTemplate;
 
-// Stopgap until FAPI-6: the registry table comes from a test-only fixture migration in the platform schema.
-@SpringBootTest(properties = "spring.jpa.properties.hibernate.default_schema=platform")
+@SpringBootTest
 @Import({TestcontainersConfiguration.class, TestNatsConfiguration.class})
 @ActiveProfiles("local")
 class NatsEventExternalizationTests {

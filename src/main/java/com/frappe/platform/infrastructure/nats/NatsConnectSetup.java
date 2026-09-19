@@ -1,59 +1,45 @@
 package com.frappe.platform.infrastructure.nats;
 
+import com.frappe.platform.infrastructure.MessagingTransportRecovered;
 import io.nats.client.Connection;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.dao.DataAccessException;
-import org.springframework.modulith.events.EventExternalizationConfiguration;
-import org.springframework.modulith.events.EventPublication;
-import org.springframework.modulith.events.IncompleteEventPublications;
+import org.springframework.context.ApplicationEventPublisher;
 
 /**
- * Runs after every (re)connect: makes the stream match the code, then resubmits externalized publications that
- * failed while NATS was away. Without the resubmission they would wait for a restart or a manual retry.
+ * Runs after every (re)connect: makes the stream match the code, then announces {@link MessagingTransportRecovered} so
+ * the outbox recovery resubmits publications that failed while NATS was away. Without it they would wait for the next
+ * scheduled recovery run.
  */
 final class NatsConnectSetup implements Consumer<Connection> {
 
     private static final Logger log = LoggerFactory.getLogger(NatsConnectSetup.class);
 
     private final NatsStreamProvisioner provisioner;
-    private final EventExternalizationConfiguration externalization;
-    private final ObjectProvider<IncompleteEventPublications> incompletePublications;
+    private final ApplicationEventPublisher events;
 
     /**
      * Creates the setup.
      *
      * @param provisioner creates or updates the stream
-     * @param externalization decides which publications belong to NATS
-     * @param incompletePublications resubmission entry point of the publication registry, looked up lazily
+     * @param events announces the recovered transport
      */
-    NatsConnectSetup(
-            NatsStreamProvisioner provisioner,
-            EventExternalizationConfiguration externalization,
-            ObjectProvider<IncompleteEventPublications> incompletePublications) {
+    NatsConnectSetup(NatsStreamProvisioner provisioner, ApplicationEventPublisher events) {
         this.provisioner = provisioner;
-        this.externalization = externalization;
-        this.incompletePublications = incompletePublications;
+        this.events = events;
     }
 
     @Override
     public void accept(Connection connection) {
         try {
             provisioner.provision(connection);
-            incompletePublications.ifAvailable(
-                    publications -> publications.resubmitIncompletePublications(this::isFailedNatsPublication));
-        } catch (NatsProvisioningException | DataAccessException e) {
+            events.publishEvent(MessagingTransportRecovered.NATS);
+        } catch (NatsProvisioningException e) {
             // Runs on a background executor: this is the last place the failure can be reported.
             log.atError()
                     .setCause(e)
-                    .log("NATS connected but setup failed; publications stay incomplete until the next connect");
+                    .log("NATS connected but stream setup failed; the scheduled outbox recovery retries publications");
         }
-    }
-
-    private boolean isFailedNatsPublication(EventPublication publication) {
-        return publication.getStatus() == EventPublication.Status.FAILED
-                && externalization.supports(publication.getEvent());
     }
 }

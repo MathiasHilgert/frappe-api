@@ -35,10 +35,8 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.GenericContainer;
 
-// Stopgap until FAPI-6: the registry table comes from a test-only fixture migration in the platform schema.
 @SpringBootTest(
         properties = {
-            "spring.jpa.properties.hibernate.default_schema=platform",
             "frappe.nats.connection-timeout=500ms",
             "frappe.nats.reconnect-wait=200ms",
             "frappe.nats.publish-timeout=1s"

@@ -23,15 +23,55 @@ public record TabClosed(UUID eventId, Instant occurredAt, UUID aggregateId, long
 - Stream `FRAPPE` (`frappe.>`, limits retention, 7 days, 1 replica) is created or updated at startup; its config lives in `NatsStreamProvisioner`, not on the server.
 - `@Externalized` on a class that does not implement `DomainEvent` fails the publication with a message naming the class.
 - Config `frappe.nats.*` (defaults in `NatsProperties` only): `url` (`nats://localhost:4222`, compose's NATS; env `FRAPPE_NATS_URL`), `publish-timeout` (5s), `connection-timeout` (2s), `reconnect-wait` (2s), `connection-name`.
-- NATS is optional at startup: the API starts with a WARN, keeps reconnecting, and on every (re)connect provisions the stream and resubmits failed externalized publications.
+- NATS is optional at startup: the API starts with a WARN, keeps reconnecting, and on every (re)connect provisions the stream and publishes `MessagingTransportRecovered` (platform infrastructure), which triggers an immediate outbox recovery pass.
 
 ## Publishing (outbox)
 
-- Aggregates register events; the handler publishes the pulled events through Spring's `ApplicationEventPublisher` inside the command transaction.
-- Spring Modulith's event publication registry writes each event to the Postgres outbox in that same transaction. All events go through it, including those consumed inside the same module.
-- After commit, the relay publishes to JetStream synchronously and the publication is marked complete only after the ack. If NATS is down the publish fails after `publish-timeout` and the publication stays incomplete for resubmission; nothing blocks indefinitely.
+- Aggregates register events; the command handler saves the aggregate, then hands the pulled events to the kernel port `com.frappe.platform.DomainEventPublisher`, inside the command transaction. Never inject Spring's `ApplicationEventPublisher` in application code.
+
+```java
+@Transactional
+public Result<TabId, TabError> handle(CloseTab cmd) {
+    return tabs.byId(cmd.tabId())
+            .flatMap(tab -> tab.close(clock))
+            .map(tab -> {
+                tabs.save(tab);
+                events.publishAll(tab.pullEvents()); // stored with the aggregate, or not at all
+                return tab.id();
+            });
+}
+```
+
+- The adapter (`platform.infrastructure.events`) is `@Transactional(propagation = MANDATORY)`: publishing outside a transaction throws `IllegalTransactionStateException`, because the event could not reach the outbox atomically.
+- Spring Modulith's JDBC event publication registry writes one row per interested listener to `platform.event_publication` in that transaction; rollback leaves no row. All events go through it, including those consumed inside the same module. The tables are the official Modulith 2.1.1 Postgres DDL, created by Flyway (`db/migration/platform`); `spring.modulith.events.jdbc.schema-initialization.enabled=false`.
+- After commit, the relay publishes to JetStream synchronously and the publication completes only after the ack. Completion mode `ARCHIVE` then moves the row to `platform.event_publication_archive` (purging the archive is a follow-up). If NATS is down the publish fails after `publish-timeout` and the row stays in `event_publication` as `FAILED`; nothing blocks indefinitely.
 - Every publish is observed once in the transport (`nats.publish`: a span `publish <subject>` and a timer tagged `messaging.system`, `messaging.destination.name`, `error`; the event id is a span attribute only). Do not add telemetry around publishing elsewhere.
+- Recovery has two paths. Both can deliver an event twice (an attempt judged stuck that was only slow, two instances): JetStream drops duplicates by `Nats-Msg-Id` only within its 10-minute window; after that the consumer inbox on `eventId` is the guarantee.
+  1. Every NATS (re)connect triggers the recovery pass below at once, ignoring the backoff (the failures were most likely the outage) but bounded by `batch-size`. Passes never overlap: a triggered pass waits for a running one.
+  2. `frappe.outbox.recovery.*` (defaults in `OutboxRecoveryProperties`: `interval` 1m, `batch-size` 100, `stuck-after` 5m, `max-attempts` 24, `max-backoff` 1h) runs on a fixed delay:
+     1. Fails attempts stuck without outcome, judged by `last_resubmission_date` or, for a first attempt, `publication_date`. Keep `stuck-after` above `frappe.nats.publish-timeout` plus the slowest listener.
+     2. Moves failed publications with `completion_attempts >= max-attempts` (Modulith stores 1 on publish and adds one per resubmission, so `max-attempts` counts every attempt, the first publish included) (`MAX_ATTEMPTS_EXHAUSTED`) to `platform.event_publication_dead_letter` and logs each once at ERROR (`frappe.outbox.publication_id`, `event_type`, `listener_id`, `completion_attempts`, `dead_letter_reason`).
+     3. Loads at most one batch (minus publications still in flight) of failed publications whose backoff elapsed (`interval` doubling per attempt, capped at `max-backoff`; about 18 hours of retries with the defaults), least recently attempted first, and resubmits each with `PublicationRedelivery`: the same guarded claim (`markResubmitted`) and listener call (`processEvent`) Modulith uses, since Modulith has no public API to resubmit a chosen, bounded set. A publication that keeps failing waits longer and goes to the back, so it never starves newer failures. One that can never be delivered is dead-lettered without affecting the rest of the batch: `UNKNOWN_EVENT_TYPE` (class renamed or deleted), `UNREADABLE_PAYLOAD` (JSON no longer fits), `UNKNOWN_LISTENER` (listener removed). An asynchronous listener failure of a resubmitted publication (the NATS relay) is accepted to leave the row RESUBMITTED until `stuck-after` (default 5m) releases it, because Modulith's in-progress tracking is internal; it then retries with backoff. `ModulithRegistryContractIntegrationTests` pins the Modulith behaviors `PublicationRedelivery` mirrors; revisit them on every Modulith upgrade.
+     4. Refreshes the gauge `outbox.dead.letters`; alert on any value above zero.
+   Every pass is observed as `outbox.recovery` (span and timer tagged `outbox.recovery.trigger`: `scheduled`, `transport_recovered`; `error` on a database failure) and every handed-over publication as `outbox.redelivery` (tagged `outbox.redelivery.outcome`; the publication id is a span attribute only). Automatic infrastructure telemetry: do not add more around the outbox.
+- Spring Modulith's staleness monitor (`spring.modulith.events.staleness.*`) stays off: it judges every status by `publication_date`, so it would fail an old event in the middle of its resubmission and cause concurrent duplicate runs.
+- `republish-outstanding-events-on-restart` stays off (Modulith issue #526; it would resubmit in-flight publications of every instance).
 - No ordering across instances: consumers order per aggregate with `aggregateVersion`.
+
+
+### Dead letters: manual replay
+
+Fix the cause first (deploy the missing consumer, restore the event class, bring NATS back). Then move the row back as `frappe_app`; the next recovery run resubmits it with a fresh attempt budget:
+
+```sql
+with replay as (
+    delete from platform.event_publication_dead_letter where id = :publication_id returning *)
+insert into platform.event_publication (id, listener_id, event_type, serialized_event, publication_date, status,
+    completion_attempts)
+select id, listener_id, event_type, serialized_event, publication_date, 'FAILED', 0 from replay;
+```
+
+Drop `where id = ...` to replay all, or filter by `reason` / `event_type`. To discard a dead letter, delete it and record why in the incident.
 
 ## Consuming
 
