@@ -3,10 +3,10 @@ package com.frappe.platform.infrastructure.nats;
 import io.micrometer.observation.ObservationRegistry;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.modulith.events.EventExternalizationConfiguration;
-import org.springframework.modulith.events.IncompleteEventPublications;
 import org.springframework.modulith.events.support.EventExternalizerModuleListener;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -33,17 +33,13 @@ class NatsConfiguration {
      *
      * @param properties connection settings
      * @param provisioner stream provisioning
-     * @param externalization selects NATS publications for resubmission
-     * @param incompletePublications registry resubmission, looked up lazily
+     * @param events announces the recovered transport to the outbox recovery
      * @return the client
      */
     @Bean
     NatsClient natsClient(
-            NatsProperties properties,
-            NatsStreamProvisioner provisioner,
-            EventExternalizationConfiguration externalization,
-            ObjectProvider<IncompleteEventPublications> incompletePublications) {
-        return new NatsClient(properties, new NatsConnectSetup(provisioner, externalization, incompletePublications));
+            NatsProperties properties, NatsStreamProvisioner provisioner, ApplicationEventPublisher events) {
+        return new NatsClient(properties, new NatsConnectSetup(provisioner, events));
     }
 
     /**

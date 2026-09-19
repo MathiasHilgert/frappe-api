@@ -9,6 +9,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -16,6 +17,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.frappe.platform.infrastructure.MessagingTransportRecovered;
 import com.frappe.platform.infrastructure.events.PublicationRedelivery.Outcome;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
@@ -25,6 +27,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -180,6 +183,46 @@ class FailedPublicationResubmitterTest {
 
         // Then
         assertThat(registry.get("frappe.outbox.dead.letters").gauge().value()).isEqualTo(3.0);
+    }
+
+    @Test
+    void aRecoveredTransportTriggersOneBoundedRunWithoutWaitingForTheBackoff() {
+        // When
+        resubmitter.onTransportRecovered(MessagingTransportRecovered.NATS);
+
+        // Then
+        // Failures caused by the outage are due at once; the batch still bounds the run.
+        verify(outbox).findRetryable(NOW, 50, Duration.ZERO, Duration.ofHours(1));
+    }
+
+    @Test
+    void aTriggeredRunWaitsForTheRunningOneInsteadOfOverlapping() throws Exception {
+        // Given
+        var firstRunStarted = new CountDownLatch(1);
+        var releaseFirstRun = new CountDownLatch(1);
+        var publication = failedPublication(Probe.class.getName());
+        when(outbox.findRetryable(any(), anyInt(), any(), any())).thenReturn(List.of(publication));
+        when(redelivery.redeliver(any(), any())).thenAnswer(call -> {
+            firstRunStarted.countDown();
+            releaseFirstRun.await();
+            return Outcome.RESUBMITTED;
+        });
+        var scheduled = new Thread(resubmitter);
+        scheduled.start();
+        firstRunStarted.await();
+
+        // When
+        var triggered = new Thread(() -> resubmitter.onTransportRecovered(MessagingTransportRecovered.NATS));
+        triggered.start();
+        triggered.join(300);
+
+        // Then
+        assertThat(triggered.isAlive()).isTrue();
+        verify(outbox, times(1)).releaseStuckPublications(any());
+        releaseFirstRun.countDown();
+        scheduled.join();
+        triggered.join();
+        verify(outbox, times(2)).releaseStuckPublications(any());
     }
 
     @Test

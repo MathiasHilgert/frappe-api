@@ -82,7 +82,7 @@ class OutboxRecoveryIntegrationTests {
         var event = new CourseFired(ids.newId(), clock.instant(), ids.newId(), 1, 1);
         withNatsPaused(() -> {
             transactions.executeWithoutResult(status -> publisher.publish(event));
-            await().atMost(Duration.ofSeconds(5)).until(() -> "FAILED".equals(outboxStatus(event)));
+            await().atMost(Duration.ofSeconds(5)).until(() -> firstAttemptFailed(event));
         });
 
         // When / Then
@@ -97,7 +97,7 @@ class OutboxRecoveryIntegrationTests {
         var event = new DessertServed(ids.newId(), clock.instant(), ids.newId(), 1, 1);
         withNatsPaused(() -> {
             transactions.executeWithoutResult(status -> publisher.publish(event));
-            await().atMost(Duration.ofSeconds(5)).until(() -> "FAILED".equals(outboxStatus(event)));
+            await().atMost(Duration.ofSeconds(5)).until(() -> firstAttemptFailed(event));
             // Simulates an instance that stored the publication and died before its listener ran.
             jdbc.update(
                     "update platform.event_publication set status = 'PUBLISHED' where serialized_event like ?",
@@ -115,7 +115,7 @@ class OutboxRecoveryIntegrationTests {
         var event = new CourseFired(ids.newId(), clock.instant(), ids.newId(), 1, 1);
         withNatsPaused(() -> {
             transactions.executeWithoutResult(status -> publisher.publish(event));
-            await().atMost(Duration.ofSeconds(5)).until(() -> "FAILED".equals(outboxStatus(event)));
+            await().atMost(Duration.ofSeconds(5)).until(() -> firstAttemptFailed(event));
         });
         // Older than the valid row, so they come first in every selection.
         var removedType = insertFailedCopyOf(event, "com.frappe.removed.TableMerged", "{}");
@@ -168,6 +168,13 @@ class OutboxRecoveryIntegrationTests {
         } finally {
             docker.unpauseContainerCmd(container).exec();
         }
+    }
+
+    // While NATS is paused the 500ms recovery keeps retrying, so the row alternates between FAILED and RESUBMITTED
+    // (an async failure stays RESUBMITTED until stuck-after); either means the first attempt failed.
+    private boolean firstAttemptFailed(DomainEvent event) {
+        var status = outboxStatus(event);
+        return "FAILED".equals(status) || "RESUBMITTED".equals(status);
     }
 
     private String outboxStatus(DomainEvent event) {

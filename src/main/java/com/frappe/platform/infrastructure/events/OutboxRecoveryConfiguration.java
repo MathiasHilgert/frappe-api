@@ -1,5 +1,6 @@
 package com.frappe.platform.infrastructure.events;
 
+import com.frappe.platform.infrastructure.MessagingTransportRecovered;
 import java.time.Clock;
 import java.util.Collection;
 import java.util.function.Supplier;
@@ -8,6 +9,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.event.EventListener;
 import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.modulith.events.core.EventPublicationRepository;
 import org.springframework.modulith.events.core.EventSerializer;
@@ -67,10 +69,21 @@ class OutboxRecoveryConfiguration implements SchedulingConfigurer {
     private static Supplier<Collection<ApplicationListener<?>>> listenersOf(ApplicationContext context) {
         if (!(context instanceof AbstractApplicationContext listenerRegistry)) {
             throw new IllegalStateException(
-                    "Outbox recovery needs an AbstractApplicationContext to find event listeners," + " got "
+                    "Outbox recovery needs an AbstractApplicationContext to find event listeners, got "
                             + context.getClass().getName());
         }
         return listenerRegistry::getApplicationListeners;
+    }
+
+    /**
+     * Runs a recovery pass at once when a messaging transport came back; published by the transport adapter, which
+     * does not know the outbox.
+     *
+     * @param recovered the transport that came back
+     */
+    @EventListener
+    void onTransportRecovered(MessagingTransportRecovered recovered) {
+        resubmitter.onTransportRecovered(recovered);
     }
 
     // Fixed delay, not rate: a run that waits on a slow NATS never overlaps the next one.

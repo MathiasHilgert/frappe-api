@@ -22,13 +22,23 @@ import tools.jackson.core.JacksonException;
  * FailedEventPublications.resubmit} limits before it filters, and {@code IncompleteEventPublications} reads every
  * incomplete row.
  *
- * <p>Same steps, same public building blocks: the registry's {@link EventSerializer}, the guarded {@link
- * EventPublicationRepository#markResubmitted} ({@code STATUS != 'RESUBMITTED'}, {@code completion_attempts + 1}, {@code
- * last_resubmission_date}), and {@link TransactionalApplicationListener#processEvent} on the listener with the stored
- * id. One difference: Modulith also registers the publication as in progress, which is internal API, so a listener
- * failing asynchronously (the NATS relay) does not mark the row FAILED; it stays RESUBMITTED until {@code
- * frappe.outbox.recovery.stuck-after} releases it. Completion works unchanged: the registry falls back to completing by
- * event and listener.
+ * <p>Mirrored Spring Modulith 2.1.1 behaviors, each pinned by {@code ModulithRegistryContractIntegrationTests} so an
+ * upgrade that changes one fails the build:
+ *
+ * <ol>
+ *   <li>Listener lookup: the row's {@code listener_id} equals {@link TransactionalApplicationListener#getListenerId()}
+ *       of a listener the application context exposes ({@code invokeTargetListener} matches the same id).
+ *   <li>Claim: {@link EventPublicationRepository#markResubmitted} succeeds once per attempt ({@code STATUS !=
+ *       'RESUBMITTED'} guard), sets {@code last_resubmission_date} and increments {@code completion_attempts}.
+ *   <li>Delivery: {@link TransactionalApplicationListener#processEvent} with the deserialized event wrapped in a
+ *       {@link PayloadApplicationEvent}, as {@code executeListenerWithCompletion} does.
+ *   <li>Completion without in-progress state: {@code EventPublicationRegistry.markCompleted(event, listener)} completes
+ *       by serialized event and listener id and, in ARCHIVE mode, moves the row to the archive.
+ * </ol>
+ *
+ * <p>One accepted difference: Modulith also registers the publication as in progress, which is internal API, so a
+ * listener failing asynchronously (the NATS relay) does not mark the row FAILED; it stays RESUBMITTED until {@code
+ * frappe.outbox.recovery.stuck-after} releases it for the next retry.
  */
 class PublicationRedelivery {
 
