@@ -21,7 +21,7 @@ Strict TDD. Runner: `./gradlew test` (in-memory span exporter, Testcontainers Po
 
 ## Tasks
 - [x] T0 Verify Micrometer Tracing / Boot 4.1.1 propagation APIs (Propagator, SenderContext/ReceiverContext, links) from sources; decide trace-context storage; record here
-- [ ] T1 Capture trace context at record time and persist it with the publication (commit/rollback semantics match the outbox)
+- [x] T1 Capture trace context at record time and persist it with the publication (commit/rollback semantics match the outbox)
 - [ ] T2 Producer span + header injection on publish, using the stored context (also after resubmission)
 - [ ] T3 Consumer helper: extract and link; no header → works without link; malformed → works, WARN once
 - [ ] T4 Docs (`writing-code` events, `observing-the-api`), `./gradlew check` green, PR per template
@@ -52,5 +52,11 @@ Strict TDD. Runner: `./gradlew test` (in-memory span exporter, Testcontainers Po
 - **Consumer**: `NatsProcessObservations` creates a CONSUMER span `process <subject>` that links to the creation context from the headers (never a parent). No header: no link, no log. Malformed header: no link; the first one per process is logged at WARN, later ones at DEBUG (no log flood from one broken producer).
 - Telemetry never fails publishing: a failing lookup of the stored context (`DataAccessException`) publishes without trace headers and logs one WARN.
 
+### T1 capture and persist
+- RED `W3cTraceContextTest` (17 cases): compilation failed, `W3cTraceContext` missing. GREEN: record with `parse` (never throws; malformed traceparent → empty, malformed tracestate dropped, W3C 512-char limit) and the validating canonical constructor.
+- RED `TraceContextRecordingIntegrationTests`: first `BadSqlGrammarException` (no table); with migration `V202609190900__create_event_trace_context.sql`, `recordsTheActiveTraceContextWithAnExternalizedEvent` failed with `Expecting Optional to contain a value but was empty` (nothing recorded yet). First GREEN attempt failed on the test itself: OTel 1.62 writes flags `03` (sampled + W3C level 2 random trace id), not `01`; the assertion now parses the value and checks trace id and the sampled bit. GREEN: 4/4 (records in the command trace; nothing without a trace; rolled back with the event; nothing for an event that is not externalized). `DomainEventPublisherIntegrationTests` 5/5 still green.
+- Code: `tracing.EventTraceContexts#recordCurrent` (Tracer + configured `Propagator`), `EventTraceContextRepository` (`on conflict do nothing`), `OutboxDomainEventPublisher` records the context for events selected by `EventExternalizationConfiguration`.
+- `./gradlew spotlessApply check`: BUILD SUCCESSFUL.
+
 ## Next step
-T1.
+T2.
