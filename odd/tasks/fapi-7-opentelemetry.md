@@ -32,7 +32,7 @@ Strict TDD. Runner: `./gradlew test` (in-memory exporters / `TestObservationRegi
 - [x] T5 Business metrics facade from domain events + tag policy guard (no tenant/entity tags); tests
 - [x] T6 `otel-lgtm` in compose + README (how to open Grafana); manual check documented
 - [x] T7 Skill `observing-the-api` + vendored skills + AGENTS.md routing; Ticket Standard note for Plane (orchestrator updates the page)
-- [ ] T8 `./gradlew check` green; PR per template
+- [x] T8 `./gradlew check` green; PR per template
 
 ## Acceptance (from ticket and comments)
 - Request trace with HTTP + DB spans visible in Tempo locally.
@@ -105,5 +105,14 @@ Under **Contracts**, add:
 
 > **Business metrics.** List every business metric the feature records, or write "none" with the reason. One line per metric: full name (`frappe.<module>.<noun>.<past-participle>`), type (counter / distribution), unit for distributions (`items`, `seconds`, `bytes`, `money`), tags (enum or boolean event fields only; never tenant, branch, user or entity ids) and the domain event it is declared on (`@Counted` / `@Measured`, or a `BusinessMetricsDeclaration` when the annotations cannot express it). Example: `frappe.order.tabs.closed` — counter — tags `channel` — on `TabClosed`. Acceptance includes a test per metric (`assertThatBusinessMetric`). Infrastructure telemetry (HTTP, database, messaging, JVM) is automatic and is never listed or hand-written; reviewers reject missing business metrics and hand-written technical metrics or spans.
 
+### T8
+- `FRAPPE_TEST_DB=frappe_fapi_7 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 66 tests, 0 failures, javadoc doclint clean, `ModularityTests` green.
+- PR not opened (orchestrator's decision); body per template from this document.
+
+## Open questions
+- Module listener span in the same trace is proven only for Spring Modulith's wiring; an end-to-end test needs the first business module with a cross-module listener.
+- OTLP log export (Loki) needs the OpenTelemetry Logback appender; not in this ticket's acceptance.
+- `code-reviewer` agents could get an explicit check for business metrics under Contracts once the Ticket Standard is updated.
+
 ## Next step
-T0.
+Orchestrator: review, update the Ticket Standard in Plane, open the PR.
