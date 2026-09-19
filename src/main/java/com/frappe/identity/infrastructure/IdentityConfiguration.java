@@ -1,10 +1,12 @@
 package com.frappe.identity.infrastructure;
 
 import com.frappe.identity.domain.BreachedPasswords;
+import com.frappe.identity.domain.LegalVersions;
 import com.frappe.identity.domain.PasswordHasher;
 import com.frappe.identity.domain.PasswordPolicy;
 import com.frappe.identity.domain.Secrets;
 import java.security.SecureRandom;
+import java.util.Objects;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -48,6 +50,20 @@ class IdentityConfiguration {
     @Bean
     Secrets secrets() {
         return new SecureRandomSecrets(new SecureRandom());
+    }
+
+    /**
+     * The current legal versions; startup fails when either is not set.
+     *
+     * @param properties identity's settings
+     * @return the versions
+     */
+    @Bean
+    LegalVersions legalVersions(IdentityProperties properties) {
+        var legal = Objects.requireNonNull(properties.legal(), "frappe.identity.legal.* must be set");
+        return new LegalVersions(
+                Objects.requireNonNull(legal.termsVersion(), "frappe.identity.legal.terms-version must be set"),
+                Objects.requireNonNull(legal.privacyVersion(), "frappe.identity.legal.privacy-version must be set"));
     }
 
     /**
