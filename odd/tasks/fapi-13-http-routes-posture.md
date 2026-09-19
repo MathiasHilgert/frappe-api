@@ -26,7 +26,7 @@ Problem bodies and localization (FAPI-14); session storage and step-up (identity
 Strict TDD. Runner: `./gradlew test` (MockMvcTester, `WebApplicationContextRunner` startup-failure tests, Testcontainers Postgres + NATS for full contexts, `FRAPPE_TEST_DB=frappe_fapi_13`). RED before each behavior.
 
 ## Tasks
-- [ ] T0 Verify Spring Security 7 / Boot 4.1.1 / springdoc versions and APIs from the jars; record here
+- [x] T0 Verify Spring Security 7 / Boot 4.1.1 / springdoc versions and APIs from the jars; record here
 - [ ] T1 Public API + route catalog: startup fails for a route without `@Access`, with two mapped methods or an inconsistent posture; `/v1` prefix
 - [ ] T2 Stateless security chain: bearer-only session resolution, posture enforcement (PUBLIC, AUTHENTICATED, PERMISSION, SYSTEM), deny by default, health and error dispatch reachable
 - [ ] T3 OpenAPI: spec with bearer requirement and 401/403 on non-public routes; swagger-ui only in `local`
@@ -44,7 +44,16 @@ Strict TDD. Runner: `./gradlew test` (MockMvcTester, `WebApplicationContextRunne
 `FRAPPE_TEST_DB=frappe_fapi_13 ./gradlew spotlessApply check --rerun-tasks`.
 
 ## Progress / evidence
-(filled per task)
+
+### T0 findings (verified from the resolved dependency tree and the sources jars from Maven Central)
+- Resolved with `spring-boot-starter-security` and springdoc added: Spring Security 7.1.1 (`spring-boot-security` 4.1.1), Spring Framework (webmvc) 7.0.9, springdoc-openapi 3.1.1 (latest release; its parent is `spring-boot-starter-parent` 4.1.0, swagger-core-jakarta 2.2.55, swagger-ui 5.32.14). `spring-boot-starter-security-test` 4.1.1 exists.
+- Security 7: `AuthorizationManager#authorize(Supplier<? extends Authentication>, T)` returns `AuthorizationResult` (the old `check` is gone); `AuthorizationDecision`, `AuthenticatedAuthorizationManager.authenticated()`, `SingleResultAuthorizationManager.permitAll()/denyAll()`. `Authentication#toBuilder()` has a default, so `AbstractAuthenticationToken(Collection)` subclasses need nothing extra.
+- `HttpSecurity` DSL (Customizer-only): `csrf`, `sessionManagement`, `httpBasic`, `formLogin`, `logout`, `requestCache`, `anonymous`, `exceptionHandling`, `authorizeHttpRequests` with `dispatcherTypeMatchers`, `requestMatchers(RequestMatcher...)`, `anyRequest().access(AuthorizationManager<RequestAuthorizationContext>)`, `addFilterBefore`.
+- Boot's `UserDetailsServiceAutoConfiguration` (`org.springframework.boot.security.autoconfigure`) creates an in-memory user and logs a generated password whenever no `AuthenticationManager`/`AuthenticationProvider`/`UserDetailsService` bean exists: we have none (bearer sessions come from `SessionResolver`), so it is excluded explicitly. Actuator matcher: `org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest.to(HealthEndpoint.class)`.
+- Spring MVC 7: `HandlerMappingIntrospector` is `@Deprecated(since = "7.0", forRemoval = true)`, so the route for a request is resolved with MVC's own algorithm over `RequestMappingHandlerMapping#getHandlerMethods()`: every `RequestMappingInfo#getMatchingCondition(request)` that matches, best by `RequestMappingInfo#compareTo(other, request)`, a tie is ambiguous (MVC throws `IllegalStateException` there, so the filter denies). Path conditions need the parsed request path (`ServletRequestPathUtils.parseAndCache`, cleared afterwards, as Security's `PathPatternRequestMatcher` does). Known limit: API-versioned mappings (`version` attribute) need MVC's version attribute; `/v1` is our versioning, so none exist.
+- `RequestMappingHandlerMapping#setPathPrefixes` / `PathMatchConfigurer#addPathPrefix(String, Predicate<Class<?>>)` + `HandlerTypePredicate.forBasePackage("com.frappe")`: the prefix is part of the registered `RequestMappingInfo`, so matching and springdoc see `/v1/...`.
+- springdoc 3.1.1: `org.springdoc.core.customizers.OperationCustomizer#customize(Operation, HandlerMethod)`, `OpenApiCustomizer`; properties `springdoc.swagger-ui.enabled`, `springdoc.api-docs.enabled`.
+- Forwarded headers: `server.forward-headers-strategy=native` enables Tomcat's `RemoteIpValve` (X-Forwarded-For/-Proto/-Host); `server.tomcat.remoteip.internal-proxies` accepts a CIDR list or a regex; Boot's default trusts every private range (10/8, 172.16/12, 192.168/16, 100.64/10, 127/8, link-local, fc00::/7, ::1), so it is narrowed to the configured proxy.
 
 ## Next step
-T0.
+T1.
