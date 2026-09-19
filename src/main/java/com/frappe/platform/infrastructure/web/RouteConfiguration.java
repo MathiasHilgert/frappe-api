@@ -1,5 +1,6 @@
 package com.frappe.platform.infrastructure.web;
 
+import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -20,6 +21,20 @@ class RouteConfiguration {
     @Bean
     WebMvcConfigurer apiPathPrefix() {
         return new ApiPathPrefix();
+    }
+
+    /**
+     * Fails startup for functional routes and handler mappings that serve paths outside the annotated routes, and
+     * tells the security chain at runtime whether such a handler would serve a request.
+     *
+     * @param beans the application's beans
+     * @param requestMappingHandlerMapping Spring MVC's annotated handler mappings
+     * @return the guard
+     */
+    @Bean
+    HandlerMappingGuard handlerMappingGuard(
+            ListableBeanFactory beans, RequestMappingHandlerMapping requestMappingHandlerMapping) {
+        return new HandlerMappingGuard(beans, requestMappingHandlerMapping);
     }
 
     /**

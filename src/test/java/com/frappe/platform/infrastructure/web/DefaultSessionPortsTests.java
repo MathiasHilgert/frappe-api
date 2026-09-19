@@ -31,6 +31,7 @@ class DefaultSessionPortsTests {
                     HttpMessageConvertersAutoConfiguration.class,
                     SecurityAutoConfiguration.class,
                     ServletWebSecurityAutoConfiguration.class))
+            .withPropertyValues("spring.web.resources.add-mappings=false")
             .withUserConfiguration(RouteConfiguration.class, SecurityConfiguration.class);
 
     @RestController

@@ -85,19 +85,7 @@ final class RouteCatalog {
      * @return the serving application route, another handler (framework controller or ambiguous match), or none
      */
     RouteMatch match(HttpServletRequest request) {
-        // Path conditions read the parsed path Spring MVC caches only once it dispatches; parse it here and remove it
-        // again so dispatching starts from a clean request, as Spring Security's PathPatternRequestMatcher does.
-        var parsedHere = !ServletRequestPathUtils.hasParsedRequestPath(request);
-        if (parsedHere) {
-            ServletRequestPathUtils.parseAndCache(request);
-        }
-        try {
-            return bestMatch(request);
-        } finally {
-            if (parsedHere) {
-                ServletRequestPathUtils.clearParsedRequestPath(request);
-            }
-        }
+        return ParsedRequestPath.during(request, () -> bestMatch(request));
     }
 
     private RouteMatch bestMatch(HttpServletRequest request) {

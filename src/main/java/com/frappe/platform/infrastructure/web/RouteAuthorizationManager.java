@@ -16,7 +16,7 @@ import org.springframework.security.web.access.intercept.RequestAuthorizationCon
  * Decides every request by the posture of the route that serves it, with one authorization manager per route built
  * from its posture: this is authentication enforcement only (is there a caller?), never permissions, which the use
  * case decides. A request no annotated handler serves passes through, so Spring MVC answers 404 or 405 (route
- * shapes are public in the OpenAPI spec anyway). A framework controller or an ambiguous match is refused unless the
+ * shapes are public in the OpenAPI spec anyway), but only when no other handler mapping would serve it. A framework controller or an ambiguous match is refused unless the
  * chain permits its path explicitly: 401 for an anonymous caller, 403 for a caller with a session.
  */
 final class RouteAuthorizationManager implements AuthorizationManager<RequestAuthorizationContext> {
@@ -25,15 +25,18 @@ final class RouteAuthorizationManager implements AuthorizationManager<RequestAut
     private static final AuthorizationDecision GRANTED = new AuthorizationDecision(true);
 
     private final RouteCatalog routes;
+    private final HandlerMappingGuard otherHandlers;
     private final Map<Route, AuthorizationManager<RequestAuthorizationContext>> managers;
 
     /**
      * Builds the authorization manager of every route.
      *
      * @param routes the checked routes
+     * @param otherHandlers tells whether a handler outside the routes would serve a request
      */
-    RouteAuthorizationManager(RouteCatalog routes) {
+    RouteAuthorizationManager(RouteCatalog routes, HandlerMappingGuard otherHandlers) {
         this.routes = routes;
+        this.otherHandlers = otherHandlers;
         this.managers = routes.routes().stream()
                 .collect(Collectors.toUnmodifiableMap(route -> route, route -> managerFor(route.posture())));
     }
@@ -47,8 +50,8 @@ final class RouteAuthorizationManager implements AuthorizationManager<RequestAut
                 yield decision == null ? DENIED : decision;
             }
             case RouteMatch.OtherHandler() -> DENIED;
-            // No controller can run: let Spring MVC answer 404 or 405 as any HTTP server would.
-            case RouteMatch.NoHandler() -> GRANTED;
+            // No route matches: let Spring MVC answer 404 or 405, unless another handler mapping would serve it.
+            case RouteMatch.NoHandler() -> otherHandlers.servesOutsideRoutes(context.getRequest()) ? DENIED : GRANTED;
         };
     }
 

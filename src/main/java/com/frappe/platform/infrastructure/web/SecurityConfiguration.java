@@ -50,17 +50,22 @@ class SecurityConfiguration {
      *
      * @param http Spring Security's builder
      * @param routes the checked routes
+     * @param otherHandlers the guard over handler mappings outside the routes
      * @param sessionResolver identity's session resolver, when present
      * @return the filter chain
      * @throws Exception when Spring Security cannot build the chain
      */
     @Bean
     SecurityFilterChain apiSecurityFilterChain(
-            HttpSecurity http, RouteCatalog routes, ObjectProvider<SessionResolver> sessionResolver) throws Exception {
+            HttpSecurity http,
+            RouteCatalog routes,
+            HandlerMappingGuard otherHandlers,
+            ObjectProvider<SessionResolver> sessionResolver)
+            throws Exception {
         // Stateless: the context lives in a request attribute, saved once and reloaded on async and error dispatches.
         var contexts = new RequestAttributeSecurityContextRepository();
         var bearerSessions = new BearerSessionFilter(sessionResolver.getIfAvailable(() -> NO_SESSIONS), contexts);
-        var routeAuthorization = new RouteAuthorizationManager(routes);
+        var routeAuthorization = new RouteAuthorizationManager(routes, otherHandlers);
         return http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sessions -> sessions.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .securityContext(context -> context.securityContextRepository(contexts))

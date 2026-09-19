@@ -255,6 +255,12 @@ class RouteAccessTests {
     }
 
     @Test
+    void staticResourcesAreNotServed() {
+        // Given src/test/resources/static/leak.txt, which Boot would serve at /leak.txt with resource mappings on
+        assertThat(http.get().uri("/leak.txt")).hasStatus(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
     void actuatorEndpointsOtherThanHealthStayClosed() {
         assertThat(http.get().uri("/actuator")).hasStatus(HttpStatus.UNAUTHORIZED);
     }

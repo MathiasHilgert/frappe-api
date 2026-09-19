@@ -114,6 +114,20 @@ T0 `ce42b24` (plan `bd34405`), T1 `2e683f6`, T2 `0f277bb`, T3 `11a1dd6`, T4 `93b
 - Choice: `org.springdoc:springdoc-openapi-starter-webmvc-scalar:3.1.1` (Maven Central, released with springdoc 3.1.1 on Boot 4.1). Checked in its sources: it depends on Scalar's own Java integration `com.scalar.maven:scalar-webmvc` (0.5.55, pinned by the springdoc parent), and springdoc's `ScalarConfiguration` wires Scalar to springdoc's own spec path (`/v3/api-docs`). Using Scalar's integration directly (latest 0.6.69) would mean wiring the spec URL by hand and following a second release train. The springdoc starter is maintained by the same project as the spec generator and upgrades with it. Scalar serves its JS from the jar (`/scalar/scalar.js`), not from a CDN. Toggle: `scalar.enabled` (`false` in `application.properties`, `true` in `application-local.properties`); path `/scalar`.
 - RED `OpenApiTests.theScalarApiReferenceIsServedInTheLocalProfile` (`expected: 200 but was: 404`), `OpenApiTests.swaggerUiIsNotServed` (`expected: 404 but was: 200`); `OpenApiOutsideLocalProfileTests.theScalarApiReferenceIsNotServed` (guard). GREEN 5/5 after swapping `springdoc-openapi-starter-webmvc-ui` for the Scalar starter and permitting `/scalar`, `/scalar/**` instead of the swagger paths. The spec still shows bearer + 401.
 
+### R7 BLOCKER: handlers outside the annotated routes
+- Finding (re-review): R2 granted every request `RequestMappingHandlerMapping` did not match, so a `RouterFunction`, static resource or custom `HandlerMapping` was served anonymously without `@Access` (probe `/v1/fn/secret` → 200).
+- Handler mappings in the full context (listed with a throwaway test): `requestMappingHandlerMapping`, `routerFunctionMapping`, `beanNameHandlerMapping` (empty), `welcomePageHandlerMapping` / `welcomePageNotAcceptableHandlerMapping` (empty), `resourceHandlerMapping` (`/webjars/**`, `/**`), and the actuator mappings `webEndpointServletHandlerMapping`, `controllerEndpointHandlerMapping`, `healthEndpointWebMvcHandlerMapping`. Spring MVC 7's `resourceHandlerMapping` returns no bean when there are no resource registrations.
+- RED:
+  - `RouteStartupTests.startupFailsForAFunctionalRouteBecauseItCannotDeclareAPosture` and `startupFailsForAHandlerMappingThatServesPathsOutsideTheRoutes`: the context started.
+  - `RouteAccessTests.staticResourcesAreNotServed` (test resource `static/leak.txt`): `expected: 404 but was: 200`, the leak reproduced.
+  - `HandlerMappingGuardTest` (a `RouterFunctionMapping` given a router function in code, so the startup check cannot see it): compilation, the guard was missing.
+- GREEN:
+  - `HandlerMappingGuard` (`SmartInitializingSingleton`) fails startup for any `RouterFunction` bean and any mapping other than the annotated one, `RouterFunctionMapping`, URL mappings without handlers and the actuator mappings (`org.springframework.boot.webmvc.actuate.*`, governed by explicit chain rules).
+  - At runtime `RouteAuthorizationManager` grants `NoHandler` only when no other mapping returns a handler. A mapping that throws counts as serving (fail closed; the rule is recorded in `errors.md`); the guard counts every request as served until startup checked the mappings.
+  - `spring.web.resources.add-mappings=false`. The parsed-path handling moved to `ParsedRequestPath`, shared by the catalog and the guard.
+  - The context-runner tests set `add-mappings=false` like production.
+  - Web tests, `RequestTracingTests`, `FrappeApiApplicationTests` green.
+
 ### Rework verification
 - `FRAPPE_TEST_DB=frappe_fapi_13 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 52 test classes, 202 tests, 0 failures.
 
