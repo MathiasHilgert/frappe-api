@@ -28,7 +28,7 @@ Strict TDD. Runner: `./gradlew test` (MockMvcTester, `WebApplicationContextRunne
 ## Tasks
 - [x] T0 Verify Spring Security 7 / Boot 4.1.1 / springdoc versions and APIs from the jars; record here
 - [x] T1 Public API + route catalog: startup fails for a route without `@Access`, with two mapped methods or an inconsistent posture; `/v1` prefix
-- [ ] T2 Stateless security chain: bearer-only session resolution, posture enforcement (PUBLIC, AUTHENTICATED, PERMISSION, SYSTEM), deny by default, health and error dispatch reachable
+- [x] T2 Stateless security chain: bearer-only session resolution, posture enforcement (PUBLIC, AUTHENTICATED, PERMISSION, SYSTEM), deny by default, health and error dispatch reachable
 - [ ] T3 OpenAPI: spec with bearer requirement and 401/403 on non-public routes; swagger-ui only in `local`
 - [ ] T4 Client IP from `X-Forwarded-For`, trusting only the proxy
 - [ ] T5 Docs (`writing-code/references/http-api.md` documents `@Access`), `./gradlew spotlessApply check --rerun-tasks` green
@@ -61,5 +61,14 @@ Strict TDD. Runner: `./gradlew test` (MockMvcTester, `WebApplicationContextRunne
 - Code: `Access`, `Posture`, named interface `web` (`package-info`); `RouteCatalog` (checks, one `InvalidRouteException` listing every problem with its fix), `Route`, `ApiPathPrefix` (`addPathPrefix("/v1", HandlerTypePredicate.forBasePackage("com.frappe"))`), `RouteConfiguration`.
 - Shared test touched: `RequestTracingTests.ProbeController` now declares `@Access(Posture.PUBLIC)` and is called under `/v1` (it would otherwise fail startup, as intended). `RequestTracingTests` 3/3, `FrappeApiApplicationTests` 1/1, `ModularityTests` 2/2 green; `spotlessCheck javadoc` green.
 
+### T2 stateless security chain
+- Added `spring-boot-starter-security` (+ `spring-boot-starter-security-test`) and the ports `SessionResolver`, `ResolvedSession`, `SessionKind`, `PermissionEvaluator` (declarations only) before any behaviour.
+- RED `RouteAccessTests` (full context, MockMvcTester, nested `Routes` test configuration with one route per posture and a test `SessionResolver`) against Boot's default chain: 6 of 17 failed for the expected reasons, e.g. `aPublicRouteAnswersWithoutAToken` expected 200 but was 401, `anAuthenticatedRouteAnswersTheCallerOfAResolvedSession` 401, `aPermissionRouteRefusesARequestWithoutATokenAsUnauthenticated` expected 401 but was 403, `aRequestThatMatchesNoRouteIsRefused` expected 403 but was 401, the 401 carried `WWW-Authenticate: Basic realm="Realm"` instead of `Bearer`. RED `DefaultSessionPortsTests` (2, `WebApplicationContextRunner` + MockMvc with `springSecurity()`): compilation, `SecurityConfiguration` missing.
+- GREEN: `SecurityConfiguration` (one stateless chain: CSRF, session, request cache, form login, basic, logout off; `BearerAuthenticationEntryPoint` 401 + `WWW-Authenticate: Bearer`; error dispatch and `EndpointRequest.to(HealthEndpoint)` public; everything else `RouteAuthorizationManager`), `BearerSessionFilter` (exactly one `Authorization` header, case-insensitive `Bearer`, RFC 6750 b64token; unresolved → anonymous, DEBUG line without the token), `SessionAuthentication` (principal = `ResolvedSession`, no credentials), `RouteAuthorizationManager` (one manager per route: PUBLIC permitAll, AUTHENTICATED authenticated, PERMISSION session + `PermissionEvaluator`, SYSTEM denyAll; no route → denied), `RouteCatalog#routeFor` (best match over all annotated mappings with MVC's ordering; ties denied). Defaults: no sessions, no permissions (`ObjectProvider#getIfAvailable`). `RouteAccessTests` 17/17, `DefaultSessionPortsTests` 2/2.
+- RED `RouteAccessTests.noPasswordUserIsCreated`: `Expecting empty but was: [InMemoryUserDetailsManager@…]`. GREEN after excluding `UserDetailsServiceAutoConfiguration` in `application.properties`.
+- Guard `thePostureIsTheOneOfTheRouteSpringMvcDispatchesTo` (`/test/items/{id}` AUTHENTICATED vs `/test/items/featured` PUBLIC): green at once; mutation check (sorting the matches in reverse) made it fail with `expected: 200 but was: 401`, then reverted.
+- Shared test touched: `RequestTracingTests.logLinesOfARequestCarryItsTraceAndSpanIds` failed after the chain existed (`span.id` was a child span): Spring Security's observation wraps the dispatch in its secured-request span, so the log line now carries that span. The assertion now checks the trace id and that the logged span belongs to the server span's trace.
+- `FRAPPE_TEST_DB=frappe_fapi_13 ./gradlew spotlessApply check`: BUILD SUCCESSFUL, 194 tests.
+
 ## Next step
-T2.
+T3.

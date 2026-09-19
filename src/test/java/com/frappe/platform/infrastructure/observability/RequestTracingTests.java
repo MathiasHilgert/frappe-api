@@ -130,11 +130,14 @@ class RequestTracingTests {
 
         // Then
         var server = await().atMost(Duration.ofSeconds(10)).until(this::probeServerSpan, span -> span != null);
-        assertThat(captured.list).singleElement().satisfies(event -> {
-            var json = EcsLogRenderer.render(event);
-            assertThat(json.path("trace.id").asString()).isEqualTo(server.getTraceId());
-            assertThat(json.path("span.id").asString()).isEqualTo(server.getSpanId());
-        });
+        var json = EcsLogRenderer.render(captured.list.getFirst());
+        assertThat(captured.list).hasSize(1);
+        assertThat(json.path("trace.id").asString()).isEqualTo(server.getTraceId());
+        // The controller runs inside Spring Security's secured-request span, a child of the server span in its trace
+        await().atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> assertThat(spansOf(server.getTraceId()))
+                        .extracting(SpanData::getSpanId)
+                        .contains(json.path("span.id").asString()));
     }
 
     private SpanData probeServerSpan() {

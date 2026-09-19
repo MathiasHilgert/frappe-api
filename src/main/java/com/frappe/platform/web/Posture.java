@@ -14,7 +14,7 @@ public enum Posture {
 
     /**
      * A caller with a resolved session that holds the permission named by {@link Access#permission()}, as decided by
-     * the permission evaluator.
+     * the {@link PermissionEvaluator}.
      */
     PERMISSION,
 
