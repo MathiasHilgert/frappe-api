@@ -8,6 +8,10 @@ import java.time.Duration;
  *
  * <p>A secret is consumed at most once and dies after {@value #MAX_FAILED_ATTEMPTS} wrong attempts, so a short numeric
  * code cannot be brute-forced. All instances share the store.
+ *
+ * <p>Every check costs one Argon2 run, also for a key without a secret (a dummy hash is verified), so timing does not
+ * reveal which codes exist. That cost is also why callers must put {@link #consume} behind a {@link RateLimiter} check
+ * (per account and per address): unlimited checks would let anyone spend the server's CPU.
  */
 public interface ShortLivedSecretStore {
 
@@ -26,7 +30,8 @@ public interface ShortLivedSecretStore {
 
     /**
      * Checks a candidate and consumes the secret if it matches. A wrong candidate counts as a failed attempt; the
-     * {@value #MAX_FAILED_ATTEMPTS}th failed attempt deletes the secret.
+     * {@value #MAX_FAILED_ATTEMPTS}th failed attempt deletes the secret. Call it only after a {@link RateLimiter} allowed
+     * the attempt.
      *
      * @param key the secret's key
      * @param candidate the value submitted by the user

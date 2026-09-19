@@ -9,6 +9,7 @@ import com.frappe.TestcontainersConfiguration;
 import com.frappe.platform.IdGenerator;
 import com.frappe.platform.SecretKey;
 import com.frappe.platform.ShortLivedSecretStore;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
 import java.util.Properties;
@@ -16,12 +17,14 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 /** The secret store's contract against a real Valkey 9. */
@@ -149,6 +152,33 @@ class ShortLivedSecretStoreIntegrationTests {
     @Test
     void consumeIsFalseWhenNoSecretWasPut() {
         assertThat(secrets.consume(newKey(), "493817")).isFalse();
+    }
+
+    @Test
+    void spendsAnArgon2VerificationAlsoWhenNoSecretExists() {
+        // Given a store whose hash checks are counted
+        var checks = new AtomicInteger();
+        var argon2 = new PepperedArgon2PasswordEncoder("test-pepper-0123456789abcdefghijklmnop");
+        var counting = new PasswordEncoder() {
+            @Override
+            public String encode(CharSequence raw) {
+                return argon2.encode(raw);
+            }
+
+            @Override
+            public boolean matches(CharSequence raw, String encoded) {
+                checks.incrementAndGet();
+                return argon2.matches(raw, encoded);
+            }
+        };
+        var store = new ValkeyShortLivedSecretStore(redis, counting, Clock.systemUTC(), ids);
+
+        // When
+        var consumed = store.consume(newKey(), "493817");
+
+        // Then the unknown key costs the same work as a wrong code, so timing does not reveal which codes exist
+        assertThat(consumed).isFalse();
+        assertThat(checks).hasValue(1);
     }
 
     @Test

@@ -43,6 +43,9 @@ final class ValkeyShortLivedSecretStore implements ShortLivedSecretStore {
 
     private final PasswordEncoder hashes;
 
+    /** Verified against when no secret exists, so an unknown key costs the same Argon2 run as a wrong code. */
+    private final String dummyHash;
+
     private final Clock clock;
 
     private final IdGenerator ids;
@@ -58,6 +61,7 @@ final class ValkeyShortLivedSecretStore implements ShortLivedSecretStore {
     ValkeyShortLivedSecretStore(StringRedisTemplate redis, PasswordEncoder hashes, Clock clock, IdGenerator ids) {
         this.redis = redis;
         this.hashes = hashes;
+        this.dummyHash = hashes.encode(ids.newId().toString());
         this.clock = clock;
         this.ids = ids;
     }
@@ -85,6 +89,7 @@ final class ValkeyShortLivedSecretStore implements ShortLivedSecretStore {
         try {
             var stored = redis.<String, String>opsForHash().get(redisKey, HASH_FIELD);
             if (stored == null) {
+                hashes.matches(candidate, dummyHash);
                 return false;
             }
             var outcome = hashes.matches(candidate, stored) ? MATCHED : NOT_MATCHED;

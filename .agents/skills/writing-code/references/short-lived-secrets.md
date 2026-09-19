@@ -11,11 +11,15 @@ if (!secrets.countIssue(key, Duration.ofHours(1), 5)) {
 }
 secrets.put(key, code, Duration.ofMinutes(15));   // send the code only after put succeeded
 ...
+if (!limiter.tryConsume(LimitKey.ofId("identity", "email-verification", personId, 10, Duration.ofMinutes(15)))) {
+    return Result.failure(VerificationError.TOO_MANY_ATTEMPTS);
+}
 boolean verified = secrets.consume(key, submittedCode);
 ```
 
 - `SecretKey(module, purpose, subjectId)`: module and purpose are lowercase kebab-case, the subject is an id. Never an email address or another personal value: keys are visible in tooling.
 - `put` stores only an Argon2id hash (Spring Security's v5.8 defaults) of HMAC-SHA256(pepper, secret) and replaces an earlier secret and its failure count. The pepper (`FRAPPE_SECRET_PEPPER`, required outside `local`, at least 32 characters) never reaches Valkey: a 6-digit code has only a million values, so without it a leaked dump would fall to an offline brute force. Rotating the pepper invalidates outstanding codes (acceptable: they are short-lived).
+- `consume` always sits behind a `RateLimiter` check: every call costs one Argon2 run (16 MiB, tens of milliseconds), also for a key without a secret, where a dummy hash is verified so timing does not reveal which codes exist.
 - `consume` is `true` once for a match, also under concurrent submissions; the fifth wrong attempt (`ShortLivedSecretStore.MAX_FAILED_ATTEMPTS`) deletes the secret. Expired, consumed, replaced and unknown secrets are `false`: callers cannot tell them apart and must not try (no oracle).
 - `countIssue(key, window, limit)` is a sliding-window cap: ask before issuing; a refused issue is not counted. It reads the application `Clock`.
 - Code formats, TTLs and limits belong to the owning module's ticket, as named constants there.
