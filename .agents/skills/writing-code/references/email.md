@@ -28,7 +28,7 @@ class EmailProofMails {
 }
 ```
 
-`MailOutboxIntegrationTests` proves the loop: Resend answers 503, the publication stays incomplete, a recovery pass sends it once the provider is back.
+`MailOutboxIntegrationTests` proves the loop: Resend answers 503, the publication stays incomplete, a recovery pass sends it once the provider is back, and every failed attempt is logged exactly once. A permanent rejection (422) completes the publication after one attempt and one ERROR.
 
 ## Templates
 
@@ -55,8 +55,9 @@ class EmailProofMails {
 
 - `frappe.mail.provider`: `resend` (default) or `smtp`. The `local` profile uses SMTP to compose's Mailpit (UI <http://localhost:8025>).
 - Outside `local`, `RESEND_API_KEY` and `FRAPPE_MAIL_FROM` are required; `RequiredMailSettings` fails startup naming the missing ones.
-- Every send is one `mail.send` observation (span and timer: `mail.provider`, `mail.template`, `mail.locale`, `error`); its `error` tag counts failed deliveries. Add no telemetry around `Mailer`.
-- A provider failure becomes `MailDeliveryException` (our kernel type), logged once at ERROR by `ObservedMailer` (`frappe.mail.template`, `mail.provider`, `frappe.mail.locale`) and rethrown so the listener fails; callers do not log it again (`errors.md`).
+- Every mail is `multipart/alternative`: the HTML and a plain-text part derived from the rendered body (`PlainTextAlternative`, jsoup: blank line between blocks, a line per `<br>` and list item, a link's address after its text). No text template per mail.
+- Every send is one `mail.send` observation (span and timer: `mail.provider`, `mail.template`, `mail.locale`, `mail.outcome` = `sent` | `rejected` | `failed`, `error`). Add no telemetry around `Mailer`.
+- Transient failures (outages, limits, fixable settings) throw `MailDeliveryException` (our kernel type) out of `send`, unlogged: the listener fails, its async boundary logs once, the outbox retries. Permanent rejections (invalid recipient, a request the provider never accepts) are logged once at ERROR by `ObservedMailer` and `send` returns normally, so they are not retried (`errors.md`).
 
 ## Privacy
 

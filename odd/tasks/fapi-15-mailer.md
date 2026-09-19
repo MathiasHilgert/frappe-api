@@ -35,6 +35,16 @@ Modules' own templates; bounces, webhooks, attachments, marketing mail.
 - Mode: strict (project `testing-code` skill, CLAUDE.md golden rule 4).
 - Runner: `FRAPPE_TEST_DB=frappe_fapi_15 ./gradlew test`; gate `./gradlew spotlessApply check --rerun-tasks`.
 
+## Deviations from the Plane ticket
+
+- Env var `RESEND_API_KEY` instead of the ticket's `FRAPPE_RESEND_API_KEY`: it is the name the key has in Bitwarden
+  (`frappe-dev`, `frappe-production`), decided by the orchestrator; the Plane ticket still says `FRAPPE_RESEND_API_KEY`
+  and needs updating after merge.
+- Permanent provider rejections are not retried (not in the ticket): logged once at ERROR, counted, publication
+  completes (orchestrator decision 2, see T9).
+- Every mail is multipart (HTML + text), orchestrator decision 3.
+- Size ~2,400+ lines in one PR: exception recorded by the orchestrator.
+
 ## Tasks
 
 - [x] T0. Verify versions/APIs: resend-java 4.26.0 (latest; base URL fixed `https://api.resend.com`, `Idempotency-Key`
@@ -47,6 +57,9 @@ Modules' own templates; bounces, webhooks, attachments, marketing mail.
 - [x] T5. Configuration: provider selection, fail-fast settings, compose Mailpit, local properties.
 - [x] T6. Outbox example: listener fails on 5xx, recovery pass sends after the stub recovers.
 - [x] T7. Docs and skills: README, `email.md`, errors/logging/observability references.
+- [x] T9. Review decisions: `ObservedMailer` no longer logs transient failures (log or rethrow); permanent rejections
+      (Resend 4xx except 401/403/408/409/429, SMTP 5xx, malformed address) are logged once and not retried; multipart
+      HTML + plain text (jsoup-derived).
 - [x] T8. Gate `./gradlew spotlessApply check --rerun-tasks` green; commit.
 
 ## Acceptance → tests
@@ -97,6 +110,16 @@ Recorded per task below as work proceeds.
   `RESEND_API_KEY`, `FRAPPE_MAIL_FROM` under configuration. Gate after rebase: BUILD SUCCESSFUL, 470 tests, 0 failures.
 - Size: about 2,400 changed lines without `package-lock.json`, well above the ~400 heuristic (tests are about half);
   split candidates if review asks: kernel+renderer+build / transports+config / outbox test+docs.
+
+- T9 RED: compile errors (`MailRejectedException`, `PlainTextAlternative`, `RenderedMail.text` missing) for
+  `ResendMailTransportTest` (permanent/transient statuses, text part), `SmtpMailTransportTest` (550 vs 451, closed port,
+  multipart/alternative), `PlainTextAlternativeTest`, `ObservedMailerTest` (no log on transient, one ERROR on rejection),
+  `MailRendererTest` (text), `MailpitIntegrationTests` (Text part; Mailpit refuses non-example.com with 550),
+  `MailOutboxIntegrationTests` (ERROR count == failed attempts; 422 completes after one attempt, one ERROR).
+  GREEN: all mail tests pass. Gate after T9: BUILD SUCCESSFUL, 491 tests, 0 failures (first run failed on one
+  assertion counting unrelated background NATS ERRORs of other cached contexts; now counted by exception type).
+  Logging verified end to end: without `ObservedMailer`'s log, each failed attempt yields exactly one ERROR, from
+  Spring's async uncaught-exception handler around the `@ApplicationModuleListener` (plus Modulith's INFO).
 
 ## Engram mirror
 
