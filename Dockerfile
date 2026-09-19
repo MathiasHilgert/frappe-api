@@ -61,7 +61,15 @@ ARG FRAPPE_TRAIN_NATS_PORT=4222
 # is Spring Boot's documented way to train an AOT/CDS cache: the context refreshes (so every bean that would exist at
 # startup exists here too) and the process exits immediately after, before serving a request, running a scheduled
 # task or publishing an event. Every credential below is a local-only, build-owned default, never an ARG or ENV.
+#
+# BuildKit's docker-container driver (used in CI, docker/build-push-action) injects OTEL_EXPORTER_OTLP_*_ENDPOINT
+# (unix:///dev/otel-grpc.sock, its own tracing socket, since executor/oci/spec_linux.go's getTracingSocket()) into
+# every RUN step's environment for its own diagnostics; the classic builder does not, which is why this only broke
+# in CI. Our OTel starter picks that up and fails to start (unix:// is not a valid OTLP HTTP/gRPC endpoint), so
+# every OTEL_* variable is stripped before running Java, and export is also disabled explicitly through Boot
+# properties: belt and braces, and the training run must never export telemetry anywhere regardless of environment.
 RUN --network=host set -eu; \
+    for v in $(env | grep -o '^OTEL_[A-Z0-9_]*' || true); do unset "$v"; done; \
     case "$FRAPPE_TRAIN_DB_HOST" in localhost|127.0.0.1) ;; \
       *) echo 'Training must run against a localhost/127.0.0.1 Postgres, never a remote one.' >&2; exit 1 ;; \
     esac; \
@@ -82,6 +90,11 @@ RUN --network=host set -eu; \
     esac; \
     java $JVM_RUNTIME_FLAGS -XX:AOTMode=record -XX:AOTConfiguration=app.aotconf -Dspring.context.exit=onRefresh \
       -Dfrappe.nats.url="nats://${FRAPPE_TRAIN_NATS_HOST}:${FRAPPE_TRAIN_NATS_PORT}" \
+      -Dmanagement.opentelemetry.enabled=false \
+      -Dmanagement.tracing.export.otlp.enabled=false \
+      -Dmanagement.otlp.metrics.export.enabled=false \
+      -Dmanagement.otlp.logging.export.enabled=false \
+      -Dmanagement.logging.export.otlp.enabled=false \
       org.springframework.boot.loader.launch.JarLauncher; \
     test -s app.aotconf
 RUN java $JVM_RUNTIME_FLAGS -XX:AOTMode=create -XX:AOTConfiguration=app.aotconf -XX:AOTCache=app.aot \
