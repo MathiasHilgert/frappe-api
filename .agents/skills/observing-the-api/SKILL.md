@@ -51,7 +51,7 @@ That is all: exported as `frappe.order.tabs.closed` (Prometheus `frappe_order_ta
 - `prometheus-label-strategy` tolerates `tenant_id` for small tenant counts: we never tag metrics with tenant or entity ids.
 - `promql` / `slo-implementation` examples use `http_requests_total` / `http_request_duration_seconds`: ours are `http_server_requests_seconds_count|bucket` with `status`, `uri`, `outcome`.
 - `182-java-observability-metrics-micrometer` instruments services with hand-built meters: features declare business metrics on events only; infrastructure is automatic.
-- `183-java-observability-tracing-opentelemetry` uses the OpenTelemetry API for manual spans: we use Micrometer Observation in adapters only; trace propagation through NATS is FAPI-8.
+- `183-java-observability-tracing-opentelemetry` uses the OpenTelemetry API for manual spans: we use Micrometer Observation in adapters only; trace propagation through the outbox and NATS is automatic (`traceparent` / `tracestate` headers, linked producer and consumer spans).
 - `181-java-observability-logging` configures `logback.xml` and puts correlation ids in the MDC by hand: we use Boot structured ECS logging via properties; `trace.id`/`span.id` are automatic (`writing-code/references/logging.md`).
 - `126-java-exception-handling` uses exceptions for validation and Maven commands: business failures are `Result`; exceptions per `writing-code/references/errors.md`; build with `./gradlew`.
 

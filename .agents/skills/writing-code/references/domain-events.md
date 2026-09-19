@@ -19,7 +19,7 @@ public record TabClosed(UUID eventId, Instant occurredAt, UUID aggregateId, long
 ```
 
 - Subject: `frappe.<module>.<event-kebab>.v<eventVersion>`, derived from package and class name (`frappe.order.tab-closed.v1`). Leave the annotation's value empty; a value fails the publication with a message naming the derived subject.
-- Headers: `Nats-Msg-Id` = `eventId` (JetStream drops re-publishes within the 10-minute duplicate window), `Frappe-Event-Type` (`order.tab-closed`), `Frappe-Event-Version`, `Frappe-Aggregate-Id`, `Frappe-Aggregate-Version`, `Frappe-Occurred-At`. Payload: the record as JSON.
+- Headers: `Nats-Msg-Id` = `eventId` (JetStream drops re-publishes within the 10-minute duplicate window), `Frappe-Event-Type` (`order.tab-closed`), `Frappe-Event-Version`, `Frappe-Aggregate-Id`, `Frappe-Aggregate-Version`, `Frappe-Occurred-At`, plus `traceparent` / `tracestate` (see "Trace context" below). Payload: the record as JSON.
 - Stream `FRAPPE` (`frappe.>`, limits retention, 7 days, 1 replica) is created or updated at startup; its config lives in `NatsStreamProvisioner`, not on the server.
 - `@Externalized` on a class that does not implement `DomainEvent` fails the publication with a message naming the class.
 - Config `frappe.nats.*` (defaults in `NatsProperties` only): `url` (`nats://localhost:4222`, compose's NATS; env `FRAPPE_NATS_URL`), `publish-timeout` (5s), `connection-timeout` (2s), `reconnect-wait` (2s), `connection-name`.
@@ -59,6 +59,17 @@ public Result<TabId, TabError> handle(CloseTab cmd) {
 - No ordering across instances: consumers order per aggregate with `aggregateVersion`.
 
 
+### Trace context
+
+The trace that caused an event survives the outbox and the broker (OpenTelemetry messaging semantic conventions: the message carries its *creation context*, later spans link to it).
+
+- When an externalized event is recorded, the outbox adapter stores the active W3C trace context with it (`platform.event_trace_context`, keyed by `eventId`, written in the same transaction, so it commits and rolls back with the publication). No active trace, no row.
+- Every publish reads it and sets the `traceparent` / `tracestate` headers, the first attempt and every resubmission alike: an event delivered after an outage still carries the trace that caused it. A failing lookup logs one WARN and publishes without the headers; telemetry never fails a publish.
+- `nats.publish` is a PRODUCER span, a child of whatever runs the publish (the relay listener, or the recovery pass), that **links** to the creation context. Links, not parents, across the outbox: delivery is at least once and may be hours late, and a parent relation would stretch and pollute the producing trace.
+- Consumers wrap processing in `NatsProcessObservations.of(message)`: a CONSUMER span `process <subject>` linked to the same creation context. A message without the headers is processed without a link; a malformed header is ignored (first occurrence WARN, then DEBUG).
+- Nothing else is hand-written: no telemetry types in `domain` or `application`, and the W3C values are produced by the configured Micrometer `Propagator`, never by hand.
+- The stored contexts live as long as the outbox history and are purged together with `platform.event_publication_archive` (same follow-up).
+
 ### Dead letters: manual replay
 
 Fix the cause first (deploy the missing consumer, restore the event class, bring NATS back). Then move the row back as `frappe_app`; the next recovery run resubmits it with a fresh attempt budget:
@@ -80,6 +91,7 @@ Drop `where id = ...` to replay all, or filter by `reason` / `event_type`. To di
   2. If the insert conflicts, skip — already processed.
   3. Otherwise apply the effect in the same transaction.
 - Consumers call the module's own bus (a command), never another module's internals.
+- Wrap the processing of a NATS message in `NatsProcessObservations.of(message)` (see "Trace context"); do not create spans or timers for it by hand.
 - Never rely on ordering across aggregates; within one aggregate use the event's version or timestamp to discard stale events.
 
 ## Changing an event

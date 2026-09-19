@@ -24,7 +24,7 @@ Strict TDD. Runner: `./gradlew test` (in-memory span exporter, Testcontainers Po
 - [x] T1 Capture trace context at record time and persist it with the publication (commit/rollback semantics match the outbox)
 - [x] T2 Producer span + header injection on publish, using the stored context (also after resubmission)
 - [x] T3 Consumer helper: extract and link; no header → works without link; malformed → works, WARN once
-- [ ] T4 Docs (`writing-code` events, `observing-the-api`), `./gradlew check` green, PR per template
+- [x] T4 Docs (`writing-code` events, `observing-the-api`), `./gradlew check` green, PR per template
 
 ## Acceptance (from ticket)
 - A command that publishes an event → NATS message carries the originating `traceparent`.
@@ -70,5 +70,17 @@ Strict TDD. Runner: `./gradlew test` (in-memory span exporter, Testcontainers Po
 - Refactor: the `messaging.*` key names moved to `MessagingObservationKeys`, shared by publish and process observations.
 - `./gradlew spotlessApply check`: BUILD SUCCESSFUL.
 
+### T4 docs and verification
+- `writing-code/references/domain-events.md`: header list extended and a new "Trace context" section (creation context, storage, headers on every publish, PRODUCER/CONSUMER spans that link, failure behaviour, purge with the archive); "Consuming" points at `NatsProcessObservations`.
+- `writing-code/references/observability.md`: `nats.process` added to the automatic telemetry and a line on links instead of parents.
+- `observing-the-api/references/conventions.md` (automatic spans and the link rule) and `observing-the-api/SKILL.md` (the FAPI-8 placeholder now describes the shipped behaviour); README's Tempo walkthrough mentions the propagated context.
+- Verification `FRAPPE_TEST_DB=frappe_fapi_8 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 44 test classes, 160 tests, 0 failures.
+
+## Follow-ups / open questions
+- Purging `platform.event_trace_context` belongs to the existing follow-up that purges `platform.event_publication_archive`; until then the table grows with the outbox history.
+- "WARN once" for a malformed `traceparent` is per `NatsProcessObservations` instance (one bean, so once per process); later occurrences are DEBUG. If a per-producer counter is wanted, that is a follow-up.
+- The consumer helper has no production caller yet (inbox and concrete consumers are out of scope); it is proven by a test consumer against real NATS.
+- The first publish attempt runs in the trace of the command (Modulith's async listener), which is intended: only late deliveries are linked instead of parented.
+
 ## Next step
-T4.
+Review and PR (not created here: no push, no Plane change).
