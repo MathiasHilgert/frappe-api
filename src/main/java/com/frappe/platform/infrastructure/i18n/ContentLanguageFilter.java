@@ -15,7 +15,9 @@ import org.springframework.web.servlet.LocaleResolver;
  * {@code Vary: Accept-Language} tells caches that the same URL is answered differently per requested language, so a
  * cache never serves one language to a client asking for another.
  *
- * <p>Headers are written before the rest of the chain runs, while the response cannot be committed yet.
+ * <p>Headers are written before the rest of the chain runs, while the response cannot be committed yet. Error
+ * dispatches are covered too: an error the servlet container raised itself (TRACE, for one) never had a request
+ * dispatch through this filter.
  */
 final class ContentLanguageFilter extends OncePerRequestFilter {
 
@@ -28,6 +30,11 @@ final class ContentLanguageFilter extends OncePerRequestFilter {
      */
     ContentLanguageFilter(LocaleResolver localeResolver) {
         this.localeResolver = localeResolver;
+    }
+
+    @Override
+    protected boolean shouldNotFilterErrorDispatch() {
+        return false;
     }
 
     @Override

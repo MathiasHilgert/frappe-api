@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 import org.springframework.web.servlet.LocaleResolver;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Wires the problem details every failure is answered with. {@link ProblemAdvice} and {@link ProblemErrorController} are
@@ -60,6 +61,18 @@ class ProblemConfiguration {
         var registration = new FilterRegistrationBean<>(new ProblemBoundaryFilter(exceptionResolver::getObject));
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 2);
         return registration;
+    }
+
+    /**
+     * Answers the requests Tomcat refuses on its own with problems instead of its HTML error page.
+     *
+     * @param messageSource the application message source
+     * @param json the application's JSON mapper
+     * @return the web server customizer
+     */
+    @Bean
+    ContainerProblemsCustomizer containerProblemsCustomizer(MessageSource messageSource, JsonMapper json) {
+        return new ContainerProblemsCustomizer(new ContainerProblems(messageSource, json));
     }
 
     /**

@@ -17,6 +17,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
+import org.springframework.security.web.header.HeaderWriterFilter;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
 /**
@@ -87,6 +88,7 @@ class SecurityConfiguration {
                 .exceptionHandling(
                         failures -> failures.authenticationEntryPoint(refusals).accessDeniedHandler(refusals))
                 .addFilterBefore(bearerSessions, AnonymousAuthenticationFilter.class)
+                .addFilterAfter(new ErrorDispatchSecurityHeaders(), HeaderWriterFilter.class)
                 .authorizeHttpRequests(requests -> requests.dispatcherTypeMatchers(DispatcherType.ERROR)
                         .permitAll()
                         .requestMatchers(EndpointRequest.to(HealthEndpoint.class))

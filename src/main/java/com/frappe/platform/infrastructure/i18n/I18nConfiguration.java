@@ -3,6 +3,7 @@ package com.frappe.platform.infrastructure.i18n;
 import com.frappe.platform.i18n.Messages;
 import com.frappe.platform.i18n.TenantLocaleDefaults;
 import com.frappe.platform.i18n.UserLocalePreference;
+import jakarta.servlet.DispatcherType;
 import java.util.Optional;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.BeanDefinition;
@@ -84,6 +85,7 @@ class I18nConfiguration {
     FilterRegistrationBean<ContentLanguageFilter> contentLanguageFilter(LocaleResolver localeResolver) {
         var registration = new FilterRegistrationBean<>(new ContentLanguageFilter(localeResolver));
         registration.setOrder(CONTENT_LANGUAGE_FILTER_ORDER);
+        registration.setDispatcherTypes(DispatcherType.REQUEST, DispatcherType.ERROR);
         return registration;
     }
 }
