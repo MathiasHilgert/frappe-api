@@ -97,6 +97,20 @@ boolean verified = secrets.consume(key, submittedCode);
 - `countIssue(key)` is a sliding-window cap with the purpose's window and limit: ask before issuing; a refused issue is not counted. It reads the application `Clock`.
 - Code formats belong to the owning module; TTLs, issue caps and rate limits live on its purpose enums.
 
+## Subjects from personal values: `KeyedDigests`
+
+Keys hold ids, never an email address; to limit or key codes per address, turn the address into a subject with the kernel port `KeyedDigests` (plain Java; the key stays in `platform.infrastructure.digests`):
+
+```java
+UUID subject = digests.subjectOf("identity.email", email.strip().toLowerCase(Locale.ROOT));
+limiter.tryAcquire(LimitKey.ofId(IdentityLimits.SIGN_UP_PER_EMAIL, subject));
+secrets.put(SecretKey.of(IdentitySecrets.EMAIL_PROOF, subject), code);
+```
+
+- `subjectOf(namespace, value)` is a stable RFC 9562 version-8 UUID (accepted by `LimitKey.ofId` and `SecretKey.of`); `digestOf(namespace, value)` is the base64url HMAC-SHA256 (43 characters) to store and look up recovery codes, pairing codes or PINs instead of the value.
+- The namespace is `<module>.<kebab-name>` (`identity.email`), else `IllegalArgumentException`. The MAC input is the namespace, `0x00` and the UTF-8 value, so one value never collides across namespaces. Values are used as given: normalize them first.
+- Deterministic across instances sharing the key `FRAPPE_DIGEST_PEPPER` (required outside `local`, at least 32 characters). It is not `FRAPPE_SECRET_PEPPER`: rotating it invalidates stored digests and resets email-keyed limits, so it rotates only after a leak. Never log the value.
+
 ## Rate limits: `RateLimiter`
 
 - A `LimitKey` carries its definition: `capacity` calls per `period`, refilled gradually (Bucket4j token bucket, greedy refill).

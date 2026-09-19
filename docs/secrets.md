@@ -72,6 +72,7 @@ Values never appear here or anywhere in the repository. Owner: the person who ro
 | `FRAPPE_APP_PASSWORD` | Password of the runtime database role `frappe_app` (DML only); `spring.datasource.password` | Mathias Hilgert | `frappe-dev`, `frappe-production` (generated; without Bitwarden the local default `frappe_app`) | 90 days |
 | `FRAPPE_OWNER_PASSWORD` | Password of the migration role `frappe_owner` (owns the schemas, runs Flyway); `spring.flyway.password` | Mathias Hilgert | `frappe-dev`, `frappe-production` (generated; without Bitwarden the local default `frappe_owner`) | 90 days |
 | `FRAPPE_SECRET_PEPPER` | Server-side HMAC pepper for the Argon2id hashes of one-time codes; never reaches Valkey. At least 32 random characters (`openssl rand -base64 48`), different per environment; `frappe.secrets.pepper` | Mathias Hilgert | `frappe-dev`, `frappe-production` (generated; without Bitwarden a local default that is not a secret) | 180 days; rotating only invalidates outstanding one-time codes |
+| `FRAPPE_DIGEST_PEPPER` | HMAC-SHA256 key of `KeyedDigests` (`platform.infrastructure.digests`): stable subjects and stored digests of personal values (email addresses, recovery codes, PINs). At least 32 random characters (`openssl rand -base64 48`), different per environment and from `FRAPPE_SECRET_PEPPER`; required outside `local` (startup fails naming it); `frappe.digests.pepper` | Mathias Hilgert | `frappe-dev`, `frappe-production` (generated; without Bitwarden a local default that is not a secret) | Only after a leak or suspected leak (see "Rotate a secret") |
 | `FRAPPE_VALKEY_URL` | Valkey URL with its credentials (`rediss://user:password@host:6379`); `spring.data.redis.url` | Mathias Hilgert | `frappe-production` (dev: local default `redis://localhost:6379`) | 90 days (the password in it) |
 | `FRAPPE_NATS_URL` | NATS server URL; a secret as soon as it carries credentials (`nats://user:password@host:4222`); `frappe.nats.url` | Mathias Hilgert | `frappe-production` (dev: default `nats://localhost:4222`) | 90 days when it carries credentials |
 | `RESEND_API_KEY` | Resend API key for transactional mail (`platform.infrastructure.mail`); `frappe.mail.resend.api-key`. Required outside `local` (startup fails naming it); never logged. Tests never call Resend | Mathias Hilgert | `frappe-dev` (a Resend test key), `frappe-production` (local runs send to Mailpit and need none) | 180 days, and at once when a holder leaves |
@@ -104,6 +105,8 @@ Read from the environment too, but safe to show: `FRAPPE_DB_URL` (a secret only 
 2. Update the value in Bitwarden (edit the secret; same name).
 3. Restart or redeploy the consumers (FAPI-30: `kamal deploy` reads the new value); verify health.
 4. Invalidate the old value at the provider, where it can stay valid in parallel (API keys).
+
+`FRAPPE_DIGEST_PEPPER` has no rotation period: rotating it invalidates every stored digest (recovery codes, PINs, pairing codes must be reissued) and resets the limits keyed by email address. Rotate it only after a leak or suspected leak, and plan the reissue first.
 
 Rotate a **machine-account token** by creating a new token for the same holder, swapping it in the holder's store, then revoking the old one.
 
