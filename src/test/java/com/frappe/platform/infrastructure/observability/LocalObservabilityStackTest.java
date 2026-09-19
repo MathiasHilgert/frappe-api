@@ -12,7 +12,8 @@ import org.yaml.snakeyaml.Yaml;
 
 /**
  * The zero-config contract of the local stack: Spring Boot's Docker Compose support wires OTLP traces, metrics and logs
- * to a service only when its image is {@code grafana/otel-lgtm}, using the standard OTLP ports.
+ * to a service only when its image is {@code grafana/otel-lgtm}, using the standard OTLP ports inside the container (the
+ * host ports default to the same numbers and can be moved).
  */
 class LocalObservabilityStackTest {
 
@@ -31,6 +32,10 @@ class LocalObservabilityStackTest {
         // Then
         assertThat(lgtm).isNotNull();
         assertThat((String) lgtm.get("image")).startsWith("grafana/otel-lgtm:");
-        assertThat((List<Object>) lgtm.get("ports")).containsExactlyInAnyOrder("3000:3000", "4317:4317", "4318:4318");
+        assertThat((List<Object>) lgtm.get("ports"))
+                .containsExactlyInAnyOrder(
+                        "${FRAPPE_GRAFANA_PORT:-3000}:3000",
+                        "${FRAPPE_OTLP_GRPC_PORT:-4317}:4317",
+                        "${FRAPPE_OTLP_HTTP_PORT:-4318}:4318");
     }
 }

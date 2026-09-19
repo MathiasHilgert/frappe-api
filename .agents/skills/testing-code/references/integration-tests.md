@@ -4,7 +4,8 @@ Scope: persistence adapters, Flyway migrations, RLS, HTTP end to end, NATS relay
 
 ## Containers
 
-- Declare containers as `@Bean` in `TestcontainersConfiguration` (Postgres, reused) and `TestNatsConfiguration` (NATS, fresh per context, not reused, so tests may pause it or change the stream); tests `@Import` what they need. Match production images (`postgres:18-alpine`, `nats:2.12-alpine`).
+- Declare containers as `@Bean` in `TestcontainersConfiguration` (Postgres, reused), `TestNatsConfiguration` (NATS, fresh per context, not reused, so tests may pause it or change the stream) and `TestValkeyConfiguration` (Valkey, fresh per context); tests `@Import` what they need. Match production images (`postgres:18-alpine`, `nats:2.12-alpine`, `valkey/valkey:9-alpine`).
+- Valkey: `RedisContainer` (`com.redis:testcontainers-redis`) on the valkey image with `@ServiceConnection(name = "redis")`, because Boot does not recognise the image by name. Import it wherever a test touches `ShortLivedSecretStore` or `RateLimiter`; contexts without it still start (connections are lazy) and see those ports fail with `SecretStoreUnavailableException`. Tests use fresh subject ids per test and never assume an empty store. Time-dependent behaviour (issue windows, bucket refills) is driven by a clock the test moves, passed to the adapter; only TTL expiry, which Valkey's own clock enforces, waits in real time (short TTLs).
 - Log format tests: capture events with a Logback `ListAppender` and render them with Boot's `StructuredLogEncoder`; never re-initialize the JVM-wide logging system (cached contexts share it).
 - Postgres is the exception to `@ServiceConnection`: it would connect as the container superuser. The container runs the roles init script and only `spring.datasource.url` is registered, so the app connects as `frappe_app` and Flyway as `frappe_owner`, exactly as in production.
 - Never H2 or embedded substitutes: RLS, schemas and SQL dialect must be real.

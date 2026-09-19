@@ -71,7 +71,7 @@ sequenceDiagram
 
 ## Tech stack
 
-Java 25 · Spring Boot 4.1 · Spring Modulith 2.1 · Gradle (Kotlin DSL) · PostgreSQL 18 + Flyway · NATS JetStream · Testcontainers · Spotless + Palantir Java Format · gitleaks · GitHub Actions · OpenTelemetry
+Java 25 · Spring Boot 4.1 · Spring Modulith 2.1 · Gradle (Kotlin DSL) · PostgreSQL 18 + Flyway · NATS JetStream · Valkey 9 · Testcontainers · Spotless + Palantir Java Format · gitleaks · GitHub Actions · OpenTelemetry
 
 ## Getting started
 
@@ -83,13 +83,27 @@ Java 25 · Spring Boot 4.1 · Spring Modulith 2.1 · Gradle (Kotlin DSL) · Post
 
 ### Local infrastructure
 
-Start Postgres, NATS (JetStream enabled) and the observability stack (Grafana LGTM):
+Start Postgres, NATS (JetStream enabled), Valkey and the observability stack (Grafana LGTM), and wait until they are ready:
 
 ```bash
-docker compose up -d
+docker compose up -d --wait
 ```
 
 Spring Boot's Docker Compose support also starts these services when the application runs locally.
+
+Every host port can be moved with an environment variable (shell or a `.env` file next to `compose.yaml`) when another project already uses it; the `local` profile follows the Postgres and NATS ports, and Spring Boot finds Valkey and Grafana LGTM on any port:
+
+| Service | Variable | Default |
+| --- | --- | --- |
+| Postgres | `FRAPPE_POSTGRES_PORT` | `5432` |
+| NATS (client, monitoring) | `FRAPPE_NATS_PORT`, `FRAPPE_NATS_MONITOR_PORT` | `4222`, `8222` |
+| Valkey | `FRAPPE_VALKEY_PORT` | `6379` |
+| Grafana, OTLP gRPC, OTLP HTTP | `FRAPPE_GRAFANA_PORT`, `FRAPPE_OTLP_GRPC_PORT`, `FRAPPE_OTLP_HTTP_PORT` | `3000`, `4317`, `4318` |
+
+```bash
+FRAPPE_POSTGRES_PORT=15432 docker compose up -d --wait
+FRAPPE_POSTGRES_PORT=15432 ./gradlew bootRun
+```
 
 On first start Postgres creates two roles: `frappe_owner` runs the Flyway migrations and owns the schemas, `frappe_app` is what the application uses at runtime (data access only, no DDL). Local passwords default to the role names; override them with `FRAPPE_OWNER_PASSWORD` and `FRAPPE_APP_PASSWORD` in compose and the application.
 
@@ -99,13 +113,21 @@ Postgres runs the roles script automatically only on a new data volume. If start
 docker compose exec postgres /docker-entrypoint-initdb.d/01-frappe-roles.sh
 ```
 
+### Valkey
+
+Valkey 9 holds what is short-lived: verification, reset and email-change codes, and login and recovery rate limits, behind the platform ports `ShortLivedSecretStore` and `RateLimiter` (modules never use Redis APIs).
+
+- Compose runs `valkey/valkey:9-alpine` as service `valkey`. Spring Boot 4.1.1 does not recognise the valkey image by name, so the service carries the label `org.springframework.boot.service-connection: redis`; with it, `bootRun` connects to Valkey on any host port with no URL set. Outside `local`, set `FRAPPE_VALKEY_URL`.
+- Only Argon2id hashes of codes are stored, computed over an HMAC with a server-side pepper (`FRAPPE_SECRET_PEPPER`) that never reaches Valkey, so a leaked dump cannot be brute-forced offline. Keys hold ids and network addresses, never email addresses. Inspect them with `docker compose exec valkey valkey-cli --scan --pattern 'frappe:*'`.
+- Without Valkey the API still starts and serves, and `/actuator/health` stays UP: only the flows that need a code or a rate limit fail, fast (2 s timeouts), with `SecretStoreUnavailableException`.
+
 ### Run the application
 
 ```bash
 ./gradlew bootRun
 ```
 
-Migrations run on startup. `bootRun` activates the `local` profile (`application-local.properties`), which points at the compose database with the default passwords; set `SPRING_PROFILES_ACTIVE` to override. Outside `local` there are no defaults: startup fails unless `FRAPPE_DB_URL`, `FRAPPE_APP_PASSWORD` and `FRAPPE_OWNER_PASSWORD` are set.
+Migrations run on startup. `bootRun` activates the `local` profile (`application-local.properties`), which points at the compose database with the default passwords; set `SPRING_PROFILES_ACTIVE` to override. Outside `local` there are no defaults: startup fails unless `FRAPPE_DB_URL`, `FRAPPE_APP_PASSWORD`, `FRAPPE_OWNER_PASSWORD`, `FRAPPE_VALKEY_URL` (`redis://host:6379`, `rediss://` for TLS, credentials in the URL) and `FRAPPE_SECRET_PEPPER` (at least 32 random characters, e.g. `openssl rand -base64 48`) are set.
 
 Routes live under `/v1`; the OpenAPI spec is at `/v3/api-docs` and, in `local` only, the Scalar API reference at <http://localhost:8080/scalar>. Behind a reverse proxy set `FRAPPE_TRUSTED_PROXIES` to the proxy's addresses (CIDR list, default loopback only): `X-Forwarded-For` is honoured only from those.
 
