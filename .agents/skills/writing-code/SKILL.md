@@ -21,7 +21,7 @@ Load before creating or changing any production code, migration or configuration
 - Infrastructure faults: dedicated exceptions with cause, catch only expected types, log or rethrow (never both).
 - Telemetry: infrastructure is observed automatically; features only declare business metrics on events (`@Counted`/`@Measured`); no telemetry types in domain or application; metric tags never carry tenant or entity ids.
 - Logs are ECS JSON with context in key/values; Javadoc on every type and member (`check` enforces doclint).
-- English identifiers and API; user-facing text via message bundles.
+- English identifiers and API; user-facing text only from the module's ICU catalogs; the API returns raw values (`references/i18n.md`).
 - `./gradlew spotlessApply check` green before handing over.
 
 ## Decision Gates
@@ -33,6 +33,7 @@ Load before creating or changing any production code, migration or configuration
 | JPA entities, MapStruct, Flyway, schemas, RLS, locking | `references/persistence.md` |
 | Publishing or consuming events, outbox, NATS, inbox | `references/domain-events.md` |
 | Controllers, `/v1`, validation, errors, OpenAPI, i18n, sessions, RBAC | `references/http-api.md` |
+| User-facing text, catalogs, locales, raw values, translatable tenant content | `references/i18n.md` |
 | Creating ids, reading time | `references/ids.md` |
 | Logging | `references/logging.md` |
 | Metrics, spans, observations, business metrics | `references/observability.md` |

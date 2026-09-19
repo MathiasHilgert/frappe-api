@@ -55,7 +55,7 @@ class CloseTabRoute {
 ## OpenAPI and i18n
 
 - OpenAPI is generated from code; annotate DTOs and endpoints, never hand-write the spec.
-- Code and API names are English. User-facing messages come from `messages*.properties`, resolved by `Accept-Language`.
+- Code and API names are English. User-facing messages come from the module's ICU catalogs in the locale the chain resolved (user, `Accept-Language`, branch, business, `en`); values are raw. See `i18n.md`.
 
 ## Sessions and RBAC
 
