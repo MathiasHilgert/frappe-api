@@ -71,7 +71,7 @@ closeBusinessDay.schedule(branchId.toString(), new EntitySchedule("0 0 4 * * *",
 
 - Every execution is the observation `scheduled.task`: span `scheduled task <name>` and timer tagged `scheduled.task.name` and `scheduled.task.outcome` (`success`, `failure`); the key is a span attribute only. The action runs inside it, so its queries and log lines join the trace. Do not add telemetry around tasks.
 - Every failure is logged once: WARN while retries remain, ERROR once they are used up (a given-up one-time run is its last line), with `frappe.scheduling.task_name`, `frappe.scheduling.task_instance`, `frappe.scheduling.consecutive_failures` and the cause.
-- db-scheduler's own meters (`db_scheduler_*`) and the `db-scheduler` health indicator come from the starter.
+- db-scheduler's own meters come from the starter (`MicrometerStatsRegistry`, tag `task`, created with a task's first completed run): `dbscheduler_task_completions` (`result` = `ok` | `failed`), timer `dbscheduler_task_duration`, gauges `dbscheduler_task_last_run_duration` and `dbscheduler_task_last_run_timestamp_seconds`; so does the `dbScheduler` health indicator (UP started, OUT_OF_SERVICE shutting down, DOWN not started).
 
 ## Configuration
 

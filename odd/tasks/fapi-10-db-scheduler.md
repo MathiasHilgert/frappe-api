@@ -125,6 +125,31 @@ Strict TDD (brief and project rule). Runner: `./gradlew test` with `FRAPPE_TEST_
 - Tenant note in `scheduling.md` (handlers set the tenant context per tenant, pointing to the RLS ticket).
 - Final verification after R1–R4 `FRAPPE_TEST_DB=frappe_fapi_10 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL in 57s, 63 test classes, 246 tests, 0 failures. PR size: one PR, the orchestrator records the exception.
 - Merge of `origin/main` (FAPI-11 use cases, 12, 13, 16, 33, 34, 35): conflicts in `build.gradle.kts`, `application.properties`, `errors.md`, `observability.md`, `observing-the-api/references/conventions.md` resolved keeping both sides. Audit fix: `scheduling.md` examples call `@CommandUseCase` classes directly (the command bus is gone since FAPI-11); a returned `Failure` ends the run as done unless the action throws to retry.
+- Merge of `origin/main` 4a3c7b4 (#21 mailer, #26 problem details, #27 PR template): conflicts in `build.gradle.kts` (db-scheduler starter plus Resend SDK and jsoup), `errors.md` (mail catch plus scheduling line), `observability.md` (mail telemetry plus `scheduled.task`), resolved keeping both sides. #26 needs no scheduling change: scheduling has no HTTP surface; a `TaskSchedulingException` escaping a route is a defect-class failure and gets the generic internal-error problem, like any unmapped exception (`ProblemMapper` maps business failure types only). Library meter names in `scheduling.md` corrected from the 16.12.0 source (`dbscheduler_task_*`, not `db_scheduler_*`); `SchedulerSettingsIntegrationTests` asserts the starter's `MicrometerStatsRegistry` feeds the application registry (green on first run, a guard).
+
+### PR tables (names taken from the code)
+
+Observability:
+
+| Metric | Type | Unit | Tags (allowed values) | Kind | What it answers |
+| --- | --- | --- | --- | --- | --- |
+| `scheduled.task` | timer | seconds | `scheduled.task.name` (declared task names, e.g. `platform.outbox-recovery`), `scheduled.task.outcome` (`success`, `failure`), `error` (`none` or the exception class simple name) | infrastructure | How often and how long each task runs, and how often it fails |
+| `scheduled.task.active` | long task timer | seconds | `scheduled.task.name`, `scheduled.task.outcome` (`failure` while running: set up front, overwritten on success) | infrastructure | Which tasks are running now and for how long (stuck runs) |
+| `scheduled.task.exhausted` | counter | runs | `scheduled.task.name` (one-time task names) | infrastructure | One-time runs given up after their retries (alert on any increase) |
+| `dbscheduler_task_completions` | counter | runs | `task` (declared task names), `result` (`ok`, `failed`) | infrastructure | Library view of completed runs per task |
+| `dbscheduler_task_duration` | timer | seconds | `task` | infrastructure | Library view of run duration per task |
+| `dbscheduler_task_last_run_duration` | gauge | seconds | `task` | infrastructure | Duration of the last run |
+| `dbscheduler_task_last_run_timestamp_seconds` | gauge | seconds (epoch) | `task` | infrastructure | When the last run completed (staleness alert) |
+| `outbox.recovery` (changed) | timer | seconds | `outbox.recovery.trigger` (`scheduled`, `transport_recovered`), `error` | infrastructure | Unchanged metric; the pass now runs inside `scheduled.task` of `platform.outbox-recovery` |
+
+| Span / observation | Kind | Key attributes | When |
+| --- | --- | --- | --- |
+| `scheduled task <name>` (observation `scheduled.task`) | internal | `scheduled.task.name`, `scheduled.task.outcome`, `scheduled.task.instance` (the key, span only) | Every task run, root span; the run's JDBC spans and log lines are children |
+| `outbox recovery` (observation `outbox.recovery`, changed) | internal | `outbox.recovery.trigger` | Every recovery pass, now a child of `scheduled task platform.outbox-recovery` |
+
+Health: `dbScheduler` indicator (UP started, OUT_OF_SERVICE shutting down, DOWN not started), from the starter.
+
+Events: None: scheduling publishes and consumes no domain events. Outbox recovery still reacts to the platform-internal Spring event `MessagingTransportRecovered` (not a domain event, not externalized), now through `OutboxRecoveryTrigger`.
 
 ## Follow-ups / open questions
 - `OutboxRecoveryTrigger` drops a trigger while a pass runs (as the lock did before; `runNow` returns false). A pass that started just before NATS came back may still fail its publishes; those then wait for the next scheduled pass (1m with the defaults, plus their backoff).
