@@ -59,7 +59,13 @@ final class EntityHandle implements EntityTask, LibraryTask {
         var stored = StoredEntitySchedule.of(schedule);
         var next = stored.getSchedule().getNextExecutionTime(ExecutionComplete.simulatedSuccess(clock.instant()));
         try {
-            scheduler.get().schedule(task.instance(entityId, stored), next, ScheduleOptions.WHEN_EXISTS_RESCHEDULE);
+            // false: the execution existed when inserting failed but was gone or changed when rescheduling it.
+            if (!scheduler
+                    .get()
+                    .schedule(task.instance(entityId, stored), next, ScheduleOptions.WHEN_EXISTS_RESCHEDULE)) {
+                throw new TaskSchedulingException(
+                        name + " for '" + entityId + "' changed concurrently; set its schedule again");
+            }
         } catch (TaskInstanceCurrentlyExecutingException e) {
             throw new TaskSchedulingException(
                     name + " for '" + entityId + "' is running; set its schedule again once the run ended", e);

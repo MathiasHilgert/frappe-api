@@ -15,8 +15,8 @@ public interface EntityTask extends ScheduledTask {
      * @param entityId the entity's natural key, handed to the task on every run
      * @param schedule when the entity's task runs
      * @throws IllegalArgumentException if the cron expression is invalid
-     * @throws TaskSchedulingException if the entity's task is running right now (retry later) or the database could
-     *     not be reached
+     * @throws TaskSchedulingException if the entity's task is running right now or was changed by another instance at
+     *     the same moment (retry later), or the database could not be reached
      */
     void schedule(String entityId, EntitySchedule schedule);
 

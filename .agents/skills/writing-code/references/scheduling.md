@@ -55,7 +55,7 @@ closeBusinessDay.schedule(branchId.toString(), new EntitySchedule("0 0 4 * * *",
 ```
 
 - Scheduling writes through a transaction-aware `DataSource`: called inside a command transaction, it commits or rolls back with it (like an outbox row).
-- `TaskSchedulingException` (unchecked): the database could not be reached, or an entity's run is in progress while its schedule changes (retry later, e.g. by letting the event consumer fail).
+- `TaskSchedulingException` (unchecked): the database could not be reached, or an entity's run is in progress or was changed by another instance at the same moment while its schedule changes (retry later, e.g. by letting the event consumer fail).
 - A recurring task that hands state to its next run uses `tasks.recurring(name, schedule, dataType, initialData, action)`; the action returns the next data, and `runNow(data)` moves the pending run to now with new data (see `OutboxRecoveryTask`, called off the caller's thread by `OutboxRecoveryTrigger`). It returns `false` when a run is in progress, the task is not scheduled yet or another instance moved it at the same moment; it resets the task's failure count. db-scheduler logs that last race at WARN as well ("Failed to reschedule task instance"): expected, no action needed.
 - Task data is stored as JSON: records of ids and small values. Add fields only; a renamed class or field breaks pending runs.
 

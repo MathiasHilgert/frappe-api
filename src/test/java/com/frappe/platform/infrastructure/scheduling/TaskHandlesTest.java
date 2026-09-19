@@ -121,6 +121,10 @@ class TaskHandlesTest {
 
     @Test
     void anEntityScheduleIsCreatedOrReplacedAtItsNextCronTime() {
+        // Given
+        when(scheduler.schedule(any(TaskInstance.class), any(Instant.class), any(ScheduleOptions.class)))
+                .thenReturn(true);
+
         // When
         perEntity.schedule("branch-1", new EntitySchedule("0 0 4 * * *", ZoneId.of("America/Sao_Paulo")));
 
@@ -135,6 +139,19 @@ class TaskHandlesTest {
                                                         "0 0 4 * * *", ZoneId.of("America/Sao_Paulo")))),
                         eq(Instant.parse("2026-09-19T07:00:00Z")),
                         eq(ScheduleOptions.WHEN_EXISTS_RESCHEDULE));
+    }
+
+    @Test
+    void anEntityScheduleChangedConcurrentlyAsksForARetry() {
+        // Given another instance removed or rescheduled the execution between insert and reschedule
+        when(scheduler.schedule(any(TaskInstance.class), any(Instant.class), any(ScheduleOptions.class)))
+                .thenReturn(false);
+
+        // When / Then
+        assertThatExceptionOfType(TaskSchedulingException.class)
+                .isThrownBy(() -> perEntity.schedule("branch-1", new EntitySchedule("0 0 4 * * *", ZoneId.of("UTC"))))
+                .withMessageContaining("branch-1")
+                .withMessageContaining("changed concurrently");
     }
 
     @Test
