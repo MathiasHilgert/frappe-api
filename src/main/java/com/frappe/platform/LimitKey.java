@@ -11,8 +11,7 @@ import java.util.regex.Pattern;
 /**
  * Identifies one rate limit and defines it: a bucket of {@code capacity} calls per {@code period} for one subject, e.g.
  * 5 login attempts per minute per account, or 20 per minute per IP address. Tokens refill gradually over the period.
- * Callers own the definitions; a key keeps the definition it was first used with until its bucket is full again and
- * expires.
+ * Callers own the definitions; a changed definition takes effect at once, with a fresh bucket.
  *
  * <p>Keys are visible in Valkey tooling, so the subject is an id or a network address only, never an email address or
  * another personal value; build keys with {@link #ofId} or {@link #ofAddress}. The constructor accepts exactly the

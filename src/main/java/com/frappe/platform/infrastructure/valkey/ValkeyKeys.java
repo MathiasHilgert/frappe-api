@@ -29,13 +29,15 @@ final class ValkeyKeys {
     }
 
     /**
-     * The token bucket of a rate limit.
+     * The token bucket of a rate limit. The definition is part of the key, so a changed limit takes effect at once
+     * with a fresh bucket, and the old bucket expires on its own.
      *
      * @param key the limit's key
-     * @return {@code frappe:rate-limit:<module>:<purpose>:<subject>}
+     * @return {@code frappe:rate-limit:<module>:<purpose>:<subject>:<capacity>-per-<period in ms>ms}
      */
     static String rateLimit(LimitKey key) {
-        return "frappe:rate-limit:" + key.module() + ":" + key.purpose() + ":" + key.subject();
+        return "frappe:rate-limit:" + key.module() + ":" + key.purpose() + ":" + key.subject() + ":" + key.capacity()
+                + "-per-" + key.period().toMillis() + "ms";
     }
 
     private static String suffix(SecretKey key) {

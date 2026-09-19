@@ -36,7 +36,7 @@ if (!limiter.tryConsume(perAddress) || !limiter.tryConsume(perAccount)) {
 
 - A `LimitKey` carries its definition: `capacity` calls per `period`, refilled gradually (Bucket4j token bucket, greedy refill).
 - Subjects: `ofId` (a UUID) or `ofAddress` (an IPv4 address as is; an IPv6 address by its /64 prefix, `2001:db8:1:2::/64`, because one client usually owns a whole /64 and could rotate through it). The constructor accepts only those canonical forms, so digit strings such as phone numbers never become keys.
-- Buckets are shared by all instances. A key keeps the definition it was created with until its bucket is full again and expires (10 s later): change a limit by changing the purpose name when it must apply at once.
+- Buckets are shared by all instances. The definition is part of the Valkey key (`…:<subject>:5-per-60000ms`), so a changed limit applies at once with a fresh bucket; the old bucket expires 10 s after it is full again.
 
 ## Failures
 
@@ -46,6 +46,6 @@ if (!limiter.tryConsume(perAddress) || !limiter.tryConsume(perAccount)) {
 
 ## Adapter notes (`platform.infrastructure.valkey`)
 
-- Keys: `frappe:secret:<module>:<purpose>:<subject>` (hash: `hash`, `failures`; expires with the TTL), `frappe:secret-issues:…` (sorted set of issue times), `frappe:rate-limit:…` (Bucket4j state).
+- Keys: `frappe:secret:<module>:<purpose>:<subject>` (hash: `hash`, `failures`; expires with the TTL), `frappe:secret-issues:…` (sorted set of issue times), `frappe:rate-limit:…:<capacity>-per-<ms>ms` (Bucket4j state).
 - Three Lua scripts next to the adapter, because no library offers them: `put-secret.lua` replaces a secret with its TTL and a zero failure count in one step (MULTI/EXEC would take a dedicated connection per call), `consume-secret.lua` settles an attempt atomically after the Argon2 check in Java (salted hashes cannot be compared inside Valkey) and `count-issue.lua` is the sliding window. Every command runs on the shared connection.
 - Bucket4j runs on Spring's shared, lazily opened Lettuce connection (`SharedConnectionRedisApi`); its own builders connect eagerly and would stop startup without Valkey.
