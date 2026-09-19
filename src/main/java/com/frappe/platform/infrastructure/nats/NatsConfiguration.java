@@ -1,5 +1,6 @@
 package com.frappe.platform.infrastructure.nats;
 
+import com.frappe.platform.infrastructure.tracing.EventTraceContexts;
 import io.micrometer.observation.ObservationRegistry;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationEventPublisher;
@@ -63,6 +64,7 @@ class NatsConfiguration {
      * @param properties publish timeout
      * @param jsonMapper payload serializer
      * @param observations records every publish
+     * @param traceContexts the trace contexts events were recorded in, carried in their messages
      * @return the externalizer
      */
     @Bean
@@ -71,9 +73,11 @@ class NatsConfiguration {
             NatsClient natsClient,
             NatsProperties properties,
             JsonMapper jsonMapper,
-            ObservationRegistry observations) {
+            ObservationRegistry observations,
+            EventTraceContexts traceContexts) {
         return new EventExternalizerModuleListener(
                 configuration,
-                new NatsEventTransport(natsClient, properties.publishTimeout(), jsonMapper, observations));
+                new NatsEventTransport(
+                        natsClient, properties.publishTimeout(), jsonMapper, observations, traceContexts));
     }
 }

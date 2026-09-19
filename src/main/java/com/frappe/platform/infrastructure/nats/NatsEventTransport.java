@@ -1,6 +1,8 @@
 package com.frappe.platform.infrastructure.nats;
 
 import com.frappe.platform.DomainEvent;
+import com.frappe.platform.infrastructure.tracing.EventTraceContexts;
+import com.frappe.platform.infrastructure.tracing.W3cTraceContext;
 import io.micrometer.observation.ObservationRegistry;
 import io.nats.client.JetStreamApiException;
 import io.nats.client.JetStreamOptions;
@@ -8,6 +10,7 @@ import io.nats.client.impl.Headers;
 import io.nats.client.support.NatsJetStreamConstants;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,7 +22,9 @@ import tools.jackson.databind.json.JsonMapper;
 /**
  * Publishes a {@link DomainEvent} to JetStream and completes only after the ack, so the publication registry marks the
  * event published only once the stream stored it. {@code Nats-Msg-Id} is the event id: re-publishing within the
- * stream's duplicate window is stored once.
+ * stream's duplicate window is stored once. The message carries the W3C trace context the event was recorded in
+ * ({@code traceparent}, {@code tracestate}) on every publish, resubmissions included, and none if it was recorded
+ * without a trace.
  */
 class NatsEventTransport implements EventExternalizationTransport {
 
@@ -44,6 +49,7 @@ class NatsEventTransport implements EventExternalizationTransport {
     private final JetStreamOptions options;
     private final JsonMapper json;
     private final ObservationRegistry observations;
+    private final EventTraceContexts traceContexts;
 
     /**
      * Creates the transport.
@@ -52,22 +58,30 @@ class NatsEventTransport implements EventExternalizationTransport {
      * @param publishTimeout how long to wait for the JetStream ack
      * @param json payload serializer
      * @param observations records every publish as a {@link NatsPublishObservation}
+     * @param traceContexts the trace contexts events were recorded in
      */
-    NatsEventTransport(NatsClient client, Duration publishTimeout, JsonMapper json, ObservationRegistry observations) {
+    NatsEventTransport(
+            NatsClient client,
+            Duration publishTimeout,
+            JsonMapper json,
+            ObservationRegistry observations,
+            EventTraceContexts traceContexts) {
         this.client = client;
         this.options = JetStreamOptions.builder().requestTimeout(publishTimeout).build();
         this.json = json;
         this.observations = observations;
+        this.traceContexts = traceContexts;
     }
 
     @Override
     public CompletableFuture<?> externalize(Object payload, RoutingTarget target) {
         var event = (DomainEvent) payload;
         var subject = target.getTarget();
-        var observation =
-                NatsPublishObservation.of(observations, subject, event).start();
+        var creationContext = traceContexts.recordedFor(event.eventId());
+        var observation = NatsPublishObservation.of(observations, subject, event, creationContext)
+                .start();
         try (var scope = observation.openScope()) {
-            var ack = client.publish(subject, headers(event), json.writeValueAsBytes(event), options);
+            var ack = client.publish(subject, headers(event, creationContext), json.writeValueAsBytes(event), options);
             log.atDebug()
                     .addKeyValue(LogFields.EVENT_ID, event.eventId())
                     .addKeyValue(LogFields.SUBJECT, subject)
@@ -95,13 +109,21 @@ class NatsEventTransport implements EventExternalizationTransport {
         }
     }
 
-    private static Headers headers(DomainEvent event) {
-        return new Headers()
+    private static Headers headers(DomainEvent event, Optional<W3cTraceContext> creationContext) {
+        var headers = new Headers()
                 .put(NatsJetStreamConstants.MSG_ID_HDR, event.eventId().toString())
                 .put(EVENT_TYPE, NatsSubjects.eventType(event.getClass()))
                 .put(EVENT_VERSION, String.valueOf(event.eventVersion()))
                 .put(AGGREGATE_ID, event.aggregateId().toString())
                 .put(AGGREGATE_VERSION, String.valueOf(event.aggregateVersion()))
                 .put(OCCURRED_AT, event.occurredAt().toString());
+        creationContext.ifPresent(context -> {
+            headers.put(W3cTraceContext.TRACEPARENT, context.traceparent());
+            // An empty tracestate is the same as none (W3C); an empty header would only add noise.
+            if (!context.tracestate().isEmpty()) {
+                headers.put(W3cTraceContext.TRACESTATE, context.tracestate());
+            }
+        });
+        return headers;
     }
 }

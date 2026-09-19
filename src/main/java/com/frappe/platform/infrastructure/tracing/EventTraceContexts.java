@@ -5,7 +5,11 @@ import io.micrometer.tracing.propagation.Propagator;
 import java.time.Clock;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 
 /**
@@ -15,6 +19,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public final class EventTraceContexts {
+
+    private static final Logger log = LoggerFactory.getLogger(EventTraceContexts.class);
 
     private final Tracer tracer;
     private final Propagator propagator;
@@ -56,5 +62,24 @@ public final class EventTraceContexts {
         propagator.inject(current, fields, Map::put);
         W3cTraceContext.parse(fields.get(W3cTraceContext.TRACEPARENT), fields.get(W3cTraceContext.TRACESTATE))
                 .ifPresent(context -> repository.save(eventId, context, clock.instant()));
+    }
+
+    /**
+     * The creation context of an event, for the transport that publishes it. Telemetry never fails a publish: if the
+     * lookup fails, this logs one WARN and the event is published without trace headers.
+     *
+     * @param eventId the event being published
+     * @return its creation context, or empty if it was recorded without a trace or the lookup failed
+     */
+    public Optional<W3cTraceContext> recordedFor(UUID eventId) {
+        try {
+            return repository.find(eventId);
+        } catch (DataAccessException e) {
+            log.atWarn()
+                    .addKeyValue(LogFields.EVENT_ID, eventId)
+                    .setCause(e)
+                    .log("Reading the trace context of the event failed; publishing it without trace headers");
+            return Optional.empty();
+        }
     }
 }

@@ -2,7 +2,9 @@ package com.frappe.platform.infrastructure.tracing;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -16,6 +18,10 @@ class EventTraceContextRepository {
             insert into platform.event_trace_context (event_id, traceparent, tracestate, recorded_at)
             values (?, ?, ?, ?)
             on conflict (event_id) do nothing
+            """;
+
+    private static final String FIND = """
+            select traceparent, tracestate from platform.event_trace_context where event_id = ?
             """;
 
     private final JdbcClient jdbc;
@@ -40,5 +46,21 @@ class EventTraceContextRepository {
         jdbc.sql(INSERT)
                 .params(eventId, context.traceparent(), context.tracestate(), Timestamp.from(recordedAt))
                 .update();
+    }
+
+    /**
+     * Loads the creation context of an event.
+     *
+     * @param eventId the event
+     * @return its creation context, or empty if it was recorded without a trace
+     */
+    Optional<W3cTraceContext> find(UUID eventId) {
+        // Only validated values are written; parse keeps a hand-edited row from failing the publish.
+        return jdbc.sql(FIND)
+                .param(eventId)
+                .query((row, rowNumber) ->
+                        W3cTraceContext.parse(row.getString("traceparent"), row.getString("tracestate")))
+                .optional()
+                .flatMap(Function.identity());
     }
 }

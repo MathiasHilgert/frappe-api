@@ -22,7 +22,7 @@ Strict TDD. Runner: `./gradlew test` (in-memory span exporter, Testcontainers Po
 ## Tasks
 - [x] T0 Verify Micrometer Tracing / Boot 4.1.1 propagation APIs (Propagator, SenderContext/ReceiverContext, links) from sources; decide trace-context storage; record here
 - [x] T1 Capture trace context at record time and persist it with the publication (commit/rollback semantics match the outbox)
-- [ ] T2 Producer span + header injection on publish, using the stored context (also after resubmission)
+- [x] T2 Producer span + header injection on publish, using the stored context (also after resubmission)
 - [ ] T3 Consumer helper: extract and link; no header → works without link; malformed → works, WARN once
 - [ ] T4 Docs (`writing-code` events, `observing-the-api`), `./gradlew check` green, PR per template
 
@@ -58,5 +58,11 @@ Strict TDD. Runner: `./gradlew test` (in-memory span exporter, Testcontainers Po
 - Code: `tracing.EventTraceContexts#recordCurrent` (Tracer + configured `Propagator`), `EventTraceContextRepository` (`on conflict do nothing`), `OutboxDomainEventPublisher` records the context for events selected by `EventExternalizationConfiguration`.
 - `./gradlew spotlessApply check`: BUILD SUCCESSFUL.
 
+### T2 producer span and headers
+- RED (compilation): `NatsEventTransportTest` (4 new: headers carried, empty tracestate omitted, no headers without a recorded context, PRODUCER `LinkedMessageContext` with the creation context) and `EventTraceContextsTest` (2: lookup, failing lookup → empty + one WARN with `frappe.event_id` and cause): `LinkedMessageContext`, `EventTraceContexts#recordedFor`, `EventTraceContextRepository#find` and the new transport constructor missing. GREEN: 8/8 and 2/2.
+- RED `NatsTracePropagationTests.observesThePublishAsAProducerSpanLinkedToTheRecordedContext` with everything but the handler bean: `expected: PRODUCER but was: INTERNAL` (Boot's default handler took the new context). The acceptance tests `carriesTheTraceContextTheEventWasRecordedIn` (A1), `keepsTheOriginalTraceContextWhenResubmittedAfterAnOutage` (A2, NATS paused, resubmitted in another trace) and `publishesWithoutTraceHeadersWhenTheEventWasRecordedWithoutATrace` (A4) were written in the same RED step and passed once the transport wrote the headers. GREEN after `TracingConfiguration` registered `LinkedMessageTracingHandler` at order 0: 4/4.
+- Added to the A2 test afterwards (green at once, a guard of the design, no RED): the successful publish after the resubmission is in another trace than the command and links to it, so late delivery never stretches the producing trace.
+- `./gradlew spotlessApply check`: BUILD SUCCESSFUL.
+
 ## Next step
-T2.
+T3.
