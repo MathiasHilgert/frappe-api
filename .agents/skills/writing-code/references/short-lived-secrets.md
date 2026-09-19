@@ -30,7 +30,8 @@ if (!limiter.tryConsume(perAddress) || !limiter.tryConsume(perAccount)) {
 }
 ```
 
-- A `LimitKey` carries its definition: `capacity` calls per `period`, refilled gradually (Bucket4j token bucket, greedy refill). The subject is a UUID or an IP address; `LimitKey` rejects anything else.
+- A `LimitKey` carries its definition: `capacity` calls per `period`, refilled gradually (Bucket4j token bucket, greedy refill).
+- Subjects: `ofId` (a UUID) or `ofAddress` (an IPv4 address as is; an IPv6 address by its /64 prefix, `2001:db8:1:2::/64`, because one client usually owns a whole /64 and could rotate through it). The constructor accepts only those canonical forms, so digit strings such as phone numbers never become keys.
 - Buckets are shared by all instances. A key keeps the definition it was created with until its bucket is full again and expires (10 s later): change a limit by changing the purpose name when it must apply at once.
 
 ## Failures

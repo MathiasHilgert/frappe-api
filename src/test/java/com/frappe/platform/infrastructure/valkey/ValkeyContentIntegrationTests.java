@@ -28,7 +28,7 @@ import org.springframework.test.context.ActiveProfiles;
 class ValkeyContentIntegrationTests {
 
     private static final Pattern KEY =
-            Pattern.compile("frappe:(secret|secret-issues|rate-limit):[a-z0-9-]+:[a-z0-9-]+:[0-9a-f.:-]+");
+            Pattern.compile("frappe:(secret|secret-issues|rate-limit):[a-z0-9-]+:[a-z0-9-]+:[0-9a-f.:/-]+");
 
     @Autowired
     ShortLivedSecretStore secrets;
@@ -79,7 +79,7 @@ class ValkeyContentIntegrationTests {
                         "frappe:secret:identity:password-reset:" + account,
                         "frappe:secret-issues:identity:password-reset:" + account,
                         "frappe:rate-limit:identity:login:" + account,
-                        "frappe:rate-limit:identity:login:2001:db8:0:0:0:0:0:7")
+                        "frappe:rate-limit:identity:login:2001:db8:0:0::/64")
                 .allMatch(key -> KEY.matcher(key).matches())
                 .noneMatch(key -> key.contains("@"));
     }

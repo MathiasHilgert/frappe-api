@@ -28,21 +28,71 @@ class LimitKeyTest {
     }
 
     @Test
-    void limitsAnIpAddressByItsCanonicalForm() throws Exception {
-        // Given
-        var v4 = InetAddress.getByName("203.0.113.7");
-        var v6 = InetAddress.getByName("2001:DB8:0:0:0:0:0:1");
+    void limitsAnIpv4AddressByItsCanonicalForm() throws Exception {
+        // When
+        var key = LimitKey.ofAddress("identity", "login", InetAddress.getByName("203.0.113.7"), 20, MINUTE);
 
         // Then
-        assertThat(LimitKey.ofAddress("identity", "login", v4, 20, MINUTE).subject())
-                .isEqualTo("203.0.113.7");
-        assertThat(LimitKey.ofAddress("identity", "login", v6, 20, MINUTE).subject())
-                .isEqualTo("2001:db8:0:0:0:0:0:1");
+        assertThat(key.subject()).isEqualTo("203.0.113.7");
+    }
+
+    @Test
+    void limitsAnIpv6AddressByItsSlash64Prefix() throws Exception {
+        // Given two addresses of one /64, which a single client can rotate through freely
+        var first = InetAddress.getByName("2001:DB8:1:2:0:0:0:7");
+        var second = InetAddress.getByName("2001:db8:1:2:ffff:ffff:ffff:1");
+
+        // When
+        var firstKey = LimitKey.ofAddress("identity", "login", first, 20, MINUTE);
+        var secondKey = LimitKey.ofAddress("identity", "login", second, 20, MINUTE);
+
+        // Then
+        assertThat(firstKey.subject()).isEqualTo("2001:db8:1:2::/64");
+        assertThat(secondKey).isEqualTo(firstKey);
+    }
+
+    @Test
+    void separatesIpv6AddressesOfDifferentSlash64Prefixes() throws Exception {
+        // Given
+        var first = InetAddress.getByName("2001:db8:1:2::7");
+        var neighbour = InetAddress.getByName("2001:db8:1:3::7");
+
+        // Then
+        assertThat(LimitKey.ofAddress("identity", "login", neighbour, 20, MINUTE)
+                        .subject())
+                .isEqualTo("2001:db8:1:3::/64")
+                .isNotEqualTo(LimitKey.ofAddress("identity", "login", first, 20, MINUTE)
+                        .subject());
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"", "ana@example.com", "Ana", "fe80::1%eth0", "a b"})
-    void rejectsSubjectsThatAreNeitherIdsNorAddresses(String subject) {
+    @ValueSource(strings = {"01996a4e-0000-7000-8000-000000000001", "203.0.113.7", "2001:db8:1:2::/64", "0:0:0:0::/64"})
+    void acceptsTheCanonicalFormsItBuilds(String subject) {
+        assertThat(new LimitKey("identity", "login", subject, 5, MINUTE).subject())
+                .isEqualTo(subject);
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "",
+                "ana@example.com",
+                "Ana",
+                "fe80::1%eth0",
+                "a b",
+                "5551234567",
+                "555123456",
+                "5551-234-567",
+                "01996A4E-0000-7000-8000-000000000001",
+                "1996a4e-0-7000-8000-1",
+                "010.0.0.1",
+                "203.0.113",
+                "2001:db8::7",
+                "2001:db8:0:0:0:0:0:7",
+                "2001:0db8:1:2::/64",
+                "2001:db8:1:2::/48"
+            })
+    void rejectsSubjectsThatAreNotACanonicalIdAddressOrPrefix(String subject) {
         assertThatIllegalArgumentException().isThrownBy(() -> new LimitKey("identity", "login", subject, 5, MINUTE));
     }
 
