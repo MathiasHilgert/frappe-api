@@ -29,7 +29,7 @@ Strict TDD. Runner: `./gradlew test` with Testcontainers (Postgres reused as `FR
 - [x] T3 `ShortLivedSecretStore` put/consume: Argon2 hash only, single use under concurrency, 5 failures, replace, TTL
 - [x] T4 `countIssue` sliding-window cap
 - [x] T5 `RateLimiter` on Bucket4j: N+1 refused, shared across instances
-- [ ] T6 Invariants and failure: raw read holds only hashes and no email; Valkey down → `SecretStoreUnavailableException`; docs (README, testing skill, writing-code); full check
+- [x] T6 Invariants and failure: raw read holds only hashes and no email; Valkey down → `SecretStoreUnavailableException`; docs (README, testing skill, writing-code); full check
 
 ## Acceptance (from ticket)
 - bootRun with compose connects to Valkey with no URL set.
@@ -84,5 +84,19 @@ Strict TDD. Runner: `./gradlew test` with Testcontainers (Postgres reused as `FR
 - Code: `LimitKey` (module, purpose, subject = lowercase UUID or IP address, capacity, period; factories `ofId`, `ofAddress` without IPv6 scope), `RateLimiter`, `ValkeyRateLimiter` (greedy refill of `capacity` per `period`, expiry 10 s after the bucket is full again, `DataAccessException | RedisException` → `SecretStoreUnavailableException`), `SharedConnectionRedisApi` (Spring's lazily opened shared Lettuce connection; fails fast if the factory does not share it), `ValkeyKeys.rateLimit`.
 - `./gradlew javadoc`, `ModularityTests`: green.
 
+### T6 invariants, failure, docs
+- `ValkeyContentIntegrationTests` (2, guards, green on first run because T3/T5 already store hashes under id keys; no RED possible without breaking working code): `storesOnlyTheArgon2HashOfASecret` (fields `hash` = `$argon2id$…` without the code, `failures` = `0`, TTL set) and `keysHoldIdsAndAddressesButNoEmailAddress` (SCAN of every key after put, countIssue and two rate limits: all match `frappe:(secret|secret-issues|rate-limit):<kebab>:<kebab>:<id or address>`, none contains `@`).
+- `ValkeyUnavailableTests` extended (guards): `theSecretStoreFailsFastAsUnavailable` (put, consume, countIssue) and `theRateLimiterFailsFastAsUnavailable` throw `SecretStoreUnavailableException` within 5 s against a closed port. Mutation check: catching only `RedisException` in `ValkeyRateLimiter` failed `theRateLimiterFailsFastAsUnavailable` (`but was: org.springframework.data.redis.RedisConnectionFailureException: Unable to connect to Redis`); restored.
+- Docs: README (Valkey section: label and why, `FRAPPE_VALKEY_URL`, raw inspection, degradation; tech stack), `testing-code/references/integration-tests.md` (`TestValkeyConfiguration`, clock-driven windows), `writing-code` (new `references/short-lived-secrets.md` with usage, failures and adapter notes; decision-gate row; `errors.md` on public exceptions next to their port).
+- Verification `FRAPPE_TEST_DB=frappe_fapi_16 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 54 test classes, 209 tests, 0 failures, 0 errors, 0 skipped (javadoc with doclint, spotless, `ModularityTests` included).
+- Boot check (acceptance "bootRun with compose connects to Valkey with no URL set"): `docker compose -p frappe-fapi-16 up -d --wait` with every host port moved (Postgres 25432, NATS 24222/28222, Valkey 26379, LGTM 23000/24317/24318), all four services healthy. `./gradlew bootRun` with the Postgres/NATS port variables but without `FRAPPE_VALKEY_PORT` or `FRAPPE_VALKEY_URL` (so the local default pointed at the closed 6379), `--spring.docker.compose.arguments=--project-name,frappe-fapi-16`, Redis health enabled for the check only: Boot logged "There are already Docker Compose services running, skipping startup", started in 3.8 s, `/actuator/health` → `UP`, `redis: UP (version 7.2.4, Valkey's compatibility version)`, and `valkey-cli client list` in the container showed the app's connection. Stack torn down with `down -v`.
+- Found during the boot check: Boot 4.1.1 has no `project-name` property; a compose project other than the directory name needs `spring.docker.compose.arguments=--project-name,<name>`. A first attempt without it started a second project `fapi-16` (worktree directory name) that clashed on the moved ports; it was removed.
+
+## Open questions / follow-ups
+- One exception for both ports: the ticket names `SecretStoreUnavailableException` for Valkey failures, so `RateLimiter` throws it too. If a distinct `RateLimiterUnavailableException` reads better for identity, it is a small follow-up.
+- Health: the Redis health contributor is disabled so a Valkey outage never marks the API DOWN. If operations want to see Valkey in `/actuator/health`, a follow-up can add it to a non-aggregated health group.
+- Rate-limit definitions stick to a bucket until it is full again and expires (10 s later); callers change a limit at once by changing the purpose name. Implicit configuration replacement in Bucket4j is a possible follow-up if needed.
+- `countIssue` uses the application clock of each instance (sorted-set scores); clocks must be NTP-synchronised, like every other timestamp.
+
 ## Next step
-T6.
+Review and PR (not created here: no push, no Plane change).

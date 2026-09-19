@@ -71,7 +71,7 @@ sequenceDiagram
 
 ## Tech stack
 
-Java 25 · Spring Boot 4.1 · Spring Modulith 2.1 · Gradle (Kotlin DSL) · PostgreSQL 18 + Flyway · NATS JetStream · Testcontainers · Spotless + Palantir Java Format · gitleaks · GitHub Actions · OpenTelemetry
+Java 25 · Spring Boot 4.1 · Spring Modulith 2.1 · Gradle (Kotlin DSL) · PostgreSQL 18 + Flyway · NATS JetStream · Valkey 9 · Testcontainers · Spotless + Palantir Java Format · gitleaks · GitHub Actions · OpenTelemetry
 
 ## Getting started
 
@@ -112,6 +112,14 @@ Postgres runs the roles script automatically only on a new data volume. If start
 ```bash
 docker compose exec postgres /docker-entrypoint-initdb.d/01-frappe-roles.sh
 ```
+
+### Valkey
+
+Valkey 9 holds what is short-lived: verification, reset and email-change codes, and login and recovery rate limits, behind the platform ports `ShortLivedSecretStore` and `RateLimiter` (modules never use Redis APIs).
+
+- Compose runs `valkey/valkey:9-alpine` as service `valkey`. Spring Boot 4.1.1 does not recognise the valkey image by name, so the service carries the label `org.springframework.boot.service-connection: redis`; with it, `bootRun` connects to Valkey on any host port with no URL set. Outside `local`, set `FRAPPE_VALKEY_URL`.
+- Only Argon2 hashes of codes are stored, and keys hold ids and IP addresses, never email addresses. Inspect them with `docker compose exec valkey valkey-cli --scan --pattern 'frappe:*'`.
+- Without Valkey the API still starts and serves, and `/actuator/health` stays UP: only the flows that need a code or a rate limit fail, fast (2 s timeouts), with `SecretStoreUnavailableException`.
 
 ### Run the application
 

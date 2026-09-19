@@ -7,6 +7,7 @@
 - Log OR rethrow, never both. Log once, at the boundary that handles the failure and knows the context (a background task, a listener turning a failure into a failed future). Everything below it wraps and rethrows.
 - `InterruptedException`: restore the flag (`Thread.currentThread().interrupt()`), then finish cleanup (close resources) before returning.
 - No shared base exception while the exceptions are package-private; add one only when a caller outside the package needs to catch the family.
+- Public exceptions are the exception to package-private: only when another module must catch them, declared in the platform root package next to the port that throws them (`SecretStoreUnavailableException` for `ShortLivedSecretStore` and `RateLimiter`).
 - A boundary that turns a failure into a result (e.g. a failed `CompletableFuture`) is where it is logged. Frameworks may log the same failure again (Spring Modulith's INFO for failed listeners); that duplicate is known and accepted.
 - Wrap third-party signals at the adapter boundary: jnats' `IllegalStateException` for a closed connection becomes `NatsUnavailableException` in `NatsClient`.
 - Fail fast at startup for missing configuration, naming the environment variable to set.

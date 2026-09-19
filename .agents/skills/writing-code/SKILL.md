@@ -37,6 +37,7 @@ Load before creating or changing any production code, migration or configuration
 | Logging | `references/logging.md` |
 | Metrics, spans, observations, business metrics | `references/observability.md` |
 | Exceptions, catching, interrupts | `references/errors.md` |
+| One-time codes, issue caps, rate limits (Valkey) | `references/short-lived-secrets.md` |
 | Javadoc, comments, package-info | `references/documentation.md` |
 | Any class or test: structure, naming, immutability | `references/clean-code.md` |
 
