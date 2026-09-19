@@ -8,6 +8,7 @@ import com.frappe.platform.web.Access;
 import com.frappe.platform.web.Posture;
 import com.frappe.platform.web.ResolvedSession;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -44,6 +46,11 @@ class OpenApiTests {
         AuthenticatedRoute authenticatedDocumentedRoute() {
             return new AuthenticatedRoute();
         }
+
+        @Bean
+        BusinessRoute businessDocumentedRoute() {
+            return new BusinessRoute();
+        }
     }
 
     @RestController
@@ -66,8 +73,27 @@ class OpenApiTests {
         }
     }
 
+    @RestController
+    @Access(Posture.AUTHENTICATED)
+    static class BusinessRoute {
+
+        @GetMapping("/businesses/{businessId}/test/docs")
+        String answer(@PathVariable UUID businessId) {
+            return businessId.toString();
+        }
+    }
+
     @Autowired
     MockMvcTester http;
+
+    @Test
+    void theSpecDocumentsNotFoundOnEveryBusinessScopedRoute() {
+        var spec = assertThat(http.get().uri(SPEC)).hasStatusOk().bodyJson();
+        spec.extractingPath("$.paths['/v1/businesses/{businessId}/test/docs'].get.responses['404'].description")
+                .asString()
+                .contains("business");
+        spec.doesNotHavePath("$.paths['/v1/test/docs/self'].get.responses['404']");
+    }
 
     @Test
     void theScalarApiReferenceIsServedInTheLocalProfile() {

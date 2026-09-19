@@ -6,6 +6,9 @@ public enum SessionKind {
     /** A person signed in with their own credentials. */
     PERSON,
 
+    /** A staff member signed in on their own phone, bound to one business. */
+    STAFF,
+
     /** A shared device of a branch (a till or kitchen screen) operated by staff. */
     TERMINAL,
 

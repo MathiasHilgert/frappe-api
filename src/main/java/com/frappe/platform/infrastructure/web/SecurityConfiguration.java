@@ -1,5 +1,7 @@
 package com.frappe.platform.infrastructure.web;
 
+import com.frappe.platform.TenantScope;
+import com.frappe.platform.web.BusinessMembership;
 import com.frappe.platform.web.SessionResolver;
 import io.micrometer.observation.ObservationPredicate;
 import jakarta.servlet.DispatcherType;
@@ -15,6 +17,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
 import org.springframework.security.web.header.HeaderWriterFilter;
@@ -57,6 +60,8 @@ class SecurityConfiguration {
      * @param routes the checked routes
      * @param otherHandlers the guard over handler mappings outside the routes
      * @param sessionResolver identity's session resolver, when present
+     * @param businessMembership access's membership port, when present; without it no person enters a business
+     * @param tenants binds the business of a business-scoped path as the request's tenant
      * @param exceptionResolver Spring MVC's exception resolvers, which answer the chain's refusals as problems
      * @return the filter chain
      * @throws Exception when Spring Security cannot build the chain
@@ -67,6 +72,8 @@ class SecurityConfiguration {
             RouteCatalog routes,
             HandlerMappingGuard otherHandlers,
             ObjectProvider<SessionResolver> sessionResolver,
+            ObjectProvider<BusinessMembership> businessMembership,
+            TenantScope tenants,
             @Qualifier("handlerExceptionResolver") HandlerExceptionResolver exceptionResolver)
             throws Exception {
         // Stateless: the context lives in a request attribute, saved once and reloaded on async and error dispatches.
@@ -74,6 +81,8 @@ class SecurityConfiguration {
         var bearerSessions = new BearerSessionFilter(sessionResolver.getIfAvailable(() -> NO_SESSIONS), contexts);
         var routeAuthorization = new RouteAuthorizationManager(routes, otherHandlers);
         var refusals = new SecurityRefusals(exceptionResolver);
+        var businessPaths =
+                new BusinessPathFilter(routes, businessMembership.getIfAvailable(NoBusinessMembers::new), tenants);
         // CSRF protection is off on purpose: this API is stateless and takes credentials only from the
         // Authorization: Bearer header, which browsers never attach on their own; cookies and query tokens are ignored
         // (pinned by RouteAccessTests). With no ambient credential there is nothing to forge, so CSRF does not apply
@@ -89,6 +98,8 @@ class SecurityConfiguration {
                         failures -> failures.authenticationEntryPoint(refusals).accessDeniedHandler(refusals))
                 .addFilterBefore(bearerSessions, AnonymousAuthenticationFilter.class)
                 .addFilterAfter(new ErrorDispatchSecurityHeaders(), HeaderWriterFilter.class)
+                // After the posture was enforced: a business-scoped route checks the caller, then binds the tenant.
+                .addFilterAfter(businessPaths, AuthorizationFilter.class)
                 .authorizeHttpRequests(requests -> requests.dispatcherTypeMatchers(DispatcherType.ERROR)
                         .permitAll()
                         .requestMatchers(EndpointRequest.to(HealthEndpoint.class))
