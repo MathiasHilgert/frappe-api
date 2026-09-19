@@ -9,6 +9,11 @@ readonly BWS_CONFIG="$SCRIPTS_DIR/bws.toml"
 readonly BWS_PROFILE_NAME="frappe-eu"
 readonly SERVER="https://vault.bitwarden.eu"
 readonly DEFAULT_PROJECT="frappe-dev"
+# Secret names become environment variables of the command, so no secret may steer the shell, the dynamic linker,
+# the JVM, Gradle, Spring or bws itself. Names are FRAPPE_* or a known third-party key name (docs/secrets.md).
+readonly RESERVED_NAMES=" PATH HOME SHELL USER LOGNAME IFS ENV BASH_ENV CDPATH GLOBIGNORE PS4 PROMPT_COMMAND
+ SHELLOPTS BASHOPTS TMPDIR CLASSPATH NODE_OPTIONS PERL5OPT RUBYOPT PYTHONPATH PYTHONSTARTUP "
+readonly RESERVED_PREFIXES="LD_ DYLD_ BASH_FUNC_ BWS_ JAVA_ JDK_ _JAVA_ GRADLE_ SPRING_ GIT_"
 
 usage() {
 	cat <<EOF
@@ -57,6 +62,15 @@ EOF
 	local_path_hint
 }
 
+is_reserved() {
+	local prefix
+	[[ "$RESERVED_NAMES" == *[[:space:]]"$1"[[:space:]]* ]] && return 0
+	for prefix in $RESERVED_PREFIXES; do
+		[[ "$1" == "$prefix"* ]] && return 0
+	done
+	return 1
+}
+
 project="${FRAPPE_SECRETS_PROJECT:-$DEFAULT_PROJECT}"
 dry_run=false
 while (($# > 0)); do
@@ -66,7 +80,7 @@ while (($# > 0)); do
 		exit 0
 		;;
 	--project)
-		(($# >= 2)) || { echo "with-secrets: --project needs a name" >&2; usage >&2; exit 2; }
+		[[ -n "${2:-}" ]] || { echo "with-secrets: --project needs a name" >&2; usage >&2; exit 2; }
 		project="$2"
 		shift 2
 		;;
@@ -93,7 +107,9 @@ if (($# == 0)); then
 	exit 2
 fi
 
-# bws run joins its arguments with spaces and hands them to a shell, so quote each one for bash.
+# bws run joins its arguments with spaces and runs the result with `<shell> -c`, so the shell parses them again.
+# %q quotes each argument in bash syntax (spaces, quotes, $, newlines as $'...'), which only bash reads back
+# unchanged: hence --shell bash below instead of the default sh.
 printf -v command_line '%q ' "$@"
 command_line="${command_line% }"
 
@@ -118,8 +134,9 @@ command -v bws >/dev/null 2>&1 || { missing_bws; exit 1; }
 [[ -n "${BWS_ACCESS_TOKEN:-}" ]] || { missing_token "$project"; exit 1; }
 
 # The committed profile pins the EU server and opts out of the state file; a server URL would override it.
+# UUIDs as variable names would bypass the name check below and the names the app reads.
 export BWS_CONFIG_FILE="$BWS_CONFIG" BWS_PROFILE="$BWS_PROFILE_NAME"
-unset BWS_SERVER_URL
+unset BWS_SERVER_URL BWS_UUIDS_AS_KEYNAMES
 
 projects="$(bws project list --output tsv --color no)" || {
 	echo "with-secrets: could not list projects on $SERVER; is BWS_ACCESS_TOKEN valid and not expired?" >&2
@@ -134,5 +151,25 @@ project with --project. See docs/secrets.md.
 EOF
 	exit 1
 fi
+
+# Refuse reserved names before running anything. Only the names are kept: the listing (values included) stays in
+# this variable, never on screen or disk, and is dropped at once.
+listing="$(bws secret list "$project_id" --output tsv --color no)" || {
+	echo "with-secrets: could not list the secrets of '$project'." >&2
+	exit 1
+}
+# Rows start with a secret id (36 characters of hex and dashes). A line of a multi-line value that happens to look
+# like one only adds a name to check, so the check can refuse too much but never miss a key.
+names="$(awk -F '\t' 'NR > 1 && length($1) == 36 && $1 ~ /^[0-9a-f-]+$/ { print $2 }' <<<"$listing")"
+unset listing
+while IFS= read -r name; do
+	if [[ -n "$name" ]] && is_reserved "$name"; then
+		cat >&2 <<EOF
+with-secrets: project '$project' has a secret named '$name', a reserved variable that would control the command
+(shell, linker, JVM, Gradle, Spring or bws). Rename it to FRAPPE_* or a known third-party key name; nothing was run.
+EOF
+		exit 1
+	fi
+done <<<"$names"
 
 exec bws run --project-id "$project_id" --shell bash -- "$command_line"
