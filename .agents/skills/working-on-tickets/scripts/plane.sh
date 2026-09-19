@@ -18,10 +18,18 @@ Usage: plane.sh <command> [args]
   create --title T --module M --labels a,b --html-file F
                                                Create a Todo work item, assign it to module M,
                                                labels by name (e.g. module:identity,type:feature,size:S)
+  pages                                        List Plane pages (id, name)
+  page-get <name|id> [--out F]                 Write the page's HTML to F (default <name>.html)
+  page-put <name|id> --html-file F [--dry-run] Update a page's HTML (minified; rejects whitespace
+                                               between tags and tables whose colwidths don't sum
+                                               to ~1000 per row). --dry-run validates and prints
+                                               the request without sending it.
 EOF
 }
 
 die() { printf 'plane.sh: %s\n' "$*" >&2; exit 1; }
+
+readonly USER_AGENT="frappe-api-plane-sh/1.0"
 
 require() {
   command -v curl >/dev/null || die "curl is required"
@@ -32,7 +40,7 @@ require() {
 # api METHOD PATH [JSON_BODY]
 api() {
   local method=$1 path=$2 body=${3:-} out status
-  local args=(-sS -X "$method" -H "X-API-Key: ${PLANE_API_KEY}" -H "Content-Type: application/json" -w '\n%{http_code}')
+  local args=(-sS -X "$method" -H "X-API-Key: ${PLANE_API_KEY}" -H "User-Agent: ${USER_AGENT}" -H "Content-Type: application/json" -w '\n%{http_code}')
   [[ -n "$body" ]] && args+=(--data "$body")
   out=$(curl "${args[@]}" "${BASE}${path}") || die "request failed: $method $path"
   status=${out##*$'\n'}
@@ -160,12 +168,109 @@ cmd_create() {
   printf 'FAPI-%s created: %s/FAPI-%s/\n' "$seq" "$WEB" "$seq"
 }
 
+resolve_page_id() {
+  local key=$1 id
+  [[ "$key" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] &&
+    { printf '%s' "$key"; return; }
+  id=$(api GET "/pages/?per_page=100" | jq -r --arg n "$key" '.results[] | select(.name == $n) | .id' | head -n1)
+  [[ -n "$id" ]] || die "page '$key' not found"
+  printf '%s' "$id"
+}
+
+cmd_pages() {
+  api GET "/pages/?per_page=100" | jq -r '.results[] | "\(.id)\t\(.name)"'
+}
+
+cmd_page-get() {
+  [[ $# -ge 1 ]] || die "usage: page-get <name|id> [--out F]"
+  local key=$1 out="" id html
+  shift
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --out) out=${2:-}; shift 2 ;;
+      *) die "unknown option '$1'" ;;
+    esac
+  done
+  [[ -n "$out" ]] || out="${key}.html"
+  id=$(resolve_page_id "$key")
+  html=$(api GET "/pages/${id}/" | jq -r '.description_html // ""')
+  printf '%s' "$html" >"$out"
+  printf 'page %s written to %s\n' "$key" "$out"
+}
+
+# Minifies HTML (collapses whitespace between tags, preserving <pre>...</pre>
+# blocks verbatim for mermaid diagrams), validates that every table row's
+# th/td colwidths sum to ~1000, and prints the minified HTML on success.
+# Prints one error per offending row to stderr and exits 1 otherwise.
+minify_and_validate_html() {
+  local file=$1
+  command -v perl >/dev/null || die "perl is required for page-put"
+  [[ -r "$file" ]] || die "cannot read $file"
+  perl -0777 -ne '
+    my $html = $_;
+    my @blocks;
+    $html =~ s{(<pre\b.*?</pre>)}{
+      push @blocks, $1;
+      "\x00" . $#blocks . "\x00"
+    }gse;
+    $html =~ s/>\s+</></g;
+    $html =~ s/^\s+//;
+    $html =~ s/\s+$//;
+    $html =~ s/\x00(\d+)\x00/$blocks[$1]/ge;
+
+    my @errors;
+    while ($html =~ m{<tr\b[^>]*>(.*?)</tr>}gs) {
+      my $row = $1;
+      my @widths = ($row =~ /colwidth="?(\d+)"?/g);
+      next unless @widths;
+      my $sum = 0;
+      $sum += $_ for @widths;
+      push @errors, "table row colwidths [@widths] sum to $sum, expected ~1000"
+        if abs($sum - 1000) > 50;
+    }
+    if (@errors) {
+      print STDERR "$_\n" for @errors;
+      exit 1;
+    }
+    print $html;
+  ' "$file"
+}
+
+cmd_page-put() {
+  [[ $# -ge 1 ]] || die "usage: page-put <name|id> --html-file F [--dry-run]"
+  local key=$1 html_file="" dry_run=0
+  shift
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --html-file) html_file=${2:-}; shift 2 ;;
+      --dry-run) dry_run=1; shift ;;
+      *) die "unknown option '$1'" ;;
+    esac
+  done
+  [[ -n "$html_file" ]] || die "usage: page-put <name|id> --html-file F [--dry-run]"
+
+  local id name html
+  id=$(resolve_page_id "$key")
+  html=$(minify_and_validate_html "$html_file") || die "html validation failed for $html_file"
+  name=$(api GET "/pages/${id}/" | jq -r '.name')
+
+  if [[ "$dry_run" -eq 1 ]]; then
+    printf 'DRY RUN: would PUT /pages/%s/\n' "$id"
+    printf 'name: %s\n' "$name"
+    printf 'description_html (%d bytes):\n%s\n' "${#html}" "$html"
+    return
+  fi
+
+  api PUT "/pages/${id}/" "$(jq -nc --arg n "$name" --arg h "$html" '{name: $n, description_html: $h}')" |
+    jq -r --arg key "$key" '"page \($key) updated"'
+}
+
 main() {
   [[ $# -ge 1 ]] || { usage; exit 1; }
   local cmd=$1; shift
   case "$cmd" in
     -h|--help|help) usage ;;
-    show|list|move|comment|create) require; "cmd_$cmd" "$@" ;;
+    show|list|move|comment|create|pages|page-get|page-put) require; "cmd_$cmd" "$@" ;;
     *) usage >&2; die "unknown command '$cmd'" ;;
   esac
 }

@@ -24,6 +24,7 @@ With two reviewers, send each the same brief separately; neither sees the other'
 - Migrations are forward-only Flyway scripts in the module schema.
 - Testcontainers, never H2. `./gradlew check` green.
 - Change stays within ticket scope.
+- Skills and docs reflect the change (`references/keeping-docs-in-sync.md`).
 
 ## Findings format
 
