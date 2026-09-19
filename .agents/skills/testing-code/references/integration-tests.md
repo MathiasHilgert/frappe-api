@@ -47,10 +47,12 @@ done
 
 For every tenant-scoped table:
 
-1. Insert rows for tenant A and tenant B as the app role.
-2. `set local app.tenant_id` to A inside a transaction.
-3. Assert only A's rows are visible and updates to B's rows affect 0 rows.
-4. Assert a query without `app.tenant_id` set fails or returns nothing.
+1. Insert rows for tenant A and tenant B as the app role, each inside `TenantScope.callAs` of its tenant (the policy's `with check` refuses them otherwise).
+2. Run the use case in `TenantScope` A.
+3. Assert only A's rows are visible, updates to B's rows affect 0 rows, and inserting a row of B is refused (root cause `violates row-level security policy`).
+4. Assert a query without a bound tenant returns nothing.
+
+Fresh tenant ids per test (UUIDv7) keep rows of earlier runs in the reused database invisible. `TenantScopeModuleTests` (probe module, fixture table `fixture.tenant_probe`) is the reference, including a listener and a scheduled task binding their tenant and a pooled connection reused without one.
 
 Run as the application role, not the superuser/owner, or RLS is bypassed and the test proves nothing.
 

@@ -40,6 +40,9 @@ class LocalProfileTest {
         assertThat(environment.getProperty("frappe.nats.url")).isEqualTo("nats://localhost:4222");
         assertThat(environment.getProperty("FRAPPE_VALKEY_URL")).isEqualTo("redis://localhost:6379");
         assertThat(environment.getProperty("FRAPPE_SECRET_PEPPER")).hasSizeGreaterThanOrEqualTo(32);
+        assertThat(environment.getProperty("FRAPPE_DIGEST_PEPPER"))
+                .hasSizeGreaterThanOrEqualTo(32)
+                .isNotEqualTo(environment.getProperty("FRAPPE_SECRET_PEPPER"));
     }
 
     @Test
