@@ -9,6 +9,10 @@ import com.frappe.platform.Result;
 import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.observation.tck.TestObservationRegistry;
 import io.micrometer.observation.tck.TestObservationRegistryAssert;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +31,9 @@ class UseCaseAdviceTest {
             .withBean(RecordingTransactionManager.class)
             .withBean(ObservationRegistry.class, () -> observations)
             .withBean(PlaceOrder.class)
-            .withBean(FindOrder.class);
+            .withBean(FindOrder.class)
+            .withBean(CancelOrder.class)
+            .withBean(ExtendedFindArchivedOrder.class);
 
     enum OrderError {
         OUT_OF_STOCK
@@ -55,6 +61,58 @@ class UseCaseAdviceTest {
         public String find(String id) {
             return "order " + id;
         }
+    }
+
+    /** A composed stereotype: meta-annotated use cases are use cases, as for the scan and the architecture rules. */
+    @CommandUseCase
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.TYPE)
+    @interface OrderCommand {}
+
+    @OrderCommand
+    static class CancelOrder {
+
+        @Transactional
+        public Result<String, OrderError> cancel(String id) {
+            return Result.success(id);
+        }
+    }
+
+    @QueryUseCase
+    static class FindArchivedOrder {
+
+        @Transactional(readOnly = true)
+        public String find(String id) {
+            return "archived order " + id;
+        }
+    }
+
+    /** Not marked itself: the stereotype is not inherited, as for the scan and the architecture rules. */
+    static class ExtendedFindArchivedOrder extends FindArchivedOrder {}
+
+    @Test
+    void aUseCaseMarkedThroughAComposedAnnotationIsObserved() {
+        contextRunner.run(context -> {
+            // When
+            context.getBean(CancelOrder.class).cancel("7");
+
+            // Then
+            TestObservationRegistryAssert.assertThat(observations)
+                    .hasSingleObservationThat()
+                    .hasContextualNameEqualTo("platform CancelOrder")
+                    .hasLowCardinalityKeyValue("use_case.kind", "command");
+        });
+    }
+
+    @Test
+    void aSubclassOfAUseCaseIsNoUseCaseOfItsOwn() {
+        contextRunner.run(context -> {
+            // When
+            context.getBean(ExtendedFindArchivedOrder.class).find("7");
+
+            // Then
+            TestObservationRegistryAssert.assertThat(observations).doesNotHaveAnyObservation();
+        });
     }
 
     @Test

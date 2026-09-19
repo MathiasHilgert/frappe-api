@@ -7,12 +7,16 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Optional;
 import org.springframework.aop.support.StaticMethodMatcherPointcut;
-import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.core.BridgeMethodResolver;
+import org.springframework.core.annotation.MergedAnnotations;
+import org.springframework.core.annotation.MergedAnnotations.SearchStrategy;
 import org.springframework.util.ReflectionUtils;
 
 /**
- * Matches the operation of a use case: the public methods of a class marked {@link CommandUseCase} or
- * {@link QueryUseCase}, never the methods it inherits from {@code Object}.
+ * Matches the operation of a use case: the public methods (inherited ones included) of a class marked
+ * {@link CommandUseCase} or {@link QueryUseCase}, directly or through a composed annotation, never the methods of
+ * {@code Object} nor synthetic ones. The marker is not inherited by subclasses. This is exactly what the use case scan
+ * registers and what the architecture tests check.
  */
 class UseCasePointcut extends StaticMethodMatcherPointcut {
 
@@ -47,10 +51,11 @@ class UseCasePointcut extends StaticMethodMatcherPointcut {
      * @return the kind, or empty when the class is no use case
      */
     static Optional<UseCaseKind> kindOf(Class<?> type) {
-        if (AnnotationUtils.findAnnotation(type, CommandUseCase.class) != null) {
+        var annotations = MergedAnnotations.from(type, SearchStrategy.DIRECT);
+        if (annotations.isPresent(CommandUseCase.class)) {
             return Optional.of(UseCaseKind.COMMAND);
         }
-        if (AnnotationUtils.findAnnotation(type, QueryUseCase.class) != null) {
+        if (annotations.isPresent(QueryUseCase.class)) {
             return Optional.of(UseCaseKind.QUERY);
         }
         return Optional.empty();
@@ -58,9 +63,12 @@ class UseCasePointcut extends StaticMethodMatcherPointcut {
 
     @Override
     public boolean matches(Method method, Class<?> targetClass) {
+        // A call through a generic interface arrives as the compiler's bridge method; judge the method it bridges to.
+        var operation = BridgeMethodResolver.findBridgedMethod(method);
         return kindOf(targetClass).isPresent()
-                && Modifier.isPublic(method.getModifiers())
-                && !ReflectionUtils.isObjectMethod(method)
-                && (!resultReturningOnly || Result.class.isAssignableFrom(method.getReturnType()));
+                && Modifier.isPublic(operation.getModifiers())
+                && !operation.isSynthetic()
+                && !ReflectionUtils.isObjectMethod(operation)
+                && (!resultReturningOnly || Result.class.isAssignableFrom(operation.getReturnType()));
     }
 }

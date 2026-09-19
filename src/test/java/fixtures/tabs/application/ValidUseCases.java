@@ -1,8 +1,11 @@
-package fixtures.usecases.application;
+package fixtures.tabs.application;
 
 import com.frappe.platform.CommandUseCase;
 import com.frappe.platform.QueryUseCase;
 import com.frappe.platform.Result;
+import fixtures.orders.OrdersApi;
+import fixtures.tabs.domain.Tab;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,9 +17,15 @@ public final class ValidUseCases {
     @CommandUseCase
     public static class OpenTab {
 
-        @Transactional
-        public Result<String, String> open(String table) {
-            return Result.success(table);
+        private final OrdersApi orders;
+
+        public OpenTab(OrdersApi orders) {
+            this.orders = orders;
+        }
+
+        @Transactional(isolation = Isolation.REPEATABLE_READ)
+        public Result<Tab, String> open(Tab tab) {
+            return orders.hasOpenOrders(tab.table()) ? Result.failure("busy") : tab.close();
         }
     }
 
@@ -32,6 +41,15 @@ public final class ValidUseCases {
     public static class FindTab {
 
         public String find(String table) {
+            return table;
+        }
+    }
+
+    @TabCommand
+    public static class SplitTab {
+
+        @Transactional
+        public String split(String table) {
             return table;
         }
     }

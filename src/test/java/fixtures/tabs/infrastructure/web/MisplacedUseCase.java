@@ -1,4 +1,4 @@
-package fixtures.usecases.web;
+package fixtures.tabs.infrastructure.web;
 
 import com.frappe.platform.CommandUseCase;
 import org.springframework.transaction.annotation.Transactional;
