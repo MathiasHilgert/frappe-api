@@ -123,6 +123,11 @@ Strict TDD, source: project standard (`testing-code`) and the brief. Runner: `./
 - After the rebase `I18nIntegrationTests` failed to start: `InvalidRouteException: Invalid HTTP routes` (the probe controllers were nested in a test outside `..infrastructure.web` and had no `@Access`). The probes are now public routes in `src/test/java/com/frappe/platform/infrastructure/web/LocaleProbeRoutes.java` (one class per route, `@Access(Posture.PUBLIC)`, served under `/v1`), following FAPI-13's `ProbeRoutes`. All i18n tests green, including the stub user port reading `RequestContextHolder` with the security chain in place (the locale filter at -104 runs before security at -100).
 - Verification `FRAPPE_TEST_DB=frappe_fapi_12 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 66 classes, 309 tests, 0 failures, 0 skipped.
 
+### Rebase on main (FAPI-16 Valkey, `f217a40`)
+- One conflict, `build.gradle.kts`: kept FAPI-16's `jnats` bouncycastle exclusion and added `icu4j` 78.3 next to it. `errors.md` merged cleanly.
+- Both kernel rules pass side by side: FAPI-16's `KernelDependenciesTest` covers exactly `com.frappe.platform` (the root package), `I18nKernelDependenciesTest` covers `com.frappe.platform.i18n`. Every FAPI-12 Spring context runs in the `local` profile, so none needs the Valkey URL or pepper stand-ins.
+- Verification `FRAPPE_TEST_DB=frappe_fapi_12 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 80 classes, 390 tests, 0 failures, 0 skipped.
+
 ## PR summary
 - Locale chain (user preference > `Accept-Language` > branch > business > en) with ICU/CLDR matching, restricted to enabled languages; ports for identity and organization; a failing port never fails a request.
 - `Content-Language` and `Vary: Accept-Language` on every response, errors included.
