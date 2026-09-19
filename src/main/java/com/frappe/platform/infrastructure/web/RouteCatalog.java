@@ -1,7 +1,6 @@
 package com.frappe.platform.infrastructure.web;
 
 import com.frappe.platform.web.Access;
-import com.frappe.platform.web.Posture;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -18,8 +17,8 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 import org.springframework.web.util.ServletRequestPathUtils;
 
 /**
- * The application's routes, checked at startup: every route class declares {@link Access} with a consistent posture
- * and maps exactly one method. Any violation fails startup with one {@link InvalidRouteException} naming every
+ * The application's routes, checked at startup: every route class declares {@link Access} and maps exactly one
+ * method. Any violation fails startup with one {@link InvalidRouteException} naming every
  * offending class. Framework controllers (outside {@code com.frappe}) are not routes and are left alone.
  *
  * <p>The catalog also tells which route serves a request, choosing among every annotated mapping exactly as Spring
@@ -48,7 +47,7 @@ final class RouteCatalog {
             var typeProblems = problemsOf(type, methods.size(), access);
             problems.addAll(typeProblems);
             if (typeProblems.isEmpty()) {
-                checked.add(new Route(methods.getFirst(), access.value(), access.permission()));
+                checked.add(new Route(methods.getFirst(), access.value()));
             }
         });
         if (!problems.isEmpty()) {
@@ -131,12 +130,6 @@ final class RouteCatalog {
         if (access == null) {
             problems.add(type.getName() + " declares no @Access; annotate the class with @Access(Posture.…) to"
                     + " state who may call it");
-        } else if (access.value() == Posture.PERMISSION && access.permission().isBlank()) {
-            problems.add(type.getName() + " has posture PERMISSION but names no permission; declare"
-                    + " @Access(value = Posture.PERMISSION, permission = \"…\")");
-        } else if (access.value() != Posture.PERMISSION && !access.permission().isEmpty()) {
-            problems.add(type.getName() + " names permission '" + access.permission() + "' but posture "
-                    + access.value() + " checks no permission; use Posture.PERMISSION or remove the permission");
         }
         return problems;
     }

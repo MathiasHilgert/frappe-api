@@ -8,7 +8,7 @@ One route is one class: a `@RestController` in `..infrastructure.web` with exact
 
 ```java
 @RestController
-@Access(value = Posture.PERMISSION, permission = "tabs.close")
+@Access(Posture.AUTHENTICATED)
 class CloseTabRoute {
 
     @PostMapping("/tabs/{tabId}/close")
@@ -19,16 +19,16 @@ class CloseTabRoute {
 | Posture | Who may call | Refused with |
 | --- | --- | --- |
 | `PUBLIC` | anyone, with or without a token | never |
-| `AUTHENTICATED` | any resolved session; the use case acts only on the caller's own principal ("self") | 401 |
-| `PERMISSION` | a resolved session the `PermissionEvaluator` grants `permission` | 401 without a session, 403 |
-| `SYSTEM` | nobody over HTTP (internal callers only) | 401 without a session, 403 |
+| `AUTHENTICATED` | any caller with a resolved session | 401 + `WWW-Authenticate: Bearer` |
 
-- Startup fails, naming the class and the fix, for a route without `@Access`, with two or more mapped methods, or with a permission on a posture that checks none (or `PERMISSION` without one). Only `com.frappe` controllers are routes; framework controllers are not checked.
-- The posture is enforced by one stateless Spring Security chain before any controller code runs (no session, cookies, CSRF or login form). A request no route serves is refused (deny by default); the health endpoint, error dispatches and the OpenAPI paths are the only other public paths.
-- The token comes from `Authorization: Bearer <token>` only; cookies and query parameters are never read. `SessionResolver` (identity) turns it into a `ResolvedSession` (principal id, session id, `SessionKind` `PERSON`/`TERMINAL`/`GUEST`), read with `@AuthenticationPrincipal ResolvedSession`. A missing or unresolvable token leaves the caller anonymous: public routes still answer, the rest 401 with `WWW-Authenticate: Bearer`. Until identity implements the resolver, no token resolves; until access implements `PermissionEvaluator`, every permission is refused.
+**The HTTP layer authenticates, it never authorizes.** A posture only says whether a caller must be authenticated. Whether that caller may perform the operation (roles per branch, ownership, session kind) is authorization and belongs to the application layer: the route passes the `ResolvedSession` into the command or query, and the use case (through the bus) decides with the access module. Operations with only internal callers have no route at all.
+
+- Startup fails, naming the class and the fix, for a route without `@Access` or with two or more mapped methods. Only `com.frappe` controllers are routes; framework controllers are not checked.
+- The posture is enforced by one stateless Spring Security chain before any controller code runs (no session, cookies, CSRF or login form). The health endpoint, error dispatches and the OpenAPI paths are the only other public paths.
+- The token comes from `Authorization: Bearer <token>` only; cookies and query parameters are never read. `SessionResolver` (identity) turns it into a `ResolvedSession` (principal id, session id, `SessionKind` `PERSON`/`TERMINAL`/`GUEST`), read with `@AuthenticationPrincipal ResolvedSession`. A missing or unresolvable token leaves the caller anonymous: public routes still answer, authenticated ones 401. Until identity implements the resolver, no token resolves.
 - `/v1` is added once for all `com.frappe` controllers: map `/tabs/{tabId}/close`, serve `/v1/tabs/{tabId}/close`.
 - The client address is `HttpServletRequest#getRemoteAddr()`: Tomcat takes it from `X-Forwarded-For` only when the connection comes from a trusted proxy (`FRAPPE_TRUSTED_PROXIES`).
-- The OpenAPI spec (`/v3/api-docs`, every profile) marks every non-public operation with the `bearer` scheme and documents 401 (and 403 for `PERMISSION`/`SYSTEM`); swagger-ui is served in `local` only.
+- The OpenAPI spec (`/v3/api-docs`, every profile) marks every authenticated operation with the `bearer` scheme and documents 401; the API reference UI is served in `local` only.
 - Tests register routes as `@Bean`s of a nested `@TestConfiguration` and call them with `MockMvcTester` and an `Authorization: Bearer` header resolved by a test `SessionResolver` bean.
 
 ## Endpoints
@@ -58,5 +58,5 @@ class CloseTabRoute {
 
 - Authentication is an opaque server-side session token; only its hash is stored. Session kinds: `person`, `terminal` (with operator PIN), `guest`.
 - Every request resolves the session → principal, tenant and branch (`SessionResolver`, see "Routes and access"); invalid or revoked tokens yield `401` on non-public routes.
-- Authorization is role-based per branch: check the principal's roles for the target branch, not globally.
+- Authorization is role-based per branch and lives in the application layer (use cases / bus, with the access module), never in routes: check the principal's roles for the target branch, not globally.
 - Set the tenant for RLS from the session, never from a request parameter.

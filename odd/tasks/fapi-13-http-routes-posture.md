@@ -87,6 +87,13 @@ Strict TDD. Runner: `./gradlew test` (MockMvcTester, `WebApplicationContextRunne
 ### Commits
 T0 `ce42b24` (plan `bd34405`), T1 `2e683f6`, T2 `0f277bb`, T3 `11a1dd6`, T4 `93be6f3`, T5 refactor `8730433` and this docs commit.
 
+## Rework after review (human decisions)
+
+### R1 authentication only
+- Decision: the HTTP layer authenticates, never authorizes. `PERMISSION`, `SYSTEM`, `Access#permission` and `PermissionEvaluator` (+ default) removed; postures are `PUBLIC` and `AUTHENTICATED`; OpenAPI keeps bearer + 401, no 403. Authorization (RBAC per branch) moves to the application layer (use cases / bus) with the access module in a later ticket; boundary documented in `http-api.md`, `Posture`, `Access`, the `web` package and the security classes.
+- Session-kind restriction per route: left out. It is cheap, but deciding which kinds may run an operation is authorization; the use case gets the kind in `ResolvedSession` and decides, so the HTTP layer keeps one concern.
+- RED `AccessTest` (unit): `aPostureOnlyStatesWhetherTheCallerMustBeAuthenticated` (`Expecting actual: [PUBLIC, AUTHENTICATED, PERMISSION, SYSTEM] to contain exactly [PUBLIC, AUTHENTICATED]`) and `accessDeclaresAPostureAndNoPermission` (`["value", "permission"]`). GREEN 2/2 after the removal; permission/system tests and routes removed from `RouteStartupTests` (4), `RouteAccessTests` (14), `OpenApiTests` (authenticated route asserts no 403).
+
 ## Known behaviour and follow-ups
 - Deny by default also turns a wrong HTTP method on an existing route (MVC's 405) and unknown paths (404) into 401/403. Intended: nothing is answered for paths that are not a route. FAPI-14 may revisit the bodies.
 - 401/403 bodies are Spring Boot's default error JSON (`sendError`), not yet `ProblemDetail`: FAPI-14.

@@ -6,7 +6,7 @@ import org.springframework.security.core.authority.AuthorityUtils;
 
 /**
  * An authenticated caller: the session a bearer token resolved to. It carries no credentials (the token is not kept)
- * and no authorities (permissions are decided per route by the permission evaluator).
+ * and no authorities (authorization is decided by the use case, not the HTTP layer).
  */
 final class SessionAuthentication extends AbstractAuthenticationToken {
 

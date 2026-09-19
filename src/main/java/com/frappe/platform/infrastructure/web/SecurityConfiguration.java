@@ -1,6 +1,5 @@
 package com.frappe.platform.infrastructure.web;
 
-import com.frappe.platform.web.PermissionEvaluator;
 import com.frappe.platform.web.SessionResolver;
 import jakarta.servlet.DispatcherType;
 import java.util.Optional;
@@ -17,7 +16,7 @@ import org.springframework.security.web.authentication.AnonymousAuthenticationFi
 
 /**
  * The one security filter chain: stateless, bearer tokens only, every request decided by its route's posture before
- * controller code runs.
+ * controller code runs. It authenticates only; authorization (roles per branch) is the application layer's.
  */
 @Configuration(proxyBeanMethods = false)
 class SecurityConfiguration {
@@ -29,9 +28,6 @@ class SecurityConfiguration {
 
     /** Until identity provides sessions, no token resolves. */
     private static final SessionResolver NO_SESSIONS = token -> Optional.empty();
-
-    /** Until access provides RBAC, no permission is held. */
-    private static final PermissionEvaluator NO_PERMISSIONS = (session, permission) -> false;
 
     /** Creates the configuration; instantiated by Spring. */
     SecurityConfiguration() {}
@@ -45,20 +41,14 @@ class SecurityConfiguration {
      * @param http Spring Security's builder
      * @param routes the checked routes
      * @param sessionResolver identity's session resolver, when present
-     * @param permissionEvaluator access's permission evaluator, when present
      * @return the filter chain
      * @throws Exception when Spring Security cannot build the chain
      */
     @Bean
     SecurityFilterChain apiSecurityFilterChain(
-            HttpSecurity http,
-            RouteCatalog routes,
-            ObjectProvider<SessionResolver> sessionResolver,
-            ObjectProvider<PermissionEvaluator> permissionEvaluator)
-            throws Exception {
+            HttpSecurity http, RouteCatalog routes, ObjectProvider<SessionResolver> sessionResolver) throws Exception {
         var bearerSessions = new BearerSessionFilter(sessionResolver.getIfAvailable(() -> NO_SESSIONS));
-        var routeAuthorization =
-                new RouteAuthorizationManager(routes, permissionEvaluator.getIfAvailable(() -> NO_PERMISSIONS));
+        var routeAuthorization = new RouteAuthorizationManager(routes);
         return http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sessions -> sessions.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .requestCache(AbstractHttpConfigurer::disable)

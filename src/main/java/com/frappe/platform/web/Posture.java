@@ -1,26 +1,21 @@
 package com.frappe.platform.web;
 
-/** Who may call a route. Enforced before any controller code runs; a request the posture refuses never reaches it. */
+/**
+ * Whether a route needs an authenticated caller. Enforced before any controller code runs; a request the posture
+ * refuses never reaches it.
+ *
+ * <p>The HTTP layer authenticates only. Whether the caller may perform the operation (roles per branch) is
+ * authorization, decided by the application layer (use cases and the bus) with the access module. Operations with
+ * only internal callers simply have no route.
+ */
 public enum Posture {
 
     /** Anyone, with or without a session. */
     PUBLIC,
 
     /**
-     * Any caller with a resolved session. The use case acts only on the caller's own principal (the "self" posture),
-     * so no further check is needed.
+     * Any caller with a resolved session; anonymous callers get 401. The use case receives the caller's
+     * {@link ResolvedSession} and authorizes the operation itself.
      */
-    AUTHENTICATED,
-
-    /**
-     * A caller with a resolved session that holds the permission named by {@link Access#permission()}, as decided by
-     * the {@link PermissionEvaluator}.
-     */
-    PERMISSION,
-
-    /**
-     * Nobody over HTTP: the use case has internal callers only, so every HTTP request is refused whatever the
-     * session.
-     */
-    SYSTEM
+    AUTHENTICATED
 }

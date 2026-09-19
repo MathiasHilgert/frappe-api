@@ -52,27 +52,7 @@ class RouteStartupTests {
     }
 
     @RestController
-    @Access(Posture.PERMISSION)
-    static class PermissionRouteWithoutPermission {
-
-        @GetMapping("/permission-without-name")
-        String answer() {
-            return "answered";
-        }
-    }
-
-    @RestController
-    @Access(value = Posture.AUTHENTICATED, permission = "tabs.close")
-    static class PermissionOnAnotherPosture {
-
-        @GetMapping("/permission-on-authenticated")
-        String answer() {
-            return "answered";
-        }
-    }
-
-    @RestController
-    @Access(value = Posture.PERMISSION, permission = "tabs.close")
+    @Access(Posture.AUTHENTICATED)
     static class ValidRoute {
 
         @GetMapping("/valid")
@@ -103,30 +83,6 @@ class RouteStartupTests {
                         .isInstanceOf(InvalidRouteException.class)
                         .hasMessageContaining(ControllerWithTwoMethods.class.getName())
                         .hasMessageContaining("2 mapped methods"));
-    }
-
-    @Test
-    void startupFailsForAPermissionRouteThatNamesNoPermission() {
-        runner.withBean(PermissionRouteWithoutPermission.class)
-                .run(context -> assertThat(context)
-                        .hasFailed()
-                        .getFailure()
-                        .rootCause()
-                        .isInstanceOf(InvalidRouteException.class)
-                        .hasMessageContaining(PermissionRouteWithoutPermission.class.getName())
-                        .hasMessageContaining("names no permission"));
-    }
-
-    @Test
-    void startupFailsForAPermissionOnAPostureThatChecksNone() {
-        runner.withBean(PermissionOnAnotherPosture.class)
-                .run(context -> assertThat(context)
-                        .hasFailed()
-                        .getFailure()
-                        .rootCause()
-                        .isInstanceOf(InvalidRouteException.class)
-                        .hasMessageContaining(PermissionOnAnotherPosture.class.getName())
-                        .hasMessageContaining("AUTHENTICATED checks no permission"));
     }
 
     @Test

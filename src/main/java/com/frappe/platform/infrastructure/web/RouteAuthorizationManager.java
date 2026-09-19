@@ -1,6 +1,5 @@
 package com.frappe.platform.infrastructure.web;
 
-import com.frappe.platform.web.PermissionEvaluator;
 import com.frappe.platform.web.Posture;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -15,8 +14,9 @@ import org.springframework.security.web.access.intercept.RequestAuthorizationCon
 
 /**
  * Decides every request by the posture of the route that serves it, with one authorization manager per route built
- * from its posture. A request no route serves is refused. Refusing an anonymous caller answers 401, refusing a
- * caller with a session 403 (Spring Security's exception translation).
+ * from its posture: this is authentication enforcement only (is there a caller?), never permissions, which the use
+ * case decides. A request no route serves is refused: 401 for an anonymous caller, 403 for a caller with a session
+ * (Spring Security's exception translation).
  */
 final class RouteAuthorizationManager implements AuthorizationManager<RequestAuthorizationContext> {
 
@@ -29,12 +29,11 @@ final class RouteAuthorizationManager implements AuthorizationManager<RequestAut
      * Builds the authorization manager of every route.
      *
      * @param routes the checked routes
-     * @param permissions decides {@link Posture#PERMISSION} routes
      */
-    RouteAuthorizationManager(RouteCatalog routes, PermissionEvaluator permissions) {
+    RouteAuthorizationManager(RouteCatalog routes) {
         this.routes = routes;
         this.managers = routes.routes().stream()
-                .collect(Collectors.toUnmodifiableMap(route -> route, route -> managerFor(route, permissions)));
+                .collect(Collectors.toUnmodifiableMap(route -> route, route -> managerFor(route.posture())));
     }
 
     @Override
@@ -46,16 +45,10 @@ final class RouteAuthorizationManager implements AuthorizationManager<RequestAut
                 .orElse(DENIED);
     }
 
-    private static AuthorizationManager<RequestAuthorizationContext> managerFor(
-            Route route, PermissionEvaluator permissions) {
-        return switch (route.posture()) {
+    private static AuthorizationManager<RequestAuthorizationContext> managerFor(Posture posture) {
+        return switch (posture) {
             case PUBLIC -> SingleResultAuthorizationManager.permitAll();
             case AUTHENTICATED -> AuthenticatedAuthorizationManager.authenticated();
-            case PERMISSION ->
-                (authentication, context) ->
-                        new AuthorizationDecision(authentication.get() instanceof SessionAuthentication caller
-                                && permissions.isPermitted(caller.getPrincipal(), route.permission()));
-            case SYSTEM -> SingleResultAuthorizationManager.denyAll();
         };
     }
 }

@@ -17,7 +17,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /** The generated OpenAPI spec documents each route's posture; swagger-ui is served in the local profile. */
@@ -41,11 +40,6 @@ class OpenApiTests {
         AuthenticatedRoute authenticatedDocumentedRoute() {
             return new AuthenticatedRoute();
         }
-
-        @Bean
-        PermissionRoute permissionDocumentedRoute() {
-            return new PermissionRoute();
-        }
     }
 
     @RestController
@@ -65,16 +59,6 @@ class OpenApiTests {
         @GetMapping("/test/docs/self")
         String answer() {
             return "self";
-        }
-    }
-
-    @RestController
-    @Access(value = Posture.PERMISSION, permission = "tabs.close")
-    static class PermissionRoute {
-
-        @PostMapping("/test/docs/permission")
-        String answer() {
-            return "permitted";
         }
     }
 
@@ -100,12 +84,7 @@ class OpenApiTests {
                 .isEqualTo(List.of());
         spec.extractingPath("$.paths['/v1/test/docs/self'].get.responses['401']")
                 .isNotNull();
-        spec.extractingPath("$.paths['/v1/test/docs/permission'].post.security[0].bearer")
-                .isEqualTo(List.of());
-        spec.extractingPath("$.paths['/v1/test/docs/permission'].post.responses['401']")
-                .isNotNull();
-        spec.extractingPath("$.paths['/v1/test/docs/permission'].post.responses['403']")
-                .isNotNull();
+        spec.doesNotHavePath("$.paths['/v1/test/docs/self'].get.responses['403']");
         spec.doesNotHavePath("$.paths['/v1/test/docs/public'].get.security");
         spec.doesNotHavePath("$.paths['/v1/test/docs/public'].get.responses['401']");
     }

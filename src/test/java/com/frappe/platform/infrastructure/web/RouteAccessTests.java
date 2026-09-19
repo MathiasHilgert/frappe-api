@@ -16,8 +16,6 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -32,7 +30,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Every route's posture is enforced before its controller runs, from the {@code Authorization: Bearer} header only. */
@@ -72,16 +69,6 @@ class RouteAccessTests {
         }
 
         @Bean
-        PermissionRoute permissionRoute() {
-            return new PermissionRoute();
-        }
-
-        @Bean
-        SystemRoute systemRoute() {
-            return new SystemRoute();
-        }
-
-        @Bean
         AnyItemRoute anyItemRoute() {
             return new AnyItemRoute();
         }
@@ -116,26 +103,6 @@ class RouteAccessTests {
         String answer(@AuthenticationPrincipal ResolvedSession caller) {
             calls.incrementAndGet();
             return caller.principalId().toString();
-        }
-    }
-
-    @RestController
-    @Access(value = Posture.PERMISSION, permission = "tabs.close")
-    static class PermissionRoute {
-
-        @PostMapping("/test/permission")
-        String answer() {
-            return "permitted";
-        }
-    }
-
-    @RestController
-    @Access(Posture.SYSTEM)
-    static class SystemRoute {
-
-        @PostMapping("/test/system")
-        String answer() {
-            return "system";
         }
     }
 
@@ -241,26 +208,6 @@ class RouteAccessTests {
 
         // Then
         assertThat(controllerCalls).hasValue(0);
-    }
-
-    @Test
-    void aPermissionRouteIsForbiddenByTheDefaultEvaluator() {
-        assertThat(http.post().uri("/v1/test/permission").header(HttpHeaders.AUTHORIZATION, "Bearer person-token"))
-                .hasStatus(HttpStatus.FORBIDDEN);
-    }
-
-    @Test
-    void aPermissionRouteRefusesARequestWithoutATokenAsUnauthenticated() {
-        assertThat(http.post().uri("/v1/test/permission")).hasStatus(HttpStatus.UNAUTHORIZED);
-    }
-
-    @ParameterizedTest
-    @EnumSource(SessionKind.class)
-    void aSystemRouteIsForbiddenForEverySessionKind(SessionKind kind) {
-        var token = kind.name().toLowerCase() + "-token";
-
-        assertThat(http.post().uri("/v1/test/system").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-                .hasStatus(HttpStatus.FORBIDDEN);
     }
 
     @Test
