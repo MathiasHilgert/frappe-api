@@ -92,6 +92,61 @@ class RouteStartupTests {
         }
     }
 
+    @RestController
+    @Access(Posture.AUTHENTICATED)
+    static class CatchAllBusinessRoute {
+
+        @GetMapping("/businesses/{*rest}")
+        String answer() {
+            return "answered";
+        }
+    }
+
+    @RestController
+    @Access(Posture.AUTHENTICATED)
+    static class ConstrainedBusinessRoute {
+
+        @GetMapping("/businesses/{businessId:[a-z0-9-]+}/tabs")
+        String answer() {
+            return "answered";
+        }
+    }
+
+    @RestController
+    @Access(Posture.PUBLIC)
+    static class LiteralBusinessRoute {
+
+        @GetMapping("/businesses/featured")
+        String answer() {
+            return "answered";
+        }
+    }
+
+    @Test
+    void startupFailsForACatchAllUnderTheBusinessPath() {
+        runner.withBean(CatchAllBusinessRoute.class)
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .rootCause()
+                        .isInstanceOf(InvalidRouteException.class)
+                        .hasMessageContaining(CatchAllBusinessRoute.class.getName())
+                        .hasMessageContaining("/v1/businesses/{businessId}"));
+    }
+
+    @Test
+    void startupFailsForAnyOtherShapeUnderTheBusinessPath() {
+        runner.withBean(ConstrainedBusinessRoute.class)
+                .withBean(LiteralBusinessRoute.class)
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .rootCause()
+                        .isInstanceOf(InvalidRouteException.class)
+                        .hasMessageContaining(ConstrainedBusinessRoute.class.getName())
+                        .hasMessageContaining(LiteralBusinessRoute.class.getName()));
+    }
+
     @Test
     void startupFailsForARouteWithoutAccessAndNamesTheClass() {
         runner.withBean(RouteWithoutAccess.class)

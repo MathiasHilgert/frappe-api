@@ -23,6 +23,8 @@ FRAPPE_DB_URL=jdbc:postgresql://localhost:${FRAPPE_POSTGRES_PORT:-5432}/frappe_t
 until curl -sf localhost:$((18000+N))/actuator/health >/dev/null; do sleep 2; done
 ```
 
+`bootRun` from a worktree needs `SPRING_DOCKER_COMPOSE_ENABLED=false`: the shared services run from the main checkout, and Boot would otherwise try to `compose up` the worktree's `compose.yaml` and fail.
+
 When another project holds host port 5432, export `FRAPPE_POSTGRES_PORT` (e.g. `15432`) for both compose and the app (README, "Run locally").
 
 ## What to call

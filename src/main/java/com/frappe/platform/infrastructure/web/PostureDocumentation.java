@@ -15,7 +15,7 @@ import org.springframework.web.method.HandlerMethod;
 
 /**
  * Documents each route's posture in the OpenAPI spec: every authenticated operation requires the bearer scheme and
- * documents 401.
+ * documents 401, and every business-scoped operation documents 404.
  */
 final class PostureDocumentation implements OperationCustomizer, OpenApiCustomizer {
 
@@ -33,6 +33,25 @@ final class PostureDocumentation implements OperationCustomizer, OpenApiCustomiz
                         .type(SecurityScheme.Type.HTTP)
                         .scheme("bearer")
                         .description("An opaque session token, sent as 'Authorization: Bearer <token>' only."));
+        if (openApi.getPaths() == null) {
+            return;
+        }
+        openApi.getPaths().forEach((path, item) -> {
+            if (BusinessPath.SCOPED_ROUTE.matcher(path).matches()) {
+                item.readOperations().forEach(PostureDocumentation::documentBusinessNotFound);
+            }
+        });
+    }
+
+    private static void documentBusinessNotFound(Operation operation) {
+        if (operation.getResponses() == null) {
+            operation.setResponses(new ApiResponses());
+        }
+        operation
+                .getResponses()
+                .addApiResponse(
+                        "404",
+                        new ApiResponse().description("The business does not exist, or the caller may not enter it"));
     }
 
     @Override

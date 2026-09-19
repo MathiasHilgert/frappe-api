@@ -99,3 +99,48 @@ jobs:
             echo
             echo "**Module diagram:** the Modulith component diagram was generated to \`build/spring-modulith-docs\` and uploaded as the \`spring-modulith-docs\` artifact of this run."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  image:
+    name: OCI image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the branch
+        uses: actions/checkout@v7
+      # The Leyden AOT training run inside the build needs a live, build-owned Postgres and NATS (README, "Build
+      # and run the image locally"); --network=host (granted below) lets the build reach them on localhost.
+      - name: Start Postgres and NATS
+        run: docker compose up -d --wait postgres nats
+      - name: Create the training database (build-owned, never the dev one)
+        run: |
+          docker compose exec -T -e POSTGRES_DB=frappe_image_train postgres \
+            sh -c 'createdb -U "$POSTGRES_USER" "$POSTGRES_DB" 2>/dev/null; /docker-entrypoint-initdb.d/01-frappe-roles.sh'
+      # docker-container buildx builders run in their own container with their own network namespace, so a RUN
+      # step's --network=host entitlement only reaches the runner's actual localhost (where Postgres/NATS above
+      # publish their ports) when the builder container itself joined the host network (driver-opts: network=host);
+      # without it, --network=host reaches the builder container's own, empty network instead and the training
+      # database connection is refused (proven by reproducing this exact builder locally).
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4
+        with:
+          driver-opts: network=host
+          buildkitd-flags: --allow-insecure-entitlement network.host
+      - name: Build the image (no push)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          tags: frappe-api:ci
+          allow: network.host
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          load: true
+      - name: No secret in a layer, a build arg or the runtime environment
+        run: |
+          ! docker history --no-trunc frappe-api:ci \
+            | grep -Ei 'FRAPPE_(APP|OWNER)_PASSWORD|FRAPPE_SECRET_PEPPER|RESEND_API_KEY|FRAPPE_DEEPL_API_KEY|frappe_app|frappe_owner|local-development-pepper'
+          ! docker inspect frappe-api:ci --format '{{.Config.Env}}' \
+            | grep -Ei 'FRAPPE_(APP|OWNER)_PASSWORD|FRAPPE_SECRET_PEPPER|RESEND_API_KEY|FRAPPE_DEEPL_API_KEY|frappe_app|frappe_owner|local-development-pepper'
+      - name: Runs as a fixed non-root user
+        run: |
+          test "$(docker inspect frappe-api:ci --format '{{.Config.User}}')" = "10001:10001"

@@ -52,7 +52,13 @@ class RouteAccessTests {
     static final UUID PERSON_ID = UUID.fromString("0190a8f0-0000-7000-8000-000000000001");
     static final Map<String, ResolvedSession> SESSIONS = Map.of(
             "person-token", session(PERSON_ID, SessionKind.PERSON),
-            "terminal-token", session(UUID.randomUUID(), SessionKind.TERMINAL),
+            "terminal-token",
+                    new ResolvedSession(
+                            UUID.randomUUID(),
+                            UUID.randomUUID(),
+                            SessionKind.TERMINAL,
+                            Optional.of(UUID.randomUUID()),
+                            Optional.empty()),
             "guest-token", session(UUID.randomUUID(), SessionKind.GUEST));
 
     @TestConfiguration(proxyBeanMethods = false)

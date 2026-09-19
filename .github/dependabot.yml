@@ -36,6 +36,19 @@ updates:
     commit-message:
       prefix: build(deps)
 
+  # Base images of the OCI image build (Dockerfile).
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: build(deps)
+
   # Build-time only: the MJML compiler for the mail layouts (package.json, run through node-gradle).
   - package-ecosystem: npm
     directory: /

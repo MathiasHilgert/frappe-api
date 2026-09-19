@@ -181,6 +181,39 @@ Run the full quality gate (formatting check, module boundary verification, tests
 
 Fix formatting with `./gradlew spotlessApply`.
 
+### Build and run the image locally
+
+The `Dockerfile` builds a layered OCI image on a JDK 25 image, then trains and bakes a Java 25 Leyden AOT cache (JEP 483) for a faster startup, and runs on a minimal `eclipse-temurin:25-jre-alpine` as a fixed non-root user (`10001:10001`). Training really refreshes the Spring context with `-Dspring.context.exit=onRefresh` (Boot's documented way to train an AOT cache without serving a request, running a scheduled task or publishing an event) against a live, build-owned Postgres and NATS on `localhost` only — the build refuses anything else. Start compose, create the training database once per data volume, then build with `--network=host` so the build can reach `localhost`:
+
+```bash
+docker compose up -d --wait postgres nats
+docker compose exec -T -e POSTGRES_DB=frappe_image_train postgres \
+  sh -c 'createdb -U "$POSTGRES_USER" "$POSTGRES_DB" 2>/dev/null; /docker-entrypoint-initdb.d/01-frappe-roles.sh'
+docker build --network=host \
+  --build-arg FRAPPE_TRAIN_DB_PORT=${FRAPPE_POSTGRES_PORT:-5432} \
+  --build-arg FRAPPE_TRAIN_NATS_PORT=${FRAPPE_NATS_PORT:-4222} \
+  -t frappe-api:local .
+```
+
+Run it against those same compose services (`local` profile; no secrets needed):
+
+```bash
+docker run --rm --network host -p 8080:8080 \
+  -e SPRING_PROFILES_ACTIVE=local \
+  -e FRAPPE_DB_URL=jdbc:postgresql://localhost:${FRAPPE_POSTGRES_PORT:-5432}/frappe \
+  -e FRAPPE_APP_PASSWORD=frappe_app \
+  -e FRAPPE_OWNER_PASSWORD=frappe_owner \
+  -e frappe.nats.url=nats://localhost:${FRAPPE_NATS_PORT:-4222} \
+  -e FRAPPE_VALKEY_URL=redis://localhost:${FRAPPE_VALKEY_PORT:-6379} \
+  -e FRAPPE_SECRET_PEPPER=local-development-pepper-not-a-secret \
+  frappe-api:local
+curl localhost:8080/actuator/health/liveness
+```
+
+The container's own `HEALTHCHECK` only probes liveness (JVM/context up: `/actuator/health/liveness`); readiness (`/actuator/health/readiness`, ready to serve — e.g. Flyway has migrated) is Kamal's job to check before routing traffic to a new container, wired in the deploy ticket.
+
+Outside `local`, secrets come from Bitwarden at runtime (see "Secrets" above); the image itself never carries one — verify with `docker history --no-trunc frappe-api:local` and `docker inspect frappe-api:local --format '{{.Config.Env}}'`. Base images are pinned by digest (`@sha256:...`); Dependabot's `docker` ecosystem opens a PR when eclipse-temurin publishes a new one. The final image uses Alpine (musl) rather than Ubuntu/Debian (glibc) to stay minimal; the training and layer-extraction stages must use the exact same base as the final one, or the Java 25 AOT cache one builds is rejected by the JVM that loads the other (JEP 483 ties the cache to one exact HotSpot build). CI builds the image on every pull request the same way (`docker/build-push-action`, `push: false`), so a broken `Dockerfile` fails the gate.
+
 ### Git hooks
 
 A versioned pre-commit hook runs gitleaks against staged changes. Enable it once per clone:
