@@ -35,8 +35,8 @@ class SecurityConfiguration {
     /**
      * The API's security filter chain. No session, cookie, CSRF token, login form, basic authentication or saved
      * request: the {@code Authorization: Bearer} header is the only credential. Error dispatches (rendering a refusal
-     * already decided), the health endpoint (probes) and the API documentation are public; everything else is decided
-     * by its route.
+     * already decided), the health endpoint (probes) and the API documentation are public, other actuator endpoints are
+     * closed; everything else is decided by the route that serves it.
      *
      * @param http Spring Security's builder
      * @param routes the checked routes
@@ -61,6 +61,8 @@ class SecurityConfiguration {
                         .permitAll()
                         .requestMatchers(EndpointRequest.to(HealthEndpoint.class))
                         .permitAll()
+                        .requestMatchers(EndpointRequest.toAnyEndpoint())
+                        .denyAll()
                         .requestMatchers(API_DOCUMENTATION)
                         .permitAll()
                         .anyRequest()

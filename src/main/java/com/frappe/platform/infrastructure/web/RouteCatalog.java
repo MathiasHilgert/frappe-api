@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.TreeMap;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -15,14 +14,17 @@ import org.springframework.web.method.HandlerTypePredicate;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.springframework.web.util.ServletRequestPathUtils;
+import org.springframework.web.util.UrlPathHelper;
 
 /**
  * The application's routes, checked at startup: every route class declares {@link Access} and maps exactly one
  * method. Any violation fails startup with one {@link InvalidRouteException} naming every
  * offending class. Framework controllers (outside {@code com.frappe}) are not routes and are left alone.
  *
- * <p>The catalog also tells which route serves a request, choosing among every annotated mapping exactly as Spring
- * MVC does, so the posture enforced before dispatch is the posture of the handler that runs.
+ * <p>The catalog also tells which handler serves a request, choosing among every annotated mapping exactly as Spring
+ * MVC does (exact paths first, then the best match by MVC's own ordering), so the posture enforced before dispatch is
+ * the posture of the handler that runs. Equally good matches are ambiguous: Spring MVC fails such a request, and the
+ * catalog reports it as {@link RouteMatch.OtherHandler}, which the security chain refuses on purpose (fail closed).
  */
 final class RouteCatalog {
 
@@ -32,6 +34,7 @@ final class RouteCatalog {
     private final List<Route> routes;
     private final Map<RequestMappingInfo, Route> routesByMapping;
     private final List<RequestMappingInfo> allMappings;
+    private final Map<String, List<RequestMappingInfo>> mappingsByDirectPath;
 
     /**
      * Reads and checks the routes registered with Spring MVC.
@@ -56,6 +59,10 @@ final class RouteCatalog {
         this.routes = List.copyOf(checked);
         this.routesByMapping = checked.stream().collect(Collectors.toUnmodifiableMap(Route::mapping, route -> route));
         this.allMappings = List.copyOf(mappings.getHandlerMethods().keySet());
+        this.mappingsByDirectPath = allMappings.stream()
+                .flatMap(mapping -> mapping.getDirectPaths().stream().map(path -> Map.entry(path, mapping)))
+                .collect(Collectors.groupingBy(
+                        Map.Entry::getKey, Collectors.mapping(Map.Entry::getValue, Collectors.toUnmodifiableList())));
     }
 
     /**
@@ -68,14 +75,13 @@ final class RouteCatalog {
     }
 
     /**
-     * The route that serves a request: the best of all matching mappings by Spring MVC's own ordering (its
-     * {@code HandlerMappingIntrospector} is deprecated for removal in Spring 7).
+     * Which handler serves a request ({@code HandlerMappingIntrospector}, Spring's own answer, is deprecated for
+     * removal in Spring 7).
      *
      * @param request the incoming request
-     * @return the serving route; empty when no route, a framework controller, or several equally good mappings match
-     *     (Spring MVC fails such a request as ambiguous)
+     * @return the serving application route, another handler (framework controller or ambiguous match), or none
      */
-    Optional<Route> routeFor(HttpServletRequest request) {
+    RouteMatch match(HttpServletRequest request) {
         // Path conditions read the parsed path Spring MVC caches only once it dispatches; parse it here and remove it
         // again so dispatching starts from a clean request, as Spring Security's PathPatternRequestMatcher does.
         var parsedHere = !ServletRequestPathUtils.hasParsedRequestPath(request);
@@ -83,7 +89,7 @@ final class RouteCatalog {
             ServletRequestPathUtils.parseAndCache(request);
         }
         try {
-            return bestMatch(request).map(routesByMapping::get);
+            return bestMatch(request);
         } finally {
             if (parsedHere) {
                 ServletRequestPathUtils.clearParsedRequestPath(request);
@@ -91,21 +97,42 @@ final class RouteCatalog {
         }
     }
 
-    private Optional<RequestMappingInfo> bestMatch(HttpServletRequest request) {
+    private RouteMatch bestMatch(HttpServletRequest request) {
+        // As AbstractHandlerMethodMapping#lookupHandlerMethod: mappings of the exact path first, all of them otherwise.
+        var matches = matching(mappingsByDirectPath.getOrDefault(lookupPath(request), List.of()), request);
+        if (matches.isEmpty()) {
+            matches = matching(allMappings, request);
+        }
+        if (matches.isEmpty()) {
+            return new RouteMatch.NoHandler();
+        }
+        Comparator<Map.Entry<RequestMappingInfo, RequestMappingInfo>> bySpecificity =
+                (first, second) -> first.getValue().compareTo(second.getValue(), request);
+        matches.sort(bySpecificity);
+        if (matches.size() > 1 && bySpecificity.compare(matches.get(0), matches.get(1)) == 0) {
+            return new RouteMatch.OtherHandler();
+        }
+        var route = routesByMapping.get(matches.getFirst().getKey());
+        return route == null ? new RouteMatch.OtherHandler() : new RouteMatch.ApplicationRoute(route);
+    }
+
+    private static List<Map.Entry<RequestMappingInfo, RequestMappingInfo>> matching(
+            List<RequestMappingInfo> mappings, HttpServletRequest request) {
         var matches = new ArrayList<Map.Entry<RequestMappingInfo, RequestMappingInfo>>();
-        for (var mapping : allMappings) {
+        for (var mapping : mappings) {
             var condition = mapping.getMatchingCondition(request);
             if (condition != null) {
                 matches.add(Map.entry(mapping, condition));
             }
         }
-        Comparator<Map.Entry<RequestMappingInfo, RequestMappingInfo>> bySpecificity =
-                (first, second) -> first.getValue().compareTo(second.getValue(), request);
-        matches.sort(bySpecificity);
-        if (matches.isEmpty() || (matches.size() > 1 && bySpecificity.compare(matches.get(0), matches.get(1)) == 0)) {
-            return Optional.empty();
-        }
-        return Optional.of(matches.getFirst().getKey());
+        return matches;
+    }
+
+    private static String lookupPath(HttpServletRequest request) {
+        var path = ServletRequestPathUtils.getParsedRequestPath(request)
+                .pathWithinApplication()
+                .value();
+        return UrlPathHelper.defaultInstance.removeSemicolonContent(path);
     }
 
     private static Map<Class<?>, List<RequestMappingInfo>> routeMethodsByType(RequestMappingHandlerMapping mappings) {

@@ -211,10 +211,23 @@ class RouteAccessTests {
     }
 
     @Test
-    void aRequestThatMatchesNoRouteIsRefused() {
-        assertThat(http.get().uri("/v1/test/unknown")).hasStatus(HttpStatus.UNAUTHORIZED);
+    void anUnknownPathIsNotFoundWithOrWithoutASession() {
+        assertThat(http.get().uri("/v1/test/unknown")).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(http.get().uri("/v1/test/unknown").header(HttpHeaders.AUTHORIZATION, "Bearer person-token"))
-                .hasStatus(HttpStatus.FORBIDDEN);
+                .hasStatus(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void anUnsupportedMethodOnARouteIsNotAllowedAndNamesTheAllowedOnes() {
+        var result = http.post().uri("/v1/test/self").exchange();
+
+        assertThat(result).hasStatus(HttpStatus.METHOD_NOT_ALLOWED);
+        assertThat(result.getResponse().getHeader(HttpHeaders.ALLOW)).contains("GET");
+    }
+
+    @Test
+    void actuatorEndpointsOtherThanHealthStayClosed() {
+        assertThat(http.get().uri("/actuator")).hasStatus(HttpStatus.UNAUTHORIZED);
     }
 
     @Test

@@ -15,12 +15,14 @@ import org.springframework.security.web.access.intercept.RequestAuthorizationCon
 /**
  * Decides every request by the posture of the route that serves it, with one authorization manager per route built
  * from its posture: this is authentication enforcement only (is there a caller?), never permissions, which the use
- * case decides. A request no route serves is refused: 401 for an anonymous caller, 403 for a caller with a session
- * (Spring Security's exception translation).
+ * case decides. A request no annotated handler serves passes through, so Spring MVC answers 404 or 405 (route
+ * shapes are public in the OpenAPI spec anyway). A framework controller or an ambiguous match is refused unless the
+ * chain permits its path explicitly: 401 for an anonymous caller, 403 for a caller with a session.
  */
 final class RouteAuthorizationManager implements AuthorizationManager<RequestAuthorizationContext> {
 
     private static final AuthorizationDecision DENIED = new AuthorizationDecision(false);
+    private static final AuthorizationDecision GRANTED = new AuthorizationDecision(true);
 
     private final RouteCatalog routes;
     private final Map<Route, AuthorizationManager<RequestAuthorizationContext>> managers;
@@ -39,10 +41,15 @@ final class RouteAuthorizationManager implements AuthorizationManager<RequestAut
     @Override
     public AuthorizationResult authorize(
             Supplier<? extends Authentication> authentication, RequestAuthorizationContext context) {
-        return routes.routeFor(context.getRequest())
-                .map(managers::get)
-                .map(manager -> manager.authorize(authentication, context))
-                .orElse(DENIED);
+        return switch (routes.match(context.getRequest())) {
+            case RouteMatch.ApplicationRoute(var route) -> {
+                var decision = managers.get(route).authorize(authentication, context);
+                yield decision == null ? DENIED : decision;
+            }
+            case RouteMatch.OtherHandler() -> DENIED;
+            // No controller can run: let Spring MVC answer 404 or 405 as any HTTP server would.
+            case RouteMatch.NoHandler() -> GRANTED;
+        };
     }
 
     private static AuthorizationManager<RequestAuthorizationContext> managerFor(Posture posture) {
