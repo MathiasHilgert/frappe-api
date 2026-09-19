@@ -25,6 +25,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -77,6 +78,11 @@ class RacingSchedulersIntegrationTests {
 
     final ConcurrentHashMap<String, List<Instant>> ranExecutionTimes = new ConcurrentHashMap<>();
 
+    // Released once executions were picked by both instances.
+    final CountDownLatch bothInstancesPicked = new CountDownLatch(1);
+
+    final Set<String> pickers = ConcurrentHashMap.newKeySet();
+
     final List<Scheduler> started = new ArrayList<>();
 
     final List<String> taskNames = new ArrayList<>();
@@ -89,7 +95,7 @@ class RacingSchedulersIntegrationTests {
 
     @AfterEach
     void stopSchedulersAndDeleteTheirExecutions() {
-        started.forEach(Scheduler::stop);
+        stopBothInstances();
         jdbc.sql("delete from platform.scheduled_tasks where task_name in (:names)")
                 .param("names", taskNames)
                 .update();
@@ -108,17 +114,18 @@ class RacingSchedulersIntegrationTests {
 
         // Then
         await().atMost(Duration.ofSeconds(20)).until(() -> runs.get() >= 10);
+        stopBothInstances();
         assertThat(ranExecutionTimes.get(task.name().value())).doesNotHaveDuplicates();
     }
 
     @Test
-    void everyOneTimeExecutionRunsOnExactlyOneInstanceAndBothInstancesTakeTheirShare() {
-        // Given
+    void everyOneTimeExecutionRunsOnExactlyOneInstanceAndBothInstancesTakeTheirShare() throws Exception {
+        // Given runs that wait until both instances picked one: whichever instance polls first fills its threads with
+        // waiting runs, so the other one necessarily picks some of the rest
         var runs = new ConcurrentHashMap<String, AtomicInteger>();
         var task = tasks.oneTime(uniqueName("race-once"), String.class, order -> {
             runs.computeIfAbsent(order, key -> new AtomicInteger()).incrementAndGet();
-            // Slow enough that one instance cannot drain the batch before the other polls.
-            sleep(Duration.ofMillis(50));
+            waitFor(bothInstancesPicked);
         });
         startInstance("instance-a", task);
         startInstance("instance-b", task);
@@ -129,11 +136,10 @@ class RacingSchedulersIntegrationTests {
         }
 
         // Then
+        assertThat(bothInstancesPicked.await(20, TimeUnit.SECONDS)).isTrue();
         await().atMost(Duration.ofSeconds(30)).until(() -> runs.size() == 100);
-        await().pollDelay(Duration.ofSeconds(1)).until(() -> true);
+        stopBothInstances();
         assertThat(runs.values()).extracting(AtomicInteger::get).containsOnly(1);
-        assertThat(pickedBy.values().stream().flatMap(List::stream).distinct())
-                .containsExactlyInAnyOrder("instance-a", "instance-b");
     }
 
     @Test
@@ -277,6 +283,10 @@ class RacingSchedulersIntegrationTests {
             ranExecutionTimes
                     .computeIfAbsent(taskInstance.getTaskName(), name -> new CopyOnWriteArrayList<>())
                     .add(execution.executionTime);
+            pickers.add(execution.pickedBy);
+            if (pickers.size() == 2) {
+                bothInstancesPicked.countDown();
+            }
             return chain.proceed(taskInstance, context);
         };
     }
@@ -305,9 +315,15 @@ class RacingSchedulersIntegrationTests {
         return scheduler;
     }
 
-    private static void sleep(Duration duration) {
+    // Stops every started instance; running executions finish first (shutdown-max-wait).
+    private void stopBothInstances() {
+        started.forEach(Scheduler::stop);
+        started.clear();
+    }
+
+    private static void waitFor(CountDownLatch latch) {
         try {
-            Thread.sleep(duration);
+            latch.await(20, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
