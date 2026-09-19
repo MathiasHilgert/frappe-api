@@ -127,38 +127,95 @@ class OutboxArchivePurgeIntegrationTests {
         assertThat(traceContextCount(event)).isZero();
     }
 
-    // Proves the not-exists checks the orphan sweep runs for every candidate trace context row can be served by the
-    // generated event_id indexes (V202609191930__add_event_id_to_outbox_tables.sql), not by scanning serialized_event
-    // on the (potentially huge) outbox tables: with sequential scans disabled, the planner still has a cheaper plan
-    // available, naming every index.
+    // Proves the not-exists checks the repository's own SQL runs for every candidate trace context row can be served
+    // by the generated event_id indexes (V202609191930__add_event_id_to_outbox_tables.sql), not by scanning
+    // serialized_event on the (potentially huge) outbox tables. Seeded with a few thousand unrelated rows per table
+    // and ANALYZEd first: at that scale Postgres' own cost model still prefers a hash anti join over seq-scanned
+    // tables (verified: EXPLAIN without any override chooses Seq Scan on all three outbox tables here, because they
+    // are still "small" by its cost model), so `enable_seqscan = off` stays: it does not fake an index that could not
+    // otherwise serve the query, it only removes a cheaper-at-this-size alternative so the plan proves the index
+    // exists and CAN serve it, the property that matters at production volume.
     @Test
     void theOrphanTraceContextSweepUsesTheEventIdIndexesInsteadOfScanningTheOutboxTables() {
-        var plan = new ArrayList<String>();
-        transactions.executeWithoutResult(status -> {
-            jdbc.execute("set local enable_seqscan = off");
-            plan.addAll(jdbc.queryForList("""
-                    explain (format text)
-                    delete from platform.event_trace_context
-                     where event_id in (
-                         select t.event_id
-                           from platform.event_trace_context t
-                          where not exists (
-                                  select 1 from platform.event_publication p where p.event_id = t.event_id)
-                            and not exists (
-                                  select 1 from platform.event_publication_archive a where a.event_id = t.event_id)
-                            and not exists (
-                                  select 1 from platform.event_publication_dead_letter d
-                                   where d.event_id = t.event_id)
-                          limit 500)
-                    """, String.class));
-        });
+        seedUnrelatedRows();
 
-        var text = String.join("\n", plan);
+        var text = explain(OutboxArchivePurgeRepository.DELETE_ORPHAN_TRACE_CONTEXT_BATCH, Timestamp.from(NOW), 500);
+
         assertThat(text)
                 .as("plan:%n%s", text)
                 .contains("event_publication_event_id_idx")
                 .contains("event_publication_archive_event_id_idx")
                 .contains("event_publication_dead_letter_event_id_idx");
+    }
+
+    // Same proof for the batch-driven delete (the common case, run right after every archive batch): it also matches
+    // by the indexed event_id, not by serialized_event.
+    @Test
+    void theArchiveBatchDrivenTraceContextDeleteUsesTheEventIdIndexes() {
+        seedUnrelatedRows();
+
+        var text = explain(OutboxArchivePurgeRepository.DELETE_TRACE_CONTEXT_FOR_EVENTS, (Object)
+                IntStream.range(0, 50).mapToObj(i -> UUID.randomUUID()).toArray(UUID[]::new));
+
+        assertThat(text)
+                .as("plan:%n%s", text)
+                .contains("event_publication_event_id_idx")
+                .contains("event_publication_archive_event_id_idx")
+                .contains("event_publication_dead_letter_event_id_idx");
+    }
+
+    private String explain(String sql, Object... params) {
+        var plan = new ArrayList<String>();
+        transactions.executeWithoutResult(status -> {
+            jdbc.execute("set local enable_seqscan = off");
+            plan.addAll(jdbc.queryForList("explain (format text)\n" + sql, String.class, params));
+        });
+        return String.join("\n", plan);
+    }
+
+    // A few thousand unrelated rows per outbox table (none of them the row under test), so the EXPLAIN tests above
+    // exercise the same indexed not-exists lookups the repository runs in production, not an unrealistically tiny
+    // table. Inserted in batches for speed.
+    private void seedUnrelatedRows() {
+        var pending = new ArrayList<Object[]>();
+        var archive = new ArrayList<Object[]>();
+        var deadLetter = new ArrayList<Object[]>();
+        var trace = new ArrayList<Object[]>();
+        for (var i = 0; i < 3000; i++) {
+            var pendingId = UUID.randomUUID();
+            pending.add(new Object[] {pendingId, "{\"eventId\":\"" + UUID.randomUUID() + "\"}", Timestamp.from(NOW)});
+            var archiveId = UUID.randomUUID();
+            archive.add(new Object[] {
+                archiveId, "{\"eventId\":\"" + UUID.randomUUID() + "\"}", Timestamp.from(NOW), Timestamp.from(NOW)
+            });
+            var deadLetterId = UUID.randomUUID();
+            deadLetter.add(new Object[] {
+                deadLetterId, "{\"eventId\":\"" + UUID.randomUUID() + "\"}", Timestamp.from(NOW), Timestamp.from(NOW)
+            });
+            trace.add(
+                    new Object[] {UUID.randomUUID(), "00-seed-01", "", Timestamp.from(NOW.minus(Duration.ofDays(60)))});
+        }
+        jdbc.batchUpdate("""
+                insert into platform.event_publication (id, listener_id, event_type, serialized_event,
+                    publication_date, status, completion_attempts)
+                values (?, 'nats.listener', 'com.frappe.Probe', ?, ?, 'FAILED', 1)
+                """, pending);
+        jdbc.batchUpdate("""
+                insert into platform.event_publication_archive (id, listener_id, event_type, serialized_event,
+                    publication_date, completion_date, status, completion_attempts)
+                values (?, 'nats.listener', 'com.frappe.Probe', ?, ?, ?, 'COMPLETED', 1)
+                """, archive);
+        jdbc.batchUpdate("""
+                insert into platform.event_publication_dead_letter (id, listener_id, event_type, serialized_event,
+                    publication_date, status, completion_attempts, dead_lettered_at, reason)
+                values (?, 'nats.listener', 'com.frappe.Probe', ?, ?, 'FAILED', 24, ?, 'MAX_ATTEMPTS_EXHAUSTED')
+                """, deadLetter);
+        jdbc.batchUpdate("""
+                insert into platform.event_trace_context (event_id, traceparent, tracestate, recorded_at)
+                values (?, ?, ?, ?)
+                """, trace);
+        jdbc.execute("analyze platform.event_publication, platform.event_publication_archive,"
+                + " platform.event_publication_dead_letter, platform.event_trace_context");
     }
 
     // The generated event_id column must never fail the insert it derives from, or a corrupted or hand-edited row

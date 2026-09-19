@@ -123,15 +123,13 @@ class OutboxRecoveryIntegrationTests {
             transactions.executeWithoutResult(status -> publisher.publish(event));
             await().atMost(Duration.ofSeconds(5)).until(() -> retriedAtLeastOnce(event));
             // Copied while NATS is still paused: once it is back, the valid row may be archived at any moment.
-            // Older than the valid row, so they come first in every selection.
+            // Older than the valid row, so they come first in every selection. Syntactically invalid JSON (a
+            // StreamReadException, not a DatabindException): the generated event_id column added by FAPI-9
+            // (platform.safe_event_id) tolerates this at the database layer, the same as a hand-truncated or
+            // corrupted payload would be tolerated in production; PublicationRedelivery still classifies it
+            // UNREADABLE_PAYLOAD.
             removedType.set(insertFailedCopyOf(event, "com.frappe.removed.TableMerged", "{}"));
-            // Valid JSON (the generated event_id column added by FAPI-9 needs it to parse) with a type Jackson cannot
-            // bind to CourseFired.occurredAt: no database failure, but a DatabindException on deserialize, the same
-            // UNREADABLE_PAYLOAD a real corrupted payload would cause.
-            brokenPayload.set(insertFailedCopyOf(
-                    event,
-                    CourseFired.class.getName(),
-                    "{\"eventId\":\"" + ids.newId() + "\",\"occurredAt\":\"not-an-instant\"}"));
+            brokenPayload.set(insertFailedCopyOf(event, CourseFired.class.getName(), "{\"eventId\": "));
         });
 
         // When / Then
@@ -141,6 +139,28 @@ class OutboxRecoveryIntegrationTests {
                         deadLetterReason(removedType.get()) != null && deadLetterReason(brokenPayload.get()) != null);
         assertThat(deadLetterReason(removedType.get())).isEqualTo("UNKNOWN_EVENT_TYPE");
         assertThat(deadLetterReason(brokenPayload.get())).isEqualTo("UNREADABLE_PAYLOAD");
+    }
+
+    // A second, distinct cause of UNREADABLE_PAYLOAD: valid JSON (a real eventId, so the generated event_id column
+    // parses it) that Jackson cannot bind into CourseFired (occurredAt is not a valid Instant) — a DatabindException,
+    // not the StreamReadException the test above covers.
+    @Test
+    void aPayloadThatFailsToBindIntoTheEventClassAlsoBecomesADeadLetter() {
+        // Given
+        var event = new CourseFired(ids.newId(), clock.instant(), ids.newId(), 1, 1);
+        var unbindable = new AtomicReference<UUID>();
+        withNatsPaused(() -> {
+            transactions.executeWithoutResult(status -> publisher.publish(event));
+            await().atMost(Duration.ofSeconds(5)).until(() -> retriedAtLeastOnce(event));
+            unbindable.set(insertFailedCopyOf(
+                    event,
+                    CourseFired.class.getName(),
+                    "{\"eventId\":\"" + ids.newId() + "\",\"occurredAt\":\"not-an-instant\"}"));
+        });
+
+        // When / Then
+        await().atMost(Duration.ofSeconds(10)).until(() -> deadLetterReason(unbindable.get()) != null);
+        assertThat(deadLetterReason(unbindable.get())).isEqualTo("UNREADABLE_PAYLOAD");
     }
 
     @AfterEach

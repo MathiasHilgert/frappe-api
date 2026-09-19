@@ -11,6 +11,13 @@
 -- this migration, was written by a future Modulith version with a different envelope, or was inserted or edited by
 -- hand with a malformed payload (invalid JSON, or a non-UUID/missing eventId) — never for a row this application
 -- itself produces today, but the guarantee is unconditional, not just today's happy path.
+--
+-- A pure SQL expression using Postgres 18's IS JSON predicate and pg_input_is_valid (no PL/pgSQL, no subtransaction
+-- per insert) was tried first: `case when serialized_event is json object and pg_input_is_valid(serialized_event
+-- ::jsonb ->> 'eventId', 'uuid') then (serialized_event::jsonb ->> 'eventId')::uuid end`. Postgres rejects it in a
+-- generated column ("generation expression is not immutable"): pg_input_is_valid is STABLE
+-- (select provolatile from pg_proc where proname = 'pg_input_is_valid' returns 's'), and a generated column requires
+-- every function in its expression to be IMMUTABLE. The PL/pgSQL function stays.
 create function platform.safe_event_id(serialized_event text)
     returns uuid
     language plpgsql

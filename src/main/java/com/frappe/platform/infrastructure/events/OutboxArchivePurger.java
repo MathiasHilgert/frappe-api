@@ -2,8 +2,9 @@ package com.frappe.platform.infrastructure.events;
 
 import io.micrometer.observation.ObservationRegistry;
 import java.time.Clock;
+import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.IntUnaryOperator;
 
@@ -61,11 +62,16 @@ final class OutboxArchivePurger {
             do {
                 batch = repository.purgeArchivedBefore(threshold, batchSize);
                 archived += batch.size();
-                if (!batch.isEmpty()) {
-                    traceContext += repository.purgeTraceContextFor(Set.copyOf(batch));
+                // A row whose generated event_id is null (platform.safe_event_id could not parse serialized_event,
+                // e.g. a malformed or hand-edited row) never blocks the run: it was still purged from the archive
+                // above, just skipped here — there is no readable event id to purge trace context for.
+                var readableEventIds = new HashSet<UUID>(batch);
+                readableEventIds.remove(null);
+                if (!readableEventIds.isEmpty()) {
+                    traceContext += repository.purgeTraceContextFor(readableEventIds);
                 }
             } while (batch.size() == batchSize);
-            traceContext += deleteInBatches(repository::purgeOrphanTraceContext);
+            traceContext += deleteOrphanTraceContextInBatches(threshold);
         } catch (RuntimeException e) {
             // Never caught to log: the scheduler retries with backoff and its failure handler logs it once.
             observation.error(e);
@@ -76,6 +82,10 @@ final class OutboxArchivePurger {
                     OutboxPurgeObservations.TRACE_CONTEXT_COUNT, String.valueOf(traceContext));
             observation.stop();
         }
+    }
+
+    private int deleteOrphanTraceContextInBatches(Instant threshold) {
+        return deleteInBatches(batchSize -> repository.purgeOrphanTraceContext(threshold, batchSize));
     }
 
     // Keeps deleting until a batch comes back smaller than the batch size (or empty): every batch is its own small

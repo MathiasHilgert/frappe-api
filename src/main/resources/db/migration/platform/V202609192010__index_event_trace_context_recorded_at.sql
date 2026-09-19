@@ -1,0 +1,11 @@
+-- FAPI-9 follow-up: the archive purge's orphan trace context sweep (a bounded fallback for rows left behind by an
+-- incomplete earlier run — see OutboxArchivePurgeRepository.purgeOrphanTraceContext) now scopes its candidate rows to
+-- recorded_at older than the retention, instead of walking the whole table every run: a leftover orphan can only be
+-- an old row (the archive delete that drives the common-case cleanup only ever reaches rows past retention), so
+-- restricting by age costs nothing in coverage.
+--
+-- V202609190900__create_event_trace_context.sql said recorded_at needs no index, because at the time the purge
+-- "selects by [event id membership], not by age": still true for the batch-driven delete (see
+-- V202609191930__add_event_id_to_outbox_tables.sql), but the orphan sweep now also filters by age, so it needs one.
+-- That earlier migration is not edited: an applied migration is immutable.
+create index event_trace_context_recorded_at_idx on platform.event_trace_context (recorded_at);
