@@ -6,7 +6,10 @@ import com.frappe.platform.infrastructure.events.OutboxObservations.Trigger;
 import io.micrometer.observation.ObservationRegistry;
 import java.time.Clock;
 import java.util.Collection;
+import java.util.concurrent.Executor;
 import java.util.function.Supplier;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.task.TaskExecutionAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationListener;
@@ -84,11 +87,14 @@ class OutboxRecoveryConfiguration {
      * Runs a pass at once when a messaging transport came back.
      *
      * @param outboxRecoveryTask the recovery task
+     * @param executor Spring Boot's application task executor, which moves the pass off the transport's thread
      * @return the trigger
      */
     @Bean
-    OutboxRecoveryTrigger outboxRecoveryTrigger(RecurringTask<Trigger> outboxRecoveryTask) {
-        return new OutboxRecoveryTrigger(outboxRecoveryTask);
+    OutboxRecoveryTrigger outboxRecoveryTrigger(
+            RecurringTask<Trigger> outboxRecoveryTask,
+            @Qualifier(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME) Executor executor) {
+        return new OutboxRecoveryTrigger(outboxRecoveryTask, executor);
     }
 
     // Modulith resolves the target listener from the multicaster's listeners; the context keeps the same set
