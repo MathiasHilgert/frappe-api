@@ -68,6 +68,10 @@ class SecurityConfiguration {
         var contexts = new RequestAttributeSecurityContextRepository();
         var bearerSessions = new BearerSessionFilter(sessionResolver.getIfAvailable(() -> NO_SESSIONS), contexts);
         var routeAuthorization = new RouteAuthorizationManager(routes, otherHandlers);
+        // CSRF protection is off on purpose: this API is stateless and takes credentials only from the
+        // Authorization: Bearer header, which browsers never attach on their own; cookies and query tokens are ignored
+        // (pinned by RouteAccessTests). With no ambient credential there is nothing to forge, so CSRF does not apply
+        // (OWASP CSRF Prevention Cheat Sheet; Spring Security reference, "When to use CSRF protection").
         return http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sessions -> sessions.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .securityContext(context -> context.securityContextRepository(contexts))
