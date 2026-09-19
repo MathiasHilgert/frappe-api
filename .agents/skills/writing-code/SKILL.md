@@ -22,6 +22,8 @@ Load before creating or changing any production code, migration or configuration
 - Telemetry: infrastructure is observed automatically; features only declare business metrics on events (`@Counted`/`@Measured`); no telemetry types in domain or application; metric tags never carry tenant or entity ids.
 - Logs are ECS JSON with context in key/values; Javadoc on every type and member (`check` enforces doclint).
 - English identifiers and API; user-facing text only from the module's ICU catalogs; the API returns raw values (`references/i18n.md`).
+- Prefer a maintained library over hand-rolled code for a solved problem.
+- Libraries live in `infrastructure` adapters; modules depend on our own kernel ports, never on a library type directly (verified by ArchUnit).
 - `./gradlew spotlessApply check` green before handing over.
 
 ## Decision Gates
