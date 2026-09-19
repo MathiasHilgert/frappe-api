@@ -120,7 +120,7 @@ class FrameworkProblemsTests {
     }
 
     @Test
-    void anInvalidBodyListsOneErrorPerViolatedFieldWithItsJsonPointer() {
+    void anInvalidBodyListsOneErrorPerViolatedFieldSortedByItsJsonPointer() {
         // When
         var result = postInvalidOrder("en");
 
@@ -130,18 +130,10 @@ class FrameworkProblemsTests {
         assertThat(problem)
                 .containsEntry("type", PROBLEMS + "invalid-request")
                 .containsEntry("code", "invalid-request")
-                .containsEntry("detail", "3 fields are invalid.");
+                .containsEntry("detail", "4 fields are invalid.");
+        // Sorted by pointer; params carry only client-meaningful scalars (never a pattern, flags or classes)
         assertThat(errorsOf(problem))
-                .containsExactlyInAnyOrder(
-                        Map.of(
-                                "pointer",
-                                "/name",
-                                "code",
-                                "not-blank",
-                                "params",
-                                Map.of(),
-                                "detail",
-                                "must not be blank"),
+                .containsExactly(
                         Map.of(
                                 "pointer",
                                 "/code",
@@ -159,7 +151,25 @@ class FrameworkProblemsTests {
                                 "params",
                                 Map.of("value", 1),
                                 "detail",
-                                "must be at least 1"));
+                                "must be at least 1"),
+                        Map.of(
+                                "pointer",
+                                "/name",
+                                "code",
+                                "not-blank",
+                                "params",
+                                Map.of(),
+                                "detail",
+                                "must not be blank"),
+                        Map.of(
+                                "pointer",
+                                "/tag",
+                                "code",
+                                "pattern",
+                                "params",
+                                Map.of(),
+                                "detail",
+                                "has an invalid format"));
     }
 
     @Test
@@ -169,8 +179,8 @@ class FrameworkProblemsTests {
         var portuguese = problemOf(postInvalidOrder("pt"));
 
         // Then
-        assertThat(spanish).containsEntry("detail", "3 campos no son válidos.");
-        assertThat(portuguese).containsEntry("detail", "3 campos são inválidos.");
+        assertThat(spanish).containsEntry("detail", "4 campos no son válidos.");
+        assertThat(portuguese).containsEntry("detail", "4 campos são inválidos.");
         assertThat(errorsOf(spanish))
                 .extracting(error -> error.get("pointer") + " " + error.get("code") + " " + error.get("detail"))
                 .contains("/lines/0/quantity min debe ser como mínimo 1");
@@ -189,7 +199,7 @@ class FrameworkProblemsTests {
                 .uri(ProblemRoutes.ORDERS_PATH)
                 .header(HttpHeaders.ACCEPT_LANGUAGE, language)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\": \" \", \"code\": \"x\", \"lines\": [{\"quantity\": 0}]}")
+                .content("{\"name\": \" \", \"code\": \"x\", \"lines\": [{\"quantity\": 0}], \"tag\": \"a1\"}")
                 .exchange();
     }
 

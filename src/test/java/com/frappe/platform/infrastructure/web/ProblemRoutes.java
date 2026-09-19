@@ -19,6 +19,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.Duration;
 import java.util.List;
@@ -148,7 +149,10 @@ public class ProblemRoutes {
     record OrderRequest(
             @NotBlank String name,
             @Size(min = 2, max = 5) String code,
-            @NotNull @Valid List<Line> lines) {}
+            @NotNull @Valid List<Line> lines,
+
+            @Pattern(regexp = "[A-Z]{3}", flags = Pattern.Flag.CASE_INSENSITIVE)
+            String tag) {}
 
     /** One line of an order. */
     record Line(@Min(1) int quantity) {}

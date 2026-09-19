@@ -5,6 +5,7 @@ import io.micrometer.tracing.Tracer;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import java.net.URI;
+import java.util.Comparator;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -33,7 +34,15 @@ final class Problems {
 
     private static final String VALIDATION_KEYS = "platform.validation.";
     private static final String INVALID_FIELD = VALIDATION_KEYS + "invalid";
-    private static final Set<String> CONSTRAINT_INTERNALS = Set.of("message", "groups", "payload");
+    /**
+     * The constraint attributes a client can act on (bounds, digits); everything else (patterns, flags, groups,
+     * payload and validator classes) describes our code, not the client's input, and is never returned.
+     */
+    private static final Set<String> CLIENT_ATTRIBUTES =
+            Set.of("min", "max", "value", "inclusive", "integer", "fraction");
+
+    private static final Comparator<ValidationError> BY_POINTER_THEN_CODE =
+            Comparator.comparing(ValidationError::pointer).thenComparing(ValidationError::code);
     private static final Pattern WORD_BOUNDARY = Pattern.compile("([a-z0-9])([A-Z])");
     private static final Pattern INDEX_OR_KEY = Pattern.compile("\\[([^]]*)]");
 
@@ -80,6 +89,7 @@ final class Problems {
         var locale = locales.resolveLocale(request);
         var errors = result.getAllErrors().stream()
                 .map(error -> fieldError(error, locale))
+                .sorted(BY_POINTER_THEN_CODE)
                 .toList();
         var body = problem(
                 type.status(),
@@ -146,12 +156,18 @@ final class Problems {
             var code = kebabCase(constraint.getAnnotation().annotationType().getSimpleName());
             // Attributes sorted by name: the detail message's {0}, {1}, … follow this order.
             var params = new TreeMap<String, Object>(constraint.getAttributes());
-            params.keySet().removeAll(CONSTRAINT_INTERNALS);
+            params.entrySet()
+                    .removeIf(attribute ->
+                            !CLIENT_ATTRIBUTES.contains(attribute.getKey()) || !isScalar(attribute.getValue()));
             return new ValidationError(
                     pointer, code, params, detailOf(code, params.values().toArray(), locale));
         }
         var code = kebabCase(String.valueOf(error.getCode()));
         return new ValidationError(pointer, code, Map.of(), detailOf(code, new Object[0], locale));
+    }
+
+    private static boolean isScalar(Object value) {
+        return value instanceof Number || value instanceof Boolean || value instanceof String;
     }
 
     private String detailOf(String code, Object[] arguments, Locale locale) {
