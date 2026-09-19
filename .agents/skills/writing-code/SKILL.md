@@ -18,6 +18,7 @@ Load before creating or changing any production code, migration or configuration
 - Expected business failures return `Result`; exceptions only for bugs and infrastructure faults.
 - Use cases: one class per operation marked `@CommandUseCase` / `@QueryUseCase`, called directly (no bus); `@Transactional` is the only Spring annotation in application code, domain and kernel have none (ArchUnit enforces both).
 - Never read another module's tables, entities or internal packages; use its events, or its `Api` for an unavoidable synchronous read.
+- Time-based work is a db-scheduler task declared with `ScheduledTasks` (runs once per due execution across instances); never `@Scheduled` or in-process locks.
 - IDs are UUIDv7 from the injected `IdGenerator`; money is `Money`; time comes from an injected `Clock`, never `Instant.now()`.
 - Infrastructure faults: dedicated exceptions with cause, catch only expected types, log or rethrow (never both).
 - Telemetry: infrastructure is observed automatically; features only declare business metrics on events (`@Counted`/`@Measured`); no telemetry types in domain or application; metric tags never carry tenant or entity ids.
@@ -36,6 +37,7 @@ Load before creating or changing any production code, migration or configuration
 | Use cases (`@CommandUseCase` / `@QueryUseCase`), transactions, `Result` | `references/use-cases.md` |
 | JPA entities, MapStruct, Flyway, schemas, RLS, locking | `references/persistence.md` |
 | Publishing or consuming events, outbox, NATS, inbox | `references/domain-events.md` |
+| Time-based work: recurring, one-time or per-entity scheduled tasks | `references/scheduling.md` |
 | Controllers, `/v1`, validation, errors, OpenAPI, i18n, sessions, RBAC | `references/http-api.md` |
 | User-facing text, catalogs, locales, raw values, translatable tenant content | `references/i18n.md` |
 | Creating ids, reading time | `references/ids.md` |

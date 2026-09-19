@@ -26,7 +26,7 @@ That is all: exported as `frappe.order.tabs.closed` (Prometheus `frappe_order_ta
 
 ## Hard Rules
 
-- Developers write business metrics only, and only as event declarations. Infrastructure telemetry (HTTP, JDBC, pool, JVM, Modulith, NATS) is automatic; hand-written technical meters or spans in features are rejected in review.
+- Developers write business metrics only, and only as event declarations. Infrastructure telemetry (HTTP, JDBC, pool, JVM, Modulith, NATS, scheduled tasks) is automatic; hand-written technical meters or spans in features are rejected in review.
 - No telemetry types (Micrometer, OpenTelemetry) in `domain` or `application`; Micrometer Observation is the only facade, in `infrastructure`. No OpenTelemetry Java agent.
 - Metric tags are low cardinality: enum or boolean fields (`channel`, `outcome`, `split`), `currency` for money. Tenant, branch, user, aggregate and entity ids go on spans and logs, never on metrics.
 - Names: `frappe.<module>.<noun>.<past-participle>` (`tabs.closed`, `payments.refunded`), lowercase dotted, no `total` suffix, base units; description says what one recording means.

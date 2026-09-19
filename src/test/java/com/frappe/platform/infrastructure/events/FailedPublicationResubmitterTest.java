@@ -1,7 +1,7 @@
 package com.frappe.platform.infrastructure.events;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatNoException;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -9,7 +9,6 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -17,7 +16,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
-import com.frappe.platform.infrastructure.MessagingTransportRecovered;
+import com.frappe.platform.infrastructure.events.OutboxObservations.Trigger;
 import com.frappe.platform.infrastructure.events.PublicationRedelivery.Outcome;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.tck.TestObservationRegistry;
@@ -26,16 +25,13 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
-import org.slf4j.event.KeyValuePair;
 import org.springframework.dao.DataAccessResourceFailureException;
 
 class FailedPublicationResubmitterTest {
@@ -55,8 +51,8 @@ class FailedPublicationResubmitterTest {
 
     final TestObservationRegistry observations = TestObservationRegistry.create();
 
-    final FailedPublicationResubmitter resubmitter = new FailedPublicationResubmitter(
-            redelivery, outbox, metrics, properties, clock, Runnable::run, observations);
+    final FailedPublicationResubmitter resubmitter =
+            new FailedPublicationResubmitter(redelivery, outbox, metrics, properties, clock, observations);
 
     final Logger logger = (Logger) LoggerFactory.getLogger(FailedPublicationResubmitter.class);
 
@@ -76,7 +72,7 @@ class FailedPublicationResubmitterTest {
     @Test
     void releasesStuckAttemptsAndDeadLettersBeforeSelectingRetries() {
         // When
-        resubmitter.run();
+        resubmitter.recover(Trigger.SCHEDULED);
 
         // Then
         var order = inOrder(outbox);
@@ -94,7 +90,7 @@ class FailedPublicationResubmitterTest {
         when(redelivery.redeliver(any(), any())).thenReturn(Outcome.RESUBMITTED);
 
         // When
-        resubmitter.run();
+        resubmitter.recover(Trigger.SCHEDULED);
 
         // Then
         verify(redelivery).redeliver(first, NOW);
@@ -108,7 +104,7 @@ class FailedPublicationResubmitterTest {
         when(outbox.countInFlight()).thenReturn(45L);
 
         // When
-        resubmitter.run();
+        resubmitter.recover(Trigger.SCHEDULED);
 
         // Then
         verify(outbox).findRetryable(NOW, 5, Duration.ofSeconds(30), Duration.ofHours(1));
@@ -120,7 +116,7 @@ class FailedPublicationResubmitterTest {
         when(outbox.countInFlight()).thenReturn(50L);
 
         // When
-        resubmitter.run();
+        resubmitter.recover(Trigger.SCHEDULED);
 
         // Then
         verify(outbox, never()).findRetryable(any(), anyInt(), any(), any());
@@ -136,7 +132,7 @@ class FailedPublicationResubmitterTest {
                         id, "com.frappe.Probe", "nats.listener", 20, DeadLetterReason.MAX_ATTEMPTS_EXHAUSTED)));
 
         // When
-        resubmitter.run();
+        resubmitter.recover(Trigger.SCHEDULED);
 
         // Then
         assertThat(logs.list).singleElement().satisfies(event -> {
@@ -167,7 +163,7 @@ class FailedPublicationResubmitterTest {
         when(redelivery.redeliver(readable, NOW)).thenReturn(Outcome.RESUBMITTED);
 
         // When
-        resubmitter.run();
+        resubmitter.recover(Trigger.SCHEDULED);
 
         // Then
         verify(redelivery).redeliver(readable, NOW);
@@ -184,16 +180,16 @@ class FailedPublicationResubmitterTest {
         when(outbox.countDeadLetters()).thenReturn(3L);
 
         // When
-        resubmitter.run();
+        resubmitter.recover(Trigger.SCHEDULED);
 
         // Then
         assertThat(registry.get("outbox.dead.letters").gauge().value()).isEqualTo(3.0);
     }
 
     @Test
-    void aRecoveredTransportTriggersOneBoundedRunWithoutWaitingForTheBackoff() {
+    void aPassTriggeredByARecoveredTransportIgnoresTheBackoffButKeepsTheBatch() {
         // When
-        resubmitter.onTransportRecovered(MessagingTransportRecovered.NATS);
+        resubmitter.recover(Trigger.TRANSPORT_RECOVERED);
 
         // Then
         // Failures caused by the outage are due at once; the batch still bounds the run.
@@ -201,53 +197,10 @@ class FailedPublicationResubmitterTest {
     }
 
     @Test
-    void theTriggerHandsThePassToTheExecutorAndReturnsAtOnce() {
-        // Given
-        var handedOff = new ArrayList<Runnable>();
-        var deferred = new FailedPublicationResubmitter(
-                redelivery, outbox, metrics, properties, clock, handedOff::add, observations);
-
-        // When
-        deferred.onTransportRecovered(MessagingTransportRecovered.NATS);
-
-        // Then
-        // The publishing thread (NATS connection setup) did no recovery work itself.
-        verify(outbox, never()).releaseStuckPublications(any());
-        assertThat(handedOff).singleElement();
-        handedOff.getFirst().run();
-        verify(outbox, times(1)).releaseStuckPublications(any());
-    }
-
-    @Test
-    void aTriggerDuringARunningPassIsDroppedBecauseThatPassCoversTheSameRows() throws Exception {
-        // Given
-        var firstRunStarted = new CountDownLatch(1);
-        var releaseFirstRun = new CountDownLatch(1);
-        var publication = failedPublication(Probe.class.getName());
-        when(outbox.findRetryable(any(), anyInt(), any(), any())).thenReturn(List.of(publication));
-        when(redelivery.redeliver(any(), any())).thenAnswer(call -> {
-            firstRunStarted.countDown();
-            releaseFirstRun.await();
-            return Outcome.RESUBMITTED;
-        });
-        var scheduled = new Thread(resubmitter);
-        scheduled.start();
-        firstRunStarted.await();
-
-        // When
-        resubmitter.onTransportRecovered(MessagingTransportRecovered.NATS);
-
-        // Then
-        releaseFirstRun.countDown();
-        scheduled.join();
-        verify(outbox, times(1)).releaseStuckPublications(any());
-    }
-
-    @Test
     void everyPassIsObservedWithItsTrigger() {
         // When
-        resubmitter.run();
-        resubmitter.onTransportRecovered(MessagingTransportRecovered.NATS);
+        resubmitter.recover(Trigger.SCHEDULED);
+        resubmitter.recover(Trigger.TRANSPORT_RECOVERED);
 
         // Then
         TestObservationRegistryAssert.assertThat(observations)
@@ -266,7 +219,7 @@ class FailedPublicationResubmitterTest {
         when(redelivery.redeliver(publication, NOW)).thenReturn(Outcome.UNREADABLE_PAYLOAD);
 
         // When
-        resubmitter.run();
+        resubmitter.recover(Trigger.SCHEDULED);
 
         // Then
         TestObservationRegistryAssert.assertThat(observations)
@@ -286,7 +239,8 @@ class FailedPublicationResubmitterTest {
         when(redelivery.redeliver(publication, NOW)).thenThrow(outage);
 
         // When
-        resubmitter.run();
+        assertThatExceptionOfType(DataAccessResourceFailureException.class)
+                .isThrownBy(() -> resubmitter.recover(Trigger.SCHEDULED));
 
         // Then
         TestObservationRegistryAssert.assertThat(observations)
@@ -304,7 +258,8 @@ class FailedPublicationResubmitterTest {
                 .releaseStuckPublications(any());
 
         // When
-        resubmitter.run();
+        assertThatExceptionOfType(DataAccessResourceFailureException.class)
+                .isThrownBy(() -> resubmitter.recover(Trigger.SCHEDULED));
 
         // Then
         TestObservationRegistryAssert.assertThat(observations)
@@ -315,21 +270,17 @@ class FailedPublicationResubmitterTest {
     }
 
     @Test
-    void databaseFailureIsLoggedOnceAndRetriedOnTheNextRun() {
+    void aDatabaseFailureFailsThePassSoTheSchedulerRetriesItWithBackoffAndLogsItOnce() {
         // Given
         var outage = new DataAccessResourceFailureException("connection refused");
         doThrow(outage).when(outbox).releaseStuckPublications(any());
 
         // When / Then
-        assertThatNoException().isThrownBy(resubmitter::run);
-        assertThat(logs.list).singleElement().satisfies(event -> {
-            assertThat(event.getLevel()).isEqualTo(Level.WARN);
-            assertThat(event.getThrowableProxy().getMessage()).isEqualTo("connection refused");
-            assertThat(event.getKeyValuePairs())
-                    .extracting(KeyValuePair::toString)
-                    .anySatisfy(pair -> assertThat(pair).startsWith("frappe.outbox.recovery_interval"))
-                    .anySatisfy(pair -> assertThat(pair).startsWith("frappe.outbox.batch_size"));
-        });
+        assertThatExceptionOfType(DataAccessResourceFailureException.class)
+                .isThrownBy(() -> resubmitter.recover(Trigger.SCHEDULED))
+                .isSameAs(outage);
+        // Logged by the scheduler's failure handler, not here: log or rethrow, never both.
+        assertThat(logs.list).isEmpty();
     }
 
     record Probe(UUID eventId) {}

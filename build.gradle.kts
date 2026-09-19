@@ -40,6 +40,7 @@ dependencies {
 	implementation("com.bucket4j:bucket4j_jdk17-lettuce:8.20.0")
 	implementation("com.deepl.api:deepl-java:1.17.0")
 	implementation("com.github.f4b6a3:uuid-creator:6.1.1")
+	implementation("com.github.kagkarlsson:db-scheduler-spring-boot-4-starter:16.12.0")
 	// Not managed by Boot; the official Resend SDK, used only inside platform.infrastructure.mail.
 	implementation("com.resend:resend-java:4.26.0")
 	// Not managed by Boot; parses the rendered mail HTML to derive its plain-text alternative.

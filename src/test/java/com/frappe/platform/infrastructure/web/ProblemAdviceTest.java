@@ -3,8 +3,7 @@ package com.frappe.platform.infrastructure.web;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.read.ListAppender;
+import com.frappe.CapturedLogs;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.tracing.Tracer;
 import java.io.EOFException;
@@ -34,8 +33,8 @@ class ProblemAdviceTest {
                 new UnexpectedFailures(new SimpleMeterRegistry()));
         var response = new MockHttpServletResponse();
         response.setCommitted(true);
-        var logs = new ListAppender<ILoggingEvent>();
-        logs.start();
+        // Only this test's thread: cached contexts of other test classes keep logging in the background.
+        var logs = CapturedLogs.fromCurrentThread();
         var logger = (Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
         logger.addAppender(logs);
         try {

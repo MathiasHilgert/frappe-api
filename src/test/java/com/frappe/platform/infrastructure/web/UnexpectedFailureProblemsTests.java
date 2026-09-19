@@ -7,6 +7,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.frappe.CapturedLogs;
 import com.frappe.TestNatsConfiguration;
 import com.frappe.TestcontainersConfiguration;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -88,11 +89,12 @@ class UnexpectedFailureProblemsTests {
     @Autowired
     MeterRegistry meters;
 
-    ListAppender<ILoggingEvent> logs = new ListAppender<>();
+    ListAppender<ILoggingEvent> logs;
 
     @BeforeEach
     void captureLogs() {
-        logs.start();
+        // Only this server's threads: cached contexts of other test classes keep logging in the background.
+        logs = CapturedLogs.fromThreads(CapturedLogs.serverThreads());
         logger().addAppender(logs);
     }
 
