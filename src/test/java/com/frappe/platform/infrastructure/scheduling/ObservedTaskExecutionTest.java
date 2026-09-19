@@ -77,6 +77,24 @@ class ObservedTaskExecutionTest {
         assertThat(current.get().getContext().getName()).isEqualTo("scheduled.task");
     }
 
+    @Test
+    void whileTheTaskRunsItsObservationCarriesNoOutcomeSoTheActiveTimerDoesNotReadFailure() {
+        // Given
+        var outcomeWhileRunning = new AtomicReference<Object>("unset");
+
+        // When
+        interceptor.execute(INSTANCE, null, chainRunning((instance, context) -> {
+            outcomeWhileRunning.set(observations
+                    .getCurrentObservation()
+                    .getContext()
+                    .getLowCardinalityKeyValue("scheduled.task.outcome"));
+            return new CompletionHandler.OnCompleteRemove<>();
+        }));
+
+        // Then
+        assertThat(outcomeWhileRunning.get()).isNull();
+    }
+
     private static ExecutionChain chainRunning(ExecutionHandler<Void> handler) {
         return new ExecutionChain(List.of(), handler);
     }
