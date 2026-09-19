@@ -18,8 +18,11 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.LongStream;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -71,6 +74,8 @@ class OutboxRecoveryIntegrationTests {
     @Autowired
     JdbcTemplate jdbc;
 
+    final List<UUID> inserted = new ArrayList<>();
+
     @Test
     void failedPublicationIsResubmittedOnceNatsRecoversAndArchived() throws Exception {
         // Given
@@ -102,6 +107,56 @@ class OutboxRecoveryIntegrationTests {
         // When / Then
         await().atMost(Duration.ofSeconds(20)).until(() -> archived(event));
         assertThat(storedMessagesFor(event)).isOne();
+    }
+
+    @Test
+    void unreadableRowsBecomeDeadLettersWhileAValidFailureIsStillRecovered() {
+        // Given
+        var event = new CourseFired(ids.newId(), clock.instant(), ids.newId(), 1, 1);
+        withNatsPaused(() -> {
+            transactions.executeWithoutResult(status -> publisher.publish(event));
+            await().atMost(Duration.ofSeconds(5)).until(() -> "FAILED".equals(outboxStatus(event)));
+        });
+        // Older than the valid row, so they come first in every selection.
+        var removedType = insertFailedCopyOf(event, "com.frappe.removed.TableMerged", "{}");
+        var brokenPayload = insertFailedCopyOf(event, CourseFired.class.getName(), "{\"eventId\": ");
+
+        // When / Then
+        await().atMost(Duration.ofSeconds(20)).until(() -> archived(event));
+        await().atMost(Duration.ofSeconds(10))
+                .until(() -> deadLetterReason(removedType) != null && deadLetterReason(brokenPayload) != null);
+        assertThat(deadLetterReason(removedType)).isEqualTo("UNKNOWN_EVENT_TYPE");
+        assertThat(deadLetterReason(brokenPayload)).isEqualTo("UNREADABLE_PAYLOAD");
+    }
+
+    @AfterEach
+    void deleteInsertedRows() {
+        jdbc.update("delete from platform.event_publication_dead_letter where id = any(?)", (Object)
+                inserted.toArray(UUID[]::new));
+        jdbc.update("delete from platform.event_publication where id = any(?)", (Object) inserted.toArray(UUID[]::new));
+    }
+
+    // A failed row for the same listener as a real publication, as an older deployment would have left it.
+    private UUID insertFailedCopyOf(DomainEvent event, String eventType, String payload) {
+        var id = ids.newId();
+        inserted.add(id);
+        jdbc.update("""
+                insert into platform.event_publication (id, listener_id, event_type, serialized_event,
+                    publication_date, status, completion_attempts)
+                select ?, listener_id, ?, ?, publication_date - interval '1 hour', 'FAILED', 0
+                  from platform.event_publication
+                 where serialized_event like ?
+                """, id, eventType, payload, pattern(event));
+        return id;
+    }
+
+    private String deadLetterReason(UUID id) {
+        return jdbc
+                .queryForList(
+                        "select reason from platform.event_publication_dead_letter where id = ?", String.class, id)
+                .stream()
+                .findFirst()
+                .orElse(null);
     }
 
     private void withNatsPaused(Runnable action) {

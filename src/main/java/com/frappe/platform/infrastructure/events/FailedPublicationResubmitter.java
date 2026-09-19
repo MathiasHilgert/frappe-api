@@ -1,20 +1,28 @@
 package com.frappe.platform.infrastructure.events;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
+import org.springframework.modulith.events.EventPublication;
 import org.springframework.modulith.events.IncompleteEventPublications;
+import org.springframework.util.ClassUtils;
+import tools.jackson.core.JacksonException;
 
 /**
  * One scheduled recovery run over the outbox:
  *
  * <ol>
  *   <li>fails attempts stuck without outcome (judged by their latest attempt),
- *   <li>moves publications that used up {@code max-attempts} to the dead-letter table, logging each once,
+ *   <li>moves publications that used up {@code max-attempts}, or whose event type is gone from the classpath, to the
+ *       dead-letter table, logging each once,
  *   <li>resubmits failed publications whose backoff elapsed, least recently attempted first, keeping at most {@code
- *       batch-size} in flight,
+ *       batch-size} in flight; a selected publication whose payload no longer deserializes is dead-lettered instead,
+ *       without affecting the rest of the batch,
  *   <li>refreshes the dead-letter gauge.
  * </ol>
  *
@@ -63,7 +71,8 @@ final class FailedPublicationResubmitter implements Runnable {
             var now = clock.instant();
             outbox.releaseStuckPublications(now.minus(properties.stuckAfter()));
             outbox.deadLetterExhausted(properties.maxAttempts(), now).forEach(this::logDeadLetter);
-            resubmitDueFailures();
+            deadLetterUnknownEventTypes(now);
+            resubmitDueFailures(now);
             metrics.recordDeadLetters(outbox.countDeadLetters());
         } catch (DataAccessException e) {
             // Scheduled task boundary: nobody above can handle it, and the next run retries.
@@ -75,7 +84,17 @@ final class FailedPublicationResubmitter implements Runnable {
         }
     }
 
-    private void resubmitDueFailures() {
+    // The registry silently skips rows whose class cannot be loaded, so they would never be attempted, never reach
+    // max-attempts and keep occupying the retry selection.
+    private void deadLetterUnknownEventTypes(Instant now) {
+        outbox.failedEventTypes().stream()
+                .filter(eventType -> !ClassUtils.isPresent(eventType, getClass().getClassLoader()))
+                .flatMap(eventType ->
+                        outbox.deadLetterByEventType(eventType, DeadLetterReason.UNKNOWN_EVENT_TYPE, now).stream())
+                .forEach(this::logDeadLetter);
+    }
+
+    private void resubmitDueFailures(Instant now) {
         // The batch size is deliberately also the in-flight limit: publications still RESUBMITTED from earlier runs
         // use up the batch, so a slow NATS never has more than one batch outstanding.
         var headroom = properties.batchSize() - outbox.countInFlight();
@@ -89,8 +108,25 @@ final class FailedPublicationResubmitter implements Runnable {
         // The selection happens in SQL (backoff, fairness, limit); Modulith's own failed-publication query orders by
         // publication date and limits before filtering, which would let old failures starve newer ones.
         var selected = new HashSet<>(due);
+        var unreadable = new HashSet<UUID>();
         incompletePublications.resubmitIncompletePublications(
-                publication -> selected.contains(publication.getIdentifier()));
+                publication -> selected.contains(publication.getIdentifier()) && isReadable(publication, unreadable));
+        if (!unreadable.isEmpty()) {
+            outbox.deadLetterByIds(unreadable, DeadLetterReason.UNREADABLE_PAYLOAD, now)
+                    .forEach(this::logDeadLetter);
+        }
+    }
+
+    // Deserializes before Modulith marks the row RESUBMITTED: failing here keeps the row FAILED and out of this
+    // batch, instead of leaving it stuck in flight until stuck-after. The registry caches the deserialized event.
+    private static boolean isReadable(EventPublication publication, Set<UUID> unreadable) {
+        try {
+            publication.getEvent();
+            return true;
+        } catch (JacksonException e) {
+            unreadable.add(publication.getIdentifier());
+            return false;
+        }
     }
 
     private void logDeadLetter(DeadLetter letter) {

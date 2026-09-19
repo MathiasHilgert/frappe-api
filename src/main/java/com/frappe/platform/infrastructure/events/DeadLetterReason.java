@@ -4,5 +4,11 @@ package com.frappe.platform.infrastructure.events;
 enum DeadLetterReason {
 
     /** Every allowed attempt failed ({@code frappe.outbox.recovery.max-attempts}). */
-    MAX_ATTEMPTS_EXHAUSTED
+    MAX_ATTEMPTS_EXHAUSTED,
+
+    /** The event class is no longer on the classpath (renamed or deleted); the registry cannot load the row. */
+    UNKNOWN_EVENT_TYPE,
+
+    /** The stored JSON no longer deserializes into the event class (an incompatible change of the event). */
+    UNREADABLE_PAYLOAD
 }

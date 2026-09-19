@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -21,9 +23,12 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +38,7 @@ import org.slf4j.event.KeyValuePair;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.modulith.events.EventPublication;
 import org.springframework.modulith.events.IncompleteEventPublications;
+import tools.jackson.core.exc.StreamReadException;
 
 class FailedPublicationResubmitterTest {
 
@@ -146,6 +152,52 @@ class FailedPublicationResubmitterTest {
     }
 
     @Test
+    void failedPublicationsOfAnEventTypeMissingFromTheClasspathAreDeadLettered() {
+        // Given
+        var missing = "com.frappe.removed.TableMerged";
+        var letter =
+                new DeadLetter(UUID.randomUUID(), missing, "nats.listener", 1, DeadLetterReason.UNKNOWN_EVENT_TYPE);
+        when(outbox.failedEventTypes()).thenReturn(List.of(Probe.class.getName(), missing));
+        when(outbox.deadLetterByEventType(missing, DeadLetterReason.UNKNOWN_EVENT_TYPE, NOW))
+                .thenReturn(List.of(letter));
+
+        // When
+        resubmitter.run();
+
+        // Then
+        verify(outbox, never()).deadLetterByEventType(eq(Probe.class.getName()), any(), any());
+        assertThat(logs.list)
+                .singleElement()
+                .satisfies(event -> assertThat(event.getLevel()).isEqualTo(Level.ERROR));
+    }
+
+    @Test
+    void anUnreadablePayloadIsDeadLetteredWhileTheRestOfTheBatchIsResubmitted() {
+        // Given
+        var readableId = UUID.randomUUID();
+        var unreadableId = UUID.randomUUID();
+        var readable = publication(readableId);
+        var unreadable = publication(unreadableId);
+        when(unreadable.getEvent()).thenThrow(new StreamReadException(null, "Unexpected end-of-input"));
+        when(outbox.findRetryable(any(), anyInt(), any(), any())).thenReturn(List.of(readableId, unreadableId));
+        var resubmitted = new ArrayList<EventPublication>();
+        doAnswer(call -> {
+                    Predicate<EventPublication> filter = call.getArgument(0);
+                    Stream.of(unreadable, readable).filter(filter).forEach(resubmitted::add);
+                    return null;
+                })
+                .when(incomplete)
+                .resubmitIncompletePublications(any(Predicate.class));
+
+        // When
+        resubmitter.run();
+
+        // Then
+        assertThat(resubmitted).containsExactly(readable);
+        verify(outbox).deadLetterByIds(Set.of(unreadable.getIdentifier()), DeadLetterReason.UNREADABLE_PAYLOAD, NOW);
+    }
+
+    @Test
     void theDeadLetterGaugeReportsTheStoredCount() {
         // Given
         var registry = new SimpleMeterRegistry();
@@ -176,6 +228,8 @@ class FailedPublicationResubmitterTest {
                     .anySatisfy(pair -> assertThat(pair).startsWith("frappe.outbox.batch_size"));
         });
     }
+
+    record Probe(UUID eventId) {}
 
     private static EventPublication publication(UUID id) {
         var publication = mock(EventPublication.class);

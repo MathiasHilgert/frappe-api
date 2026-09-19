@@ -9,6 +9,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.modulith.events.EventExternalizationConfiguration;
 import org.springframework.modulith.events.EventPublication;
 import org.springframework.modulith.events.IncompleteEventPublications;
+import tools.jackson.core.JacksonException;
 
 /**
  * Runs after every (re)connect: makes the stream match the code, then resubmits externalized publications that
@@ -52,8 +53,16 @@ final class NatsConnectSetup implements Consumer<Connection> {
         }
     }
 
+    // A payload that no longer deserializes must not abort the resubmission of every other publication: it is
+    // skipped here and dead-lettered by the outbox recovery job, which owns that decision.
     private boolean isFailedNatsPublication(EventPublication publication) {
-        return publication.getStatus() == EventPublication.Status.FAILED
-                && externalization.supports(publication.getEvent());
+        if (publication.getStatus() != EventPublication.Status.FAILED) {
+            return false;
+        }
+        try {
+            return externalization.supports(publication.getEvent());
+        } catch (JacksonException e) {
+            return false;
+        }
     }
 }
