@@ -29,6 +29,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
 	implementation("org.flywaydb:flyway-database-postgresql")
 	implementation("com.github.f4b6a3:uuid-creator:6.1.1")
+	implementation("com.github.kagkarlsson:db-scheduler-spring-boot-4-starter:16.12.0")
 	implementation("io.nats:jnats:2.26.2")
 	implementation("net.ttddyy.observation:datasource-micrometer-spring-boot:2.3.0")
 	// Not managed by Boot; 2.28.0-alpha is the release built on OpenTelemetry 1.62.0, the SDK version Boot 4.1.1 ships.

@@ -23,7 +23,7 @@ Strict TDD (brief and project rule). Runner: `./gradlew test` with `FRAPPE_TEST_
 
 ## Tasks
 - [x] T0 Verify db-scheduler and its Boot 4 starter (versions, auto-configuration, APIs, DDL) from Maven Central sources jars; record findings and design here
-- [ ] T1 Dependency, Flyway migration `platform.scheduled_tasks`, `db-scheduler.*` settings; the app's scheduler runs on the Flyway-owned table
+- [x] T1 Dependency, Flyway migration `platform.scheduled_tasks`, `db-scheduler.*` settings; the app's scheduler runs on the Flyway-owned table
 - [ ] T2 Task conventions: `ScheduledTasks` (recurring, one-time, per-entity), `EntitySchedule`, `frappe.scheduling.*` retry settings with exponential backoff, task name rule
 - [ ] T3 Observation `scheduled.task` and failure logging (ECS fields); JSON task data; pausing the scheduler with the application context
 - [ ] T4 Acceptance: two schedulers racing on real Postgres (exactly once, dead instance taken over, retries with backoff observed as errors, per-entity schedule change without restart)
@@ -62,5 +62,11 @@ Strict TDD (brief and project rule). Runner: `./gradlew test` with `FRAPPE_TEST_
 - Outbox recovery: one recurring task `platform.outbox-recovery` whose data is the pass trigger. A recovered transport reschedules that single execution to now with trigger `TRANSPORT_RECOVERED` and wakes the poller, so passes never overlap anywhere in the cluster (no lock); a pass already running covers the same rows.
 - Settings: `db-scheduler.table-name=platform.scheduled_tasks`, `delay-startup-until-context-ready=true`, `shutdown-max-wait=10s` (the 30m default outlives any rolling deploy; unfinished executions are taken over after the heartbeat expires). Priority is not enabled, so its index is left out.
 
+### T1 table and settings
+- RED 1 (compilation) `SchedulerTableIntegrationTests` (`schedulesIntoTheFlywayOwnedPlatformTable`, `schedulingTheSameNaturalKeyTwiceKeepsOneExecution`): `package com.github.kagkarlsson.scheduler does not exist`.
+- RED 2 after adding `db-scheduler-spring-boot-4-starter:16.12.0`: both fail with `SQLRuntimeException` caused by `PSQLException: ERROR: relation "scheduled_tasks" does not exist`; `FlywayMigrationIntegrationTests.startupCreatesTheSchedulerTableOwnedByOwnerRole` (`EmptyResultDataAccessException`) and `schedulerTableCarriesTheIndexesOfItsPollingQueries` (`AssertionError`) fail too.
+- GREEN: migration `V202609191000__create_scheduled_tasks.sql` (official DDL qualified with `platform`, priority index left out) and `db-scheduler.table-name`, `delay-startup-until-context-ready`, `shutdown-max-wait` in `application.properties`: 2/2 and 7/7. The runtime role schedules into the table with the default privileges, no grant in the migration.
+- `FRAPPE_TEST_DB=frappe_fapi_10 ./gradlew spotlessApply check`: BUILD SUCCESSFUL.
+
 ## Next step
-T1.
+T2.

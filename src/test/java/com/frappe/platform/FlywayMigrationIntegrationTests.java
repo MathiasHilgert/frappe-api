@@ -66,6 +66,28 @@ class FlywayMigrationIntegrationTests {
     }
 
     @Test
+    void startupCreatesTheSchedulerTableOwnedByOwnerRole() {
+        var owner = jdbc.queryForObject(
+                "select tableowner from pg_tables where schemaname = 'platform' and tablename = 'scheduled_tasks'",
+                String.class);
+
+        assertThat(owner).isEqualTo("frappe_owner");
+    }
+
+    @Test
+    void schedulerTableCarriesTheIndexesOfItsPollingQueries() {
+        var indexes = jdbc.queryForList(
+                "select indexname from pg_indexes where schemaname = 'platform' and tablename = 'scheduled_tasks'",
+                String.class);
+
+        assertThat(indexes)
+                .contains(
+                        "scheduled_tasks_pkey",
+                        "scheduled_tasks_execution_time_idx",
+                        "scheduled_tasks_last_heartbeat_idx");
+    }
+
+    @Test
     void appRoleCannotRunDdlInPlatformSchema() {
         assertThatThrownBy(() -> jdbc.execute("create table platform.app_probe (id int)"))
                 .isInstanceOf(DataAccessException.class)
