@@ -1,19 +1,21 @@
 package com.frappe.identity.domain;
 
 import com.frappe.platform.Result;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Objects;
 
 /**
- * An email address as the person entered it, trimmed: at most {@value #MAX_LENGTH} characters (RFC 5321's path
- * limit) with exactly one {@code @}. Deliverability is proven by a code, not by syntax, so nothing more is checked.
+ * An email address as the person entered it, trimmed: at most {@value #MAX_LENGTH} octets of UTF-8 (RFC 5321's path
+ * limit of 256 octets less the angle brackets, counted in octets because SMTPUTF8 addresses carry non-ASCII
+ * characters of several octets each) with exactly one {@code @}. Deliverability is proven by a code, not by syntax, so nothing more is checked.
  * {@link #canonical()} is the form used for uniqueness and digests. It prints masked.
  *
  * @param value the trimmed address, as entered
  */
 public record EmailAddress(String value) {
 
-    /** Most characters an address may have. */
+    /** Most UTF-8 octets an address may have. */
     public static final int MAX_LENGTH = 254;
 
     /**
@@ -33,7 +35,7 @@ public record EmailAddress(String value) {
      */
     public static Result<EmailAddress, EmailAddressRejected> of(String raw) {
         var trimmed = raw.strip();
-        if (trimmed.length() > MAX_LENGTH) {
+        if (trimmed.getBytes(StandardCharsets.UTF_8).length > MAX_LENGTH) {
             return Result.failure(EmailAddressRejected.TOO_LONG);
         }
         var at = trimmed.indexOf('@');
@@ -54,6 +56,6 @@ public record EmailAddress(String value) {
 
     @Override
     public String toString() {
-        return "EmailAddress[" + value.charAt(0) + "***" + value.substring(value.indexOf('@')) + "]";
+        return "EmailAddress[" + EmailMask.of(value) + "]";
     }
 }

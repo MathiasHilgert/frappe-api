@@ -26,9 +26,15 @@ public record Password(String value) {
      * Validates the value.
      *
      * @param value the normalized password, not {@code null}
+     * @throws IllegalArgumentException if the value is not NFKC-normalized or outside the length rule; build passwords
+     *     from user input with {@link #of(String)}
      */
     public Password {
         Objects.requireNonNull(value, "value");
+        if (!Normalizer.isNormalized(value, Normalizer.Form.NFKC) || lengthRuleBroken(value) != null) {
+            throw new IllegalArgumentException("a password must be NFKC-normalized with " + MIN_LENGTH + " to "
+                    + MAX_LENGTH + " code points; use Password.of");
+        }
     }
 
     /**
@@ -39,14 +45,23 @@ public record Password(String value) {
      */
     public static Result<Password, PasswordRejected> of(String raw) {
         var normalized = Normalizer.normalize(raw, Normalizer.Form.NFKC);
-        var length = normalized.codePointCount(0, normalized.length());
-        if (length < MIN_LENGTH) {
-            return Result.failure(new PasswordRejected(Reason.TOO_SHORT));
-        }
-        if (length > MAX_LENGTH) {
-            return Result.failure(new PasswordRejected(Reason.TOO_LONG));
+        var broken = lengthRuleBroken(normalized);
+        if (broken != null) {
+            return Result.failure(new PasswordRejected(broken));
         }
         return Result.success(new Password(normalized));
+    }
+
+    // The broken length rule, or null when the length is within bounds.
+    private static Reason lengthRuleBroken(String normalized) {
+        var length = normalized.codePointCount(0, normalized.length());
+        if (length < MIN_LENGTH) {
+            return Reason.TOO_SHORT;
+        }
+        if (length > MAX_LENGTH) {
+            return Reason.TOO_LONG;
+        }
+        return null;
     }
 
     @Override

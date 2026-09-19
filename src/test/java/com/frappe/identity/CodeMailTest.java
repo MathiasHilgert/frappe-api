@@ -40,6 +40,19 @@ class CodeMailTest {
     }
 
     @Test
+    void maskingKeepsTheWholeFirstCodePoint() {
+        // Given
+        var mail = new CodeMail(
+                "\uD83D\uDE00ana@example.com", Locale.ENGLISH, CodePurpose.SIGN_UP, "042917", Duration.ofMinutes(15));
+
+        // When
+        var printed = mail.toString();
+
+        // Then
+        assertThat(printed).contains("\uD83D\uDE00***@example.com");
+    }
+
+    @Test
     void aRecordingCodeMailerKeepsWhatWasSent() {
         // Given
         var mailer = new RecordingCodeMailer();

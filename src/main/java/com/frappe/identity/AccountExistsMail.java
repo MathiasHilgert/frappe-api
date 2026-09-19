@@ -1,5 +1,6 @@
 package com.frappe.identity;
 
+import com.frappe.identity.domain.EmailMask;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
@@ -30,6 +31,6 @@ public record AccountExistsMail(String recipient, Locale locale, UUID reference)
     @Override
     public String toString() {
         return "AccountExistsMail[recipient=%s, locale=%s, reference=%s]"
-                .formatted(MaskedRecipient.of(recipient), locale, reference);
+                .formatted(EmailMask.of(recipient), locale, reference);
     }
 }

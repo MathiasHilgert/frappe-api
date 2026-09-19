@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.regex.Pattern;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
@@ -28,6 +29,9 @@ final class HaveIBeenPwnedRestApiPasswordChecker implements BreachedPasswords {
     private static final int PREFIX_LENGTH = 5;
 
     private static final String USER_AGENT = "frappe-api";
+
+    // One entry of a range answer: the 35 hex characters of a SHA-1 suffix and how often it was seen.
+    private static final Pattern RANGE_ENTRY = Pattern.compile("[0-9A-Fa-f]{35}:\\d+");
 
     private static final HexFormat UPPERCASE_HEX = HexFormat.of().withUpperCase();
 
@@ -72,21 +76,18 @@ final class HaveIBeenPwnedRestApiPasswordChecker implements BreachedPasswords {
     }
 
     private static BreachStatus statusIn(String range, String suffix) {
-        var entry = suffix + ":";
-        for (var line : range.lines().toList()) {
-            if (line.regionMatches(true, 0, entry, 0, entry.length())) {
-                return occurrences(line.substring(entry.length())) > 0 ? BreachStatus.BREACHED : BreachStatus.NOT_FOUND;
-            }
+        var entries = range.lines()
+                .map(String::strip)
+                .filter(line -> RANGE_ENTRY.matcher(line).matches())
+                .toList();
+        if (entries.isEmpty()) {
+            // Not an answer of the range API (every answer lists entries, padding included).
+            return BreachStatus.UNKNOWN;
         }
-        return BreachStatus.NOT_FOUND;
-    }
-
-    private static long occurrences(String count) {
-        try {
-            return Long.parseLong(count.strip());
-        } catch (NumberFormatException e) {
-            return 0;
-        }
+        var listed = entries.stream()
+                .filter(line -> line.regionMatches(true, 0, suffix, 0, suffix.length()))
+                .anyMatch(line -> !line.endsWith(":0"));
+        return listed ? BreachStatus.BREACHED : BreachStatus.NOT_FOUND;
     }
 
     private static String sha1(Password password) {

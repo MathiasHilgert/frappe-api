@@ -69,6 +69,16 @@ class Argon2PasswordHasherTest {
         hasher.verifyDummy(password("correct horse battery staple"));
     }
 
+    @Test
+    void hashesUseTheOwaspBaselineParameters() {
+        // When
+        var encoded = hasher.hash(password("correct horse battery staple")).value();
+
+        // Then: m=19 MiB, t=2, p=1; base64 without padding: 16-byte salt = 22, 32-byte hash = 43 characters
+        assertThat(encoded).matches("\\$argon2id\\$v=19\\$m=19456,t=2,p=1\\$[A-Za-z0-9+/]{22}\\$[A-Za-z0-9+/]{43}");
+        assertThat(parametersOf(hasher.dummyHash().value())).isEqualTo("$argon2id$v=19$m=19456,t=2,p=1");
+    }
+
     private static String parametersOf(String encoded) {
         return encoded.substring(0, encoded.lastIndexOf('$', encoded.lastIndexOf('$') - 1));
     }

@@ -1,5 +1,6 @@
 package com.frappe.identity;
 
+import com.frappe.identity.domain.EmailMask;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Objects;
@@ -36,6 +37,6 @@ public record CodeMail(String recipient, Locale locale, CodePurpose purpose, Str
     @Override
     public String toString() {
         return "CodeMail[recipient=%s, locale=%s, purpose=%s, validFor=%s]"
-                .formatted(MaskedRecipient.of(recipient), locale, purpose, validFor);
+                .formatted(EmailMask.of(recipient), locale, purpose, validFor);
     }
 }

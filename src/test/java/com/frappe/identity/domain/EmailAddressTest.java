@@ -83,6 +83,43 @@ class EmailAddressTest {
         assertThat(printed).doesNotContain("ana.silva");
     }
 
+    @Test
+    void lengthIsCountedInUtf8Octets() {
+        // Given: 254 characters, but "é" takes two octets in UTF-8
+        var raw = "é" + "a".repeat(241) + "@example.com";
+
+        // When
+        var result = EmailAddress.of(raw);
+
+        // Then
+        assertThat(raw).hasSize(254);
+        assertThat(result).isEqualTo(Result.failure(EmailAddressRejected.TOO_LONG));
+    }
+
+    @Test
+    void twoHundredFiftyFourOctetsWithMultiOctetCharactersAreAccepted() {
+        // Given: 2 + 240 + 12 = 254 octets
+        var raw = "é" + "a".repeat(240) + "@example.com";
+
+        // When
+        var result = EmailAddress.of(raw);
+
+        // Then
+        assertThat(result).isInstanceOf(Result.Success.class);
+    }
+
+    @Test
+    void maskingKeepsTheWholeFirstCodePoint() {
+        // Given
+        var address = accepted("\uD83D\uDE00ana@example.com");
+
+        // When
+        var printed = address.toString();
+
+        // Then
+        assertThat(printed).contains("\uD83D\uDE00***@example.com").doesNotContain("ana");
+    }
+
     private static String addressOfLength(int length) {
         var domain = "@example.com";
         return "a".repeat(length - domain.length()) + domain;

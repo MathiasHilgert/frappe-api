@@ -95,6 +95,23 @@ class PasswordTest {
         assertThat(printed).doesNotContain("horse");
     }
 
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "short",
+                "\uFB01\uFB01\uFB01\uFB01\uFB01\uFB01\uFB01\uFB01\uFB01\uFB01\uFB01\uFB01\uFB01\uFB01\uFB01"
+            })
+    void aPasswordCannotBeBuiltAroundNormalizationOrTheLengthRule(String raw) {
+        // When / Then: too short, or not NFKC-normalized
+        org.assertj.core.api.Assertions.assertThatIllegalArgumentException().isThrownBy(() -> new Password(raw));
+    }
+
+    @Test
+    void aPasswordCannotBeBuiltTooLong() {
+        org.assertj.core.api.Assertions.assertThatIllegalArgumentException()
+                .isThrownBy(() -> new Password("a".repeat(129)));
+    }
+
     static Password accepted(String raw) {
         return switch (Password.of(raw)) {
             case Result.Success<Password, PasswordRejected>(var password) -> password;

@@ -167,6 +167,37 @@ class HaveIBeenPwnedRestApiPasswordCheckerTest {
         assertNothingLoggedAtWarnOrAbove();
     }
 
+    @Test
+    void aBodyWithoutAParseableEntryIsUnknown() {
+        // Given
+        stubRange("<html>maintenance</html>");
+
+        // When
+        var status = checker.check(password());
+
+        // Then
+        assertThat(status).isEqualTo(BreachStatus.UNKNOWN);
+    }
+
+    @Test
+    void aSlowlyDribbledAnswerEndsNearTheTotalBudget() {
+        // Given: headers at once, then the body over 3 s (a read timeout alone would not stop it)
+        pwnedPasswords.stubFor(get("/range/" + prefix)
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody("0018A45C4D1DEF81644B54AB7F969B88D65:1\r\n".repeat(50))
+                        .withChunkedDribbleDelay(30, 3_000)));
+
+        // When
+        var started = System.nanoTime();
+        var status = checker.check(password());
+        var elapsed = java.time.Duration.ofNanos(System.nanoTime() - started);
+
+        // Then: budget 300 ms
+        assertThat(status).isEqualTo(BreachStatus.UNKNOWN);
+        assertThat(elapsed).isLessThan(java.time.Duration.ofMillis(1_000));
+    }
+
     private void stubRange(String body) {
         pwnedPasswords.stubFor(
                 get("/range/" + prefix).willReturn(aResponse().withStatus(200).withBody(body)));
