@@ -14,7 +14,11 @@ create table identity.person (
     legal_accepted_at timestamptz,
     registered_at timestamptz not null,
     erased_at timestamptz,
-    version bigint not null
+    version bigint not null,
+    -- An active person always holds everything registering gave them; only erasure clears it.
+    constraint person_active_complete check (status <> 'ACTIVE' or (email is not null and password_hash is not null
+        and given_name is not null and family_name is not null and terms_version is not null
+        and privacy_version is not null and legal_accepted_at is not null))
 );
 
 -- One person per address in any case; erased people hold none.

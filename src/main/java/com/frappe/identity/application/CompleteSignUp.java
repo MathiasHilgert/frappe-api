@@ -39,10 +39,23 @@ import org.springframework.transaction.annotation.Transactional;
  * Completes a sign-up: the holder of the mailed code chooses a password, gives their names and accepts the legal texts,
  * and becomes an active person with {@value RecoveryCodes#COUNT} recovery codes, shown once.
  *
- * <p><b>Order.</b> Everything the code does not prove is checked first (names, legal versions, the password policy), so
- * a refused password never spends the code. Then the ordering contract of codes: the rate limits per address subject
- * and per client address, then {@code consume}. Only after the code proved the mailbox is the password hashed and the
- * person stored, so nobody can set a password on an address they do not hold.
+ * <p><b>Order.</b> First the rate limit per client address ({@code CODE_CHECKS_PER_ADDRESS}), so a flood from one
+ * client never reaches the breach corpus unmetered. Then everything the code does not prove (names, legal versions, the
+ * password policy), so a refused password spends neither the code nor the address's tries. Then the ordering contract
+ * of codes: the rate limit per address subject ({@code CODE_CHECKS_PER_SUBJECT}), then {@code consume}. Only after the
+ * code proved the mailbox is the password hashed and the person stored, so nobody can set a password on an address
+ * they do not hold.
+ *
+ * <p><b>A consumed code is gone.</b> {@code consume} settles in Valkey and cannot be undone. When the insert then fails
+ * for any reason other than the address being taken (database down, a timeout), the request answers the generic 500
+ * and the holder must start again for a new code. Accepted: the failure is rare and the restart is cheap.
+ *
+ * <p><b>One transaction around slow work (accepted).</b> The breach check (HTTP, up to 2 s), the Valkey calls and the
+ * Argon2 hash run inside the use case's transaction, so a pooled connection may be held across them. A narrower shape
+ * is ruled out by the conventions: a command operation is {@code @Transactional} and application code may use no other
+ * Spring type ({@code TransactionTemplate} included; {@code use-cases.md}, {@code UseCaseArchitectureTests}), and doing
+ * the password work in the route would put business logic in the web layer. The per-client-address limit, checked
+ * before anything slow, bounds how many connections one client can hold this way. Revisit if pool saturation shows.
  *
  * <p><b>No oracle.</b> A wrong, expired, used or never-issued code, and an address with no sign-up or one that is
  * already registered (its start stored no code), all answer {@link IdentityRefusal.InvalidCode}. Only the holder of a
@@ -186,6 +199,10 @@ public class CompleteSignUp {
      */
     @Transactional
     public Result<Registration, IdentityRefusal> complete(Request request, InetAddress clientAddress, Locale locale) {
+        // First, so a flood from one client address cannot drive unmetered breach-corpus calls.
+        if (!limiter.tryConsume(LimitKey.ofAddress(IdentityLimits.CODE_CHECKS_PER_ADDRESS, clientAddress))) {
+            return Result.failure(new IdentityRefusal.TooManyAttempts());
+        }
         if (!(PersonName.of(request.givenName()) instanceof Result.Success<PersonName, NameRejected>(var givenName))
                 || !(PersonName.of(request.familyName())
                         instanceof Result.Success<PersonName, NameRejected>(var familyName))) {
@@ -197,16 +214,15 @@ public class CompleteSignUp {
         return passwordPolicy
                 .check(request.password())
                 .<IdentityRefusal>mapFailure(rejected -> new IdentityRefusal.PasswordRefused(rejected.reason()))
-                .flatMap(password -> proveMailbox(request, clientAddress)
+                .flatMap(password -> proveMailbox(request)
                         .flatMap(proven -> register(request, password, givenName, familyName, locale)));
     }
 
-    // The ordering contract: both rate limits, then the code.
-    private Result<EmailAddress, IdentityRefusal> proveMailbox(Request request, InetAddress clientAddress) {
+    // The ordering contract: the address subject's rate limit, then the code.
+    private Result<EmailAddress, IdentityRefusal> proveMailbox(Request request) {
         var subject =
                 digests.subjectOf(StartSignUp.EMAIL_NAMESPACE, request.email().canonical());
-        if (!limiter.tryConsume(LimitKey.ofId(IdentityLimits.CODE_CHECKS_PER_SUBJECT, subject))
-                || !limiter.tryConsume(LimitKey.ofAddress(IdentityLimits.CODE_CHECKS_PER_ADDRESS, clientAddress))) {
+        if (!limiter.tryConsume(LimitKey.ofId(IdentityLimits.CODE_CHECKS_PER_SUBJECT, subject))) {
             return Result.failure(new IdentityRefusal.TooManyAttempts());
         }
         if (!store.consume(SecretKey.of(IdentitySecrets.SIGN_UP, subject), request.code())) {

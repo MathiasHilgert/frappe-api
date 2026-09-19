@@ -14,6 +14,7 @@ import com.frappe.identity.application.StartSignUp;
 import com.frappe.identity.domain.BreachStatus;
 import com.frappe.identity.domain.BreachedPasswords;
 import com.frappe.identity.domain.EmailAddress;
+import com.frappe.identity.domain.Password;
 import com.frappe.identity.domain.PasswordRejected;
 import com.frappe.identity.domain.RecoveryCodesIssued;
 import com.frappe.platform.KeyedDigests;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -73,13 +75,25 @@ class CompleteSignUpModuleTests {
 
         @Bean
         @Primary
-        BreachedPasswords oneBreachedPassword() {
-            return password ->
-                    password.value().equals(BREACHED_PASSWORD) ? BreachStatus.BREACHED : BreachStatus.NOT_FOUND;
+        CountingBreachedPasswords oneBreachedPassword() {
+            return new CountingBreachedPasswords();
+        }
+    }
+
+    /** Knows one breached password and counts every question asked. */
+    static class CountingBreachedPasswords implements BreachedPasswords {
+
+        final AtomicInteger checks = new AtomicInteger();
+
+        @Override
+        public BreachStatus check(Password password) {
+            checks.incrementAndGet();
+            return password.value().equals(BREACHED_PASSWORD) ? BreachStatus.BREACHED : BreachStatus.NOT_FOUND;
         }
     }
 
     private final CompleteSignUp completeSignUp;
+    private final CountingBreachedPasswords breachedPasswords;
     private final StartSignUp startSignUp;
     private final RecordingCodeMailer mails;
     private final ShortLivedSecretStore secrets;
@@ -91,6 +105,7 @@ class CompleteSignUpModuleTests {
     @Autowired
     CompleteSignUpModuleTests(
             CompleteSignUp completeSignUp,
+            CountingBreachedPasswords breachedPasswords,
             StartSignUp startSignUp,
             RecordingCodeMailer mails,
             ShortLivedSecretStore secrets,
@@ -99,6 +114,7 @@ class CompleteSignUpModuleTests {
             StringRedisTemplate valkey,
             MeterRegistry meters) {
         this.completeSignUp = completeSignUp;
+        this.breachedPasswords = breachedPasswords;
         this.startSignUp = startSignUp;
         this.mails = mails;
         this.secrets = secrets;
@@ -256,6 +272,28 @@ class CompleteSignUpModuleTests {
         // Then
         assertThat(result).isEqualTo(Result.failure(new IdentityRefusal.TooManyAttempts()));
         assertThat(complete(request(email, CODE), Locale.of("en"))).isInstanceOf(Result.Success.class);
+    }
+
+    @Test
+    void theFiftyFirstRequestFromOneClientAddressIsRefusedBeforeThePasswordIsChecked() {
+        // Given fifty breached-password requests from one client address
+        var clientAddress = newClientAddress();
+        for (var attempt = 1; attempt <= 50; attempt++) {
+            assertThat(completeSignUp.complete(
+                            request(newEmail(), CODE, BREACHED_PASSWORD, "Ana", "2026-09-19"),
+                            clientAddress,
+                            Locale.of("en")))
+                    .isEqualTo(Result.failure(new IdentityRefusal.PasswordRefused(PasswordRejected.Reason.BREACHED)));
+        }
+        var checksBefore = breachedPasswords.checks.get();
+
+        // When
+        var result = completeSignUp.complete(
+                request(newEmail(), CODE, BREACHED_PASSWORD, "Ana", "2026-09-19"), clientAddress, Locale.of("en"));
+
+        // Then
+        assertThat(result).isEqualTo(Result.failure(new IdentityRefusal.TooManyAttempts()));
+        assertThat(breachedPasswords.checks.get()).isEqualTo(checksBefore);
     }
 
     @Test

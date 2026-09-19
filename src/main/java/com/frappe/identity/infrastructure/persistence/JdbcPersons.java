@@ -5,16 +5,18 @@ import com.frappe.identity.domain.Person;
 import com.frappe.identity.domain.Persons;
 import com.frappe.platform.Result;
 import java.sql.Timestamp;
-import java.util.Objects;
+import org.postgresql.util.PSQLException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 /**
  * {@link Persons} on {@code identity.person} and {@code identity.recovery_code}, through plain statements: a new person
  * is one insert plus one per recovery code, and nothing reads the aggregate back yet. The unique index on
  * {@code lower(email)} decides a race for one address: the later insert waits for the earlier commit and then violates
- * it, which is answered as {@link Persons.EmailTaken}.
+ * it, which is answered as {@link Persons.EmailTaken}: told apart from other violations by the constraint name Postgres
+ * reports, with the transaction marked rollback-only.
  */
 @Repository
 class JdbcPersons implements Persons {
@@ -50,9 +52,13 @@ class JdbcPersons implements Persons {
         try {
             insert(person);
         } catch (DuplicateKeyException e) {
-            if (!Objects.toString(e.getMessage(), "").contains(EMAIL_KEY)) {
+            if (!(e.getMostSpecificCause() instanceof PSQLException violation)
+                    || violation.getServerErrorMessage() == null
+                    || !EMAIL_KEY.equals(violation.getServerErrorMessage().getConstraint())) {
                 throw e;
             }
+            // The statement aborted the transaction: make sure it can only roll back, whatever the caller does.
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return Result.failure(new EmailTaken());
         }
         for (var code : person.recoveryCodes()) {

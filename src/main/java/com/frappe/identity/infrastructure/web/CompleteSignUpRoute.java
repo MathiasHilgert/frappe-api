@@ -16,6 +16,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -127,6 +128,9 @@ class CompleteSignUpRoute {
                         clientAddress,
                         locale)
                 .orElseThrow(RequestRefusedException::new);
-        return ResponseEntity.created(ME).body(new Response(registration.personId(), registration.recoveryCodes()));
+        // The recovery codes are shown once: no cache may keep them.
+        return ResponseEntity.created(ME)
+                .cacheControl(CacheControl.noStore())
+                .body(new Response(registration.personId(), registration.recoveryCodes()));
     }
 }

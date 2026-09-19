@@ -66,7 +66,8 @@ dependencies {
 	developmentOnly("org.springframework.boot:spring-boot-docker-compose")
 	// Argon2 in spring-security-crypto delegates to BouncyCastle, which Boot does not manage.
 	runtimeOnly("org.bouncycastle:bcprov-jdk18on:1.86")
-	runtimeOnly("org.postgresql:postgresql")
+	// Compile scope: identity tells a unique violation apart by the constraint name the driver reports.
+	implementation("org.postgresql:postgresql")
 	runtimeOnly("org.springframework.modulith:spring-modulith-actuator")
 	runtimeOnly("org.springframework.modulith:spring-modulith-observability-core")
 	runtimeOnly("org.springframework.modulith:spring-modulith-runtime")

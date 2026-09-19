@@ -13,11 +13,16 @@ import com.frappe.platform.KeyedDigests;
 import com.frappe.platform.SecretKey;
 import com.frappe.platform.ShortLivedSecretStore;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -52,6 +57,8 @@ class CompleteSignUpRouteTests {
 
     private static final String CODE = "123456";
 
+    private static final String RACING_CODE = "999999";
+
     private static final String PASSWORD = "a long enough passphrase 42";
 
     private static final String BREACHED_PASSWORD = "password1234567890";
@@ -65,6 +72,29 @@ class CompleteSignUpRouteTests {
         @Primary
         RecordingCodeMailer recordingCodeMailer() {
             return new RecordingCodeMailer();
+        }
+
+        // The real store, except that RACING_CODE is valid for any address as often as it is typed: two
+        // completions of one address can then both pass the code and race for the unique address.
+        @Bean
+        @Primary
+        ShortLivedSecretStore racingCodeStore(ShortLivedSecretStore store) {
+            return new ShortLivedSecretStore() {
+                @Override
+                public void put(SecretKey key, String secret) {
+                    store.put(key, secret);
+                }
+
+                @Override
+                public boolean consume(SecretKey key, String candidate) {
+                    return candidate.equals(RACING_CODE) || store.consume(key, candidate);
+                }
+
+                @Override
+                public boolean countIssue(SecretKey key) {
+                    return store.countIssue(key);
+                }
+            };
         }
 
         @Bean
@@ -100,7 +130,8 @@ class CompleteSignUpRouteTests {
         assertThat(result)
                 .hasStatus(HttpStatus.CREATED)
                 .hasContentTypeCompatibleWith(MediaType.APPLICATION_JSON)
-                .hasHeader(HttpHeaders.LOCATION, "/v1/me");
+                .hasHeader(HttpHeaders.LOCATION, "/v1/me")
+                .hasHeader(HttpHeaders.CACHE_CONTROL, "no-store");
         var answer = bodyOf(result);
         assertThat(UUID.fromString((String) answer.get("personId"))).isNotNull();
         assertThat((List<?>) answer.get("recoveryCodes")).hasSize(8).doesNotHaveDuplicates();
@@ -228,6 +259,34 @@ class CompleteSignUpRouteTests {
         // Then
         assertThat(result).hasStatus(HttpStatus.CONFLICT);
         assertThat(bodyOf(result)).containsEntry("code", "email-already-registered");
+    }
+
+    @Test
+    void twoCompletionsRacingForOneAddressGiveOneCreatedAndOneAlreadyRegistered() throws Exception {
+        // Given two valid completions of one address, released at once
+        var email = newEmail();
+        var gate = new CountDownLatch(1);
+        List<Future<Integer>> statuses;
+        try (var threads = Executors.newFixedThreadPool(2)) {
+            statuses = IntStream.range(0, 2)
+                    .mapToObj(racer -> threads.submit(() -> {
+                        gate.await();
+                        return complete(body(email, RACING_CODE, PASSWORD, "Ana", VERSION), "en")
+                                .getResponse()
+                                .getStatus();
+                    }))
+                    .toList();
+
+            // When
+            gate.countDown();
+
+            // Then
+            var answered = new ArrayList<Integer>();
+            for (var status : statuses) {
+                answered.add(status.get());
+            }
+            assertThat(answered).containsExactlyInAnyOrder(HttpStatus.CREATED.value(), HttpStatus.CONFLICT.value());
+        }
     }
 
     @Test
