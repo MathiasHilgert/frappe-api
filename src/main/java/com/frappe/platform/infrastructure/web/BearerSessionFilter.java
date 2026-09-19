@@ -23,9 +23,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * malformed or unresolvable token leaves the request anonymous; the route's posture then decides (401 unless
  * public), so a stale token never blocks a public route such as sign-in.
  *
- * <p>The authenticated context is also saved in the request (as Spring Security's own bearer token filter does), so
- * async dispatches ({@code Callable}, {@code DeferredResult}, streaming) keep the caller: this filter runs once per
- * request, and the chain reloads the context from the same repository on every later dispatch.
+ * <p>The authenticated context is saved in the request, as Spring Security's own {@code BearerTokenAuthenticationFilter}
+ * does: this filter runs once per request, and the chain's {@code SecurityContextHolderFilter} reloads the context
+ * from the same repository on every later dispatch, so async dispatches ({@code Callable}, {@code DeferredResult},
+ * streaming) keep the caller.
  */
 final class BearerSessionFilter extends OncePerRequestFilter {
 
@@ -52,16 +53,15 @@ final class BearerSessionFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        bearerToken(request)
-                .ifPresent(token -> sessions.resolve(token)
-                        .ifPresentOrElse(
-                                session -> {
-                                    var context = contexts.createEmptyContext();
-                                    context.setAuthentication(new SessionAuthentication(session));
-                                    contexts.setContext(context);
-                                },
-                                () -> log.atDebug().log(
-                                        "Bearer token resolved to no session; the request stays anonymous")));
+        var session = bearerToken(request).flatMap(sessions::resolve);
+        if (session.isPresent()) {
+            var context = contexts.createEmptyContext();
+            context.setAuthentication(new SessionAuthentication(session.get()));
+            contexts.setContext(context);
+            repository.saveContext(context, request, response);
+        } else if (request.getHeader(HttpHeaders.AUTHORIZATION) != null) {
+            log.atDebug().log("Authorization header resolved to no session; the request stays anonymous");
+        }
         chain.doFilter(request, response);
     }
 
