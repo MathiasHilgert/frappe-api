@@ -31,7 +31,7 @@ Strict TDD. Runner: `./gradlew test` (MockMvcTester, `WebApplicationContextRunne
 - [x] T2 Stateless security chain: bearer-only session resolution, posture enforcement (PUBLIC, AUTHENTICATED, PERMISSION, SYSTEM), deny by default, health and error dispatch reachable
 - [x] T3 OpenAPI: spec with bearer requirement and 401/403 on non-public routes; swagger-ui only in `local`
 - [x] T4 Client IP from `X-Forwarded-For`, trusting only the proxy
-- [ ] T5 Docs (`writing-code/references/http-api.md` documents `@Access`), `./gradlew spotlessApply check --rerun-tasks` green
+- [x] T5 Docs (`writing-code/references/http-api.md` documents `@Access`), `./gradlew spotlessApply check --rerun-tasks` green
 
 ## Acceptance (from ticket)
 - Route class without `@Access`, or a controller with two mapped methods → startup fails and names the class.
@@ -79,5 +79,21 @@ Strict TDD. Runner: `./gradlew test` (MockMvcTester, `WebApplicationContextRunne
 - RED `ClientAddressTests` (real server, RestTestClient over loopback, PUBLIC test route answering `getRemoteAddr()`): `theAddressForwardedByATrustedProxyIsTheClientAddress` and `addressesTheCallerPrependedAreNotTrusted` failed with `expected: "198.51.100.23" but was: "127.0.0.1"`; nested `WhenThePeerIsNoTrustedProxy.theForwardedAddressIsIgnored` (`FRAPPE_TRUSTED_PROXIES=10.0.0.0/8`) passed (headers were ignored altogether).
 - GREEN 3/3: `server.forward-headers-strategy=native` (Tomcat `RemoteIpValve`) and `server.tomcat.remoteip.internal-proxies=${FRAPPE_TRUSTED_PROXIES:127.0.0.0/8, ::1/128}`. Mutation check: without the `internal-proxies` line (Boot's default trusts every private range and loopback) the nested test fails, so it guards the narrowing.
 
+### T5 docs and verification
+- `writing-code/references/http-api.md`: new "Routes and access" section (one route per class, `@Access` example, posture table with refusal codes, startup checks, bearer-only header, `SessionResolver`/`PermissionEvaluator` defaults, `/v1`, client address, OpenAPI, how tests register routes). README: `/v1`, `/v3/api-docs`, swagger-ui in `local`, `FRAPPE_TRUSTED_PROXIES`.
+- Refactor (tests green): `RouteCatalog` groups mappings in `routeMethodsByType` (sorted by class name for a stable failure message); `Route` lost its unused `type` component.
+- Verification `FRAPPE_TEST_DB=frappe_fapi_13 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 51 test classes, 201 tests, 0 failures.
+
+### Commits
+T0 `ce42b24` (plan `bd34405`), T1 `2e683f6`, T2 `0f277bb`, T3 `11a1dd6`, T4 `93be6f3`, T5 refactor `8730433` and this docs commit.
+
+## Known behaviour and follow-ups
+- Deny by default also turns a wrong HTTP method on an existing route (MVC's 405) and unknown paths (404) into 401/403. Intended: nothing is answered for paths that are not a route. FAPI-14 may revisit the bodies.
+- 401/403 bodies are Spring Boot's default error JSON (`sendError`), not yet `ProblemDetail`: FAPI-14.
+- Spring Security's observations add `spring.security.*` spans (filter chains, authorization, the secured request) and timers per request; the controller's log lines carry the secured-request span. Tag cardinality is bounded.
+- Route resolution ignores API-versioned mappings (`version` attribute on a mapping): none exist, `/v1` is the versioning.
+- The package convention `..infrastructure.web` for route classes is documented, not enforced at startup (the ticket names two checks).
+- Engram mirror `odd/fapi-13-http-routes-posture/tasks`: pending (memory tools not available to this worker).
+
 ## Next step
-T5.
+Review and PR (not created here: no push, no Plane change).
