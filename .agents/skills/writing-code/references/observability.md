@@ -4,7 +4,8 @@ Infrastructure telemetry is automatic; feature code declares business metrics on
 
 ## Automatic (never hand-write)
 
-- HTTP server/client, JDBC (`datasource-micrometer`), connection pool, JVM, Spring Modulith module entries and cross-module listeners, NATS publishes (`nats.publish`), outbox recovery (`outbox.recovery`, `outbox.redelivery`, gauge `outbox.dead.letters`): spans and metrics come from the platform.
+- HTTP server/client, JDBC (`datasource-micrometer`), connection pool, JVM, Spring Modulith module entries and cross-module listeners, NATS publishes (`nats.publish`, PRODUCER) and consumes (`nats.process`, CONSUMER, via `NatsProcessObservations`), outbox recovery (`outbox.recovery`, `outbox.redelivery`, gauge `outbox.dead.letters`): spans and metrics come from the platform.
+- W3C trace context crosses the outbox and NATS automatically (`traceparent` / `tracestate` headers): publish and process spans link to the trace the event was recorded in (`writing-code/references/domain-events.md`, "Trace context"). Never parent a span on a received message context.
 - Logs carry `trace.id`/`span.id` inside a trace and are exported over OTLP as well (`OtlpLogBridge`, Logback → Boot's `SdkLoggerProvider`); the console output is unchanged.
 - Micrometer Observation is the only telemetry facade, and only in `infrastructure`. Domain and application never import Micrometer, OpenTelemetry or tracing types. No OTel Java agent, no `@Observed`/`@Timed` sprinkled on handlers.
 

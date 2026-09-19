@@ -19,7 +19,7 @@ public record TabClosed(UUID eventId, Instant occurredAt, UUID aggregateId, long
 ```
 
 - Subject: `frappe.<module>.<event-kebab>.v<eventVersion>`, derived from package and class name (`frappe.order.tab-closed.v1`). Leave the annotation's value empty; a value fails the publication with a message naming the derived subject.
-- Headers: `Nats-Msg-Id` = `eventId` (JetStream drops re-publishes within the 10-minute duplicate window), `Frappe-Event-Type` (`order.tab-closed`), `Frappe-Event-Version`, `Frappe-Aggregate-Id`, `Frappe-Aggregate-Version`, `Frappe-Occurred-At`. Payload: the record as JSON.
+- Headers: `Nats-Msg-Id` = `eventId` (JetStream drops re-publishes within the 10-minute duplicate window), `Frappe-Event-Type` (`order.tab-closed`), `Frappe-Event-Version`, `Frappe-Aggregate-Id`, `Frappe-Aggregate-Version`, `Frappe-Occurred-At`, plus `traceparent` / `tracestate` (see "Trace context" below). Payload: the record as JSON.
 - Stream `FRAPPE` (`frappe.>`, limits retention, 7 days, 1 replica) is created or updated at startup; its config lives in `NatsStreamProvisioner`, not on the server.
 - `@Externalized` on a class that does not implement `DomainEvent` fails the publication with a message naming the class.
 - Config `frappe.nats.*` (defaults in `NatsProperties` only): `url` (`nats://localhost:4222`, compose's NATS; env `FRAPPE_NATS_URL`), `publish-timeout` (5s), `connection-timeout` (2s), `reconnect-wait` (2s), `connection-name`.
@@ -45,7 +45,7 @@ public Result<TabId, TabError> handle(CloseTab cmd) {
 - The adapter (`platform.infrastructure.events`) is `@Transactional(propagation = MANDATORY)`: publishing outside a transaction throws `IllegalTransactionStateException`, because the event could not reach the outbox atomically.
 - Spring Modulith's JDBC event publication registry writes one row per interested listener to `platform.event_publication` in that transaction; rollback leaves no row. All events go through it, including those consumed inside the same module. The tables are the official Modulith 2.1.1 Postgres DDL, created by Flyway (`db/migration/platform`); `spring.modulith.events.jdbc.schema-initialization.enabled=false`.
 - After commit, the relay publishes to JetStream synchronously and the publication completes only after the ack. Completion mode `ARCHIVE` then moves the row to `platform.event_publication_archive` (purging the archive is a follow-up). If NATS is down the publish fails after `publish-timeout` and the row stays in `event_publication` as `FAILED`; nothing blocks indefinitely.
-- Every publish is observed once in the transport (`nats.publish`: a span `publish <subject>` and a timer tagged `messaging.system`, `messaging.destination.name`, `error`; the event id is a span attribute only). Do not add telemetry around publishing elsewhere.
+- Every publish is observed once in the transport (`nats.publish`: a span `publish <subject>` and a timer tagged `messaging.system`, `messaging.destination.name`, `messaging.operation.type` (`send`), `messaging.operation.name` (`publish`), `error`; the event id is a span attribute only). Do not add telemetry around publishing elsewhere.
 - Recovery has two paths. Both can deliver an event twice (an attempt judged stuck that was only slow, two instances): JetStream drops duplicates by `Nats-Msg-Id` only within its 10-minute window; after that the consumer inbox on `eventId` is the guarantee.
   1. Every NATS (re)connect triggers the recovery pass below at once, ignoring the backoff (the failures were most likely the outage) but bounded by `batch-size`. Passes never overlap: a triggered pass waits for a running one.
   2. `frappe.outbox.recovery.*` (defaults in `OutboxRecoveryProperties`: `interval` 1m, `batch-size` 100, `stuck-after` 5m, `max-attempts` 24, `max-backoff` 1h) runs on a fixed delay:
@@ -58,6 +58,17 @@ public Result<TabId, TabError> handle(CloseTab cmd) {
 - `republish-outstanding-events-on-restart` stays off (Modulith issue #526; it would resubmit in-flight publications of every instance).
 - No ordering across instances: consumers order per aggregate with `aggregateVersion`.
 
+
+### Trace context
+
+The trace that caused an event survives the outbox and the broker (OpenTelemetry messaging semantic conventions: the message carries its *creation context*, later spans link to it).
+
+- When an externalized event is recorded, the outbox adapter stores the active W3C trace context with it (`platform.event_trace_context`, keyed by `eventId`, written in the same transaction, so it commits and rolls back with the publication). No active trace, no row.
+- Every publish reads it and sets the `traceparent` / `tracestate` headers, the first attempt and every resubmission alike: an event delivered after an outage still carries the trace that caused it. A failing lookup logs one WARN and publishes without the headers; telemetry never fails a publish.
+- `nats.publish` is a PRODUCER span, a child of whatever runs the publish (the relay listener, or the recovery pass), that **links** to the creation context. Links, not parents, across the outbox: delivery is at least once and may be hours late, and a parent relation would stretch and pollute the producing trace.
+- Platform's NATS subscription/inbox adapter wraps processing in `NatsProcessObservations.of(message)`: a CONSUMER span `process <subject>` and `nats.process` timer (`messaging.operation.type` and `.name` both `process`) linked to the same creation context. A message without the headers is processed without a link; a malformed header is ignored (first occurrence WARN, then DEBUG).
+- Nothing else is hand-written: no telemetry types in `domain` or `application`, and the W3C values are produced by the configured Micrometer `Propagator`, never by hand.
+- Retention: a stored context may be purged only when its `event_id` is in none of `platform.event_publication`, `platform.event_publication_archive` and `platform.event_publication_dead_letter` (matched by the `eventId` in `serialized_event`), because a manually replayed dead letter must still carry its original context. The purge ships with the archive purge (follow-up) and selects by that rule, not by age.
 
 ### Dead letters: manual replay
 
@@ -80,6 +91,7 @@ Drop `where id = ...` to replay all, or filter by `reason` / `event_type`. To di
   2. If the insert conflicts, skip — already processed.
   3. Otherwise apply the effect in the same transaction.
 - Consumers call the module's own bus (a command), never another module's internals.
+- `NatsProcessObservations.of(message)` (see "Trace context") is the hook for platform's NATS subscription/inbox adapter, which wraps every processed message in it. Module consumers reach it through that adapter, never directly: it stays package-private in `platform.infrastructure.nats` until the inbox ticket. Do not create spans or timers for consuming by hand.
 - Never rely on ordering across aggregates; within one aggregate use the event's version or timestamp to discard stale events.
 
 ## Changing an event

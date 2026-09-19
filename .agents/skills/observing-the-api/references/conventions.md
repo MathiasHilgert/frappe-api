@@ -34,7 +34,8 @@ Series count = product of tag cardinalities; keep each business metric under ~50
 
 ## Spans
 
-- Automatic spans: `http <method> <route>` (server/client), `connection`/`query`/`result-set` (JDBC), Spring Modulith module entries and cross-module listeners, `publish <subject>` (NATS).
+- Automatic spans: `http <method> <route>` (server/client), `connection`/`query`/`result-set` (JDBC), Spring Modulith module entries and cross-module listeners, `publish <subject>` (NATS, PRODUCER) and `process <subject>` (NATS, CONSUMER).
+- Across the outbox and the broker, spans **link** to the trace the event was recorded in (its creation context, carried in `traceparent` / `tracestate`); they never continue it, because delivery is at least once and may be late. In Tempo, follow the link from the consumer span back to the command that caused the event.
 - New infrastructure adapters add one Micrometer `Observation` at the adapter boundary (see `NatsPublishObservation`): name `<technology>.<operation>`, contextual name per OpenTelemetry semantic conventions, low-cardinality keys only for bounded values, ids as high-cardinality keys, `error(...)` on failure, stop in `finally`.
 
 ## Sampling and export

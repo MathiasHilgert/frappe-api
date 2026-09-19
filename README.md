@@ -113,7 +113,7 @@ Traces, metrics and logs leave the app over OTLP (OpenTelemetry). Locally everyt
 
 1. `./gradlew bootRun`, then call any endpoint (e.g. `curl localhost:8080/actuator/health`).
 2. Open Grafana at <http://localhost:3000> (no login).
-3. **Explore → Tempo**: search service `frappe-api`; a request trace shows the `http get …` server span with its `connection`/`query`/`result-set` JDBC spans (and module and `publish <subject>` NATS spans when they run).
+3. **Explore → Tempo**: search service `frappe-api`; a request trace shows the `http get …` server span with its `connection`/`query`/`result-set` JDBC spans (and module and `publish <subject>` NATS spans when they run). Events carry the trace they were recorded in through the outbox and NATS (`traceparent`), so `publish`/`process` spans link back to the command, however late the delivery.
 4. **Explore → Prometheus**: `http_server_requests_*`, `jvm_*`, `hikaricp_*`, `nats_publish_*`, business metrics `frappe_<module>_*`.
 5. **Explore → Loki**: `{service_name="frappe-api"}`; records inside a trace link to it (trace and span ids), and `frappe.*` key/values become attributes. The console keeps its own output (ECS JSON outside `local`, with `trace.id`/`span.id`).
 
