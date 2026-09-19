@@ -22,14 +22,4 @@ record MessageCatalog(String module, Locale locale, Map<String, String> messages
     MessageCatalog {
         messages = Map.copyOf(messages);
     }
-
-    /**
-     * Returns the catalog's path below the classpath root, for messages that point a developer to the file.
-     *
-     * @return for example {@code i18n/platform/messages_es.properties}
-     */
-    String path() {
-        return "i18n/%s/messages_%s.properties"
-                .formatted(module, locale.toLanguageTag().replace('-', '_'));
-    }
 }

@@ -40,9 +40,16 @@ public final class IcuMessageSource extends AbstractMessageSource {
      * @param locationPattern a Spring resource pattern, usually {@link #CATALOG_LOCATIONS}
      * @return the message source over those catalogs
      * @throws UnreadableMessageCatalogException if a catalog cannot be read
+     * @throws InvalidMessageCatalogsException if the catalogs are incomplete or contain invalid messages, listing every
+     *     violation
      */
     public static IcuMessageSource load(String locationPattern) {
-        return new IcuMessageSource(patternsByLocale(MessageCatalogs.load(locationPattern)));
+        var catalogs = MessageCatalogs.load(locationPattern);
+        var violations = MessageCatalogCheck.violations(catalogs);
+        if (!violations.isEmpty()) {
+            throw new InvalidMessageCatalogsException(violations);
+        }
+        return new IcuMessageSource(patternsByLocale(catalogs));
     }
 
     private static Map<Locale, Map<String, String>> patternsByLocale(List<MessageCatalog> catalogs) {

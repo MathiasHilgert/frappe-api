@@ -28,7 +28,7 @@ Strict TDD, source: project standard (`testing-code`) and the brief. Runner: `./
 - [x] T2 Locale chain: ports, `TenantLocales`, the `LocaleResolver`
 - [x] T3 `Content-Language` + `Vary: Accept-Language` filter and web wiring
 - [x] T4 `IcuMessageSource` over per-module catalogs, plural forms, en-XA pseudo-locale, application `MessageSource`
-- [ ] T5 Catalog checks (key parity, ICU syntax) in `./gradlew check`, naming module, locale and key
+- [x] T5 Catalog checks (key parity, ICU syntax) in `./gradlew check`, naming module, locale and key
 - [ ] T6 `i18n.md` and skill routing; final verification
 
 ## Acceptance (from ticket)
