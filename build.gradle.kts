@@ -50,14 +50,14 @@ dependencies {
 	implementation("com.ibm.icu:icu4j:78.3")
 	// Mail templates run precompiled (generateJte below), so only the runtime is needed.
 	implementation("gg.jte:jte-runtime:3.2.4")
-	implementation("io.nats:jnats:2.26.2") {
+	implementation("io.nats:jnats:2.26.3") {
 		// Same org.bouncycastle classes as bcprov-jdk18on below (duplicate classes on one classpath); jnats' NKey
 		// signing only needs the Ed25519 classes both jars contain.
 		exclude(group = "org.bouncycastle", module = "bcprov-lts8on")
 	}
 	implementation("net.ttddyy.observation:datasource-micrometer-spring-boot:2.3.0")
 	// Not managed by Boot; 2.28.0-alpha is the release built on OpenTelemetry 1.62.0, the SDK version Boot 4.1.1 ships.
-	implementation("io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0:2.28.0-alpha")
+	implementation("io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0:2.31.1-alpha")
 	implementation("org.springframework.modulith:spring-modulith-events-core")
 	implementation("org.springframework.modulith:spring-modulith-observability-api")
 	implementation("org.springframework.modulith:spring-modulith-starter-core")
