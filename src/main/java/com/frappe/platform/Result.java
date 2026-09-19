@@ -6,8 +6,9 @@ import java.util.function.Function;
 /**
  * The outcome of an operation that can fail for an expected business reason: either a {@link Success} holding the
  * value or a {@link Failure} holding the error. Expected failures (a closed tab, an unknown user) are values of this
- * type, never exceptions; exceptions stay reserved for bugs and infrastructure faults. The bus reports a
- * {@code Failure} as outcome {@code failure} and an exception as outcome {@code error}.
+ * type, never exceptions; exceptions stay reserved for bugs and infrastructure faults. The platform observes a
+ * use case returning a {@code Failure} as outcome {@code failure} (and rolls back the transaction it started), an
+ * exception as outcome {@code error}.
  *
  * <p>Neither branch ever holds {@code null}. Read a result with {@link #fold} or by pattern matching:
  *

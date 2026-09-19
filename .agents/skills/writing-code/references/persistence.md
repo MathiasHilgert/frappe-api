@@ -41,5 +41,5 @@ create policy tenant_isolation on tabs
   using (tenant_id = current_setting('app.tenant_id')::uuid);
 ```
 
-- The application sets `app.tenant_id` per transaction (`set local`) from the authenticated session; the app role is not the table owner and has no `bypassrls`. Every use case has that transaction: command handlers are read-write and query handlers read-only `@Transactional`, both enforced at startup (`use-cases.md`).
+- The application sets `app.tenant_id` per transaction (`set local`) from the authenticated session; the app role is not the table owner and has no `bypassrls`. Every use case has that transaction: `@CommandUseCase` operations are read-write and `@QueryUseCase` operations read-only `@Transactional`, both enforced by `UseCaseArchitectureTests` (`use-cases.md`).
 - Every new tenant-scoped table ships with a test proving another tenant's rows are invisible.

@@ -54,11 +54,17 @@ Result<TabId, TabError> closed = closeTab.close(tabId);
 
 ## Rules (enforced by `UseCaseArchitectureTests`, ArchUnit)
 
-- Use cases live in `..application..`, carry exactly one of the two stereotypes and have exactly one public method.
-- Transactions: the operation of a `@CommandUseCase` is `@Transactional` (read-write), of a `@QueryUseCase` `@Transactional(readOnly = true)` (on the method or the class), with propagation `REQUIRED` (default), `REQUIRES_NEW` or `NESTED`, so it always runs in a transaction: the command's for atomic state and outbox writes, the query's for the tenant setting of RLS (`persistence.md`).
-- Use cases depend only on the kernel, their module's domain and plain Java. `@Transactional` (package `org.springframework.transaction.annotation`) is the one accepted Spring annotation; no other Spring type and no infrastructure library (Spring Data, Micrometer, OpenTelemetry, Bucket4j, db-scheduler, jnats, Lettuce, ICU4J, JPA, Jackson). Domain and kernel code accept none of them.
+- A use case is a concrete class carrying `@CommandUseCase` or `@QueryUseCase` directly or through a composed annotation (an annotation meta-annotated with one of them). The marker is not inherited: a subclass is no use case of its own. The scan, the telemetry and the rules all use this same matching.
+- Use cases live in `com.frappe.<module>.application..`, carry exactly one of the two stereotypes and have exactly one public method, counting inherited public methods (not `Object`'s, not compiler-generated ones).
+- Use cases are proxied (CGLIB): neither the class nor its operation is `final`.
+- Transactions: the operation of a `@CommandUseCase` is `@Transactional` (read-write), of a `@QueryUseCase` `@Transactional(readOnly = true)` (on the method or the class), with propagation `REQUIRED` (default) or `REQUIRES_NEW`, so it always runs in a transaction: the command's for atomic state and outbox writes, the query's for the tenant setting of RLS (`persistence.md`). `NESTED` is not allowed: Spring Boot's JPA transaction manager rejects savepoints (`NestedTransactionNotSupportedException`); use `REQUIRES_NEW` for work that must commit on its own.
+- Dependencies are an allow-list:
+  - domain (`<module>.domain..`): the JDK (`java..`), the kernel (`com.frappe.platform`) and its own module's domain;
+  - use cases (`<module>.application..`): the JDK, the kernel, their own module except `infrastructure`, other modules' root packages (their `Api` and events, verified by Spring Modulith), and from Spring exactly `@Transactional`, `Propagation` and `Isolation` (the one accepted Spring annotation with its attribute types);
+  - nothing else: no other Spring type and no infrastructure library (Spring Data, Micrometer, OpenTelemetry, Bucket4j, db-scheduler, jnats, Lettuce, ICU4J, JPA, Jackson; not even nullness annotations yet). The kernel itself depends on the JDK only (`KernelDependenciesTest`).
 - Use cases never create telemetry; the platform observes every call (`use_case`, see `observability.md`) outside the transaction, so the commit is part of the measured call.
-- Constructor injection only; keep use cases stateless (they are singletons).
+- `platform` is a Spring Modulith shared module (`@Modulithic(sharedModules = "platform")`): a `@ApplicationModuleTest` of any module bootstraps it, so the module's use cases are registered, observed and rolled back in module tests too.
+- Constructor injection only; keep use cases stateless: they are singletons, and a prototype scope is not supported.
 - Repository interfaces (ports) live in `domain`; implementations in `infrastructure.persistence`.
 - A use case touches one aggregate instance per transaction. Cross-aggregate effects go through events.
 - Map `Result` failures to HTTP only in the web layer.
