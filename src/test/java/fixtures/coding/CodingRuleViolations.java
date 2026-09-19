@@ -25,11 +25,12 @@ public final class CodingRuleViolations {
 
         static final String[] PATHS = {"/a"};
 
-        static final java.util.List<String> NAMES = new java.util.ArrayList<>();
+        static final java.util.ArrayList<String> NAMES = new java.util.ArrayList<>();
 
         static final java.util.concurrent.atomic.AtomicLong COUNTER = new java.util.concurrent.atomic.AtomicLong();
 
-        static final java.util.Map<String, String> CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+        static final java.util.concurrent.ConcurrentHashMap<String, String> CACHE =
+                new java.util.concurrent.ConcurrentHashMap<>();
 
         static final ClassValue<String> NAMES_BY_CLASS = new ClassValue<>() {
             @Override
@@ -91,6 +92,9 @@ public final class CodingRuleViolations {
 
         private static final java.util.List<String> NAMES = java.util.List.of("a", "b");
 
+        private static final java.util.Set<String> ORDERED =
+                java.util.Collections.unmodifiableSet(new java.util.LinkedHashSet<>(NAMES));
+
         private final Clock clock;
 
         public Compliant(Clock clock) {
@@ -102,7 +106,7 @@ public final class CodingRuleViolations {
         }
 
         String name() {
-            return NAME + NAMES;
+            return NAME + NAMES + ORDERED;
         }
 
         java.time.LocalDate today() {

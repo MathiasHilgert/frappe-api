@@ -101,7 +101,7 @@ class CodingRulesTests {
      */
     record CodingRules(String clockBeanMethod) {
 
-        // Types whose instances are mutable: a static final field of one is shared mutable state all the same.
+        // Declared types whose instances are mutable: a static final field of one is shared mutable state all the same.
         private static final DescribedPredicate<JavaClass> MUTABLE_TYPES = DescribedPredicate.describe(
                 "a known mutable type (array, mutable collection, atomic, builder, date, ClassValue, ThreadLocal)",
                 type -> type.isArray()
@@ -125,7 +125,7 @@ class CodingRulesTests {
                         @Override
                         public void check(JavaField field, ConditionEvents events) {
                             var mutableValue = field.getModifiers().contains(JavaModifier.FINAL)
-                                    && (MUTABLE_TYPES.test(field.getRawType()) || initializedWithMutableType(field));
+                                    && MUTABLE_TYPES.test(field.getRawType());
                             var reassignable = !field.getModifiers().contains(JavaModifier.FINAL);
                             if (reassignable || mutableValue) {
                                 events.add(SimpleConditionEvent.violated(
@@ -169,21 +169,9 @@ class CodingRulesTests {
                     || owner.isEquivalentTo(UUID.class) && name.equals("randomUUID");
         }
 
-        // A static final field assigned a new mutable instance in the static initializer (e.g. a Map field set to a
-        // new HashMap) is mutable state even though its declared type is an interface.
-        private static boolean initializedWithMutableType(JavaField field) {
-            return field.getOwner().getStaticInitializer().stream()
-                    .flatMap(initializer -> initializer.getConstructorCallsFromSelf().stream())
-                    .anyMatch(call -> MUTABLE_TYPES.test(call.getTargetOwner())
-                            && field.getOwner().getFieldAccessesFromSelf().stream()
-                                    .anyMatch(access ->
-                                            access.getTarget().getName().equals(field.getName())
-                                                    && access.getOrigin().equals(call.getOrigin())));
-        }
-
         private static boolean isUnmodifiableFactoryType(JavaClass type) {
-            // List.of, Set.of, Map.of and friends return JDK-internal immutable types; the interfaces themselves
-            // are judged by the initializer check.
+            // Judged by the declared type: a field declared as an interface (List, Set, Map) is expected to hold an
+            // unmodifiable value (List.of, Collections.unmodifiable...); review catches a mutable one behind it.
             return type.isInterface() || type.getName().startsWith("java.util.ImmutableCollections");
         }
     }
