@@ -1,16 +1,17 @@
 package com.frappe.platform.infrastructure.bus;
 
-import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
-import org.jspecify.annotations.Nullable;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.ListableBeanFactory;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.core.ResolvableType;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.interceptor.TransactionAttributeSource;
@@ -18,8 +19,9 @@ import org.springframework.util.ClassUtils;
 
 /**
  * The handler beans of one kind, keyed by the message type they handle. Built once at startup from the bean
- * definitions, without instantiating a handler (a handler may itself depend on a bus): every rule violation is
- * collected and reported together, so a routing gap stops the application instead of reaching a customer.
+ * definitions, without instantiating a handler (a handler may itself depend on a bus, e.g. through another module's
+ * API): every rule violation is collected and reported together, so a routing gap stops the application instead of
+ * reaching a customer.
  */
 final class HandlerRegistry {
 
@@ -30,10 +32,11 @@ final class HandlerRegistry {
     private static final TransactionAttributeSource TRANSACTION_ATTRIBUTES = new AnnotationTransactionAttributeSource();
 
     private final UseCaseKind kind;
-    private final ListableBeanFactory beans;
+    private final ConfigurableListableBeanFactory beans;
     private final Map<Class<?>, String> beanNamesByMessageType;
 
-    private HandlerRegistry(UseCaseKind kind, ListableBeanFactory beans, Map<Class<?>, String> beanNamesByMessageType) {
+    private HandlerRegistry(
+            UseCaseKind kind, ConfigurableListableBeanFactory beans, Map<Class<?>, String> beanNamesByMessageType) {
         this.kind = kind;
         this.beans = beans;
         this.beanNamesByMessageType = Map.copyOf(beanNamesByMessageType);
@@ -49,25 +52,21 @@ final class HandlerRegistry {
      *     resolved to a concrete class, the message lives outside a module package, or a command handler is not
      *     transactional
      */
-    static HandlerRegistry discover(ListableBeanFactory beans, UseCaseKind kind) {
+    static HandlerRegistry discover(ConfigurableListableBeanFactory beans, UseCaseKind kind) {
         var beanNamesByType = new LinkedHashMap<Class<?>, List<String>>();
         var problems = new ArrayList<String>();
         for (var beanName : beans.getBeanNamesForType(kind.handlerType())) {
-            var handlerClass = handlerClassOf(beans, beanName);
-            var messageType = messageTypeOf(kind, handlerClass);
-            if (handlerClass == null || messageType == null) {
-                problems.add(
-                        "cannot tell which " + kind.tagValue() + " bean '" + beanName + "' handles; declare it as a"
-                                + " class implementing " + kind.handlerType().getSimpleName() + "<Your"
-                                + capitalized(kind.tagValue()) + ", YourResult> with a concrete " + kind.tagValue()
-                                + " record");
+            var declaration = declarationOf(beans, beanName, kind);
+            if (declaration.isEmpty()) {
+                problems.add(unresolvableProblem(kind, beanName));
                 continue;
             }
+            var messageType = declaration.get().messageType();
             if (UseCase.moduleOf(messageType).isEmpty()) {
                 problems.add(messageType.getName() + " (handled by '" + beanName + "') must live in a module package"
                         + " 'com.frappe.<module>'; the module of its use case is derived from it");
             }
-            if (kind.transactional() && !isTransactional(kind, handlerClass)) {
+            if (kind.transactional() && !isTransactional(kind, declaration.get().handlerClass())) {
                 problems.add("'" + beanName + "' must be @Transactional (on handle or the class), so the state it"
                         + " saves and the events it records commit together");
             }
@@ -109,36 +108,52 @@ final class HandlerRegistry {
         return beans.getBean(beanName, kind.handlerType());
     }
 
-    private static @Nullable Class<?> handlerClassOf(ListableBeanFactory beans, String beanName) {
+    /**
+     * What a handler bean was declared as: its class and the concrete message type it handles.
+     *
+     * @param handlerClass the declared class of the handler
+     * @param messageType the exact message class it handles
+     */
+    private record Declaration(Class<?> handlerClass, Class<?> messageType) {}
+
+    // The bean definition is asked first: it knows the declared class even when the bean already is a JDK proxy,
+    // which implements the handler interface raw. The bean type is the fallback for beans without a definition; a
+    // CGLIB subclass is mapped back to its user class, which carries the generics.
+    private static Optional<Declaration> declarationOf(
+            ConfigurableListableBeanFactory beans, String beanName, UseCaseKind kind) {
+        var declaredClass = beans.containsBeanDefinition(beanName)
+                ? beans.getMergedBeanDefinition(beanName).getResolvableType().resolve()
+                : null;
         var beanType = beans.getType(beanName);
-        // A transactional handler may already be its CGLIB subclass; the declared class carries the generics.
-        return beanType == null ? null : ClassUtils.getUserClass(beanType);
+        var beanClass = beanType == null ? null : ClassUtils.getUserClass(beanType);
+        return Stream.of(declaredClass, beanClass)
+                .filter(Objects::nonNull)
+                .flatMap(handlerClass -> messageTypeOf(kind, handlerClass).stream()
+                        .map(messageType -> new Declaration(handlerClass, messageType)))
+                .findFirst();
     }
 
-    private static @Nullable Class<?> messageTypeOf(UseCaseKind kind, @Nullable Class<?> handlerClass) {
-        if (handlerClass == null) {
-            return null;
-        }
+    private static Optional<Class<?>> messageTypeOf(UseCaseKind kind, Class<?> handlerClass) {
         // An unresolved type variable (lambda, generic handler class) resolves to its bound, the marker interface;
         // routing is by exact message class, so only a concrete class is a valid key.
         var messageType = ResolvableType.forClass(kind.handlerType(), handlerClass)
                 .getGeneric(0)
                 .resolve();
         if (messageType == null || messageType.isInterface() || Modifier.isAbstract(messageType.getModifiers())) {
-            return null;
+            return Optional.empty();
         }
-        return messageType;
+        return Optional.of(messageType);
     }
 
     private static boolean isTransactional(UseCaseKind kind, Class<?> handlerClass) {
-        return TRANSACTION_ATTRIBUTES.hasTransactionAttribute(handleMethodOf(kind), handlerClass);
+        var handle = ClassUtils.getMethod(kind.handlerType(), "handle", kind.messageType());
+        return TRANSACTION_ATTRIBUTES.hasTransactionAttribute(handle, handlerClass);
     }
 
-    private static Method handleMethodOf(UseCaseKind kind) {
-        return ClassUtils.getMethod(kind.handlerType(), "handle", kind.messageType());
-    }
-
-    private static String capitalized(String word) {
-        return Character.toUpperCase(word.charAt(0)) + word.substring(1);
+    private static String unresolvableProblem(UseCaseKind kind, String beanName) {
+        var word = kind.tagValue();
+        return "cannot tell which " + word + " bean '" + beanName + "' handles; declare it as a class implementing "
+                + kind.handlerType().getSimpleName() + "<Your" + Character.toUpperCase(word.charAt(0))
+                + word.substring(1) + ", YourResult> with a concrete " + word + " record";
     }
 }

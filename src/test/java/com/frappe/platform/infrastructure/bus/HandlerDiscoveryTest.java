@@ -11,6 +11,7 @@ import com.frappe.platform.QueryBus;
 import com.frappe.platform.QueryHandler;
 import com.frappe.platform.Result;
 import fixtures.bus.OutsideModuleCommand;
+import io.micrometer.observation.ObservationRegistry;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -19,8 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 /** Startup discovery of handlers and routing of messages, without a database. */
 class HandlerDiscoveryTest {
 
-    private final ApplicationContextRunner contextRunner =
-            new ApplicationContextRunner().withUserConfiguration(BusConfiguration.class);
+    private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
+            .withUserConfiguration(BusConfiguration.class)
+            .withBean(ObservationRegistry.class, ObservationRegistry::create);
 
     enum TabError {
         ALREADY_OPEN

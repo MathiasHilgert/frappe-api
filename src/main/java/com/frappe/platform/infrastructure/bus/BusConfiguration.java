@@ -2,11 +2,15 @@ package com.frappe.platform.infrastructure.bus;
 
 import com.frappe.platform.CommandBus;
 import com.frappe.platform.QueryBus;
-import org.springframework.beans.factory.ListableBeanFactory;
+import io.micrometer.observation.ObservationRegistry;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/** Provides the command and query buses, validating every handler when the context starts. */
+/**
+ * Provides the command and query buses, validating every handler when the context starts. Only the observed buses are
+ * beans, so no caller can bypass the observation.
+ */
 @Configuration(proxyBeanMethods = false)
 class BusConfiguration {
 
@@ -14,24 +18,28 @@ class BusConfiguration {
     BusConfiguration() {}
 
     /**
-     * The command bus over every {@code CommandHandler} bean.
+     * The observed command bus over every {@code CommandHandler} bean.
      *
      * @param beans the bean factory holding the handlers
+     * @param observations where dispatches are observed
      * @return the command bus
      */
     @Bean
-    CommandBus commandBus(ListableBeanFactory beans) {
-        return new HandlerCommandBus(HandlerRegistry.discover(beans, UseCaseKind.COMMAND));
+    CommandBus commandBus(ConfigurableListableBeanFactory beans, ObservationRegistry observations) {
+        var handlers = HandlerRegistry.discover(beans, UseCaseKind.COMMAND);
+        return new ObservedCommandBus(new HandlerCommandBus(handlers), new UseCaseObservations(observations));
     }
 
     /**
-     * The query bus over every {@code QueryHandler} bean.
+     * The observed query bus over every {@code QueryHandler} bean.
      *
      * @param beans the bean factory holding the handlers
+     * @param observations where queries are observed
      * @return the query bus
      */
     @Bean
-    QueryBus queryBus(ListableBeanFactory beans) {
-        return new HandlerQueryBus(HandlerRegistry.discover(beans, UseCaseKind.QUERY));
+    QueryBus queryBus(ConfigurableListableBeanFactory beans, ObservationRegistry observations) {
+        var handlers = HandlerRegistry.discover(beans, UseCaseKind.QUERY);
+        return new ObservedQueryBus(new HandlerQueryBus(handlers), new UseCaseObservations(observations));
     }
 }

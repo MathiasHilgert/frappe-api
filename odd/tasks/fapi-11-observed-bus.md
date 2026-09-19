@@ -22,7 +22,7 @@ Strict TDD (project standard, `testing-code`). Runner: `./gradlew test` with `FR
 - [x] T0 Verify the library APIs used (Spring `ResolvableType`, bean factory lookups, transaction attribute source, Micrometer Observation and its test kit) from the jars in the Gradle cache; record findings and design
 - [x] T1 `Result` in the kernel (pure Java)
 - [x] T2 Messages, handler interfaces, bus ports; startup discovery keyed by message type; duplicate and missing handler failures
-- [ ] T3 Observing decorator: one `use_case` observation per dispatch with outcome and error
+- [x] T3 Observing decorator: one `use_case` observation per dispatch with outcome and error
 - [ ] T4 Postgres proof: rollback leaves neither state nor outbox row; a commit failure is observed as `error`
 - [ ] T5 Docs (`writing-code` use cases and observability, `observing-the-api` conventions); verification
 
@@ -61,5 +61,11 @@ Strict TDD (project standard, `testing-code`). Runner: `./gradlew test` with `FR
 - GREEN 8/8: A1 `dispatchingACommandRunsItsSingleHandlerOnceAndReturnsItsResultUnchanged` (same `Result` instance, one call); `askingAQueryReturnsWhatItsHandlerReturns`; A2 `twoHandlersForOneTypeFailStartupNamingBothBeans`; A3 `askingAQueryWithoutAHandlerThrowsMissingHandlerExceptionNamingTheType` (and the command twin); startup failures for a command handler without `@Transactional`, a handler whose message type is not a concrete class (generic handler; same path for lambdas), and a message outside `com.frappe.<module>` (fixture `fixtures.bus.OutsideModuleCommand`).
 - Code: public ports in `com.frappe.platform`; `infrastructure.bus`: `HandlerRegistry` (bean names and types only, no instantiation; all problems in one `InvalidHandlersException`; one INFO line per kind with `frappe.use_case.kind` / `frappe.use_case.handlers`), `HandlerCommandBus` / `HandlerQueryBus`, `UseCase` / `UseCaseKind`, `BusConfiguration`. `./gradlew javadoc` green.
 
+### T3 Observing decorator
+- RED `UseCaseObservationTest` (6, `ApplicationContextRunner` with `TestObservationRegistry` and real transaction proxies over a stub `AbstractPlatformTransactionManager` whose commit can fail): 6/6 failed. Two with `There are no observations registered` (nothing observed yet); four with context startup failing on `InvalidHandlersException: cannot tell which command bean 'useCaseObservationTest.PlaceOrderHandler' handles`. That second failure is a real bug found by the RED: `@EnableTransactionManagement` defaults to JDK proxies, whose class implements the handler interface raw, and the singleton already existed, so `getType` returned `jdk.proxy3.$Proxy72`. Debug output showed the merged bean definition still resolving to the declared class.
+- Fix: `HandlerRegistry` asks the merged bean definition (`getResolvableType()`: target type, factory method return type, bean class) first and falls back to the user class of the bean type; so JDK-proxied handlers and `@Bean` methods declaring `CommandHandler<X, R>` resolve too. `HandlerDiscoveryTest` stays 8/8.
+- GREEN 6/6: A4 success (`use_case`, contextual name `platform PlaceOrder`, `use_case.name|module|kind`, `outcome=success`, no error, stopped), `Result.Failure` → `outcome=failure` without error, a throwing handler → `outcome=error` with that exception attached and rethrown unchanged, a failing commit → `outcome=error` with the `TransactionSystemException` (the commit runs inside the observation), a query → `use_case.kind=query`, a message without a handler → `outcome=error`.
+- Code: `UseCaseObservationContext` (use case + returned value; outcome `unknown` until the handler returns), `UseCaseObservationConvention` (name, contextual name, the four low-cardinality keys), `UseCaseObservations` (`Observation#observe`, no hand-written catch), `ObservedCommandBus` / `ObservedQueryBus`; `BusConfiguration` exposes only the observed buses. `./gradlew javadoc` green.
+
 ## Next step
-T3.
+T4.
