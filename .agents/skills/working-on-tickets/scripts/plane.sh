@@ -59,14 +59,14 @@ api() {
 }
 
 # send METHOD PATH BODY — like api(), but when PLANE_DRY_RUN=1 prints the
-# request instead of sending it and returns 1 (nothing was sent, so callers
-# chain confirmation output with `&&` to skip it in dry-run mode).
+# request instead of sending it and ends the command successfully, so the
+# confirmation a caller chains after it is never printed for an unsent request.
 send() {
   local method=$1 path=$2 body=$3
   if [[ "${PLANE_DRY_RUN:-0}" == "1" ]]; then
     printf 'DRY RUN: %s %s\n' "$method" "$path"
     jq '.' <<<"$body"
-    return 1
+    exit 0
   fi
   api "$method" "$path" "$body" >/dev/null
 }
