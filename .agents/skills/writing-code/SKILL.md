@@ -43,6 +43,7 @@ Load before creating or changing any production code, migration or configuration
 | Metrics, spans, observations, business metrics | `references/observability.md` |
 | Exceptions, catching, interrupts | `references/errors.md` |
 | One-time codes, issue caps, rate limits (Valkey) | `references/short-lived-secrets.md` |
+| Sending email, mail templates, Mailpit, Resend | `references/email.md` |
 | Javadoc, comments, package-info | `references/documentation.md` |
 | Any class or test: structure, naming, immutability | `references/clean-code.md` |
 | Secrets, credentials, API keys, environment variables | `docs/secrets.md` (repository root: inventory, Bitwarden, runbook) |

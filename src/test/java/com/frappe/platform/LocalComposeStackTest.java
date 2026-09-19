@@ -59,4 +59,17 @@ class LocalComposeStackTest {
         assertThat((List<String>) valkey.get("ports")).containsExactly("${FRAPPE_VALKEY_PORT:-6379}:6379");
         assertThat(valkey).containsKey("healthcheck");
     }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void runsMailpitForLocalMail() {
+        // When
+        var mailpit = services.get("mailpit");
+
+        // Then SMTP on 1025 and the web UI on 8025, both movable
+        assertThat(mailpit).isNotNull();
+        assertThat(mailpit.get("image")).isEqualTo("axllent/mailpit:v1.31");
+        assertThat((List<String>) mailpit.get("ports"))
+                .containsExactly("${FRAPPE_MAILPIT_SMTP_PORT:-1025}:1025", "${FRAPPE_MAILPIT_UI_PORT:-8025}:8025");
+    }
 }

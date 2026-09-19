@@ -38,3 +38,6 @@ out/
 
 ### Tooling ###
 .atl/
+
+### Mail layouts (node-gradle) ###
+node_modules/
