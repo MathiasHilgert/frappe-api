@@ -206,6 +206,7 @@ Rule applied: prefer maintained libraries and Spring-standard mechanisms whereve
 - After R1–R6: `FRAPPE_TEST_DB=frappe_fapi_13 ./gradlew spotlessApply check --rerun-tasks` BUILD SUCCESSFUL, 52 test classes, 202 tests.
 - After R7–R10 and the Javadoc rewrap: the same command, BUILD SUCCESSFUL, 54 test classes, 214 tests, 0 failures.
 - After R11: the same command, BUILD SUCCESSFUL, 54 test classes, 219 tests, 0 failures, no compiler warnings. `ControllerEndpointHandlerMapping` is deprecated for removal but still registered, so its exemption carries `@SuppressWarnings("removal")`.
+- After R12–R13: the same command, BUILD SUCCESSFUL, 54 test classes, 221 tests, 0 failures, no warnings.
 - Pending for the PR: 401 bodies become `ProblemDetail` in FAPI-14.
 
 ### Trusted-proxy scope (review note)
