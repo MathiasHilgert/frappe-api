@@ -71,6 +71,23 @@ class DomainEventPublisherIntegrationTests {
     }
 
     @Test
+    void theFirstPublishCountsAsTheFirstAttempt() {
+        // Given
+        var event = tableOpened();
+
+        // When
+        transactions.executeWithoutResult(status -> publisher.publish(event));
+
+        // Then
+        // frappe.outbox.recovery.max-attempts counts total attempts on this basis (Modulith stores 1 on publish).
+        assertThat(jdbc.queryForObject(
+                        "select completion_attempts from platform.event_publication where serialized_event like ?",
+                        Integer.class,
+                        "%" + event.eventId() + "%"))
+                .isOne();
+    }
+
+    @Test
     void rolledBackTransactionStoresNoPublicationRow() {
         // Given
         var event = tableOpened();

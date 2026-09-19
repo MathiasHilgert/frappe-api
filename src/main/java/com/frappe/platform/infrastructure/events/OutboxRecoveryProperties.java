@@ -12,7 +12,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  *     recovering NATS receives after an outage
  * @param stuckAfter how long an attempt may run without outcome before it counts as stuck and is failed for retry;
  *     must exceed {@code frappe.nats.publish-timeout} plus the slowest listener, or a live attempt is retried twice
- * @param maxAttempts attempts after which a publication is moved to the dead-letter table
+ * @param maxAttempts total attempts, the first publish included (Modulith stores {@code completion_attempts = 1} on
+ *     publish and adds one per resubmission), after which a publication is moved to the dead-letter table
  * @param maxBackoff cap of the wait between attempts; the wait starts at {@code interval} and doubles per attempt,
  *     so with the defaults a publication is retried for about 18 hours before it becomes a dead letter
  */
@@ -30,12 +31,24 @@ record OutboxRecoveryProperties(
      * @param interval pause between runs; must be positive
      * @param batchSize publications per run; must be positive
      * @param stuckAfter attempt duration counted as stuck; must be positive
+     * @param maxAttempts total attempts, the first publish included; must be positive
+     * @param maxBackoff cap of the wait between attempts; must be positive and at least {@code interval}
      */
     OutboxRecoveryProperties {
         requirePositive("interval", interval);
+        requirePositive("batch-size", batchSize);
         requirePositive("stuck-after", stuckAfter);
-        if (batchSize <= 0) {
-            throw new IllegalArgumentException("frappe.outbox.recovery.batch-size must be positive, was " + batchSize);
+        requirePositive("max-attempts", maxAttempts);
+        requirePositive("max-backoff", maxBackoff);
+        if (maxBackoff.compareTo(interval) < 0) {
+            throw new IllegalArgumentException("frappe.outbox.recovery.max-backoff (" + maxBackoff
+                    + ") must be at least frappe.outbox.recovery.interval (" + interval + ")");
+        }
+    }
+
+    private static void requirePositive(String name, int value) {
+        if (value <= 0) {
+            throw new IllegalArgumentException("frappe.outbox.recovery." + name + " must be positive, was " + value);
         }
     }
 
