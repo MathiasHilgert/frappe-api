@@ -24,7 +24,7 @@ Strict TDD (project standard, `testing-code`). Runner: `./gradlew test` with `FR
 - [x] T2 Messages, handler interfaces, bus ports; startup discovery keyed by message type; duplicate and missing handler failures
 - [x] T3 Observing decorator: one `use_case` observation per dispatch with outcome and error
 - [x] T4 Postgres proof: rollback leaves neither state nor outbox row; a commit failure is observed as `error`
-- [ ] T5 Docs (`writing-code` use cases and observability, `observing-the-api` conventions); verification
+- [x] T5 Docs (`writing-code` use cases and observability, `observing-the-api` conventions); verification
 
 ## Acceptance (from ticket)
 - A1 One handler for a command: dispatching runs it once and returns its `Result` unchanged.
@@ -73,5 +73,15 @@ Strict TDD (project standard, `testing-code`). Runner: `./gradlew test` with `FR
 - A5 `aRolledBackCommandLeavesNeitherItsStateNorItsOutboxRow` (probe row and outbox/archive row absent; timer `use_case{use_case.name=RecordProbe, outcome=error, error=IllegalStateException}` counted once) and the control `aCommittedCommandStoresItsStateAndItsOutboxRow` passed on their first run: they guard behaviour that `@Transactional` and the FAPI-6 outbox already provide, so no RED was possible for them.
 - `aCommandFailingOnCommitIsObservedAsAnError`: every statement succeeds, the deferred constraint fails the commit in the handler's proxy, and the `use_case` timer records `outcome=error` (never `success`) with the commit exception, proving the commit runs inside the observation end to end.
 
+### T5 Docs and verification
+- `writing-code/references/use-cases.md`: real kernel types, the one-step handler declaration, `Result` usage and the failure/error split, the startup rules (one handler per type, `@Transactional` command handlers, concrete message classes in module packages), no telemetry in handlers.
+- `writing-code/references/observability.md` and `observing-the-api/references/conventions.md`: `use_case` added to the automatic telemetry, with its tags and how to read `outcome`. `testing-code/references/unit-tests.md`: the example asserted on `isFailure()` / `error()`, which `Result` does not have; now `isEqualTo(Result.failure(...))`. Package docs of `com.frappe.platform` and `com.frappe.platform.infrastructure` mention the bus.
+- Verification `FRAPPE_TEST_DB=frappe_fapi_11 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 48 test classes, 192 tests, 0 failures, 0 errors (spotless, javadoc with doclint `-Werror`, `ModularityTests` included).
+
+## Open questions / follow-ups
+- Query handlers are not `@Transactional` by convention only (documented); the bus enforces the rule for command handlers alone. Enforcing "no transaction" on queries would be a one-line check if wanted.
+- A handler that returns `Result.Failure` after saving is not rolled back (Spring rolls back on exceptions only); `use-cases.md` states the rule (return failures before saving). A bus-level `setRollbackOnly` on `Failure` would need the bus inside the transaction, which the ticket rules out.
+- `MissingHandlerException` and `InvalidHandlersException` are package-private in `infrastructure.bus` (errors standard); the public ports mention `MissingHandlerException` in their Javadoc as plain code text.
+
 ## Next step
-T5.
+Review and PR (not created here: no push, no Plane change).
