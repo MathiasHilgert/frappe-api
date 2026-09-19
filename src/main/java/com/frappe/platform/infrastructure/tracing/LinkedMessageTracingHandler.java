@@ -5,6 +5,7 @@ import io.micrometer.tracing.Link;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
 import io.micrometer.tracing.handler.TracingObservationHandler;
+import java.util.Optional;
 
 /**
  * Creates the span of a {@link LinkedMessageContext}: a PRODUCER or CONSUMER span that is a child of the current span
@@ -32,8 +33,10 @@ final class LinkedMessageTracingHandler implements TracingObservationHandler<Lin
         var builder = tracer.spanBuilder()
                 .name(getSpanName(context))
                 .kind(Span.Kind.valueOf(context.getKind().name()));
-        // Without an explicit parent the builder starts a new trace; the current span stays the parent.
-        var parent = getParentSpan(context);
+        // The parent observation's span, else a span made current with the tracer directly. Set explicitly: an
+        // implicit parent is bridge behaviour (the OTel builder falls back to its current context), not an API
+        // contract.
+        var parent = Optional.ofNullable(getParentSpan(context)).orElseGet(tracer::currentSpan);
         if (parent != null) {
             builder = builder.setParent(parent.context());
         }

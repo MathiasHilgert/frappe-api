@@ -16,6 +16,8 @@ import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.tracing.Tracer;
 import io.nats.client.JetStreamApiException;
 import io.nats.client.api.MessageInfo;
+import io.nats.client.impl.Headers;
+import io.nats.client.impl.NatsMessage;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
@@ -212,6 +214,34 @@ class NatsTracePropagationTests {
         assertThat(processSpan.getLinks())
                 .extracting(link -> link.getSpanContext().getTraceId())
                 .containsExactly(commandTrace);
+    }
+
+    @Test
+    void aSpanMadeCurrentOutsideAnObservationStillParentsTheConsumerSpan() {
+        // Given a span that a consumer made current with the tracer, not through an observation
+        var subject = "frappe.platform.order-refunded.v1";
+        var creation = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+        var message = NatsMessage.builder()
+                .subject(subject)
+                .headers(new Headers().put("traceparent", creation))
+                .data(new byte[0])
+                .build();
+        var manual = tracer.nextSpan().name("test.manual").start();
+
+        // When
+        try (var scope = tracer.withSpan(manual)) {
+            processObservations.of(message).observe(() -> {});
+        } finally {
+            manual.end();
+        }
+
+        // Then
+        var processSpan = await().atMost(WAIT).until(() -> finishedSpan("process " + subject), span -> span != null);
+        assertThat(processSpan.getTraceId()).isEqualTo(manual.context().traceId());
+        assertThat(processSpan.getParentSpanId()).isEqualTo(manual.context().spanId());
+        assertThat(processSpan.getLinks())
+                .extracting(link -> link.getSpanContext().getSpanId())
+                .containsExactly("00f067aa0ba902b7");
     }
 
     private void publish(DomainEvent event) {
