@@ -167,6 +167,41 @@ T0 `ce42b24` (plan `bd34405`), T1 `2e683f6`, T2 `0f277bb`, T3 `11a1dd6`, T4 `93b
 - `RouteAccessTests.aFunctionalRouteFedAfterStartupNeverServesARoutesPath`: once the context is ready, the test feeds Spring MVC's own `routerFunctionMapping` (order -1) a handler for the PUBLIC route's path and calls it anonymously. Result: 401, and the fed handler never ran. The test resets the mapping in `finally`, so the cached context stays clean.
 - This guards the R11 runtime check, so there was no RED of its own. Mutation check: with `shadowsRoutes` disabled in `RouteAuthorizationManager` it fails with `expected: 401 but was: 200`; the check was then restored.
 
+### R13 Libraries versus our code (human standing rule)
+Rule applied: prefer maintained libraries and Spring-standard mechanisms wherever they keep our guarantees. Libraries do the work inside infrastructure adapters; route classes and use cases depend only on our kernel types or vendor-neutral standards (added direction). All sources read are Spring Security 7.1.1 / Spring Framework 7.0.9 / springdoc 3.1.1.
+
+1. **Bearer handling: keep `BearerSessionFilter`. The resource server does not win.**
+   - The module itself is light: `spring-security-oauth2-resource-server` needs only `spring-security-core`, `-oauth2-core`, `-web` and `spring-core` (nimbus is optional), and it works without an introspection endpoint through `authenticationManagerResolver` and a custom `AuthenticationManager`.
+   - What it would add:
+     - The DSL (`OAuth2ResourceServerConfigurer#configure`) always adds `OAuth2ProtectedResourceMetadataFilter`, which publishes `/.well-known/oauth-protected-resource` (RFC 9728) for a service that is no OAuth resource server.
+     - `BearerTokenAuthenticationEntryPoint#commence` always adds a `resource_metadata` parameter; its resolver can be replaced but not removed.
+     - `BearerTokenAuthenticationFilter` sends every unresolvable or malformed token to the entry point, so a stale token would answer 401 even on a PUBLIC route such as sign-in.
+     - `DefaultBearerTokenResolver` reads only the first `Authorization` header (`getHeader`); we reject two as ambiguous.
+   - What we would gain is what we already have. Its token pattern `^Bearer (?<token>[a-zA-Z0-9-._~+/]+=*)$` (case-insensitive) matches ours. It saves the context in a `RequestAttributeSecurityContextRepository` (ours too, R8). It answers 401 with `WWW-Authenticate: Bearer` (ours too).
+   - Using its filter without the DSL still needs our own `AuthenticationManager` and entry point, so the saving is about 20 lines against two OAuth2 modules and two looser behaviours. Our filter is a standard `OncePerRequestFilter` plus `SecurityContextRepository`, all inside infrastructure.
+2. **Posture: keep `@Access` (our kernel type).**
+   - Method security (`@PreAuthorize`, or JSR-250 through `@EnableMethodSecurity(jsr250Enabled = true)`) runs in an AOP interceptor after Spring MVC resolved the arguments, so request-body conversion and `@Valid` run before the check. An unauthenticated caller would get 400 validation details before 401, and "enforced before controller code runs" would no longer hold.
+   - A denied invocation throws inside MVC, where a future `@ControllerAdvice` (FAPI-14) could swallow it.
+   - It cannot enforce "every route declares a posture" either, so the startup check would stay.
+   - `@PreAuthorize` would put Spring Security into route classes, which the added direction forbids.
+   - Jakarta JSR-250 has `@PermitAll`, but no plain "authenticated" marker. The only one is `@RolesAllowed("**")`, which is obscure and invites role checks in routes, and the HTTP layer authenticates only (R1).
+   - `@Access` is two values, vendor-neutral and ours.
+3. **Unguarded handler mappings: keep `RouteCatalog` and `HandlerMappingGuard`.**
+   - Spring Security's request authorization is path based. `anyRequest().authenticated()` turns unknown paths into 401 instead of the 404/405 the human decided on (R2).
+   - Per-route `PathPatternRequestMatcher` rules cannot reproduce which handler Spring MVC picks (exact-path precedence, specificity, params, headers, consumes, produces, HEAD→GET), and they cannot see functional, static or custom handlers.
+   - The standard bridge from request to handler, `HandlerMappingIntrospector`, is `@Deprecated(since = "7.0", forRemoval = true)`.
+   - Every guarantee the attack reviews proved rests on these two classes.
+4. **Won and implemented: plain `ResolvedSession` injection.**
+   - Route classes needed Spring Security's `@AuthenticationPrincipal`. A standard Spring MVC `HandlerMethodArgumentResolver` in infrastructure (`ResolvedSessionArgumentResolver`, registered via `WebMvcConfigurer#addArgumentResolvers`) now injects a plain `ResolvedSession` parameter, so routes depend on kernel types only.
+   - springdoc hides the parameter through its own mechanism, `SpringDocUtils#addRequestWrapperToIgnore`, which is what its `SpringDocSecurityConfiguration` does for `@AuthenticationPrincipal`.
+   - A PUBLIC route declaring the parameter now fails startup instead of failing at runtime.
+   - RED:
+     - `RouteAccessTests`: the route methods without the annotation failed with `BeanInstantiationException` (MVC bound `ResolvedSession` as a model attribute).
+     - `OpenApiTests`: the spec listed the record's fields as parameters.
+     - `RouteStartupTests.startupFailsForAPublicRouteThatAsksForTheCaller`: the context started.
+   - GREEN: all web tests.
+- Kept unchanged: `/v1`, trusted proxies, Scalar in `local` only, the observation predicate, and every attack-review guarantee.
+
 ### Rework verification
 - After R1–R6: `FRAPPE_TEST_DB=frappe_fapi_13 ./gradlew spotlessApply check --rerun-tasks` BUILD SUCCESSFUL, 52 test classes, 202 tests.
 - After R7–R10 and the Javadoc rewrap: the same command, BUILD SUCCESSFUL, 54 test classes, 214 tests, 0 failures.

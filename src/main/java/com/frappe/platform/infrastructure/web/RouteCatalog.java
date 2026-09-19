@@ -1,8 +1,11 @@
 package com.frappe.platform.infrastructure.web;
 
 import com.frappe.platform.web.Access;
+import com.frappe.platform.web.Posture;
+import com.frappe.platform.web.ResolvedSession;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -10,6 +13,7 @@ import java.util.TreeMap;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.method.HandlerTypePredicate;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
@@ -51,10 +55,10 @@ final class RouteCatalog {
         var checked = new ArrayList<Route>();
         routeMethodsByType(mappings).forEach((type, methods) -> {
             var access = AnnotatedElementUtils.findMergedAnnotation(type, Access.class);
-            var typeProblems = problemsOf(type, methods.size(), access);
+            var typeProblems = problemsOf(type, methods, access);
             problems.addAll(typeProblems);
             if (typeProblems.isEmpty()) {
-                checked.add(new Route(methods.getFirst(), access.value()));
+                checked.add(new Route(methods.getFirst().getKey(), access.value()));
             }
         });
         if (!problems.isEmpty()) {
@@ -127,23 +131,32 @@ final class RouteCatalog {
         return UrlPathHelper.defaultInstance.removeSemicolonContent(path);
     }
 
-    private static Map<Class<?>, List<RequestMappingInfo>> routeMethodsByType(RequestMappingHandlerMapping mappings) {
+    private static Map<Class<?>, List<Map.Entry<RequestMappingInfo, HandlerMethod>>> routeMethodsByType(
+            RequestMappingHandlerMapping mappings) {
         // Sorted by class name, so the startup failure lists the problems in a stable order.
-        var methodsByType = new TreeMap<Class<?>, List<RequestMappingInfo>>(Comparator.comparing(Class::getName));
+        var methodsByType = new TreeMap<Class<?>, List<Map.Entry<RequestMappingInfo, HandlerMethod>>>(
+                Comparator.comparing(Class::getName));
         mappings.getHandlerMethods().forEach((mapping, method) -> {
             if (APPLICATION_ROUTES.test(method.getBeanType())) {
                 methodsByType
                         .computeIfAbsent(method.getBeanType(), type -> new ArrayList<>())
-                        .add(mapping);
+                        .add(Map.entry(mapping, method));
             }
         });
         return methodsByType;
     }
 
-    private static List<String> problemsOf(Class<?> type, int mappedMethods, Access access) {
+    private static boolean asksForTheCaller(List<Map.Entry<RequestMappingInfo, HandlerMethod>> methods) {
+        return methods.stream()
+                .flatMap(method -> Arrays.stream(method.getValue().getMethodParameters()))
+                .anyMatch(parameter -> parameter.getParameterType() == ResolvedSession.class);
+    }
+
+    private static List<String> problemsOf(
+            Class<?> type, List<Map.Entry<RequestMappingInfo, HandlerMethod>> methods, Access access) {
         var problems = new ArrayList<String>();
-        if (mappedMethods != 1) {
-            problems.add(type.getName() + " has " + mappedMethods + " mapped methods; a route is one class with"
+        if (methods.size() != 1) {
+            problems.add(type.getName() + " has " + methods.size() + " mapped methods; a route is one class with"
                     + " exactly one mapped method, so split it into one class per route");
         }
         if (!type.getPackageName().endsWith(ROUTE_PACKAGE_SUFFIX)) {
@@ -153,6 +166,9 @@ final class RouteCatalog {
         if (access == null) {
             problems.add(type.getName() + " declares no @Access; annotate the class with @Access(Posture.…) to"
                     + " state who may call it");
+        } else if (access.value() == Posture.PUBLIC && asksForTheCaller(methods)) {
+            problems.add(type.getName() + " is PUBLIC but takes a ResolvedSession; only AUTHENTICATED routes have a"
+                    + " caller, so declare @Access(Posture.AUTHENTICATED) or drop the parameter");
         }
         return problems;
     }

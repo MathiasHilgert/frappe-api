@@ -6,6 +6,7 @@ import com.frappe.TestNatsConfiguration;
 import com.frappe.TestcontainersConfiguration;
 import com.frappe.platform.web.Access;
 import com.frappe.platform.web.Posture;
+import com.frappe.platform.web.ResolvedSession;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,8 +61,8 @@ class OpenApiTests {
     static class AuthenticatedRoute {
 
         @GetMapping("/test/docs/self")
-        String answer() {
-            return "self";
+        String answer(ResolvedSession caller) {
+            return caller.principalId().toString();
         }
     }
 
@@ -94,6 +95,8 @@ class OpenApiTests {
         spec.extractingPath("$.paths['/v1/test/docs/self'].get.responses['401']")
                 .isNotNull();
         spec.doesNotHavePath("$.paths['/v1/test/docs/self'].get.responses['403']");
+        // The caller is injected, not sent: it is no request parameter
+        spec.doesNotHavePath("$.paths['/v1/test/docs/self'].get.parameters");
         spec.doesNotHavePath("$.paths['/v1/test/docs/public'].get.security");
         spec.doesNotHavePath("$.paths['/v1/test/docs/public'].get.responses['401']");
     }

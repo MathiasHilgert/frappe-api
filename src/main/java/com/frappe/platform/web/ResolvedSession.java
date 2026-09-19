@@ -4,8 +4,8 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * The session a bearer token stands for: the caller of a request. Routes read it with
- * {@code @AuthenticationPrincipal ResolvedSession session}.
+ * The session a bearer token stands for: the caller of a request. An {@code AUTHENTICATED} route receives it by
+ * declaring a {@code ResolvedSession} parameter and passes it on to its use case, which authorizes the operation.
  *
  * @param principalId the principal acting through the session
  * @param sessionId the session itself

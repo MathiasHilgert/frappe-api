@@ -26,7 +26,7 @@ final class SessionAuthentication extends AbstractAuthenticationToken {
     }
 
     /**
-     * The caller's session, injected into routes with {@code @AuthenticationPrincipal ResolvedSession}.
+     * The caller's session, injected into routes as a plain {@code ResolvedSession} parameter.
      *
      * @return the session
      */

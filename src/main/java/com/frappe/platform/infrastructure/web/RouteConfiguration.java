@@ -1,8 +1,10 @@
 package com.frappe.platform.infrastructure.web;
 
+import java.util.List;
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
@@ -21,6 +23,21 @@ class RouteConfiguration {
     @Bean
     WebMvcConfigurer apiPathPrefix() {
         return new ApiPathPrefix();
+    }
+
+    /**
+     * Injects the caller into route methods as a plain {@code ResolvedSession} parameter.
+     *
+     * @return the configurer registering the argument resolver
+     */
+    @Bean
+    WebMvcConfigurer resolvedSessionArguments() {
+        return new WebMvcConfigurer() {
+            @Override
+            public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
+                resolvers.add(new ResolvedSessionArgumentResolver());
+            }
+        };
     }
 
     /**

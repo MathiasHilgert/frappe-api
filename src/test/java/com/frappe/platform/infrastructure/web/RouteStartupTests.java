@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.frappe.platform.infrastructure.misplaced.MisplacedRoutes;
 import com.frappe.platform.web.Access;
 import com.frappe.platform.web.Posture;
+import com.frappe.platform.web.ResolvedSession;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -68,6 +69,16 @@ class RouteStartupTests {
         @PostMapping("/two-methods")
         String write() {
             return "written";
+        }
+    }
+
+    @RestController
+    @Access(Posture.PUBLIC)
+    static class PublicRouteAskingForTheCaller {
+
+        @GetMapping("/public-caller")
+        String answer(ResolvedSession caller) {
+            return caller.principalId().toString();
         }
     }
 
@@ -195,6 +206,18 @@ class RouteStartupTests {
                         .getFailure()
                         .isInstanceOf(InvalidRouteException.class)
                         .hasMessageContaining("impostorMapping"));
+    }
+
+    @Test
+    void startupFailsForAPublicRouteThatAsksForTheCaller() {
+        runner.withBean(PublicRouteAskingForTheCaller.class)
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .rootCause()
+                        .isInstanceOf(InvalidRouteException.class)
+                        .hasMessageContaining(PublicRouteAskingForTheCaller.class.getName())
+                        .hasMessageContaining("ResolvedSession"));
     }
 
     @Test

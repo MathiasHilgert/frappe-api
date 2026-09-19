@@ -33,7 +33,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
@@ -116,7 +115,7 @@ class RouteAccessTests {
         }
 
         @GetMapping("/test/self")
-        String answer(@AuthenticationPrincipal ResolvedSession caller) {
+        String answer(ResolvedSession caller) {
             calls.incrementAndGet();
             return caller.principalId().toString();
         }
@@ -127,7 +126,7 @@ class RouteAccessTests {
     static class AsyncSelfRoute {
 
         @GetMapping("/test/self-async")
-        Callable<String> answer(@AuthenticationPrincipal ResolvedSession caller) {
+        Callable<String> answer(ResolvedSession caller) {
             return () -> caller.principalId().toString();
         }
     }
