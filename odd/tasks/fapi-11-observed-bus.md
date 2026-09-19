@@ -20,7 +20,7 @@ Strict TDD (project standard, `testing-code`). Runner: `./gradlew test` with `FR
 
 ## Tasks
 - [x] T0 Verify the library APIs used (Spring `ResolvableType`, bean factory lookups, transaction attribute source, Micrometer Observation and its test kit) from the jars in the Gradle cache; record findings and design
-- [ ] T1 `Result` in the kernel (pure Java)
+- [x] T1 `Result` in the kernel (pure Java)
 - [ ] T2 Messages, handler interfaces, bus ports; startup discovery keyed by message type; duplicate and missing handler failures
 - [ ] T3 Observing decorator: one `use_case` observation per dispatch with outcome and error
 - [ ] T4 Postgres proof: rollback leaves neither state nor outbox row; a commit failure is observed as `error`
@@ -52,5 +52,9 @@ Strict TDD (project standard, `testing-code`). Runner: `./gradlew test` with `FR
 - Outcome: `error` when the dispatch throws (including a failing commit, which surfaces from the handler's proxy inside the observation), `failure` when the result is a `Result.Failure`, `success` otherwise; at start it is `unknown`, like Spring's HTTP convention before the response exists.
 - Module and use case names derive from the message type (`com.frappe.<module>…`, simple name); handlers never see telemetry.
 
+### T1 Result
+- RED `ResultTest` (8): compilation failed, `package com.frappe.platform.Result does not exist` (35 errors).
+- GREEN 8/8: sealed `Result` with `Success` / `Failure` records (null rejected in both, so a mapper returning `null` fails fast), `map`, `flatMap`, `mapFailure`, `fold`, factories `success` / `failure`; pattern matching over the records works. `./gradlew javadoc` green (doclint all, `-Werror`).
+
 ## Next step
-T1.
+T2.
