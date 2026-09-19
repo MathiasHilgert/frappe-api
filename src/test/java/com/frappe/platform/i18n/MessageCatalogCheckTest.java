@@ -90,8 +90,54 @@ class MessageCatalogCheckTest {
         // When / Then
         assertThat(MessageCatalogCheck.violations(catalogs))
                 .extracting(CatalogViolation::describe)
-                .contains("i18n/orders/messages_en.properties: key 'tabs.closed' must start with 'orders.', the"
-                        + " module's namespace");
+                .contains("i18n/orders/messages_en.properties: key 'tabs.closed' must start with 'orders.', or be a"
+                        + " Spring problem detail key (problemDetail.title.<exception> or problemDetail.<exception>)"
+                        + " for an exception in com.frappe.orders");
+    }
+
+    @Test
+    void acceptsSpringProblemDetailKeysForTheModulesOwnExceptions() {
+        // Given
+        var catalogs = everyLanguage(
+                "orders",
+                Map.of(
+                        "problemDetail.title.com.frappe.orders.TabAlreadyClosedException", "Tab already closed",
+                        "problemDetail.com.frappe.orders.TabAlreadyClosedException", "Tab {0} is closed",
+                        "problemDetail.com.frappe.orders.TabAlreadyClosedException.paid", "Tab {0} is paid"));
+
+        // When / Then
+        assertThat(MessageCatalogCheck.violations(catalogs)).isEmpty();
+    }
+
+    @Test
+    void letsOnlyPlatformLocalizeProblemDetailsOfFrameworkExceptions() {
+        // Given
+        var key = "problemDetail.title.org.springframework.web.HttpRequestMethodNotSupportedException";
+
+        // When / Then
+        assertThat(MessageCatalogCheck.violations(everyLanguage("platform", Map.of(key, "Method not allowed"))))
+                .isEmpty();
+        assertThat(MessageCatalogCheck.violations(everyLanguage("orders", Map.of(key, "Method not allowed"))))
+                .extracting(CatalogViolation::describe)
+                .contains("i18n/orders/messages_en.properties: key '%s' must start with 'orders.', or be a Spring"
+                                .formatted(key)
+                        + " problem detail key (problemDetail.title.<exception> or problemDetail.<exception>) for an"
+                        + " exception in com.frappe.orders");
+    }
+
+    @Test
+    void rejectsProblemTypesBecauseTheyAreStableUrisNotText() {
+        // Given
+        var catalogs = everyLanguage(
+                "orders",
+                Map.of("problemDetail.type.com.frappe.orders.TabAlreadyClosedException", "https://frappe.app/x"));
+
+        // When / Then
+        assertThat(MessageCatalogCheck.violations(catalogs))
+                .extracting(CatalogViolation::describe)
+                .contains("i18n/orders/messages_en.properties: key"
+                        + " 'problemDetail.type.com.frappe.orders.TabAlreadyClosedException' is a problem type; types"
+                        + " are stable URIs set in code, never translated");
     }
 
     @Test
