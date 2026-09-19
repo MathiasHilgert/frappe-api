@@ -25,6 +25,7 @@ Strict TDD (project standard, `testing-code`). Runner: `./gradlew test` with `FR
 - [x] T3 Observing decorator: one `use_case` observation per dispatch with outcome and error
 - [x] T4 Postgres proof: rollback leaves neither state nor outbox row; a commit failure is observed as `error`
 - [x] T5 Docs (`writing-code` use cases and observability, `observing-the-api` conventions); verification
+- [x] T7 Re-review minors: rollback only an own transaction, propagation rule, read-only command guard, bridge-aware pointcut, cache test name and prototype note, persisting state on a refusal
 - [x] T6 Review decisions: rollback on `Failure`, read-only query transactions enforced at startup, lazy cached handler lookup, `MissingHandlerException` Javadoc, fixture version note
 
 ## Acceptance (from ticket)
@@ -86,9 +87,14 @@ Strict TDD (project standard, `testing-code`). Runner: `./gradlew test` with `FR
 - Docs: `CommandBus` / `QueryBus` Javadoc (`MissingHandlerException` is a programming error, not to be caught), `CommandHandler` / `QueryHandler` Javadoc, `use-cases.md` (workaround removed, read-only queries, lookup on first use), `persistence.md` (every use case has the transaction `set local` needs), `integration-tests.md` (fixture versions share the production version space).
 - Verification `FRAPPE_TEST_DB=frappe_fapi_11 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 48 classes, 196 tests, 0 failures, 0 errors.
 
+### T7 Re-review minors (scope drift recorded in Plane by the orchestrator)
+- RED (4): `RollbackOnFailureTest.aFailureInAJoinedTransactionLeavesTheDecisionToItsOwner` (`Expecting AtomicInteger(1) to have value: 0`: the joined transaction was marked rollback-only), `RollbackOnFailureTest.anOverloadOfHandleIsNotAdvised` (`NoTransactionException`: the advice matched a one-argument `handle(String)` overload), `HandlerDiscoveryTest.aCommandHandlerThatMayRunWithoutItsOwnTransactionFailsStartup` (`SUPPORTS` / `MANDATORY`) and `aQueryHandlerThatMayRunWithoutATransactionFailsStartup` (`NEVER`): contexts started.
+- Guards, green on first run: `aReadOnlyCommandHandlerFailsStartup` (already enforced by T6's read-only rule), `aHandlerMayStartANewTransaction` (`REQUIRES_NEW` accepted), `RollbackOnFailureTest.aFailureInItsOwnTransactionRollsItBack` (moved here from `UseCaseObservationTest`, which duplicated it).
+- GREEN: the advice marks rollback-only only when `TransactionStatus#isNewTransaction()`; the pointcut compares `AopUtils.getMostSpecificMethod` of the invoked method and of `CommandHandler#handle` on the target class (bridge methods resolved), so only the implementation of `handle` matches; `HandlerRegistry` accepts propagation `REQUIRED`, `REQUIRES_NEW`, `NESTED` for both kinds. `RollbackOnFailureTest` uses class-based proxies and a transaction manager that supports joining.
+- Cache test renamed `aHandlerIsResolvedOnceAndReused`. `use-cases.md`: prototype handlers behave like singletons; joined transactions are left to their owner; propagation rule; how to persist state on a refusal (Valkey `RateLimiter` / `ShortLivedSecretStore` from FAPI-16, or a separate `REQUIRES_NEW` step), a `Failure` never commits the handler's own transaction. `CommandHandler` Javadoc updated.
+- Verification `FRAPPE_TEST_DB=frappe_fapi_11 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 49 classes, 202 tests, 0 failures, 0 errors.
+
 ## Open questions / follow-ups
-- A command handler that joins an outer transaction (e.g. dispatched from inside another transaction) and returns a `Failure` marks the whole transaction rollback-only; the outer commit then fails with `UnexpectedRollbackException`. Handlers are dispatched from outside transactions today, so this is noted, not handled.
-- Handlers are resolved once and reused, so a prototype-scoped handler behaves like a singleton.
 - `MissingHandlerException` and `InvalidHandlersException` are package-private in `infrastructure.bus` (errors standard).
 
 ## Next step
