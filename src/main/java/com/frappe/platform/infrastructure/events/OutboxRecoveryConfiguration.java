@@ -70,7 +70,8 @@ class OutboxRecoveryConfiguration {
     }
 
     /**
-     * The recovery task, collected by the db-scheduler starter.
+     * The recovery task, a {@link com.frappe.platform.ScheduledTask} bean: {@code SchedulingConfiguration} builds the
+     * scheduler from every such bean (the db-scheduler starter only collects its own task type).
      *
      * @param tasks the platform's task conventions
      * @param resubmitter runs one pass

@@ -6,7 +6,7 @@ The engine is db-scheduler 16.12.0, an implementation detail of `platform.infras
 
 ## Declaring a task
 
-A task is a bean in the module's `infrastructure`, created with `ScheduledTasks`; the platform builds the scheduler from every declared task bean. The action calls the module's use case directly (`use-cases.md`: inject the `@CommandUseCase` class and call its one method), like a controller does; it holds no business logic. A returned `Failure` is a business refusal, not a task failure: the run counts as done (the use case rolled back its own work and its telemetry records `outcome=failure`); throw from the action only when a refusal must be retried.
+A task is a bean in the module's `infrastructure`, created with `ScheduledTasks`; the platform builds the scheduler from every declared task bean. The action calls the module's use case directly (`use-cases.md`: inject the `@CommandUseCase` class and call its one method), like a controller does; it holds no business logic. A returned `Failure` is a business refusal, not a task failure: the run counts as done (the use case rolled back its own work and its telemetry records `outcome=failure`). When a refusal must be retried (the branch's day cannot close yet), turn it into an exception with `Result.orElseThrow`, the one place where a `Failure` may become an exception: `close.close(branchId).orElseThrow(BusinessDayNotClosedYet::new)`, a dedicated exception of the module's `infrastructure` (`errors.md`); the scheduler then retries with backoff.
 
 ```java
 @Configuration(proxyBeanMethods = false)
@@ -20,7 +20,7 @@ class IdentityTasks {
                 purge::purge);
     }
 
-    // One-time: one execution per scheduled key.
+    // One-time: one execution per scheduled key. Task data is a small record: record ReminderData(UUID accountId) {}
     @Bean
     OneTimeTask<ReminderData> sendVerificationReminder(ScheduledTasks tasks, SendVerificationReminder send) {
         return tasks.oneTime(TaskName.of("identity.send-verification-reminder"), ReminderData.class,
@@ -45,7 +45,8 @@ class OrganizationTasks {
 - Keys are natural keys: the entity id, or the entity id and the period (`branch-uuid:2026-09-18`). Scheduling a key that is already pending does nothing, so scheduling is idempotent:
 
 ```java
-sendVerificationReminder.schedule(accountId.toString(), new ReminderData(accountId), clock.instant().plus(Duration.ofDays(1)));
+sendVerificationReminder.schedule(accountId.value().toString(), new ReminderData(accountId.value()),
+        clock.instant().plus(Duration.ofDays(1)));
 ```
 
 - Per-entity schedules are `EntitySchedule(cron, zone)` (read in the entity's zone). `schedule` creates or replaces one (a branch moves to another zone); the pending run follows at once, no restart. An invalid cron is rejected there with `IllegalArgumentException`. `cancel(entityId)` removes it, `nextRun(entityId)` reads it:
@@ -69,7 +70,7 @@ closeBusinessDay.schedule(branchId.toString(), new EntitySchedule("0 0 4 * * *",
 
 ## Telemetry and logs (automatic)
 
-- Every execution is the observation `scheduled.task`: span `scheduled task <name>` and timer tagged `scheduled.task.name` and `scheduled.task.outcome` (`success`, `failure`); the key is a span attribute only. The action runs inside it, so its queries and log lines join the trace. Do not add telemetry around tasks.
+- Every execution is the observation `scheduled.task`: span `scheduled task <name>` and timer tagged `scheduled.task.name`, `scheduled.task.outcome` (`success`, `failure`, set when the run ends) and `error` (`none` or the exception's simple class name); long task timer `scheduled.task.active` (tag `scheduled.task.name`) for runs in progress; the key is a span attribute only. The action runs inside it, so its queries and log lines join the trace. Do not add telemetry around tasks.
 - Every failure is logged once: WARN while retries remain, ERROR once they are used up (a given-up one-time run is its last line), with `frappe.scheduling.task_name`, `frappe.scheduling.task_instance`, `frappe.scheduling.consecutive_failures` and the cause.
 - db-scheduler's own meters come from the starter (`MicrometerStatsRegistry`, tag `task`, created with a task's first completed run): `dbscheduler_task_completions` (`result` = `ok` | `failed`), timer `dbscheduler_task_duration`, gauges `dbscheduler_task_last_run_duration` and `dbscheduler_task_last_run_timestamp_seconds`; so does the `dbScheduler` health indicator (UP started, OUT_OF_SERVICE shutting down, DOWN not started).
 

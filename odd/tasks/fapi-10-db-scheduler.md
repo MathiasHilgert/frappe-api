@@ -127,25 +127,28 @@ Strict TDD (brief and project rule). Runner: `./gradlew test` with `FRAPPE_TEST_
 - Merge of `origin/main` (FAPI-11 use cases, 12, 13, 16, 33, 34, 35): conflicts in `build.gradle.kts`, `application.properties`, `errors.md`, `observability.md`, `observing-the-api/references/conventions.md` resolved keeping both sides. Audit fix: `scheduling.md` examples call `@CommandUseCase` classes directly (the command bus is gone since FAPI-11); a returned `Failure` ends the run as done unless the action throws to retry.
 - Merge of `origin/main` 4a3c7b4 (#21 mailer, #26 problem details, #27 PR template): conflicts in `build.gradle.kts` (db-scheduler starter plus Resend SDK and jsoup), `errors.md` (mail catch plus scheduling line), `observability.md` (mail telemetry plus `scheduled.task`), resolved keeping both sides. #26 needs no scheduling change: scheduling has no HTTP surface; a `TaskSchedulingException` escaping a route is a defect-class failure and gets the generic internal-error problem, like any unmapped exception (`ProblemMapper` maps business failure types only). Library meter names in `scheduling.md` corrected from the 16.12.0 source (`dbscheduler_task_*`, not `db_scheduler_*`); `SchedulerSettingsIntegrationTests` asserts the starter's `MicrometerStatsRegistry` feeds the application registry (green on first run, a guard).
 
-### PR tables (names taken from the code)
+### PR tables (names taken from the code; updated in review round 2)
 
 Observability:
 
 | Metric | Type | Unit | Tags (allowed values) | Kind | What it answers |
 | --- | --- | --- | --- | --- | --- |
-| `scheduled.task` | timer | seconds | `scheduled.task.name` (declared task names, e.g. `platform.outbox-recovery`), `scheduled.task.outcome` (`success`, `failure`), `error` (`none` or the exception class simple name) | infrastructure | How often and how long each task runs, and how often it fails |
-| `scheduled.task.active` | long task timer | seconds | `scheduled.task.name`, `scheduled.task.outcome` (`failure` while running: set up front, overwritten on success) | infrastructure | Which tasks are running now and for how long (stuck runs) |
-| `scheduled.task.exhausted` | counter | runs | `scheduled.task.name` (one-time task names) | infrastructure | One-time runs given up after their retries (alert on any increase) |
-| `dbscheduler_task_completions` | counter | runs | `task` (declared task names), `result` (`ok`, `failed`) | infrastructure | Library view of completed runs per task |
-| `dbscheduler_task_duration` | timer | seconds | `task` | infrastructure | Library view of run duration per task |
-| `dbscheduler_task_last_run_duration` | gauge | seconds | `task` | infrastructure | Duration of the last run |
-| `dbscheduler_task_last_run_timestamp_seconds` | gauge | seconds (epoch) | `task` | infrastructure | When the last run completed (staleness alert) |
-| `outbox.recovery` (changed) | timer | seconds | `outbox.recovery.trigger` (`scheduled`, `transport_recovered`), `error` | infrastructure | Unchanged metric; the pass now runs inside `scheduled.task` of `platform.outbox-recovery` |
+| `scheduled.task` | timer | seconds | `scheduled.task.name` (declared task names, e.g. `platform.outbox-recovery`), `scheduled.task.outcome` (`success`, `failure`; set when the run ends), `error` (`none` or the exception's simple class name) | infrastructure | How often and how long each task runs, and how often it fails |
+| `scheduled.task.active` | long task timer | seconds | `scheduled.task.name` (declared task names) | infrastructure | Which tasks are running now and for how long (stuck runs) |
+| `scheduled.task.exhausted` | counter | runs | `scheduled.task.name` (one-time task names; registered at 0 when declared) | infrastructure | One-time runs given up after their retries (alert on any increase) |
+| `dbscheduler_task_completions` | counter | runs | `task` (declared task names), `result` (`ok`, `failed`) | infrastructure | Library count of completed runs per task |
+| `dbscheduler_task_duration` | timer | seconds | `task` (declared task names) | infrastructure | Library duration per task |
+| `dbscheduler_task_last_run_duration` | gauge | seconds | `task` (declared task names) | infrastructure | Duration of the last run |
+| `dbscheduler_task_last_run_timestamp_seconds` | gauge | seconds (epoch) | `task` (declared task names) | infrastructure | When the last run completed (staleness alert) |
+| `outbox.recovery` (changed) | timer | seconds | `outbox.recovery.trigger` (`scheduled`, `transport_recovered`), `error` (`none` or the exception's simple class name; a database failure now fails the pass) | infrastructure | Unchanged metric; the pass runs inside `scheduled.task` and a failed pass is retried by the scheduler |
+
+The four `dbscheduler_task_*` meters come from the starter's `MicrometerStatsRegistry` and appear with a task's first completed run.
 
 | Span / observation | Kind | Key attributes | When |
 | --- | --- | --- | --- |
-| `scheduled task <name>` (observation `scheduled.task`) | internal | `scheduled.task.name`, `scheduled.task.outcome`, `scheduled.task.instance` (the key, span only) | Every task run, root span; the run's JDBC spans and log lines are children |
+| `scheduled task <name>` (observation `scheduled.task`) | internal | `scheduled.task.name`, `scheduled.task.outcome` (at the end), `scheduled.task.instance` (the key, span only) | Every task run; root span, the run's JDBC spans and log lines are children |
 | `outbox recovery` (observation `outbox.recovery`, changed) | internal | `outbox.recovery.trigger` | Every recovery pass, now a child of `scheduled task platform.outbox-recovery` |
+| `outbox redelivery` (observation `outbox.redelivery`, changed) | internal | `outbox.redelivery.outcome`, `outbox.publication.id` | Every resubmitted publication, nested under `outbox recovery`, itself under `scheduled task platform.outbox-recovery` |
 
 Health: `dbScheduler` indicator (UP started, OUT_OF_SERVICE shutting down, DOWN not started), from the starter.
 
@@ -158,6 +161,7 @@ Events: None: scheduling publishes and consumes no domain events. Outbox recover
 - D4 RED `FailedPublicationResubmitterTest.aDatabaseFailureFailsThePassSoTheSchedulerRetriesItWithBackoffAndLogsItOnce` and `aFailedPassIsObservedAsAnError` (expected the `DataAccessException` to leave the pass; it was caught and logged). GREEN: `recover` runs `recoverPass` (renamed from `recoverExclusively`) through `Observation.observe`, which records the error and rethrows; the scheduler's `RetryingFailureHandler` retries the pass with backoff (capped at the interval) and logs it once. The unused `LogFields.RECOVERY_INTERVAL`/`BATCH_SIZE` are gone; `aThrowingRedeliveryIsObservedAsAnErroredRedelivery` now expects the rethrow; `errors.md` updated. 12/12 plus the outbox integration suites.
 - D8 RED `ObservedTaskExecutionTest.whileTheTaskRunsItsObservationCarriesNoOutcomeSoTheActiveTimerDoesNotReadFailure`: the running observation carried `scheduled.task.outcome=failure` (set up front), so `scheduled.task.active` always read failure. GREEN 4/4: a `TaskExecutionConvention` over a `TaskExecutionContext` decides the outcome when the observation stops (`failure` if an error was recorded, `success` if the task returned) and sets none while it runs (Micrometer 1.17 `SimpleObservation` applies the convention at start and at stop, verified in the sources). `ObservedMailer` and outbox redelivery untouched.
 - D6 `RacingSchedulersIntegrationTests`: no fixed wait, no timing-dependent share. Runs of the one-time race wait on a latch that the recording interceptor releases once both instances picked an execution: the first instance to poll fills its threads with waiting runs, so the other must pick some of the rest (deterministic). Both race tests stop both schedulers before asserting no duplicates. 6/6 (test-only change).
+- D5 `OutboxRecoveryConfiguration` Javadoc: the task is a `ScheduledTask` bean that `SchedulingConfiguration` builds the scheduler from. D7 `scheduling.md` names `Result.orElseThrow` into a module exception as the one way a task action retries a refusal; `use-cases.md` allows exactly that. D9 the `ReminderData` example type-checks (`record ReminderData(UUID accountId)`, scheduled with `accountId.value()`). D10 `observability.md`, `observing-the-api/references/conventions.md` and `scheduling.md` list the `error` tag and `scheduled.task.active`. PR tables above updated. Gate `FRAPPE_TEST_DB=frappe_fapi_10 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL in 1m 57s, 140 classes, 716 tests, 0 failures.
 
 ## Follow-ups / open questions
 - `OutboxRecoveryTrigger` drops a trigger while a pass runs (as the lock did before; `runNow` returns false). A pass that started just before NATS came back may still fail its publishes; those then wait for the next scheduled pass (1m with the defaults, plus their backoff).
