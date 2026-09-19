@@ -6,6 +6,7 @@ import jakarta.servlet.DispatcherType;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.health.actuate.endpoint.HealthEndpoint;
 import org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest;
 import org.springframework.context.annotation.Bean;
@@ -16,6 +17,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
+import org.springframework.security.web.header.HeaderWriterFilter;
+import org.springframework.web.servlet.HandlerExceptionResolver;
 
 /**
  * The one security filter chain: stateless, bearer tokens only, every request decided by its route's posture before
@@ -54,6 +57,7 @@ class SecurityConfiguration {
      * @param routes the checked routes
      * @param otherHandlers the guard over handler mappings outside the routes
      * @param sessionResolver identity's session resolver, when present
+     * @param exceptionResolver Spring MVC's exception resolvers, which answer the chain's refusals as problems
      * @return the filter chain
      * @throws Exception when Spring Security cannot build the chain
      */
@@ -62,12 +66,14 @@ class SecurityConfiguration {
             HttpSecurity http,
             RouteCatalog routes,
             HandlerMappingGuard otherHandlers,
-            ObjectProvider<SessionResolver> sessionResolver)
+            ObjectProvider<SessionResolver> sessionResolver,
+            @Qualifier("handlerExceptionResolver") HandlerExceptionResolver exceptionResolver)
             throws Exception {
         // Stateless: the context lives in a request attribute, saved once and reloaded on async and error dispatches.
         var contexts = new RequestAttributeSecurityContextRepository();
         var bearerSessions = new BearerSessionFilter(sessionResolver.getIfAvailable(() -> NO_SESSIONS), contexts);
         var routeAuthorization = new RouteAuthorizationManager(routes, otherHandlers);
+        var refusals = new SecurityRefusals(exceptionResolver);
         // CSRF protection is off on purpose: this API is stateless and takes credentials only from the
         // Authorization: Bearer header, which browsers never attach on their own; cookies and query tokens are ignored
         // (pinned by RouteAccessTests). With no ambient credential there is nothing to forge, so CSRF does not apply
@@ -79,8 +85,10 @@ class SecurityConfiguration {
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
-                .exceptionHandling(failures -> failures.authenticationEntryPoint(new BearerAuthenticationEntryPoint()))
+                .exceptionHandling(
+                        failures -> failures.authenticationEntryPoint(refusals).accessDeniedHandler(refusals))
                 .addFilterBefore(bearerSessions, AnonymousAuthenticationFilter.class)
+                .addFilterAfter(new ErrorDispatchSecurityHeaders(), HeaderWriterFilter.class)
                 .authorizeHttpRequests(requests -> requests.dispatcherTypeMatchers(DispatcherType.ERROR)
                         .permitAll()
                         .requestMatchers(EndpointRequest.to(HealthEndpoint.class))

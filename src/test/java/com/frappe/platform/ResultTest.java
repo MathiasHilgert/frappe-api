@@ -1,6 +1,7 @@
 package com.frappe.platform;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
 import com.frappe.platform.Result.Failure;
@@ -12,6 +13,27 @@ class ResultTest {
     enum TabError {
         ALREADY_CLOSED,
         NOT_FOUND
+    }
+
+    @Test
+    void orElseThrowReturnsTheValueOfASuccess() {
+        // Given
+        Result<Integer, TabError> result = Result.success(2);
+
+        // When / Then
+        assertThat(result.orElseThrow(error -> new AssertionError("no failure expected: " + error)))
+                .isEqualTo(2);
+    }
+
+    @Test
+    void orElseThrowThrowsTheExceptionMadeFromTheError() {
+        // Given
+        Result<Integer, TabError> result = Result.failure(TabError.NOT_FOUND);
+
+        // When / Then
+        assertThatIllegalStateException()
+                .isThrownBy(() -> result.orElseThrow(error -> new IllegalStateException(error.name())))
+                .withMessage("NOT_FOUND");
     }
 
     @Test

@@ -1,0 +1,26 @@
+<mjml lang="${lang}">
+  <!-- Compiled to build/generated/mjml/mail/layout.jte at build time (compileMailLayouts), then precompiled by JTE. -->
+  <mj-raw position="file-start">@param String lang
+@param String subject
+@param gg.jte.Content body</mj-raw>
+  <mj-head>
+    <mj-title>${subject}</mj-title>
+    <mj-attributes>
+      <!-- System fonts only: a web font would make MJML emit a CSS @import, which JTE reads as its own directive. -->
+      <mj-all font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" />
+      <mj-text font-size="16px" line-height="24px" color="#1f2328" />
+    </mj-attributes>
+  </mj-head>
+  <mj-body background-color="#f6f8fa" width="600px">
+    <mj-section padding="24px 0 8px">
+      <mj-column>
+        <mj-text font-size="20px" font-weight="700">Frappé</mj-text>
+      </mj-column>
+    </mj-section>
+    <mj-section background-color="#ffffff" border-radius="8px" padding="16px 8px">
+      <mj-column>
+        <mj-text>${body}</mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>
