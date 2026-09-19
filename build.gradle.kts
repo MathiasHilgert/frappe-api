@@ -107,8 +107,15 @@ tasks.javadoc {
 	}
 }
 
+// Developer scripts are tested hermetically: fake tools on PATH, no network, no credentials.
+val scriptTests = tasks.register<Exec>("scriptTests") {
+	description = "Runs the tests of the developer scripts in scripts/."
+	group = LifecycleBasePlugin.VERIFICATION_GROUP
+	commandLine("bash", "scripts/with-secrets.test.sh")
+}
+
 tasks.named("check") {
-	dependsOn("spotlessCheck", "javadoc")
+	dependsOn("spotlessCheck", "javadoc", scriptTests)
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {

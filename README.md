@@ -131,6 +131,16 @@ Migrations run on startup. `bootRun` activates the `local` profile (`application
 
 Routes live under `/v1`; the OpenAPI spec is at `/v3/api-docs` and, in `local` only, the Scalar API reference at <http://localhost:8080/scalar>. Behind a reverse proxy set `FRAPPE_TRUSTED_PROXIES` to the proxy's addresses (CIDR list, default loopback only): `X-Forwarded-For` is honoured only from those.
 
+### Secrets
+
+The application reads secrets from environment variables only, and the `local` profile needs none. Real keys (production, and dev keys for local work) live in Bitwarden Secrets Manager on the EU cloud, one project per environment (`frappe-dev`, `frappe-production`) with a read-only machine account each. To run anything with the `frappe-dev` secrets injected, install [`bws`](https://github.com/bitwarden/sdk-sm/releases), export the access token of the dev machine account as `BWS_ACCESS_TOKEN` and run:
+
+```bash
+scripts/with-secrets.sh ./gradlew --no-daemon bootRun
+```
+
+Values are passed to that process only, never printed or written to disk. [`docs/secrets.md`](docs/secrets.md) has the setup, the inventory of every secret and the runbook (add, rotate, revoke, leak).
+
 ### Observability
 
 Traces, metrics and logs leave the app over OTLP (OpenTelemetry). Locally everything is zero config: compose runs `grafana/otel-lgtm` and Spring Boot's Docker Compose support wires the exporters to it; the `local` profile samples every request.
@@ -172,7 +182,7 @@ git config core.hooksPath .githooks
 
 ## Continuous integration
 
-Every pull request tells the story of what was verified before it can merge. A history-aware secrets scan runs first, independently of the rest. In parallel, the quality gate checks out the branch, verifies formatting, verifies module boundaries and finally runs the test suite against a real Postgres instance, in that order, annotating the pull request with the test results and publishing a summary with the outcome of each stage and the generated Modulith component diagram. Separately, CodeQL and a dependency review look for known and structural vulnerabilities, and a title check enforces Conventional Commits before merge. Dependabot keeps Gradle, GitHub Actions and Docker dependencies current on a weekly schedule.
+Every pull request tells the story of what was verified before it can merge. A history-aware secrets scan runs first, independently of the rest. In parallel, the quality gate checks out the branch, verifies formatting and Javadoc, tests the developer scripts, verifies module boundaries, runs the test suite against a real Postgres instance and finally runs `./gradlew check`, so CI runs exactly the local gate, annotating the pull request with the test results and publishing a summary with the outcome of each stage and the generated Modulith component diagram. Separately, CodeQL and a dependency review look for known and structural vulnerabilities, and a title check enforces Conventional Commits before merge. Dependabot keeps Gradle, GitHub Actions and Docker dependencies current on a weekly schedule.
 
 ```mermaid
 flowchart LR
@@ -182,9 +192,12 @@ flowchart LR
     PR --> CodeQL[CodeQL analysis]
     PR --> DepReview[Dependency review]
     Gate --> Format[Verify formatting]
-    Format --> Modules[Verify module boundaries]
+    Format --> Javadoc[Verify Javadoc]
+    Javadoc --> Scripts[Test developer scripts]
+    Scripts --> Modules[Verify module boundaries]
     Modules --> Tests[Run tests against Postgres]
-    Tests --> Summary[Job summary + PR annotations]
+    Tests --> Check[Run the whole local gate]
+    Check --> Summary[Job summary + PR annotations]
     Title --> Merge[Ready to merge]
     Secrets --> Merge
     Summary --> Merge
