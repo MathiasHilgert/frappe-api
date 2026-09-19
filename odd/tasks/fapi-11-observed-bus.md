@@ -21,7 +21,7 @@ Strict TDD (project standard, `testing-code`). Runner: `./gradlew test` with `FR
 ## Tasks
 - [x] T0 Verify the library APIs used (Spring `ResolvableType`, bean factory lookups, transaction attribute source, Micrometer Observation and its test kit) from the jars in the Gradle cache; record findings and design
 - [x] T1 `Result` in the kernel (pure Java)
-- [ ] T2 Messages, handler interfaces, bus ports; startup discovery keyed by message type; duplicate and missing handler failures
+- [x] T2 Messages, handler interfaces, bus ports; startup discovery keyed by message type; duplicate and missing handler failures
 - [ ] T3 Observing decorator: one `use_case` observation per dispatch with outcome and error
 - [ ] T4 Postgres proof: rollback leaves neither state nor outbox row; a commit failure is observed as `error`
 - [ ] T5 Docs (`writing-code` use cases and observability, `observing-the-api` conventions); verification
@@ -56,5 +56,10 @@ Strict TDD (project standard, `testing-code`). Runner: `./gradlew test` with `FR
 - RED `ResultTest` (8): compilation failed, `package com.frappe.platform.Result does not exist` (35 errors).
 - GREEN 8/8: sealed `Result` with `Success` / `Failure` records (null rejected in both, so a mapper returning `null` fails fast), `map`, `flatMap`, `mapFailure`, `fold`, factories `success` / `failure`; pattern matching over the records works. `./gradlew javadoc` green (doclint all, `-Werror`).
 
+### T2 Messages, handlers, discovery
+- RED `HandlerDiscoveryTest` (8, `ApplicationContextRunner`, no database): compilation failed, `cannot find symbol` for `Command`, `CommandBus`, `CommandHandler`, `Query`, `QueryBus`, `QueryHandler`, `BusConfiguration`, `InvalidHandlersException`, `MissingHandlerException`.
+- GREEN 8/8: A1 `dispatchingACommandRunsItsSingleHandlerOnceAndReturnsItsResultUnchanged` (same `Result` instance, one call); `askingAQueryReturnsWhatItsHandlerReturns`; A2 `twoHandlersForOneTypeFailStartupNamingBothBeans`; A3 `askingAQueryWithoutAHandlerThrowsMissingHandlerExceptionNamingTheType` (and the command twin); startup failures for a command handler without `@Transactional`, a handler whose message type is not a concrete class (generic handler; same path for lambdas), and a message outside `com.frappe.<module>` (fixture `fixtures.bus.OutsideModuleCommand`).
+- Code: public ports in `com.frappe.platform`; `infrastructure.bus`: `HandlerRegistry` (bean names and types only, no instantiation; all problems in one `InvalidHandlersException`; one INFO line per kind with `frappe.use_case.kind` / `frappe.use_case.handlers`), `HandlerCommandBus` / `HandlerQueryBus`, `UseCase` / `UseCaseKind`, `BusConfiguration`. `./gradlew javadoc` green.
+
 ## Next step
-T2.
+T3.
