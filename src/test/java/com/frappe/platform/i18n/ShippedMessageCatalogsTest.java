@@ -15,7 +15,8 @@ class ShippedMessageCatalogsTest {
         // When
         var violations = MessageCatalogCheck.violations(catalogs);
 
-        // Then
+        // Then: at least the test catalogs (i18n/sample) must be found, or a broken location pattern would silently
+        // check nothing and pass
         assertThat(catalogs).isNotEmpty();
         assertThat(violations).extracting(CatalogViolation::describe).isEmpty();
     }
