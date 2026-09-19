@@ -68,7 +68,13 @@ final class UnexpectedFailures {
         return name.isEmpty() ? ANONYMOUS : name;
     }
 
-    // An error dispatch has its own path (/error); the request that failed is in the servlet's error attributes.
+    /**
+     * The path the client requested: an error dispatch has its own path ({@code /error}), the request that failed is
+     * in the servlet's error attributes.
+     *
+     * @param request the request or its error dispatch
+     * @return the requested path, raw
+     */
     static String originalPath(HttpServletRequest request) {
         return request.getAttribute(RequestDispatcher.ERROR_REQUEST_URI) instanceof String path
                 ? path

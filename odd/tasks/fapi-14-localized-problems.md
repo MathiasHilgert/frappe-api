@@ -110,3 +110,8 @@ Strict TDD. Mode source: project standard (`testing-code`, CLAUDE.md). Runner: `
 
 ### R5 docs
 - `errors.md`: the boundary filter, one ERROR end to end, client faults; the "Tomcat duplicate is accepted" sentence removed. `http-api.md`: boundary filter, container valve, error-dispatch headers, TRACE, 404 for closed framework paths, set content type, param value types, validation params allow-list and order.
+
+### Merge and verification after the rework
+- `git merge origin/main` (5d6f198, includes FAPI-34 d543b58): one conflict in `errors.md` (FAPI-34's provider-failure rules next to the HTTP boundary), both kept; its "generic 500 (FAPI-14)" now points at the HTTP boundary.
+- Javadoc for `UnexpectedFailures#originalPath` (doclint after it became package-visible).
+- `FRAPPE_TEST_DB=frappe_fapi_14 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 118 test classes, 626 tests, 0 failures, 0 errors, 0 skipped.
