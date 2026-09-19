@@ -24,7 +24,7 @@ Strict TDD (brief and project rule). Runner: `./gradlew test` with `FRAPPE_TEST_
 ## Tasks
 - [x] T0 Verify db-scheduler and its Boot 4 starter (versions, auto-configuration, APIs, DDL) from Maven Central sources jars; record findings and design here
 - [x] T1 Dependency, Flyway migration `platform.scheduled_tasks`, `db-scheduler.*` settings; the app's scheduler runs on the Flyway-owned table
-- [ ] T2 Task conventions: `ScheduledTasks` (recurring, one-time, per-entity), `EntitySchedule`, `frappe.scheduling.*` retry settings with exponential backoff, task name rule
+- [x] T2 Task conventions: `ScheduledTasks` (recurring, one-time, per-entity), `EntitySchedule`, `frappe.scheduling.*` retry settings with exponential backoff, task name rule
 - [ ] T3 Observation `scheduled.task` and failure logging (ECS fields); JSON task data; pausing the scheduler with the application context
 - [ ] T4 Acceptance: two schedulers racing on real Postgres (exactly once, dead instance taken over, retries with backoff observed as errors, per-entity schedule change without restart)
 - [ ] T5 Outbox recovery through db-scheduler; remove the lock and `@EnableScheduling`
@@ -68,5 +68,11 @@ Strict TDD (brief and project rule). Runner: `./gradlew test` with `FRAPPE_TEST_
 - GREEN: migration `V202609191000__create_scheduled_tasks.sql` (official DDL qualified with `platform`, priority index left out) and `db-scheduler.table-name`, `delay-startup-until-context-ready`, `shutdown-max-wait` in `application.properties`: 2/2 and 7/7. The runtime role schedules into the table with the default privileges, no grant in the migration.
 - `FRAPPE_TEST_DB=frappe_fapi_10 ./gradlew spotlessApply check`: BUILD SUCCESSFUL.
 
+### T2 task conventions
+- RED (compilation) `ConventionalScheduledTasksTest` (13 cases), `SchedulingPropertiesTest` (4), `EntityScheduleTest` (5): `EntitySchedule`, `ConventionalScheduledTasks`, `SchedulingProperties` missing.
+- GREEN 13/13, 4/4, 5/5: root API `ScheduledTasks` (interface) and `EntitySchedule(cron, zone)`; `ConventionalScheduledTasks` builds every task with the library's `FailureHandler.maxRetries(n).withBackoff(initial, 2.0).then(...)`: recurring (plain and stateful) fall back to `OnFailureReschedule(schedule)`, one-time tasks to `OnFailureRetryLater(initial × 2^n)`, per-entity tasks to `OnFailureRescheduleUsingTaskDataSchedule`; names must match `<module>.<kebab-case-name>`. `frappe.scheduling.initial-backoff` (30s) and `max-retries` (5, 0..20) in `SchedulingProperties`.
+- RED `EntityScheduleTest.isStoredAsItsCronAndZoneOnly`: the JSON held the derived `schedule` and `data` as well (`{"cron":…,"zone":…,"data":null,"schedule":{"type":"cron",…}}`). GREEN after `@JsonIgnore` on `getSchedule()`/`getData()`: 6/6, stored as `{"cron":"0 0 4 * * *","zone":"Europe/Berlin"}`.
+- `./gradlew spotlessApply check`: BUILD SUCCESSFUL.
+
 ## Next step
-T2.
+T3.
