@@ -15,6 +15,7 @@ import io.micrometer.observation.ObservationRegistry;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /** Startup discovery of handlers and routing of messages, without a database. */
@@ -108,6 +109,53 @@ class HandlerDiscoveryTest {
         @Override
         public String handle(ListTabs query) {
             return "";
+        }
+    }
+
+    record ReopenTab() implements Command<Result<String, TabError>> {}
+
+    @Transactional(readOnly = true)
+    static class ReadOnlyCloseTabHandler implements CommandHandler<CloseTab, Result<String, TabError>> {
+
+        @Override
+        public Result<String, TabError> handle(CloseTab command) {
+            return Result.success(command.table());
+        }
+    }
+
+    @Transactional(propagation = Propagation.SUPPORTS)
+    static class SupportsCloseTabHandler implements CommandHandler<CloseTab, Result<String, TabError>> {
+
+        @Override
+        public Result<String, TabError> handle(CloseTab command) {
+            return Result.success(command.table());
+        }
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    static class MandatoryReopenTabHandler implements CommandHandler<ReopenTab, Result<String, TabError>> {
+
+        @Override
+        public Result<String, TabError> handle(ReopenTab command) {
+            return Result.success("reopened");
+        }
+    }
+
+    @Transactional(readOnly = true, propagation = Propagation.NEVER)
+    static class NeverFindTabHandler implements QueryHandler<FindTab, String> {
+
+        @Override
+        public String handle(FindTab query) {
+            return "never";
+        }
+    }
+
+    @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
+    static class RequiresNewFindTabHandler implements QueryHandler<FindTab, String> {
+
+        @Override
+        public String handle(FindTab query) {
+            return "new";
         }
     }
 
@@ -222,7 +270,7 @@ class HandlerDiscoveryTest {
     }
 
     @Test
-    void aHandlerIsCreatedOnFirstUseNotAtStartupAndThenReused() {
+    void aHandlerIsResolvedOnceAndReused() {
         CountedFindTabHandler.instances.set(0);
         contextRunner
                 .withBean(
@@ -241,6 +289,55 @@ class HandlerDiscoveryTest {
                     // Then
                     assertThat(CountedFindTabHandler.instances).hasValue(1);
                 });
+    }
+
+    @Test
+    void aReadOnlyCommandHandlerFailsStartup() {
+        contextRunner
+                .withBean("closeTabHandler", ReadOnlyCloseTabHandler.class)
+                .run(context -> assertThat(context)
+                        .getFailure()
+                        .rootCause()
+                        .isInstanceOf(InvalidHandlersException.class)
+                        .hasMessageContaining("'closeTabHandler'")
+                        .hasMessageContaining("not read-only"));
+    }
+
+    @Test
+    void aCommandHandlerThatMayRunWithoutItsOwnTransactionFailsStartup() {
+        contextRunner
+                .withBean("closeTabHandler", SupportsCloseTabHandler.class)
+                .withBean("reopenTabHandler", MandatoryReopenTabHandler.class)
+                .run(context -> assertThat(context)
+                        .getFailure()
+                        .rootCause()
+                        .isInstanceOf(InvalidHandlersException.class)
+                        .hasMessageContaining("'closeTabHandler'")
+                        .hasMessageContaining("'reopenTabHandler'")
+                        .hasMessageContaining("REQUIRED, REQUIRES_NEW or NESTED"));
+    }
+
+    @Test
+    void aQueryHandlerThatMayRunWithoutATransactionFailsStartup() {
+        contextRunner
+                .withBean("findTabHandler", NeverFindTabHandler.class)
+                .run(context -> assertThat(context)
+                        .getFailure()
+                        .rootCause()
+                        .isInstanceOf(InvalidHandlersException.class)
+                        .hasMessageContaining("'findTabHandler'")
+                        .hasMessageContaining("REQUIRED, REQUIRES_NEW or NESTED"));
+    }
+
+    @Test
+    void aHandlerMayStartANewTransaction() {
+        contextRunner.withBean(RequiresNewFindTabHandler.class).run(context -> {
+            // When
+            var answer = context.getBean(QueryBus.class).ask(new FindTab("7"));
+
+            // Then
+            assertThat(answer).isEqualTo("new");
+        });
     }
 
     @Test

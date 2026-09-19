@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -14,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.core.ResolvableType;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.interceptor.TransactionAttributeSource;
 import org.springframework.util.ClassUtils;
@@ -31,6 +33,13 @@ final class HandlerRegistry {
     // The rule Spring's transaction proxy itself applies (public methods, method before class, bridge methods
     // resolved), so the startup check can never disagree with what happens at runtime.
     private static final TransactionAttributeSource TRANSACTION_ATTRIBUTES = new AnnotationTransactionAttributeSource();
+
+    // Propagations that always run the handler in a transaction: SUPPORTS, NOT_SUPPORTED and NEVER may run it without
+    // one (no atomic save and outbox write, nowhere for set local), MANDATORY fails unless a caller opened one.
+    private static final Set<Integer> OWN_TRANSACTION_PROPAGATIONS = Set.of(
+            TransactionDefinition.PROPAGATION_REQUIRED,
+            TransactionDefinition.PROPAGATION_REQUIRES_NEW,
+            TransactionDefinition.PROPAGATION_NESTED);
 
     private final UseCaseKind kind;
     private final ConfigurableListableBeanFactory beans;
@@ -52,7 +61,8 @@ final class HandlerRegistry {
      * @return the registry
      * @throws InvalidHandlersException if two handlers share a message type, a handler's message type cannot be
      *     resolved to a concrete class, the message lives outside a module package, a command handler is not
-     *     transactional (or read-only), or a query handler is not read-only transactional
+     *     transactional (or read-only), a query handler is not read-only transactional, or a handler's propagation
+     *     may run it outside a transaction of its own
      */
     static HandlerRegistry discover(ConfigurableListableBeanFactory beans, UseCaseKind kind) {
         var beanNamesByType = new LinkedHashMap<Class<?>, List<String>>();
@@ -157,15 +167,19 @@ final class HandlerRegistry {
     private static boolean hasRequiredTransaction(UseCaseKind kind, Class<?> handlerClass) {
         var handle = ClassUtils.getMethod(kind.handlerType(), "handle", kind.messageType());
         var transaction = TRANSACTION_ATTRIBUTES.getTransactionAttribute(handle, handlerClass);
-        return transaction != null && transaction.isReadOnly() == kind.readOnly();
+        return transaction != null
+                && transaction.isReadOnly() == kind.readOnly()
+                && OWN_TRANSACTION_PROPAGATIONS.contains(transaction.getPropagationBehavior());
     }
 
     private static String transactionProblem(UseCaseKind kind, String beanName) {
         return kind.readOnly()
-                ? "'" + beanName + "' must be @Transactional(readOnly = true) (on handle or the class), so the query"
-                        + " reads in one transaction that carries its tenant setting and never writes"
-                : "'" + beanName + "' must be @Transactional (on handle or the class) and not read-only, so the state"
-                        + " it saves and the events it records commit or roll back together";
+                ? "'" + beanName + "' must be @Transactional(readOnly = true) (on handle or the class) with propagation"
+                        + " REQUIRED, REQUIRES_NEW or NESTED, so the query reads in one transaction that carries its"
+                        + " tenant setting and never writes"
+                : "'" + beanName + "' must be @Transactional (on handle or the class), not read-only, with propagation"
+                        + " REQUIRED, REQUIRES_NEW or NESTED, so the state it saves and the events it records commit or"
+                        + " roll back together";
     }
 
     private static String unresolvableProblem(UseCaseKind kind, String beanName) {
