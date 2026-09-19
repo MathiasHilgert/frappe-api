@@ -26,7 +26,7 @@ Strict TDD (brief and project rule). Runner: `./gradlew test` with `FRAPPE_TEST_
 - [x] T1 Dependency, Flyway migration `platform.scheduled_tasks`, `db-scheduler.*` settings; the app's scheduler runs on the Flyway-owned table
 - [x] T2 Task conventions: `ScheduledTasks` (recurring, one-time, per-entity), `EntitySchedule`, `frappe.scheduling.*` retry settings with exponential backoff, task name rule
 - [x] T3 Observation `scheduled.task` and failure logging (ECS fields); JSON task data; pausing the scheduler with the application context
-- [ ] T4 Acceptance: two schedulers racing on real Postgres (exactly once, dead instance taken over, retries with backoff observed as errors, per-entity schedule change without restart)
+- [x] T4 Acceptance: two schedulers racing on real Postgres (exactly once, dead instance taken over, retries with backoff observed as errors, per-entity schedule change without restart)
 - [ ] T5 Outbox recovery through db-scheduler; remove the lock and `@EnableScheduling`
 - [ ] T6 Docs (`writing-code`: declaring a task; outbox recovery, observability, errors), final verification
 
@@ -80,5 +80,15 @@ Strict TDD (brief and project rule). Runner: `./gradlew test` with `FRAPPE_TEST_
 - RED `SchedulerTableIntegrationTests.storesTaskDataAsJson` (observed by leaving the customizer bean out): `SerializationException` caused by `NotSerializableException` (the starter's Java serialization default). GREEN with `SchedulingConfiguration.jsonTaskData()` (`DbSchedulerCustomizer` returning the starter's `Jackson3Serializer`): stored `{"branch":"branch-42","attempt":3}`; 3/3.
 - `./gradlew spotlessApply check`: BUILD SUCCESSFUL.
 
+### T4 acceptance: two schedulers racing on real Postgres
+- `RacingSchedulersIntegrationTests` builds two `Scheduler` instances like the starter does (table `platform.scheduled_tasks`, `Jackson3Serializer`, `ObservedTaskExecution`, `TaskFailureLog`; polling 100ms, heartbeat 250ms × 4) on the application's `DataSource` (runtime role), with task names unique per test.
+- These tests guard behavior built test-first in T1–T3 and provided by db-scheduler (optimistic pick on `version`, dead-execution revival); no production change was needed, so there is no separate RED. First run: 4/5 green; `aChangedEntityScheduleDrivesTheNextExecutionWithoutARestart` failed on the test itself (`UnsupportedOperationException: Cannot instatiate a RecurringTaskWithPersistentSchedule without 'data'` from `task.instance(id)`); fixed with `TaskInstanceId.of(name, id)`, and the `ScheduledTasks#perEntity` Javadoc now says so. GREEN 5/5 (about 11s):
+  - A1 `everyDueExecutionOfARecurringTaskRunsOnExactlyOneInstance`: 200ms fixed delay on two instances, at least 10 due executions, no execution time run twice; `everyOneTimeExecutionRunsOnExactlyOneInstance`: 50 due instances, each run exactly once.
+  - A2 `anExecutionOfADeadInstanceIsTakenOverOnceItsHeartbeatExpires`: instance A picks the execution and stops heartbeating with it picked (handler blocked through the shutdown interrupt); instance B runs it after about 1s of missed heartbeats.
+  - A3 `aFailingTaskRetriesWithExponentialBackoffAndEveryFailureIsObservedAsAnError`: three failures, gaps at least 300ms, 600ms, 1.2s, then success; four `scheduled.task` observations, three with error and outcome `failure`, one `success`.
+  - A4 `aChangedEntityScheduleDrivesTheNextExecutionWithoutARestart`: São Paulo → Berlin moves the pending execution to the next 04:00 Berlin with the new data stored; a schedule that is due runs on the running instance.
+  - Natural-key uniqueness: `SchedulerTableIntegrationTests.schedulingTheSameNaturalKeyTwiceKeepsOneExecution` (T1).
+- `./gradlew spotlessApply check`: BUILD SUCCESSFUL.
+
 ## Next step
-T4.
+T5.
