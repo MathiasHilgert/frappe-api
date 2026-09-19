@@ -31,6 +31,9 @@ import org.slf4j.LoggerFactory;
 /** Contract tests of the Pwned Passwords range API adapter against a WireMock stub; never calls the real API. */
 class HaveIBeenPwnedRestApiPasswordCheckerTest {
 
+    // Generous for a cold first call on a slow machine, far below the stubs' 6 s.
+    private static final Duration BUDGET = Duration.ofSeconds(1);
+
     private static final String RAW = "correct horse battery staple";
 
     @RegisterExtension
@@ -50,9 +53,9 @@ class HaveIBeenPwnedRestApiPasswordCheckerTest {
 
     @BeforeEach
     void setUp() throws NoSuchAlgorithmException {
-        var properties = new IdentityProperties.BreachedPasswordsProperties(
-                URI.create(pwnedPasswords.baseUrl()), Duration.ofMillis(300));
-        checker = new HaveIBeenPwnedRestApiPasswordChecker(properties, observations);
+        var properties =
+                new IdentityProperties.BreachedPasswordsProperties(URI.create(pwnedPasswords.baseUrl()), BUDGET);
+        checker = new HaveIBeenPwnedRestApiPasswordChecker(properties, customizedBuilder());
         var sha1 = HexFormat.of()
                 .withUpperCase()
                 .formatHex(MessageDigest.getInstance("SHA-1").digest(RAW.getBytes(StandardCharsets.UTF_8)));
@@ -64,6 +67,7 @@ class HaveIBeenPwnedRestApiPasswordCheckerTest {
 
     @AfterEach
     void detachLogs() {
+        checker.close();
         root.detachAppender(logs);
     }
 
@@ -141,7 +145,7 @@ class HaveIBeenPwnedRestApiPasswordCheckerTest {
     void aTimeoutIsUnknownRecordedOnTheClientObservationAndNotLogged() {
         // Given
         pwnedPasswords.stubFor(get("/range/" + prefix)
-                .willReturn(aResponse().withStatus(200).withBody("").withFixedDelay(2_000)));
+                .willReturn(aResponse().withStatus(200).withBody("").withFixedDelay(6_000)));
 
         // When
         var status = checker.check(password());
@@ -155,9 +159,8 @@ class HaveIBeenPwnedRestApiPasswordCheckerTest {
     @Test
     void anUnreachableServiceIsUnknown() {
         // Given
-        var properties = new IdentityProperties.BreachedPasswordsProperties(
-                URI.create("http://127.0.0.1:1"), Duration.ofMillis(300));
-        var unreachable = new HaveIBeenPwnedRestApiPasswordChecker(properties, observations);
+        var properties = new IdentityProperties.BreachedPasswordsProperties(URI.create("http://127.0.0.1:1"), BUDGET);
+        var unreachable = new HaveIBeenPwnedRestApiPasswordChecker(properties, customizedBuilder());
 
         // When
         var status = unreachable.check(password());
@@ -181,21 +184,41 @@ class HaveIBeenPwnedRestApiPasswordCheckerTest {
 
     @Test
     void aSlowlyDribbledAnswerEndsNearTheTotalBudget() {
-        // Given: headers at once, then the body over 3 s (a read timeout alone would not stop it)
+        // Given: headers at once, then the body over 6 s (a read timeout alone would not stop it)
         pwnedPasswords.stubFor(get("/range/" + prefix)
                 .willReturn(aResponse()
                         .withStatus(200)
                         .withBody("0018A45C4D1DEF81644B54AB7F969B88D65:1\r\n".repeat(50))
-                        .withChunkedDribbleDelay(30, 3_000)));
+                        .withChunkedDribbleDelay(30, 6_000)));
 
         // When
         var started = System.nanoTime();
         var status = checker.check(password());
         var elapsed = java.time.Duration.ofNanos(System.nanoTime() - started);
 
-        // Then: budget 300 ms
+        // Then: well before the body would end
         assertThat(status).isEqualTo(BreachStatus.UNKNOWN);
-        assertThat(elapsed).isLessThan(java.time.Duration.ofMillis(1_000));
+        assertThat(elapsed).isLessThan(BUDGET.plusSeconds(1));
+    }
+
+    @Test
+    void theClientComesFromTheInjectedBuilderSoItsCustomizationsApply() {
+        // Given
+        stubRange("0018A45C4D1DEF81644B54AB7F969B88D65:1");
+
+        // When
+        checker.check(password());
+
+        // Then
+        pwnedPasswords.verify(getRequestedFor(urlEqualTo("/range/" + prefix))
+                .withHeader("X-Customized", com.github.tomakehurst.wiremock.client.WireMock.equalTo("yes")));
+    }
+
+    // Stands in for Boot's RestClient.Builder: observed, and customized by a header the adapter does not set.
+    private org.springframework.web.client.RestClient.Builder customizedBuilder() {
+        return org.springframework.web.client.RestClient.builder()
+                .observationRegistry(observations)
+                .defaultHeader("X-Customized", "yes");
     }
 
     private void stubRange(String body) {
@@ -204,11 +227,14 @@ class HaveIBeenPwnedRestApiPasswordCheckerTest {
     }
 
     private void assertTheClientObservationRecordedAnError() {
-        TestObservationRegistryAssert.assertThat(observations)
-                .hasSingleObservationThat()
-                .hasNameEqualTo("http.client.requests")
-                .hasError()
-                .hasBeenStopped();
+        // A call over budget is interrupted on its own thread, so its observation may stop just after the answer.
+        org.awaitility.Awaitility.await()
+                .atMost(Duration.ofSeconds(5))
+                .untilAsserted(() -> TestObservationRegistryAssert.assertThat(observations)
+                        .hasSingleObservationThat()
+                        .hasNameEqualTo("http.client.requests")
+                        .hasError()
+                        .hasBeenStopped());
     }
 
     private void assertNothingLoggedAtWarnOrAbove() {

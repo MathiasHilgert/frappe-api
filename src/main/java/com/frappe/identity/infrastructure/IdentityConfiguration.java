@@ -4,11 +4,11 @@ import com.frappe.identity.domain.BreachedPasswords;
 import com.frappe.identity.domain.PasswordHasher;
 import com.frappe.identity.domain.PasswordPolicy;
 import com.frappe.identity.domain.Secrets;
-import io.micrometer.observation.ObservationRegistry;
 import java.security.SecureRandom;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestClient;
 
 /** Wires identity's domain ports to their adapters, and the one password policy. */
 @Configuration(proxyBeanMethods = false)
@@ -32,12 +32,12 @@ class IdentityConfiguration {
      * The Pwned Passwords range API.
      *
      * @param properties identity's settings
-     * @param observations the registry of the HTTP client observation
+     * @param builders Boot's client builder, so its observation, SSL and proxy customizations apply
      * @return the breach corpus
      */
     @Bean
-    BreachedPasswords breachedPasswords(IdentityProperties properties, ObservationRegistry observations) {
-        return new HaveIBeenPwnedRestApiPasswordChecker(properties.breachedPasswords(), observations);
+    BreachedPasswords breachedPasswords(IdentityProperties properties, RestClient.Builder builders) {
+        return new HaveIBeenPwnedRestApiPasswordChecker(properties.breachedPasswords(), builders);
     }
 
     /**

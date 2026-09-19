@@ -3,15 +3,20 @@ package com.frappe.identity.infrastructure;
 import com.frappe.identity.domain.BreachStatus;
 import com.frappe.identity.domain.BreachedPasswords;
 import com.frappe.identity.domain.Password;
-import io.micrometer.observation.ObservationRegistry;
-import java.net.http.HttpClient;
+import io.micrometer.context.ContextExecutorService;
+import io.micrometer.context.ContextSnapshotFactory;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.util.HexFormat;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -20,11 +25,15 @@ import org.springframework.web.client.RestClientException;
  * of the password's SHA-1 leave the process; the matching suffixes come back and are compared here. Responses are
  * padded ({@code Add-Padding}), so their size does not reveal the prefix either; padding entries have count 0.
  *
+ * <p>One total budget ({@code frappe.identity.breached-passwords.timeout}) bounds the whole call, connecting, waiting
+ * and reading a slowly dribbled body included: the call runs on a virtual thread (carrying the caller's observation
+ * context), and past the budget it is interrupted and the answer is {@link BreachStatus#UNKNOWN}.
+ *
  * <p>A sanitizing adapter boundary that fails open: any failure (timeout, network, non-2xx, unreadable answer) is
  * {@link BreachStatus#UNKNOWN}, and is not logged. The HTTP client observation ({@code http.client.requests}) records
  * the request and its error; the password policy then accepts the password.
  */
-final class HaveIBeenPwnedRestApiPasswordChecker implements BreachedPasswords {
+final class HaveIBeenPwnedRestApiPasswordChecker implements BreachedPasswords, AutoCloseable {
 
     private static final int PREFIX_LENGTH = 5;
 
@@ -37,22 +46,23 @@ final class HaveIBeenPwnedRestApiPasswordChecker implements BreachedPasswords {
 
     private final RestClient rangeApi;
 
+    private final Duration budget;
+
+    private final ExecutorService calls = ContextExecutorService.wrap(
+            Executors.newVirtualThreadPerTaskExecutor(),
+            () -> ContextSnapshotFactory.builder().build().captureAll());
+
     /**
      * Creates the checker.
      *
      * @param properties where the range API answers and how long to wait for it
-     * @param observations the registry the HTTP client observation is recorded in
+     * @param builders Boot's client builder
      */
     HaveIBeenPwnedRestApiPasswordChecker(
-            IdentityProperties.BreachedPasswordsProperties properties, ObservationRegistry observations) {
-        var httpClient =
-                HttpClient.newBuilder().connectTimeout(properties.timeout()).build();
-        var requests = new JdkClientHttpRequestFactory(httpClient);
-        requests.setReadTimeout(properties.timeout());
-        this.rangeApi = RestClient.builder()
+            IdentityProperties.BreachedPasswordsProperties properties, RestClient.Builder builders) {
+        this.budget = properties.timeout();
+        this.rangeApi = builders.clone()
                 .baseUrl(properties.baseUrl())
-                .requestFactory(requests)
-                .observationRegistry(observations)
                 .defaultHeader(HttpHeaders.USER_AGENT, USER_AGENT)
                 .build();
     }
@@ -62,17 +72,39 @@ final class HaveIBeenPwnedRestApiPasswordChecker implements BreachedPasswords {
         var sha1 = sha1(password);
         var prefix = sha1.substring(0, PREFIX_LENGTH);
         var suffix = sha1.substring(PREFIX_LENGTH);
+        var call = calls.submit(() -> rangeOf(prefix));
         try {
-            var range = rangeApi.get()
-                    .uri("/range/{prefix}", prefix)
-                    .header("Add-Padding", "true")
-                    .retrieve()
-                    .body(String.class);
-            return statusIn(range == null ? "" : range, suffix);
-        } catch (RestClientException e) {
-            // Fails open without logging: the client observation already carries the error.
+            return statusIn(call.get(budget.toNanos(), TimeUnit.NANOSECONDS), suffix);
+        } catch (TimeoutException e) {
+            // Over budget: interrupting the call makes the client fail, and its observation records the error.
+            call.cancel(true);
             return BreachStatus.UNKNOWN;
+        } catch (InterruptedException e) {
+            call.cancel(true);
+            Thread.currentThread().interrupt();
+            return BreachStatus.UNKNOWN;
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof RestClientException) {
+                // Fails open without logging: the client observation already carries the error.
+                return BreachStatus.UNKNOWN;
+            }
+            throw new IllegalStateException("The breach check failed unexpectedly", e.getCause());
         }
+    }
+
+    /** Stops the calls still running past their budget. */
+    @Override
+    public void close() {
+        calls.shutdownNow();
+    }
+
+    private String rangeOf(String prefix) {
+        var range = rangeApi.get()
+                .uri("/range/{prefix}", prefix)
+                .header("Add-Padding", "true")
+                .retrieve()
+                .body(String.class);
+        return range == null ? "" : range;
     }
 
     private static BreachStatus statusIn(String range, String suffix) {

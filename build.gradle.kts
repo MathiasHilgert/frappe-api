@@ -31,6 +31,8 @@ dependencies {
 	// Compile access to the SMTP reply codes (SMTPAddressFailedException) that tell a permanent refusal from a deferral.
 	implementation("org.eclipse.angus:angus-mail")
 	implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
+	// Boot's RestClient.Builder (observation, SSL bundles, proxy settings) for outbound HTTP adapters.
+	implementation("org.springframework.boot:spring-boot-starter-restclient")
 	implementation("org.springframework.boot:spring-boot-starter-security")
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
