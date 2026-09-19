@@ -57,4 +57,30 @@ class TranslationRequestTest {
                         List.of("Hola"), SupportedLocales.SPANISH, null, null, TranslationFormality.DEFAULT))
                 .isInstanceOf(NullPointerException.class);
     }
+
+    @Test
+    void rejectsAGlossaryReferenceWithoutASourceLanguage() {
+        assertThatThrownBy(() -> new TranslationRequest(
+                        List.of("Hola"),
+                        null,
+                        SupportedLocales.PORTUGUESE,
+                        "glossary-123",
+                        TranslationFormality.DEFAULT))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("sourceLanguage");
+    }
+
+    @Test
+    void allowsAGlossaryReferenceWithASourceLanguage() {
+        // Given / When
+        var request = new TranslationRequest(
+                List.of("Hola"),
+                SupportedLocales.SPANISH,
+                SupportedLocales.PORTUGUESE,
+                "glossary-123",
+                TranslationFormality.DEFAULT);
+
+        // Then
+        assertThat(request.glossaryReference()).isEqualTo("glossary-123");
+    }
 }

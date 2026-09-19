@@ -12,11 +12,5 @@ final class LogFields {
     /** The raw {@code Accept-Language} header a request carried. */
     static final String ACCEPT_LANGUAGE = "http.request.headers.accept_language";
 
-    /** The target language (BCP 47 tag) of a machine translation call. */
-    static final String TARGET_LANGUAGE = "frappe.target_language";
-
-    /** What a machine translation call resulted in ({@code unavailable}, {@code quota_exceeded}). */
-    static final String TRANSLATION_OUTCOME = "frappe.translation_outcome";
-
     private LogFields() {}
 }

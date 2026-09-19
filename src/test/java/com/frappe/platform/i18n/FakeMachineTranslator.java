@@ -1,16 +1,16 @@
-package com.frappe.platform.infrastructure.i18n;
+package com.frappe.platform.i18n;
 
-import com.frappe.platform.i18n.MachineTranslationUnavailableException;
-import com.frappe.platform.i18n.MachineTranslator;
-import com.frappe.platform.i18n.Translation;
-import com.frappe.platform.i18n.TranslationRequest;
 import java.util.List;
 import java.util.Locale;
 
 /**
- * A deterministic {@link MachineTranslator} for other modules' tests and for local work without a DeepL key: every
- * text comes back tagged with its target language ({@code "[pt] Hola"}), no HTTP call, no billing. The detected
- * source language is the request's source language, or English when the request left it to auto-detection.
+ * A deterministic {@link MachineTranslator} for other modules' tests: every text comes back tagged with its target
+ * language ({@code "[pt] Hola"}), no HTTP call, no billing. The detected source language is the request's source
+ * language, or English when the request left it to auto-detection.
+ *
+ * <p>Local work without a DeepL key already gets a working {@code MachineTranslator}: the DeepL adapter itself, wired
+ * with {@link #isAvailable()} {@code false} (see {@code DeepLTranslationConfiguration}); this fake exists only for
+ * tests that want deterministic translated text instead of an unavailable port.
  */
 public final class FakeMachineTranslator implements MachineTranslator {
 

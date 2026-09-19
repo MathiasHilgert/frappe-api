@@ -9,30 +9,36 @@ import com.deepl.api.MultilingualGlossaryDictionaryEntries;
 import com.deepl.api.MultilingualGlossaryInfo;
 import com.deepl.api.QuotaExceededException;
 import com.deepl.api.TooManyRequestsException;
+import com.frappe.platform.i18n.MachineTranslationGlossaries;
 import com.frappe.platform.i18n.MachineTranslationQuotaExceededException;
 import com.frappe.platform.i18n.MachineTranslationUnavailableException;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Creates or reuses one DeepL glossary per business and language pair. A business's glossary is named after its id,
- * so {@link #ensure} first lists the account's glossaries and reuses a matching one instead of creating a duplicate
- * on every call (DeepL has no "get or create" endpoint).
+ * {@link MachineTranslationGlossaries} over the DeepL multilingual glossary API (v3): one glossary per business,
+ * named {@code frappe-business-<businessId>}, one dictionary per language pair inside it. DeepL has no
+ * "get or create" endpoint, so {@link #ensure} lists the account's glossaries and reuses (or extends) a matching one
+ * instead of creating a duplicate on every call.
  *
- * <p>Not part of {@link com.frappe.platform.i18n.MachineTranslator}: catalog and menu (later tickets) call this when
- * they decide a business needs a glossary, then pass the returned id as {@link com.frappe.platform.i18n.TranslationRequest#glossaryReference()}.
+ * <p>Two instances (two application nodes) can race and both create a business's first glossary at once; the loser's
+ * extra glossary is harmless but wasteful, so after a create this class re-lists, keeps the oldest same-name
+ * glossary and deletes the rest. The chosen reference is cached per business and language pair for this instance's
+ * lifetime, so a repeated {@link #ensure} call for the same pair never lists the account again.
  *
- * <p>Provider failures are sanitized and logged once at ERROR before rethrow, exactly like {@link DeepLMachineTranslator}: the
- * provider's name and response never reach a caller, only our own exceptions and the log line's structured fields.
+ * <p>Provider failures are sanitized the same way as {@link DeepLMachineTranslator}: mapped to our own exceptions
+ * with the provider failure only as {@linkplain Throwable#getCause() cause}, never logged here (see its javadoc).
  */
-final class DeepLGlossaries {
-
-    private static final Logger log = LoggerFactory.getLogger(DeepLGlossaries.class);
+final class DeepLGlossaries implements MachineTranslationGlossaries {
 
     private final DeepLClient client;
+
+    private final Map<CacheKey, String> cache = new ConcurrentHashMap<>();
 
     /**
      * Creates the glossary manager.
@@ -43,36 +49,60 @@ final class DeepLGlossaries {
         this.client = client;
     }
 
+    @Override
+    public String ensure(UUID businessId, Locale sourceLanguage, Locale targetLanguage, Map<String, String> entries) {
+        var key = new CacheKey(businessId, sourceLanguage.getLanguage(), targetLanguage.getLanguage());
+        var cached = cache.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        var name = glossaryName(businessId);
+        var glossaryEntries = new GlossaryEntries(entries);
+        var reference = oldestDeduped(name)
+                .map(existing -> {
+                    replaceDictionary(existing.getGlossaryId(), sourceLanguage, targetLanguage, glossaryEntries);
+                    return existing.getGlossaryId();
+                })
+                .orElseGet(() -> {
+                    var created = create(name, sourceLanguage, targetLanguage, glossaryEntries);
+                    return oldestDeduped(name)
+                            .map(MultilingualGlossaryInfo::getGlossaryId)
+                            .orElseGet(created::getGlossaryId);
+                });
+        cache.put(key, reference);
+        return reference;
+    }
+
     /**
-     * Returns the id of the business's glossary for the given language pair, creating one if none exists yet.
-     *
-     * @param businessId the business the glossary belongs to
-     * @param sourceLanguage the glossary dictionary's source language
-     * @param targetLanguage the glossary dictionary's target language
-     * @param entries the entries to create the glossary with, if it does not exist yet
-     * @return the glossary id, to pass as {@link com.frappe.platform.i18n.TranslationRequest#glossaryReference()}
-     * @throws MachineTranslationUnavailableException if the provider could not be reached or refused the key
-     * @throws MachineTranslationQuotaExceededException if the account's translation quota is exhausted
+     * The name that groups every glossary of one business, so a name collision with an unrelated glossary a human
+     * created directly in the DeepL account is not possible.
      */
-    String ensure(UUID businessId, Locale sourceLanguage, Locale targetLanguage, GlossaryEntries entries) {
+    private static String glossaryName(UUID businessId) {
+        return "frappe-business-" + businessId;
+    }
+
+    /**
+     * Lists the account's glossaries matching {@code name}, deletes every one but the oldest (a concurrent duplicate),
+     * and returns that oldest one, if any.
+     */
+    private Optional<MultilingualGlossaryInfo> oldestDeduped(String name) {
+        var matching = list().stream()
+                .filter(glossary -> glossary.getName().equals(name))
+                .sorted(Comparator.comparing(MultilingualGlossaryInfo::getCreationTime))
+                .toList();
+        matching.stream().skip(1).forEach(this::deleteBestEffort);
+        return matching.stream().findFirst();
+    }
+
+    // Cleans up a duplicate created by a losing concurrent instance; the surviving oldest glossary is already
+    // correct, so a failed delete here (network blip, already gone) must not fail ensure() for this instance.
+    private void deleteBestEffort(MultilingualGlossaryInfo duplicate) {
         try {
-            var name = businessId.toString();
-            var existing = list().stream()
-                    .filter(glossary -> glossary.getName().equals(name))
-                    .filter(glossary -> matches(glossary, sourceLanguage, targetLanguage))
-                    .findFirst();
-            if (existing.isPresent()) {
-                return existing.get().getGlossaryId();
-            }
-            return create(name, sourceLanguage, targetLanguage, entries).getGlossaryId();
-        } catch (RuntimeException e) {
-            if (e.getCause() != null) {
-                log.atError()
-                        .addKeyValue(LogFields.TARGET_LANGUAGE, targetLanguage.toLanguageTag())
-                        .setCause(e.getCause())
-                        .log("Ensuring a machine translation glossary failed");
-            }
-            throw e;
+            client.deleteMultilingualGlossary(duplicate.getGlossaryId());
+        } catch (DeepLException e) {
+            // best effort: ignored, see method comment
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -84,7 +114,10 @@ final class DeepLGlossaries {
                     "Machine translation provider refused the configured key", e);
         } catch (QuotaExceededException e) {
             throw new MachineTranslationQuotaExceededException("Machine translation quota exceeded", e);
-        } catch (TooManyRequestsException | ConnectionException e) {
+        } catch (TooManyRequestsException e) {
+            throw new MachineTranslationUnavailableException(
+                    "Machine translation provider rate limited the request", e);
+        } catch (ConnectionException e) {
             throw new MachineTranslationUnavailableException("Machine translation provider did not answer in time", e);
         } catch (DeepLException e) {
             throw new MachineTranslationUnavailableException("Listing machine translation glossaries failed", e);
@@ -97,7 +130,7 @@ final class DeepLGlossaries {
     private MultilingualGlossaryInfo create(
             String name, Locale sourceLanguage, Locale targetLanguage, GlossaryEntries entries) {
         var dictionary = new MultilingualGlossaryDictionaryEntries(
-                sourceLanguage.toLanguageTag(), targetLanguage.toLanguageTag(), entries);
+                sourceLanguage.getLanguage(), targetLanguage.getLanguage(), entries);
         try {
             return client.createMultilingualGlossary(name, List.of(dictionary));
         } catch (AuthorizationException e) {
@@ -105,7 +138,10 @@ final class DeepLGlossaries {
                     "Machine translation provider refused the configured key", e);
         } catch (QuotaExceededException e) {
             throw new MachineTranslationQuotaExceededException("Machine translation quota exceeded", e);
-        } catch (TooManyRequestsException | ConnectionException e) {
+        } catch (TooManyRequestsException e) {
+            throw new MachineTranslationUnavailableException(
+                    "Machine translation provider rate limited the request", e);
+        } catch (ConnectionException e) {
             throw new MachineTranslationUnavailableException("Machine translation provider did not answer in time", e);
         } catch (DeepLException | IllegalArgumentException e) {
             throw new MachineTranslationUnavailableException("Creating a machine translation glossary failed", e);
@@ -115,10 +151,28 @@ final class DeepLGlossaries {
         }
     }
 
-    private static boolean matches(MultilingualGlossaryInfo glossary, Locale sourceLanguage, Locale targetLanguage) {
-        return glossary.getDictionaries().stream()
-                .anyMatch(dictionary ->
-                        dictionary.getSourceLanguageCode().equalsIgnoreCase(sourceLanguage.toLanguageTag())
-                                && dictionary.getTargetLanguageCode().equalsIgnoreCase(targetLanguage.toLanguageTag()));
+    private void replaceDictionary(
+            String glossaryId, Locale sourceLanguage, Locale targetLanguage, GlossaryEntries entries) {
+        try {
+            client.replaceMultilingualGlossaryDictionary(
+                    glossaryId, sourceLanguage.getLanguage(), targetLanguage.getLanguage(), entries);
+        } catch (AuthorizationException e) {
+            throw new MachineTranslationUnavailableException(
+                    "Machine translation provider refused the configured key", e);
+        } catch (QuotaExceededException e) {
+            throw new MachineTranslationQuotaExceededException("Machine translation quota exceeded", e);
+        } catch (TooManyRequestsException e) {
+            throw new MachineTranslationUnavailableException(
+                    "Machine translation provider rate limited the request", e);
+        } catch (ConnectionException e) {
+            throw new MachineTranslationUnavailableException("Machine translation provider did not answer in time", e);
+        } catch (DeepLException | IllegalArgumentException e) {
+            throw new MachineTranslationUnavailableException("Updating a machine translation glossary failed", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new MachineTranslationUnavailableException("Interrupted while waiting for machine translation", e);
+        }
     }
+
+    private record CacheKey(UUID businessId, String sourceLanguage, String targetLanguage) {}
 }

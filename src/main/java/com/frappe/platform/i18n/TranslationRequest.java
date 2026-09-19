@@ -11,7 +11,8 @@ import java.util.Objects;
  * @param texts the texts to translate, in order; none may be blank
  * @param sourceLanguage the source language, or {@code null} to let the provider detect it per text
  * @param targetLanguage the language to translate into
- * @param glossaryReference an existing provider glossary to apply, or {@code null} for none
+ * @param glossaryReference an existing provider glossary to apply, or {@code null} for none; requires
+ *     {@code sourceLanguage} (the provider cannot apply a glossary while auto-detecting the source)
  * @param formality the desired formality; {@link TranslationFormality#DEFAULT} when the caller has no preference
  */
 public record TranslationRequest(
@@ -34,6 +35,9 @@ public record TranslationRequest(
         }
         Objects.requireNonNull(targetLanguage, "targetLanguage");
         Objects.requireNonNull(formality, "formality");
+        if (glossaryReference != null && sourceLanguage == null) {
+            throw new IllegalArgumentException("glossaryReference requires a sourceLanguage");
+        }
         texts = List.copyOf(texts);
     }
 

@@ -1,12 +1,8 @@
-package com.frappe.platform.infrastructure.i18n;
+package com.frappe.platform.i18n;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.frappe.platform.i18n.MachineTranslationUnavailableException;
-import com.frappe.platform.i18n.SupportedLocales;
-import com.frappe.platform.i18n.TranslationFormality;
-import com.frappe.platform.i18n.TranslationRequest;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
