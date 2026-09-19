@@ -128,7 +128,7 @@ class OutboxArchivePurgeIntegrationTests {
     }
 
     // Proves the not-exists checks the orphan sweep runs for every candidate trace context row can be served by the
-    // generated event_id indexes (V202609191200__add_event_id_to_outbox_tables.sql), not by scanning serialized_event
+    // generated event_id indexes (V202609191930__add_event_id_to_outbox_tables.sql), not by scanning serialized_event
     // on the (potentially huge) outbox tables: with sequential scans disabled, the planner still has a cheaper plan
     // available, naming every index.
     @Test
@@ -159,6 +159,48 @@ class OutboxArchivePurgeIntegrationTests {
                 .contains("event_publication_event_id_idx")
                 .contains("event_publication_archive_event_id_idx")
                 .contains("event_publication_dead_letter_event_id_idx");
+    }
+
+    // The generated event_id column must never fail the insert it derives from, or a corrupted or hand-edited row
+    // would roll back the business transaction that wrote it (or, for a hand-inserted dead letter, block a replay).
+    // No path this application controls can produce either case (eventId is a mandatory, injected-UUID DomainEvent
+    // field), but the guarantee is unconditional: platform.safe_event_id (V202609191930) returns null instead of
+    // raising for malformed JSON or a non-UUID eventId.
+    @Test
+    void aRowWithMalformedJsonOrANonUuidEventIdStillInsertsWithANullGeneratedEventId() {
+        // Given / When
+        var malformedJson = UUID.randomUUID();
+        jdbc.update(
+                """
+                insert into platform.event_publication_archive (id, listener_id, event_type, serialized_event,
+                    publication_date, completion_date, status, completion_attempts)
+                values (?, 'nats.listener', 'com.frappe.Probe', ?, ?, ?, 'COMPLETED', 1)
+                """,
+                malformedJson,
+                "{\"eventId\": ",
+                Timestamp.from(NOW),
+                Timestamp.from(NOW));
+
+        var nonUuidEventId = UUID.randomUUID();
+        jdbc.update(
+                """
+                insert into platform.event_publication_archive (id, listener_id, event_type, serialized_event,
+                    publication_date, completion_date, status, completion_attempts)
+                values (?, 'nats.listener', 'com.frappe.Probe', ?, ?, ?, 'COMPLETED', 1)
+                """,
+                nonUuidEventId,
+                "{\"eventId\":\"not-a-uuid\"}",
+                Timestamp.from(NOW),
+                Timestamp.from(NOW));
+
+        // Then
+        assertThat(generatedEventId(malformedJson)).isNull();
+        assertThat(generatedEventId(nonUuidEventId)).isNull();
+    }
+
+    private UUID generatedEventId(UUID id) {
+        return jdbc.queryForObject(
+                "select event_id from platform.event_publication_archive where id = ?", UUID.class, id);
     }
 
     private UUID insertArchived(Instant completionDate) {

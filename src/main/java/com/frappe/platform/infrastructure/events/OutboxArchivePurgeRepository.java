@@ -12,7 +12,7 @@ import org.springframework.stereotype.Repository;
  * Purge queries on the outbox archive: batched deletes so the purge never holds one long-running transaction or lock,
  * matching a publication's {@code eventId} by equality against the generated, indexed {@code event_id} column of
  * {@code event_publication}, {@code event_publication_archive} and {@code event_publication_dead_letter}
- * (migration {@code V202609191200}), never by scanning {@code serialized_event}.
+ * (migration {@code V202609191930}), never by scanning {@code serialized_event}.
  */
 @Repository
 class OutboxArchivePurgeRepository {
