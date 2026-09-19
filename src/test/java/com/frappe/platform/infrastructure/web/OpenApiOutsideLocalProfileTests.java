@@ -13,8 +13,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
 /**
- * Outside the local profile the spec stays available and the Scalar API reference is not served. The database credentials stand in
- * for the environment variables a deployment sets; the URL comes from the test container.
+ * Outside the local profile the spec stays available and the Scalar API reference is not served. The database
+ * credentials stand in for the environment variables a deployment sets; the URL comes from the test container.
  */
 @SpringBootTest(
         properties = {

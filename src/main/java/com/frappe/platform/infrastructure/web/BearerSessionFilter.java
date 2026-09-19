@@ -20,13 +20,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
 /**
  * Authenticates a request from its {@code Authorization: Bearer} header, and from nothing else: cookies and query
  * parameters are never read, so there is no CSRF surface and tokens never land in URLs or access logs. A missing,
- * malformed or unresolvable token leaves the request anonymous; the route's posture then decides (401 unless
- * public), so a stale token never blocks a public route such as sign-in.
+ * malformed or unresolvable token leaves the request anonymous; the route's posture then decides (401 unless public),
+ * so a stale token never blocks a public route such as sign-in.
  *
- * <p>The authenticated context is saved in the request, as Spring Security's own {@code BearerTokenAuthenticationFilter}
- * does: this filter runs once per request, and the chain's {@code SecurityContextHolderFilter} reloads the context
- * from the same repository on every later dispatch, so async dispatches ({@code Callable}, {@code DeferredResult},
- * streaming) keep the caller.
+ * <p>The authenticated context is saved in the request, as Spring Security's own {@code
+ * BearerTokenAuthenticationFilter} does: this filter runs once per request, and the chain's {@code
+ * SecurityContextHolderFilter} reloads the context from the same repository on every later dispatch, so async
+ * dispatches ({@code Callable}, {@code DeferredResult}, streaming) keep the caller.
  */
 final class BearerSessionFilter extends OncePerRequestFilter {
 

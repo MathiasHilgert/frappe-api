@@ -20,7 +20,9 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** The generated OpenAPI spec documents each route's posture; the Scalar API reference is served in the local profile. */
+/**
+ * The generated OpenAPI spec documents each route's posture; the Scalar API reference is served in the local profile.
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import({TestcontainersConfiguration.class, TestNatsConfiguration.class, OpenApiTests.Routes.class})

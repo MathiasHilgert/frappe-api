@@ -13,11 +13,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 
 /**
- * Decides every request by the posture of the route that serves it, with one authorization manager per route built
- * from its posture: this is authentication enforcement only (is there a caller?), never permissions, which the use
- * case decides. A request no annotated handler serves passes through, so Spring MVC answers 404 or 405 (route
- * shapes are public in the OpenAPI spec anyway), but only when no other handler mapping would serve it. A framework controller or an ambiguous match is refused unless the
- * chain permits its path explicitly: 401 for an anonymous caller, 403 for a caller with a session.
+ * Decides every request by the posture of the route that serves it, with one authorization manager per route built from
+ * its posture: this is authentication enforcement only (is there a caller?), never permissions, which the use case
+ * decides. A request no annotated handler serves passes through, so Spring MVC answers 404 or 405 (route shapes are
+ * public in the OpenAPI spec anyway), but only when no other handler mapping would serve it. A framework controller or
+ * an ambiguous match is refused unless the chain permits its path explicitly: 401 for an anonymous caller, 403 for a
+ * caller with a session.
  */
 final class RouteAuthorizationManager implements AuthorizationManager<RequestAuthorizationContext> {
 

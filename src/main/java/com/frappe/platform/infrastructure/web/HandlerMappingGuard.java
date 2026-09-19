@@ -16,10 +16,10 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 /**
  * Keeps every handler outside the annotated routes from serving requests without a posture.
  *
- * <p>At startup it fails for any {@link RouterFunction} bean (a functional route cannot declare {@code @Access}) and for
- * any handler mapping that could serve paths: only the annotated-route mapping, the functional mapping (empty without
- * {@code RouterFunction} beans), URL mappings without handlers (bean names, welcome page; static resources are off)
- * and the actuator mappings (governed by explicit security rules) are allowed. At runtime, as defense in depth, it
+ * <p>At startup it fails for any {@link RouterFunction} bean (a functional route cannot declare {@code @Access}) and
+ * for any handler mapping that could serve paths: only the annotated-route mapping, the functional mapping (empty
+ * without {@code RouterFunction} beans), URL mappings without handlers (bean names, welcome page; static resources are
+ * off) and the actuator mappings (governed by explicit security rules) are allowed. At runtime, as defense in depth, it
  * tells whether any of those other mappings returns a handler for a request no route serves.
  */
 final class HandlerMappingGuard implements SmartInitializingSingleton {
