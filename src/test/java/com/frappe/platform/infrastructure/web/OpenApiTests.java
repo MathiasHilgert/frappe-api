@@ -1,0 +1,112 @@
+package com.frappe.platform.infrastructure.web;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.frappe.TestNatsConfiguration;
+import com.frappe.TestcontainersConfiguration;
+import com.frappe.platform.web.Access;
+import com.frappe.platform.web.Posture;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.assertj.MockMvcTester;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/** The generated OpenAPI spec documents each route's posture; swagger-ui is served in the local profile. */
+@SpringBootTest
+@AutoConfigureMockMvc
+@Import({TestcontainersConfiguration.class, TestNatsConfiguration.class, OpenApiTests.Routes.class})
+@ActiveProfiles("local")
+class OpenApiTests {
+
+    static final String SPEC = "/v3/api-docs";
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class Routes {
+
+        @Bean
+        PublicRoute publicDocumentedRoute() {
+            return new PublicRoute();
+        }
+
+        @Bean
+        AuthenticatedRoute authenticatedDocumentedRoute() {
+            return new AuthenticatedRoute();
+        }
+
+        @Bean
+        PermissionRoute permissionDocumentedRoute() {
+            return new PermissionRoute();
+        }
+    }
+
+    @RestController
+    @Access(Posture.PUBLIC)
+    static class PublicRoute {
+
+        @GetMapping("/test/docs/public")
+        String answer() {
+            return "public";
+        }
+    }
+
+    @RestController
+    @Access(Posture.AUTHENTICATED)
+    static class AuthenticatedRoute {
+
+        @GetMapping("/test/docs/self")
+        String answer() {
+            return "self";
+        }
+    }
+
+    @RestController
+    @Access(value = Posture.PERMISSION, permission = "tabs.close")
+    static class PermissionRoute {
+
+        @PostMapping("/test/docs/permission")
+        String answer() {
+            return "permitted";
+        }
+    }
+
+    @Autowired
+    MockMvcTester http;
+
+    @Test
+    void swaggerUiIsServedInTheLocalProfile() {
+        assertThat(http.get().uri("/swagger-ui/index.html")).hasStatusOk();
+    }
+
+    @Test
+    void theSpecRequiresABearerTokenOnEveryNonPublicRoute() {
+        assertSpecDocumentsPostures(http);
+    }
+
+    /** Shared with the non-local profile test: the spec is the same in every profile. */
+    static void assertSpecDocumentsPostures(MockMvcTester http) {
+        var spec = assertThat(http.get().uri(SPEC)).hasStatusOk().bodyJson();
+        spec.extractingPath("$.components.securitySchemes.bearer.type").isEqualTo("http");
+        spec.extractingPath("$.components.securitySchemes.bearer.scheme").isEqualTo("bearer");
+        spec.extractingPath("$.paths['/v1/test/docs/self'].get.security[0].bearer")
+                .isEqualTo(List.of());
+        spec.extractingPath("$.paths['/v1/test/docs/self'].get.responses['401']")
+                .isNotNull();
+        spec.extractingPath("$.paths['/v1/test/docs/permission'].post.security[0].bearer")
+                .isEqualTo(List.of());
+        spec.extractingPath("$.paths['/v1/test/docs/permission'].post.responses['401']")
+                .isNotNull();
+        spec.extractingPath("$.paths['/v1/test/docs/permission'].post.responses['403']")
+                .isNotNull();
+        spec.doesNotHavePath("$.paths['/v1/test/docs/public'].get.security");
+        spec.doesNotHavePath("$.paths['/v1/test/docs/public'].get.responses['401']");
+    }
+}

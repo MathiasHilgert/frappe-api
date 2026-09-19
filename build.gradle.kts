@@ -29,6 +29,8 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
 	implementation("org.flywaydb:flyway-database-postgresql")
+	// Not managed by Boot; 3.1.1 is built on Boot 4.1.
+	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1")
 	implementation("com.github.f4b6a3:uuid-creator:6.1.1")
 	implementation("io.nats:jnats:2.26.2")
 	implementation("net.ttddyy.observation:datasource-micrometer-spring-boot:2.3.0")

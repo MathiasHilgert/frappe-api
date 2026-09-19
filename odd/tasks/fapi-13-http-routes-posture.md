@@ -29,7 +29,7 @@ Strict TDD. Runner: `./gradlew test` (MockMvcTester, `WebApplicationContextRunne
 - [x] T0 Verify Spring Security 7 / Boot 4.1.1 / springdoc versions and APIs from the jars; record here
 - [x] T1 Public API + route catalog: startup fails for a route without `@Access`, with two mapped methods or an inconsistent posture; `/v1` prefix
 - [x] T2 Stateless security chain: bearer-only session resolution, posture enforcement (PUBLIC, AUTHENTICATED, PERMISSION, SYSTEM), deny by default, health and error dispatch reachable
-- [ ] T3 OpenAPI: spec with bearer requirement and 401/403 on non-public routes; swagger-ui only in `local`
+- [x] T3 OpenAPI: spec with bearer requirement and 401/403 on non-public routes; swagger-ui only in `local`
 - [ ] T4 Client IP from `X-Forwarded-For`, trusting only the proxy
 - [ ] T5 Docs (`writing-code/references/http-api.md` documents `@Access`), `./gradlew spotlessApply check --rerun-tasks` green
 
@@ -70,5 +70,10 @@ Strict TDD. Runner: `./gradlew test` (MockMvcTester, `WebApplicationContextRunne
 - Shared test touched: `RequestTracingTests.logLinesOfARequestCarryItsTraceAndSpanIds` failed after the chain existed (`span.id` was a child span): Spring Security's observation wraps the dispatch in its secured-request span, so the log line now carries that span. The assertion now checks the trace id and that the logged span belongs to the server span's trace.
 - `FRAPPE_TEST_DB=frappe_fapi_13 ./gradlew spotlessApply check`: BUILD SUCCESSFUL, 194 tests.
 
+### T3 OpenAPI
+- RED `OpenApiTests` (local profile) and `OpenApiOutsideLocalProfileTests` (default profile; database credentials given as the `FRAPPE_*` properties a deployment sets, URL from the container): 4/4 failed, `expected: 200 but was: 401` for `/v3/api-docs` and `/swagger-ui/index.html` (no springdoc yet, and deny by default), `expected: 404 but was: 401` outside local.
+- GREEN 4/4: `springdoc-openapi-starter-webmvc-ui:3.1.1`; `springdoc.swagger-ui.enabled=false` in `application.properties`, `true` in `application-local.properties`; spec and swagger-ui paths public in the chain; `PostureDocumentation` (`OpenApiCustomizer` adds the `bearer` HTTP scheme, `OperationCustomizer` adds the bearer requirement and 401 on every non-public route, 403 where the posture can refuse a session: PERMISSION, SYSTEM), wired by `OpenApiConfiguration`.
+- `FRAPPE_TEST_DB=frappe_fapi_13 ./gradlew spotlessApply check`: BUILD SUCCESSFUL, 198 tests.
+
 ## Next step
-T3.
+T4.

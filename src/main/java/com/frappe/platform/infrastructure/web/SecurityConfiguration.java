@@ -22,6 +22,11 @@ import org.springframework.security.web.authentication.AnonymousAuthenticationFi
 @Configuration(proxyBeanMethods = false)
 class SecurityConfiguration {
 
+    /** springdoc's spec and swagger-ui paths; swagger-ui itself is only served in the local profile. */
+    private static final String[] API_DOCUMENTATION = {
+        "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**"
+    };
+
     /** Until identity provides sessions, no token resolves. */
     private static final SessionResolver NO_SESSIONS = token -> Optional.empty();
 
@@ -34,7 +39,8 @@ class SecurityConfiguration {
     /**
      * The API's security filter chain. No session, cookie, CSRF token, login form, basic authentication or saved
      * request: the {@code Authorization: Bearer} header is the only credential. Error dispatches (rendering a refusal
-     * already decided) and the health endpoint (probes) are public; everything else is decided by its route.
+     * already decided), the health endpoint (probes) and the API documentation are public; everything else is decided
+     * by its route.
      *
      * @param http Spring Security's builder
      * @param routes the checked routes
@@ -64,6 +70,8 @@ class SecurityConfiguration {
                 .authorizeHttpRequests(requests -> requests.dispatcherTypeMatchers(DispatcherType.ERROR)
                         .permitAll()
                         .requestMatchers(EndpointRequest.to(HealthEndpoint.class))
+                        .permitAll()
+                        .requestMatchers(API_DOCUMENTATION)
                         .permitAll()
                         .anyRequest()
                         .access(routeAuthorization))
