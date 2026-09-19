@@ -182,7 +182,7 @@ git config core.hooksPath .githooks
 
 ## Continuous integration
 
-Every pull request tells the story of what was verified before it can merge. A history-aware secrets scan runs first, independently of the rest. In parallel, the quality gate checks out the branch, verifies formatting, verifies module boundaries and finally runs the test suite against a real Postgres instance, in that order, annotating the pull request with the test results and publishing a summary with the outcome of each stage and the generated Modulith component diagram. Separately, CodeQL and a dependency review look for known and structural vulnerabilities, and a title check enforces Conventional Commits before merge. Dependabot keeps Gradle, GitHub Actions and Docker dependencies current on a weekly schedule.
+Every pull request tells the story of what was verified before it can merge. A history-aware secrets scan runs first, independently of the rest. In parallel, the quality gate checks out the branch, verifies formatting and Javadoc, tests the developer scripts, verifies module boundaries, runs the test suite against a real Postgres instance and finally runs `./gradlew check`, so CI runs exactly the local gate, annotating the pull request with the test results and publishing a summary with the outcome of each stage and the generated Modulith component diagram. Separately, CodeQL and a dependency review look for known and structural vulnerabilities, and a title check enforces Conventional Commits before merge. Dependabot keeps Gradle, GitHub Actions and Docker dependencies current on a weekly schedule.
 
 ```mermaid
 flowchart LR
@@ -192,9 +192,12 @@ flowchart LR
     PR --> CodeQL[CodeQL analysis]
     PR --> DepReview[Dependency review]
     Gate --> Format[Verify formatting]
-    Format --> Modules[Verify module boundaries]
+    Format --> Javadoc[Verify Javadoc]
+    Javadoc --> Scripts[Test developer scripts]
+    Scripts --> Modules[Verify module boundaries]
     Modules --> Tests[Run tests against Postgres]
-    Tests --> Summary[Job summary + PR annotations]
+    Tests --> Check[Run the whole local gate]
+    Check --> Summary[Job summary + PR annotations]
     Title --> Merge[Ready to merge]
     Secrets --> Merge
     Summary --> Merge
