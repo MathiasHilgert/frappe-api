@@ -29,6 +29,7 @@ Load when asked to work on, pick up, parallelize, review, ship, merge or create 
 | Worktrees, databases, Docker, cleanup | `references/running-in-parallel.md` |
 | Reviewer brief and findings | `references/reviewing.md` |
 | Commits, PR, CI, report, merge, feedback | `references/shipping-a-pr.md` |
+| What doc/skill change goes where, fact-checking before publishing | `references/keeping-docs-in-sync.md` |
 
 ## Execution Steps
 
@@ -39,11 +40,12 @@ Copy this checklist and tick it as you go:
 - [ ] 2. Parallelism check against plane.sh list in-progress
 - [ ] 3. Create worktree + branch; plane.sh move FAPI-N in-progress
 - [ ] 4. Spawn writer (model per table) with ticket text, skills writing-code + testing-code
-- [ ] 5. Writer reports ./gradlew check green and RED/GREEN evidence
+- [ ] 5. Writer reports ./gradlew check green and RED/GREEN evidence; skill references updated in the same PR if a convention changed
 - [ ] 6. Spawn reviewer(s); fixer applies confirmed findings only
-- [ ] 7. Push, open PR per template, gh pr checks --watch (max 3 fix attempts)
+- [ ] 7. Push, open PR per template incl. "Docs and skills updated"; gh pr checks --watch (max 3 fix attempts)
 - [ ] 8. plane.sh move FAPI-N in-review; report to human
 - [ ] 9. On "merge": squash merge, move done, remove worktree
+- [ ] 10. After merge: record decisions in the Decision Log; sync Architecture / Engineering Standards / Roadmap, fact-checked against main (`references/keeping-docs-in-sync.md`)
 ```
 
 ## Output Contract

@@ -60,4 +60,5 @@ flowchart LR
 <!-- Commands run and observed results. -->
 
 - [ ] `./gradlew check` passes
+- [ ] Docs and skills updated (skill references, `keeping-docs-in-sync.md`) or not applicable
 - [ ] 
