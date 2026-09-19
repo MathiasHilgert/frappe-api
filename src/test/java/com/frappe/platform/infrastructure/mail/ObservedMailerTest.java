@@ -2,6 +2,7 @@ package com.frappe.platform.infrastructure.mail;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -107,28 +108,53 @@ class ObservedMailerTest {
                 .hasLowCardinalityKeyValue("mail.provider", "resend")
                 .hasLowCardinalityKeyValue("mail.template", "mailprobe/welcome")
                 .hasLowCardinalityKeyValue("mail.locale", "en")
+                .hasLowCardinalityKeyValue("mail.outcome", "sent")
                 .doesNotHaveError()
                 .hasBeenStopped();
     }
 
     @Test
-    void aFailedDeliveryIsObservedLoggedOnceAtErrorAndRethrown() {
+    void aTransientFailureIsObservedAndRethrownWithoutLogging() {
         // Given
         var mailer = new ObservedMailer(
                 renderer,
                 transport("resend", (mail, message) -> {
-                    throw new MailDeliveryException("Resend refused the mail: HTTP 503 (internal_server_error)");
+                    throw new MailDeliveryException("Sending mail mailprobe/welcome through resend failed: HTTP 503");
                 }),
                 observations);
 
         // When
         assertThatExceptionOfType(MailDeliveryException.class).isThrownBy(() -> mailer.send(welcome()));
 
+        // Then the listener boundary logs it once (log or rethrow, never both); the outbox retries it
+        TestObservationRegistryAssert.assertThat(observations)
+                .hasSingleObservationThat()
+                .hasNameEqualTo("mail.send")
+                .hasLowCardinalityKeyValue("mail.outcome", "failed")
+                .hasError()
+                .hasBeenStopped();
+        assertThat(logs.list).noneMatch(event -> event.getLevel().isGreaterOrEqual(Level.WARN));
+    }
+
+    @Test
+    void aPermanentRejectionIsLoggedOnceCountedAndNotRetried() {
+        // Given
+        var mailer = new ObservedMailer(
+                renderer,
+                transport("resend", (mail, message) -> {
+                    throw new MailRejectedException(
+                            "Resend rejected mail mailprobe/welcome: HTTP 422 (validation_error)");
+                }),
+                observations);
+
+        // When: returns normally, so the listener completes and the outbox does not retry what cannot succeed
+        mailer.send(welcome());
+
         // Then
         TestObservationRegistryAssert.assertThat(observations)
                 .hasSingleObservationThat()
                 .hasNameEqualTo("mail.send")
-                .hasError()
+                .hasLowCardinalityKeyValue("mail.outcome", "rejected")
                 .hasBeenStopped();
         assertThat(logs.list)
                 .filteredOn(event -> event.getLevel() == Level.ERROR)
@@ -162,8 +188,8 @@ class ObservedMailerTest {
         // Given
         var mailer = new ObservedMailer(renderer, transport, observations);
 
-        // When
-        assertThatExceptionOfType(MailDeliveryException.class).isThrownBy(() -> mailer.send(welcome()));
+        // When the Resend adapter rejects (422) and the SMTP one fails (no server)
+        catchThrowable(() -> mailer.send(welcome()));
 
         // Then
         var recorded = new ArrayList<String>();

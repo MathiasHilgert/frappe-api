@@ -20,6 +20,12 @@ public class TestMailpitConfiguration {
     /** Mailpit's web UI and API port inside the container. */
     public static final int HTTP_PORT = 8025;
 
+    /**
+     * The only recipient domain Mailpit accepts; it refuses every other one with a permanent {@code 550}, like a mailbox
+     * that does not exist.
+     */
+    public static final String ACCEPTED_DOMAIN = "example.com";
+
     @Bean
     MailpitContainer mailpitContainer() {
         return new MailpitContainer();
@@ -39,6 +45,7 @@ public class TestMailpitConfiguration {
         MailpitContainer() {
             super(DockerImageName.parse("axllent/mailpit:v1.31"));
             withExposedPorts(SMTP_PORT, HTTP_PORT);
+            withEnv("MP_SMTP_ALLOWED_RECIPIENTS", "(?i)@example\\.com>?$");
             waitingFor(Wait.forHttp("/readyz").forPort(HTTP_PORT));
         }
 

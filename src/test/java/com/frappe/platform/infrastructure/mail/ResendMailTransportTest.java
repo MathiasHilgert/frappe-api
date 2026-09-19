@@ -13,13 +13,15 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class ResendMailTransportTest {
 
     private static final String FROM = "Frappé <no-reply@frappe.test>";
 
     private final RenderedMail mail =
-            new RenderedMail("Tu código", "<html>Tu código es 123456</html>", Locale.of("es"));
+            new RenderedMail("Tu código", "<html>Tu código es 123456</html>", "Tu código es 123456", Locale.of("es"));
 
     private final MailMessage message = MailMessage.of(
                     "mailprobe/welcome", "ana.maria@example.com", Locale.of("es"), Locale.of("en"), Map.of())
@@ -46,6 +48,7 @@ class ResendMailTransportTest {
         assertThat(sent.get().getTo()).containsExactly("ana.maria@example.com");
         assertThat(sent.get().getSubject()).isEqualTo("Tu código");
         assertThat(sent.get().getHtml()).isEqualTo("<html>Tu código es 123456</html>");
+        assertThat(sent.get().getText()).isEqualTo("Tu código es 123456");
         assertThat(idempotencyKey.get()).isEqualTo("welcome/01996a4e-0000-7000-8000-000000000001");
     }
 
@@ -90,6 +93,34 @@ class ResendMailTransportTest {
                 .withNoCause();
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {400, 404, 422})
+    void aRequestResendRejectsIsPermanent(int status) {
+        // Given
+        var transport = failingWith(status, "validation_error");
+
+        // When / Then: retrying the same request cannot succeed
+        assertThatExceptionOfType(MailRejectedException.class)
+                .isThrownBy(() -> transport.deliver(mail, message))
+                .withMessageContaining(String.valueOf(status))
+                .withMessageContaining("mailprobe/welcome")
+                .withMessageNotContaining("ana.maria")
+                .withNoCause();
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {401, 403, 408, 409, 429, 500, 503})
+    void outagesLimitsAndFixableSettingsAreTransient(int status) {
+        // Given a rate limit, a timeout, a concurrent idempotent request, a server error, or an API key or domain that
+        // an operator can fix without losing the mail
+        var transport = failingWith(status, "any");
+
+        // When / Then
+        assertThatExceptionOfType(MailDeliveryException.class)
+                .isThrownBy(() -> transport.deliver(mail, message))
+                .isNotInstanceOf(MailRejectedException.class);
+    }
+
     @Test
     void anUnreachableProviderBecomesOurExceptionWithTheNetworkCause() {
         // Given the SDK wraps network failures in a bare RuntimeException
@@ -104,6 +135,17 @@ class ResendMailTransportTest {
                 .isThrownBy(() -> transport.deliver(mail, message))
                 .withMessageContaining("could not be reached")
                 .withCauseInstanceOf(IOException.class);
+    }
+
+    private static ResendMailTransport failingWith(int status, String name) {
+        return new ResendMailTransport(
+                (options, request) -> {
+                    throw new ResendException(
+                            status,
+                            "{\"statusCode\":%d,\"name\":\"%s\",\"message\":\"ana.maria@example.com\"}"
+                                    .formatted(status, name));
+                },
+                FROM);
     }
 
     @Test

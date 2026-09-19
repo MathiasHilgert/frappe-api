@@ -3,12 +3,17 @@ package com.frappe.platform.infrastructure.mail;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.frappe.TestNatsConfiguration;
 import com.frappe.TestcontainersConfiguration;
 import com.frappe.platform.DomainEvent;
 import com.frappe.platform.DomainEventPublisher;
 import com.frappe.platform.IdGenerator;
 import com.frappe.platform.infrastructure.ids.TestIds;
+import com.frappe.platform.mail.MailDeliveryException;
 import com.frappe.platform.mail.MailMessage;
 import com.frappe.platform.mail.Mailer;
 import com.resend.core.exception.ResendException;
@@ -24,9 +29,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -86,10 +93,10 @@ class MailOutboxIntegrationTests {
         }
     }
 
-    /** Resend answering 503 until it recovers. */
+    /** Resend answering an error status until it recovers ({@code 0}). */
     static class FlakyResend implements ResendEmails {
 
-        final AtomicBoolean down = new AtomicBoolean(true);
+        final AtomicInteger failingStatus = new AtomicInteger();
 
         final AtomicInteger failedAttempts = new AtomicInteger();
 
@@ -97,10 +104,11 @@ class MailOutboxIntegrationTests {
 
         @Override
         public CreateEmailResponse send(CreateEmailOptions options, RequestOptions request) throws ResendException {
-            if (down.get()) {
+            var status = failingStatus.get();
+            if (status != 0) {
                 failedAttempts.incrementAndGet();
                 throw new ResendException(
-                        503, "{\"statusCode\":503,\"name\":\"internal_server_error\",\"message\":\"Unavailable\"}");
+                        status, "{\"statusCode\":%d,\"name\":\"error\",\"message\":\"Failed\"}".formatted(status));
             }
             delivered.add(new Delivered(options.getTo(), options.getSubject(), request.getIdempotencyKey()));
             return new CreateEmailResponse("re_" + delivered.size());
@@ -150,9 +158,28 @@ class MailOutboxIntegrationTests {
     @Autowired
     FlakyResend resend;
 
+    final ListAppender<ILoggingEvent> logs = new ListAppender<>();
+
+    final Logger root = (Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+
+    @BeforeEach
+    void resetResendAndCaptureLogs() {
+        resend.failingStatus.set(0);
+        resend.failedAttempts.set(0);
+        resend.delivered.clear();
+        logs.start();
+        root.addAppender(logs);
+    }
+
+    @AfterEach
+    void releaseLogs() {
+        root.detachAppender(logs);
+    }
+
     @Test
     void aProviderFailureLeavesThePublicationIncompleteAndRecoverySendsItLater() {
         // Given Resend is down
+        resend.failingStatus.set(503);
         var recipient = "ana-" + UUID.randomUUID() + "@example.com";
         var event = new MemberJoined(ids.newId(), clock.instant(), ids.newId(), 1, 1, recipient);
 
@@ -164,13 +191,42 @@ class MailOutboxIntegrationTests {
         assertThat(resend.delivered).isEmpty();
 
         // When Resend recovers
-        resend.down.set(false);
+        resend.failingStatus.set(0);
 
         // Then a recovery pass sends it, once, with the idempotency key
         await().atMost(Duration.ofSeconds(20)).until(() -> completed(event));
         assertThat(resend.delivered)
                 .singleElement()
                 .isEqualTo(new Delivered(List.of(recipient), "Tu código de Frappé", "welcome/" + event.eventId()));
+        // Logged once per failed attempt, at the listener boundary only (log or rethrow, never both)
+        assertThat(errorsAbout(MailDeliveryException.class)).isEqualTo(resend.failedAttempts.get());
+    }
+
+    @Test
+    void aPermanentRejectionCompletesThePublicationWithoutRetries() {
+        // Given Resend rejects the request (422: invalid recipient)
+        resend.failingStatus.set(422);
+        var event = new MemberJoined(ids.newId(), clock.instant(), ids.newId(), 1, 1, "ana@example.com");
+
+        // When
+        transactions.executeWithoutResult(status -> publisher.publish(event));
+
+        // Then the listener completes: one attempt, one ERROR, nothing left for the recovery job
+        await().atMost(Duration.ofSeconds(10)).until(() -> completed(event));
+        await().during(Duration.ofSeconds(2))
+                .atMost(Duration.ofSeconds(4))
+                .until(() -> resend.failedAttempts.get() == 1);
+        assertThat(errorsAbout(MailRejectedException.class)).isOne();
+        assertThat(errorsAbout(MailDeliveryException.class)).isZero();
+    }
+
+    // By exception type: cached contexts of other test classes keep logging in the background (NATS reconnects).
+    private long errorsAbout(Class<? extends Throwable> type) {
+        return logs.list.stream()
+                .filter(log -> log.getLevel() == Level.ERROR)
+                .filter(log -> log.getThrowableProxy() != null
+                        && log.getThrowableProxy().getClassName().equals(type.getName()))
+                .count();
     }
 
     private boolean incomplete(DomainEvent event) {

@@ -9,6 +9,7 @@ import com.frappe.TestNatsConfiguration;
 import com.frappe.TestcontainersConfiguration;
 import com.frappe.platform.mail.MailMessage;
 import com.frappe.platform.mail.Mailer;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
@@ -36,6 +37,9 @@ class MailpitIntegrationTests {
     @Autowired
     MailpitContainer mailpit;
 
+    @Autowired
+    MeterRegistry meters;
+
     @Test
     void aSentMailAppearsInMailpitEntirelyInItsLanguage() {
         // Given
@@ -61,6 +65,31 @@ class MailpitIntegrationTests {
         assertThat(message.get("HTML").asString())
                 .contains("lang=\"es\"", "¡Hola, Ana!", "Tu código es 123456.")
                 .doesNotContain("Hello", "Your code");
+        // SMTP sends CRLF line breaks
+        assertThat(message.get("Text").asString().replace("\r\n", "\n"))
+                .isEqualTo("¡Hola, Ana!\n\nTu código es 123456. Vence en 15 minutos.")
+                .doesNotContain("<");
+    }
+
+    @Test
+    void aRecipientTheServerRefusesIsRejectedOnceAndNotRetried() {
+        // Given Mailpit answers 550 for any domain but example.com
+        var recipient = "ana-" + UUID.randomUUID() + "@refused.test";
+        var rejectedBefore = rejected();
+
+        // When: returns normally, so the calling listener completes and the outbox does not retry
+        mailer.send(MailMessage.of(
+                "mailprobe/welcome", recipient, Locale.of("es"), Locale.of("en"), Map.of("name", "Ana", "code", "1")));
+
+        // Then
+        assertThat(rejected()).isEqualTo(rejectedBefore + 1);
+        assertThat(messageTo(RestClient.create(mailpit.apiUrl()), recipient)).isNull();
+    }
+
+    private long rejected() {
+        return meters.find("mail.send").tag("mail.outcome", "rejected").timers().stream()
+                .mapToLong(timer -> timer.count())
+                .sum();
     }
 
     private static JsonNode messageTo(RestClient api, String recipient) {

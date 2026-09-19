@@ -7,17 +7,19 @@ import java.util.Locale;
  *
  * @param subject the subject line
  * @param html the complete HTML document (layout and body)
+ * @param text the plain-text alternative of the body, sent next to the HTML
  * @param locale the language it was rendered in
  */
-record RenderedMail(String subject, String html, Locale locale) {
+record RenderedMail(String subject, String html, String text, Locale locale) {
 
     /**
      * Describes the mail without its content, which may carry one-time codes.
      *
-     * @return the language and the size of the HTML
+     * @return the language and the sizes of the parts
      */
     @Override
     public String toString() {
-        return "RenderedMail[locale=%s, html=%d chars]".formatted(locale.toLanguageTag(), html.length());
+        return "RenderedMail[locale=%s, html=%d chars, text=%d chars]"
+                .formatted(locale.toLanguageTag(), html.length(), text.length());
     }
 }

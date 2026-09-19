@@ -87,7 +87,7 @@ final class MailRenderer {
         var html = new StringOutput();
         Content bodyContent = output -> output.writeContent(body.toString());
         templates.render(LAYOUT, Map.of("lang", locale.toLanguageTag(), "subject", subject, "body", bodyContent), html);
-        return new RenderedMail(subject, html.toString(), locale);
+        return new RenderedMail(subject, html.toString(), PlainTextAlternative.of(body.toString()), locale);
     }
 
     // identity/email-proof -> identity.mail.email-proof.subject

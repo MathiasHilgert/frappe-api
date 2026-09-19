@@ -55,6 +55,7 @@ class MailRendererTest {
                         "¡Hola, Ana!",
                         "Tu código es 123456.")
                 .doesNotContain("Hello", "Your code");
+        assertThat(mail.text()).isEqualTo("¡Hola, Ana!\n\nTu código es 123456.");
         assertThat(fallbacks()).isZero();
     }
 

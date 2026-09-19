@@ -28,6 +28,8 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-flyway")
 	implementation("org.springframework.boot:spring-boot-starter-mail")
+	// Compile access to the SMTP reply codes (SMTPAddressFailedException) that tell a permanent refusal from a deferral.
+	implementation("org.eclipse.angus:angus-mail")
 	implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
 	implementation("org.springframework.boot:spring-boot-starter-security")
 	implementation("org.springframework.boot:spring-boot-starter-validation")
@@ -39,6 +41,8 @@ dependencies {
 	implementation("com.github.f4b6a3:uuid-creator:6.1.1")
 	// Not managed by Boot; the official Resend SDK, used only inside platform.infrastructure.mail.
 	implementation("com.resend:resend-java:4.26.0")
+	// Not managed by Boot; parses the rendered mail HTML to derive its plain-text alternative.
+	implementation("org.jsoup:jsoup:1.23.2")
 	implementation("com.ibm.icu:icu4j:78.3")
 	// Mail templates run precompiled (generateJte below), so only the runtime is needed.
 	implementation("gg.jte:jte-runtime:3.2.4")
