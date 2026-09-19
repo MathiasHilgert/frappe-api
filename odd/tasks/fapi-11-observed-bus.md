@@ -1,45 +1,69 @@
-# FAPI-11 — platform: Dispatch commands and queries through an observed bus
+# FAPI-11 — platform: Use cases called directly, observed and rolled back on failure
 
-Plane: [FAPI-11](https://app.plane.so/nulled-software/browse/FAPI-11/) (module platform, size M). Branch: `feat/fapi-11-observed-bus`. Worktree: `~/Projects/nulled/frappe-api-worktrees/FAPI-11`.
+Plane: [FAPI-11](https://app.plane.so/nulled-software/browse/FAPI-11/) (module platform, size M; ticket text still describes the original bus, the drift is recorded in a Plane comment by the orchestrator). Branch: `feat/fapi-11-observed-bus` (PR #14). Worktree: `~/Projects/nulled/frappe-api-worktrees/FAPI-11`.
 
 ## Objective
-Every use case is one class per operation (`@CommandUseCase` / `@QueryUseCase`), called directly, returns `Result` for expected failures, runs in the transaction of its kind (rolled back on a failure), and gets a span and RED metrics without any telemetry code in it. (Originally a command/query bus; reworked in T8.)
+Every use case is one class per operation (`@CommandUseCase` / `@QueryUseCase`), called directly, returns `Result` for expected failures, runs in the transaction of its kind (its own transaction rolled back on a failure), and gets a span and RED metrics without any telemetry code in it. Architecture tests keep domain and use-case code free of infrastructure libraries.
 
-## Decisions (from the ticket; superseded by T8, see there)
-- Public API in `com.frappe.platform` (pure Java, no Spring): `Result` (sealed, `Success` / `Failure` records, `map`, `flatMap`, `mapFailure`, `fold`), `Command<R>`, `Query<R>`, `CommandHandler<C, R>`, `QueryHandler<Q, R>`, `CommandBus#dispatch`, `QueryBus#ask`.
-- Handlers are discovered at startup from Spring beans, keyed by the message type resolved with `ResolvableType`. Two handlers for one type fail startup naming both beans; a message without a handler throws `MissingHandlerException` naming the type.
-- An observing decorator around both buses creates one Micrometer `Observation` `use_case` per dispatch, outside the handler's `@Transactional` proxy, so the commit happens inside the observation. Span name `<module> <UseCase>`; low-cardinality tags `use_case.name`, `use_case.module`, `use_case.kind`, `outcome` (`success` | `failure` | `error`).
-- Command handlers are `@Transactional`; query handlers are not. Revised after review (T6): query handlers are `@Transactional(readOnly = true)`, and a returned `Failure` rolls the command's transaction back.
-- Bus and `Result` are hand-written (ticket, Libraries): no maintained library offers a plain in-process CQRS bus without a framework runtime (Axon); Vavr's `Either` would pull a full collections library into the pure domain for one type.
+## Final design
+- Kernel (`com.frappe.platform`, plain Java): sealed `Result<T, E>` (`Success` / `Failure`, `map`, `flatMap`, `mapFailure`, `fold`); stereotypes `@CommandUseCase`, `@QueryUseCase` (no Spring meta-annotations; composed annotations allowed).
+- A use case: concrete class in `com.frappe.<module>.application`, one public method, `@Transactional` (commands) or `@Transactional(readOnly = true)` (queries), propagation REQUIRED or REQUIRES_NEW, not final (CGLIB).
+- `platform.infrastructure.usecase`:
+  - `UseCaseRegistrar` (constructor-injected from a static `@Bean` method): scans Spring Boot's auto-configuration packages for the stereotypes (direct or meta, not inherited), fully qualified bean names, Boot's `TypeExcludeFilter` honoured.
+  - `UseCaseConfiguration`: `@EnableTransactionManagement(proxyTargetClass = true, order = LOWEST - 200)` (Boot's backs off), observation advisor at `LOWEST - 300` (outside), rollback advisor at `LOWEST - 100` (inside); both infrastructure-role `Advisor` beans on `UseCasePointcut` (stereotype direct or meta on the class itself; public, bridge-resolved, non-synthetic, non-`Object` methods).
+  - `UseCaseObservationInterceptor`: observation `use_case`, span `<module> <UseCase>`, low-cardinality tags `use_case.name`, `use_case.module`, `use_case.kind`, `outcome` (`success` | `failure` | `error`); per-class descriptions in an instance `ClassValue`.
+  - `RollbackOnFailureInterceptor`: on a returned `Result.Failure`, `setRollbackOnly()` when the transaction is new; a joined transaction is left to its owner.
+- `platform` is a Spring Modulith shared module (`@Modulithic(sharedModules = "platform")` on `FrappeApiApplication`), so a STANDALONE `@ApplicationModuleTest` of any module bootstraps use case support.
+- Rules (ArchUnit): `UseCaseArchitectureTests` (placement, one stereotype, one operation, proxyable, transaction of the kind, dependency allow-lists for domain and use cases), `CodingRulesTests` (no field injection, no static mutable state including static finals of mutable types, time and ids only from the injected `Clock` / `IdGenerator`), `KernelDependenciesTest` (FAPI-16, kernel on the JDK only).
+
+## Why this design (library evaluation, sources in the log below)
+- No bus: mainstream Spring (spring-restbucks, Hombergs, Nabrdalik, jMolecules examples) calls use cases directly; PipelinR (~490 stars) is the only small bus library.
+- Stereotypes are ours: jMolecules 2.0.1 offers no application-service stereotype with a command/query kind (`@Service` is a DDD domain service, CQRS `@CommandHandler` is method-level without a query counterpart), and its stereotypes become beans only through its ByteBuddy plugin.
+- ArchUnit for all rules (on the classpath via Spring Modulith); jmolecules-archunit only checks jMolecules DDD annotations.
+- Observation is ours: Micrometer's `@Observed` must sit on every class (its `@within` pointcut ignores meta-annotations) and never sees the return value, so `outcome=failure` would be impossible. Spring Modulith observes only module entries (exposed types, controllers, cross-module listeners); use cases are internal, so its module span is the parent of the use-case span, never a duplicate.
+- Rollback is ours: Spring 7.0.9 evaluates only a completed `Future` and a Vavr `Try` in private code, with no SPI; ours mirrors that inside the transaction, but only for a transaction the use case started.
+- NESTED is not allowed: tried in `ProbeModuleTests`, Spring Boot's `JpaTransactionManager` threw `NestedTransactionNotSupportedException` (nested transactions not allowed by default); enabling savepoints globally was not worth it when REQUIRES_NEW covers "commit on its own".
 
 ## Out of scope
-HTTP, authorization, query caching, async or retried dispatch, any business use case.
+HTTP, authorization, query caching, async or retried execution, any business use case.
 
 ## TDD
-Strict TDD (project standard, `testing-code`). Runner: `./gradlew test` with `FRAPPE_TEST_DB=frappe_fapi_11` (Testcontainers Postgres). RED observed before every behavior.
+Strict TDD (project standard, `testing-code`). Runner: `./gradlew test` with `FRAPPE_TEST_DB=frappe_fapi_11` (Testcontainers Postgres, per-context NATS).
 
 ## Tasks
-- [x] T0 Verify the library APIs used (Spring `ResolvableType`, bean factory lookups, transaction attribute source, Micrometer Observation and its test kit) from the jars in the Gradle cache; record findings and design
-- [x] T1 `Result` in the kernel (pure Java)
-- [x] T2 Messages, handler interfaces, bus ports; startup discovery keyed by message type; duplicate and missing handler failures
-- [x] T3 Observing decorator: one `use_case` observation per dispatch with outcome and error
-- [x] T4 Postgres proof: rollback leaves neither state nor outbox row; a commit failure is observed as `error`
-- [x] T5 Docs (`writing-code` use cases and observability, `observing-the-api` conventions); verification
-- [x] T8 Rework to mainstream Spring (human decision): no bus; use cases are plain classes called directly, with kernel stereotypes, ArchUnit-enforced transactions and technology-free domain, one observation and a rollback-on-failure advisor in explicit order
-- [x] T7 Re-review minors: rollback only an own transaction, propagation rule, read-only command guard, bridge-aware pointcut, cache test name and prototype note, persisting state on a refusal
-- [x] T6 Review decisions: rollback on `Failure`, read-only query transactions enforced at startup, lazy cached handler lookup, `MissingHandlerException` Javadoc, fixture version note
+- [x] T0–T7 Bus design, reviews and minors (see log)
+- [x] T8 Rework to use cases called directly (see log)
+- [x] T9 Deep review: shared platform module with a module test; dependency allow-lists; runtime/rule matching parity; proxyable rule; NESTED dropped; tightened static-state and time rules; instance `ClassValue`; registrar constructor injection; stale docs; rebase on origin/main
 
-## Acceptance (from ticket)
-- A1 One handler for a command: dispatching runs it once and returns its `Result` unchanged.
-- A2 Two handlers for the same type: startup fails and names both beans.
-- A3 A query with no handler: `MissingHandlerException` names the type.
-- A4 Handler returns `Success`, `Failure`, throws, or fails on commit: one stopped observation with outcome `success`, `failure` or `error` (the last two with the exception attached).
-- A5 A command handler that saves and publishes events rolls back: neither the state nor the outbox row exists.
+## Acceptance
+- A1 A command use case returns its `Result` unchanged and runs once (`UseCaseAdviceTest`, `ProbeModuleTests`).
+- A2/A3 (bus-specific: duplicate handlers, missing handler) no longer apply: there is no routing; a use case is injected by type, and a missing bean fails startup through Spring itself.
+- A4 Success, failure, throwing and failing commit each give one stopped `use_case` observation with outcome `success`, `failure`, `error`, `error` (exception attached) (`UseCaseAdviceTest`; commit failure on Postgres in `ProbeModuleTests`).
+- A5 A command that saves and publishes then fails (returned `Failure` or thrown) leaves neither state nor outbox row (`ProbeModuleTests`, Postgres).
 
 ## Checks
 `FRAPPE_TEST_DB=frappe_fapi_11 ./gradlew spotlessApply check --rerun-tasks`.
 
-## Progress / evidence
+## T9 evidence (deep review of the rework)
+- Rebased on origin/main (FAPI-13 web posture, FAPI-16 Valkey) without conflicts; rule tests green on the merged code before changes.
+- MAJOR 1, shared module. RED `ProbeModuleTests` (`@ApplicationModuleTest`, STANDALONE, test-only module `com.frappe.probe`): first `Package com.frappe.probe.application is not part of any module!` (Modulith ignores test classes; fixed with the test-only `ProbeModuleApplicationModules` factory in `src/test/resources/META-INF/spring.factories`, production model plus the probe module), then Modulith's own verification rejected field injection in the test (constructor injection now), then the real RED: `No qualifying bean of type 'com.frappe.probe.application.RecordProbe'` (platform not bootstrapped, the registrar never ran). GREEN after `@Modulithic(sharedModules = "platform")`: 4/4 on Postgres (commit observed, failure rolls back state and outbox, defect rolls back, commit failure observed as `error`). The former `UseCaseIntegrationTests` moved into this module test.
+- NESTED: RED `aNestedCommandReturningAFailureRollsBackToItsSavepointOnly` failed with `NestedTransactionNotSupportedException` from Boot's JPA transaction manager; decision: drop NESTED (rule and docs), test removed, `InvalidUseCases.NestedCommand` fixture proves the rule rejects it.
+- MAJOR 2, allow-lists: `UseCaseArchitectureTests` rewritten as `UseCaseRules(basePackage)` so the same rules run on production (`com.frappe`) and on fixture modules (`fixtures.tabs`, `fixtures.orders`, `fixtures.registration`). Domain: JDK, kernel, own module domain. Use cases: JDK, kernel, own module except infrastructure, other modules' root packages, and `Transactional` / `Propagation` / `Isolation` by name. The rules and fixtures were written together (the rules are test code), so no separate RED was observed for them; the first run failed `validFixturesFollowEveryRule` because composed annotation types counted as use cases (now only concrete classes, as the scan does). 10/10 green.
+- Matching parity: RED `UseCaseAdviceTest.aSubclassOfAUseCaseIsNoUseCaseOfItsOwn` (`There were <1> observation(s) registered`, the runtime used `AnnotationUtils.findAnnotation`, which searches superclasses); GREEN with `MergedAnnotations` `DIRECT` and bridge-resolved, non-synthetic methods in `UseCasePointcut`; `aUseCaseMarkedThroughAComposedAnnotationIsObserved` green. 9/9. Rule side: inherited and composed cases in `aUseCaseWithMoreThanOneOperationIsRejectedIncludingInheritedAndComposedCases`; proxyable rule `aFinalUseCaseOrOperationIsRejected`.
+- Coding rules: RED compilation (`CodingRules` missing) for `staticFinalFieldsOfMutableTypesAreRejected` and `anyNoArgumentNowOrSystemTimeOutsideTheClockBeanMethodIsRejected`; first GREEN attempt flagged compiler-generated `$VALUES` / `$SwitchMap$` fields (now excluded as synthetic) and then a real finding in FAPI-13 code: `SecurityConfiguration.API_DOCUMENTATION` was a static `String[]`, now `List.of(...)`. Mutable types: arrays, mutable collections and maps (declared type, or a new instance assigned in the static initializer), atomics, builders, `Date`, `Calendar`, `ClassValue`, `ThreadLocal`. Time: any no-argument `java.time` `now()`, `System.currentTimeMillis()`, `UUID.randomUUID()`, `Clock.system*()` except in the Clock bean method (`IdConfiguration.clock`). 6/6.
+- Minors: `ClassValue` is an instance field of the interceptor; `UseCaseRegistrar` takes `Environment` and `ResourceLoader` through its static `@Bean` method; stale bus wording fixed in `Result`, `package-info`s, `persistence.md`, the writing-code eval scenario; `use-cases.md` documents matching, one operation, not final (CGLIB), allow-lists, NESTED, shared module, singletons; `module-tests.md` documents the shared module and the probe module.
+
+## Open questions / follow-ups
+- The platform owns `@EnableTransactionManagement` for the whole application (order `LOWEST_PRECEDENCE - 200`); a future ordered advisor must choose its order relative to it.
+- The probe module's use cases are also registered in every other full test context (the scan covers `com.frappe`); they need only beans every such context has.
+- Nullness annotations (JSpecify) are not on the allow-lists yet; add them deliberately when domain code needs them.
+
+## Next step
+Force-push the rebased branch (authorized) and re-review.
+
+## History log (earlier designs, kept for the record)
+
+T0 to T7 built a command/query bus (handlers discovered at startup, `CommandBus#dispatch` / `QueryBus#ask`, `MissingHandlerException`); T8 replaced it by the human's decision. The evidence below is kept as it was recorded; the classes it names under `infrastructure.bus` no longer exist.
 
 ### T0 findings (verified from the sources jars in the Gradle cache: spring-core, spring-beans, spring-aop, spring-tx 7.0.9; micrometer-observation and micrometer-observation-test 1.17.1; spring-boot-test 4.1.1)
 - `ResolvableType.forClass(Class<?> baseType, Class<?> implementationClass)` returns the base type as seen from the implementation (`forType(impl).as(base)`); `getGeneric(0).resolve()` yields the message class or `null` when the implementation leaves it generic.
@@ -114,10 +138,3 @@ RED / GREEN:
 - Docs: `use-cases.md` rewritten (shape, example, Result, rules), `observability.md`, `observing-the-api` conventions (no duplicate span with Modulith), `module-tests.md`, `domain-events.md`, `http-api.md`, `clean-code.md` (coding rules and their enforcement; constructor injection was already explicit), `writing-code/SKILL.md`, README.
 - Verification `FRAPPE_TEST_DB=frappe_fapi_11 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 50 classes, 198 tests, 0 failures, 0 errors.
 
-## Open questions / follow-ups
-- The ticket text (bus, `MissingHandlerException`, `CommandBus#dispatch`) no longer matches the code; the orchestrator owns updating FAPI-11 in Plane.
-- The platform now owns `@EnableTransactionManagement` for the whole application (order `LOWEST_PRECEDENCE - 200` instead of Boot's `LOWEST_PRECEDENCE`); any future ordered advisor must pick its order relative to it.
-- Use cases are singletons; a prototype scope is not supported (use-cases.md: keep them stateless).
-
-## Next step
-Review and PR (not created here: no push, no Plane change).
