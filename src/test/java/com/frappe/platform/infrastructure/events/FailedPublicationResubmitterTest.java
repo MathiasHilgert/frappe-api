@@ -278,6 +278,25 @@ class FailedPublicationResubmitterTest {
     }
 
     @Test
+    void aThrowingRedeliveryIsObservedAsAnErroredRedelivery() {
+        // Given
+        var publication = failedPublication(Probe.class.getName());
+        var outage = new DataAccessResourceFailureException("connection refused");
+        when(outbox.findRetryable(any(), anyInt(), any(), any())).thenReturn(List.of(publication));
+        when(redelivery.redeliver(publication, NOW)).thenThrow(outage);
+
+        // When
+        resubmitter.run();
+
+        // Then
+        TestObservationRegistryAssert.assertThat(observations)
+                .hasAnObservation(observation -> observation
+                        .hasNameEqualTo("outbox.redelivery")
+                        .hasLowCardinalityKeyValue("outbox.redelivery.outcome", "error")
+                        .hasError(outage));
+    }
+
+    @Test
     void aFailedPassIsObservedAsAnError() {
         // Given
         doThrow(new DataAccessResourceFailureException("connection refused"))

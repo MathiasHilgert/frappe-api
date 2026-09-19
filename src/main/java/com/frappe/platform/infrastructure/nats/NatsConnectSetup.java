@@ -39,8 +39,7 @@ final class NatsConnectSetup implements Consumer<Connection> {
             // Runs on a background executor: this is the last place the failure can be reported.
             log.atError()
                     .setCause(e)
-                    .log(
-                            "NATS connected but stream setup failed; publications are retried by the scheduled outbox recovery");
+                    .log("NATS connected but stream setup failed; the scheduled outbox recovery retries publications");
         }
     }
 }

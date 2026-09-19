@@ -6,8 +6,9 @@ import io.micrometer.core.instrument.binder.MeterBinder;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Gauge {@code outbox.dead.letters} (infrastructure telemetry, named by technology like {@code nats.publish}): publications waiting in {@code platform.event_publication_dead_letter} for
- * a human. Refreshed by every recovery run, so a scrape never queries the database; alert on any value above zero.
+ * Gauge {@code outbox.dead.letters} (infrastructure telemetry, named by technology like {@code nats.publish}):
+ * publications waiting in {@code platform.event_publication_dead_letter} for a human. Refreshed by every recovery run,
+ * so a scrape never queries the database; alert on any value above zero.
  */
 final class DeadLetterMetrics implements MeterBinder {
 

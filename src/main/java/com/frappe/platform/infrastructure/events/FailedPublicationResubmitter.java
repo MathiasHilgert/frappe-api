@@ -31,10 +31,9 @@ import org.springframework.dao.DataAccessException;
  *   <li>refreshes the dead-letter gauge.
  * </ol>
  *
- * <p>Runs on a fixed delay and, handed to the task scheduler, at once on {@link MessagingTransportRecovered}; passes never
- * overlap. The schedule
- * covers what a reconnect does not: a publish can fail while the connection survives (a slow or
- * paused server), and a publication can be left behind by an instance that died, neither of which triggers a
+ * <p>Runs on a fixed delay and, handed to the task scheduler, at once on {@link MessagingTransportRecovered}; passes
+ * never overlap. The schedule covers what a reconnect does not: a publish can fail while the connection survives (a
+ * slow or paused server), and a publication can be left behind by an instance that died, neither of which triggers a
  * reconnect. Passes on several instances may select the same row; the guarded claim lets only one resubmit it, and the
  * short window in which a slow attempt is judged stuck and retried by another instance is harmless: JetStream drops the
  * duplicate within its 10-minute window by {@code Nats-Msg-Id}, later ones are dropped by the consumer inbox on {@code
@@ -162,16 +161,17 @@ final class FailedPublicationResubmitter implements Runnable {
                 (reason, ids) -> outbox.deadLetterByIds(ids, reason, now).forEach(this::logDeadLetter));
     }
 
+    // Tagged "error" up front and overwritten on success: Observation.observe records a thrown exception on the
+    // observation and rethrows it, so a failing redelivery (a database fault, handled by the pass) is still timed
+    // and tagged without a broad catch here.
     private Outcome observedRedelivery(FailedPublication publication, Instant now) {
-        var observation =
-                OutboxObservations.redelivery(observations, publication).start();
-        try (var scope = observation.openScope()) {
+        var observation = OutboxObservations.redelivery(observations, publication)
+                .lowCardinalityKeyValue(OutboxObservations.OUTCOME, OutboxObservations.ERROR_OUTCOME);
+        return observation.observe(() -> {
             var outcome = redelivery.redeliver(publication, now);
             observation.lowCardinalityKeyValue(OutboxObservations.OUTCOME, OutboxObservations.outcomeTag(outcome));
             return outcome;
-        } finally {
-            observation.stop();
-        }
+        });
     }
 
     private static DeadLetterReason deadLetterReason(Outcome outcome) {

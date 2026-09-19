@@ -53,7 +53,8 @@ class FlywayMigrationIntegrationTests {
     @Test
     void outboxTablesCarryTheOfficialRegistryIndexes() {
         var indexes = jdbc.queryForList(
-                "select indexname from pg_indexes where schemaname = 'platform' and tablename like 'event_publication%'",
+                "select indexname from pg_indexes"
+                        + " where schemaname = 'platform' and tablename like 'event_publication%'",
                 String.class);
 
         assertThat(indexes)

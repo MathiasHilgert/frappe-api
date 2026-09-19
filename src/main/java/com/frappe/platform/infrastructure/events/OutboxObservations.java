@@ -21,8 +21,11 @@ final class OutboxObservations {
     /** Observation name of one publication handed to {@link PublicationRedelivery}. */
     static final String REDELIVERY = "outbox.redelivery";
 
-    /** Low-cardinality key: the {@link Outcome}, lowercase. */
+    /** Low-cardinality key: the {@link Outcome}, lowercase, or {@value #ERROR_OUTCOME}. */
     static final String OUTCOME = "outbox.redelivery.outcome";
+
+    /** Outcome tag of a redelivery that threw instead of returning an {@link Outcome}. */
+    static final String ERROR_OUTCOME = "error";
 
     /** High-cardinality key: the publication id. */
     static final String PUBLICATION_ID = "outbox.publication.id";
