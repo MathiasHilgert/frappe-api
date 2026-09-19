@@ -5,14 +5,13 @@ import com.frappe.platform.web.Posture;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.springframework.core.annotation.AnnotatedElementUtils;
-import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.method.HandlerTypePredicate;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
@@ -42,22 +41,14 @@ final class RouteCatalog {
      * @throws InvalidRouteException when a route class breaks a rule
      */
     RouteCatalog(RequestMappingHandlerMapping mappings) {
-        var methodsByType = new LinkedHashMap<Class<?>, List<Map.Entry<RequestMappingInfo, HandlerMethod>>>();
-        mappings.getHandlerMethods().entrySet().stream()
-                .filter(entry -> APPLICATION_ROUTES.test(entry.getValue().getBeanType()))
-                .sorted(Comparator.comparing(
-                        entry -> entry.getValue().getBeanType().getName()))
-                .forEach(entry -> methodsByType
-                        .computeIfAbsent(entry.getValue().getBeanType(), type -> new ArrayList<>())
-                        .add(entry));
         var problems = new ArrayList<String>();
         var checked = new ArrayList<Route>();
-        methodsByType.forEach((type, methods) -> {
+        routeMethodsByType(mappings).forEach((type, methods) -> {
             var access = AnnotatedElementUtils.findMergedAnnotation(type, Access.class);
             var typeProblems = problemsOf(type, methods.size(), access);
             problems.addAll(typeProblems);
             if (typeProblems.isEmpty()) {
-                checked.add(new Route(methods.getFirst().getKey(), type, access.value(), access.permission()));
+                checked.add(new Route(methods.getFirst(), access.value(), access.permission()));
             }
         });
         if (!problems.isEmpty()) {
@@ -116,6 +107,19 @@ final class RouteCatalog {
             return Optional.empty();
         }
         return Optional.of(matches.getFirst().getKey());
+    }
+
+    private static Map<Class<?>, List<RequestMappingInfo>> routeMethodsByType(RequestMappingHandlerMapping mappings) {
+        // Sorted by class name, so the startup failure lists the problems in a stable order.
+        var methodsByType = new TreeMap<Class<?>, List<RequestMappingInfo>>(Comparator.comparing(Class::getName));
+        mappings.getHandlerMethods().forEach((mapping, method) -> {
+            if (APPLICATION_ROUTES.test(method.getBeanType())) {
+                methodsByType
+                        .computeIfAbsent(method.getBeanType(), type -> new ArrayList<>())
+                        .add(mapping);
+            }
+        });
+        return methodsByType;
     }
 
     private static List<String> problemsOf(Class<?> type, int mappedMethods, Access access) {
