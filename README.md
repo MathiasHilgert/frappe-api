@@ -109,13 +109,13 @@ Migrations run on startup. `bootRun` activates the `local` profile (`application
 
 ### Observability
 
-Traces and metrics leave the app over OTLP (OpenTelemetry). Locally everything is zero config: compose runs `grafana/otel-lgtm` and Spring Boot's Docker Compose support wires the exporters to it; the `local` profile samples every request.
+Traces, metrics and logs leave the app over OTLP (OpenTelemetry). Locally everything is zero config: compose runs `grafana/otel-lgtm` and Spring Boot's Docker Compose support wires the exporters to it; the `local` profile samples every request.
 
 1. `./gradlew bootRun`, then call any endpoint (e.g. `curl localhost:8080/actuator/health`).
 2. Open Grafana at <http://localhost:3000> (no login).
 3. **Explore → Tempo**: search service `frappe-api`; a request trace shows the `http get …` server span with its `connection`/`query`/`result-set` JDBC spans (and module and `publish <subject>` NATS spans when they run).
 4. **Explore → Prometheus**: `http_server_requests_*`, `jvm_*`, `hikaricp_*`, `nats_publish_*`, business metrics `frappe_<module>_*`.
-5. Logs stay on stdout (ECS JSON outside `local`); inside a trace each line carries `trace.id` and `span.id`, so a trace id from Tempo finds its log lines.
+5. **Explore → Loki**: `{service_name="frappe-api"}`; records inside a trace link to it (trace and span ids), and `frappe.*` key/values become attributes. The console keeps its own output (ECS JSON outside `local`, with `trace.id`/`span.id`).
 
 Outside `local` set the OTLP endpoints (the API starts and serves without them; telemetry is then dropped):
 
@@ -123,6 +123,7 @@ Outside `local` set the OTLP endpoints (the API starts and serves without them; 
 | --- | --- |
 | `MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT` | `http://collector:4318/v1/traces` |
 | `MANAGEMENT_OTLP_METRICS_EXPORT_URL` | `http://collector:4318/v1/metrics` |
+| `MANAGEMENT_OPENTELEMETRY_LOGGING_EXPORT_OTLP_ENDPOINT` | `http://collector:4318/v1/logs` |
 | `FRAPPE_TRACING_SAMPLING_PROBABILITY` | `0.1` (default) |
 
 Developers only declare business metrics (`@Counted` / `@Measured` on domain events); see the `observing-the-api` skill.

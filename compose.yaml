@@ -33,7 +33,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # Grafana (http://localhost:3000) with Tempo for traces and Prometheus for metrics behind one OTLP receiver.
+  # Grafana (http://localhost:3000) with Tempo (traces), Prometheus (metrics) and Loki (logs) behind one OTLP receiver.
   # Spring Boot's Docker Compose support recognises the image and points the app's OTLP exporters at it.
   otel-lgtm:
     image: 'grafana/otel-lgtm:0.33.1'
