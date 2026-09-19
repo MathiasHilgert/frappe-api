@@ -1,6 +1,8 @@
 package com.frappe.platform.infrastructure.valkey;
 
+import com.frappe.platform.IdGenerator;
 import com.frappe.platform.ShortLivedSecretStore;
+import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -17,10 +19,13 @@ class ValkeyConfiguration {
      * The secret store, hashing with Spring Security's current Argon2id defaults.
      *
      * @param redis the Valkey client
+     * @param clock the application clock
+     * @param ids the application id generator
      * @return the secret store
      */
     @Bean
-    ShortLivedSecretStore shortLivedSecretStore(StringRedisTemplate redis) {
-        return new ValkeyShortLivedSecretStore(redis, Argon2PasswordEncoder.defaultsForSpringSecurity_v5_8());
+    ShortLivedSecretStore shortLivedSecretStore(StringRedisTemplate redis, Clock clock, IdGenerator ids) {
+        return new ValkeyShortLivedSecretStore(
+                redis, Argon2PasswordEncoder.defaultsForSpringSecurity_v5_8(), clock, ids);
     }
 }

@@ -1,8 +1,10 @@
 package com.frappe.platform.infrastructure.valkey;
 
+import com.frappe.platform.IdGenerator;
 import com.frappe.platform.SecretKey;
 import com.frappe.platform.SecretStoreUnavailableException;
 import com.frappe.platform.ShortLivedSecretStore;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +21,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
  * {@link ShortLivedSecretStore} in Valkey. A secret is one hash with its Argon2 hash and failure count, expiring with the
  * secret. The candidate is verified in the application (the hash is salted); a Lua script then settles the attempt
  * atomically, so concurrent right submissions succeed once and concurrent wrong ones are all counted.
+ *
+ * <p>Issue caps are a sliding-window log (a sorted set of issue times, trimmed and checked by a Lua script). Times come
+ * from the application clock; instances must keep their clocks in sync (NTP), as for every other timestamp.
  */
 final class ValkeyShortLivedSecretStore implements ShortLivedSecretStore {
 
@@ -30,29 +35,41 @@ final class ValkeyShortLivedSecretStore implements ShortLivedSecretStore {
 
     private static final String NOT_MATCHED = "0";
 
-    private static final RedisScript<Long> CONSUME =
-            RedisScript.of(new ClassPathResource("consume-secret.lua", ValkeyShortLivedSecretStore.class), Long.class);
+    /** What both scripts return when they consumed the secret or recorded the issue. */
+    private static final long RECORDED = 1;
+
+    private static final RedisScript<Long> CONSUME = script("consume-secret.lua");
+
+    private static final RedisScript<Long> COUNT_ISSUE = script("count-issue.lua");
 
     private final StringRedisTemplate redis;
 
     private final PasswordEncoder hashes;
+
+    private final Clock clock;
+
+    private final IdGenerator ids;
 
     /**
      * Creates the store.
      *
      * @param redis the Valkey client
      * @param hashes the one-way encoder for stored secrets (Argon2)
+     * @param clock the application clock, for issue times
+     * @param ids unique members for the issue log
      */
-    ValkeyShortLivedSecretStore(StringRedisTemplate redis, PasswordEncoder hashes) {
+    ValkeyShortLivedSecretStore(StringRedisTemplate redis, PasswordEncoder hashes, Clock clock, IdGenerator ids) {
         this.redis = redis;
         this.hashes = hashes;
+        this.clock = clock;
+        this.ids = ids;
     }
 
     @Override
     public void put(SecretKey key, String secret, Duration ttl) {
         Objects.requireNonNull(key, "key");
         requireSecret(secret);
-        requirePositive(ttl);
+        requirePositive(ttl, "ttl");
         var hash = hashes.encode(secret);
         var redisKey = ValkeyKeys.secret(key);
         try {
@@ -75,9 +92,30 @@ final class ValkeyShortLivedSecretStore implements ShortLivedSecretStore {
             var outcome = hashes.matches(candidate, stored) ? MATCHED : NOT_MATCHED;
             var consumed =
                     redis.execute(CONSUME, List.of(redisKey), stored, outcome, String.valueOf(MAX_FAILED_ATTEMPTS));
-            return Long.valueOf(1).equals(consumed);
+            return Long.valueOf(RECORDED).equals(consumed);
         } catch (DataAccessException e) {
             throw new SecretStoreUnavailableException("Checking a secret failed: Valkey is unavailable", e);
+        }
+    }
+
+    @Override
+    public boolean countIssue(SecretKey key, Duration window, int limit) {
+        Objects.requireNonNull(key, "key");
+        requirePositive(window, "window");
+        if (limit < 1) {
+            throw new IllegalArgumentException("limit must be positive, was " + limit);
+        }
+        try {
+            var recorded = redis.execute(
+                    COUNT_ISSUE,
+                    List.of(ValkeyKeys.secretIssues(key)),
+                    String.valueOf(clock.millis()),
+                    String.valueOf(window.toMillis()),
+                    String.valueOf(limit),
+                    ids.newId().toString());
+            return Long.valueOf(RECORDED).equals(recorded);
+        } catch (DataAccessException e) {
+            throw new SecretStoreUnavailableException("Counting a secret issue failed: Valkey is unavailable", e);
         }
     }
 
@@ -103,10 +141,14 @@ final class ValkeyShortLivedSecretStore implements ShortLivedSecretStore {
         }
     }
 
-    private static void requirePositive(Duration ttl) {
-        Objects.requireNonNull(ttl, "ttl");
-        if (ttl.isNegative() || ttl.isZero()) {
-            throw new IllegalArgumentException("ttl must be positive, was " + ttl);
+    private static void requirePositive(Duration duration, String name) {
+        Objects.requireNonNull(duration, name);
+        if (duration.isNegative() || duration.isZero()) {
+            throw new IllegalArgumentException(name + " must be positive, was " + duration);
         }
+    }
+
+    private static RedisScript<Long> script(String name) {
+        return RedisScript.of(new ClassPathResource(name, ValkeyShortLivedSecretStore.class), Long.class);
     }
 }

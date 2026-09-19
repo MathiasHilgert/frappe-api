@@ -35,4 +35,17 @@ public interface ShortLivedSecretStore {
      * @throws SecretStoreUnavailableException if the store cannot be reached
      */
     boolean consume(SecretKey key, String candidate);
+
+    /**
+     * Counts one issue of a secret against a sliding-window cap, e.g. at most 5 codes per hour per account. Callers ask
+     * before issuing and issue only when allowed. An issue leaves the window once it is {@code window} old.
+     *
+     * @param key the secret's key; issues are counted per key
+     * @param window length of the sliding window; positive
+     * @param limit issues allowed within any window; positive
+     * @return {@code true} if the issue is within the cap and was counted; {@code false} if it was refused (and not
+     *     counted)
+     * @throws SecretStoreUnavailableException if the store cannot be reached
+     */
+    boolean countIssue(SecretKey key, Duration window, int limit);
 }

@@ -27,7 +27,7 @@ Strict TDD. Runner: `./gradlew test` with Testcontainers (Postgres reused as `FR
 - [x] T1 Compose DX: env-overridable host ports, `valkey` service with the service-connection label; README
 - [x] T2 Valkey wiring: starter, `FRAPPE_VALKEY_URL` required outside `local`, `TestValkeyConfiguration`, starts without Valkey
 - [x] T3 `ShortLivedSecretStore` put/consume: Argon2 hash only, single use under concurrency, 5 failures, replace, TTL
-- [ ] T4 `countIssue` sliding-window cap
+- [x] T4 `countIssue` sliding-window cap
 - [ ] T5 `RateLimiter` on Bucket4j: N+1 refused, shared across instances
 - [ ] T6 Invariants and failure: raw read holds only hashes and no email; Valkey down → `SecretStoreUnavailableException`; docs (README, testing skill, writing-code); full check
 
@@ -73,5 +73,10 @@ Strict TDD. Runner: `./gradlew test` with Testcontainers (Postgres reused as `FR
 - Code: `SecretKey` (lowercase kebab-case module/purpose, UUID subject), `ShortLivedSecretStore` (`MAX_FAILED_ATTEMPTS = 5`), `SecretStoreUnavailableException`; `ValkeyShortLivedSecretStore` (Argon2 v5.8 defaults, `put` as MULTI of HSET hash/failures=0 + EXPIRE, `consume` = HGET, Argon2 verify, `consume-secret.lua`), `ValkeyKeys`, `ValkeyConfiguration`. `DataAccessException` → `SecretStoreUnavailableException` (no secret or key in the message).
 - `./gradlew javadoc`, `ModularityTests`: green.
 
+### T4 issue cap
+- RED (compilation) `SecretIssueCapIntegrationTests` (3): `countIssue` and the clock/id constructor missing. GREEN 3/3: `refusesTheSixthIssueWithinTheWindow`, `allowsIssuingAgainOnceTheOldestIssueLeavesTheWindow` (refused 1 ms before the oldest issue is an hour old, allowed at exactly one hour, refused again right after), `capsEachKeySeparately`. The test moves a `MutableClock`; `ShortLivedSecretStoreIntegrationTests` 7/7 still green.
+- Mutation check: trimming one millisecond late (`now - window - 1`) failed `allowsIssuingAgainOnceTheOldestIssueLeavesTheWindow`; restored.
+- Code: `count-issue.lua` (ZREMRANGEBYSCORE, ZCARD, ZADD with a UUIDv7 member, PEXPIRE window), `ValkeyKeys.secretIssues`, time from the injected `Clock`.
+
 ## Next step
-T4.
+T5.
