@@ -8,11 +8,11 @@ Scope: one Spring Modulith module bootstrapped alone, with real Postgres (and NA
 @ApplicationModuleTest
 @Import(TestcontainersConfiguration.class)
 class CloseTabModuleTest {
-    @Autowired CommandBus bus;
+    @Autowired CloseTab closeTab;
 
     @Test
     void closingATabPublishesTabClosed(Scenario scenario) {
-        scenario.stimulate(() -> bus.dispatch(new CloseTab(tabId)))
+        scenario.stimulate(() -> closeTab.close(tabId))
                 .andWaitForEventOfType(TabClosed.class)
                 .matchingMappedValue(TabClosed::tabId, tabId)
                 .toArrive();
@@ -22,7 +22,7 @@ class CloseTabModuleTest {
 
 - Place the test in the module's root test package so Modulith detects the module.
 - Default bootstrap mode is `STANDALONE`; use `DIRECT_DEPENDENCIES` only when the test really needs a neighbor, and prefer publishing the neighbor's event via `Scenario.publish(...)`.
-- Drive the module through its bus or public `Api`, not through internals.
+- Drive the module through its use cases or public `Api`, not through internals.
 
 ## Events
 

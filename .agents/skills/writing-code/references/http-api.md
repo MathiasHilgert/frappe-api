@@ -37,7 +37,7 @@ class CloseTabRoute {
 ## Endpoints
 
 - REST under `/v1`, plural nouns, kebab-case paths: `POST /v1/sessions`, `DELETE /v1/sessions/current`.
-- Controllers translate request DTO (`record`) → command/query, call the bus, map `Result` → response. No business logic.
+- Controllers translate the request DTO (`record`) into the use case's input, call the use case, map `Result` → response. No business logic.
 - `201 Created` with `Location` for creation, `204` for no-body success.
 - Paginate collection endpoints (limit + cursor or page); never return unbounded lists.
 

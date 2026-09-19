@@ -1,27 +1,31 @@
-# Use cases (CQRS bus)
+# Use cases
 
-Package: `com.frappe.<module>.application`. Kernel types (`com.frappe.platform`, pure Java): `Command<R>`, `Query<R>`, `CommandHandler<C, R>`, `QueryHandler<Q, R>`, `CommandBus#dispatch`, `QueryBus#ask`, `Result<T, E>`.
+Package: `com.frappe.<module>.application`. Kernel types (`com.frappe.platform`, plain Java): `@CommandUseCase`, `@QueryUseCase`, `Result<T, E>`.
 
 ## Shape
 
-- One command or query `record` per use case, named for intent: `CloseTab implements Command<Result<TabId, TabError>>`, `FindOpenTabs implements Query<List<OpenTab>>`. The type argument is what the handler returns.
-- One handler per command/query. Declaring it is one step: a Spring bean implementing `CommandHandler<C, R>` or `QueryHandler<Q, R>` with concrete types. The bus finds it at startup by the message type; nothing is registered by hand. The domain is not a Spring bean.
-- Handlers orchestrate: load aggregate → call behavior → save → return. Business rules stay in the domain.
+- One class per operation, named for intent (`CloseTab`, `FindOpenTabs`), marked `@CommandUseCase` (changes state) or `@QueryUseCase` (reads state), with exactly one public method. The class is public (the module's `Api` implementation and web adapters call it), everything else about it is not. Callers (controllers, the module's `Api`, listeners) inject the class and call that method directly; there is no command/query bus, as in mainstream Spring (Spring RESTBucks, jMolecules examples).
+- The stereotype is all it takes: the platform registers the class as a bean (no `@Component`/`@Service`), observes every call and rolls back a returned failure.
+- The method takes the input it needs: plain parameters or a request record named for intent (`CloseTab.Request`).
+- Use cases orchestrate: load aggregate → call behavior → save → return. Business rules stay in the domain.
 - Commands return `Result<id or small view, Error>`; queries return read models (records), never aggregates.
 
 ```java
-record CloseTab(TabId tabId) implements Command<Result<TabId, TabError>> {}
-
-@Component
-class CloseTabHandler implements CommandHandler<CloseTab, Result<TabId, TabError>> {
-    private final Tabs tabs;          // domain port, implemented in persistence
+@CommandUseCase
+public class CloseTab {
+    private final Tabs tabs;                   // domain port, implemented in persistence
     private final Clock clock;
     private final DomainEventPublisher events; // platform kernel port, writes to the outbox
 
-    @Override
+    CloseTab(Tabs tabs, Clock clock, DomainEventPublisher events) {
+        this.tabs = tabs;
+        this.clock = clock;
+        this.events = events;
+    }
+
     @Transactional
-    public Result<TabId, TabError> handle(CloseTab cmd) {
-        return tabs.byId(cmd.tabId())
+    public Result<TabId, TabError> close(TabId tabId) {
+        return tabs.byId(tabId)
                 .flatMap(tab -> tab.close(clock))
                 .map(tab -> {
                     tabs.save(tab);
@@ -31,23 +35,31 @@ class CloseTabHandler implements CommandHandler<CloseTab, Result<TabId, TabError
     }
 }
 
-// Callers (controllers, the module's Api) only see the bus:
-Result<TabId, TabError> closed = commandBus.dispatch(new CloseTab(tabId));
+@QueryUseCase
+public class FindOpenTabs {
+    @Transactional(readOnly = true)
+    public List<OpenTab> find(BranchId branchId) { … }
+}
+
+// Callers inject and call it:
+Result<TabId, TabError> closed = closeTab.close(tabId);
 ```
 
 ## Result
 
 - `Result.success(value)` / `Result.failure(error)`; neither holds `null`. Compose with `map`, `flatMap`, `mapFailure` (e.g. domain error → web error); read with `fold` or a `switch` over `Result.Success` / `Result.Failure`.
-- A returned `Failure` is a business refusal: the bus reports it as `outcome=failure`. An exception is a defect or infrastructure fault: `outcome=error`. Never throw for an expected failure, or error alerts stop meaning anything.
-- A returned `Failure` rolls the command's transaction back: nothing the handler saved or recorded before refusing persists, and the bus still reports `outcome=failure`. Only a transaction the handler started is marked; when it joins a caller's transaction, the caller (its owner) decides from the returned failure.
-- A `Failure` never commits the handler's own transaction. State that must survive a refusal (failed-login attempts, rate counters) does not go there: short-lived counters and attempts live in Valkey through `RateLimiter` / `ShortLivedSecretStore` (FAPI-16); anything else durable is written by a separate `@Transactional(propagation = REQUIRES_NEW)` step (another bean) that commits on its own before the handler returns the failure.
+- A returned `Failure` is a business refusal: observed as `outcome=failure`. An exception is a defect or infrastructure fault: `outcome=error`. Never throw for an expected failure, or error alerts stop meaning anything.
+- A returned `Failure` rolls back the transaction the use case started: nothing it saved or recorded before refusing persists. When the use case joins a caller's transaction, the caller (its owner) decides from the returned failure.
+- A `Failure` never commits the use case's own transaction. State that must survive a refusal (failed-login attempts, rate counters) does not go there: short-lived counters and attempts live in Valkey through `RateLimiter` / `ShortLivedSecretStore` (FAPI-16); anything else durable is written by a separate use case or bean with `@Transactional(propagation = REQUIRES_NEW)`, which commits on its own before the refusal is returned.
 
-## Rules
+## Rules (enforced by `UseCaseArchitectureTests`, ArchUnit)
 
-- Command handlers are `@Transactional` (read-write), query handlers `@Transactional(readOnly = true)`, on `handle` or the class; propagation `REQUIRED` (default), `REQUIRES_NEW` or `NESTED`, so the handler always runs in a transaction (`SUPPORTS`, `NOT_SUPPORTED`, `NEVER` and `MANDATORY` are rejected); startup fails naming the bean otherwise. Saving the aggregate and its events happens in the command's transaction (see `domain-events.md`); the query's read-only transaction carries the tenant setting for RLS (`persistence.md`).
-- Exactly one handler per message type: two handlers for one type fail startup naming both beans; a message without a handler throws `MissingHandlerException` naming the type (a programming error: never catch it). Handlers are resolved once, on first use, and reused: a prototype-scoped handler behaves like a singleton, so keep handlers stateless. Handlers are keyed by the exact record class; declare them as classes (not lambdas or generic classes) so the message type resolves. Messages live in `com.frappe.<module>…`.
-- Handlers never create telemetry. The bus observes every dispatch (`use_case`, see `observability.md`) outside the handler's transaction proxy, so the commit is part of the measured use case.
+- Use cases live in `..application..`, carry exactly one of the two stereotypes and have exactly one public method.
+- Transactions: the operation of a `@CommandUseCase` is `@Transactional` (read-write), of a `@QueryUseCase` `@Transactional(readOnly = true)` (on the method or the class), with propagation `REQUIRED` (default), `REQUIRES_NEW` or `NESTED`, so it always runs in a transaction: the command's for atomic state and outbox writes, the query's for the tenant setting of RLS (`persistence.md`).
+- Use cases depend only on the kernel, their module's domain and plain Java. `@Transactional` (package `org.springframework.transaction.annotation`) is the one accepted Spring annotation; no other Spring type and no infrastructure library (Spring Data, Micrometer, OpenTelemetry, Bucket4j, db-scheduler, jnats, Lettuce, ICU4J, JPA, Jackson). Domain and kernel code accept none of them.
+- Use cases never create telemetry; the platform observes every call (`use_case`, see `observability.md`) outside the transaction, so the commit is part of the measured call.
+- Constructor injection only; keep use cases stateless (they are singletons).
 - Repository interfaces (ports) live in `domain`; implementations in `infrastructure.persistence`.
-- A handler touches one aggregate instance per transaction. Cross-aggregate effects go through events.
+- A use case touches one aggregate instance per transaction. Cross-aggregate effects go through events.
 - Map `Result` failures to HTTP only in the web layer.
-- Public `XxxApi` methods delegate to the bus; they never expose domain types, only records in the module root package.
+- Public `XxxApi` methods delegate to use cases; they never expose domain types, only records in the module root package.
