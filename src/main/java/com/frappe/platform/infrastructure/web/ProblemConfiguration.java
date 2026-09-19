@@ -4,9 +4,13 @@ import com.frappe.platform.web.ProblemMapper;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.tracing.Tracer;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
+import org.springframework.web.servlet.HandlerExceptionResolver;
 import org.springframework.web.servlet.LocaleResolver;
 
 /**
@@ -41,6 +45,21 @@ class ProblemConfiguration {
     @Bean
     ProblemMappers problemMappers(ObjectProvider<ProblemMapper<?>> mappers) {
         return new ProblemMappers(mappers.orderedStream().toList());
+    }
+
+    /**
+     * The HTTP boundary filter, right inside Spring Boot's HTTP server observation filter ({@code HIGHEST_PRECEDENCE +
+     * 1}), so every exception of a request is answered while its trace is current.
+     *
+     * @param exceptionResolver Spring MVC's exception resolvers
+     * @return the filter registration
+     */
+    @Bean
+    FilterRegistrationBean<ProblemBoundaryFilter> problemBoundaryFilter(
+            @Qualifier("handlerExceptionResolver") ObjectProvider<HandlerExceptionResolver> exceptionResolver) {
+        var registration = new FilterRegistrationBean<>(new ProblemBoundaryFilter(exceptionResolver::getObject));
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 2);
+        return registration;
     }
 
     /**

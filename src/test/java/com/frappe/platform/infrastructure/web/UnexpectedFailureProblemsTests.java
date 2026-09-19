@@ -172,6 +172,6 @@ class UnexpectedFailureProblemsTests {
     }
 
     private static Logger logger() {
-        return (Logger) LoggerFactory.getLogger("com.frappe.platform.infrastructure.web.UnexpectedFailures");
+        return (Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
     }
 }

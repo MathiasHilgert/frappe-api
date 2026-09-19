@@ -67,14 +67,23 @@ class ProblemAdvice extends ResponseEntityExceptionHandler {
 
     /**
      * Anything unexpected: a defect or an infrastructure fault. The client gets the generic internal-error problem,
-     * never the exception; the exception is logged and counted once.
+     * never the exception; the exception is logged and counted once. Faults of the client (a body it botched, a
+     * connection it dropped) are not unexpected: the invalid-request problem, or no answer.
      *
      * @param failure what was thrown
      * @param request the current request
-     * @return the 500 problem
+     * @return the 500 problem; the 400 problem for an unreadable request; nothing when the client is gone
      */
     @ExceptionHandler(Exception.class)
+    @Nullable
     ResponseEntity<Object> unexpected(Exception failure, HttpServletRequest request) {
+        // A body cut short also surfaces as the client aborting; reading it failed first, so that decides.
+        if (ClientFaults.unreadableRequest(failure)) {
+            return ResponseEntity.badRequest().body(problems.forStatus(HttpStatus.BAD_REQUEST, request));
+        }
+        if (ClientFaults.clientGone(failure)) {
+            return null; // nobody left to answer, nothing went wrong on our side
+        }
         unexpectedFailures.record(failure, request);
         return ResponseEntity.internalServerError().body(problems.forStatus(HttpStatus.INTERNAL_SERVER_ERROR, request));
     }
@@ -111,6 +120,9 @@ class ProblemAdvice extends ResponseEntityExceptionHandler {
         // Spring MVC hands every servlet request to its exception handlers as a ServletWebRequest.
         var servletRequest = ((ServletWebRequest) request).getRequest();
         if (statusCode.is5xxServerError()) {
+            if (ClientFaults.clientGone(ex)) {
+                return null;
+            }
             unexpectedFailures.record(ex, servletRequest);
         }
         var problem = ex instanceof MethodArgumentNotValidException invalid

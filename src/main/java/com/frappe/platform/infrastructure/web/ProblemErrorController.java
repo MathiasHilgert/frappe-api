@@ -3,6 +3,7 @@ package com.frappe.platform.infrastructure.web;
 import io.swagger.v3.oas.annotations.Hidden;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;
+import org.jspecify.annotations.Nullable;
 import org.springframework.boot.webmvc.error.ErrorAttributes;
 import org.springframework.boot.webmvc.error.ErrorController;
 import org.springframework.http.HttpStatus;
@@ -16,8 +17,9 @@ import org.springframework.web.context.request.ServletWebRequest;
 /**
  * Answers the servlet container's error dispatches with problems, in place of Spring Boot's
  * {@code BasicErrorController}: what fails outside Spring MVC (an exception thrown by a filter, a status sent with
- * {@code sendError}) gets the same shape as everything else. An exception, or any server error, becomes the generic
- * internal-error problem and is recorded once; a client error becomes the platform problem for its status.
+ * {@code sendError}) gets the same shape as everything else. A server error becomes the generic
+ * internal-error problem and is recorded once; a client error (including a body the client botched) becomes the
+ * platform problem for its status, unrecorded; a client that is gone gets nothing.
  *
  * <p>A framework contract, not a route: it has no {@code /v1} prefix and no posture ({@link RouteCatalog} leaves
  * {@link ErrorController}s alone); the security chain lets only error dispatches reach it.
@@ -47,15 +49,20 @@ class ProblemErrorController implements ErrorController {
      * Answers an error dispatch.
      *
      * @param request the error dispatch
-     * @return the problem
+     * @return the problem; nothing when the client is gone
      */
     @RequestMapping("${server.error.path:${error.path:/error}}")
+    @Nullable
     ResponseEntity<ProblemDetail> error(HttpServletRequest request) {
         var failure = errors.getError(new ServletWebRequest(request));
-        var status = statusOf(request);
-        if (failure != null || status.is5xxServerError()) {
+        // A body cut short also surfaces as the client aborting; reading it failed first, so that decides.
+        var unreadable = failure != null && ClientFaults.unreadableRequest(failure);
+        if (!unreadable && failure != null && ClientFaults.clientGone(failure)) {
+            return null; // nobody left to answer
+        }
+        var status = unreadable ? HttpStatus.BAD_REQUEST : statusOf(request);
+        if (status.is5xxServerError()) {
             unexpectedFailures.record(failure, request);
-            status = HttpStatus.INTERNAL_SERVER_ERROR;
         }
         var problem = problems.forStatus(status, request);
         return ResponseEntity.status(problem.getStatus()).body(problem);

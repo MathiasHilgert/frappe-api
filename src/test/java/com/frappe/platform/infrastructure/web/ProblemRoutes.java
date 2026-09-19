@@ -11,6 +11,7 @@ import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisConnectionException;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.SocketOptions;
+import io.nats.client.ErrorListener;
 import io.nats.client.Nats;
 import io.nats.client.Options;
 import jakarta.servlet.Filter;
@@ -105,6 +106,9 @@ public class ProblemRoutes {
                             .server("nats://127.0.0.1:1")
                             .connectionTimeout(Duration.ofMillis(500))
                             .noReconnect()
+                            // jnats' default listener logs the refused connection at ERROR on its own thread; this
+                            // test client is not the application's, so it stays quiet.
+                            .errorListener(new ErrorListener() {})
                             .build())) {
                         yield connection.getServerInfo().getServerId();
                     }
