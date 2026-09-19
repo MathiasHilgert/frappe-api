@@ -34,6 +34,7 @@ dependencies {
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-scalar:3.1.1")
 	implementation("com.bucket4j:bucket4j_jdk17-lettuce:8.20.0")
 	implementation("com.github.f4b6a3:uuid-creator:6.1.1")
+	implementation("com.ibm.icu:icu4j:78.3")
 	implementation("io.nats:jnats:2.26.2") {
 		// Same org.bouncycastle classes as bcprov-jdk18on below (duplicate classes on one classpath); jnats' NKey
 		// signing only needs the Ed25519 classes both jars contain.
