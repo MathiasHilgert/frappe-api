@@ -11,15 +11,24 @@ import com.frappe.platform.web.Posture;
 import com.frappe.platform.web.ResolvedSession;
 import com.frappe.platform.web.SessionKind;
 import com.frappe.platform.web.SessionResolver;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
+import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -55,11 +64,18 @@ class BusinessPathTests {
     static final UUID BUSINESS_B = UUID.fromString("0190a8f0-0000-7000-8000-0000000000b2");
 
     static final Map<String, ResolvedSession> SESSIONS = Map.of(
-            "member-token", new ResolvedSession(MEMBER, UUID.randomUUID(), SessionKind.PERSON),
-            "stranger-token", new ResolvedSession(STRANGER, UUID.randomUUID(), SessionKind.PERSON),
-            "staff-of-a-token", bound(SessionKind.STAFF, BUSINESS_A),
-            "terminal-of-a-token", bound(SessionKind.TERMINAL, BUSINESS_A),
-            "unbound-guest-token", new ResolvedSession(UUID.randomUUID(), UUID.randomUUID(), SessionKind.GUEST));
+            "member-token",
+            new ResolvedSession(MEMBER, UUID.randomUUID(), SessionKind.PERSON),
+            "stranger-token",
+            new ResolvedSession(STRANGER, UUID.randomUUID(), SessionKind.PERSON),
+            "staff-of-a-token",
+            bound(SessionKind.STAFF, BUSINESS_A),
+            "terminal-of-a-token",
+            bound(SessionKind.TERMINAL, BUSINESS_A),
+            "guest-of-a-token",
+            bound(SessionKind.GUEST, BUSINESS_A),
+            "unbound-guest-token",
+            new ResolvedSession(UUID.randomUUID(), UUID.randomUUID(), SessionKind.GUEST));
 
     /** A membership port for the tests: the member belongs to business A only; it can be made to fail. */
     static final class TestMembership implements BusinessMembership {
@@ -107,6 +123,11 @@ class BusinessPathTests {
         }
 
         @Bean
+        AsyncBusinessTenantRoute asyncBusinessTenantRoute(TenantScope tenants, AtomicInteger businessControllerCalls) {
+            return new AsyncBusinessTenantRoute(tenants, businessControllerCalls);
+        }
+
+        @Bean
         OutsideTenantRoute outsideTenantRoute(TenantScope tenants) {
             return new OutsideTenantRoute(tenants);
         }
@@ -149,6 +170,26 @@ class BusinessPathTests {
         @GetMapping("/businesses/{businessId}/test/public-tenant")
         String tenant(@PathVariable String businessId) {
             return tenants.current().map(UUID::toString).orElse("none");
+        }
+    }
+
+    /** Answers, from the async dispatch, the tenant bound there. */
+    @RestController
+    @Access(Posture.AUTHENTICATED)
+    static class AsyncBusinessTenantRoute {
+
+        private final TenantScope tenants;
+        private final AtomicInteger calls;
+
+        AsyncBusinessTenantRoute(TenantScope tenants, AtomicInteger calls) {
+            this.tenants = tenants;
+            this.calls = calls;
+        }
+
+        @GetMapping("/businesses/{businessId}/test/async-tenant")
+        Callable<String> tenant(@PathVariable String businessId) {
+            calls.incrementAndGet();
+            return () -> tenants.current().map(UUID::toString).orElse("none");
         }
     }
 
@@ -307,6 +348,129 @@ class BusinessPathTests {
                 .extractingPath("$.code")
                 .isEqualTo("internal-error");
         assertThat(businessControllerCalls).hasValue(0);
+    }
+
+    @Test
+    void aGuestSessionNeverCrossesIntoAnotherBusiness() {
+        assertThat(get("/v1/businesses/" + BUSINESS_B + "/test/probes", "guest-of-a-token"))
+                .hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(businessControllerCalls).hasValue(0);
+    }
+
+    static Stream<Arguments> pathTricks() {
+        var a = BUSINESS_A.toString();
+        var b = BUSINESS_B.toString();
+        var tricks = new ArrayList<Arguments>();
+        // The stranger is a member of nothing; staff of A tries B.
+        for (var target : List.of(Map.entry("stranger-token", a), Map.entry("staff-of-a-token", b))) {
+            var token = target.getKey();
+            var id = target.getValue();
+            tricks.add(Arguments.of(token, "/v1/businesses/" + id + "/test/probes/"));
+            tricks.add(Arguments.of(token, "/v1/businesses//" + id + "/test/probes"));
+            tricks.add(Arguments.of(token, "/v1/businesses/" + id + "//test/probes"));
+            tricks.add(Arguments.of(token, "/v1/businesses/" + id + ";matrix=1/test/probes"));
+            tricks.add(Arguments.of(token, "/v1/businesses;x=1/" + id + "/test/probes"));
+            tricks.add(Arguments.of(token, "/v1/businesses/" + id + "%2Ftest/probes"));
+            tricks.add(Arguments.of(token, "/v1/businesses%2F" + id + "/test/probes"));
+            tricks.add(Arguments.of(token, "/v1/businesses/" + id.toUpperCase(Locale.ROOT) + "/test/probes"));
+            tricks.add(Arguments.of(
+                    token, "/v1/businesses/%" + Integer.toHexString(id.charAt(0)) + id.substring(1) + "/test/probes"));
+        }
+        return tricks.stream();
+    }
+
+    @ParameterizedTest(name = "{0} {1}")
+    @MethodSource("pathTricks")
+    void noPathTrickLetsACallerIntoABusinessItMayNotEnter(String token, String path) {
+        // When
+        var result = http.get()
+                .uri(URI.create(path))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .exchange();
+
+        // Then
+        assertThat(result.getResponse().getStatus()).isIn(400, 404);
+        assertThat(businessControllerCalls).hasValue(0);
+    }
+
+    @Test
+    void anAnonymousCallerWithAMalformedIdOnAPublicRouteIsNotFound() {
+        assertThat(http.get().uri("/v1/businesses/not-a-uuid/test/public-tenant"))
+                .hasStatus(HttpStatus.NOT_FOUND)
+                .bodyJson()
+                .extractingPath("$.code")
+                .isEqualTo("not-found");
+    }
+
+    @Test
+    void aPublicRouteRunsForAnUnknownBusinessWithItBound() {
+        var unknown = UUID.randomUUID();
+
+        assertThat(http.get().uri("/v1/businesses/" + unknown + "/test/public-tenant"))
+                .hasStatusOk()
+                .bodyText()
+                .isEqualTo(unknown.toString());
+    }
+
+    @Test
+    void theRefusalOfANonMemberIsIndistinguishableFromAnUnknownBusiness() throws Exception {
+        // When
+        var nonMember = get("/v1/businesses/" + BUSINESS_A + "/test/probes", "stranger-token");
+        var unknown = get("/v1/businesses/" + UUID.randomUUID() + "/test/probes", "stranger-token");
+
+        // Then: identical status, headers and body, but for the path the client requested and the request's trace id
+        assertThat(nonMember.getResponse().getStatus())
+                .isEqualTo(unknown.getResponse().getStatus());
+        assertThat(headersOf(nonMember)).isEqualTo(headersOf(unknown));
+        assertThat(normalizedBody(nonMember)).isEqualTo(normalizedBody(unknown));
+    }
+
+    @Test
+    void anAsyncRouteRunsItsWorkWithoutTheTenantSoItSeesNoRows() {
+        // Given the check already ran on the request dispatch: a stranger never reaches the route
+        assertThat(get("/v1/businesses/" + BUSINESS_A + "/test/async-tenant", "stranger-token"))
+                .hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(businessControllerCalls).hasValue(0);
+
+        // When a member's async work runs on another thread, then no tenant is bound there (fail closed)
+        assertThat(get("/v1/businesses/" + BUSINESS_A + "/test/async-tenant", "member-token"))
+                .hasStatusOk()
+                .bodyText()
+                .isEqualTo("none");
+        assertThat(membership.calls).hasValue(2);
+    }
+
+    @Test
+    void theTenantIsUnboundAfterABusinessRequest() {
+        // Given
+        assertThat(get("/v1/businesses/" + BUSINESS_A + "/test/probes", "member-token"))
+                .hasStatusOk();
+
+        // Then the same thread carries nothing to its next request
+        assertThat(tenants.current()).isEmpty();
+        assertThat(http.get().uri("/v1/test/outside-tenant"))
+                .hasStatusOk()
+                .bodyText()
+                .isEqualTo("none");
+    }
+
+    private static Map<String, List<String>> headersOf(MvcTestResult result) {
+        var response = result.getResponse();
+        var headers = new TreeMap<String, List<String>>();
+        for (var name : response.getHeaderNames()) {
+            if (!name.equalsIgnoreCase(HttpHeaders.CONTENT_LENGTH)) {
+                headers.put(name, response.getHeaders(name));
+            }
+        }
+        return headers;
+    }
+
+    private static String normalizedBody(MvcTestResult result) throws Exception {
+        return result.getResponse()
+                .getContentAsString()
+                .replaceAll("\"instance\":\"[^\"]*\"", "\"instance\":\"<path>\"")
+                // Every request has its own trace id; its shape is the same for both.
+                .replaceAll("\"traceId\":\"[0-9a-f]{32}\"", "\"traceId\":\"<trace>\"");
     }
 
     private MvcTestResult get(String path, String token) {

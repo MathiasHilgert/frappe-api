@@ -77,7 +77,9 @@ final class BusinessPathFilter extends OncePerRequestFilter {
             return false;
         }
         var session = caller.get();
-        if (session.businessId().isPresent()) {
+        // A bound session enters its own business only. ResolvedSession guarantees that a PERSON is never bound; the
+        // kind check keeps that true here even if the invariant ever changed.
+        if (session.kind() != SessionKind.PERSON && session.businessId().isPresent()) {
             return session.businessId().get().equals(businessId);
         }
         return session.kind() == SessionKind.PERSON && memberships.isMember(session.principalId(), businessId);

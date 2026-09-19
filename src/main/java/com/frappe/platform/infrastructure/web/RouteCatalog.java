@@ -168,6 +168,13 @@ final class RouteCatalog {
             problems.add(type.getName() + " lives in " + type.getPackageName() + "; routes are adapters and belong"
                     + " in the module's infrastructure.web package");
         }
+        methods.stream()
+                .map(Map.Entry::getKey)
+                .flatMap(mapping -> mapping.getPatternValues().stream())
+                .filter(BusinessPath::breaksTheConvention)
+                .forEach(pattern -> problems.add(type.getName() + " maps " + pattern + "; routes under "
+                        + BusinessPath.PREFIX + " must have the shape /v1/businesses/{businessId} or"
+                        + " /v1/businesses/{businessId}/…, so the platform can check the business"));
         if (access == null) {
             problems.add(type.getName() + " declares no @Access; annotate the class with @Access(Posture.…) to"
                     + " state who may call it");

@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 /** A session is bound to at most one business, and a person's session to none. */
 class ResolvedSessionTest {
@@ -45,12 +47,24 @@ class ResolvedSessionTest {
     @Test
     void aBranchIsNeverBoundWithoutItsBusiness() {
         assertThatThrownBy(() -> new ResolvedSession(
-                        UUID.randomUUID(),
-                        UUID.randomUUID(),
-                        SessionKind.TERMINAL,
-                        Optional.empty(),
-                        Optional.of(BRANCH)))
+                        UUID.randomUUID(), UUID.randomUUID(), SessionKind.GUEST, Optional.empty(), Optional.of(BRANCH)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("branch");
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+            value = SessionKind.class,
+            names = {"STAFF", "TERMINAL"})
+    void aStaffOrTerminalSessionIsAlwaysBoundToABusiness(SessionKind kind) {
+        assertThatThrownBy(() -> new ResolvedSession(UUID.randomUUID(), UUID.randomUUID(), kind))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(kind.name());
+    }
+
+    @Test
+    void aGuestSessionMayBeUnbound() {
+        assertThat(new ResolvedSession(UUID.randomUUID(), UUID.randomUUID(), SessionKind.GUEST).businessId())
+                .isEmpty();
     }
 }

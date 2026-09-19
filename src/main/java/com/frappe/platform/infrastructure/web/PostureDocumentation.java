@@ -8,7 +8,6 @@ import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
-import java.util.regex.Pattern;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springdoc.core.customizers.OperationCustomizer;
 import org.springframework.core.annotation.AnnotatedElementUtils;
@@ -22,9 +21,6 @@ final class PostureDocumentation implements OperationCustomizer, OpenApiCustomiz
 
     /** Name of the bearer security scheme in the spec. */
     static final String BEARER_SCHEME = "bearer";
-
-    /** Paths of business-scoped routes, which answer 404 for a business the caller may not enter. */
-    private static final Pattern BUSINESS_SCOPED = Pattern.compile("^/v1/businesses/\\{[^/{}]+}(/.*)?$");
 
     /** Creates the customizer. */
     PostureDocumentation() {}
@@ -41,7 +37,7 @@ final class PostureDocumentation implements OperationCustomizer, OpenApiCustomiz
             return;
         }
         openApi.getPaths().forEach((path, item) -> {
-            if (BUSINESS_SCOPED.matcher(path).matches()) {
+            if (BusinessPath.SCOPED_ROUTE.matcher(path).matches()) {
                 item.readOperations().forEach(PostureDocumentation::documentBusinessNotFound);
             }
         });

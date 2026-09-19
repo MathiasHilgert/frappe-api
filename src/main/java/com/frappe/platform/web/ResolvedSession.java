@@ -11,7 +11,8 @@ import java.util.UUID;
  * @param principalId the principal acting through the session
  * @param sessionId the session itself
  * @param kind who stands behind the session
- * @param businessId the business a staff, terminal or guest session belongs to; empty for a person
+ * @param businessId the business a session belongs to: always set for staff and terminal, optional for a guest,
+ *     empty for a person
  * @param branchId the branch a staff, terminal or guest session belongs to, if any
  */
 public record ResolvedSession(
@@ -35,13 +36,16 @@ public record ResolvedSession(
         if (kind == SessionKind.PERSON && businessId.isPresent()) {
             throw new IllegalArgumentException("A PERSON session is bound to no business; it enters one per request");
         }
+        if ((kind == SessionKind.STAFF || kind == SessionKind.TERMINAL) && businessId.isEmpty()) {
+            throw new IllegalArgumentException("A " + kind + " session is always bound to its business");
+        }
         if (branchId.isPresent() && businessId.isEmpty()) {
             throw new IllegalArgumentException("A session bound to a branch is bound to its business too");
         }
     }
 
     /**
-     * Creates a session bound to no business, such as a person's.
+     * Creates a session bound to no business: a person's, or an unbound guest's.
      *
      * @param principalId the principal acting through the session
      * @param sessionId the session itself
