@@ -74,6 +74,7 @@ Values never appear here or anywhere in the repository. Owner: the person who ro
 | `FRAPPE_SECRET_PEPPER` | Server-side HMAC pepper for the Argon2id hashes of one-time codes; never reaches Valkey. At least 32 random characters (`openssl rand -base64 48`), different per environment; `frappe.secrets.pepper` | Mathias Hilgert | `frappe-dev`, `frappe-production` (generated; without Bitwarden a local default that is not a secret) | 180 days; rotating only invalidates outstanding one-time codes |
 | `FRAPPE_VALKEY_URL` | Valkey URL with its credentials (`rediss://user:password@host:6379`); `spring.data.redis.url` | Mathias Hilgert | `frappe-production` (dev: local default `redis://localhost:6379`) | 90 days (the password in it) |
 | `FRAPPE_NATS_URL` | NATS server URL; a secret as soon as it carries credentials (`nats://user:password@host:4222`); `frappe.nats.url` | Mathias Hilgert | `frappe-production` (dev: default `nats://localhost:4222`) | 90 days when it carries credentials |
+| `RESEND_API_KEY` | Resend API key for transactional mail (`platform.infrastructure.mail`); `frappe.mail.resend.api-key`. Required outside `local` (startup fails naming it); never logged. Tests never call Resend | Mathias Hilgert | `frappe-dev` (a Resend test key), `frappe-production` (local runs send to Mailpit and need none) | 180 days, and at once when a holder leaves |
 
 ### Secrets of the infrastructure (not read by the application)
 
@@ -86,7 +87,7 @@ Values never appear here or anywhere in the repository. Owner: the person who ro
 
 ### Configuration, not secrets
 
-Read from the environment too, but safe to show: `FRAPPE_DB_URL` (a secret only if it embeds credentials; keep them in the password variables), `FRAPPE_APP_USER`, `FRAPPE_OWNER_USER`, `FRAPPE_TRUSTED_PROXIES`, `FRAPPE_TRACING_SAMPLING_PROBABILITY`, the OTLP endpoints (see README, "Observability"), `SPRING_PROFILES_ACTIVE`, the other `FRAPPE_NATS_*` and `FRAPPE_OUTBOX_RECOVERY_*` settings, and the local compose ports (`FRAPPE_*_PORT`). They belong in the deploy configuration (FAPI-30).
+Read from the environment too, but safe to show: `FRAPPE_DB_URL` (a secret only if it embeds credentials; keep them in the password variables), `FRAPPE_APP_USER`, `FRAPPE_OWNER_USER`, `FRAPPE_TRUSTED_PROXIES`, `FRAPPE_TRACING_SAMPLING_PROBABILITY`, the OTLP endpoints (see README, "Observability"), `SPRING_PROFILES_ACTIVE`, `FRAPPE_MAIL_FROM` (the mail sender, required outside `local`), the other `FRAPPE_NATS_*` and `FRAPPE_OUTBOX_RECOVERY_*` settings, and the local compose ports (`FRAPPE_*_PORT`). They belong in the deploy configuration (FAPI-30).
 
 ## Runbook
 
