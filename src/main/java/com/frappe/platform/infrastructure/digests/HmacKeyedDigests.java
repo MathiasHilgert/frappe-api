@@ -12,8 +12,10 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * {@link KeyedDigests} with the JDK's HMAC-SHA256 over the namespace, a {@code 0x00} separator and the UTF-8 value.
- * Namespaces cannot contain {@code 0x00}, so one value never collides across namespaces. The key stays in this class:
+ * {@link KeyedDigests} with the JDK's HMAC-SHA256 over the namespace, a {@code 0x00} separator, a purpose byte
+ * ({@code 0x01} subject, {@code 0x02} digest) and the UTF-8 value. Namespaces cannot contain {@code 0x00}, so one value
+ * never collides across namespaces; the purpose byte keeps a subject from being the prefix of the digest of the same
+ * value, so a digest table cannot be used to compute subjects and link records. The key stays in this class:
  * with it, a PIN or code digest falls to a trivial offline search.
  */
 final class HmacKeyedDigests implements KeyedDigests {
@@ -28,6 +30,10 @@ final class HmacKeyedDigests implements KeyedDigests {
     private static final Pattern NAMESPACE = Pattern.compile(KEBAB + "\\." + KEBAB);
 
     private static final byte SEPARATOR = 0x00;
+
+    private static final byte SUBJECT = 0x01;
+
+    private static final byte DIGEST = 0x02;
 
     private static final Base64.Encoder BASE64URL = Base64.getUrlEncoder().withoutPadding();
 
@@ -49,7 +55,7 @@ final class HmacKeyedDigests implements KeyedDigests {
 
     @Override
     public UUID subjectOf(String namespace, String value) {
-        var bytes = ByteBuffer.wrap(mac(namespace, value));
+        var bytes = ByteBuffer.wrap(mac(namespace, SUBJECT, value));
         var most = bytes.getLong();
         var least = bytes.getLong();
         // RFC 9562 version 8 (custom): version nibble 0b1000, variant bits 0b10.
@@ -60,10 +66,10 @@ final class HmacKeyedDigests implements KeyedDigests {
 
     @Override
     public String digestOf(String namespace, String value) {
-        return BASE64URL.encodeToString(mac(namespace, value));
+        return BASE64URL.encodeToString(mac(namespace, DIGEST, value));
     }
 
-    private byte[] mac(String namespace, String value) {
+    private byte[] mac(String namespace, byte purpose, String value) {
         Objects.requireNonNull(namespace, "namespace");
         Objects.requireNonNull(value, "value");
         if (!NAMESPACE.matcher(namespace).matches()) {
@@ -77,6 +83,7 @@ final class HmacKeyedDigests implements KeyedDigests {
             mac.init(key);
             mac.update(namespace.getBytes(StandardCharsets.UTF_8));
             mac.update(SEPARATOR);
+            mac.update(purpose);
             return mac.doFinal(value.getBytes(StandardCharsets.UTF_8));
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("HmacSHA256 is unavailable in this JVM", e);

@@ -11,6 +11,8 @@ import org.springframework.boot.builder.SpringApplicationBuilder;
 
 class DigestConfigurationTests {
 
+    private static final String SHARED_PEPPER = "shared-but-not-a-secret-".repeat(2);
+
     private static final String SHORT_PEPPER = "short-digest-pepper";
 
     @Test
@@ -35,6 +37,23 @@ class DigestConfigurationTests {
                 .hasStackTraceContaining("FRAPPE_DIGEST_PEPPER")
                 .satisfies(
                         failure -> assertThat(Throwables.getStackTrace(failure)).doesNotContain(SHORT_PEPPER));
+    }
+
+    @Test
+    void startupOutsideLocalProfileFailsWhenTheDigestPepperIsTheSecretPepper() {
+        // Given one key for both peppers
+        var app = appWith(
+                "FRAPPE_VALKEY_URL=redis://localhost:1",
+                "FRAPPE_SECRET_PEPPER=" + SHARED_PEPPER,
+                "FRAPPE_DIGEST_PEPPER=" + SHARED_PEPPER);
+
+        // Then the error names both variables, never the value
+        assertThatThrownBy(() -> app.run())
+                .hasStackTraceContaining("MissingDigestSettingsException")
+                .hasStackTraceContaining("FRAPPE_DIGEST_PEPPER")
+                .hasStackTraceContaining("FRAPPE_SECRET_PEPPER")
+                .satisfies(
+                        failure -> assertThat(Throwables.getStackTrace(failure)).doesNotContain(SHARED_PEPPER));
     }
 
     private static SpringApplicationBuilder appWith(String... properties) {

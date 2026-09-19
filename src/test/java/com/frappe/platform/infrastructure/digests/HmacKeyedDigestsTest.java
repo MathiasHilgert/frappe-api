@@ -9,8 +9,11 @@ import com.frappe.platform.IdentityLimits;
 import com.frappe.platform.IdentitySecrets;
 import com.frappe.platform.LimitKey;
 import com.frappe.platform.SecretKey;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Base64;
+import java.util.UUID;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.Test;
@@ -40,18 +43,50 @@ class HmacKeyedDigestsTest {
     }
 
     @Test
-    void theDigestIsTheBase64UrlHmacOfTheNamespaceASeparatorAndTheValue() throws Exception {
+    void theDigestIsTheBase64UrlHmacOfTheNamespaceASeparatorPurposeTwoAndTheValue() throws Exception {
         // Given the MAC computed independently
-        var mac = Mac.getInstance("HmacSHA256");
-        mac.init(new SecretKeySpec(PEPPER.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-        var expected = Base64.getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(mac.doFinal("identity.email\0ana@example.com".getBytes(StandardCharsets.UTF_8)));
+        var expected = Base64.getUrlEncoder().withoutPadding().encodeToString(referenceMac((byte) 0x02));
 
         // Then
         assertThat(digests.digestOf("identity.email", EMAIL))
                 .isEqualTo(expected)
                 .hasSize(43);
+    }
+
+    @Test
+    void theSubjectIsTheFirst16BytesOfTheHmacWithPurposeOneAsAVersion8Uuid() throws Exception {
+        // Given the MAC computed independently, with version 8 and variant 0b10 set
+        var bytes = ByteBuffer.wrap(referenceMac((byte) 0x01));
+        var most = (bytes.getLong() & ~0xF000L) | 0x8000L;
+        var least = (bytes.getLong() & 0x3FFF_FFFF_FFFF_FFFFL) | Long.MIN_VALUE;
+
+        // Then
+        assertThat(digests.subjectOf("identity.email", EMAIL)).isEqualTo(new UUID(most, least));
+    }
+
+    @Test
+    void aDigestTableDoesNotRevealTheSubjects() {
+        // Given one namespace and value
+        var subject = digests.subjectOf("identity.email", EMAIL);
+        var digest = Base64.getUrlDecoder().decode(digests.digestOf("identity.email", EMAIL));
+
+        // Then the subject is not the digest's prefix
+        var prefix = ByteBuffer.wrap(digest);
+        var subjectBits = ByteBuffer.allocate(16)
+                .putLong(subject.getMostSignificantBits())
+                .putLong(subject.getLeastSignificantBits())
+                .array();
+        assertThat(Arrays.copyOf(digest, 16)).isNotEqualTo(subjectBits);
+        assertThat(prefix.getLong() & ~0xF000L).isNotEqualTo(subject.getMostSignificantBits() & ~0xF000L);
+    }
+
+    private static byte[] referenceMac(byte purpose) throws Exception {
+        var mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec(PEPPER.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+        mac.update("identity.email".getBytes(StandardCharsets.UTF_8));
+        mac.update((byte) 0x00);
+        mac.update(purpose);
+        return mac.doFinal(EMAIL.getBytes(StandardCharsets.UTF_8));
     }
 
     @Test
@@ -106,7 +141,7 @@ class HmacKeyedDigestsTest {
 
     @Test
     @ExtendWith(OutputCaptureExtension.class)
-    void neitherTheValueNorTheKeyAppearsInLogsOrErrors(CapturedOutput output) {
+    void neitherExceptionMessagesNorConsoleOutputContainTheValueOrTheKey(CapturedOutput output) {
         // When digests are computed and fail
         digests.subjectOf("identity.email", EMAIL);
         digests.digestOf("identity.email", EMAIL);

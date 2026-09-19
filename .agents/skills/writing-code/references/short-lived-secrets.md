@@ -108,8 +108,8 @@ secrets.put(SecretKey.of(IdentitySecrets.EMAIL_PROOF, subject), code);
 ```
 
 - `subjectOf(namespace, value)` is a stable RFC 9562 version-8 UUID (accepted by `LimitKey.ofId` and `SecretKey.of`); `digestOf(namespace, value)` is the base64url HMAC-SHA256 (43 characters) to store and look up recovery codes, pairing codes or PINs instead of the value.
-- The namespace is `<module>.<kebab-name>` (`identity.email`), else `IllegalArgumentException`. The MAC input is the namespace, `0x00` and the UTF-8 value, so one value never collides across namespaces. Values are used as given: normalize them first.
-- Deterministic across instances sharing the key `FRAPPE_DIGEST_PEPPER` (required outside `local`, at least 32 characters). It is not `FRAPPE_SECRET_PEPPER`: rotating it invalidates stored digests and resets email-keyed limits, so it rotates only after a leak. Never log the value.
+- The namespace is `<module>.<kebab-name>` (`identity.email`), else `IllegalArgumentException`. The MAC input is the namespace, `0x00`, a purpose byte (`0x01` subject, `0x02` digest) and the UTF-8 value: one value never collides across namespaces, and a digest table cannot be used to compute subjects. Values are used as given: normalize them first.
+- Deterministic across instances sharing the key `FRAPPE_DIGEST_PEPPER` (required outside `local`, at least 32 characters). It is not `FRAPPE_SECRET_PEPPER`: rotating it invalidates stored digests and resets email-keyed limits, so it rotates only after a leak; startup refuses the two being equal. Never log the value.
 
 ## Rate limits: `RateLimiter`
 
