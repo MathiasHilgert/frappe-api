@@ -9,9 +9,18 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * Settings of the identity module ({@code frappe.identity.*}).
  *
  * @param breachedPasswords the breach check of the password policy
+ * @param legal the current legal versions
  */
 @ConfigurationProperties("frappe.identity")
-record IdentityProperties(@DefaultValue BreachedPasswordsProperties breachedPasswords) {
+record IdentityProperties(@DefaultValue BreachedPasswordsProperties breachedPasswords, LegalProperties legal) {
+
+    /**
+     * The current legal texts ({@code frappe.identity.legal.*}); a person must accept exactly these to register.
+     *
+     * @param termsVersion the current terms of service version
+     * @param privacyVersion the current privacy policy version
+     */
+    record LegalProperties(String termsVersion, String privacyVersion) {}
 
     /**
      * The Pwned Passwords range API ({@code frappe.identity.breached-passwords.*}).

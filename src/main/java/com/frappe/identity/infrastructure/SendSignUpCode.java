@@ -26,12 +26,12 @@ class SendSignUpCode {
     }
 
     /**
-     * Issues and mails the code.
+     * Issues and mails the code, or the account-exists notice for a registered address.
      *
      * @param event the started sign-up
      */
     @ApplicationModuleListener
     void on(SignUpStarted event) {
-        issueSignUpCode.issue(new SignUpId(event.aggregateId()));
+        issueSignUpCode.issue(new SignUpId(event.aggregateId()), event.eventId());
     }
 }
