@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -38,6 +39,9 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.function.RouterFunctions;
+import org.springframework.web.servlet.function.ServerResponse;
+import org.springframework.web.servlet.function.support.RouterFunctionMapping;
 
 /** Every route's posture is enforced before its controller runs, from the {@code Authorization: Bearer} header only. */
 @SpringBootTest
@@ -160,6 +164,10 @@ class RouteAccessTests {
     @Autowired
     ObservationRegistry observations;
 
+    @Autowired
+    @Qualifier("routerFunctionMapping")
+    RouterFunctionMapping functionalMapping;
+
     @BeforeEach
     void forgetEarlierCalls() {
         controllerCalls.set(0);
@@ -274,6 +282,29 @@ class RouteAccessTests {
 
         assertThat(result).hasStatus(HttpStatus.METHOD_NOT_ALLOWED);
         assertThat(result.getResponse().getHeader(HttpHeaders.ALLOW)).contains("GET");
+    }
+
+    @Test
+    void aFunctionalRouteFedAfterStartupNeverServesARoutesPath() {
+        // Given the application is ready and code feeds Spring MVC's own functional mapping (ordered before the
+        // annotated routes) a handler for the PUBLIC route's path
+        var fedCalls = new AtomicInteger();
+        functionalMapping.setRouterFunction(RouterFunctions.route()
+                .GET("/v1/test/public", request -> {
+                    fedCalls.incrementAndGet();
+                    return ServerResponse.ok().body("shadow");
+                })
+                .build());
+        try {
+            // When
+            var result = http.get().uri("/v1/test/public").exchange();
+
+            // Then the route's posture no longer covers the handler that would run: refused, and it never runs
+            assertThat(result).hasStatus(HttpStatus.UNAUTHORIZED);
+            assertThat(fedCalls).hasValue(0);
+        } finally {
+            functionalMapping.setRouterFunction(null);
+        }
     }
 
     @Test

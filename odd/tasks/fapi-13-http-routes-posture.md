@@ -163,6 +163,10 @@ T0 `ce42b24` (plan `bd34405`), T1 `2e683f6`, T2 `0f277bb`, T3 `11a1dd6`, T4 `93b
   - Every startup attack now fails startup and only the baseline starts: custom mapping, bean-name URL, `Object`-typed router function, programmatic RFM, view controller, resource handler, default servlet, static resources on.
   - The shadow attack context refuses to start ("'shadowMapping' serves a router function").
 
+### R12 full-context feeder case (approval follow-up)
+- `RouteAccessTests.aFunctionalRouteFedAfterStartupNeverServesARoutesPath`: once the context is ready, the test feeds Spring MVC's own `routerFunctionMapping` (order -1) a handler for the PUBLIC route's path and calls it anonymously. Result: 401, and the fed handler never ran. The test resets the mapping in `finally`, so the cached context stays clean.
+- This guards the R11 runtime check, so there was no RED of its own. Mutation check: with `shadowsRoutes` disabled in `RouteAuthorizationManager` it fails with `expected: 401 but was: 200`; the check was then restored.
+
 ### Rework verification
 - After R1–R6: `FRAPPE_TEST_DB=frappe_fapi_13 ./gradlew spotlessApply check --rerun-tasks` BUILD SUCCESSFUL, 52 test classes, 202 tests.
 - After R7–R10 and the Javadoc rewrap: the same command, BUILD SUCCESSFUL, 54 test classes, 214 tests, 0 failures.
