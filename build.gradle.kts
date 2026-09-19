@@ -117,6 +117,11 @@ node {
 	npmInstallCommand = "ci"
 }
 
+// No package needs an install script (mjml is plain JavaScript); skipping them keeps third-party code out of the build.
+tasks.npmInstall {
+	args.add("--ignore-scripts")
+}
+
 val mjmlSources = layout.projectDirectory.dir("src/main/mjml")
 val compiledMailLayouts = layout.buildDirectory.dir("generated/mjml")
 val jteSources = layout.buildDirectory.dir("generated/jte-sources")
@@ -131,7 +136,10 @@ val compileMailLayouts = tasks.register<com.github.gradle.node.npm.task.NpxTask>
 		"--config.validationLevel", "strict")
 	inputs.dir(mjmlSources)
 	inputs.file("package-lock.json")
+	inputs.property("nodeVersion", node.version)
 	outputs.dir(compiledMailLayouts)
+	// Deterministic from the inputs above, so the Gradle build cache may reuse the compiled layouts.
+	outputs.cacheIf { true }
 	doFirst { compiledMailLayouts.get().dir("mail").asFile.mkdirs() }
 }
 
