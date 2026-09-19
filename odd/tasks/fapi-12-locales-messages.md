@@ -34,6 +34,7 @@ Strict TDD, source: project standard (`testing-code`) and the brief. Runner: `./
 - [x] R2 Review minors: enabled languages matched through CLDR, CLDR es mappings pinned and documented — commit `e477549`; shipped-catalog guard explained — commit `c0aa055`
 - [x] D1 DX: problem detail keys of a module's exceptions accepted by the catalog check — commit `762bd34`
 - [x] D2 DX: kernel port `Messages` over Spring's `MessageSourceAccessor`; docs (example, problem details, IDE key safety) — commit `81aa904`
+- [x] K1 Review: kernel `com.frappe.platform.i18n` exposes only `java.*` types (ArchUnit rule); Spring/ICU classes moved to `infrastructure.i18n`; ports no longer take the servlet request — commit `db87571`
 
 ## Acceptance (from ticket)
 - `Accept-Language: es-AR` without a session → `Content-Language: es`, `Vary` includes `Accept-Language`.
@@ -110,10 +111,17 @@ Strict TDD, source: project standard (`testing-code`) and the brief. Runner: `./
 - D2 (commit `81aa904`): `com.frappe.platform.i18n.Messages` (`get(key, args...)` in the request locale, `get(locale, key, args...)` outside a request), implemented by `infrastructure.i18n.MessageSourceMessages` over `MessageSourceAccessor`; an unknown key throws `UnknownMessageKeyException` naming key, locale and the module's catalog files. RED `MessageSourceMessagesTest` and `I18nIntegrationTests` (compilation: `Messages` missing); first GREEN run 3/4: the unknown-key message did not name `i18n/sample/messages_{en,es,pt}.properties` (derived from the key's module prefix afterwards); GREEN 4/4 and 6/6 (the HTTP probe now calls `messages.get("sample.items", count)` → `2 itens` for pt-BR).
 - `i18n.md`: modules import only kernel types; `Messages` example; "Errors (problem details)" section; key safety via the catalog check and IntelliJ's Resource Bundle Editor, no codegen (IDE behaviour described from IntelliJ documentation, not exercised in this environment).
 
+### Kernel decoupling (commit `db87571`)
+- RED `I18nKernelDependenciesTest.theKernelDependsOnlyOnJavaAndItself` (ArchUnit 1.4.2: `classes in com.frappe.platform.i18n` except `package-info` `should only depend on classes in java.., com.frappe.platform.i18n`): violated 54 times (Spring, ICU4J, SLF4J, jakarta.servlet). GREEN after the move.
+- Kernel now: `Messages`, `SupportedLocales` (constants, `all()`, `PSEUDO` = en-XA), `UserLocalePreference`, `TenantLocaleDefaults`, `TenantLocales`, `package-info` (its `@NamedInterface` is Modulith metadata, excluded from the rule).
+- Moved to `infrastructure.i18n` (package-private): `IcuMessageSource`, `LocaleMatching` (the ICU matching formerly in `SupportedLocales`), `PseudoLocalization`, `MessageCatalog(s)`, `MessageCatalogCheck`, `CatalogViolation`, both catalog exceptions; tests moved with them (`SupportedLocalesTest` split into a kernel test and `LocaleMatchingTest`).
+- Ports without `HttpServletRequest`: `preferredLocale()` and `current()`. Implementations read the current request through `RequestContextHolder`; the `Content-Language` filter now runs at `REQUEST_WRAPPER_FILTER_MAX_ORDER - 104`, right after Boot's `RequestContextFilter` (-105, verified in `spring-boot-servlet-4.1.1-sources.jar`) and before security (-100). RED: `I18nIntegrationTests.theSignedInUsersPreferenceWinsOverAcceptLanguage` with the stub port reading `RequestContextHolder` and the old order: `Content-Language expected:<[pt]> but was:<[es]>` (no thread-bound request, isolated as "no preference"); GREEN with the new order. All i18n tests and `ModularityTests` green.
+- `i18n.md`: kernel types only, ports read `RequestContextHolder`, `SupportedLocales.PSEUDO`.
+
 ## PR summary
 - Locale chain (user preference > `Accept-Language` > branch > business > en) with ICU/CLDR matching, restricted to enabled languages; ports for identity and organization; a failing port never fails a request.
 - `Content-Language` and `Vary: Accept-Language` on every response, errors included.
-- `Messages` kernel port: `messages.get("order.items", 2)`, request locale implicit; ICU plural/select; en-XA pseudo-locale for tests.
+- `Messages` kernel port: `messages.get("order.items", 2)`, request locale implicit; ICU plural/select; en-XA pseudo-locale for tests. The kernel `com.frappe.platform.i18n` is plain Java (ArchUnit-enforced); Spring and ICU4J live in `infrastructure.i18n`.
 - Per-module hand-translated catalogs `i18n/<module>/messages_{en,es,pt}.properties`, checked in `./gradlew check` and at startup (key parity, ICU syntax, numbered arguments, namespace incl. Spring problem detail keys).
 - Conventions in `writing-code/references/i18n.md` (raw API values, problem details, tenant content translations); isolation boundary in `errors.md`.
 
@@ -123,4 +131,4 @@ Strict TDD, source: project standard (`testing-code`) and the brief. Runner: `./
 - The only catalogs are the test catalogs (`src/test/resources/i18n/sample`); platform has no user-facing text yet. FAPI-14 adds the first real ones.
 
 ## Next step
-All tasks and review items are done and verified; next is the PR (not created here: no push, no PR, no Plane change). Final verification after review: `FRAPPE_TEST_DB=frappe_fapi_12 ./gradlew spotlessApply check --rerun-tasks` BUILD SUCCESSFUL, 53 classes, 246 tests, 0 failures, 0 skipped. After the DX changes: 54 classes, 253 tests, 0 failures, 0 skipped.
+All tasks and review items are done and verified; next is the PR (not created here: no push, no PR, no Plane change). Final verification after review: `FRAPPE_TEST_DB=frappe_fapi_12 ./gradlew spotlessApply check --rerun-tasks` BUILD SUCCESSFUL, 53 classes, 246 tests, 0 failures, 0 skipped. After the DX changes: 54 classes, 253 tests; after the kernel decoupling: 56 classes, 255 tests, 0 failures, 0 skipped.
