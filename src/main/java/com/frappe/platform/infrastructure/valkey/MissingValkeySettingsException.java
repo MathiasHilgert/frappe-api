@@ -1,6 +1,6 @@
 package com.frappe.platform.infrastructure.valkey;
 
-/** The Valkey URL is absent; startup stops instead of connecting to a guessed server. */
+/** The Valkey URL or the secret pepper is absent; startup stops instead of guessing either. */
 final class MissingValkeySettingsException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;
@@ -8,7 +8,7 @@ final class MissingValkeySettingsException extends RuntimeException {
     /**
      * Creates the exception.
      *
-     * @param message actionable description naming the missing environment variable
+     * @param message actionable description naming the missing environment variables
      */
     MissingValkeySettingsException(String message) {
         super(message);

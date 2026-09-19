@@ -118,7 +118,7 @@ docker compose exec postgres /docker-entrypoint-initdb.d/01-frappe-roles.sh
 Valkey 9 holds what is short-lived: verification, reset and email-change codes, and login and recovery rate limits, behind the platform ports `ShortLivedSecretStore` and `RateLimiter` (modules never use Redis APIs).
 
 - Compose runs `valkey/valkey:9-alpine` as service `valkey`. Spring Boot 4.1.1 does not recognise the valkey image by name, so the service carries the label `org.springframework.boot.service-connection: redis`; with it, `bootRun` connects to Valkey on any host port with no URL set. Outside `local`, set `FRAPPE_VALKEY_URL`.
-- Only Argon2 hashes of codes are stored, and keys hold ids and IP addresses, never email addresses. Inspect them with `docker compose exec valkey valkey-cli --scan --pattern 'frappe:*'`.
+- Only Argon2id hashes of codes are stored, computed over an HMAC with a server-side pepper (`FRAPPE_SECRET_PEPPER`) that never reaches Valkey, so a leaked dump cannot be brute-forced offline. Keys hold ids and network addresses, never email addresses. Inspect them with `docker compose exec valkey valkey-cli --scan --pattern 'frappe:*'`.
 - Without Valkey the API still starts and serves, and `/actuator/health` stays UP: only the flows that need a code or a rate limit fail, fast (2 s timeouts), with `SecretStoreUnavailableException`.
 
 ### Run the application
@@ -127,7 +127,7 @@ Valkey 9 holds what is short-lived: verification, reset and email-change codes, 
 ./gradlew bootRun
 ```
 
-Migrations run on startup. `bootRun` activates the `local` profile (`application-local.properties`), which points at the compose database with the default passwords; set `SPRING_PROFILES_ACTIVE` to override. Outside `local` there are no defaults: startup fails unless `FRAPPE_DB_URL`, `FRAPPE_APP_PASSWORD`, `FRAPPE_OWNER_PASSWORD` and `FRAPPE_VALKEY_URL` (`redis://host:6379`, `rediss://` for TLS, credentials in the URL) are set.
+Migrations run on startup. `bootRun` activates the `local` profile (`application-local.properties`), which points at the compose database with the default passwords; set `SPRING_PROFILES_ACTIVE` to override. Outside `local` there are no defaults: startup fails unless `FRAPPE_DB_URL`, `FRAPPE_APP_PASSWORD`, `FRAPPE_OWNER_PASSWORD`, `FRAPPE_VALKEY_URL` (`redis://host:6379`, `rediss://` for TLS, credentials in the URL) and `FRAPPE_SECRET_PEPPER` (at least 32 random characters, e.g. `openssl rand -base64 48`) are set.
 
 Routes live under `/v1`; the OpenAPI spec is at `/v3/api-docs` and, in `local` only, the Scalar API reference at <http://localhost:8080/scalar>. Behind a reverse proxy set `FRAPPE_TRUSTED_PROXIES` to the proxy's addresses (CIDR list, default loopback only): `X-Forwarded-For` is honoured only from those.
 

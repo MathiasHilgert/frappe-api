@@ -4,11 +4,11 @@ import com.frappe.platform.IdGenerator;
 import com.frappe.platform.RateLimiter;
 import com.frappe.platform.ShortLivedSecretStore;
 import java.time.Clock;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 
 /** Wires the Valkey-backed platform ports onto the Lettuce client Spring Boot configures. */
 @Configuration(proxyBeanMethods = false)
@@ -18,17 +18,18 @@ class ValkeyConfiguration {
     ValkeyConfiguration() {}
 
     /**
-     * The secret store, hashing with Spring Security's current Argon2id defaults.
+     * The secret store, hashing with Argon2id over a peppered HMAC.
      *
      * @param redis the Valkey client
+     * @param pepper the server-side pepper ({@code FRAPPE_SECRET_PEPPER})
      * @param clock the application clock
      * @param ids the application id generator
      * @return the secret store
      */
     @Bean
-    ShortLivedSecretStore shortLivedSecretStore(StringRedisTemplate redis, Clock clock, IdGenerator ids) {
-        return new ValkeyShortLivedSecretStore(
-                redis, Argon2PasswordEncoder.defaultsForSpringSecurity_v5_8(), clock, ids);
+    ShortLivedSecretStore shortLivedSecretStore(
+            StringRedisTemplate redis, @Value("${frappe.secrets.pepper}") String pepper, Clock clock, IdGenerator ids) {
+        return new ValkeyShortLivedSecretStore(redis, new PepperedArgon2PasswordEncoder(pepper), clock, ids);
     }
 
     /**

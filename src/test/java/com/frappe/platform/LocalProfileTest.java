@@ -35,6 +35,7 @@ class LocalProfileTest {
         assertThat(environment.getProperty("FRAPPE_DB_URL")).isEqualTo("jdbc:postgresql://localhost:5432/frappe");
         assertThat(environment.getProperty("frappe.nats.url")).isEqualTo("nats://localhost:4222");
         assertThat(environment.getProperty("FRAPPE_VALKEY_URL")).isEqualTo("redis://localhost:6379");
+        assertThat(environment.getProperty("FRAPPE_SECRET_PEPPER")).hasSizeGreaterThanOrEqualTo(32);
     }
 
     private static StandardEnvironment localProfile(Map<String, Object> variables) throws IOException {

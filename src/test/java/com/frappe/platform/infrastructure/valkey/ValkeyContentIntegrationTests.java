@@ -19,6 +19,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 /** What a raw read of Valkey reveals: hashes and ids only, never a usable code or an email address. */
@@ -55,6 +56,9 @@ class ValkeyContentIntegrationTests {
         assertThat(stored).containsOnlyKeys("hash", "failures");
         assertThat(stored.get("hash")).startsWith("$argon2id$").doesNotContain("493817");
         assertThat(stored.get("failures")).isEqualTo("0");
+        assertThat(Argon2PasswordEncoder.defaultsForSpringSecurity_v5_8().matches("493817", stored.get("hash")))
+                .as("a dump without the pepper cannot be brute-forced")
+                .isFalse();
         assertThat(redis.getExpire(ValkeyKeys.secret(key))).isPositive();
     }
 
