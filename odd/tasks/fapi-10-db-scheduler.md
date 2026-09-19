@@ -25,7 +25,7 @@ Strict TDD (brief and project rule). Runner: `./gradlew test` with `FRAPPE_TEST_
 - [x] T0 Verify db-scheduler and its Boot 4 starter (versions, auto-configuration, APIs, DDL) from Maven Central sources jars; record findings and design here
 - [x] T1 Dependency, Flyway migration `platform.scheduled_tasks`, `db-scheduler.*` settings; the app's scheduler runs on the Flyway-owned table
 - [x] T2 Task conventions: `ScheduledTasks` (recurring, one-time, per-entity), `EntitySchedule`, `frappe.scheduling.*` retry settings with exponential backoff, task name rule
-- [ ] T3 Observation `scheduled.task` and failure logging (ECS fields); JSON task data; pausing the scheduler with the application context
+- [x] T3 Observation `scheduled.task` and failure logging (ECS fields); JSON task data; pausing the scheduler with the application context
 - [ ] T4 Acceptance: two schedulers racing on real Postgres (exactly once, dead instance taken over, retries with backoff observed as errors, per-entity schedule change without restart)
 - [ ] T5 Outbox recovery through db-scheduler; remove the lock and `@EnableScheduling`
 - [ ] T6 Docs (`writing-code`: declaring a task; outbox recovery, observability, errors), final verification
@@ -74,5 +74,11 @@ Strict TDD (brief and project rule). Runner: `./gradlew test` with `FRAPPE_TEST_
 - RED `EntityScheduleTest.isStoredAsItsCronAndZoneOnly`: the JSON held the derived `schedule` and `data` as well (`{"cron":…,"zone":…,"data":null,"schedule":{"type":"cron",…}}`). GREEN after `@JsonIgnore` on `getSchedule()`/`getData()`: 6/6, stored as `{"cron":"0 0 4 * * *","zone":"Europe/Berlin"}`.
 - `./gradlew spotlessApply check`: BUILD SUCCESSFUL.
 
+### T3 observation, failure log, JSON data, pausing
+- RED (compilation) `ObservedTaskExecutionTest` (3), `TaskFailureLogTest` (3), `SchedulerPausingTest` (4): `ObservedTaskExecution`, `TaskFailureLog`, `SchedulerPausing` missing.
+- GREEN 3/3, 3/3, 4/4: `ObservedTaskExecution` (`ExecutionInterceptor`): observation `scheduled.task`, contextual name `scheduled task <name>`, low-cardinality `scheduled.task.name` and `scheduled.task.outcome` (`success`/`failure`), high-cardinality `scheduled.task.instance`; the task runs inside the observation scope; a thrown failure is recorded as the error and rethrown unchanged for the failure handler (no catch: `Observation.observe`). `TaskFailureLog` (`SchedulerListener`): one line per failure, WARN while retries remain, ERROR once used up, fields `frappe.scheduling.task_name`, `task_instance`, `consecutive_failures`, cause attached. `SchedulerPausing` (`SmartLifecycle`, phase `Integer.MAX_VALUE`): context stop pauses picking, start resumes.
+- RED `SchedulerTableIntegrationTests.storesTaskDataAsJson` (observed by leaving the customizer bean out): `SerializationException` caused by `NotSerializableException` (the starter's Java serialization default). GREEN with `SchedulingConfiguration.jsonTaskData()` (`DbSchedulerCustomizer` returning the starter's `Jackson3Serializer`): stored `{"branch":"branch-42","attempt":3}`; 3/3.
+- `./gradlew spotlessApply check`: BUILD SUCCESSFUL.
+
 ## Next step
-T3.
+T4.

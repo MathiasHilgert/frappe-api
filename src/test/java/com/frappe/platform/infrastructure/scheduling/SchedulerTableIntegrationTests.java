@@ -24,6 +24,8 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("local")
 class SchedulerTableIntegrationTests {
 
+    record ProbeData(String branch, int attempt) {}
+
     static final String PROBE_TASK = "platform.table-probe";
 
     final String instance = UUID.randomUUID().toString();
@@ -57,6 +59,23 @@ class SchedulerTableIntegrationTests {
                 .query(Instant.class)
                 .single();
         assertThat(stored).isEqualTo(executionTime);
+    }
+
+    @Test
+    void storesTaskDataAsJson() {
+        // Given
+        var probe = new TaskInstance<>(PROBE_TASK, instance, new ProbeData("branch-42", 3));
+
+        // When
+        scheduler.scheduleIfNotExists(probe, Instant.parse("2100-01-01T00:00:00Z"));
+
+        // Then
+        var stored = jdbc.sql("select convert_from(task_data, 'UTF8') from platform.scheduled_tasks"
+                        + " where task_name = ? and task_instance = ?")
+                .params(PROBE_TASK, instance)
+                .query(String.class)
+                .single();
+        assertThat(stored).isEqualTo("{\"branch\":\"branch-42\",\"attempt\":3}");
     }
 
     @Test
