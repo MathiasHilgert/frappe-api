@@ -20,7 +20,8 @@ class SupportedLocalesTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"es-AR, es", "es-419, es", "pt-BR, pt", "pt-PT, pt", "en-GB, en", "es, es"})
+    // ca and gl match es through CLDR language distance (their closest supported language); accepted, see i18n.md.
+    @CsvSource({"es-AR, es", "es-419, es", "pt-BR, pt", "pt-PT, pt", "en-GB, en", "es, es", "ca, es", "gl, es"})
     void matchesRegionalVariantsToTheirSupportedLanguage(String desired, String expected) {
         // When
         var match = SupportedLocales.all().match(Locale.forLanguageTag(desired));
@@ -71,6 +72,17 @@ class SupportedLocalesTest {
         assertThat(enabled.locales()).containsExactly(SupportedLocales.SPANISH, SupportedLocales.PORTUGUESE);
         assertThat(enabled.matchAcceptLanguage("en")).isEmpty();
         assertThat(enabled.match(Locale.forLanguageTag("es-MX"))).contains(SupportedLocales.SPANISH);
+    }
+
+    @Test
+    void restrictedToRegionalEnabledLanguagesKeepsTheirSupportedLanguage() {
+        // Given
+        var enabled = SupportedLocales.all()
+                .restrictedTo(List.of(Locale.forLanguageTag("pt-BR"), Locale.forLanguageTag("es-AR")));
+
+        // When / Then
+        assertThat(enabled.locales()).containsExactly(SupportedLocales.SPANISH, SupportedLocales.PORTUGUESE);
+        assertThat(enabled.matchAcceptLanguage("en")).isEmpty();
     }
 
     @Test

@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.SequencedSet;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,14 +61,16 @@ public final class SupportedLocales {
     }
 
     /**
-     * Narrows matching to the given languages, for a business that enabled only some of them. Languages that are not
-     * supported are ignored; if none is supported, nothing matches.
+     * Narrows matching to the given languages, for a business that enabled only some of them. Each enabled locale is
+     * matched like any other ({@code pt-BR} enables {@code pt}); locales that match nothing are ignored, and if none
+     * matches, nothing does.
      *
-     * @param enabled the languages to keep, compared by equality with the supported locales
-     * @return the supported locales that are also in {@code enabled}, in supported order
+     * @param enabled the languages to keep
+     * @return the supported locales the enabled ones match, in supported order
      */
     public SupportedLocales restrictedTo(Collection<Locale> enabled) {
-        return new SupportedLocales(locales.stream().filter(enabled::contains).toList());
+        var matched = enabled.stream().flatMap(locale -> match(locale).stream()).collect(Collectors.toSet());
+        return new SupportedLocales(locales.stream().filter(matched::contains).toList());
     }
 
     /**
