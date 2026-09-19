@@ -166,6 +166,8 @@ T0 `ce42b24` (plan `bd34405`), T1 `2e683f6`, T2 `0f277bb`, T3 `11a1dd6`, T4 `93b
 ### Rework verification
 - After R1–R6: `FRAPPE_TEST_DB=frappe_fapi_13 ./gradlew spotlessApply check --rerun-tasks` BUILD SUCCESSFUL, 52 test classes, 202 tests.
 - After R7–R10 and the Javadoc rewrap: the same command, BUILD SUCCESSFUL, 54 test classes, 214 tests, 0 failures.
+- After R11: the same command, BUILD SUCCESSFUL, 54 test classes, 219 tests, 0 failures, no compiler warnings. `ControllerEndpointHandlerMapping` is deprecated for removal but still registered, so its exemption carries `@SuppressWarnings("removal")`.
+- Pending for the PR: 401 bodies become `ProblemDetail` in FAPI-14.
 
 ### Trusted-proxy scope (review note)
 - `FRAPPE_TRUSTED_PROXIES` defaults to loopback only (`127.0.0.0/8, ::1/128`), deliberately narrower than Boot's default (every private range). A deployment behind a reverse proxy on another host must set it to the proxy's addresses, or the client address is the proxy's. Only `X-Forwarded-For`/`-Proto`/`-Host` from those addresses are honoured (Tomcat `RemoteIpValve`, right to left). `Forwarded` (RFC 7239) is not read.
