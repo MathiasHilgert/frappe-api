@@ -27,15 +27,18 @@ final class ClientFaults {
     }
 
     /**
-     * Whether the request could not be read: a client error, answered with the invalid-request problem.
+     * Whether the request could not be read: a client error, answered with the invalid-request problem. Only the
+     * failure itself counts (behind servlet wrappers), never its causes: an HTTP client reading a provider's malformed
+     * answer wraps the very same {@code HttpMessageNotReadableException}, and that is our fault, not the caller's.
      *
      * @param failure the failure
-     * @return whether it or one of its causes says so
+     * @return whether it is the request's own unreadable body
      */
     static boolean unreadableRequest(Throwable failure) {
+        var unwrapped = unwrap(failure);
         // Tomcat's ClientAbortException is a BadRequestException too, but says the client left.
-        var badInput = causedBy(failure, BadRequestException.class) && !causedBy(failure, ClientAbortException.class);
-        return badInput || causedBy(failure, HttpMessageNotReadableException.class);
+        return unwrapped instanceof HttpMessageNotReadableException
+                || (unwrapped instanceof BadRequestException && !(unwrapped instanceof ClientAbortException));
     }
 
     /**

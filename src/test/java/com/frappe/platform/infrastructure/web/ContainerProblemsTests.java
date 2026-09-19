@@ -44,6 +44,8 @@ class ContainerProblemsTests {
         assertThat(answer)
                 .startsWith("HTTP/1.1 400")
                 .contains("Content-Type: application/problem+json")
+                .contains("X-Content-Type-Options: nosniff")
+                .contains("Cache-Control: no-store")
                 .contains("\"type\":\"https://frappe.app/problems/invalid-request\"")
                 .contains("\"code\":\"invalid-request\"")
                 .contains("\"title\":\"Invalid request\"")

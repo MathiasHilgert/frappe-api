@@ -121,6 +121,12 @@ class ProblemAdvice extends ResponseEntityExceptionHandler {
             Exception ex, @Nullable Object body, HttpHeaders headers, HttpStatusCode statusCode, WebRequest request) {
         // Spring MVC hands every servlet request to its exception handlers as a ServletWebRequest.
         var servletRequest = ((ServletWebRequest) request).getRequest();
+        var response = ((ServletWebRequest) request).getResponse();
+        if (response != null
+                && response.isCommitted()
+                && (ClientFaults.unreadableRequest(ex) || ClientFaults.clientGone(ex))) {
+            return null; // the client's fault after the answer started: nothing to add, nothing to warn about
+        }
         if (statusCode.is5xxServerError()) {
             if (ClientFaults.clientGone(ex)) {
                 return null;

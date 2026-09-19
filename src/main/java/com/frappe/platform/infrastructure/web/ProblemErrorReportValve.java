@@ -49,6 +49,8 @@ final class ProblemErrorReportValve extends ErrorReportValve {
             response.setCharacterEncoding(StandardCharsets.UTF_8.name());
             response.setHeader(HttpHeaders.CONTENT_LANGUAGE, "en");
             response.setHeader(HttpHeaders.VARY, HttpHeaders.ACCEPT_LANGUAGE);
+            response.setHeader("X-Content-Type-Options", "nosniff");
+            response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
             var writer = response.getReporter();
             if (writer != null) {
                 writer.write(problems.bodyFor(status));

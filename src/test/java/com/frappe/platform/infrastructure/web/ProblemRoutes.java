@@ -15,6 +15,7 @@ import io.nats.client.ErrorListener;
 import io.nats.client.Nats;
 import io.nats.client.Options;
 import jakarta.servlet.Filter;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -23,11 +24,14 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -49,6 +53,9 @@ public class ProblemRoutes {
 
     /** The failing route's path, with the {@code /v1} prefix; append the failure kind. */
     public static final String FAILURES_PATH = "/v1/test/problems/failures/";
+
+    /** The malformed provider's path, with the {@code /v1} prefix. */
+    public static final String MALFORMED_PATH = "/v1/test/problems/malformed-provider";
 
     /** The path a failing filter throws for, before any controller runs. */
     public static final String FAILING_FILTER_PATH = FAILURES_PATH + "filter";
@@ -84,7 +91,7 @@ public class ProblemRoutes {
         }
 
         @GetMapping("/test/problems/failures/{kind}")
-        String fail(@PathVariable String kind) throws Exception {
+        String fail(@PathVariable String kind, HttpServletRequest request) throws Exception {
             return switch (kind) {
                 case "database-down" ->
                     JdbcClient.create(new DriverManagerDataSource(
@@ -96,6 +103,12 @@ public class ProblemRoutes {
                     database.sql("select card_number from platform.customer_card where id = 7")
                             .query(String.class)
                             .single();
+                case "provider-malformed" ->
+                    String.valueOf(RestClient.create()
+                            .get()
+                            .uri("http://localhost:" + request.getLocalPort() + MALFORMED_PATH)
+                            .retrieve()
+                            .body(Map.class));
                 case "provider" ->
                     RestClient.create()
                             .get()
@@ -131,6 +144,17 @@ public class ProblemRoutes {
                 }
                 default -> throw new IllegalArgumentException("Unknown failure kind " + kind);
             };
+        }
+    }
+
+    /** A provider that answers malformed JSON. */
+    @RestController
+    @Access(Posture.PUBLIC)
+    static class MalformedProviderRoute {
+
+        @GetMapping("/test/problems/malformed-provider")
+        ResponseEntity<String> answer() {
+            return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body("{\"charge\": [broken");
         }
     }
 

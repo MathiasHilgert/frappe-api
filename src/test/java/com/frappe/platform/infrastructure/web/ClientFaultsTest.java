@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.mock.http.MockHttpInputMessage;
+import org.springframework.web.client.RestClientException;
 
 class ClientFaultsTest {
 
@@ -20,8 +21,22 @@ class ClientFaultsTest {
                 "JSON parse error", new EOFException(), new MockHttpInputMessage(new byte[0]));
 
         assertThat(ClientFaults.unreadableRequest(truncated)).isTrue();
-        assertThat(ClientFaults.unreadableRequest(new IllegalStateException(new BadRequestException("bad chunk"))))
+        assertThat(ClientFaults.unreadableRequest(new BadRequestException("bad chunk")))
                 .isTrue();
+        assertThat(ClientFaults.unreadableRequest(new ClientAbortException())).isFalse();
+    }
+
+    @Test
+    void anUnreadableMessageInsideAnotherFailureIsNotTheClients() {
+        // Given a provider answering malformed JSON: the HTTP client wraps the converter's exception
+        var providerFailure = new RestClientException(
+                "Error while extracting response",
+                new HttpMessageNotReadableException(
+                        "JSON parse error", new EOFException(), new MockHttpInputMessage(new byte[0])));
+
+        assertThat(ClientFaults.unreadableRequest(providerFailure)).isFalse();
+        assertThat(ClientFaults.unreadableRequest(new IllegalStateException(new BadRequestException("bad chunk"))))
+                .isFalse();
     }
 
     @Test

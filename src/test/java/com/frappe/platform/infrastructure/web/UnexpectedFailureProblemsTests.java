@@ -106,6 +106,7 @@ class UnexpectedFailureProblemsTests {
                 "database-down", "CannotGetJdbcConnectionException",
                 "sql-error", "BadSqlGrammarException",
                 "provider", "ResourceAccessException",
+                "provider-malformed", "RestClientException",
                 "nats", "IOException",
                 "valkey", "SecretStoreUnavailableException",
                 "filter", "IllegalStateException");
