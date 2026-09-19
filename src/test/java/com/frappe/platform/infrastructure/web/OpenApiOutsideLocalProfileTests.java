@@ -13,7 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
 /**
- * Outside the local profile the spec stays available and swagger-ui is not served. The database credentials stand in
+ * Outside the local profile the spec stays available and the Scalar API reference is not served. The database credentials stand in
  * for the environment variables a deployment sets; the URL comes from the test container.
  */
 @SpringBootTest(
@@ -30,9 +30,8 @@ class OpenApiOutsideLocalProfileTests {
     MockMvcTester http;
 
     @Test
-    void swaggerUiIsNotServed() {
-        assertThat(http.get().uri("/swagger-ui/index.html")).hasStatus(HttpStatus.NOT_FOUND);
-        assertThat(http.get().uri("/swagger-ui.html")).hasStatus(HttpStatus.NOT_FOUND);
+    void theScalarApiReferenceIsNotServed() {
+        assertThat(http.get().uri("/scalar")).hasStatus(HttpStatus.NOT_FOUND);
     }
 
     @Test

@@ -14,12 +14,13 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** The generated OpenAPI spec documents each route's posture; swagger-ui is served in the local profile. */
+/** The generated OpenAPI spec documents each route's posture; the Scalar API reference is served in the local profile. */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import({TestcontainersConfiguration.class, TestNatsConfiguration.class, OpenApiTests.Routes.class})
@@ -66,8 +67,13 @@ class OpenApiTests {
     MockMvcTester http;
 
     @Test
-    void swaggerUiIsServedInTheLocalProfile() {
-        assertThat(http.get().uri("/swagger-ui/index.html")).hasStatusOk();
+    void theScalarApiReferenceIsServedInTheLocalProfile() {
+        assertThat(http.get().uri("/scalar")).hasStatusOk();
+    }
+
+    @Test
+    void swaggerUiIsNotServed() {
+        assertThat(http.get().uri("/swagger-ui/index.html")).hasStatus(HttpStatus.NOT_FOUND);
     }
 
     @Test

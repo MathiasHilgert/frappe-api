@@ -29,7 +29,7 @@ class CloseTabRoute {
 - The token comes from `Authorization: Bearer <token>` only; cookies and query parameters are never read. `SessionResolver` (identity) turns it into a `ResolvedSession` (principal id, session id, `SessionKind` `PERSON`/`TERMINAL`/`GUEST`), read with `@AuthenticationPrincipal ResolvedSession`. A missing or unresolvable token leaves the caller anonymous: public routes still answer, authenticated ones 401. Until identity implements the resolver, no token resolves.
 - `/v1` is added once for all `com.frappe` controllers: map `/tabs/{tabId}/close`, serve `/v1/tabs/{tabId}/close`.
 - The client address is `HttpServletRequest#getRemoteAddr()`: Tomcat takes it from `X-Forwarded-For` only when the connection comes from a trusted proxy (`FRAPPE_TRUSTED_PROXIES`).
-- The OpenAPI spec (`/v3/api-docs`, every profile) marks every authenticated operation with the `bearer` scheme and documents 401; the API reference UI is served in `local` only.
+- The OpenAPI spec (`/v3/api-docs`, every profile) marks every authenticated operation with the `bearer` scheme and documents 401; the Scalar API reference (`/scalar`) is served in `local` only.
 - Tests register routes as `@Bean`s of a nested `@TestConfiguration` and call them with `MockMvcTester` and an `Authorization: Bearer` header resolved by a test `SessionResolver` bean.
 
 ## Endpoints
