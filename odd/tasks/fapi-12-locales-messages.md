@@ -25,7 +25,7 @@ Strict TDD, source: project standard (`testing-code`) and the brief. Runner: `./
 ## Tasks
 - [x] T0 Verify ICU4J 78.3 (`LocaleMatcher`, `LocalePriorityList`, `MessageFormat`, `MessagePattern`) and Spring (`AbstractMessageSource`, `LocaleResolver` bean name, Boot's `localeResolver`/`messageSource` conditions, filter dispatcher types) and Modulith `@NamedInterface` from the jars; record here
 - [x] T1 `SupportedLocales`: CLDR matching of a locale and of an `Accept-Language` header, restricted to enabled languages
-- [ ] T2 Locale chain: ports, `TenantLocales`, the `LocaleResolver`
+- [x] T2 Locale chain: ports, `TenantLocales`, the `LocaleResolver`
 - [ ] T3 `Content-Language` + `Vary: Accept-Language` filter and web wiring
 - [ ] T4 `IcuMessageSource` over per-module catalogs, plural forms, en-XA pseudo-locale, application `MessageSource`
 - [ ] T5 Catalog checks (key parity, ICU syntax) in `./gradlew check`, naming module, locale and key
