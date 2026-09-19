@@ -65,6 +65,42 @@ class W3cTraceContextTest {
     }
 
     @Test
+    void acceptsAFutureVersionWithTrailingFieldsAndReadsTheFirstFour() {
+        // Given a version above 00, which W3C allows to append fields after the flags
+        var future = "cc-" + TRACE_ID + "-" + SPAN_ID + "-01-what-the-future-holds";
+
+        // When / Then
+        assertThat(W3cTraceContext.parse(future, null)).hasValueSatisfying(it -> {
+            assertThat(it.traceparent()).isEqualTo(future);
+            assertThat(it.traceId()).isEqualTo(TRACE_ID);
+            assertThat(it.spanId()).isEqualTo(SPAN_ID);
+            assertThat(it.sampled()).isTrue();
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01-extra",
+                "cc-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01extra",
+                "cc-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01-with space",
+                "ff-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01-extra"
+            })
+    void rejectsTrailingFieldsOnVersion00AndMalformedFutureVersions(String traceparent) {
+        // When / Then
+        assertThat(W3cTraceContext.parse(traceparent, null)).isEmpty();
+    }
+
+    @Test
+    void rejectsAFutureVersionLongerThan512Characters() {
+        // Given
+        var tooLong = "cc-" + TRACE_ID + "-" + SPAN_ID + "-01-" + "x".repeat(512);
+
+        // When / Then
+        assertThat(W3cTraceContext.parse(tooLong, null)).isEmpty();
+    }
+
+    @Test
     void dropsAMalformedTracestateButKeepsTheTraceparent() {
         // Given a tracestate with a control character and one longer than the W3C limit of 512 characters
         var withControlCharacter = "rojo=00f067aa0ba902b7\n";

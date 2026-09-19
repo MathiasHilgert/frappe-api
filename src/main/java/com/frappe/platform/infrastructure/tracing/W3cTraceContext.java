@@ -9,7 +9,8 @@ import java.util.regex.Pattern;
  * (message headers, stored rows) go through {@link #parse}, which never throws.
  *
  * @param traceparent {@code <version>-<trace-id>-<parent-id>-<flags>}, lowercase hex, e.g. {@code
- *     00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01}
+ *     00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01}; a version above 00 may carry further fields, passed
+ *     on unchanged
  * @param tracestate vendor entries passed on unchanged; empty when there are none
  */
 public record W3cTraceContext(String traceparent, String tracestate) {
@@ -20,10 +21,14 @@ public record W3cTraceContext(String traceparent, String tracestate) {
     /** Header and propagation field carrying the {@code tracestate}. */
     public static final String TRACESTATE = "tracestate";
 
-    // Version ff is forbidden, and all-zero trace and parent ids are invalid. Only the four-field form is accepted,
-    // which is every version in use today (00).
+    // W3C: version 00 is exactly four fields. A higher version may append fields after the flags ("-" and more), which
+    // a receiver ignores while reading the first four; version ff is invalid. All-zero trace and parent ids are
+    // invalid in every version. Trailing fields are limited to visible ASCII and the whole value to the tracestate
+    // limit, so an untrusted header can neither smuggle in whitespace nor grow without bound.
+    private static final String FIELDS = "-(?!0{32})[0-9a-f]{32}-(?!0{16})[0-9a-f]{16}-[0-9a-f]{2}";
     private static final Pattern TRACEPARENT_FORMAT =
-            Pattern.compile("(?!ff)[0-9a-f]{2}-(?!0{32})[0-9a-f]{32}-(?!0{16})[0-9a-f]{16}-[0-9a-f]{2}");
+            Pattern.compile("00" + FIELDS + "|(?!00|ff)[0-9a-f]{2}" + FIELDS + "(?:-[\\x21-\\x7e]*)?");
+    private static final int MAX_TRACEPARENT_LENGTH = 512;
 
     // The W3C limit a receiver must accept; printable ASCII only. The list-member grammar is not checked: tracestate is
     // passed on, never interpreted.
@@ -33,6 +38,7 @@ public record W3cTraceContext(String traceparent, String tracestate) {
     private static final int TRACE_ID_START = 3;
     private static final int SPAN_ID_START = 36;
     private static final int FLAGS_START = 53;
+    private static final int FLAGS_END = 55;
     private static final int SAMPLED_FLAG = 0x01;
 
     /**
@@ -88,11 +94,13 @@ public record W3cTraceContext(String traceparent, String tracestate) {
      * @return the sampled flag
      */
     public boolean sampled() {
-        return (Integer.parseInt(traceparent.substring(FLAGS_START), 16) & SAMPLED_FLAG) != 0;
+        return (Integer.parseInt(traceparent.substring(FLAGS_START, FLAGS_END), 16) & SAMPLED_FLAG) != 0;
     }
 
     private static boolean isValidTraceparent(String traceparent) {
-        return traceparent != null && TRACEPARENT_FORMAT.matcher(traceparent).matches();
+        return traceparent != null
+                && traceparent.length() <= MAX_TRACEPARENT_LENGTH
+                && TRACEPARENT_FORMAT.matcher(traceparent).matches();
     }
 
     private static boolean isValidTracestate(String tracestate) {
