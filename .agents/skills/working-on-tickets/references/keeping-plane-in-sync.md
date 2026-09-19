@@ -39,4 +39,4 @@ The script minifies the HTML, sets state Todo and assigns the Plane module. Tabl
 - `plane.sh label-create NAME [--color HEX]` — create a missing label.
 - `plane.sh module-create NAME` — create a missing module.
 
-`create` and `edit` also accept `--estimate V` to set the estimate point to a value from the project's configured estimate scale; this fails with a clear message if the project has no estimates enabled. Set `PLANE_DRY_RUN=1` to print any write request (method, path, body) instead of sending it.
+`create` and `edit` also accept `--estimate V` to set the estimate point to a value from the project's configured estimate scale; this fails with a clear message if the project has no estimates enabled. Set `PLANE_DRY_RUN=1` to print the first write request of any command (method, path, body) and exit without sending anything.

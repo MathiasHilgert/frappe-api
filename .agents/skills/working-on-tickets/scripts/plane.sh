@@ -58,17 +58,20 @@ api() {
   printf '%s' "$out"
 }
 
-# send METHOD PATH BODY — like api(), but when PLANE_DRY_RUN=1 prints the
-# request instead of sending it and ends the command successfully, so the
-# confirmation a caller chains after it is never printed for an unsent request.
+# preview METHOD PATH BODY — when PLANE_DRY_RUN=1, prints the write request
+# and ends the command successfully before anything is sent; otherwise does
+# nothing. Every write calls it first, outside a command substitution.
+preview() {
+  [[ "${PLANE_DRY_RUN:-0}" == "1" ]] || return 0
+  printf 'DRY RUN: %s %s\n' "$1" "$2"
+  jq '.' <<<"$3"
+  exit 0
+}
+
+# send METHOD PATH BODY — a write whose response is not needed.
 send() {
-  local method=$1 path=$2 body=$3
-  if [[ "${PLANE_DRY_RUN:-0}" == "1" ]]; then
-    printf 'DRY RUN: %s %s\n' "$method" "$path"
-    jq '.' <<<"$body"
-    exit 0
-  fi
-  api "$method" "$path" "$body" >/dev/null
+  preview "$1" "$2" "$3"
+  api "$1" "$2" "$3" >/dev/null
 }
 
 # Resolves a plain estimate value (e.g. "3" or "M") to the id of the
@@ -154,20 +157,24 @@ cmd_list() {
 
 cmd_move() {
   [[ $# -eq 2 ]] || die "usage: move FAPI-N todo|in-progress|in-review|done|cancelled"
-  local id sid
+  local id sid body
   sid=$(state_id "$2")
   id=$(resolve_id "$1")
-  api PATCH "/work-items/${id}/" "$(jq -nc --arg s "$sid" '{state: $s}')" |
+  body=$(jq -nc --arg s "$sid" '{state: $s}')
+  preview PATCH "/work-items/${id}/" "$body"
+  api PATCH "/work-items/${id}/" "$body" |
     jq -r --arg key "$1" --arg to "$2" '"\($key) -> \($to) (\(.state))"'
 }
 
 cmd_comment() {
   [[ $# -eq 2 && -n "$2" ]] || die "usage: comment FAPI-N \"text\""
-  local id html
+  local id html body
   id=$(resolve_id "$1")
   html=$(printf '%s' "$2" | sed -E 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' |
     awk 'BEGIN{ORS=""} {print "<p>" $0 "</p>"}')
-  api POST "/work-items/${id}/comments/" "$(jq -nc --arg h "$html" '{comment_html: $h}')" |
+  body=$(jq -nc --arg h "$html" '{comment_html: $h}')
+  preview POST "/work-items/${id}/comments/" "$body"
+  api POST "/work-items/${id}/comments/" "$body" |
     jq -r --arg key "$1" '"comment \(.id) added to \($key)"'
 }
 
@@ -205,7 +212,10 @@ cmd_create() {
     jq_args+=(--arg e "$estimate_id")
     filter+=' + {estimate_point: $e}'
   fi
-  item=$(api POST "/work-items/" "$(jq -nc "${jq_args[@]}" "$filter")")
+  local body
+  body=$(jq -nc "${jq_args[@]}" "$filter")
+  preview POST "/work-items/" "$body"
+  item=$(api POST "/work-items/" "$body")
   id=$(jq -r '.id' <<<"$item")
   seq=$(jq -r '.sequence_id' <<<"$item")
   api POST "/modules/${module_id}/module-issues/" "$(jq -nc --arg i "$id" '{issues: [$i]}')" >/dev/null
