@@ -131,6 +131,16 @@ Migrations run on startup. `bootRun` activates the `local` profile (`application
 
 Routes live under `/v1`; the OpenAPI spec is at `/v3/api-docs` and, in `local` only, the Scalar API reference at <http://localhost:8080/scalar>. Behind a reverse proxy set `FRAPPE_TRUSTED_PROXIES` to the proxy's addresses (CIDR list, default loopback only): `X-Forwarded-For` is honoured only from those.
 
+### Secrets
+
+The application reads secrets from environment variables only, and the `local` profile needs none. Real keys (staging, production, and third-party keys for local work) live in Bitwarden Secrets Manager on the EU cloud, one project per environment (`frappe-dev`, `frappe-staging`, `frappe-production`) with a read-only machine account each. To run anything with the `frappe-dev` secrets injected, install [`bws`](https://github.com/bitwarden/sdk-sm/releases), export the access token of the dev machine account as `BWS_ACCESS_TOKEN` and run:
+
+```bash
+scripts/with-secrets.sh ./gradlew --no-daemon bootRun
+```
+
+Values are passed to that process only, never printed or written to disk. [`docs/secrets.md`](docs/secrets.md) has the setup, the inventory of every secret and the runbook (add, rotate, revoke, leak).
+
 ### Observability
 
 Traces, metrics and logs leave the app over OTLP (OpenTelemetry). Locally everything is zero config: compose runs `grafana/otel-lgtm` and Spring Boot's Docker Compose support wires the exporters to it; the `local` profile samples every request.

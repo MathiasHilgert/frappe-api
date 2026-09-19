@@ -22,8 +22,8 @@ Strict TDD (project rule, AGENTS.md). Runner: `scripts/with-secrets.test.sh` (he
 ## Tasks
 - [x] T0 Verify `bws` (latest), EU targeting, `bws run` semantics, read-only machine accounts, Kamal `bitwarden-sm`; record findings
 - [x] T1 `scripts/with-secrets.sh`: RED test, then script (help, missing `bws`, missing token, dry run, project by name, EU profile, no state file, argument quoting, exit code)
-- [ ] T2 `docs/secrets.md`, README section, `writing-code` link
-- [ ] T3 Gate: `shellcheck`, `gitleaks`, `./gradlew spotlessApply check -x test`; commit
+- [x] T2 `docs/secrets.md`, README section, `writing-code` link
+- [x] T3 Gate: `shellcheck`, `gitleaks`, `./gradlew spotlessApply check -x test`; commit
 
 ## Acceptance (from ticket)
 - Developer token for frappe-dev: `scripts/with-secrets.sh ./gradlew bootRun` starts the app with the secrets; none written to disk or printed. (Real run: human, after the org exists.)
@@ -54,8 +54,13 @@ Sources: GitHub releases API of `bitwarden/sdk-sm`; `sdk-sm` source at tag `bws-
 - T1 RED: `scripts/with-secrets.test.sh` (12 cases) before the script existed: `with-secrets.sh: 42 failure(s) in 12 tests` (every case exit 127, `No such file or directory`).
 - T1 GREEN: `with-secrets.sh: 12 tests passed` (help; no command; unknown option; missing bws; missing token; dry run without bws/token; dry run with token, no leak, no Bitwarden call; run via EU profile with `BWS_SERVER_URL` removed, secret injected, token absent in child; arguments with spaces/quotes/`$`; project by option and by env; unreadable project; exit code propagated). REFACTOR: shellcheck 0.11.0 clean (SC2155 split, two intentional SC2016 annotated); wired into `./gradlew check` as `scriptTests` (`./gradlew scriptTests`: BUILD SUCCESSFUL, no deprecation).
 
+- T1 commit: `a1775a8` (rebased onto `main` d1858e0) chore(platform): run commands with bitwarden secrets injected.
+- T2: `docs/secrets.md` (layout, human setup with verification steps, script behaviour, inventory: app secrets `FRAPPE_APP_PASSWORD`, `FRAPPE_OWNER_PASSWORD`, `FRAPPE_SECRET_PEPPER`, `FRAPPE_VALKEY_URL`, `FRAPPE_NATS_URL` (pepper and Valkey URL added after rebasing onto `main` with FAPI-16 and FAPI-15); infrastructure/tooling `POSTGRES_PASSWORD`, `BWS_ACCESS_TOKEN`, `PLANE_API_KEY`, `GITHUB_TOKEN`; non-secret configuration listed; runbook add/rotate/revoke/leak). README "Secrets" section; `writing-code` hard rule + decision-gate row linking `docs/secrets.md`. Inventory source: `rg '\$\{' src/main/resources`, `@ConfigurationProperties` (`frappe.nats.*`, `frappe.outbox.recovery.*`), `compose.yaml`, `docker/postgres/initdb`, `.github/workflows`.
+- T3: dry run in the real environment (no `bws`, no token): exit 0, reports both missing, EU server, project `frappe-dev`. Real run without `bws`: exit 1 with install help and the local-profile hint. `shellcheck -x scripts/*.sh`: clean. `gitleaks dir .` and `gitleaks git .`: no leaks found. `./gradlew spotlessApply check -x test`: BUILD SUCCESSFUL (includes `scriptTests`: 12 passed). The full `./gradlew check` (Testcontainers suite) was not run for this change, which touches no Java.
+- Pending (human, blocks "Done when"): create the EU organization, projects, machine accounts and tokens; install `bws`; run the verification in `docs/secrets.md` ("Human setup", step 8) and record it in FAPI-35.
+
 ## Engram mirror
 Pending: no Engram tools in the implementing agent; the orchestrator mirrors `odd/fapi-35-bitwarden-secrets/tasks`.
 
 ## Next step
-T2.
+Human setup and the real run against `frappe-dev` (docs/secrets.md, step 8); then PR.
