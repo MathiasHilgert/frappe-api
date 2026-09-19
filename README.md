@@ -181,6 +181,34 @@ Run the full quality gate (formatting check, module boundary verification, tests
 
 Fix formatting with `./gradlew spotlessApply`.
 
+### Build and run the image locally
+
+The `Dockerfile` builds a layered OCI image on a JDK 25 image, then trains and bakes a Java 25 Leyden AOT cache (JEP 483) for a faster startup, and runs on a minimal `eclipse-temurin:25-jre-alpine` as a non-root user. Building it needs live Postgres, NATS and Valkey (the training run really starts the app), so start compose first and build with `--network=host` so the build can reach them on `localhost`:
+
+```bash
+docker compose up -d --wait postgres nats valkey
+docker build --network=host \
+  --build-arg FRAPPE_DB_URL=jdbc:postgresql://localhost:${FRAPPE_POSTGRES_PORT:-5432}/frappe \
+  -t frappe-api:local .
+```
+
+Run it against those same compose services (`local` profile; no secrets needed):
+
+```bash
+docker run --rm --network host -p 8080:8080 \
+  -e SPRING_PROFILES_ACTIVE=local \
+  -e FRAPPE_DB_URL=jdbc:postgresql://localhost:${FRAPPE_POSTGRES_PORT:-5432}/frappe \
+  -e FRAPPE_APP_PASSWORD=frappe_app \
+  -e FRAPPE_OWNER_PASSWORD=frappe_owner \
+  -e frappe.nats.url=nats://localhost:${FRAPPE_NATS_PORT:-4222} \
+  -e FRAPPE_VALKEY_URL=redis://localhost:${FRAPPE_VALKEY_PORT:-6379} \
+  -e FRAPPE_SECRET_PEPPER=local-development-pepper-not-a-secret \
+  frappe-api:local
+curl localhost:8080/actuator/health
+```
+
+Outside `local`, secrets come from Bitwarden at runtime (see "Secrets" above); the image itself never carries one — verify with `docker history --no-trunc frappe-api:local`. CI builds the image on every pull request (no push), so a broken `Dockerfile` fails the gate.
+
 ### Git hooks
 
 A versioned pre-commit hook runs gitleaks against staged changes. Enable it once per clone:

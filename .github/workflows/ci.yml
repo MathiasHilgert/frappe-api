@@ -99,3 +99,26 @@ jobs:
             echo
             echo "**Module diagram:** the Modulith component diagram was generated to \`build/spring-modulith-docs\` and uploaded as the \`spring-modulith-docs\` artifact of this run."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  image:
+    name: OCI image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the branch
+        uses: actions/checkout@v7
+      # The Leyden AOT training run inside the build needs live Postgres, NATS and Valkey (README, "Build and run
+      # the image locally"); --network=host lets the training container reach them on localhost.
+      - name: Start Postgres, NATS and Valkey
+        run: docker compose up -d --wait postgres nats valkey
+      - name: Build the image (no push)
+        run: |
+          docker build --network=host \
+            --build-arg FRAPPE_DB_URL=jdbc:postgresql://localhost:5432/frappe \
+            -t frappe-api:ci .
+      - name: No secret in a layer or build arg
+        run: |
+          ! docker history --no-trunc frappe-api:ci | grep -Ei 'FRAPPE_(APP|OWNER)_PASSWORD|FRAPPE_SECRET_PEPPER|RESEND_API_KEY|FRAPPE_DEEPL_API_KEY'
+      - name: Runs as non-root
+        run: |
+          test "$(docker inspect frappe-api:ci --format '{{.Config.User}}')" = "frappe"
