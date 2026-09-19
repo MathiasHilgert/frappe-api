@@ -6,7 +6,7 @@ The engine is db-scheduler 16.12.0, an implementation detail of `platform.infras
 
 ## Declaring a task
 
-A task is a bean in the module's `infrastructure`, created with `ScheduledTasks`; the platform builds the scheduler from every declared task bean. The action calls the module's bus or a port, like a controller does; it holds no business logic.
+A task is a bean in the module's `infrastructure`, created with `ScheduledTasks`; the platform builds the scheduler from every declared task bean. The action calls the module's use case directly (`use-cases.md`: inject the `@CommandUseCase` class and call its one method), like a controller does; it holds no business logic. A returned `Failure` is a business refusal, not a task failure: the run counts as done (the use case rolled back its own work and its telemetry records `outcome=failure`); throw from the action only when a refusal must be retried.
 
 ```java
 @Configuration(proxyBeanMethods = false)
@@ -14,17 +14,17 @@ class IdentityTasks {
 
     // Fixed recurring: one execution for the whole cluster, scheduled at startup.
     @Bean
-    RecurringTask<Void> purgeUnverifiedAccounts(ScheduledTasks tasks, CommandBus bus) {
+    RecurringTask<Void> purgeUnverifiedAccounts(ScheduledTasks tasks, PurgeUnverifiedAccounts purge) {
         return tasks.recurring(TaskName.of("identity.purge-unverified-accounts"),
                 TaskSchedule.daily(LocalTime.of(3, 0), ZoneOffset.UTC),
-                () -> bus.dispatch(new PurgeUnverifiedAccounts()));
+                purge::purge);
     }
 
     // One-time: one execution per scheduled key.
     @Bean
-    OneTimeTask<ReminderData> sendVerificationReminder(ScheduledTasks tasks, CommandBus bus) {
+    OneTimeTask<ReminderData> sendVerificationReminder(ScheduledTasks tasks, SendVerificationReminder send) {
         return tasks.oneTime(TaskName.of("identity.send-verification-reminder"), ReminderData.class,
-                reminder -> bus.dispatch(new SendReminder(reminder.accountId())));
+                reminder -> send.send(new AccountId(reminder.accountId())));
     }
 }
 
@@ -33,9 +33,9 @@ class OrganizationTasks {
 
     // Per-entity: one execution per branch, each on the branch's own cron and zone.
     @Bean
-    EntityTask closeBusinessDay(ScheduledTasks tasks, CommandBus bus) {
+    EntityTask closeBusinessDay(ScheduledTasks tasks, CloseBusinessDay close) {
         return tasks.perEntity(TaskName.of("organization.close-business-day"),
-                branchId -> bus.dispatch(new CloseBusinessDay(BranchId.of(branchId))));
+                branchId -> close.close(BranchId.of(branchId)));
     }
 }
 ```
