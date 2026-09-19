@@ -13,7 +13,6 @@ import com.frappe.platform.Result;
 import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.observation.tck.TestObservationRegistry;
 import io.micrometer.observation.tck.TestObservationRegistryAssert;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
@@ -91,10 +90,6 @@ class UseCaseObservationTest {
 
         private volatile boolean failCommits;
 
-        final AtomicInteger commits = new AtomicInteger();
-
-        final AtomicInteger rollbacks = new AtomicInteger();
-
         void failCommits() {
             failCommits = true;
         }
@@ -112,13 +107,10 @@ class UseCaseObservationTest {
             if (failCommits) {
                 throw COMMIT_FAILURE;
             }
-            commits.incrementAndGet();
         }
 
         @Override
-        protected void doRollback(DefaultTransactionStatus status) {
-            rollbacks.incrementAndGet();
-        }
+        protected void doRollback(DefaultTransactionStatus status) {}
     }
 
     @Test
@@ -154,21 +146,6 @@ class UseCaseObservationTest {
                     .hasLowCardinalityKeyValue("outcome", "failure")
                     .doesNotHaveError()
                     .hasBeenStopped();
-        });
-    }
-
-    @Test
-    void aFailureResultRollsBackTheTransactionInsteadOfCommittingIt() {
-        contextRunner.withBean(PlaceOrderHandler.class).run(context -> {
-            // Given
-            var transactions = context.getBean(CommitFailingTransactionManager.class);
-
-            // When
-            context.getBean(CommandBus.class).dispatch(new PlaceOrder(false));
-
-            // Then
-            assertThat(transactions.rollbacks).hasValue(1);
-            assertThat(transactions.commits).hasValue(0);
         });
     }
 

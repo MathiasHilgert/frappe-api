@@ -1,5 +1,6 @@
 package com.frappe.platform.infrastructure.bus;
 
+import com.frappe.platform.Command;
 import com.frappe.platform.CommandHandler;
 import com.frappe.platform.Result;
 import java.lang.reflect.Method;
@@ -7,11 +8,13 @@ import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
 import org.jspecify.annotations.Nullable;
 import org.springframework.aop.framework.AbstractAdvisingBeanPostProcessor;
+import org.springframework.aop.support.AopUtils;
 import org.springframework.aop.support.StaticMethodMatcherPointcutAdvisor;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
+import org.springframework.util.ClassUtils;
 
 /**
- * Rolls back the transaction of a command handler that returns a {@link Result.Failure}: an expected business refusal
+ * Rolls back the transaction a command handler started when it returns a {@link Result.Failure}: an expected business refusal
  * must leave no state and no outbox row behind, even when the handler saved or recorded events before refusing.
  *
  * <p>Ordering: Spring's auto-proxy creator (highest precedence) has already wrapped the handler in its transaction
@@ -46,26 +49,38 @@ final class RollbackOnFailurePostProcessor extends AbstractAdvisingBeanPostProce
 
         private static final long serialVersionUID = 1L;
 
+        private static final Method HANDLE = ClassUtils.getMethod(CommandHandler.class, "handle", Command.class);
+
         private RollbackOnFailureAdvisor() {
             super(new RollbackOnFailureInterceptor());
         }
 
         @Override
         public boolean matches(Method method, Class<?> targetClass) {
-            return CommandHandler.class.isAssignableFrom(targetClass)
-                    && method.getName().equals("handle")
-                    && method.getParameterCount() == 1;
+            if (!CommandHandler.class.isAssignableFrom(targetClass)) {
+                return false;
+            }
+            // Both sides resolved to the implementation (bridge methods included): an unrelated one-argument
+            // overload of handle is not the command handler's handle.
+            var implementation = AopUtils.getMostSpecificMethod(HANDLE, targetClass);
+            return AopUtils.getMostSpecificMethod(method, targetClass).equals(implementation);
         }
     }
 
-    /** Marks the current transaction rollback-only when the handler returned a failure. */
+    /**
+     * Marks the handler's transaction rollback-only when it returned a failure, but only a transaction the handler
+     * started: a joined transaction belongs to its owner, who decides from the returned failure.
+     */
     private static final class RollbackOnFailureInterceptor implements MethodInterceptor {
 
         @Override
         public @Nullable Object invoke(MethodInvocation invocation) throws Throwable {
             var result = invocation.proceed();
             if (result instanceof Result.Failure<?, ?>) {
-                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+                var transaction = TransactionAspectSupport.currentTransactionStatus();
+                if (transaction.isNewTransaction()) {
+                    transaction.setRollbackOnly();
+                }
             }
             return result;
         }

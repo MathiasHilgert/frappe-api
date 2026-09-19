@@ -6,7 +6,8 @@ package com.frappe.platform;
  *
  * <p>The {@code handle} method (or the class) must be {@code @Transactional}, so the saved state and the outbox rows
  * commit together; startup fails otherwise. Expected failures are returned as {@link Result.Failure}, never thrown; a
- * returned failure rolls the transaction back, so nothing saved or recorded before the refusal persists.
+ * returned failure rolls back the transaction the handler started, so nothing saved or recorded before the refusal
+ * persists (a joined transaction is left to its owner).
  * Handlers never create telemetry: the bus observes every dispatch.
  *
  * @param <C> the handled command type, a concrete record
