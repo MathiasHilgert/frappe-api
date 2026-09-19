@@ -32,6 +32,8 @@ Strict TDD, source: project standard (`testing-code`) and the brief. Runner: `./
 - [x] T6 `i18n.md` and skill routing; final verification — commit `d369560`
 - [x] R1 Review MAJOR: localization never fails a request (port isolation) — commit `56c11e7`
 - [x] R2 Review minors: enabled languages matched through CLDR, CLDR es mappings pinned and documented — commit `e477549`; shipped-catalog guard explained — commit `c0aa055`
+- [x] D1 DX: problem detail keys of a module's exceptions accepted by the catalog check — commit `762bd34`
+- [x] D2 DX: kernel port `Messages` over Spring's `MessageSourceAccessor`; docs (example, problem details, IDE key safety) — commit `81aa904`
 
 ## Acceptance (from ticket)
 - `Accept-Language: es-AR` without a session → `Content-Language: es`, `Vary` includes `Accept-Language`.
@@ -102,10 +104,23 @@ Strict TDD, source: project standard (`testing-code`) and the brief. Runner: `./
 - R3 (commit `c0aa055`). `ShippedMessageCatalogsTest` keeps `isNotEmpty()` with a comment: without it a broken location pattern would check nothing and pass.
 - Note: T1–T6 evidence was first written with `sd` substitutions that silently did not match, so only the checkboxes had changed; this section restores it.
 
+### Developer experience (human direction: libraries inside adapters, modules depend on kernel types)
+- Research outcome (coordinator): no maintained Spring library for type-safe message bundles; the improvements come from Spring itself. Verified in `spring-context-7.0.9-sources.jar`: `MessageSourceAccessor` resolves the locale from `LocaleContextHolder` but has **no varargs overloads** (`getMessage(String, Object[])`), and `getMessage(String, String)` treats the second argument as a default message, so `accessor.getMessage("x", name)` would silently format without arguments. Hence the kernel port instead of exposing the accessor.
+- D1 (commit `762bd34`): Spring's `ErrorResponse#updateAndGetBody` resolves `problemDetail.title.<FQCN>` and `problemDetail.<FQCN>[.<suffix>]` (verified in `spring-web-7.0.9-sources.jar`). Rule: such keys are accepted when the exception is in `com.frappe.<module>.`; platform may also localize framework exceptions (outside `com.frappe.`); `problemDetail.type.*` is rejected (types are stable URIs). RED `MessageCatalogCheckTest`: 4 failing (the three new tests and the reworded namespace message); GREEN 11/11.
+- D2 (commit `81aa904`): `com.frappe.platform.i18n.Messages` (`get(key, args...)` in the request locale, `get(locale, key, args...)` outside a request), implemented by `infrastructure.i18n.MessageSourceMessages` over `MessageSourceAccessor`; an unknown key throws `UnknownMessageKeyException` naming key, locale and the module's catalog files. RED `MessageSourceMessagesTest` and `I18nIntegrationTests` (compilation: `Messages` missing); first GREEN run 3/4: the unknown-key message did not name `i18n/sample/messages_{en,es,pt}.properties` (derived from the key's module prefix afterwards); GREEN 4/4 and 6/6 (the HTTP probe now calls `messages.get("sample.items", count)` → `2 itens` for pt-BR).
+- `i18n.md`: modules import only kernel types; `Messages` example; "Errors (problem details)" section; key safety via the catalog check and IntelliJ's Resource Bundle Editor, no codegen (IDE behaviour described from IntelliJ documentation, not exercised in this environment).
+
+## PR summary
+- Locale chain (user preference > `Accept-Language` > branch > business > en) with ICU/CLDR matching, restricted to enabled languages; ports for identity and organization; a failing port never fails a request.
+- `Content-Language` and `Vary: Accept-Language` on every response, errors included.
+- `Messages` kernel port: `messages.get("order.items", 2)`, request locale implicit; ICU plural/select; en-XA pseudo-locale for tests.
+- Per-module hand-translated catalogs `i18n/<module>/messages_{en,es,pt}.properties`, checked in `./gradlew check` and at startup (key parity, ICU syntax, numbered arguments, namespace incl. Spring problem detail keys).
+- Conventions in `writing-code/references/i18n.md` (raw API values, problem details, tenant content translations); isolation boundary in `errors.md`.
+
 ## Follow-ups / open questions
 - en-XA is a message-source locale for tests only; the resolver never selects it from `Accept-Language`. Exposing it over HTTP (for client QA) would be a separate, opt-in decision.
 - `i18n.md` leaves open which translation statuses diners see (for example only `APPROVED`); the translation module ticket should settle it.
 - The only catalogs are the test catalogs (`src/test/resources/i18n/sample`); platform has no user-facing text yet. FAPI-14 adds the first real ones.
 
 ## Next step
-All tasks and review items are done and verified; next is the PR (not created here: no push, no PR, no Plane change). Final verification after review: `FRAPPE_TEST_DB=frappe_fapi_12 ./gradlew spotlessApply check --rerun-tasks` BUILD SUCCESSFUL, 53 classes, 246 tests, 0 failures, 0 skipped.
+All tasks and review items are done and verified; next is the PR (not created here: no push, no PR, no Plane change). Final verification after review: `FRAPPE_TEST_DB=frappe_fapi_12 ./gradlew spotlessApply check --rerun-tasks` BUILD SUCCESSFUL, 53 classes, 246 tests, 0 failures, 0 skipped. After the DX changes: 54 classes, 253 tests, 0 failures, 0 skipped.
