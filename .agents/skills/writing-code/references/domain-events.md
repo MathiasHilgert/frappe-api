@@ -66,9 +66,9 @@ The trace that caused an event survives the outbox and the broker (OpenTelemetry
 - When an externalized event is recorded, the outbox adapter stores the active W3C trace context with it (`platform.event_trace_context`, keyed by `eventId`, written in the same transaction, so it commits and rolls back with the publication). No active trace, no row.
 - Every publish reads it and sets the `traceparent` / `tracestate` headers, the first attempt and every resubmission alike: an event delivered after an outage still carries the trace that caused it. A failing lookup logs one WARN and publishes without the headers; telemetry never fails a publish.
 - `nats.publish` is a PRODUCER span, a child of whatever runs the publish (the relay listener, or the recovery pass), that **links** to the creation context. Links, not parents, across the outbox: delivery is at least once and may be hours late, and a parent relation would stretch and pollute the producing trace.
-- Consumers wrap processing in `NatsProcessObservations.of(message)`: a CONSUMER span `process <subject>` and `nats.process` timer (`messaging.operation.type` and `.name` both `process`) linked to the same creation context. A message without the headers is processed without a link; a malformed header is ignored (first occurrence WARN, then DEBUG).
+- Platform's NATS subscription/inbox adapter wraps processing in `NatsProcessObservations.of(message)`: a CONSUMER span `process <subject>` and `nats.process` timer (`messaging.operation.type` and `.name` both `process`) linked to the same creation context. A message without the headers is processed without a link; a malformed header is ignored (first occurrence WARN, then DEBUG).
 - Nothing else is hand-written: no telemetry types in `domain` or `application`, and the W3C values are produced by the configured Micrometer `Propagator`, never by hand.
-- The stored contexts live as long as the outbox history and are purged together with `platform.event_publication_archive` (same follow-up).
+- Retention: a stored context may be purged only when its `event_id` is in none of `platform.event_publication`, `platform.event_publication_archive` and `platform.event_publication_dead_letter` (matched by the `eventId` in `serialized_event`), because a manually replayed dead letter must still carry its original context. The purge ships with the archive purge (follow-up) and selects by that rule, not by age.
 
 ### Dead letters: manual replay
 
@@ -91,7 +91,7 @@ Drop `where id = ...` to replay all, or filter by `reason` / `event_type`. To di
   2. If the insert conflicts, skip — already processed.
   3. Otherwise apply the effect in the same transaction.
 - Consumers call the module's own bus (a command), never another module's internals.
-- Wrap the processing of a NATS message in `NatsProcessObservations.of(message)` (see "Trace context"); do not create spans or timers for it by hand.
+- `NatsProcessObservations.of(message)` (see "Trace context") is the hook for platform's NATS subscription/inbox adapter, which wraps every processed message in it. Module consumers reach it through that adapter, never directly: it stays package-private in `platform.infrastructure.nats` until the inbox ticket. Do not create spans or timers for consuming by hand.
 - Never rely on ordering across aggregates; within one aggregate use the event's version or timestamp to discard stale events.
 
 ## Changing an event
