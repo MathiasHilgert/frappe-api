@@ -5,6 +5,7 @@ import static org.awaitility.Awaitility.await;
 
 import com.frappe.TestcontainersConfiguration;
 import com.github.kagkarlsson.scheduler.boot.config.DbSchedulerProperties;
+import com.github.kagkarlsson.scheduler.logging.LogLevel;
 import com.github.kagkarlsson.scheduler.stats.MicrometerStatsRegistry;
 import com.github.kagkarlsson.scheduler.stats.StatsRegistry;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -43,6 +44,7 @@ class SchedulerSettingsIntegrationTests {
         assertThat(settings.getTableName()).isEqualTo("platform.scheduled_tasks");
         assertThat(settings.isDelayStartupUntilContextReady()).isTrue();
         assertThat(settings.getShutdownMaxWait()).isEqualTo(Duration.ofSeconds(10));
+        assertThat(settings.getFailureLoggerLevel()).isEqualTo(LogLevel.OFF);
     }
 
     @Test

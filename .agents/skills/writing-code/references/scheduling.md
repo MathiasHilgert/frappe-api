@@ -75,7 +75,7 @@ closeBusinessDay.schedule(branchId.toString(), new EntitySchedule("0 0 4 * * *",
 
 ## Configuration
 
-- `db-scheduler.*` (application.properties): `table-name=platform.scheduled_tasks` (Flyway owns it, `db/migration/platform`; the library never creates tables), `delay-startup-until-context-ready=true`, `shutdown-max-wait=10s`, `heartbeat-interval=15s`, `missed-heartbeats-limit=6` (takeover after about 90s); library defaults otherwise (polling every 10s).
+- `db-scheduler.*` (application.properties): `table-name=platform.scheduled_tasks` (Flyway owns it, `db/migration/platform`; the library never creates tables), `delay-startup-until-context-ready=true`, `shutdown-max-wait=10s`, `heartbeat-interval=15s`, `missed-heartbeats-limit=6` (takeover after about 90s), `failure-logger-level=OFF` (the platform logs each failure once; the library's WARN line would duplicate it); library defaults otherwise (polling every 10s).
 - `frappe.scheduling.*`: retry defaults in `SchedulingProperties` only.
 - The scheduler runs on the application `Clock` (due times, heartbeats, retries).
 - When the application context stops, the scheduler stops picking new executions first (`SchedulerPausing`); paused test contexts do not run tasks either.
