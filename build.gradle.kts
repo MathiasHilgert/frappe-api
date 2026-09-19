@@ -3,6 +3,8 @@ plugins {
 	id("org.springframework.boot") version "4.1.1"
 	id("io.spring.dependency-management") version "1.1.7"
 	id("com.diffplug.spotless") version "8.10.2"
+	id("gg.jte.gradle") version "3.2.4"
+	id("com.github.node-gradle.node") version "7.1.0"
 }
 
 group = "com.frappe"
@@ -35,6 +37,8 @@ dependencies {
 	implementation("com.bucket4j:bucket4j_jdk17-lettuce:8.20.0")
 	implementation("com.github.f4b6a3:uuid-creator:6.1.1")
 	implementation("com.ibm.icu:icu4j:78.3")
+	// Mail templates run precompiled (generateJte below), so only the runtime is needed.
+	implementation("gg.jte:jte-runtime:3.2.4")
 	implementation("io.nats:jnats:2.26.2") {
 		// Same org.bouncycastle classes as bcprov-jdk18on below (duplicate classes on one classpath); jnats' NKey
 		// signing only needs the Ed25519 classes both jars contain.
@@ -84,6 +88,7 @@ tasks.withType<Test> {
 
 spotless {
 	java {
+		target("src/*/java/**/*.java")
 		palantirJavaFormat("2.98.0")
 		removeUnusedImports()
 		trimTrailingWhitespace()
@@ -96,8 +101,70 @@ spotless {
 	}
 }
 
+// Mail: MJML layouts (src/main/mjml) compile to HTML with JTE expressions at build time; JTE then generates Java for them
+// and the module templates (src/main/jte), so templates are checked at compile time and never parsed at runtime.
+// The generated HTML and Java stay in build/, never committed.
+node {
+	download = true
+	version = "24.21.0"
+	npmInstallCommand = "ci"
+}
+
+val mjmlSources = layout.projectDirectory.dir("src/main/mjml")
+val compiledMailLayouts = layout.buildDirectory.dir("generated/mjml")
+val jteSources = layout.buildDirectory.dir("generated/jte-sources")
+
+val compileMailLayouts = tasks.register<com.github.gradle.node.npm.task.NpxTask>("compileMailLayouts") {
+	description = "Compiles the MJML mail layouts to HTML templates for JTE."
+	dependsOn(tasks.npmInstall)
+	command = "mjml"
+	args = listOf(
+		"src/main/mjml/mail/layout.mjml",
+		"--output", compiledMailLayouts.get().file("mail/layout.jte").asFile.path,
+		"--config.validationLevel", "strict")
+	inputs.dir(mjmlSources)
+	inputs.file("package-lock.json")
+	outputs.dir(compiledMailLayouts)
+	doFirst { compiledMailLayouts.get().dir("mail").asFile.mkdirs() }
+}
+
+val assembleJteSources = tasks.register<Sync>("assembleJteSources") {
+	description = "Collects the mail templates and the compiled layouts into one JTE source directory."
+	from(compileMailLayouts)
+	from("src/main/jte")
+	into(jteSources)
+}
+
+jte {
+	generate()
+	sourceDirectory = jteSources.map { it.asFile.toPath() }
+	// Keeps MJML's conditional comments for Outlook (<!--[if mso]>).
+	htmlCommentsPreserved = true
+}
+
+tasks.generateJte {
+	dependsOn(assembleJteSources)
+}
+
+// Test-only templates (src/test/jte) for the mail adapter tests, generated into the same package as the production
+// ones so one precompiled TemplateEngine finds both.
+val generateTestJte = tasks.register<gg.jte.gradle.GenerateJteTask>("generateTestJte") {
+	sourceDirectory = layout.projectDirectory.dir("src/test/jte").asFile.toPath()
+	targetDirectory = layout.buildDirectory.dir("generated-sources/jte-test").map { it.asFile.toPath() }
+	contentType = gg.jte.ContentType.Html
+	packageName = "gg.jte.generated.precompiled"
+	htmlCommentsPreserved = true
+	classpath.from(configurations.named("jteGenerate"))
+}
+
+sourceSets.test {
+	java.srcDir(generateTestJte.map { it.targetDirectory.get().toFile() })
+}
+
 // Javadoc is part of the gate: every type and member (package level and up) documented, warnings are errors.
 tasks.javadoc {
+	// JTE's generated template classes are not ours to document.
+	exclude("gg/jte/generated/**")
 	(options as StandardJavadocDocletOptions).apply {
 		memberLevel = JavadocMemberLevel.PACKAGE
 		encoding = "UTF-8"

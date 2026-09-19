@@ -41,8 +41,8 @@ Modules' own templates; bounces, webhooks, attachments, marketing mail.
       via `RequestOptions`), JTE 3.2.4 (latest; plugin `generate()` mode), node-gradle 7.1.0 (latest), mjml 5.4.1
       (latest; `mj-raw position="file-start"`), Node 24.21.0 LTS, `axllent/mailpit:v1.31` (tag exists, v1.31.2 patch).
 - [x] T1. Kernel port `Mailer`, `MailMessage` (validation), `MailDeliveryException`; kernel dependency test.
-- [ ] T2. Build: JTE generate for main and test templates, MJML layout compiled to a JTE template.
-- [ ] T3. Renderer: one locale per message, whole-message fallback counted by `mail.locale.fallback`.
+- [x] T2. Build: JTE generate for main and test templates, MJML layout compiled to a JTE template.
+- [x] T3. Renderer: one locale per message, whole-message fallback counted by `mail.locale.fallback`.
 - [ ] T4. Transports: Resend (idempotency key), SMTP (Mailpit), `mail.send` observation, privacy of logs/spans.
 - [ ] T5. Configuration: provider selection, fail-fast settings, compose Mailpit, local properties.
 - [ ] T6. Outbox example: listener fails on 5xx, recovery pass sends after the stub recovers.
@@ -66,6 +66,10 @@ Recorded per task below as work proceeds.
 
 - T1 RED: `MailMessageTest`, `MailKernelDependenciesTest` fail to compile (`cannot find symbol MailMessage`). GREEN: 17 + 1
   tests pass.
+
+- T2 RED: `MailLayoutTest` build fails (`generateJte`: source directory `src/main/jte` does not exist, no layout).
+  GREEN: 1 test passes after the MJML → JTE pipeline (`compileMailLayouts`, `assembleJteSources`, `generateJte`).
+- T3 RED: `MailRendererTest` fails to compile (`cannot find symbol MailRenderer`, `MailTexts`). GREEN: 8 tests pass.
 
 ## Engram mirror
 
