@@ -27,6 +27,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-data-redis")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-flyway")
+	implementation("org.springframework.boot:spring-boot-starter-mail")
 	implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
 	implementation("org.springframework.boot:spring-boot-starter-security")
 	implementation("org.springframework.boot:spring-boot-starter-validation")
@@ -36,6 +37,8 @@ dependencies {
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-scalar:3.1.1")
 	implementation("com.bucket4j:bucket4j_jdk17-lettuce:8.20.0")
 	implementation("com.github.f4b6a3:uuid-creator:6.1.1")
+	// Not managed by Boot; the official Resend SDK, used only inside platform.infrastructure.mail.
+	implementation("com.resend:resend-java:4.26.0")
 	implementation("com.ibm.icu:icu4j:78.3")
 	// Mail templates run precompiled (generateJte below), so only the runtime is needed.
 	implementation("gg.jte:jte-runtime:3.2.4")

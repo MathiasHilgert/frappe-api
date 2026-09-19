@@ -43,7 +43,7 @@ Modules' own templates; bounces, webhooks, attachments, marketing mail.
 - [x] T1. Kernel port `Mailer`, `MailMessage` (validation), `MailDeliveryException`; kernel dependency test.
 - [x] T2. Build: JTE generate for main and test templates, MJML layout compiled to a JTE template.
 - [x] T3. Renderer: one locale per message, whole-message fallback counted by `mail.locale.fallback`.
-- [ ] T4. Transports: Resend (idempotency key), SMTP (Mailpit), `mail.send` observation, privacy of logs/spans.
+- [x] T4. Transports: Resend (idempotency key), SMTP (Mailpit), `mail.send` observation, privacy of logs/spans.
 - [ ] T5. Configuration: provider selection, fail-fast settings, compose Mailpit, local properties.
 - [ ] T6. Outbox example: listener fails on 5xx, recovery pass sends after the stub recovers.
 - [ ] T7. Docs and skills: README, `email.md`, errors/logging/observability references.
@@ -70,6 +70,10 @@ Recorded per task below as work proceeds.
 - T2 RED: `MailLayoutTest` build fails (`generateJte`: source directory `src/main/jte` does not exist, no layout).
   GREEN: 1 test passes after the MJML → JTE pipeline (`compileMailLayouts`, `assembleJteSources`, `generateJte`).
 - T3 RED: `MailRendererTest` fails to compile (`cannot find symbol MailRenderer`, `MailTexts`). GREEN: 8 tests pass.
+
+- T4 RED: `ResendMailTransportTest`, `ObservedMailerTest` fail to compile (`cannot find symbol ObservedMailer`,
+  `ResendMailTransport`, `SmtpMailTransport`, `MailTransport`). GREEN: 5 + 4 tests pass (incl. no recipient, code or
+  API key in logs/spans for the Resend and SMTP adapters; one ERROR log with ECS fields on failure).
 
 ## Engram mirror
 
