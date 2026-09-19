@@ -16,7 +16,8 @@ import java.util.UUID;
  * @param eventVersion the payload's schema version
  */
 @Counted(name = "people.registered", description = "People who completed a sign-up")
-public record PersonRegistered(UUID eventId, Instant occurredAt, UUID aggregateId, long aggregateVersion, int eventVersion)
+public record PersonRegistered(
+        UUID eventId, Instant occurredAt, UUID aggregateId, long aggregateVersion, int eventVersion)
         implements DomainEvent {
 
     /** The current payload schema version. */

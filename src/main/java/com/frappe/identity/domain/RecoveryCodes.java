@@ -31,7 +31,8 @@ public final class RecoveryCodes {
         while (codes.size() < COUNT) {
             codes.add(secrets.recoveryCode());
         }
-        var digested = codes.stream().map(code -> digestOf(digests, person, code)).toList();
+        var digested =
+                codes.stream().map(code -> digestOf(digests, person, code)).toList();
         return new Issued(List.copyOf(codes), digested);
     }
 

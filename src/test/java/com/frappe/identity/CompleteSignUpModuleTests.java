@@ -136,7 +136,9 @@ class CompleteSignUpModuleTests {
                 .containsEntry("terms_version", "2026-09-19")
                 .containsEntry("privacy_version", "2026-09-19")
                 .containsEntry("version", 0L);
-        assertThat((String) person.get("password_hash")).startsWith("$argon2id$").doesNotContain(PASSWORD);
+        assertThat((String) person.get("password_hash"))
+                .startsWith("$argon2id$")
+                .doesNotContain(PASSWORD);
         assertThat(person.get("legal_accepted_at")).isNotNull().isEqualTo(person.get("registered_at"));
         var storedDigests = jdbc.queryForList(
                 "select digest from identity.recovery_code where person_id = ? and used_at is null",
@@ -162,12 +164,12 @@ class CompleteSignUpModuleTests {
         // Then
         assertThat(events)
                 .contains(PersonRegistered.class)
-                .matching(PersonRegistered::aggregateId, registration.personId());
+                .matching(event -> event.aggregateId().equals(registration.personId()));
         assertThat(Arrays.stream(PersonRegistered.class.getRecordComponents()).map(component -> component.getName()))
                 .containsExactly("eventId", "occurredAt", "aggregateId", "aggregateVersion", "eventVersion");
         assertThat(events)
                 .contains(RecoveryCodesIssued.class)
-                .matching(RecoveryCodesIssued::reason, RecoveryCodesIssued.Reason.SIGN_UP);
+                .matching(event -> event.reason() == RecoveryCodesIssued.Reason.SIGN_UP);
     }
 
     @Test

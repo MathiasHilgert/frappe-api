@@ -49,10 +49,7 @@ class RecoveryCodesTest {
         var issued = RecoveryCodes.issue(PERSON, secrets("A", "B", "C", "D", "E", "F", "G", "H"), DIGESTS);
 
         // Then
-        assertThat(issued.digests())
-                .hasSize(8)
-                .first()
-                .isEqualTo("identity.recovery-code|" + PERSON.value() + ":A");
+        assertThat(issued.digests()).hasSize(8).first().isEqualTo("identity.recovery-code|" + PERSON.value() + ":A");
     }
 
     private static Secrets secrets(String... codes) {

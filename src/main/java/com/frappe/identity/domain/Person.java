@@ -77,7 +77,8 @@ public final class Person {
             LegalAcceptance legalAcceptance,
             List<RecoveryCode> recoveryCodes,
             Instant now) {
-        var digests = recoveryCodes.stream().map(RecoveryCode::digest).distinct().count();
+        var digests =
+                recoveryCodes.stream().map(RecoveryCode::digest).distinct().count();
         if (recoveryCodes.size() != RecoveryCodes.COUNT || digests != RecoveryCodes.COUNT) {
             throw new IllegalArgumentException(
                     "a person registers with " + RecoveryCodes.COUNT + " distinct recovery codes");

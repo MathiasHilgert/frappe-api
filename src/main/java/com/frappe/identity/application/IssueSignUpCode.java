@@ -39,8 +39,7 @@ public class IssueSignUpCode {
      * @param mailer delivers the code
      * @param persons the stored people, to tell a registered address
      */
-    IssueSignUpCode(
-            SignUps signUps, Secrets secrets, ShortLivedSecretStore store, CodeMailer mailer, Persons persons) {
+    IssueSignUpCode(SignUps signUps, Secrets secrets, ShortLivedSecretStore store, CodeMailer mailer, Persons persons) {
         this.signUps = signUps;
         this.secrets = secrets;
         this.store = store;

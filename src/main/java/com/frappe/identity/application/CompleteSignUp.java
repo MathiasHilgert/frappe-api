@@ -203,7 +203,8 @@ public class CompleteSignUp {
 
     // The ordering contract: both rate limits, then the code.
     private Result<EmailAddress, IdentityRefusal> proveMailbox(Request request, InetAddress clientAddress) {
-        var subject = digests.subjectOf(StartSignUp.EMAIL_NAMESPACE, request.email().canonical());
+        var subject =
+                digests.subjectOf(StartSignUp.EMAIL_NAMESPACE, request.email().canonical());
         if (!limiter.tryConsume(LimitKey.ofId(IdentityLimits.CODE_CHECKS_PER_SUBJECT, subject))
                 || !limiter.tryConsume(LimitKey.ofAddress(IdentityLimits.CODE_CHECKS_PER_ADDRESS, clientAddress))) {
             return Result.failure(new IdentityRefusal.TooManyAttempts());
@@ -247,5 +248,4 @@ public class CompleteSignUp {
                     return new Registration(id.value(), issued.codes());
                 });
     }
-
 }
