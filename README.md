@@ -133,7 +133,7 @@ Routes live under `/v1`; the OpenAPI spec is at `/v3/api-docs` and, in `local` o
 
 ### Secrets
 
-The application reads secrets from environment variables only, and the `local` profile needs none. Real keys (staging, production, and third-party keys for local work) live in Bitwarden Secrets Manager on the EU cloud, one project per environment (`frappe-dev`, `frappe-staging`, `frappe-production`) with a read-only machine account each. To run anything with the `frappe-dev` secrets injected, install [`bws`](https://github.com/bitwarden/sdk-sm/releases), export the access token of the dev machine account as `BWS_ACCESS_TOKEN` and run:
+The application reads secrets from environment variables only, and the `local` profile needs none. Real keys (production, and dev keys for local work) live in Bitwarden Secrets Manager on the EU cloud, one project per environment (`frappe-dev`, `frappe-production`) with a read-only machine account each. To run anything with the `frappe-dev` secrets injected, install [`bws`](https://github.com/bitwarden/sdk-sm/releases), export the access token of the dev machine account as `BWS_ACCESS_TOKEN` and run:
 
 ```bash
 scripts/with-secrets.sh ./gradlew --no-daemon bootRun

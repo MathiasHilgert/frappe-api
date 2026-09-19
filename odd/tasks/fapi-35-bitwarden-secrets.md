@@ -25,7 +25,7 @@ Strict TDD (project rule, AGENTS.md). Runner: `scripts/with-secrets.test.sh` (he
 - [x] T2 `docs/secrets.md`, README section, `writing-code` link
 - [x] T3 Gate: `shellcheck`, `gitleaks`, `./gradlew spotlessApply check -x test`; commit
 - [x] T4 Review (Opus changes requested): CI runs the whole `./gradlew check`; reserved secret names refused; `BWS_UUIDS_AS_KEYNAMES` ignored; empty `--project` rejected; tests for `bws.toml` and newline arguments; docs minors
-- [x] T5 (human + orchestrator) Live run against `frappe-dev` (done except `frappe-production`, see Pending)
+- [x] T5 (human + orchestrator) Live run against `frappe-dev`; `frappe-production` created, staging removed (reader tokens pending)
 
 ## Acceptance (from ticket)
 - Developer token for frappe-dev: `scripts/with-secrets.sh ./gradlew bootRun` starts the app with the secrets; none written to disk or printed. (Real run: human, after the org exists.)
@@ -41,7 +41,7 @@ Sources: GitHub releases API of `bitwarden/sdk-sm`; `sdk-sm` source at tag `bws-
 - **`bws run`**: lists secrets (of `--project-id <uuid>` or all the token can read), fails on duplicate keys, sets them as environment variables of the child named by secret key, and runs `<shell> -c "<args joined by spaces>"` (default `sh`; `--shell` selects another). The child inherits the parent environment minus `BWS_ACCESS_TOKEN` (removed). The exit code of the child is propagated. Nothing is written to disk by `run` itself. Consequence: arguments are re-parsed by the shell, so the wrapper quotes each argument (`printf %q`) and passes `--shell bash`.
 - **Project selection**: `--project-id` takes a UUID only. The wrapper resolves the project name with `bws project list --output tsv` (columns `ID`, `Name`, `Creation Date`); a machine account lists the projects it can access (Kamal's adapter relies on the same call to check login).
 - **Machine accounts**: per project permission `Can read` (retrieve secrets) or `Can read, write`. Access tokens belong to one machine account, are shown once, never stored by Bitwarden, can have an expiry (default never) and can be revoked; a session already issued may keep working for up to one hour after revocation.
-- **Plan**: the Free Secrets Manager plan allows 2 users, 3 projects and 3 machine accounts: exactly `frappe-dev`, `frappe-staging`, `frappe-production` with one reader each.
+- **Plan**: the Free Secrets Manager plan allows 2 users, 3 projects and 3 machine accounts. Decision (human, after T5): no staging environment; two projects `frappe-dev`, `frappe-production` with one reader each.
 - **Kamal (FAPI-30)**: Kamal v2.12.0; adapter `bitwarden-sm`, no account needed; `kamal secrets fetch --adapter bitwarden-sm <project-uuid>/all` runs `bws secret list <project-uuid>` (also `all`, or single secret UUIDs), then `kamal secrets extract NAME ...`. It shells out to `bws` and so reads `BWS_ACCESS_TOKEN` and `BWS_SERVER_URL` (EU) or `BWS_CONFIG_FILE`/`BWS_PROFILE` from the environment.
 
 ## Decisions
@@ -68,19 +68,20 @@ Sources: GitHub releases API of `bitwarden/sdk-sm`; `sdk-sm` source at tag `bws-
 
 ## T5 live run (orchestrator with the human's token; recorded as a comment on FAPI-35, no values)
 - `bws` 2.1.0 installed, release checksum verified; the committed EU profile (`scripts/bws.toml`) works.
-- Projects `frappe-dev` and `frappe-staging` exist, each with `POSTGRES_PASSWORD`, `FRAPPE_APP_PASSWORD`, `FRAPPE_OWNER_PASSWORD`, `FRAPPE_SECRET_PEPPER` (generated values).
+- Projects `frappe-dev` and `frappe-staging` existed, each with `POSTGRES_PASSWORD`, `FRAPPE_APP_PASSWORD`, `FRAPPE_OWNER_PASSWORD`, `FRAPPE_SECRET_PEPPER` (generated values).
 - `scripts/with-secrets.sh bash -c 'compgen -e ...'` injected all four names; `BWS_ACCESS_TOKEN` absent in the child; no `~/.config/bws/state` afterwards.
-- `frappe-production` could not be created: the Free plan allows 3 projects and a third, pre-existing project occupies the slot.
+- `frappe-production` could not be created at first: the Free plan allows 3 projects and a third, pre-existing project occupied the slot.
+- Human decision: there is no staging environment, only dev and production. The orchestrator deleted `frappe-staging` (and its secrets) and created `frappe-production` with generated `POSTGRES_PASSWORD`, `FRAPPE_APP_PASSWORD`, `FRAPPE_OWNER_PASSWORD`, `FRAPPE_SECRET_PEPPER`. Docs, README and script tests no longer mention staging (tests use `frappe-production` as the second project and `frappe-archive` as the unreadable one).
 - **Finding**: the token used could create projects and secrets, so it was not a read-only machine-account token (step 9.5 of the setup would fail). The invariant "read-only machine accounts per environment" is not yet met in the live organization.
 - Docs follow-up: the dev database passwords differ from the local defaults and apply only on a new volume (the roles script keeps existing passwords), so `docs/secrets.md` now says to start compose through `scripts/with-secrets.sh` on a fresh volume (or set the passwords with `\password`).
 
 ## Pending
-- **Human**: create `frappe-production` (free a project slot: delete or reuse the pre-existing third project, or upgrade the plan).
-- **Human**: create the read-only machine accounts (`frappe-<env>-reader`, **Can read** on their project only) and issue their tokens; revoke or restrict the token that could write; repeat setup steps 9.5–9.6 with the reader token and record the result in FAPI-35.
+- **Human**: create the two read-only machine accounts `frappe-dev-reader` and `frappe-production-reader` (**Can read** on their own project only) and issue their tokens; repeat setup steps 9.5–9.6 with the dev reader token and record the result in FAPI-35.
+- **Human**: revoke the setup token that could create projects and secrets.
 - Deploy wiring and the same reserved-name rule for Kamal: FAPI-30.
 
 ## Engram mirror
 Pending: no Engram tools in the implementing agent; the orchestrator mirrors `odd/fapi-35-bitwarden-secrets/tasks`.
 
 ## Next step
-Human: `frappe-production` and read-only reader tokens (Pending); then PR.
+Human: read-only reader tokens and revoking the setup token (Pending); then merge PR #19.

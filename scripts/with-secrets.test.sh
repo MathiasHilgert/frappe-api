@@ -8,7 +8,7 @@ readonly SCRIPT
 readonly TOKEN_SENTINEL='0.token-sentinel-must-never-appear'
 readonly SECRET_SENTINEL='secret-sentinel-must-never-appear'
 readonly DEV_ID='11111111-1111-1111-1111-111111111111'
-readonly STAGING_ID='22222222-2222-2222-2222-222222222222'
+readonly PRODUCTION_ID='22222222-2222-2222-2222-222222222222'
 readonly SECRET_ID='33333333-3333-3333-3333-333333333333'
 
 WORK="$(mktemp -d)"
@@ -74,7 +74,7 @@ run_script() {
 	: >"$WORK/log"
 	set +e
 	env -i HOME="$WORK/home" PATH="$path" FAKE_LOG="$WORK/log" FAKE_SECRET_VALUE="$SECRET_SENTINEL" \
-		FAKE_PROJECTS="$DEV_ID\tfrappe-dev\t2026-09-19\n$STAGING_ID\tfrappe-staging\t2026-09-19\n" \
+		FAKE_PROJECTS="$DEV_ID\tfrappe-dev\t2026-09-19\n$PRODUCTION_ID\tfrappe-production\t2026-09-19\n" \
 		FAKE_SECRETS="$SECRET_ID\tFRAPPE_SECRET_PEPPER\t$SECRET_SENTINEL\t2026-09-19\n" \
 		"${EXTRA_ENV[@]}" bash "$SCRIPT" "$@" >"$WORK/out" 2>"$WORK/err"
 	STATUS=$?
@@ -151,11 +151,11 @@ expect_contains "$OUT" "./gradlew bootRun"
 
 test_case "dry run with token never prints the token and never calls Bitwarden"
 EXTRA_ENV=(BWS_ACCESS_TOKEN="$TOKEN_SENTINEL")
-run_script "$WITH_BWS" --dry-run --project frappe-staging ./gradlew bootRun
+run_script "$WITH_BWS" --dry-run --project frappe-production ./gradlew bootRun
 expect_status 0
 expect_contains "$OUT" "bws: bws 2.1.0"
 expect_contains "$OUT" "BWS_ACCESS_TOKEN: set"
-expect_contains "$OUT" "project: frappe-staging"
+expect_contains "$OUT" "project: frappe-production"
 expect_no_leak
 [[ "$LOG" != *"args: project"* && "$LOG" != *"args: run"* ]] || fail "dry run contacted Bitwarden: $LOG"
 
@@ -216,19 +216,19 @@ expect_contains "$LOG" "args: secret list $DEV_ID"
 
 test_case "project is selectable by option and by FRAPPE_SECRETS_PROJECT"
 EXTRA_ENV=(BWS_ACCESS_TOKEN="$TOKEN_SENTINEL")
-run_script "$WITH_BWS" --project frappe-staging true
+run_script "$WITH_BWS" --project frappe-production true
 expect_status 0
-expect_contains "$LOG" "--project-id $STAGING_ID"
-EXTRA_ENV=(BWS_ACCESS_TOKEN="$TOKEN_SENTINEL" FRAPPE_SECRETS_PROJECT=frappe-staging)
+expect_contains "$LOG" "--project-id $PRODUCTION_ID"
+EXTRA_ENV=(BWS_ACCESS_TOKEN="$TOKEN_SENTINEL" FRAPPE_SECRETS_PROJECT=frappe-production)
 run_script "$WITH_BWS" true
 expect_status 0
-expect_contains "$LOG" "--project-id $STAGING_ID"
+expect_contains "$LOG" "--project-id $PRODUCTION_ID"
 
 test_case "a project the token cannot read fails with guidance"
 EXTRA_ENV=(BWS_ACCESS_TOKEN="$TOKEN_SENTINEL")
-run_script "$WITH_BWS" --project frappe-production true
+run_script "$WITH_BWS" --project frappe-archive true
 expect_status 1
-expect_contains "$ERR" "frappe-production"
+expect_contains "$ERR" "frappe-archive"
 expect_contains "$ERR" "machine account"
 [[ "$LOG" != *"args: run"* ]] || fail "ran without a resolved project: $LOG"
 expect_no_leak

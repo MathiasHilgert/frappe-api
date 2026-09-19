@@ -4,18 +4,18 @@ Secrets live in [Bitwarden Secrets Manager](https://bitwarden.com/products/secre
 
 - **Local work** without real keys needs nothing: `./gradlew bootRun` uses the `local` profile defaults.
 - **Local work with real keys**: `scripts/with-secrets.sh ./gradlew bootRun` injects the `frappe-dev` project into that one process.
-- **Deploys** (FAPI-30) read `frappe-staging` / `frappe-production` through Kamal's `bitwarden-sm` adapter.
+- **Deploys** (FAPI-30) read `frappe-production` through Kamal's `bitwarden-sm` adapter.
 
 ## Layout
 
 | Bitwarden object | Name | Access |
 | --- | --- | --- |
 | Organization | Frappé (EU cloud, Secrets Manager Free plan: 2 users, 3 projects, 3 machine accounts) | Owner: Mathias Hilgert |
-| Project | `frappe-dev`, `frappe-staging`, `frappe-production` | People: developers read/write `frappe-dev`; only the owner edits staging and production |
-| Machine account | `frappe-dev-reader`, `frappe-staging-reader`, `frappe-production-reader` | **Can read** on its own project only |
-| Access token | one per holder, named after it (`dev-<person>-<device>`, `ci-staging`, `deploy-production`) | Expires after 90 days |
+| Project | `frappe-dev`, `frappe-production` | People: developers read/write `frappe-dev`; only the owner edits production |
+| Machine account | `frappe-dev-reader`, `frappe-production-reader` | **Can read** on its own project only |
+| Access token | one per holder, named after it (`dev-<person>-<device>`, `deploy-production`) | Expires after 90 days |
 
-One read-only machine account per environment means a leaked dev token can read dev secrets and nothing else: it cannot write, and it cannot see staging or production.
+One read-only machine account per environment means a leaked dev token can read dev secrets and nothing else: it cannot write, and it cannot see production.
 
 **Write access to a project is code execution for everyone who consumes it.** Every secret becomes an environment variable of the command that runs with it (`bootRun` on a laptop, a deploy), and variables such as `LD_PRELOAD`, `BASH_ENV` or `JAVA_TOOL_OPTIONS` make that command run code of the writer's choice. Grant write access only to people you would give that power, and keep secret names to `FRAPPE_*` or a known third-party key name (`DEEPL_API_KEY`, `RESEND_API_KEY`, `POSTGRES_PASSWORD`). `scripts/with-secrets.sh` lists the project's secret names first and refuses to run when one is reserved: `PATH`, `HOME`, `IFS`, `BASH_ENV`, `ENV`, `CLASSPATH`, `NODE_OPTIONS`, `PYTHONPATH` and similar, or any name starting with `LD_`, `DYLD_`, `BASH_FUNC_`, `BWS_`, `JAVA_`, `JDK_`, `_JAVA_`, `GRADLE_`, `SPRING_` or `GIT_`. Deploys (FAPI-30) need the same rule.
 
@@ -23,9 +23,9 @@ One read-only machine account per environment means a leaked dev token can read 
 
 1. Go to <https://vault.bitwarden.eu> (or choose **bitwarden.eu** in the "Logging in on" / server dropdown of the login or registration screen) and create the owner account there. Regions are separate: an account or organization exists only in the region where it was created. Turn on two-step login.
 2. **New organization** → Free plan → name `Frappé`. In the organization, subscribe to **Secrets Manager** (Free).
-3. Switch to **Secrets Manager** (product switcher). **New → Project** three times: `frappe-dev`, `frappe-staging`, `frappe-production`.
-4. **New → Machine account** three times: `frappe-dev-reader`, `frappe-staging-reader`, `frappe-production-reader`. In each one, **Projects** tab: add only the matching project with permission **Can read**.
-5. **Invite developers** (Admin console → Members → Invite) as role **User**, with Secrets Manager access, and grant them **Can read, write** on `frappe-dev` only (project → **People**). Owners and Admins see every project, staging and production included, so keep those roles to the secrets owner.
+3. Switch to **Secrets Manager** (product switcher). **New → Project** twice: `frappe-dev`, `frappe-production`.
+4. **New → Machine account** twice: `frappe-dev-reader`, `frappe-production-reader`. In each one, **Projects** tab: add only the matching project with permission **Can read**.
+5. **Invite developers** (Admin console → Members → Invite) as role **User**, with Secrets Manager access, and grant them **Can read, write** on `frappe-dev` only (project → **People**). Owners and Admins see every project, production included, so keep those roles to the secrets owner.
 6. In each machine account, **Access tokens → Create access token**: name it after the holder, expiry **90 days**. The token is shown once and never stored by Bitwarden: put it straight into the holder's password manager (the owner's Bitwarden vault) or the CI/deploy secret store. Never in a file inside the repository, a ticket or a chat.
 7. **Add the secrets** listed in the inventory below to their projects. The secret **name is the environment variable** (`FRAPPE_APP_PASSWORD`), unique within a project (`bws run` refuses duplicates). Put the purpose in the note.
 8. **Install `bws`** 2.1.0 or later: a release from <https://github.com/bitwarden/sdk-sm/releases> (verify the published SHA-256 checksum) or `cargo install bws --locked`. `bws --version`.
@@ -42,7 +42,7 @@ One read-only machine account per environment means a leaked dev token can read 
 
 ```bash
 scripts/with-secrets.sh ./gradlew bootRun                       # frappe-dev
-scripts/with-secrets.sh --project frappe-staging ./some-check   # another project the token can read
+scripts/with-secrets.sh --project frappe-production ./some-check # another project the token can read
 scripts/with-secrets.sh --dry-run ./gradlew bootRun              # what would run; contacts nothing
 ```
 
@@ -69,17 +69,17 @@ Values never appear here or anywhere in the repository. Owner: the person who ro
 
 | Name | Purpose | Owner | Projects | Rotation |
 | --- | --- | --- | --- | --- |
-| `FRAPPE_APP_PASSWORD` | Password of the runtime database role `frappe_app` (DML only); `spring.datasource.password` | Mathias Hilgert | `frappe-staging`, `frappe-production` `frappe-dev` (generated; without Bitwarden the local default `frappe_app`) | 90 days |
-| `FRAPPE_OWNER_PASSWORD` | Password of the migration role `frappe_owner` (owns the schemas, runs Flyway); `spring.flyway.password` | Mathias Hilgert | `frappe-staging`, `frappe-production` `frappe-dev` (generated; without Bitwarden the local default `frappe_owner`) | 90 days |
-| `FRAPPE_SECRET_PEPPER` | Server-side HMAC pepper for the Argon2id hashes of one-time codes; never reaches Valkey. At least 32 random characters (`openssl rand -base64 48`), different per environment; `frappe.secrets.pepper` | Mathias Hilgert | `frappe-staging`, `frappe-production` `frappe-dev` (generated; without Bitwarden a local default that is not a secret) | 180 days; rotating only invalidates outstanding one-time codes |
-| `FRAPPE_VALKEY_URL` | Valkey URL with its credentials (`rediss://user:password@host:6379`); `spring.data.redis.url` | Mathias Hilgert | `frappe-staging`, `frappe-production` (dev: local default `redis://localhost:6379`) | 90 days (the password in it) |
-| `FRAPPE_NATS_URL` | NATS server URL; a secret as soon as it carries credentials (`nats://user:password@host:4222`); `frappe.nats.url` | Mathias Hilgert | `frappe-staging`, `frappe-production` (dev: default `nats://localhost:4222`) | 90 days when it carries credentials |
+| `FRAPPE_APP_PASSWORD` | Password of the runtime database role `frappe_app` (DML only); `spring.datasource.password` | Mathias Hilgert | `frappe-dev`, `frappe-production` (generated; without Bitwarden the local default `frappe_app`) | 90 days |
+| `FRAPPE_OWNER_PASSWORD` | Password of the migration role `frappe_owner` (owns the schemas, runs Flyway); `spring.flyway.password` | Mathias Hilgert | `frappe-dev`, `frappe-production` (generated; without Bitwarden the local default `frappe_owner`) | 90 days |
+| `FRAPPE_SECRET_PEPPER` | Server-side HMAC pepper for the Argon2id hashes of one-time codes; never reaches Valkey. At least 32 random characters (`openssl rand -base64 48`), different per environment; `frappe.secrets.pepper` | Mathias Hilgert | `frappe-dev`, `frappe-production` (generated; without Bitwarden a local default that is not a secret) | 180 days; rotating only invalidates outstanding one-time codes |
+| `FRAPPE_VALKEY_URL` | Valkey URL with its credentials (`rediss://user:password@host:6379`); `spring.data.redis.url` | Mathias Hilgert | `frappe-production` (dev: local default `redis://localhost:6379`) | 90 days (the password in it) |
+| `FRAPPE_NATS_URL` | NATS server URL; a secret as soon as it carries credentials (`nats://user:password@host:4222`); `frappe.nats.url` | Mathias Hilgert | `frappe-production` (dev: default `nats://localhost:4222`) | 90 days when it carries credentials |
 
 ### Secrets of the infrastructure (not read by the application)
 
 | Name | Purpose | Owner | Where | Rotation |
 | --- | --- | --- | --- | --- |
-| `POSTGRES_PASSWORD` | Bootstrap superuser of the Postgres container (compose, Kamal accessory) | Mathias Hilgert | `frappe-staging`, `frappe-production` `frappe-dev` (generated; without Bitwarden the compose default) | 90 days |
+| `POSTGRES_PASSWORD` | Bootstrap superuser of the Postgres container (compose, Kamal accessory) | Mathias Hilgert | `frappe-dev`, `frappe-production` (generated; without Bitwarden the compose default) | 90 days |
 | `BWS_ACCESS_TOKEN` | Access token of one read-only machine account; the only secret a holder keeps outside Bitwarden Secrets Manager | Holder of the token | Holder's password manager, CI or deploy secret store | 90-day expiry set at creation |
 | `PLANE_API_KEY` | Personal Plane key for the ticket tooling (`plane.sh`) | Each developer | Personal password manager, never a project | 90 days |
 | `GITHUB_TOKEN` | Issued by GitHub Actions for each workflow run | GitHub | Automatic | Per run |
