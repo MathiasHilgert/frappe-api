@@ -17,8 +17,8 @@ import org.springframework.web.util.ServletRequestPathUtils;
 import org.springframework.web.util.UrlPathHelper;
 
 /**
- * The application's routes, checked at startup: every route class declares {@link Access} and maps exactly one
- * method. Any violation fails startup with one {@link InvalidRouteException} naming every
+ * The application's routes, checked at startup: every route class lives in a module's {@code infrastructure.web}
+ * package, declares {@link Access} and maps exactly one method. Any violation fails startup with one {@link InvalidRouteException} naming every
  * offending class. Framework controllers (outside {@code com.frappe}) are not routes and are left alone.
  *
  * <p>The catalog also tells which handler serves a request, choosing among every annotated mapping exactly as Spring
@@ -27,6 +27,9 @@ import org.springframework.web.util.UrlPathHelper;
  * catalog reports it as {@link RouteMatch.OtherHandler}, which the security chain refuses on purpose (fail closed).
  */
 final class RouteCatalog {
+
+    /** The package suffix every route class lives in: {@code com.frappe.<module>.infrastructure.web}. */
+    static final String ROUTE_PACKAGE_SUFFIX = ".infrastructure.web";
 
     /** Handler types that are application routes: every controller under {@code com.frappe}. */
     static final Predicate<Class<?>> APPLICATION_ROUTES = HandlerTypePredicate.forBasePackage("com.frappe");
@@ -153,6 +156,10 @@ final class RouteCatalog {
         if (mappedMethods != 1) {
             problems.add(type.getName() + " has " + mappedMethods + " mapped methods; a route is one class with"
                     + " exactly one mapped method, so split it into one class per route");
+        }
+        if (!type.getPackageName().endsWith(ROUTE_PACKAGE_SUFFIX)) {
+            problems.add(type.getName() + " lives in " + type.getPackageName() + "; routes are adapters and belong"
+                    + " in the module's infrastructure.web package");
         }
         if (access == null) {
             problems.add(type.getName() + " declares no @Access; annotate the class with @Access(Posture.…) to"

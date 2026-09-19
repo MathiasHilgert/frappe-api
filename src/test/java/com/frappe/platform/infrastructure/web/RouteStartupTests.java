@@ -2,6 +2,7 @@ package com.frappe.platform.infrastructure.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.frappe.platform.infrastructure.misplaced.MisplacedRoutes;
 import com.frappe.platform.web.Access;
 import com.frappe.platform.web.Posture;
 import org.junit.jupiter.api.Test;
@@ -83,6 +84,18 @@ class RouteStartupTests {
                         .isInstanceOf(InvalidRouteException.class)
                         .hasMessageContaining(ControllerWithTwoMethods.class.getName())
                         .hasMessageContaining("2 mapped methods"));
+    }
+
+    @Test
+    void startupFailsForARouteOutsideAnInfrastructureWebPackageAndNamesTheClass() {
+        runner.withBean(MisplacedRoutes.MisplacedRoute.class)
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .rootCause()
+                        .isInstanceOf(InvalidRouteException.class)
+                        .hasMessageContaining(MisplacedRoutes.MisplacedRoute.class.getName())
+                        .hasMessageContaining("infrastructure.web"));
     }
 
     @Test

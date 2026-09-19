@@ -103,12 +103,16 @@ T0 `ce42b24` (plan `bd34405`), T1 `2e683f6`, T2 `0f277bb`, T3 `11a1dd6`, T4 `93b
 - Finding: `BearerSessionFilter` (a `OncePerRequestFilter`) only set the thread-local context, so async re-dispatches ran anonymous and an AUTHENTICATED route answered 401 after its controller ran. Verified in Spring Security 7.1.1 sources: `BearerTokenAuthenticationFilter` saves the context with a `RequestAttributeSecurityContextRepository`; with `STATELESS`, `SessionManagementConfigurer` makes that the chain's shared repository, which `SecurityContextHolderFilter` reloads on every dispatch.
 - RED `RouteAccessTests.anAuthenticatedRouteAnsweringAsynchronouslyKeepsTheCallerForTheAsyncDispatch` (route returns a `Callable`; MockMvcTester performs the async dispatch): `expected: 200 but was: 401`. GREEN: the filter saves the context in one `RequestAttributeSecurityContextRepository`, set explicitly on the chain (`securityContext(...)`). Web tests green.
 
+### R4 route classes live in `..infrastructure.web` (review minor)
+- RED `RouteStartupTests.startupFailsForARouteOutsideAnInfrastructureWebPackageAndNamesTheClass` (fixture `com.frappe.platform.infrastructure.misplaced.MisplacedRoutes.MisplacedRoute`, nested in a `@TestConfiguration` so full-context scans skip it): the context started. GREEN: `RouteCatalog` adds the problem "lives in <package>; routes are adapters and belong in the module's infrastructure.web package". 5/5.
+- The `RequestTracingTests` probe moved to `com.frappe.platform.infrastructure.web.ProbeRoutes` (a `@TestConfiguration` whose member route class is registered on import). `RequestTracingTests` 3/3.
+
 ## Known behaviour and follow-ups
 - Superseded by R2: unknown paths answer 404, unsupported methods 405. CORS preflight (OPTIONS) must bypass the posture when CORS arrives (out of scope).
 - 401/403 bodies are Spring Boot's default error JSON (`sendError`), not yet `ProblemDetail`: FAPI-14.
 - Spring Security's observations add `spring.security.*` spans (filter chains, authorization, the secured request) and timers per request; the controller's log lines carry the secured-request span. Tag cardinality is bounded.
 - Route resolution ignores API-versioned mappings (`version` attribute on a mapping): none exist, `/v1` is the versioning.
-- The package convention `..infrastructure.web` for route classes is documented, not enforced at startup (the ticket names two checks).
+- Superseded by R4: the `..infrastructure.web` package is enforced at startup.
 - Engram mirror `odd/fapi-13-http-routes-posture/tasks`: pending (memory tools not available to this worker).
 
 ## Next step

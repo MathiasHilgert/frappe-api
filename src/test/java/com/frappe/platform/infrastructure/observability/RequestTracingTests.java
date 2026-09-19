@@ -8,8 +8,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.frappe.TestNatsConfiguration;
 import com.frappe.TestcontainersConfiguration;
-import com.frappe.platform.web.Access;
-import com.frappe.platform.web.Posture;
+import com.frappe.platform.infrastructure.web.ProbeRoutes;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import io.opentelemetry.sdk.trace.data.SpanData;
@@ -26,23 +25,25 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.client.RestTestClient;
 import org.springframework.util.ClassUtils;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = "management.opentelemetry.tracing.export.schedule-delay=50ms")
 @AutoConfigureTracing
 @AutoConfigureRestTestClient
-@Import({TestcontainersConfiguration.class, TestNatsConfiguration.class, RequestTracingTests.Probe.class})
+@Import({
+    TestcontainersConfiguration.class,
+    TestNatsConfiguration.class,
+    RequestTracingTests.Probe.class,
+    ProbeRoutes.class
+})
 @ActiveProfiles("local")
 class RequestTracingTests {
 
-    static final String PROBE_PATH = "/test/observability-probe";
+    static final String PROBE_PATH = ProbeRoutes.PROBE_PATH;
     static final String MODULE_OBSERVABILITY =
             "org.springframework.modulith.observability.support.ModuleObservabilityBeanPostProcessor";
 
@@ -52,28 +53,6 @@ class RequestTracingTests {
         @Bean
         InMemorySpanExporter inMemorySpanExporter() {
             return InMemorySpanExporter.create();
-        }
-
-        @Bean
-        ProbeController probeController(JdbcClient jdbc) {
-            return new ProbeController(jdbc);
-        }
-    }
-
-    @RestController
-    @Access(Posture.PUBLIC)
-    static class ProbeController {
-
-        private final JdbcClient jdbc;
-
-        ProbeController(JdbcClient jdbc) {
-            this.jdbc = jdbc;
-        }
-
-        @GetMapping(PROBE_PATH)
-        Integer probe() {
-            LoggerFactory.getLogger(ProbeController.class).info("Probing the database");
-            return jdbc.sql("select 1").query(Integer.class).single();
         }
     }
 
@@ -116,7 +95,7 @@ class RequestTracingTests {
     @Test
     void logLinesOfARequestCarryItsTraceAndSpanIds() {
         // Given the probe's log events are captured
-        var logger = (Logger) LoggerFactory.getLogger(ProbeController.class);
+        var logger = (Logger) LoggerFactory.getLogger(ProbeRoutes.ProbeController.class);
         var captured = new ListAppender<ILoggingEvent>();
         captured.start();
         logger.addAppender(captured);
