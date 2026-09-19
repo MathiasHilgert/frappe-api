@@ -4,9 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.frappe.TestNatsConfiguration;
 import com.frappe.TestcontainersConfiguration;
-import com.frappe.platform.i18n.Messages;
 import com.frappe.platform.i18n.SupportedLocales;
 import com.frappe.platform.i18n.UserLocalePreference;
+import com.frappe.platform.infrastructure.web.LocaleProbeRoutes;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,26 +16,27 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.client.RestTestClient;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestTestClient
-@Import({TestcontainersConfiguration.class, TestNatsConfiguration.class, I18nIntegrationTests.Probe.class})
+@Import({
+    TestcontainersConfiguration.class,
+    TestNatsConfiguration.class,
+    I18nIntegrationTests.Probe.class,
+    LocaleProbeRoutes.class
+})
 @ActiveProfiles("local")
 class I18nIntegrationTests {
 
-    static final String PROBE_PATH = "/test/locale-probe";
-    static final String FAILING_PATH = "/test/locale-probe/failure";
-    static final String ITEMS_PATH = "/test/locale-probe/items";
+    static final String PROBE_PATH = "/v1" + LocaleProbeRoutes.LOCALE_PATH;
+    static final String FAILING_PATH = "/v1" + LocaleProbeRoutes.FAILING_PATH;
+    static final String ITEMS_PATH = "/v1" + LocaleProbeRoutes.ITEMS_PATH;
     static final String SIGNED_IN_AS_PORTUGUESE_SPEAKER = "X-Test-Portuguese-User";
 
     @TestConfiguration(proxyBeanMethods = false)
@@ -50,36 +51,6 @@ class I18nIntegrationTests {
                             != null
                     ? Optional.of(SupportedLocales.PORTUGUESE)
                     : Optional.empty();
-        }
-
-        @Bean
-        LocaleProbeController localeProbeController(Messages messages) {
-            return new LocaleProbeController(messages);
-        }
-    }
-
-    @RestController
-    static class LocaleProbeController {
-
-        private final Messages messages;
-
-        LocaleProbeController(Messages messages) {
-            this.messages = messages;
-        }
-
-        @GetMapping(ITEMS_PATH)
-        String items(@RequestParam int count) {
-            return messages.get("sample.items", count);
-        }
-
-        @GetMapping(PROBE_PATH)
-        String locale() {
-            return LocaleContextHolder.getLocale().toLanguageTag();
-        }
-
-        @GetMapping(FAILING_PATH)
-        String failure() {
-            throw new IllegalStateException("Probe failure");
         }
     }
 
@@ -155,7 +126,7 @@ class I18nIntegrationTests {
     @Test
     void announcesTheLanguageOnErrorResponsesToo() {
         // When / Then
-        for (var path : new String[] {"/test/locale-probe/missing", FAILING_PATH}) {
+        for (var path : new String[] {"/v1/test/locale-probe/missing", FAILING_PATH}) {
             var result = http.get()
                     .uri(path)
                     .header(HttpHeaders.ACCEPT_LANGUAGE, "pt-BR")
