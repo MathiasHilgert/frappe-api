@@ -32,9 +32,16 @@
 
 Series count = product of tag cardinalities; keep each business metric under ~50 series.
 
+## Use cases (RED per use case, automatic)
+
+- Every call of a `@CommandUseCase` / `@QueryUseCase` operation is one observation `use_case`: the timer `use_case` (Prometheus `use_case_seconds_count|sum|bucket`) gives rate, errors and duration per use case, and the span `<module> <UseCase>` wraps the use case including its commit.
+- Use cases live in internal `application` packages, which Spring Modulith does not observe, so there is no duplicate span: a call through a module's `Api` or a controller shows Modulith's module-entry span as the parent of the `<module> <UseCase>` span (entry versus operation).
+- Tags: `use_case.name` (use case class, e.g. `CloseTab`), `use_case.module`, `use_case.kind` (`command` | `query`), `outcome`, plus Micrometer's `error` (exception simple name, `none` otherwise). All bounded by the code base.
+- `outcome=failure` is a business refusal (a returned `Result.Failure`), `outcome=error` a defect or infrastructure fault (an exception, including a failed commit). Alert on `error`; track `failure` as product signal.
+
 ## Spans
 
-- Automatic spans: `http <method> <route>` (server/client), `connection`/`query`/`result-set` (JDBC), Spring Modulith module entries and cross-module listeners, `publish <subject>` (NATS, PRODUCER) and `process <subject>` (NATS, CONSUMER).
+- Automatic spans: `http <method> <route>` (server/client), `connection`/`query`/`result-set` (JDBC), Spring Modulith module entries and cross-module listeners, `publish <subject>` (NATS, PRODUCER), `process <subject>` (NATS, CONSUMER), and `<module> <UseCase>` for every use case call.
 - Across the outbox and the broker, spans **link** to the trace the event was recorded in (its creation context, carried in `traceparent` / `tracestate`); they never continue it, because delivery is at least once and may be late. In Tempo, follow the link from the consumer span back to the command that caused the event.
 - New infrastructure adapters add one Micrometer `Observation` at the adapter boundary (see `NatsPublishObservation`): name `<technology>.<operation>`, contextual name per OpenTelemetry semantic conventions, low-cardinality keys only for bounded values, ids as high-cardinality keys, `error(...)` on failure, stop in `finally`.
 

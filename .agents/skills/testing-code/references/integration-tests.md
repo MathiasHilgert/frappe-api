@@ -30,6 +30,7 @@ PostgreSQLContainer postgres() {
 - The reuse key includes the configuration, so each database name gets its own long-lived container, reused across runs of that ticket. Remove it after merge (`running-in-parallel.md` in `working-on-tickets`).
 - Reused containers keep data between runs: tests create their own tenant/IDs (UUIDv7) and never assume empty tables.
 - Outbox tests (`platform.event_publication*`) share the tables with every cached context, whose recovery job keeps running in the background: assert only on rows of the test's own `eventId` (or publication id), never on counts or ordering of the whole table. Rows inserted by hand and dated so the job never picks them up (e.g. year 2100) must be deleted in `@AfterEach`, or they pollute later runs.
+- Fixture migrations (`src/test/resources/db/migration/fixture/`) share the version space of production migrations (one Flyway history): pick a version no production or other fixture migration uses.
 - A reused database keeps its Flyway history. When a migration it already applied is removed or edited (FAPI-6 deleted the FAPI-5 `event_publication` stopgap fixture), startup fails with `FlywayValidateException: Migrations have failed validation`. Remove that ticket's container and rerun; the next run creates it fresh:
 
 ```bash

@@ -46,7 +46,7 @@ Users are global: one person can own or work for several businesses with a singl
 A Java modular monolith on Spring Boot and Spring Modulith: one deployable application split into modules whose boundaries are verified on every build.
 
 - **Module anatomy.** The module root package is its public surface (an `XxxApi` interface and published events). Everything below it (`domain`, `application`, `infrastructure`) is internal.
-- **Pure domain.** Aggregates, value objects and events have no Spring or JPA dependencies. Use cases run through a command/query bus.
+- **Pure domain.** Aggregates, value objects and events have no Spring or JPA dependencies. Use cases are plain classes, one per operation (`@CommandUseCase` / `@QueryUseCase`), called directly; the platform adds their transaction rollback on failure and telemetry.
 - **Communication.** Modules talk through domain events; a public `Api` is used only for unavoidable synchronous reads. No module touches another's tables.
 - **Events.** Every event is written to a Postgres outbox in the same transaction as the aggregate, then relayed to NATS JetStream. Delivery is at-least-once and consumers are idempotent.
 - **Tenancy.** Shared tables with `tenant_id`, isolated by Postgres row-level security.
@@ -54,7 +54,7 @@ A Java modular monolith on Spring Boot and Spring Modulith: one deployable appli
 
 ```mermaid
 sequenceDiagram
-    participant H as Command handler
+    participant H as Command use case
     participant A as Aggregate
     participant DB as Postgres (same transaction)
     participant R as Outbox relay

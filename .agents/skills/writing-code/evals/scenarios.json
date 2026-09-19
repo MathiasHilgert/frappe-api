@@ -22,7 +22,7 @@
     "expected_behavior": [
       "Consumes the order module's public event rather than reading order tables or internals",
       "Makes the consumer idempotent via an inbox insert keyed by eventId in the same transaction",
-      "Dispatches a kitchen command through the bus from the consumer"
+      "Calls a kitchen @CommandUseCase directly from the consumer (no bus), inside the consumer's transaction"
     ]
   }
 ]

@@ -3,6 +3,7 @@ package com.frappe.platform.infrastructure.web;
 import com.frappe.platform.web.SessionResolver;
 import io.micrometer.observation.ObservationPredicate;
 import jakarta.servlet.DispatcherType;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.health.actuate.endpoint.HealthEndpoint;
@@ -24,9 +25,8 @@ import org.springframework.security.web.context.RequestAttributeSecurityContextR
 class SecurityConfiguration {
 
     /** springdoc's spec (JSON and YAML) and the Scalar API reference; Scalar is only served in the local profile. */
-    private static final String[] API_DOCUMENTATION = {
-        "/v3/api-docs", "/v3/api-docs.yaml", "/v3/api-docs/**", "/scalar", "/scalar/**"
-    };
+    private static final List<String> API_DOCUMENTATION =
+            List.of("/v3/api-docs", "/v3/api-docs.yaml", "/v3/api-docs/**", "/scalar", "/scalar/**");
 
     /** Until identity provides sessions, no token resolves. */
     private static final SessionResolver NO_SESSIONS = token -> Optional.empty();
@@ -87,7 +87,7 @@ class SecurityConfiguration {
                         .permitAll()
                         .requestMatchers(EndpointRequest.toAnyEndpoint())
                         .denyAll()
-                        .requestMatchers(API_DOCUMENTATION)
+                        .requestMatchers(API_DOCUMENTATION.toArray(String[]::new))
                         .permitAll()
                         .anyRequest()
                         .access(routeAuthorization))
