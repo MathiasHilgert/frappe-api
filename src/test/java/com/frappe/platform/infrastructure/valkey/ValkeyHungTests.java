@@ -8,6 +8,8 @@ import com.frappe.TestNatsConfiguration;
 import com.frappe.TestValkeyConfiguration;
 import com.frappe.TestcontainersConfiguration;
 import com.frappe.platform.IdGenerator;
+import com.frappe.platform.IdentityLimits;
+import com.frappe.platform.IdentitySecrets;
 import com.frappe.platform.LimitKey;
 import com.frappe.platform.RateLimiter;
 import com.frappe.platform.SecretKey;
@@ -58,8 +60,8 @@ class ValkeyHungTests {
     @Test
     void consumeAndTryConsumeFailAsUnavailableWithinTheTimeout() {
         // Given a working store, then a hung Valkey
-        var secretKey = new SecretKey("identity", "email-verification", ids.newId());
-        var limitKey = LimitKey.ofId("identity", "login", ids.newId(), 5, Duration.ofMinutes(1));
+        var secretKey = SecretKey.of(IdentitySecrets.EMAIL_PROOF, ids.newId());
+        var limitKey = LimitKey.ofId(IdentityLimits.LOGIN_PER_ACCOUNT, ids.newId());
         secrets.put(secretKey, "493817", Duration.ofMinutes(10));
         valkey.getDockerClient().pauseContainerCmd(valkey.getContainerId()).exec();
 

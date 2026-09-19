@@ -6,6 +6,7 @@ import com.frappe.TestNatsConfiguration;
 import com.frappe.TestValkeyConfiguration;
 import com.frappe.TestcontainersConfiguration;
 import com.frappe.platform.IdGenerator;
+import com.frappe.platform.IdentityLimits;
 import com.frappe.platform.LimitKey;
 import com.frappe.platform.RateLimiter;
 import com.redis.testcontainers.RedisContainer;
@@ -115,10 +116,10 @@ class RateLimiterIntegrationTests {
         // Given a subject that used 3 of 10 calls
         var account = ids.newId();
         IntStream.range(0, 3)
-                .forEach(call -> limiter.tryConsume(LimitKey.ofId("identity", "login", account, 10, MINUTE)));
+                .forEach(call -> limiter.tryConsume(new LimitKey("identity", "login", account.toString(), 10, MINUTE)));
 
         // When the limit is tightened to 2 per minute (a deployment reacting to an attack)
-        var tightened = LimitKey.ofId("identity", "login", account, 2, MINUTE);
+        var tightened = new LimitKey("identity", "login", account.toString(), 2, MINUTE);
 
         // Then the new definition holds, not the 7 tokens left in the old bucket
         assertThat(limiter.tryConsume(tightened)).isTrue();
@@ -127,6 +128,6 @@ class RateLimiterIntegrationTests {
     }
 
     private LimitKey newKey() {
-        return LimitKey.ofId("identity", "login", ids.newId(), N, MINUTE);
+        return LimitKey.ofId(IdentityLimits.LOGIN_PER_ACCOUNT, ids.newId());
     }
 }

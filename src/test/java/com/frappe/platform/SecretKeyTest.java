@@ -30,6 +30,35 @@ class SecretKeyTest {
     }
 
     @Test
+    void buildsTheKeyFromATypedPurpose() {
+        // When
+        var key = SecretKey.of(IdentitySecrets.EMAIL_PROOF, SUBJECT);
+
+        // Then
+        assertThat(key).isEqualTo(new SecretKey("identity", "email-proof", SUBJECT));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "emailProof", "EMAIL-PROOF", "EMAIL__PROOF", "_EMAIL", "EMAIL PROOF"})
+    void rejectsPurposeNamesThatAreNotUpperSnakeCase(String name) {
+        // Given
+        var purpose = new SecretPurpose() {
+            @Override
+            public String module() {
+                return "identity";
+            }
+
+            @Override
+            public String name() {
+                return name;
+            }
+        };
+
+        // Then
+        assertThatIllegalArgumentException().isThrownBy(() -> SecretKey.of(purpose, SUBJECT));
+    }
+
+    @Test
     void requiresASubjectId() {
         assertThatNullPointerException().isThrownBy(() -> new SecretKey("identity", "reset", null));
     }

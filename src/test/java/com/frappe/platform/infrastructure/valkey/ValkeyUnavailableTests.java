@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import com.frappe.TestNatsConfiguration;
 import com.frappe.TestcontainersConfiguration;
 import com.frappe.platform.IdGenerator;
+import com.frappe.platform.IdentityLimits;
+import com.frappe.platform.IdentitySecrets;
 import com.frappe.platform.LimitKey;
 import com.frappe.platform.RateLimiter;
 import com.frappe.platform.SecretKey;
@@ -60,7 +62,7 @@ class ValkeyUnavailableTests {
     @Test
     void theSecretStoreFailsFastAsUnavailable() {
         // Given
-        var key = new SecretKey("identity", "email-verification", ids.newId());
+        var key = SecretKey.of(IdentitySecrets.EMAIL_PROOF, ids.newId());
 
         // Then
         assertUnavailable(() -> secrets.put(key, "493817", Duration.ofMinutes(10)));
@@ -71,7 +73,7 @@ class ValkeyUnavailableTests {
     @Test
     void theRateLimiterFailsFastAsUnavailable() {
         // Given
-        var key = LimitKey.ofId("identity", "login", ids.newId(), 5, Duration.ofMinutes(1));
+        var key = LimitKey.ofId(IdentityLimits.LOGIN_PER_ACCOUNT, ids.newId());
 
         // Then
         assertUnavailable(() -> limiter.tryConsume(key));

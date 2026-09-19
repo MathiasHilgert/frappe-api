@@ -108,6 +108,13 @@ Strict TDD. Runner: `./gradlew test` with Testcontainers (Postgres reused as `FR
 - `short-lived-secrets.md`: a changed definition starts every subject with a fresh full bucket, and during a rolling deploy old and new instances use different keys (effective limit is the sum of both); millisecond bounds documented.
 - Verification `FRAPPE_TEST_DB=frappe_fapi_16 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 57 test classes, 238 tests, 0 failures, 0 errors, 0 skipped.
 
+### DX round (coordinator: typed purposes, least coupling)
+- RED (compilation): `SecretKeyTest` (`buildsTheKeyFromATypedPurpose`, `rejectsPurposeNamesThatAreNotUpperSnakeCase` ×6), `LimitKeyTest` (`ofId(IdentityLimits.LOGIN_PER_ACCOUNT, id)`, `ofAddress(IdentityLimits.LOGIN_PER_ADDRESS, address)`, `rejectsAPurposeWhoseDefinitionIsInvalid`) and every Valkey integration test migrated to the typed API: `SecretPurpose`, `LimitPurpose`, `SecretKey.of`, the purpose factories missing. GREEN: `./gradlew test --tests 'com.frappe.platform.*'` BUILD SUCCESSFUL.
+- Code: kernel interfaces `SecretPurpose` (module, UPPER_SNAKE `name()` that enums get for free) and `LimitPurpose` (plus capacity and period); `SecretKey.of(purpose, subjectId)`, `LimitKey.ofId(purpose, id)`, `LimitKey.ofAddress(purpose, address)` replace the string-and-number factories; the name becomes kebab-case (`EMAIL_PROOF` → `email-proof`), and all existing validation still runs in the record constructors. Test enums `IdentitySecrets` and `IdentityLimits` show the per-module shape.
+- Least coupling: `KernelDependenciesTest` (ArchUnit, via Spring Modulith's test starter) requires the `com.frappe.platform` root package to depend on `java..` and itself only. Green on first run (kernel already clean); a probe record exposing a Bucket4j `Bandwidth` failed it (`Architecture Violation`), then removed.
+- `short-lived-secrets.md`: purpose enums, before/after call sites, and the ordering contract (issue cap → rate limit → consume) with an example.
+- Verification `FRAPPE_TEST_DB=frappe_fapi_16 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 58 test classes, 247 tests, 0 failures, 0 errors, 0 skipped.
+
 ## Open questions / follow-ups
 - One exception for both ports: the ticket names `SecretStoreUnavailableException` for Valkey failures, so `RateLimiter` throws it too. If a distinct `RateLimiterUnavailableException` reads better for identity, it is a small follow-up.
 - Health: the Redis health contributor is disabled so a Valkey outage never marks the API DOWN. If operations want to see Valkey in `/actuator/health`, a follow-up can add it to a non-aggregated health group.

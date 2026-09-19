@@ -6,6 +6,8 @@ import com.frappe.TestNatsConfiguration;
 import com.frappe.TestValkeyConfiguration;
 import com.frappe.TestcontainersConfiguration;
 import com.frappe.platform.IdGenerator;
+import com.frappe.platform.IdentityLimits;
+import com.frappe.platform.IdentitySecrets;
 import com.frappe.platform.LimitKey;
 import com.frappe.platform.RateLimiter;
 import com.frappe.platform.SecretKey;
@@ -46,7 +48,7 @@ class ValkeyContentIntegrationTests {
     @Test
     void storesOnlyTheArgon2HashOfASecret() {
         // Given
-        var key = new SecretKey("identity", "email-verification", ids.newId());
+        var key = SecretKey.of(IdentitySecrets.EMAIL_PROOF, ids.newId());
 
         // When
         secrets.put(key, "493817", Duration.ofMinutes(10));
@@ -66,12 +68,11 @@ class ValkeyContentIntegrationTests {
     void keysHoldIdsAndAddressesButNoEmailAddress() throws Exception {
         // Given everything the platform writes
         var account = ids.newId();
-        var secretKey = new SecretKey("identity", "password-reset", account);
+        var secretKey = SecretKey.of(IdentitySecrets.RECOVERY, account);
         secrets.put(secretKey, "493817", Duration.ofMinutes(10));
         secrets.countIssue(secretKey, Duration.ofHours(1), 5);
-        limiter.tryConsume(LimitKey.ofId("identity", "login", account, 5, Duration.ofMinutes(1)));
-        limiter.tryConsume(LimitKey.ofAddress(
-                "identity", "login", InetAddress.getByName("2001:db8::7"), 20, Duration.ofMinutes(1)));
+        limiter.tryConsume(LimitKey.ofId(IdentityLimits.LOGIN_PER_ACCOUNT, account));
+        limiter.tryConsume(LimitKey.ofAddress(IdentityLimits.LOGIN_PER_ADDRESS, InetAddress.getByName("2001:db8::7")));
 
         // When
         var keys = redis.scan(ScanOptions.scanOptions().match("*").build()).stream()
@@ -80,10 +81,10 @@ class ValkeyContentIntegrationTests {
         // Then
         assertThat(keys)
                 .contains(
-                        "frappe:secret:identity:password-reset:" + account,
-                        "frappe:secret-issues:identity:password-reset:" + account,
-                        "frappe:rate-limit:identity:login:" + account + ":5-per-60000ms",
-                        "frappe:rate-limit:identity:login:2001:db8:0:0::/64:20-per-60000ms")
+                        "frappe:secret:identity:recovery:" + account,
+                        "frappe:secret-issues:identity:recovery:" + account,
+                        "frappe:rate-limit:identity:login-per-account:" + account + ":3-per-60000ms",
+                        "frappe:rate-limit:identity:login-per-address:2001:db8:0:0::/64:20-per-60000ms")
                 .allMatch(key -> KEY.matcher(key).matches())
                 .noneMatch(key -> key.contains("@"));
     }

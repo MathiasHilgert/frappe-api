@@ -8,6 +8,7 @@ import com.frappe.TestNatsConfiguration;
 import com.frappe.TestValkeyConfiguration;
 import com.frappe.TestcontainersConfiguration;
 import com.frappe.platform.IdGenerator;
+import com.frappe.platform.IdentitySecrets;
 import com.frappe.platform.SecretKey;
 import com.frappe.platform.ShortLivedSecretStore;
 import java.time.Clock;
@@ -215,7 +216,7 @@ class ShortLivedSecretStoreIntegrationTests {
     }
 
     private SecretKey newKey() {
-        return new SecretKey("identity", "email-verification", ids.newId());
+        return SecretKey.of(IdentitySecrets.EMAIL_PROOF, ids.newId());
     }
 
     private static boolean join(Future<Boolean> future) {

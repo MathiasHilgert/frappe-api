@@ -14,8 +14,9 @@ import java.util.regex.Pattern;
  * Callers own the definitions; a changed definition takes effect at once, with a fresh bucket.
  *
  * <p>Keys are visible in Valkey tooling, so the subject is an id or a network address only, never an email address or
- * another personal value; build keys with {@link #ofId} or {@link #ofAddress}. The constructor accepts exactly the
- * canonical forms those factories produce.
+ * another personal value. Build keys from a module's typed {@link LimitPurpose}, which carries the definition, with
+ * {@link #ofId(LimitPurpose, UUID)} or {@link #ofAddress(LimitPurpose, InetAddress)}; the constructor accepts exactly
+ * the canonical forms those factories produce.
  *
  * @param module owning module, lowercase kebab-case, e.g. {@code identity}
  * @param purpose what is limited, lowercase kebab-case, e.g. {@code login}
@@ -63,40 +64,40 @@ public record LimitKey(String module, String purpose, String subject, long capac
     }
 
     /**
-     * A limit per id, e.g. per account.
+     * A limit per id, e.g. per account, with the purpose's definition.
      *
-     * @param module owning module
-     * @param purpose what is limited
+     * @param purpose the module's limit, e.g. {@code IdentityLimits.LOGIN_PER_ACCOUNT}
      * @param id the subject's id
-     * @param capacity calls allowed per period
-     * @param period time in which a full bucket refills
      * @return the key
+     * @throws IllegalArgumentException if the purpose's names or definition are invalid
      */
-    public static LimitKey ofId(String module, String purpose, UUID id, long capacity, Duration period) {
-        return new LimitKey(module, purpose, id.toString(), capacity, period);
+    public static LimitKey ofId(LimitPurpose purpose, UUID id) {
+        return of(purpose, id.toString());
     }
 
     /**
-     * A limit per client network address: an IPv4 address as is, an IPv6 address by its /64 prefix. One IPv6 client
-     * (a home or mobile network) usually owns a whole /64 and can pick any address in it, so limiting single IPv6
-     * addresses would not limit it at all.
+     * A limit per client network address, with the purpose's definition: an IPv4 address as is, an IPv6 address by
+     * its /64 prefix. One IPv6 client (a home or mobile network) usually owns a whole /64 and can pick any address in
+     * it, so limiting single IPv6 addresses would not limit it at all.
      *
-     * @param module owning module
-     * @param purpose what is limited
+     * @param purpose the module's limit, e.g. {@code IdentityLimits.LOGIN_PER_ADDRESS}
      * @param address the client address
-     * @param capacity calls allowed per period
-     * @param period time in which a full bucket refills
      * @return the key
+     * @throws IllegalArgumentException if the purpose's names or definition are invalid
      */
-    public static LimitKey ofAddress(
-            String module, String purpose, InetAddress address, long capacity, Duration period) {
+    public static LimitKey ofAddress(LimitPurpose purpose, InetAddress address) {
         var subject =
                 switch (address) {
                     case Inet4Address v4 -> v4.getHostAddress();
                     case Inet6Address v6 -> slash64(v6);
                     default -> throw new IllegalArgumentException("Unsupported address type " + address.getClass());
                 };
-        return new LimitKey(module, purpose, subject, capacity, period);
+        return of(purpose, subject);
+    }
+
+    private static LimitKey of(LimitPurpose purpose, String subject) {
+        return new LimitKey(
+                purpose.module(), SecretKey.keyName(purpose.name()), subject, purpose.capacity(), purpose.period());
     }
 
     private static String slash64(Inet6Address address) {
