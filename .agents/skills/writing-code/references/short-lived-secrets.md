@@ -36,7 +36,8 @@ if (!limiter.tryConsume(perAddress) || !limiter.tryConsume(perAccount)) {
 
 - A `LimitKey` carries its definition: `capacity` calls per `period`, refilled gradually (Bucket4j token bucket, greedy refill).
 - Subjects: `ofId` (a UUID) or `ofAddress` (an IPv4 address as is; an IPv6 address by its /64 prefix, `2001:db8:1:2::/64`, because one client usually owns a whole /64 and could rotate through it). The constructor accepts only those canonical forms, so digit strings such as phone numbers never become keys.
-- Buckets are shared by all instances. The definition is part of the Valkey key (`…:<subject>:5-per-60000ms`), so a changed limit applies at once with a fresh bucket; the old bucket expires 10 s after it is full again.
+- Buckets are shared by all instances. The definition is part of the Valkey key (`…:<subject>:5-per-60000ms`), so a changed limit applies at once; the old bucket expires 10 s after it is full again. Two consequences of changing a definition: every subject starts with a fresh, full bucket (tokens already spent under the old definition do not carry over), and during a rolling deploy old and new instances use different keys, so until the last old instance is gone the effective limit is the sum of both definitions.
+- Periods are whole milliseconds (at least 1 ms), and secret TTLs and issue windows are at least 1 ms: Valkey expires in milliseconds, and the key holds the period in milliseconds.
 
 ## Failures
 

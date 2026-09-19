@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
  * @param purpose what is limited, lowercase kebab-case, e.g. {@code login}
  * @param subject a canonical lowercase UUID, IPv4 address, or IPv6 /64 prefix ({@code 2001:db8:1:2::/64})
  * @param capacity calls allowed per period; positive
- * @param period time in which a full bucket refills; positive
+ * @param period time in which a full bucket refills; whole milliseconds, at least 1 ms
  */
 public record LimitKey(String module, String purpose, String subject, long capacity, Duration period) {
 
@@ -31,11 +31,14 @@ public record LimitKey(String module, String purpose, String subject, long capac
 
     private static final int IPV6_PREFIX_GROUPS = 4;
 
+    private static final int NANOS_PER_MILLI = 1_000_000;
+
     /**
      * Validates the key.
      *
      * @throws IllegalArgumentException if a name is not lowercase kebab-case, the subject is not a canonical UUID, IPv4
-     *     address or IPv6 /64 prefix, or the capacity or period is not positive
+     *     address or IPv6 /64 prefix, the capacity is not positive, or the period is not whole milliseconds of at least
+     *     1 ms
      * @throws NullPointerException if a component is {@code null}
      */
     public LimitKey {
@@ -52,8 +55,10 @@ public record LimitKey(String module, String purpose, String subject, long capac
             throw new IllegalArgumentException("capacity must be positive, was " + capacity);
         }
         Objects.requireNonNull(period, "period");
-        if (period.isNegative() || period.isZero()) {
-            throw new IllegalArgumentException("period must be positive, was " + period);
+        // The Valkey key holds the period in milliseconds: a sub-millisecond part would let two definitions share a
+        // bucket.
+        if (period.toMillis() < 1 || period.getNano() % NANOS_PER_MILLI != 0) {
+            throw new IllegalArgumentException("period must be whole milliseconds, at least 1 ms, was " + period);
         }
     }
 

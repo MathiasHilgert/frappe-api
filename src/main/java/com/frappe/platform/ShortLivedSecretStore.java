@@ -23,7 +23,7 @@ public interface ShortLivedSecretStore {
      *
      * @param key the secret's key
      * @param secret the plain secret; only its hash is stored
-     * @param ttl how long the secret stays valid; positive
+     * @param ttl how long the secret stays valid; at least 1 ms
      * @throws SecretStoreUnavailableException if the store cannot be reached
      */
     void put(SecretKey key, String secret, Duration ttl);
@@ -46,7 +46,7 @@ public interface ShortLivedSecretStore {
      * before issuing and issue only when allowed. An issue leaves the window once it is {@code window} old.
      *
      * @param key the secret's key; issues are counted per key
-     * @param window length of the sliding window; positive
+     * @param window length of the sliding window; at least 1 ms
      * @param limit issues allowed within any window; positive
      * @return {@code true} if the issue is within the cap and was counted; {@code false} if it was refused (and not
      *     counted)

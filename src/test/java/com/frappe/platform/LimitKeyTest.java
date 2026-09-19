@@ -103,6 +103,19 @@ class LimitKeyTest {
     }
 
     @Test
+    void requiresAPeriodOfWholeMilliseconds() {
+        // Sub-millisecond parts would vanish from the Valkey key and let two definitions share one bucket
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> LimitKey.ofId("identity", "login", ACCOUNT, 5, Duration.ofNanos(500_000)));
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> LimitKey.ofId(
+                        "identity", "login", ACCOUNT, 5, Duration.ofMillis(1).plusNanos(1)));
+        assertThat(LimitKey.ofId("identity", "login", ACCOUNT, 5, Duration.ofMillis(1))
+                        .period())
+                .isEqualTo(Duration.ofMillis(1));
+    }
+
+    @Test
     void requiresAPositiveCapacityAndPeriod() {
         assertThatIllegalArgumentException().isThrownBy(() -> LimitKey.ofId("identity", "login", ACCOUNT, 0, MINUTE));
         assertThatIllegalArgumentException()

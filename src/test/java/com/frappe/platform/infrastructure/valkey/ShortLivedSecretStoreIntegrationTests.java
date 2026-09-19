@@ -1,6 +1,7 @@
 package com.frappe.platform.infrastructure.valkey;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.awaitility.Awaitility.await;
 
 import com.frappe.TestNatsConfiguration;
@@ -147,6 +148,16 @@ class ShortLivedSecretStoreIntegrationTests {
 
         // Then
         assertThat(secrets.consume(key, "493817")).isFalse();
+    }
+
+    @Test
+    void rejectsATtlOrWindowBelowOneMillisecond() {
+        // A sub-millisecond duration would become PEXPIRE 0, which deletes the key at once
+        var key = newKey();
+        var subMillisecond = Duration.ofNanos(999_999);
+
+        assertThatIllegalArgumentException().isThrownBy(() -> secrets.put(key, "493817", subMillisecond));
+        assertThatIllegalArgumentException().isThrownBy(() -> secrets.countIssue(key, subMillisecond, 5));
     }
 
     @Test

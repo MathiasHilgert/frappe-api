@@ -103,6 +103,11 @@ Strict TDD. Runner: `./gradlew test` with Testcontainers (Postgres reused as `FR
 - Compose port overrides stay as deliberate extra scope (requested by the human); the coordinator lists them in the PR.
 - Verification after R1–R7 `FRAPPE_TEST_DB=frappe_fapi_16 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 57 test classes, 236 tests, 0 failures, 0 errors, 0 skipped.
 
+### Review round 2 (re-review approved; three minors)
+- RED `ShortLivedSecretStoreIntegrationTests.rejectsATtlOrWindowBelowOneMillisecond` and `LimitKeyTest.requiresAPeriodOfWholeMilliseconds`: both `Expecting code to raise a throwable` (999 999 ns TTL/window accepted, would become PEXPIRE 0; 0.5 ms and 1 ms + 1 ns periods accepted, would collide in the key). GREEN: TTL and window must be at least 1 ms; a `LimitKey` period must be whole milliseconds, at least 1 ms; Javadoc updated.
+- `short-lived-secrets.md`: a changed definition starts every subject with a fresh full bucket, and during a rolling deploy old and new instances use different keys (effective limit is the sum of both); millisecond bounds documented.
+- Verification `FRAPPE_TEST_DB=frappe_fapi_16 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 57 test classes, 238 tests, 0 failures, 0 errors, 0 skipped.
+
 ## Open questions / follow-ups
 - One exception for both ports: the ticket names `SecretStoreUnavailableException` for Valkey failures, so `RateLimiter` throws it too. If a distinct `RateLimiterUnavailableException` reads better for identity, it is a small follow-up.
 - Health: the Redis health contributor is disabled so a Valkey outage never marks the API DOWN. If operations want to see Valkey in `/actuator/health`, a follow-up can add it to a non-aggregated health group.

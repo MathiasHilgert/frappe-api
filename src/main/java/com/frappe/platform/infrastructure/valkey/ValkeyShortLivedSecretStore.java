@@ -129,10 +129,11 @@ final class ValkeyShortLivedSecretStore implements ShortLivedSecretStore {
         }
     }
 
+    /** Valkey expires in whole milliseconds; a shorter duration would become PEXPIRE 0 and delete the key at once. */
     private static void requirePositive(Duration duration, String name) {
         Objects.requireNonNull(duration, name);
-        if (duration.isNegative() || duration.isZero()) {
-            throw new IllegalArgumentException(name + " must be positive, was " + duration);
+        if (duration.toMillis() < 1) {
+            throw new IllegalArgumentException(name + " must be at least 1 ms, was " + duration);
         }
     }
 
