@@ -28,7 +28,7 @@ Strict TDD (brief and project rule). Runner: `./gradlew test` with `FRAPPE_TEST_
 - [x] T3 Observation `scheduled.task` and failure logging (ECS fields); JSON task data; pausing the scheduler with the application context
 - [x] T4 Acceptance: two schedulers racing on real Postgres (exactly once, dead instance taken over, retries with backoff observed as errors, per-entity schedule change without restart)
 - [x] T5 Outbox recovery through db-scheduler; remove the lock and `@EnableScheduling`
-- [ ] T6 Docs (`writing-code`: declaring a task; outbox recovery, observability, errors), final verification
+- [x] T6 Docs (`writing-code`: declaring a task; outbox recovery, observability, errors), final verification
 
 ## Acceptance (from the ticket)
 - Two application instances, a recurring task due → exactly one executes it.
@@ -99,5 +99,17 @@ Strict TDD (brief and project rule). Runner: `./gradlew test` with `FRAPPE_TEST_
 - `rg 'ReentrantLock|EnableScheduling|@Scheduled|SchedulingConfigurer|TaskScheduler|runLock' src`: no code left (one comment on Moments).
 - `FRAPPE_TEST_DB=frappe_fapi_10 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 55 classes, 216 tests.
 
+### T6 docs and verification
+- New `writing-code/references/scheduling.md`: declaring fixed recurring, one-time and per-entity tasks with `ScheduledTasks`, naming, natural-key instance ids, `EntitySchedule` upserts, transactions, JSON data, failures and retries, idempotent handlers, shutdown, automatic telemetry and logs, configuration, testing. `writing-code/SKILL.md`: hard rule (no `@Scheduled` or in-process locks) and a decision-gate row.
+- Updated: `domain-events.md` (recovery as `platform.outbox-recovery`, trigger via `OutboxRecoveryTrigger`), `observability.md` and `observing-the-api` (`scheduled.task` automatic), `errors.md` (handlers throw; db-scheduler exception types), `testing-code/references/integration-tests.md` (shared table, paused contexts, polling in tests).
+- Verification `FRAPPE_TEST_DB=frappe_fapi_10 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL in 54s, 55 test classes, 216 tests, 0 failures (spotless, javadoc with doclint, tests, `ModularityTests`).
+
+## Follow-ups / open questions
+- `OutboxRecoveryTrigger` drops a trigger while a pass runs (as the lock did before). A pass that started just before NATS came back may still fail its publishes; those then wait for the next scheduled pass (1m with the defaults, plus their backoff).
+- `platform.scheduled_tasks` is not tenant-scoped (no `tenant_id`, no RLS): executions are infrastructure; tasks carry entity ids in the instance id and data. Per-tenant tasks set the tenant themselves inside the handler when the RLS work lands.
+- The starter registers db-scheduler's `MicrometerStatsRegistry` meters and a `db-scheduler` health indicator automatically; they are kept as library telemetry, no dashboard in this ticket.
+- `db-scheduler-spring-boot-4-starter` 16.12.0 is built against Boot 4.0.6; all imported Boot classes exist in 4.1.1 and the suite is green, but revisit on every Boot minor upgrade.
+- `spring.modulith.moments.enabled=false` is a deliberate deviation from the Modulith default (see T5).
+
 ## Next step
-T6.
+Review and PR (not created here: no push, no Plane change).

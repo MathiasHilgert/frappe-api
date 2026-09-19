@@ -28,6 +28,7 @@ PostgreSQLContainer postgres() {
 - Run with `FRAPPE_TEST_DB=frappe_fapi_12 ./gradlew check` in the FAPI-12 worktree.
 - The reuse key includes the configuration, so each database name gets its own long-lived container, reused across runs of that ticket. Remove it after merge (`running-in-parallel.md` in `working-on-tickets`).
 - Reused containers keep data between runs: tests create their own tenant/IDs (UUIDv7) and never assume empty tables.
+- Scheduled tasks (`platform.scheduled_tasks`) are shared by every cached context: only the active one picks executions (Spring pauses the others and `SchedulerPausing` stops their picking). Tests that race schedulers use task names unique per test and delete their rows afterwards; a test waiting for a short task interval sets `db-scheduler.polling-interval=100ms` (default 10s).
 - Outbox tests (`platform.event_publication*`) share the tables with every cached context, whose recovery job keeps running in the background: assert only on rows of the test's own `eventId` (or publication id), never on counts or ordering of the whole table. Rows inserted by hand and dated so the job never picks them up (e.g. year 2100) must be deleted in `@AfterEach`, or they pollute later runs.
 - A reused database keeps its Flyway history. When a migration it already applied is removed or edited (FAPI-6 deleted the FAPI-5 `event_publication` stopgap fixture), startup fails with `FlywayValidateException: Migrations have failed validation`. Remove that ticket's container and rerun; the next run creates it fresh:
 
