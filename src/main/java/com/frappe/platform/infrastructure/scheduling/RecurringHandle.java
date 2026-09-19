@@ -4,6 +4,7 @@ import com.frappe.platform.RecurringTask;
 import com.frappe.platform.TaskName;
 import com.frappe.platform.TaskSchedulingException;
 import com.github.kagkarlsson.scheduler.Scheduler;
+import com.github.kagkarlsson.scheduler.exceptions.ExecutionException;
 import com.github.kagkarlsson.scheduler.exceptions.TaskInstanceCurrentlyExecutingException;
 import com.github.kagkarlsson.scheduler.exceptions.TaskInstanceNotFoundException;
 import com.github.kagkarlsson.scheduler.task.Task;
@@ -53,7 +54,9 @@ final class RecurringHandle<T> implements RecurringTask<T>, LibraryTask {
     }
 
     // SchedulerClient.reschedule also resets the execution's consecutive failures and last success and failure, so a
-    // failing task gets its fast retries again. A lost race (false) is logged by the library at WARN as well.
+    // failing task gets its fast retries again. It reads the execution, then updates it by version: when a scheduler
+    // (this instance or another) picks it in between, the update hits no row and the library throws
+    // ExecutionException. That lost race is not moved (false): the picked run is starting now anyway.
     @Override
     public boolean runNow(T nextData) {
         try {
@@ -63,7 +66,7 @@ final class RecurringHandle<T> implements RecurringTask<T>, LibraryTask {
                 scheduler.get().triggerCheckForDueExecutions();
             }
             return moved;
-        } catch (TaskInstanceCurrentlyExecutingException | TaskInstanceNotFoundException e) {
+        } catch (TaskInstanceCurrentlyExecutingException | TaskInstanceNotFoundException | ExecutionException e) {
             return false;
         } catch (SQLRuntimeException e) {
             throw new TaskSchedulingException(

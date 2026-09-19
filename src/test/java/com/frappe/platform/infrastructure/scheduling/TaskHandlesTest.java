@@ -20,6 +20,7 @@ import com.frappe.platform.TaskSchedulingException;
 import com.github.kagkarlsson.scheduler.ScheduledExecution;
 import com.github.kagkarlsson.scheduler.Scheduler;
 import com.github.kagkarlsson.scheduler.SchedulerClient.ScheduleOptions;
+import com.github.kagkarlsson.scheduler.exceptions.ExecutionException;
 import com.github.kagkarlsson.scheduler.exceptions.TaskInstanceCurrentlyExecutingException;
 import com.github.kagkarlsson.scheduler.exceptions.TaskInstanceNotFoundException;
 import com.github.kagkarlsson.scheduler.task.TaskInstance;
@@ -84,6 +85,21 @@ class TaskHandlesTest {
         // When / Then
         assertThat(recurring.runNow("urgent")).isFalse();
         assertThat(recurring.runNow("urgent")).isFalse();
+        assertThat(recurring.runNow("urgent")).isFalse();
+        verify(scheduler, never()).triggerCheckForDueExecutions();
+    }
+
+    @Test
+    void aRecurringTaskPickedBetweenReadAndMoveIsNotMoved() {
+        // Given: another scheduler picked the execution after the library read it, so its versioned update hits no row
+        when(scheduler.reschedule(any(TaskInstanceId.class), any(), any()))
+                .thenThrow(new ExecutionException(
+                        "Expected one execution to be updated, but updated 0. Indicates a bug.",
+                        "platform.recovery-probe",
+                        "recurring",
+                        7L));
+
+        // When / Then
         assertThat(recurring.runNow("urgent")).isFalse();
         verify(scheduler, never()).triggerCheckForDueExecutions();
     }
