@@ -1,7 +1,6 @@
 package com.frappe.platform.infrastructure.valkey;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.awaitility.Awaitility.await;
 
 import com.frappe.TestNatsConfiguration;
@@ -35,8 +34,6 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("local")
 class ShortLivedSecretStoreIntegrationTests {
 
-    private static final Duration TEN_MINUTES = Duration.ofMinutes(10);
-
     @Autowired
     ShortLivedSecretStore secrets;
 
@@ -50,7 +47,7 @@ class ShortLivedSecretStoreIntegrationTests {
     void consumesTheRightSecretOnce() {
         // Given
         var key = newKey();
-        secrets.put(key, "493817", TEN_MINUTES);
+        secrets.put(key, "493817");
 
         // When
         var first = secrets.consume(key, "493817");
@@ -65,7 +62,7 @@ class ShortLivedSecretStoreIntegrationTests {
     void twoConcurrentRightSubmissionsGiveExactlyOneSuccess() throws Exception {
         // Given
         var key = newKey();
-        secrets.put(key, "493817", TEN_MINUTES);
+        secrets.put(key, "493817");
         var start = new CountDownLatch(1);
         Callable<Boolean> submission = () -> {
             start.await();
@@ -90,7 +87,7 @@ class ShortLivedSecretStoreIntegrationTests {
     void theRightSecretStillWorksAfterFourWrongAttempts() {
         // Given
         var key = newKey();
-        secrets.put(key, "493817", TEN_MINUTES);
+        secrets.put(key, "493817");
         for (var attempt = 0; attempt < 4; attempt++) {
             assertThat(secrets.consume(key, "000000")).isFalse();
         }
@@ -106,7 +103,7 @@ class ShortLivedSecretStoreIntegrationTests {
     void theFifthWrongAttemptDeletesTheSecret() {
         // Given
         var key = newKey();
-        secrets.put(key, "493817", TEN_MINUTES);
+        secrets.put(key, "493817");
         for (var attempt = 0; attempt < 5; attempt++) {
             assertThat(secrets.consume(key, "000000")).isFalse();
         }
@@ -122,13 +119,13 @@ class ShortLivedSecretStoreIntegrationTests {
     void aSecondPutReplacesTheSecretWithAFreshFailureCount() {
         // Given four failures against the first secret
         var key = newKey();
-        secrets.put(key, "111111", TEN_MINUTES);
+        secrets.put(key, "111111");
         for (var attempt = 0; attempt < 4; attempt++) {
             secrets.consume(key, "000000");
         }
 
         // When
-        secrets.put(key, "222222", TEN_MINUTES);
+        secrets.put(key, "222222");
 
         // Then the old secret is dead, and the new one survives four more failures
         assertThat(secrets.consume(key, "111111")).isFalse();
@@ -141,24 +138,14 @@ class ShortLivedSecretStoreIntegrationTests {
     @Test
     void consumeIsFalseOnceTheTtlHasPassed() {
         // Given
-        var key = newKey();
-        secrets.put(key, "493817", Duration.ofMillis(200));
+        var key = new SecretKey("identity", "email-proof", ids.newId(), Duration.ofMillis(200), Duration.ofHours(1), 5);
+        secrets.put(key, "493817");
 
         // When Valkey's own clock passes the TTL
         await().pollDelay(Duration.ofMillis(400)).atMost(Duration.ofSeconds(1)).until(() -> true);
 
         // Then
         assertThat(secrets.consume(key, "493817")).isFalse();
-    }
-
-    @Test
-    void rejectsATtlOrWindowBelowOneMillisecond() {
-        // A sub-millisecond duration would become PEXPIRE 0, which deletes the key at once
-        var key = newKey();
-        var subMillisecond = Duration.ofNanos(999_999);
-
-        assertThatIllegalArgumentException().isThrownBy(() -> secrets.put(key, "493817", subMillisecond));
-        assertThatIllegalArgumentException().isThrownBy(() -> secrets.countIssue(key, subMillisecond, 5));
     }
 
     @Test
@@ -197,12 +184,12 @@ class ShortLivedSecretStoreIntegrationTests {
     void putsOnTheSharedConnectionWithoutOpeningNewOnes() {
         // Given
         var key = newKey();
-        secrets.put(key, "111111", TEN_MINUTES);
+        secrets.put(key, "111111");
         var before = connectionsReceived();
 
         // When
         for (var put = 0; put < 5; put++) {
-            secrets.put(key, "22222" + put, TEN_MINUTES);
+            secrets.put(key, "22222" + put);
         }
 
         // Then

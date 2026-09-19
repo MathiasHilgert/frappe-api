@@ -43,12 +43,12 @@ class SecretIssueCapIntegrationTests {
         var store = store();
         var key = newKey();
         IntStream.range(0, FIVE).forEach(issue -> {
-            assertThat(store.countIssue(key, HOUR, FIVE)).isTrue();
+            assertThat(store.countIssue(key)).isTrue();
             clock.advance(Duration.ofMinutes(10));
         });
 
         // When
-        var sixth = store.countIssue(key, HOUR, FIVE);
+        var sixth = store.countIssue(key);
 
         // Then
         assertThat(sixth).isFalse();
@@ -60,17 +60,17 @@ class SecretIssueCapIntegrationTests {
         var store = store();
         var key = newKey();
         var start = clock.instant();
-        assertThat(store.countIssue(key, HOUR, FIVE)).isTrue();
+        assertThat(store.countIssue(key)).isTrue();
         clock.advance(Duration.ofMinutes(10));
         IntStream.range(1, FIVE)
-                .forEach(issue -> assertThat(store.countIssue(key, HOUR, FIVE)).isTrue());
+                .forEach(issue -> assertThat(store.countIssue(key)).isTrue());
 
         // When / Then: refused while the oldest is inside the window, allowed once it left
         clock.advance(Duration.between(clock.instant(), start.plus(HOUR).minusMillis(1)));
-        assertThat(store.countIssue(key, HOUR, FIVE)).isFalse();
+        assertThat(store.countIssue(key)).isFalse();
         clock.advance(Duration.ofMillis(1));
-        assertThat(store.countIssue(key, HOUR, FIVE)).isTrue();
-        assertThat(store.countIssue(key, HOUR, FIVE)).isFalse();
+        assertThat(store.countIssue(key)).isTrue();
+        assertThat(store.countIssue(key)).isFalse();
     }
 
     @Test
@@ -78,13 +78,13 @@ class SecretIssueCapIntegrationTests {
         // Given a key at its cap
         var store = store();
         var capped = newKey();
-        IntStream.range(0, FIVE).forEach(issue -> store.countIssue(capped, HOUR, FIVE));
+        IntStream.range(0, FIVE).forEach(issue -> store.countIssue(capped));
 
         // When
-        var other = store.countIssue(newKey(), HOUR, FIVE);
+        var other = store.countIssue(newKey());
 
         // Then
-        assertThat(store.countIssue(capped, HOUR, FIVE)).isFalse();
+        assertThat(store.countIssue(capped)).isFalse();
         assertThat(other).isTrue();
     }
 

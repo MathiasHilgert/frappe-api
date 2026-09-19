@@ -4,13 +4,26 @@ Verification, reset and email-change codes, and login/recovery rate limits, live
 
 ## Declare purposes once per module
 
-Each module declares its purposes as enums implementing the kernel interfaces `SecretPurpose` and `LimitPurpose` (plain Java, no library types), in its own root package. The key name comes from the constant (`EMAIL_PROOF` → `email-proof`), and a limit constant carries its definition, so call sites repeat neither strings nor numbers.
+Each module declares its purposes as enums implementing the kernel interfaces `SecretPurpose` and `LimitPurpose` (plain Java, no library types), in its own root package. The key name comes from the constant (`EMAIL_PROOF` → `email-proof`); a secret constant carries its lifetime and issue cap, a limit constant its rate, so call sites repeat neither strings nor numbers. There are no overloads taking numbers: no caller needs one, and a second way would let numbers drift back into call sites.
 
 ```java
 public enum IdentitySecrets implements SecretPurpose {
-    EMAIL_PROOF, RECOVERY;
+    //           ttl                      issue window           issue limit
+    EMAIL_PROOF(Duration.ofMinutes(15), Duration.ofHours(1), 5),
+    RECOVERY(Duration.ofMinutes(30), Duration.ofHours(24), 3);
+
+    private final Duration ttl;
+    private final Duration issueWindow;
+    private final int issueLimit;
+
+    IdentitySecrets(Duration ttl, Duration issueWindow, int issueLimit) {
+        this.ttl = ttl; this.issueWindow = issueWindow; this.issueLimit = issueLimit;
+    }
 
     @Override public String module() { return "identity"; }
+    @Override public Duration ttl() { return ttl; }
+    @Override public Duration issueWindow() { return issueWindow; }
+    @Override public int issueLimit() { return issueLimit; }
 }
 
 public enum IdentityLimits implements LimitPurpose {
@@ -33,6 +46,9 @@ Before (strings and numbers at every call site):
 
 ```java
 var key = new SecretKey("identity", "email-verification", personId);
+if (secrets.countIssue(key, Duration.ofHours(1), 5)) {
+    secrets.put(key, code, Duration.ofMinutes(15));
+}
 limiter.tryConsume(LimitKey.ofId("identity", "email-verification", personId, 10, Duration.ofMinutes(15)));
 ```
 
@@ -40,6 +56,9 @@ After:
 
 ```java
 var key = SecretKey.of(IdentitySecrets.EMAIL_PROOF, personId);
+if (secrets.countIssue(key)) {
+    secrets.put(key, code);
+}
 limiter.tryConsume(LimitKey.ofId(IdentityLimits.EMAIL_PROOF_ATTEMPTS, personId));
 ```
 
@@ -56,10 +75,10 @@ Issuing and checking a code always run in this order:
 ```java
 // Issue
 var key = SecretKey.of(IdentitySecrets.EMAIL_PROOF, personId);
-if (!secrets.countIssue(key, CODES_PER_HOUR_WINDOW, CODES_PER_HOUR)) {
+if (!secrets.countIssue(key)) {
     return Result.failure(VerificationError.TOO_MANY_CODES);
 }
-secrets.put(key, code, CODE_TTL);                  // send the code only after put succeeded
+secrets.put(key, code);                            // send the code only after put succeeded
 
 // Check
 if (!limiter.tryConsume(LimitKey.ofAddress(IdentityLimits.LOGIN_PER_ADDRESS, clientAddress))
@@ -71,19 +90,19 @@ boolean verified = secrets.consume(key, submittedCode);
 
 ## Codes: `ShortLivedSecretStore`
 
-- `SecretKey(module, purpose, subjectId)`: module and purpose are lowercase kebab-case, the subject is an id. Never an email address or another personal value: keys are visible in tooling.
+- `SecretKey(module, purpose, subjectId, ttl, issueWindow, issueLimit)`, built with `SecretKey.of(purpose, subjectId)`: module and purpose are lowercase kebab-case, the subject is an id (never an email address or another personal value: keys are visible in tooling); ttl and window are at least 1 ms, the limit positive.
 - `put` stores only an Argon2id hash (Spring Security's v5.8 defaults) of HMAC-SHA256(pepper, secret) and replaces an earlier secret and its failure count. The pepper (`FRAPPE_SECRET_PEPPER`, required outside `local`, at least 32 characters) never reaches Valkey: a 6-digit code has only a million values, so without it a leaked dump would fall to an offline brute force. Rotating the pepper invalidates outstanding codes (acceptable: they are short-lived).
 - `consume` always sits behind a `RateLimiter` check (ordering contract): every call costs one Argon2 run (16 MiB, tens of milliseconds), also for a key without a secret, where a dummy hash is verified so timing does not reveal which codes exist.
 - `consume` is `true` once for a match, also under concurrent submissions; the fifth wrong attempt (`ShortLivedSecretStore.MAX_FAILED_ATTEMPTS`) deletes the secret. Expired, consumed, replaced and unknown secrets are `false`: callers cannot tell them apart and must not try (no oracle).
-- `countIssue(key, window, limit)` is a sliding-window cap: ask before issuing; a refused issue is not counted. It reads the application `Clock`.
-- Code formats, TTLs and issue caps belong to the owning module's ticket, as named constants there.
+- `countIssue(key)` is a sliding-window cap with the purpose's window and limit: ask before issuing; a refused issue is not counted. It reads the application `Clock`.
+- Code formats belong to the owning module; TTLs, issue caps and rate limits live on its purpose enums.
 
 ## Rate limits: `RateLimiter`
 
 - A `LimitKey` carries its definition: `capacity` calls per `period`, refilled gradually (Bucket4j token bucket, greedy refill).
 - Subjects: `ofId(purpose, id)` (a UUID) or `ofAddress(purpose, address)` (an IPv4 address as is; an IPv6 address by its /64 prefix, `2001:db8:1:2::/64`, because one client usually owns a whole /64 and could rotate through it). The constructor accepts only those canonical forms, so digit strings such as phone numbers never become keys.
 - Buckets are shared by all instances. The definition is part of the Valkey key (`…:<subject>:5-per-60000ms`), so a changed limit applies at once; the old bucket expires 10 s after it is full again. Two consequences of changing a definition: every subject starts with a fresh, full bucket (tokens already spent under the old definition do not carry over), and during a rolling deploy old and new instances use different keys, so until the last old instance is gone the effective limit is the sum of both definitions.
-- Periods are whole milliseconds (at least 1 ms), and secret TTLs and issue windows are at least 1 ms: Valkey expires in milliseconds, and the key holds the period in milliseconds.
+- Limit periods are whole milliseconds (at least 1 ms), and secret TTLs and issue windows are at least 1 ms: Valkey expires in milliseconds, and the rate-limit key holds the period in milliseconds.
 
 ## Failures
 

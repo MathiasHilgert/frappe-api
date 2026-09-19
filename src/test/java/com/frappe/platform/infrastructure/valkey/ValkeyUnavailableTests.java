@@ -65,9 +65,9 @@ class ValkeyUnavailableTests {
         var key = SecretKey.of(IdentitySecrets.EMAIL_PROOF, ids.newId());
 
         // Then
-        assertUnavailable(() -> secrets.put(key, "493817", Duration.ofMinutes(10)));
+        assertUnavailable(() -> secrets.put(key, "493817"));
         assertUnavailable(() -> secrets.consume(key, "493817"));
-        assertUnavailable(() -> secrets.countIssue(key, Duration.ofHours(1), 5));
+        assertUnavailable(() -> secrets.countIssue(key));
     }
 
     @Test

@@ -5,7 +5,6 @@ import com.frappe.platform.SecretKey;
 import com.frappe.platform.SecretStoreUnavailableException;
 import com.frappe.platform.ShortLivedSecretStore;
 import java.time.Clock;
-import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import org.springframework.core.io.ClassPathResource;
@@ -67,15 +66,14 @@ final class ValkeyShortLivedSecretStore implements ShortLivedSecretStore {
     }
 
     @Override
-    public void put(SecretKey key, String secret, Duration ttl) {
+    public void put(SecretKey key, String secret) {
         Objects.requireNonNull(key, "key");
         requireSecret(secret);
-        requirePositive(ttl, "ttl");
         var hash = hashes.encode(secret);
         var redisKey = ValkeyKeys.secret(key);
         try {
             // A script on the shared connection: MULTI/EXEC would take a dedicated connection for every call.
-            redis.execute(PUT, List.of(redisKey), hash, String.valueOf(ttl.toMillis()));
+            redis.execute(PUT, List.of(redisKey), hash, String.valueOf(key.ttl().toMillis()));
         } catch (DataAccessException e) {
             throw new SecretStoreUnavailableException("Storing a secret failed: Valkey is unavailable", e);
         }
@@ -102,19 +100,15 @@ final class ValkeyShortLivedSecretStore implements ShortLivedSecretStore {
     }
 
     @Override
-    public boolean countIssue(SecretKey key, Duration window, int limit) {
+    public boolean countIssue(SecretKey key) {
         Objects.requireNonNull(key, "key");
-        requirePositive(window, "window");
-        if (limit < 1) {
-            throw new IllegalArgumentException("limit must be positive, was " + limit);
-        }
         try {
             var recorded = redis.execute(
                     COUNT_ISSUE,
                     List.of(ValkeyKeys.secretIssues(key)),
                     String.valueOf(clock.millis()),
-                    String.valueOf(window.toMillis()),
-                    String.valueOf(limit),
+                    String.valueOf(key.issueWindow().toMillis()),
+                    String.valueOf(key.issueLimit()),
                     ids.newId().toString());
             return Long.valueOf(RECORDED).equals(recorded);
         } catch (DataAccessException e) {
@@ -126,14 +120,6 @@ final class ValkeyShortLivedSecretStore implements ShortLivedSecretStore {
         Objects.requireNonNull(secret, "secret");
         if (secret.isBlank()) {
             throw new IllegalArgumentException("secret must not be blank");
-        }
-    }
-
-    /** Valkey expires in whole milliseconds; a shorter duration would become PEXPIRE 0 and delete the key at once. */
-    private static void requirePositive(Duration duration, String name) {
-        Objects.requireNonNull(duration, name);
-        if (duration.toMillis() < 1) {
-            throw new IllegalArgumentException(name + " must be at least 1 ms, was " + duration);
         }
     }
 

@@ -13,7 +13,6 @@ import com.frappe.platform.RateLimiter;
 import com.frappe.platform.SecretKey;
 import com.frappe.platform.ShortLivedSecretStore;
 import java.net.InetAddress;
-import java.time.Duration;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,7 +50,7 @@ class ValkeyContentIntegrationTests {
         var key = SecretKey.of(IdentitySecrets.EMAIL_PROOF, ids.newId());
 
         // When
-        secrets.put(key, "493817", Duration.ofMinutes(10));
+        secrets.put(key, "493817");
 
         // Then
         var stored = redis.<String, String>opsForHash().entries(ValkeyKeys.secret(key));
@@ -69,8 +68,8 @@ class ValkeyContentIntegrationTests {
         // Given everything the platform writes
         var account = ids.newId();
         var secretKey = SecretKey.of(IdentitySecrets.RECOVERY, account);
-        secrets.put(secretKey, "493817", Duration.ofMinutes(10));
-        secrets.countIssue(secretKey, Duration.ofHours(1), 5);
+        secrets.put(secretKey, "493817");
+        secrets.countIssue(secretKey);
         limiter.tryConsume(LimitKey.ofId(IdentityLimits.LOGIN_PER_ACCOUNT, account));
         limiter.tryConsume(LimitKey.ofAddress(IdentityLimits.LOGIN_PER_ADDRESS, InetAddress.getByName("2001:db8::7")));
 

@@ -62,7 +62,7 @@ class ValkeyHungTests {
         // Given a working store, then a hung Valkey
         var secretKey = SecretKey.of(IdentitySecrets.EMAIL_PROOF, ids.newId());
         var limitKey = LimitKey.ofId(IdentityLimits.LOGIN_PER_ACCOUNT, ids.newId());
-        secrets.put(secretKey, "493817", Duration.ofMinutes(10));
+        secrets.put(secretKey, "493817");
         valkey.getDockerClient().pauseContainerCmd(valkey.getContainerId()).exec();
 
         // Then
