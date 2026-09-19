@@ -1,10 +1,16 @@
 package com.frappe.platform.infrastructure.events;
 
 import java.time.Clock;
+import java.util.Collection;
+import java.util.function.Supplier;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.modulith.events.IncompleteEventPublications;
+import org.springframework.context.support.AbstractApplicationContext;
+import org.springframework.modulith.events.core.EventPublicationRepository;
+import org.springframework.modulith.events.core.EventSerializer;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.SchedulingConfigurer;
 import org.springframework.scheduling.config.ScheduledTaskRegistrar;
@@ -24,19 +30,25 @@ class OutboxRecoveryConfiguration implements SchedulingConfigurer {
     /**
      * Creates the configuration; instantiated by Spring.
      *
-     * @param incompletePublications Modulith's entry point for resubmitting publications
+     * @param repository the registry's repository, for the guarded state transitions
+     * @param serializer the registry's event serializer
+     * @param context the application context, for the listener a publication targets
      * @param outbox recovery queries on the outbox tables
      * @param metrics the dead-letter gauge
      * @param properties recovery settings
      * @param clock the application clock
      */
     OutboxRecoveryConfiguration(
-            IncompleteEventPublications incompletePublications,
+            EventPublicationRepository repository,
+            EventSerializer serializer,
+            ApplicationContext context,
             OutboxRecoveryRepository outbox,
             DeadLetterMetrics metrics,
             OutboxRecoveryProperties properties,
             Clock clock) {
-        this.resubmitter = new FailedPublicationResubmitter(incompletePublications, outbox, metrics, properties, clock);
+        var redelivery =
+                new PublicationRedelivery(repository, serializer, listenersOf(context), context.getClassLoader());
+        this.resubmitter = new FailedPublicationResubmitter(redelivery, outbox, metrics, properties, clock);
         this.properties = properties;
     }
 
@@ -48,6 +60,17 @@ class OutboxRecoveryConfiguration implements SchedulingConfigurer {
     @Bean
     static DeadLetterMetrics deadLetterMetrics() {
         return new DeadLetterMetrics();
+    }
+
+    // Modulith resolves the target listener from the multicaster's listeners; the context keeps the same set
+    // (listener methods are added through addApplicationListener) and, unlike the multicaster, exposes it publicly.
+    private static Supplier<Collection<ApplicationListener<?>>> listenersOf(ApplicationContext context) {
+        if (!(context instanceof AbstractApplicationContext listenerRegistry)) {
+            throw new IllegalStateException(
+                    "Outbox recovery needs an AbstractApplicationContext to find event listeners," + " got "
+                            + context.getClass().getName());
+        }
+        return listenerRegistry::getApplicationListeners;
     }
 
     // Fixed delay, not rate: a run that waits on a slow NATS never overlaps the next one.

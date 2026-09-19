@@ -1,42 +1,41 @@
 package com.frappe.platform.infrastructure.events;
 
+import com.frappe.platform.infrastructure.events.PublicationRedelivery.Outcome;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
-import org.springframework.modulith.events.EventPublication;
-import org.springframework.modulith.events.IncompleteEventPublications;
-import org.springframework.util.ClassUtils;
-import tools.jackson.core.JacksonException;
 
 /**
  * One scheduled recovery run over the outbox:
  *
  * <ol>
  *   <li>fails attempts stuck without outcome (judged by their latest attempt),
- *   <li>moves publications that used up {@code max-attempts}, or whose event type is gone from the classpath, to the
- *       dead-letter table, logging each once,
- *   <li>resubmits failed publications whose backoff elapsed, least recently attempted first, keeping at most {@code
- *       batch-size} in flight; a selected publication whose payload no longer deserializes is dead-lettered instead,
- *       without affecting the rest of the batch,
+ *   <li>moves publications that used up {@code max-attempts} to the dead-letter table, logging each once,
+ *   <li>loads at most one batch of failed publications whose backoff elapsed, least recently attempted first (minus
+ *       those still in flight), and resubmits each through {@link PublicationRedelivery}; a publication that can
+ *       never be delivered (unknown event type or listener, unreadable payload) is dead-lettered instead, without
+ *       affecting the rest of the batch,
  *   <li>refreshes the dead-letter gauge.
  * </ol>
  *
  * <p>Complements the resubmission on NATS reconnect: a publish can fail while the connection survives (a slow or
  * paused server), and a publication can be left behind by an instance that died, neither of which triggers a
- * reconnect. A publication may still be delivered twice (an attempt judged stuck that was only slow): JetStream drops
- * the duplicate within its 10-minute window by {@code Nats-Msg-Id}, later ones are dropped by the consumer inbox on
- * {@code eventId}.
+ * reconnect. Runs on several instances may select the same row; the guarded claim lets only one resubmit it, and the
+ * short window in which a slow attempt is judged stuck and retried by another instance is harmless: JetStream drops the
+ * duplicate within its 10-minute window by {@code Nats-Msg-Id}, later ones are dropped by the consumer inbox on {@code
+ * eventId}.
  */
 final class FailedPublicationResubmitter implements Runnable {
 
     private static final Logger log = LoggerFactory.getLogger(FailedPublicationResubmitter.class);
 
-    private final IncompleteEventPublications incompletePublications;
+    private final PublicationRedelivery redelivery;
     private final OutboxRecoveryRepository outbox;
     private final DeadLetterMetrics metrics;
     private final OutboxRecoveryProperties properties;
@@ -45,19 +44,19 @@ final class FailedPublicationResubmitter implements Runnable {
     /**
      * Creates the resubmitter.
      *
-     * @param incompletePublications Modulith's entry point for resubmitting publications
+     * @param redelivery resubmits one loaded publication
      * @param outbox recovery queries on the outbox tables
      * @param metrics the dead-letter gauge
      * @param properties recovery settings
      * @param clock the application clock
      */
     FailedPublicationResubmitter(
-            IncompleteEventPublications incompletePublications,
+            PublicationRedelivery redelivery,
             OutboxRecoveryRepository outbox,
             DeadLetterMetrics metrics,
             OutboxRecoveryProperties properties,
             Clock clock) {
-        this.incompletePublications = incompletePublications;
+        this.redelivery = redelivery;
         this.outbox = outbox;
         this.metrics = metrics;
         this.properties = properties;
@@ -71,7 +70,6 @@ final class FailedPublicationResubmitter implements Runnable {
             var now = clock.instant();
             outbox.releaseStuckPublications(now.minus(properties.stuckAfter()));
             outbox.deadLetterExhausted(properties.maxAttempts(), now).forEach(this::logDeadLetter);
-            deadLetterUnknownEventTypes(now);
             resubmitDueFailures(now);
             metrics.recordDeadLetters(outbox.countDeadLetters());
         } catch (DataAccessException e) {
@@ -84,16 +82,6 @@ final class FailedPublicationResubmitter implements Runnable {
         }
     }
 
-    // The registry silently skips rows whose class cannot be loaded, so they would never be attempted, never reach
-    // max-attempts and keep occupying the retry selection.
-    private void deadLetterUnknownEventTypes(Instant now) {
-        outbox.failedEventTypes().stream()
-                .filter(eventType -> !ClassUtils.isPresent(eventType, getClass().getClassLoader()))
-                .flatMap(eventType ->
-                        outbox.deadLetterByEventType(eventType, DeadLetterReason.UNKNOWN_EVENT_TYPE, now).stream())
-                .forEach(this::logDeadLetter);
-    }
-
     private void resubmitDueFailures(Instant now) {
         // The batch size is deliberately also the in-flight limit: publications still RESUBMITTED from earlier runs
         // use up the batch, so a slow NATS never has more than one batch outstanding.
@@ -101,32 +89,27 @@ final class FailedPublicationResubmitter implements Runnable {
         if (headroom <= 0) {
             return;
         }
-        var due = outbox.findRetryable(clock.instant(), (int) headroom, properties.interval(), properties.maxBackoff());
-        if (due.isEmpty()) {
-            return;
+        // Only this batch is read, payload included (backoff, fairness and limit in SQL); rows that can never be
+        // delivered are dead-lettered instead of occupying the next selections.
+        var undeliverable = new EnumMap<DeadLetterReason, Set<UUID>>(DeadLetterReason.class);
+        for (var publication :
+                outbox.findRetryable(now, (int) headroom, properties.interval(), properties.maxBackoff())) {
+            var reason = deadLetterReason(redelivery.redeliver(publication, now));
+            if (reason != null) {
+                undeliverable.computeIfAbsent(reason, key -> new HashSet<>()).add(publication.id());
+            }
         }
-        // The selection happens in SQL (backoff, fairness, limit); Modulith's own failed-publication query orders by
-        // publication date and limits before filtering, which would let old failures starve newer ones.
-        var selected = new HashSet<>(due);
-        var unreadable = new HashSet<UUID>();
-        incompletePublications.resubmitIncompletePublications(
-                publication -> selected.contains(publication.getIdentifier()) && isReadable(publication, unreadable));
-        if (!unreadable.isEmpty()) {
-            outbox.deadLetterByIds(unreadable, DeadLetterReason.UNREADABLE_PAYLOAD, now)
-                    .forEach(this::logDeadLetter);
-        }
+        undeliverable.forEach(
+                (reason, ids) -> outbox.deadLetterByIds(ids, reason, now).forEach(this::logDeadLetter));
     }
 
-    // Deserializes before Modulith marks the row RESUBMITTED: failing here keeps the row FAILED and out of this
-    // batch, instead of leaving it stuck in flight until stuck-after. The registry caches the deserialized event.
-    private static boolean isReadable(EventPublication publication, Set<UUID> unreadable) {
-        try {
-            publication.getEvent();
-            return true;
-        } catch (JacksonException e) {
-            unreadable.add(publication.getIdentifier());
-            return false;
-        }
+    private static DeadLetterReason deadLetterReason(Outcome outcome) {
+        return switch (outcome) {
+            case UNKNOWN_EVENT_TYPE -> DeadLetterReason.UNKNOWN_EVENT_TYPE;
+            case UNREADABLE_PAYLOAD -> DeadLetterReason.UNREADABLE_PAYLOAD;
+            case UNKNOWN_LISTENER -> DeadLetterReason.UNKNOWN_LISTENER;
+            case RESUBMITTED, CLAIMED_ELSEWHERE, LISTENER_FAILED -> null;
+        };
     }
 
     private void logDeadLetter(DeadLetter letter) {

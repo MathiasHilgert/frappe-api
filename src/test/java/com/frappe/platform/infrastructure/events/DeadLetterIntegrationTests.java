@@ -101,7 +101,7 @@ class DeadLetterIntegrationTests {
         var selected = repository.findRetryable(NOW, 1, BASE_BACKOFF, MAX_BACKOFF);
 
         // Then
-        assertThat(selected).containsExactly(fresh);
+        assertThat(selected).extracting(FailedPublication::id).containsExactly(fresh);
     }
 
     @Test
@@ -114,7 +114,27 @@ class DeadLetterIntegrationTests {
         var selected = repository.findRetryable(NOW, 2, BASE_BACKOFF, MAX_BACKOFF);
 
         // Then
-        assertThat(selected).containsSubsequence(triedLongAgo, triedRecently);
+        assertThat(selected).extracting(FailedPublication::id).containsSubsequence(triedLongAgo, triedRecently);
+    }
+
+    @Test
+    void onlyTheBatchOfDuePublicationsIsLoaded() {
+        // Given
+        var due = new ArrayList<UUID>();
+        for (var i = 0; i < 5; i++) {
+            due.add(insertFailed(NOW.minus(Duration.ofDays(1)).plusSeconds(i), 1, NOW.minus(Duration.ofHours(3 + i))));
+        }
+
+        // When
+        var selected = repository.findRetryable(NOW, 3, BASE_BACKOFF, MAX_BACKOFF);
+
+        // Then
+        assertThat(selected).hasSize(3).allSatisfy(publication -> {
+            assertThat(due).contains(publication.id());
+            assertThat(publication.listenerId()).isEqualTo("test.listener");
+            assertThat(publication.eventType()).isEqualTo("com.frappe.Probe");
+            assertThat(publication.serializedEvent()).isEqualTo("{}");
+        });
     }
 
     private UUID insertFailed(Instant publishedAt, int attempts, Instant lastAttemptAt) {

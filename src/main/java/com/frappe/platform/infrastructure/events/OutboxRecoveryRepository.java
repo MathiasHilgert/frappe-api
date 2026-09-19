@@ -33,7 +33,7 @@ class OutboxRecoveryRepository {
     // cannot overflow), least recently attempted first: a row that keeps failing goes to the back of the queue and
     // waits longer each time, so it cannot starve newer failures.
     private static final String FIND_RETRYABLE = """
-            select id
+            select id, listener_id, event_type, serialized_event
               from platform.event_publication
              where status = 'FAILED'
                and coalesce(last_resubmission_date, publication_date)
@@ -66,13 +66,7 @@ class OutboxRecoveryRepository {
 
     private static final String DEAD_LETTER_EXHAUSTED = DEAD_LETTER.formatted("coalesce(completion_attempts, 0) >= ?");
 
-    private static final String DEAD_LETTER_BY_EVENT_TYPE = DEAD_LETTER.formatted("event_type = ?");
-
     private static final String DEAD_LETTER_BY_IDS = DEAD_LETTER.formatted("id = any(?)");
-
-    private static final String FAILED_EVENT_TYPES = """
-            select distinct event_type from platform.event_publication where status = 'FAILED'
-            """;
 
     private static final String COUNT_DEAD_LETTERS = """
             select count(*) from platform.event_publication_dead_letter
@@ -109,12 +103,16 @@ class OutboxRecoveryRepository {
      * @param limit most ids to return
      * @param baseBackoff wait after the first attempt; doubles with every further attempt
      * @param maxBackoff cap of the wait
-     * @return publication ids, in retry order
+     * @return at most {@code limit} publications with their payload, in retry order
      */
-    List<UUID> findRetryable(Instant now, int limit, Duration baseBackoff, Duration maxBackoff) {
+    List<FailedPublication> findRetryable(Instant now, int limit, Duration baseBackoff, Duration maxBackoff) {
         return jdbc.sql(FIND_RETRYABLE)
                 .params(Timestamp.from(now), seconds(baseBackoff), seconds(maxBackoff), limit)
-                .query(UUID.class)
+                .query((row, rowNumber) -> new FailedPublication(
+                        row.getObject("id", UUID.class),
+                        row.getString("listener_id"),
+                        row.getString("event_type"),
+                        row.getString("serialized_event")))
                 .list();
     }
 
@@ -139,18 +137,6 @@ class OutboxRecoveryRepository {
     }
 
     /**
-     * Moves the failed publications of one event type to the dead-letter table.
-     *
-     * @param eventType fully qualified class name of the event
-     * @param reason why they are given up
-     * @param now when they are dead-lettered
-     * @return the moved publications
-     */
-    List<DeadLetter> deadLetterByEventType(String eventType, DeadLetterReason reason, Instant now) {
-        return deadLetter(DEAD_LETTER_BY_EVENT_TYPE, eventType, reason, now);
-    }
-
-    /**
      * Moves the given publications to the dead-letter table if they are still failed.
      *
      * @param ids publication ids
@@ -160,15 +146,6 @@ class OutboxRecoveryRepository {
      */
     List<DeadLetter> deadLetterByIds(Collection<UUID> ids, DeadLetterReason reason, Instant now) {
         return deadLetter(DEAD_LETTER_BY_IDS, ids.toArray(UUID[]::new), reason, now);
-    }
-
-    /**
-     * Lists the event types that have failed publications.
-     *
-     * @return fully qualified class names
-     */
-    List<String> failedEventTypes() {
-        return jdbc.sql(FAILED_EVENT_TYPES).query(String.class).list();
     }
 
     private List<DeadLetter> deadLetter(String sql, Object condition, DeadLetterReason reason, Instant now) {

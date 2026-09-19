@@ -10,5 +10,8 @@ enum DeadLetterReason {
     UNKNOWN_EVENT_TYPE,
 
     /** The stored JSON no longer deserializes into the event class (an incompatible change of the event). */
-    UNREADABLE_PAYLOAD
+    UNREADABLE_PAYLOAD,
+
+    /** No listener with the stored id exists any more (removed or renamed listener method). */
+    UNKNOWN_LISTENER
 }

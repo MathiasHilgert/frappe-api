@@ -5,8 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -18,27 +16,21 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.frappe.platform.infrastructure.events.PublicationRedelivery.Outcome;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.KeyValuePair;
 import org.springframework.dao.DataAccessResourceFailureException;
-import org.springframework.modulith.events.EventPublication;
-import org.springframework.modulith.events.IncompleteEventPublications;
-import tools.jackson.core.exc.StreamReadException;
 
 class FailedPublicationResubmitterTest {
 
@@ -47,7 +39,7 @@ class FailedPublicationResubmitterTest {
     final OutboxRecoveryProperties properties =
             new OutboxRecoveryProperties(Duration.ofSeconds(30), 50, Duration.ofMinutes(5), 20, Duration.ofHours(1));
 
-    final IncompleteEventPublications incomplete = mock(IncompleteEventPublications.class);
+    final PublicationRedelivery redelivery = mock(PublicationRedelivery.class);
 
     final OutboxRecoveryRepository outbox = mock(OutboxRecoveryRepository.class);
 
@@ -56,7 +48,7 @@ class FailedPublicationResubmitterTest {
     final Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
 
     final FailedPublicationResubmitter resubmitter =
-            new FailedPublicationResubmitter(incomplete, outbox, metrics, properties, clock);
+            new FailedPublicationResubmitter(redelivery, outbox, metrics, properties, clock);
 
     final Logger logger = (Logger) LoggerFactory.getLogger(FailedPublicationResubmitter.class);
 
@@ -86,19 +78,20 @@ class FailedPublicationResubmitterTest {
     }
 
     @Test
-    void resubmitsOnlyTheSelectedPublications() {
+    void redeliversExactlyTheLoadedBatch() {
         // Given
-        var selected = UUID.randomUUID();
-        when(outbox.findRetryable(any(), anyInt(), any(), any())).thenReturn(List.of(selected));
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<Predicate<EventPublication>> filter = ArgumentCaptor.forClass(Predicate.class);
+        var first = failedPublication(Probe.class.getName());
+        var second = failedPublication(Probe.class.getName());
+        when(outbox.findRetryable(any(), anyInt(), any(), any())).thenReturn(List.of(first, second));
+        when(redelivery.redeliver(any(), any())).thenReturn(Outcome.RESUBMITTED);
 
         // When
         resubmitter.run();
 
         // Then
-        verify(incomplete).resubmitIncompletePublications(filter.capture());
-        assertThat(filter.getValue()).accepts(publication(selected)).rejects(publication(UUID.randomUUID()));
+        verify(redelivery).redeliver(first, NOW);
+        verify(redelivery).redeliver(second, NOW);
+        verify(outbox, never()).deadLetterByIds(any(), any(), any());
     }
 
     @Test
@@ -123,7 +116,7 @@ class FailedPublicationResubmitterTest {
 
         // Then
         verify(outbox, never()).findRetryable(any(), anyInt(), any(), any());
-        verify(incomplete, never()).resubmitIncompletePublications(any(Predicate.class));
+        verify(redelivery, never()).redeliver(any(), any());
     }
 
     @Test
@@ -152,49 +145,27 @@ class FailedPublicationResubmitterTest {
     }
 
     @Test
-    void failedPublicationsOfAnEventTypeMissingFromTheClasspathAreDeadLettered() {
+    void publicationsThatCanNeverBeDeliveredAreDeadLetteredWithTheirReason() {
         // Given
-        var missing = "com.frappe.removed.TableMerged";
-        var letter =
-                new DeadLetter(UUID.randomUUID(), missing, "nats.listener", 1, DeadLetterReason.UNKNOWN_EVENT_TYPE);
-        when(outbox.failedEventTypes()).thenReturn(List.of(Probe.class.getName(), missing));
-        when(outbox.deadLetterByEventType(missing, DeadLetterReason.UNKNOWN_EVENT_TYPE, NOW))
-                .thenReturn(List.of(letter));
+        var unreadable = failedPublication(Probe.class.getName());
+        var removedType = failedPublication("com.frappe.removed.TableMerged");
+        var orphaned = failedPublication(Probe.class.getName());
+        var readable = failedPublication(Probe.class.getName());
+        when(outbox.findRetryable(any(), anyInt(), any(), any()))
+                .thenReturn(List.of(unreadable, removedType, orphaned, readable));
+        when(redelivery.redeliver(unreadable, NOW)).thenReturn(Outcome.UNREADABLE_PAYLOAD);
+        when(redelivery.redeliver(removedType, NOW)).thenReturn(Outcome.UNKNOWN_EVENT_TYPE);
+        when(redelivery.redeliver(orphaned, NOW)).thenReturn(Outcome.UNKNOWN_LISTENER);
+        when(redelivery.redeliver(readable, NOW)).thenReturn(Outcome.RESUBMITTED);
 
         // When
         resubmitter.run();
 
         // Then
-        verify(outbox, never()).deadLetterByEventType(eq(Probe.class.getName()), any(), any());
-        assertThat(logs.list)
-                .singleElement()
-                .satisfies(event -> assertThat(event.getLevel()).isEqualTo(Level.ERROR));
-    }
-
-    @Test
-    void anUnreadablePayloadIsDeadLetteredWhileTheRestOfTheBatchIsResubmitted() {
-        // Given
-        var readableId = UUID.randomUUID();
-        var unreadableId = UUID.randomUUID();
-        var readable = publication(readableId);
-        var unreadable = publication(unreadableId);
-        when(unreadable.getEvent()).thenThrow(new StreamReadException(null, "Unexpected end-of-input"));
-        when(outbox.findRetryable(any(), anyInt(), any(), any())).thenReturn(List.of(readableId, unreadableId));
-        var resubmitted = new ArrayList<EventPublication>();
-        doAnswer(call -> {
-                    Predicate<EventPublication> filter = call.getArgument(0);
-                    Stream.of(unreadable, readable).filter(filter).forEach(resubmitted::add);
-                    return null;
-                })
-                .when(incomplete)
-                .resubmitIncompletePublications(any(Predicate.class));
-
-        // When
-        resubmitter.run();
-
-        // Then
-        assertThat(resubmitted).containsExactly(readable);
-        verify(outbox).deadLetterByIds(Set.of(unreadable.getIdentifier()), DeadLetterReason.UNREADABLE_PAYLOAD, NOW);
+        verify(redelivery).redeliver(readable, NOW);
+        verify(outbox).deadLetterByIds(Set.of(unreadable.id()), DeadLetterReason.UNREADABLE_PAYLOAD, NOW);
+        verify(outbox).deadLetterByIds(Set.of(removedType.id()), DeadLetterReason.UNKNOWN_EVENT_TYPE, NOW);
+        verify(outbox).deadLetterByIds(Set.of(orphaned.id()), DeadLetterReason.UNKNOWN_LISTENER, NOW);
     }
 
     @Test
@@ -231,9 +202,7 @@ class FailedPublicationResubmitterTest {
 
     record Probe(UUID eventId) {}
 
-    private static EventPublication publication(UUID id) {
-        var publication = mock(EventPublication.class);
-        when(publication.getIdentifier()).thenReturn(id);
-        return publication;
+    private static FailedPublication failedPublication(String eventType) {
+        return new FailedPublication(UUID.randomUUID(), "nats.listener", eventType, "{}");
     }
 }
