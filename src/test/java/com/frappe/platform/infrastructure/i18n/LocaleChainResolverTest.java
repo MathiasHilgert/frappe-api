@@ -6,6 +6,10 @@ import static com.frappe.platform.i18n.SupportedLocales.SPANISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.frappe.platform.i18n.TenantLocaleDefaults;
 import com.frappe.platform.i18n.TenantLocales;
 import com.frappe.platform.i18n.UserLocalePreference;
@@ -13,9 +17,12 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -24,6 +31,21 @@ class LocaleChainResolverTest {
 
     private static final UserLocalePreference ANONYMOUS = request -> Optional.empty();
     private static final TenantLocaleDefaults NO_TENANT = request -> Optional.empty();
+
+    private final Logger logger = (Logger) LoggerFactory.getLogger(LocaleChainResolver.class);
+
+    private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
+
+    @BeforeEach
+    void captureLogs() {
+        logs.start();
+        logger.addAppender(logs);
+    }
+
+    @AfterEach
+    void releaseLogs() {
+        logger.detachAppender(logs);
+    }
 
     @ParameterizedTest
     @CsvSource({"es-AR, es", "pt-BR, pt", "fr, en"})
@@ -150,6 +172,52 @@ class LocaleChainResolverTest {
                 .isThrownBy(
                         () -> resolver.setLocale(new MockHttpServletRequest(), new MockHttpServletResponse(), SPANISH))
                 .withMessageContaining("UserLocalePreference");
+    }
+
+    @Test
+    void aFailingUserPreferenceCountsAsNoPreferenceAndWarnsOnce() {
+        // Given
+        var resolver = new LocaleChainResolver(
+                request -> {
+                    throw new IllegalStateException("session store unavailable");
+                },
+                NO_TENANT);
+        var request = requestAccepting("es");
+
+        // When
+        var locale = resolver.resolveLocale(request);
+        resolver.resolveLocale(request);
+
+        // Then
+        assertThat(locale).isEqualTo(SPANISH);
+        assertThat(logs.list).singleElement().satisfies(event -> assertWarnedAbout(event, "user_preference"));
+    }
+
+    @Test
+    void aFailingTenantLookupEnablesEveryLanguageAndEndsInEnglish() {
+        // Given
+        TenantLocaleDefaults failing = request -> {
+            throw new IllegalStateException("organization unavailable");
+        };
+        var resolver = new LocaleChainResolver(ANONYMOUS, failing);
+
+        // When
+        var withHeader = resolver.resolveLocale(requestAccepting("pt-BR"));
+        var withoutHeader = resolver.resolveLocale(new MockHttpServletRequest());
+
+        // Then
+        assertThat(withHeader).isEqualTo(PORTUGUESE);
+        assertThat(withoutHeader).isEqualTo(ENGLISH);
+        assertThat(logs.list).hasSize(2).allSatisfy(event -> assertWarnedAbout(event, "tenant_defaults"));
+    }
+
+    private static void assertWarnedAbout(ILoggingEvent event, String link) {
+        assertThat(event.getLevel()).isEqualTo(Level.WARN);
+        assertThat(event.getKeyValuePairs()).anySatisfy(pair -> {
+            assertThat(pair.key).isEqualTo("frappe.locale_link");
+            assertThat(pair.value).isEqualTo(link);
+        });
+        assertThat(event.getThrowableProxy()).isNotNull();
     }
 
     private static MockHttpServletRequest requestAccepting(String acceptLanguage) {

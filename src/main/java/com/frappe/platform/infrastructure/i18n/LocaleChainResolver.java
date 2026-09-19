@@ -9,7 +9,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.servlet.LocaleResolver;
 
@@ -19,6 +22,9 @@ import org.springframework.web.servlet.LocaleResolver;
  * business context every link is matched only against the languages the business enabled; anonymous requests simply
  * have no preference, so they start at {@code Accept-Language}.
  *
+ * <p>Localization never fails a request: a port that throws counts as "no value" for its link (a failing tenant
+ * lookup therefore means every supported language is enabled) and is logged once at WARN; the chain goes on.
+ *
  * <p>The result is kept as a request attribute, so the ports are asked at most once per request even though the
  * {@code Content-Language} filter and the {@code DispatcherServlet} both resolve it.
  */
@@ -26,6 +32,11 @@ final class LocaleChainResolver implements LocaleResolver {
 
     /** Request attribute holding the locale once resolved. */
     static final String RESOLVED_LOCALE_ATTRIBUTE = LocaleChainResolver.class.getName() + ".locale";
+
+    private static final Logger log = LoggerFactory.getLogger(LocaleChainResolver.class);
+
+    private static final String USER_PREFERENCE_LINK = "user_preference";
+    private static final String TENANT_DEFAULTS_LINK = "tenant_defaults";
 
     private final UserLocalePreference userPreference;
     private final TenantLocaleDefaults tenantDefaults;
@@ -58,16 +69,29 @@ final class LocaleChainResolver implements LocaleResolver {
     }
 
     private Locale walkChain(HttpServletRequest request) {
-        var tenant = tenantDefaults.localesFor(request);
+        var tenant = isolated(TENANT_DEFAULTS_LINK, () -> tenantDefaults.localesFor(request));
         var enabled = tenant.map(settings -> SupportedLocales.all().restrictedTo(settings.enabledLanguages()))
                 .orElseGet(SupportedLocales::all);
-        return userPreference
-                .preferredLocale(request)
+        return isolated(USER_PREFERENCE_LINK, () -> userPreference.preferredLocale(request))
                 .flatMap(enabled::match)
                 .or(() -> acceptLanguage(request).flatMap(enabled::matchAcceptLanguage))
                 .or(() -> tenant.flatMap(TenantLocales::branchDefault).flatMap(enabled::match))
                 .or(() -> tenant.map(TenantLocales::businessDefault).flatMap(enabled::match))
                 .orElse(SupportedLocales.FALLBACK);
+    }
+
+    // Isolation boundary (see writing-code/references/errors.md): the ports run another module's code, and a failure
+    // there must not fail every request, health checks included. Only this link loses its value.
+    private static <T> Optional<T> isolated(String link, Supplier<Optional<T>> lookup) {
+        try {
+            return lookup.get();
+        } catch (RuntimeException e) {
+            log.atWarn()
+                    .addKeyValue(LogFields.LOCALE_LINK, link)
+                    .setCause(e)
+                    .log("Locale lookup {} failed; resolving the locale without it", link);
+            return Optional.empty();
+        }
     }
 
     private static Optional<String> acceptLanguage(HttpServletRequest request) {
