@@ -44,6 +44,10 @@ Modules' own templates; bounces, webhooks, attachments, marketing mail.
   completes (orchestrator decision 2, see T9).
 - Every mail is multipart (HTML + text), orchestrator decision 3.
 - Size ~2,400+ lines in one PR: exception recorded by the orchestrator.
+- `PlainTextAlternative` is our own ~60-line visitor over jsoup (accepted deviation from "nothing written by hand
+  beyond the adapters"): jsoup parses and decodes but has no formatted text output (its `text()` drops line breaks).
+- The renderer's whole-message fallback on a missing key is a backstop: the startup catalog check already requires the
+  same keys in all three languages, so in production it triggers only for unsupported locales.
 
 ## Tasks
 
@@ -60,6 +64,11 @@ Modules' own templates; bounces, webhooks, attachments, marketing mail.
 - [x] T9. Review decisions: `ObservedMailer` no longer logs transient failures (log or rethrow); permanent rejections
       (Resend 4xx except 401/403/408/409/429, SMTP 5xx, malformed address) are logged once and not retried; multipart
       HTML + plain text (jsoup-derived).
+- [x] T10. Deep-review minors: ISO-8859-1-safe `FRAPPE_MAIL_FROM` (`Frapp\u00e9`) with a From-name assertion;
+      transient-only Javadoc on `Mailer`/`MailDeliveryException`/`MailTransport`; sender validated at startup; Resend
+      configuration errors transient; SMTP permanent only for a 5xx refused recipient; CI npm cache,
+      `npm ci --ignore-scripts`, node version input and cacheable `compileMailLayouts`; `MailLibrariesTest`;
+      `RecordingMailer` fixture; `frappe.mail.provider` log field; comment and import cleanups.
 - [x] T8. Gate `./gradlew spotlessApply check --rerun-tasks` green; commit.
 
 ## Acceptance → tests
@@ -120,6 +129,12 @@ Recorded per task below as work proceeds.
   assertion counting unrelated background NATS ERRORs of other cached contexts; now counted by exception type).
   Logging verified end to end: without `ObservedMailer`'s log, each failed attempt yields exactly one ERROR, from
   Spring's async uncaught-exception handler around the `@ApplicationModuleListener` (plus Modulith's INFO).
+
+- T10 (gate: BUILD SUCCESSFUL, 501 tests, 0 failures) RED: `MailpitIntegrationTests` (From name "FrappÃ©"), `MailConfigurationTests.startupFailsOnASenderThatIsNotAnAddress`,
+  `ResendMailTransportTest.configurationErrorsAreTransientWhateverTheirStatus` (4 cases),
+  `SmtpMailTransportTest.aPermanentReplyAboutTheSenderOrTheSessionIsTransient` (530), `ObservedMailerTest` (log field
+  `frappe.mail.provider`), `RecordingMailerTest` (compile: no `RecordingMailer`). GREEN after the fixes.
+  `MailLibrariesTest` is a guard and passed on first run.
 
 ## Engram mirror
 
