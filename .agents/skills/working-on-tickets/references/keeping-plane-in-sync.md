@@ -30,3 +30,13 @@ plane.sh create --title "identity: Open and close person sessions" \
 ```
 
 The script minifies the HTML, sets state Todo and assigns the Plane module. Tables need `colwidth` on every `th`/`td` summing ~1000 or Plane renders them collapsed.
+
+## Other commands
+
+- `plane.sh relate FAPI-A blocked-by|blocks|relates-to FAPI-B` — create a work-item relation between two tickets.
+- `plane.sh edit FAPI-N [--title T] [--html-file F] [--estimate V]` — update a ticket's title, description and/or estimate point.
+- `plane.sh modules` / `plane.sh labels` — list modules / labels (name and id).
+- `plane.sh label-create NAME [--color HEX]` — create a missing label.
+- `plane.sh module-create NAME` — create a missing module.
+
+`create` and `edit` also accept `--estimate V` to set the estimate point to a value from the project's configured estimate scale; this fails with a clear message if the project has no estimates enabled. Set `PLANE_DRY_RUN=1` to print any write request (method, path, body) instead of sending it.
