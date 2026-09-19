@@ -1,5 +1,7 @@
 package com.frappe.platform.infrastructure.mail;
 
+import jakarta.mail.internet.AddressException;
+import jakarta.mail.internet.InternetAddress;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.boot.EnvironmentPostProcessor;
@@ -8,7 +10,8 @@ import org.springframework.core.Ordered;
 import org.springframework.core.env.ConfigurableEnvironment;
 
 /**
- * Fails startup early when the sender address or, with the Resend provider, the Resend API key is missing. The Binder
+ * Fails startup early when the sender address is missing or not an address, or, with the Resend provider, the Resend
+ * API key is missing. The Binder
  * would otherwise pass an unresolved placeholder through as the value and fail on the first mail instead.
  */
 class RequiredMailSettings implements EnvironmentPostProcessor, Ordered {
@@ -32,12 +35,24 @@ class RequiredMailSettings implements EnvironmentPostProcessor, Ordered {
                 .map(Map.Entry::getValue)
                 .sorted()
                 .toList();
-        if (!missing.isEmpty()) {
-            throw new MissingMailSettingsException("Missing mail setting(s) " + String.join(", ", missing)
-                    + ". Set them as environment variables (RESEND_API_KEY: the Resend API key, kept in Bitwarden;"
-                    + " FRAPPE_MAIL_FROM: the sender, e.g. 'Frappé <no-reply@example.com>' on a domain verified in"
-                    + " Resend), or run with the 'local' profile (./gradlew bootRun activates it) to send to compose's"
-                    + " Mailpit.");
+        if (missing.isEmpty()) {
+            requireValidSender(environment.getProperty("frappe.mail.from"));
+            return;
+        }
+        throw new MissingMailSettingsException("Missing mail setting(s) " + String.join(", ", missing)
+                + ". Set them as environment variables (RESEND_API_KEY: the Resend API key, kept in Bitwarden;"
+                + " FRAPPE_MAIL_FROM: the sender, e.g. 'Frappé <no-reply@example.com>' on a domain verified in"
+                + " Resend), or run with the 'local' profile (./gradlew bootRun activates it) to send to compose's"
+                + " Mailpit.");
+    }
+
+    // A sender Resend or the SMTP server would refuse fails every mail; better to stop at startup.
+    private static void requireValidSender(String from) {
+        try {
+            new InternetAddress(from, true);
+        } catch (AddressException e) {
+            throw new MissingMailSettingsException("FRAPPE_MAIL_FROM is not a valid address (" + e.getMessage()
+                    + "). Set it to a sender such as 'Frappé <no-reply@example.com>' on a domain verified in Resend.");
         }
     }
 

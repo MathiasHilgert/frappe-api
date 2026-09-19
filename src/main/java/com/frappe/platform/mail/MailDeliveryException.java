@@ -1,8 +1,10 @@
 package com.frappe.platform.mail;
 
 /**
- * The mail provider refused a message or could not be reached. Thrown by {@link Mailer#send}, so the calling listener
- * fails and the outbox retries the publication. The message names the provider and the failure kind only: never the
+ * Delivering a mail failed for a reason a retry can fix: the provider is down or rate-limits, or a setting (sender,
+ * API key) must be corrected. Thrown by {@link Mailer#send}, so the calling listener fails and the outbox retries the
+ * publication. Permanent rejections (an invalid or refused recipient) are not thrown: the platform logs them once,
+ * counts them and does not retry them. The message names the provider and the failure kind only: never the
  * recipient, the body or credentials.
  */
 public final class MailDeliveryException extends RuntimeException {

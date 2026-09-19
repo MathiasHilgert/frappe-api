@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import org.eclipse.angus.mail.smtp.SMTPAddressFailedException;
+import org.eclipse.angus.mail.smtp.SMTPSendFailedException;
 import org.junit.jupiter.api.Test;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
@@ -77,6 +78,18 @@ class SmtpMailTransportTest {
                 .isNotInstanceOf(MailRejectedException.class)
                 .withMessageNotContaining("ana.maria")
                 .withNoCause();
+    }
+
+    @Test
+    void aPermanentReplyAboutTheSenderOrTheSessionIsTransient() throws Exception {
+        // Given the server answers 530 (authentication required): a setting to fix, not a bad recipient
+        var transport = failingWith(new SMTPSendFailedException(
+                "MAIL FROM", 530, "530 5.7.0 Authentication required", null, null, null, null));
+
+        // When / Then
+        assertThatExceptionOfType(MailDeliveryException.class)
+                .isThrownBy(() -> transport.deliver(mail, message))
+                .isNotInstanceOf(MailRejectedException.class);
     }
 
     @Test

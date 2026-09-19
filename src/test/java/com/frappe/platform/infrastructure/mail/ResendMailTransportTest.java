@@ -121,6 +121,18 @@ class ResendMailTransportTest {
                 .isNotInstanceOf(MailRejectedException.class);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"invalid_from_address", "invalid_api_key", "missing_api_key", "restricted_api_key"})
+    void configurationErrorsAreTransientWhateverTheirStatus(String name) {
+        // Given an error an operator fixes (sender, key), not the mail itself
+        var transport = failingWith(422, name);
+
+        // When / Then: retried until fixed, never dropped
+        assertThatExceptionOfType(MailDeliveryException.class)
+                .isThrownBy(() -> transport.deliver(mail, message))
+                .isNotInstanceOf(MailRejectedException.class);
+    }
+
     @Test
     void anUnreachableProviderBecomesOurExceptionWithTheNetworkCause() {
         // Given the SDK wraps network failures in a bare RuntimeException

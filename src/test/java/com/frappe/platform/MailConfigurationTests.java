@@ -35,6 +35,17 @@ class MailConfigurationTests {
     }
 
     @Test
+    void startupFailsOnASenderThatIsNotAnAddress() {
+        // Given
+        var app = application("FRAPPE_MAIL_FROM=Frappé no-reply at frappe.test", "RESEND_API_KEY=re_not_a_real_key");
+
+        // Then
+        assertThatThrownBy(() -> app.run())
+                .hasStackTraceContaining("MissingMailSettingsException")
+                .hasStackTraceContaining("FRAPPE_MAIL_FROM is not a valid address");
+    }
+
+    @Test
     void smtpNeedsNoResendApiKey() {
         // Given SMTP instead of Resend; startup then fails later, on the unreachable database
         var app = application("FRAPPE_MAIL_FROM=Frappé <no-reply@frappe.test>", "frappe.mail.provider=smtp");

@@ -3,12 +3,12 @@ package com.frappe.platform.infrastructure.mail;
 import com.frappe.platform.mail.MailDeliveryException;
 import com.frappe.platform.mail.MailMessage;
 import jakarta.mail.MessagingException;
-import jakarta.mail.internet.AddressException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.OptionalInt;
 import org.eclipse.angus.mail.smtp.SMTPAddressFailedException;
-import org.eclipse.angus.mail.smtp.SMTPSendFailedException;
 import org.springframework.mail.MailException;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -16,9 +16,9 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 
 /**
  * Delivers over SMTP (Spring Mail), in the {@code local} profile to Mailpit, as HTML with its text alternative. SMTP has
- * no idempotency key; Mailpit shows every attempt. A permanent refusal (a {@code 5xx} reply, a malformed address) is a
- * {@link MailRejectedException}; anything else, a {@code 4xx} deferral or an unreachable server, is a
- * {@link MailDeliveryException}, retried by the outbox.
+ * no idempotency key; Mailpit shows every attempt. A recipient refused with a {@code 5xx} reply is a
+ * {@link MailRejectedException}; anything else (a {@code 4xx} deferral, another {@code 5xx} such as {@code 530}, an
+ * unreachable server) is a {@link MailDeliveryException}, retried by the outbox.
  */
 final class SmtpMailTransport implements MailTransport {
 
@@ -55,42 +55,29 @@ final class SmtpMailTransport implements MailTransport {
         } catch (MailException | MessagingException e) {
             // No cause: SMTP replies and Spring's failed-message list quote the recipient, and the cause chain reaches
             // logs. The reply code or the exception type is enough to tell a refusal from an outage.
-            var permanentReply = permanentReplyCode(e);
-            if (permanentReply.isPresent()) {
+            var refusedRecipient = permanentRecipientRefusal(e);
+            if (refusedRecipient.isPresent()) {
                 throw new MailRejectedException("SMTP server rejected mail %s (reply %d)"
-                        .formatted(message.templateId(), permanentReply.getAsInt()));
-            }
-            if (hasMalformedAddress(e)) {
-                throw new MailRejectedException("Mail %s has a malformed address".formatted(message.templateId()));
+                        .formatted(message.templateId(), refusedRecipient.getAsInt()));
             }
             throw new MailDeliveryException("Sending mail %s over SMTP failed (%s)"
                     .formatted(message.templateId(), e.getClass().getSimpleName()));
         }
     }
 
-    // The 5xx reply to RCPT TO or DATA, wherever Spring and Angus Mail nested it (failed messages, next exceptions).
-    private static OptionalInt permanentReplyCode(Exception failure) {
-        for (var cause : causesOf(failure)) {
-            var code =
-                    switch (cause) {
-                        case SMTPAddressFailedException refused -> refused.getReturnCode();
-                        case SMTPSendFailedException refused -> refused.getReturnCode();
-                        default -> 0;
-                    };
-            if (code >= 500 && code < 600) {
-                return OptionalInt.of(code);
-            }
-        }
-        return OptionalInt.empty();
-    }
-
-    private static boolean hasMalformedAddress(Exception failure) {
+    // Only a 5xx reply to RCPT TO (the recipient does not exist or is refused) is permanent, wherever Spring and Angus
+    // Mail nested it (failed messages, next exceptions). Other 5xx replies (530 authentication required, sender not
+    // permitted) are about our settings and stay transient, as with Resend.
+    private static OptionalInt permanentRecipientRefusal(Exception failure) {
         return causesOf(failure).stream()
-                .anyMatch(cause -> cause instanceof AddressException && !(cause instanceof SMTPAddressFailedException));
+                .filter(SMTPAddressFailedException.class::isInstance)
+                .mapToInt(cause -> ((SMTPAddressFailedException) cause).getReturnCode())
+                .filter(code -> code >= 500 && code < 600)
+                .findFirst();
     }
 
-    private static java.util.List<Throwable> causesOf(Exception failure) {
-        var found = new java.util.ArrayList<Throwable>();
+    private static List<Throwable> causesOf(Exception failure) {
+        var found = new ArrayList<Throwable>();
         var pending = new ArrayDeque<Throwable>();
         pending.add(failure);
         if (failure instanceof MailSendException send) {

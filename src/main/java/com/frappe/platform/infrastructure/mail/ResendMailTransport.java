@@ -17,6 +17,10 @@ final class ResendMailTransport implements MailTransport {
 
     private static final Set<Integer> TRANSIENT_CLIENT_ERRORS = Set.of(401, 403, 408, 409, 429);
 
+    // Errors about our settings, not the mail: fixed by an operator, after which the retry succeeds.
+    private static final Set<String> CONFIGURATION_ERRORS = Set.of(
+            "invalid_from_address", "invalid_api_key", "missing_api_key", "restricted_api_key", "invalid_access");
+
     private final ResendEmails emails;
 
     private final String from;
@@ -53,7 +57,7 @@ final class ResendMailTransport implements MailTransport {
         } catch (ResendException e) {
             // No cause: Resend's error text may echo the request (the recipient), and the cause chain reaches logs.
             var failure = "HTTP %s (%s)".formatted(e.getStatusCode(), e.getErrorName());
-            if (isPermanent(e.getStatusCode())) {
+            if (isPermanent(e.getStatusCode(), e.getErrorName())) {
                 throw new MailRejectedException("Resend rejected mail %s: %s".formatted(message.templateId(), failure));
             }
             throw new MailDeliveryException(
@@ -72,8 +76,13 @@ final class ResendMailTransport implements MailTransport {
 
     // A 4xx means this request will never be accepted (validation, invalid recipient), except for the ones that pass
     // or that an operator fixes without the mail being lost: 401/403 (API key, unverified domain), 408 (timeout), 409
-    // (concurrent request with the same idempotency key) and 429 (rate limit). Those, 5xx and unknown stay transient.
-    private static boolean isPermanent(Integer status) {
-        return status != null && status >= 400 && status < 500 && !TRANSIENT_CLIENT_ERRORS.contains(status);
+    // (concurrent request with the same idempotency key), 429 (rate limit) and configuration errors under any status
+    // (invalid_from_address). Those, 5xx and unknown stay transient.
+    private static boolean isPermanent(Integer status, String errorName) {
+        return status != null
+                && status >= 400
+                && status < 500
+                && !TRANSIENT_CLIENT_ERRORS.contains(status)
+                && !CONFIGURATION_ERRORS.contains(errorName);
     }
 }

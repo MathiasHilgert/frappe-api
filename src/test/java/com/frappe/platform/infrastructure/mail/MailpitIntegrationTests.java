@@ -58,6 +58,8 @@ class MailpitIntegrationTests {
         var summary =
                 await().atMost(Duration.ofSeconds(10)).until(() -> messageTo(api, recipient), node -> node != null);
         assertThat(summary.get("Subject").asString()).isEqualTo("Tu código de Frappé");
+        // application-local.properties is read as ISO-8859-1: the sender's display name must survive it
+        assertThat(summary.get("From").get("Name").asString()).isEqualTo("Frappé");
         var message = api.get()
                 .uri("/api/v1/message/{id}", summary.get("ID").asString())
                 .retrieve()

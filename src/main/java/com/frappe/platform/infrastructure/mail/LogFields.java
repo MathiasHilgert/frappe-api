@@ -13,7 +13,7 @@ final class LogFields {
     static final String LOCALE = "frappe.mail.locale";
 
     /** Mail provider ({@code resend}, {@code smtp}). */
-    static final String PROVIDER = "mail.provider";
+    static final String PROVIDER = "frappe.mail.provider";
 
     private LogFields() {}
 }

@@ -162,7 +162,7 @@ class ObservedMailerTest {
                 .satisfies(event -> assertThat(keyValues(event))
                         .contains(
                                 "frappe.mail.template=mailprobe/welcome",
-                                "mail.provider=resend",
+                                "frappe.mail.provider=resend",
                                 "frappe.mail.locale=en"));
     }
 

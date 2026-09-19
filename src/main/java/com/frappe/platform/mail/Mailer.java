@@ -23,8 +23,10 @@ public interface Mailer {
      * Renders and sends a message.
      *
      * @param message the message to send
-     * @throws MailDeliveryException if the mail provider refused the message or could not be reached; the calling
-     *     listener fails and the outbox retries it
+     * @throws MailDeliveryException if delivery failed for a reason a retry can fix (provider outage, rate limit,
+     *     settings to correct); the calling listener fails and the outbox retries it. A permanent rejection (an
+     *     invalid or refused recipient) does not throw: it is logged once, counted as {@code mail.outcome=rejected}
+     *     and not retried
      */
     void send(MailMessage message);
 }

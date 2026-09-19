@@ -47,8 +47,7 @@ final class ObservedMailer implements Mailer {
     @Override
     public void send(MailMessage message) {
         // Every tag is set up front (mail.locale "none" until rendered, mail.outcome "failed" until known), so the
-        // timer
-        // keeps one tag set.
+        // timer keeps one tag set.
         var observation = Observation.createNotStarted(OBSERVATION, observations)
                 .lowCardinalityKeyValue("mail.provider", transport.provider())
                 .lowCardinalityKeyValue("mail.template", message.templateId())

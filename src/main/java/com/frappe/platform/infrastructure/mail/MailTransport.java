@@ -18,8 +18,9 @@ interface MailTransport {
      *
      * @param mail the rendered subject and HTML
      * @param message the message it was rendered from (recipient, idempotency key)
-     * @throws MailDeliveryException if the provider refused the mail or could not be reached; the message never carries
-     *     the recipient, the body or credentials
+     * @throws MailDeliveryException if delivery failed for a reason a retry can fix (outage, limit, settings); the
+     *     outbox retries it. The message never carries the recipient, the body or credentials
+     * @throws MailRejectedException if the provider refused this mail for good (a refused recipient); not retried
      */
     void deliver(RenderedMail mail, MailMessage message);
 }
