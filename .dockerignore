@@ -1,0 +1,16 @@
+*
+
+!gradlew
+!gradle
+!build.gradle.kts
+!settings.gradle.kts
+!gradle.properties
+!package.json
+!package-lock.json
+!src
+
+**/.git
+**/.gradle
+**/build
+**/node_modules
+**/*.md
