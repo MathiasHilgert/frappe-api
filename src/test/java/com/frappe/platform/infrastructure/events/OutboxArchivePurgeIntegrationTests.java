@@ -6,6 +6,7 @@ import com.frappe.TestcontainersConfiguration;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.IntStream;
@@ -16,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /** Acceptance tests of FAPI-9 against real Postgres: the purge deletes only what the retention rule allows. */
 @SpringBootTest(properties = {"frappe.outbox.archive.purge-batch-size=2"})
@@ -28,6 +30,9 @@ class OutboxArchivePurgeIntegrationTests {
 
     @Autowired
     JdbcTemplate jdbc;
+
+    @Autowired
+    TransactionTemplate transactions;
 
     @AfterEach
     void cleanUp() {
@@ -105,6 +110,55 @@ class OutboxArchivePurgeIntegrationTests {
 
         // Then
         events.forEach(event -> assertThat(archiveCount(event)).isZero());
+    }
+
+    @Test
+    void orphanedTraceContextLeftBehindByAnIncompleteRunIsRemovedByALaterRun() {
+        // Given: an archive row already gone (as if a previous run purged it) but its trace context still there, as
+        // if that run failed before reaching the trace context phase.
+        var event = insertArchived(NOW.minus(Duration.ofDays(60)));
+        insertTraceContext(event);
+        jdbc.update("delete from platform.event_publication_archive where id = ?", event);
+
+        // When: a later run's bounded orphan sweep picks it up.
+        purger.purge();
+
+        // Then
+        assertThat(traceContextCount(event)).isZero();
+    }
+
+    // Proves the not-exists checks the orphan sweep runs for every candidate trace context row can be served by the
+    // generated event_id indexes (V202609191200__add_event_id_to_outbox_tables.sql), not by scanning serialized_event
+    // on the (potentially huge) outbox tables: with sequential scans disabled, the planner still has a cheaper plan
+    // available, naming every index.
+    @Test
+    void theOrphanTraceContextSweepUsesTheEventIdIndexesInsteadOfScanningTheOutboxTables() {
+        var plan = new ArrayList<String>();
+        transactions.executeWithoutResult(status -> {
+            jdbc.execute("set local enable_seqscan = off");
+            plan.addAll(jdbc.queryForList("""
+                    explain (format text)
+                    delete from platform.event_trace_context
+                     where event_id in (
+                         select t.event_id
+                           from platform.event_trace_context t
+                          where not exists (
+                                  select 1 from platform.event_publication p where p.event_id = t.event_id)
+                            and not exists (
+                                  select 1 from platform.event_publication_archive a where a.event_id = t.event_id)
+                            and not exists (
+                                  select 1 from platform.event_publication_dead_letter d
+                                   where d.event_id = t.event_id)
+                          limit 500)
+                    """, String.class));
+        });
+
+        var text = String.join("\n", plan);
+        assertThat(text)
+                .as("plan:%n%s", text)
+                .contains("event_publication_event_id_idx")
+                .contains("event_publication_archive_event_id_idx")
+                .contains("event_publication_dead_letter_event_id_idx");
     }
 
     private UUID insertArchived(Instant completionDate) {

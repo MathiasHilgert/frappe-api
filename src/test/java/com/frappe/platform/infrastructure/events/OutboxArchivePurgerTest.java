@@ -2,9 +2,11 @@ package com.frappe.platform.infrastructure.events;
 
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -15,6 +17,9 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessResourceFailureException;
 
@@ -36,7 +41,7 @@ class OutboxArchivePurgerTest {
     @Test
     void deletesArchivedRowsOlderThanTheRetentionThreshold() {
         // Given
-        when(repository.purgeArchivedBefore(any(), eq(2))).thenReturn(0);
+        when(repository.purgeArchivedBefore(any(), eq(2))).thenReturn(List.of());
 
         // When
         purger.purge();
@@ -48,7 +53,10 @@ class OutboxArchivePurgerTest {
     @Test
     void keepsDeletingArchivedRowsInBatchesUntilABatchIsNotFull() {
         // Given
-        when(repository.purgeArchivedBefore(any(), eq(2))).thenReturn(2, 2, 1);
+        var first = List.of(UUID.randomUUID(), UUID.randomUUID());
+        var second = List.of(UUID.randomUUID(), UUID.randomUUID());
+        var third = List.of(UUID.randomUUID());
+        when(repository.purgeArchivedBefore(any(), eq(2))).thenReturn(first, second, third);
 
         // When
         purger.purge();
@@ -58,8 +66,37 @@ class OutboxArchivePurgerTest {
     }
 
     @Test
+    void purgesTraceContextOfEveryArchivedBatchByIndexedEventId() {
+        // Given
+        var first = List.of(UUID.randomUUID(), UUID.randomUUID());
+        var second = List.of(UUID.randomUUID());
+        when(repository.purgeArchivedBefore(any(), eq(2))).thenReturn(first, second);
+        when(repository.purgeOrphanTraceContext(2)).thenReturn(0);
+
+        // When
+        purger.purge();
+
+        // Then
+        verify(repository).purgeTraceContextFor(Set.copyOf(first));
+        verify(repository).purgeTraceContextFor(Set.copyOf(second));
+    }
+
+    @Test
+    void anEmptyArchivedBatchSkipsTheTraceContextLookup() {
+        // Given
+        when(repository.purgeArchivedBefore(any(), eq(2))).thenReturn(List.of());
+
+        // When
+        purger.purge();
+
+        // Then
+        verify(repository, never()).purgeTraceContextFor(anyCollection());
+    }
+
+    @Test
     void keepsDeletingOrphanTraceContextRowsInBatchesUntilABatchIsNotFull() {
         // Given
+        when(repository.purgeArchivedBefore(any(), eq(2))).thenReturn(List.of());
         when(repository.purgeOrphanTraceContext(2)).thenReturn(2, 0);
 
         // When
@@ -72,7 +109,10 @@ class OutboxArchivePurgerTest {
     @Test
     void everyRunIsObservedWithThePurgedRowCounts() {
         // Given
-        when(repository.purgeArchivedBefore(any(), eq(2))).thenReturn(2, 1);
+        var first = List.of(UUID.randomUUID(), UUID.randomUUID());
+        var second = List.of(UUID.randomUUID());
+        when(repository.purgeArchivedBefore(any(), eq(2))).thenReturn(first, second);
+        when(repository.purgeTraceContextFor(any())).thenReturn(1, 0);
         when(repository.purgeOrphanTraceContext(2)).thenReturn(1, 0);
 
         // When
@@ -83,15 +123,18 @@ class OutboxArchivePurgerTest {
                 .hasSingleObservationThat()
                 .hasNameEqualTo("outbox.purge")
                 .hasHighCardinalityKeyValue("outbox.purge.archived.count", "3")
-                .hasHighCardinalityKeyValue("outbox.purge.trace-context.count", "1")
+                .hasHighCardinalityKeyValue("outbox.purge.trace_context.count", "2")
                 .hasBeenStopped();
     }
 
     @Test
-    void aDatabaseFailureThrowsInsteadOfBeingCaughtAndLogged() {
+    void aDatabaseFailureThrowsInsteadOfBeingCaughtAndLoggedButStillRecordsThePurgedCountsSoFar() {
         // Given
+        var first = List.of(UUID.randomUUID());
+        when(repository.purgeArchivedBefore(any(), eq(2))).thenReturn(first);
+        when(repository.purgeTraceContextFor(any())).thenReturn(1);
         var outage = new DataAccessResourceFailureException("connection refused");
-        doThrow(outage).when(repository).purgeArchivedBefore(any(), eq(2));
+        doThrow(outage).when(repository).purgeOrphanTraceContext(2);
 
         // When / Then
         assertThatExceptionOfType(DataAccessResourceFailureException.class)
@@ -101,6 +144,8 @@ class OutboxArchivePurgerTest {
                 .hasSingleObservationThat()
                 .hasNameEqualTo("outbox.purge")
                 .hasError(outage)
+                .hasHighCardinalityKeyValue("outbox.purge.archived.count", "1")
+                .hasHighCardinalityKeyValue("outbox.purge.trace_context.count", "1")
                 .hasBeenStopped();
     }
 }

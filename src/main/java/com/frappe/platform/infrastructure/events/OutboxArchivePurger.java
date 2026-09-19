@@ -2,12 +2,17 @@ package com.frappe.platform.infrastructure.events;
 
 import io.micrometer.observation.ObservationRegistry;
 import java.time.Clock;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import java.util.function.IntUnaryOperator;
 
 /**
  * One scheduled purge run over the outbox archive: deletes archived publications completed more than {@code
- * frappe.outbox.archive.retention} ago, then trace context rows no longer needed by any outbox table, both in batches
- * of {@code frappe.outbox.archive.purge-batch-size} so the purge never holds one long-running transaction or lock.
+ * frappe.outbox.archive.retention} ago, then their trace context, in batches of {@code
+ * frappe.outbox.archive.purge-batch-size} so the purge never holds one long-running transaction or lock. Trace
+ * context is purged in two passes: driven from every archive batch just deleted (the common case), then a bounded
+ * sweep for rows left behind without one (see {@link OutboxArchivePurgeRepository}).
  *
  * <p>Runs as the one cluster-wide execution of {@link OutboxArchivePurgeTask} (db-scheduler), on a fixed delay, so
  * purges never overlap on one instance or across instances.
@@ -39,26 +44,38 @@ final class OutboxArchivePurger {
     }
 
     /**
-     * Runs one purge and observes it.
+     * Runs one purge and observes it. The purged row counts are recorded on the observation even when a later phase
+     * fails, so a partial run is still visible.
      *
      * @throws org.springframework.dao.DataAccessException if the database fails; the scheduler retries the run with
      *     backoff, never later than the next regular run
      */
     void purge() {
-        var observation = OutboxPurgeObservations.purge(observations);
-        // observe() records a failure on the observation and rethrows it: the scheduler retries with backoff and its
-        // failure handler logs it once, so nothing here catches or logs.
-        observation.observe(() -> {
-            var archived = deleteInBatches(this::purgeArchiveBatch);
-            var traceContext = deleteInBatches(repository::purgeOrphanTraceContext);
+        var observation = OutboxPurgeObservations.purge(observations).start();
+        var archived = 0;
+        var traceContext = 0;
+        try {
+            var threshold = clock.instant().minus(properties.retention());
+            var batchSize = properties.purgeBatchSize();
+            List<UUID> batch;
+            do {
+                batch = repository.purgeArchivedBefore(threshold, batchSize);
+                archived += batch.size();
+                if (!batch.isEmpty()) {
+                    traceContext += repository.purgeTraceContextFor(Set.copyOf(batch));
+                }
+            } while (batch.size() == batchSize);
+            traceContext += deleteInBatches(repository::purgeOrphanTraceContext);
+        } catch (RuntimeException e) {
+            // Never caught to log: the scheduler retries with backoff and its failure handler logs it once.
+            observation.error(e);
+            throw e;
+        } finally {
             observation.highCardinalityKeyValue(OutboxPurgeObservations.ARCHIVED_COUNT, String.valueOf(archived));
             observation.highCardinalityKeyValue(
                     OutboxPurgeObservations.TRACE_CONTEXT_COUNT, String.valueOf(traceContext));
-        });
-    }
-
-    private int purgeArchiveBatch(int batchSize) {
-        return repository.purgeArchivedBefore(clock.instant().minus(properties.retention()), batchSize);
+            observation.stop();
+        }
     }
 
     // Keeps deleting until a batch comes back smaller than the batch size (or empty): every batch is its own small

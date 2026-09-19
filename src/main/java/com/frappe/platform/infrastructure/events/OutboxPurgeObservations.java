@@ -16,7 +16,7 @@ final class OutboxPurgeObservations {
     static final String ARCHIVED_COUNT = "outbox.purge.archived.count";
 
     /** High-cardinality key: orphaned trace context rows deleted this run. */
-    static final String TRACE_CONTEXT_COUNT = "outbox.purge.trace-context.count";
+    static final String TRACE_CONTEXT_COUNT = "outbox.purge.trace_context.count";
 
     private OutboxPurgeObservations() {}
 

@@ -125,7 +125,13 @@ class OutboxRecoveryIntegrationTests {
             // Copied while NATS is still paused: once it is back, the valid row may be archived at any moment.
             // Older than the valid row, so they come first in every selection.
             removedType.set(insertFailedCopyOf(event, "com.frappe.removed.TableMerged", "{}"));
-            brokenPayload.set(insertFailedCopyOf(event, CourseFired.class.getName(), "{\"eventId\": "));
+            // Valid JSON (the generated event_id column added by FAPI-9 needs it to parse) with a type Jackson cannot
+            // bind to CourseFired.occurredAt: no database failure, but a DatabindException on deserialize, the same
+            // UNREADABLE_PAYLOAD a real corrupted payload would cause.
+            brokenPayload.set(insertFailedCopyOf(
+                    event,
+                    CourseFired.class.getName(),
+                    "{\"eventId\":\"" + ids.newId() + "\",\"occurredAt\":\"not-an-instant\"}"));
         });
 
         // When / Then
