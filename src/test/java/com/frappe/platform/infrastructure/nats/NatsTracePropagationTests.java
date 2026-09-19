@@ -150,7 +150,7 @@ class NatsTracePropagationTests {
         assertThat(traceContextOf(message).traceId()).isEqualTo(commandTrace).isNotEqualTo(recoveryTrace);
         var resubmittedPublish =
                 await().atMost(WAIT).until(() -> successfulSpan("publish " + subject), span -> span != null);
-        assertThat(resubmittedPublish.getTraceId()).isNotEqualTo(commandTrace);
+        assertThat(resubmittedPublish.getTraceId()).isEqualTo(recoveryTrace);
         assertThat(resubmittedPublish.getLinks())
                 .extracting(link -> link.getSpanContext().getTraceId())
                 .containsExactly(commandTrace);
@@ -196,7 +196,7 @@ class NatsTracePropagationTests {
         var subject = "frappe.platform.order-picked.v1";
         var event = new OrderPicked(ids.newId(), clock.instant(), ids.newId(), 1, 1);
         var commandTrace = inTrace("test.command", () -> publish(event));
-        awaitMessage(subject);
+        var recorded = traceContextOf(awaitMessage(subject));
 
         // When a consumer processes the message
         var subscription = client.connection().jetStream().subscribe(subject);
@@ -212,8 +212,12 @@ class NatsTracePropagationTests {
         assertThat(processSpan.getKind()).isEqualTo(SpanKind.CONSUMER);
         assertThat(processSpan.getTraceId()).isNotEqualTo(commandTrace);
         assertThat(processSpan.getLinks())
-                .extracting(link -> link.getSpanContext().getTraceId())
-                .containsExactly(commandTrace);
+                .extracting(LinkData::getSpanContext)
+                .singleElement()
+                .satisfies(linked -> {
+                    assertThat(linked.getTraceId()).isEqualTo(commandTrace);
+                    assertThat(linked.getSpanId()).isEqualTo(recorded.spanId());
+                });
     }
 
     @Test
