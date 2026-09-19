@@ -101,6 +101,16 @@ Drop `where id = ...` to replay all, or filter by `reason` / `event_type`. To di
   2. If the insert conflicts, skip — already processed.
   3. Otherwise apply the effect in the same transaction.
 - Consumers call the module's own command use case, never another module's internals.
+- A listener touching tenant-scoped tables binds the event's `tenantId` with `TenantScope` and then calls the use case, which opens the transaction the tenant is set in. Binding inside a running transaction throws, so such a listener opens none itself: `@ApplicationModuleListener(propagation = Propagation.NOT_SUPPORTED)`, then `tenants.runAs(event.tenantId(), () -> closeTab.close(event.tabId()))` (`persistence.md`, Tenancy and RLS). `TenantListenerRulesTests` fails the build for a listener that uses `TenantScope` without `NOT_SUPPORTED`.
+  - With `NOT_SUPPORTED` the publication behaves as with any listener: the registry marks it completed after the method returns (its own statement, outside the use case's transaction), and a thrown exception leaves it incomplete for the recovery pass to resubmit. The use case's own transaction commits before completion, so a crash in between delivers the event again: the inbox on `eventId` covers it.
+  - Forgetting `NOT_SUPPORTED` keeps the default `REQUIRES_NEW` transaction, so `callAs` throws `IllegalStateException` on the first delivery and on every retry; the publication stays incomplete until it is dead-lettered (`MAX_ATTEMPTS_EXHAUSTED`). Find such publications with:
+
+    ```sql
+    select id, listener_id, status, completion_attempts, publication_date, last_resubmission_date
+    from platform.event_publication
+    where completion_date is null and listener_id like '%<ListenerClass>%'
+    order by publication_date;
+    ```
 - `NatsProcessObservations.of(message)` (see "Trace context") is the hook for platform's NATS subscription/inbox adapter, which wraps every processed message in it. Module consumers reach it through that adapter, never directly: it stays package-private in `platform.infrastructure.nats` until the inbox ticket. Do not create spans or timers for consuming by hand.
 - Never rely on ordering across aggregates; within one aggregate use the event's version or timestamp to discard stale events.
 

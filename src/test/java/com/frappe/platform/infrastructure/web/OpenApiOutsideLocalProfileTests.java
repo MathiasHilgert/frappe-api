@@ -25,6 +25,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
             "FRAPPE_OWNER_PASSWORD=frappe_owner",
             "FRAPPE_VALKEY_URL=redis://localhost:6379",
             "FRAPPE_SECRET_PEPPER=not-a-secret-not-a-secret-not-a-secret",
+            "FRAPPE_DIGEST_PEPPER=not-a-secret-digest-not-a-secret-digest",
             "FRAPPE_MAIL_FROM=Frappé <no-reply@frappe.test>",
             "RESEND_API_KEY=re_not_a_real_key"
         })

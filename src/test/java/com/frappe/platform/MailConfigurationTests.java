@@ -65,7 +65,8 @@ class MailConfigurationTests {
                         "FRAPPE_APP_PASSWORD=unused",
                         "FRAPPE_OWNER_PASSWORD=unused",
                         "FRAPPE_VALKEY_URL=redis://localhost:1",
-                        "FRAPPE_SECRET_PEPPER=unused-but-present-0123456789abcdef")
+                        "FRAPPE_SECRET_PEPPER=unused-but-present-0123456789abcdef",
+                        "FRAPPE_DIGEST_PEPPER=unused-but-present-0123456789abcdef")
                 .properties(mailSettings);
     }
 }

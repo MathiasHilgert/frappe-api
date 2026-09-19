@@ -1,4 +1,5 @@
 org.springframework.boot.EnvironmentPostProcessor=\
 com.frappe.platform.infrastructure.persistence.RequiredDatabaseSettings,\
 com.frappe.platform.infrastructure.valkey.RequiredValkeySettings,\
-com.frappe.platform.infrastructure.mail.RequiredMailSettings
+com.frappe.platform.infrastructure.mail.RequiredMailSettings,\
+com.frappe.platform.infrastructure.digests.RequiredDigestSettings
