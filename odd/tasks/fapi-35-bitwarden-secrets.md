@@ -25,7 +25,7 @@ Strict TDD (project rule, AGENTS.md). Runner: `scripts/with-secrets.test.sh` (he
 - [x] T2 `docs/secrets.md`, README section, `writing-code` link
 - [x] T3 Gate: `shellcheck`, `gitleaks`, `./gradlew spotlessApply check -x test`; commit
 - [x] T4 Review (Opus changes requested): CI runs the whole `./gradlew check`; reserved secret names refused; `BWS_UUIDS_AS_KEYNAMES` ignored; empty `--project` rejected; tests for `bws.toml` and newline arguments; docs minors
-- [ ] T5 (human) Live run against `frappe-dev` (see Pending)
+- [x] T5 (human + orchestrator) Live run against `frappe-dev` (done except `frappe-production`, see Pending)
 
 ## Acceptance (from ticket)
 - Developer token for frappe-dev: `scripts/with-secrets.sh ./gradlew bootRun` starts the app with the secrets; none written to disk or printed. (Real run: human, after the org exists.)
@@ -66,12 +66,21 @@ Sources: GitHub releases API of `bitwarden/sdk-sm`; `sdk-sm` source at tag `bws-
 - T4 CI: `ci.yml` quality gate steps: spotlessCheck, javadoc, scriptTests, `test --tests ModularityTests`, test, then `./gradlew check` (so every task `check` runs also runs in CI; `./gradlew check --dry-run`: compileJava, processResources, classes, javadoc, scriptTests, spotlessJava(Check), spotlessKotlinGradle(Check), spotlessCheck, compileTestJava, processTestResources, testClasses, test, check). JUnit report path and job summary unchanged; README CI story and diagram updated.
 - T4 docs: `compgen -e | sort` (both places), write access = code execution + naming rule + reserved names, developer invitation as User with Can read, write on `frappe-dev` only (Owners/Admins see every project), probe cleanup step, leak runbook `.gitleaksignore` by fingerprint or history rewrite (fingerprint command verified with gitleaks 8.30.1 on a scratch repo).
 
+## T5 live run (orchestrator with the human's token; recorded as a comment on FAPI-35, no values)
+- `bws` 2.1.0 installed, release checksum verified; the committed EU profile (`scripts/bws.toml`) works.
+- Projects `frappe-dev` and `frappe-staging` exist, each with `POSTGRES_PASSWORD`, `FRAPPE_APP_PASSWORD`, `FRAPPE_OWNER_PASSWORD`, `FRAPPE_SECRET_PEPPER` (generated values).
+- `scripts/with-secrets.sh bash -c 'compgen -e ...'` injected all four names; `BWS_ACCESS_TOKEN` absent in the child; no `~/.config/bws/state` afterwards.
+- `frappe-production` could not be created: the Free plan allows 3 projects and a third, pre-existing project occupies the slot.
+- **Finding**: the token used could create projects and secrets, so it was not a read-only machine-account token (step 9.5 of the setup would fail). The invariant "read-only machine accounts per environment" is not yet met in the live organization.
+- Docs follow-up: the dev database passwords differ from the local defaults and apply only on a new volume (the roles script keeps existing passwords), so `docs/secrets.md` now says to start compose through `scripts/with-secrets.sh` on a fresh volume (or set the passwords with `\password`).
+
 ## Pending
-- **Human, blocks "Done when"**: create the EU organization, projects, machine accounts, member access and tokens; install `bws`; run the verification in `docs/secrets.md` ("Human setup", step 9, including the live `scripts/with-secrets.sh ./gradlew --no-daemon bootRun` against `frappe-dev`) and record it in FAPI-35.
+- **Human**: create `frappe-production` (free a project slot: delete or reuse the pre-existing third project, or upgrade the plan).
+- **Human**: create the read-only machine accounts (`frappe-<env>-reader`, **Can read** on their project only) and issue their tokens; revoke or restrict the token that could write; repeat setup steps 9.5–9.6 with the reader token and record the result in FAPI-35.
 - Deploy wiring and the same reserved-name rule for Kamal: FAPI-30.
 
 ## Engram mirror
 Pending: no Engram tools in the implementing agent; the orchestrator mirrors `odd/fapi-35-bitwarden-secrets/tasks`.
 
 ## Next step
-T5 (human): setup and the live run against `frappe-dev` (docs/secrets.md, step 9); then PR.
+Human: `frappe-production` and read-only reader tokens (Pending); then PR.

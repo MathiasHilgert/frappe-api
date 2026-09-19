@@ -52,6 +52,13 @@ scripts/with-secrets.sh --dry-run ./gradlew bootRun              # what would ru
 - Before running, lists the project's secret names (`bws secret list`; values are held in memory only and dropped at once) and refuses reserved names (see "Layout"); `bws run` lists them again, so a secret added in that moment is not checked, one more reason to limit write access. `BWS_UUIDS_AS_KEYNAMES` is ignored: variables are always named after the secrets.
 - `FRAPPE_SECRETS_PROJECT` changes the default project; `--project` must not be empty. The command's exit code is returned.
 - Prefer `./gradlew --no-daemon ...` (or `./gradlew --stop` afterwards): a Gradle daemon started inside `with-secrets.sh` keeps those variables in memory until it stops.
+- **The `frappe-dev` database passwords differ from the local defaults**, and Postgres takes `POSTGRES_PASSWORD`, `FRAPPE_APP_PASSWORD` and `FRAPPE_OWNER_PASSWORD` only when it creates a new data volume (the roles script keeps the password of a role that already exists, so re-running it changes nothing). Start the stack with the secrets on a fresh volume, then run the app the same way:
+  ```bash
+  docker compose down -v                                  # deletes the local database
+  scripts/with-secrets.sh docker compose up -d --wait
+  scripts/with-secrets.sh ./gradlew --no-daemon bootRun
+  ```
+  To keep existing data instead, set the new passwords by hand (`docker compose exec postgres psql -U frappe -d frappe`, then `\password frappe_app` and `\password frappe_owner`; the prompt keeps them out of shell history). A volume created with the dev secrets no longer accepts the plain `./gradlew bootRun` defaults; go back the same way (fresh volume without the script).
 - Tests: `scripts/with-secrets.test.sh` (fake `bws`, no network), part of `./gradlew check`.
 
 ## Inventory
@@ -62,9 +69,9 @@ Values never appear here or anywhere in the repository. Owner: the person who ro
 
 | Name | Purpose | Owner | Projects | Rotation |
 | --- | --- | --- | --- | --- |
-| `FRAPPE_APP_PASSWORD` | Password of the runtime database role `frappe_app` (DML only); `spring.datasource.password` | Mathias Hilgert | `frappe-staging`, `frappe-production` (dev: local default `frappe_app`) | 90 days |
-| `FRAPPE_OWNER_PASSWORD` | Password of the migration role `frappe_owner` (owns the schemas, runs Flyway); `spring.flyway.password` | Mathias Hilgert | `frappe-staging`, `frappe-production` (dev: local default `frappe_owner`) | 90 days |
-| `FRAPPE_SECRET_PEPPER` | Server-side HMAC pepper for the Argon2id hashes of one-time codes; never reaches Valkey. At least 32 random characters (`openssl rand -base64 48`), different per environment; `frappe.secrets.pepper` | Mathias Hilgert | `frappe-staging`, `frappe-production` (dev: local default, not a secret) | 180 days; rotating only invalidates outstanding one-time codes |
+| `FRAPPE_APP_PASSWORD` | Password of the runtime database role `frappe_app` (DML only); `spring.datasource.password` | Mathias Hilgert | `frappe-staging`, `frappe-production` `frappe-dev` (generated; without Bitwarden the local default `frappe_app`) | 90 days |
+| `FRAPPE_OWNER_PASSWORD` | Password of the migration role `frappe_owner` (owns the schemas, runs Flyway); `spring.flyway.password` | Mathias Hilgert | `frappe-staging`, `frappe-production` `frappe-dev` (generated; without Bitwarden the local default `frappe_owner`) | 90 days |
+| `FRAPPE_SECRET_PEPPER` | Server-side HMAC pepper for the Argon2id hashes of one-time codes; never reaches Valkey. At least 32 random characters (`openssl rand -base64 48`), different per environment; `frappe.secrets.pepper` | Mathias Hilgert | `frappe-staging`, `frappe-production` `frappe-dev` (generated; without Bitwarden a local default that is not a secret) | 180 days; rotating only invalidates outstanding one-time codes |
 | `FRAPPE_VALKEY_URL` | Valkey URL with its credentials (`rediss://user:password@host:6379`); `spring.data.redis.url` | Mathias Hilgert | `frappe-staging`, `frappe-production` (dev: local default `redis://localhost:6379`) | 90 days (the password in it) |
 | `FRAPPE_NATS_URL` | NATS server URL; a secret as soon as it carries credentials (`nats://user:password@host:4222`); `frappe.nats.url` | Mathias Hilgert | `frappe-staging`, `frappe-production` (dev: default `nats://localhost:4222`) | 90 days when it carries credentials |
 
@@ -72,7 +79,7 @@ Values never appear here or anywhere in the repository. Owner: the person who ro
 
 | Name | Purpose | Owner | Where | Rotation |
 | --- | --- | --- | --- | --- |
-| `POSTGRES_PASSWORD` | Bootstrap superuser of the Postgres container (compose, Kamal accessory) | Mathias Hilgert | `frappe-staging`, `frappe-production` (dev: compose default) | 90 days |
+| `POSTGRES_PASSWORD` | Bootstrap superuser of the Postgres container (compose, Kamal accessory) | Mathias Hilgert | `frappe-staging`, `frappe-production` `frappe-dev` (generated; without Bitwarden the compose default) | 90 days |
 | `BWS_ACCESS_TOKEN` | Access token of one read-only machine account; the only secret a holder keeps outside Bitwarden Secrets Manager | Holder of the token | Holder's password manager, CI or deploy secret store | 90-day expiry set at creation |
 | `PLANE_API_KEY` | Personal Plane key for the ticket tooling (`plane.sh`) | Each developer | Personal password manager, never a project | 90 days |
 | `GITHUB_TOKEN` | Issued by GitHub Actions for each workflow run | GitHub | Automatic | Per run |
