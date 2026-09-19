@@ -92,6 +92,12 @@ Recorded per task below as work proceeds.
   `management.health.mail.enabled=false` (mail outage only delays mail). Gate
   `FRAPPE_TEST_DB=frappe_fapi_15 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 433 tests, 0 failures.
 
+- Rebased onto origin/main 3d59f21 (PR #19 secrets, PR #14 use cases landed meanwhile); one conflict in
+  `writing-code/references/observability.md` resolved by keeping both lists. `docs/secrets.md` now on main: row for
+  `RESEND_API_KEY`, `FRAPPE_MAIL_FROM` under configuration. Gate after rebase: BUILD SUCCESSFUL, 470 tests, 0 failures.
+- Size: about 2,400 changed lines without `package-lock.json`, well above the ~400 heuristic (tests are about half);
+  split candidates if review asks: kernel+renderer+build / transports+config / outbox test+docs.
+
 ## Engram mirror
 
 Pending: no Engram tool available to this worker; the orchestrator mirrors `odd/fapi-15-mailer/tasks`.
