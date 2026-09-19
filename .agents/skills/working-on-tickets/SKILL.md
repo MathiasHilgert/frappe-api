@@ -29,6 +29,7 @@ Load when asked to work on, pick up, parallelize, review, ship, merge or create 
 | Worktrees, databases, Docker, cleanup | `references/running-in-parallel.md` |
 | Reviewer brief and findings | `references/reviewing.md` |
 | Commits, PR, CI, report, merge, feedback | `references/shipping-a-pr.md` |
+| Running the app and calling new routes by hand | `references/trying-endpoints.md` |
 | What doc/skill change goes where, fact-checking before publishing | `references/keeping-docs-in-sync.md` |
 
 ## Execution Steps
@@ -41,6 +42,7 @@ Copy this checklist and tick it as you go:
 - [ ] 3. Create worktree + branch; plane.sh move FAPI-N in-progress
 - [ ] 4. Spawn writer (model per table) with ticket text, skills writing-code + testing-code
 - [ ] 5. Writer reports ./gradlew check green and RED/GREEN evidence; skill references updated in the same PR if a convention changed
+- [ ] 5b. Route added or changed: writer runs the app and calls each route by hand (`references/trying-endpoints.md`); orchestrator reruns one call
 - [ ] 6. Spawn reviewer(s); fixer applies confirmed findings only
 - [ ] 7. Push, open PR per template incl. "Docs and skills updated"; gh pr checks --watch (max 3 fix attempts)
 - [ ] 8. plane.sh move FAPI-N in-review; report to human

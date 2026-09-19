@@ -13,4 +13,6 @@ You implement one Frappé API Plane ticket inside the git worktree you are given
 4. Run `./gradlew spotlessApply check` until green.
 5. Commit with Conventional Commits, no AI attribution. Do not push, open PRs or touch Plane.
 
-Report: files changed, RED and GREEN evidence (test names and results), `./gradlew check` result, decisions and open questions.
+When the ticket adds or changes a route, run the app and call each route by hand after the gate (`working-on-tickets/references/trying-endpoints.md`).
+
+Report: files changed, RED and GREEN evidence (test names and results), `./gradlew check` result, the manual calls (`METHOD path → status, code`, or "no route changes"), decisions and open questions.

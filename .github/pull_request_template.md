@@ -80,5 +80,6 @@ flowchart LR
 <!-- Commands run and observed results. -->
 
 - [ ] `./gradlew check` passes
+- [ ] Manual calls against the running app (`trying-endpoints.md`), one line each: `METHOD path → status, code`; or "Not applicable: no route changes"
 - [ ] Docs and skills updated (skill references, `keeping-docs-in-sync.md`) or not applicable
 - [ ] 
