@@ -1,6 +1,7 @@
 package com.frappe.platform.infrastructure.web;
 
 import com.frappe.platform.web.SessionResolver;
+import io.micrometer.observation.ObservationPredicate;
 import jakarta.servlet.DispatcherType;
 import java.util.Optional;
 import org.springframework.beans.factory.ObjectProvider;
@@ -32,6 +33,16 @@ class SecurityConfiguration {
 
     /** Creates the configuration; instantiated by Spring. */
     SecurityConfiguration() {}
+
+    /**
+     * Keeps Spring Security's per-request filter-chain observations out of traces and metrics.
+     *
+     * @return the observation predicate, applied by Spring Boot to the observation registry
+     */
+    @Bean
+    ObservationPredicate securityFilterChainObservations() {
+        return new SecurityFilterChainObservations();
+    }
 
     /**
      * The API's security filter chain. No session, cookie, CSRF token, login form, basic authentication or saved

@@ -107,10 +107,14 @@ T0 `ce42b24` (plan `bd34405`), T1 `2e683f6`, T2 `0f277bb`, T3 `11a1dd6`, T4 `93b
 - RED `RouteStartupTests.startupFailsForARouteOutsideAnInfrastructureWebPackageAndNamesTheClass` (fixture `com.frappe.platform.infrastructure.misplaced.MisplacedRoutes.MisplacedRoute`, nested in a `@TestConfiguration` so full-context scans skip it): the context started. GREEN: `RouteCatalog` adds the problem "lives in <package>; routes are adapters and belong in the module's infrastructure.web package". 5/5.
 - The `RequestTracingTests` probe moved to `com.frappe.platform.infrastructure.web.ProbeRoutes` (a `@TestConfiguration` whose member route class is registered on import). `RequestTracingTests` 3/3.
 
+### R5 filter-chain observations dropped (review minor)
+- Names verified in Spring Security 7.1.1 (`ObservationFilterChainDecorator`): `spring.security.filterchains` (before/after), `spring.security.http.secured.requests`, `spring.security.authorizations`, `spring.security.authentications`.
+- RED `RouteAccessTests.securityFilterChainObservationsAreDroppedWhileAuthorizationIsObserved` (`Observation.createNotStarted(...).isNoop()`): `Expecting value to be true but was false`. GREEN: `SecurityFilterChainObservations` (`ObservationPredicate`, bean in `SecurityConfiguration`); authorization and secured-request observations stay. `RequestTracingTests` still green (the controller's log line carries the secured-request span).
+
 ## Known behaviour and follow-ups
 - Superseded by R2: unknown paths answer 404, unsupported methods 405. CORS preflight (OPTIONS) must bypass the posture when CORS arrives (out of scope).
 - 401/403 bodies are Spring Boot's default error JSON (`sendError`), not yet `ProblemDetail`: FAPI-14.
-- Spring Security's observations add `spring.security.*` spans (filter chains, authorization, the secured request) and timers per request; the controller's log lines carry the secured-request span. Tag cardinality is bounded.
+- Spring Security keeps its authorization and secured-request spans/timers per request (filter-chain ones are dropped, R5); the controller's log lines carry the secured-request span.
 - Route resolution ignores API-versioned mappings (`version` attribute on a mapping): none exist, `/v1` is the versioning.
 - Superseded by R4: the `..infrastructure.web` package is enforced at startup.
 - Engram mirror `odd/fapi-13-http-routes-posture/tasks`: pending (memory tools not available to this worker).

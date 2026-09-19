@@ -9,6 +9,8 @@ import com.frappe.platform.web.Posture;
 import com.frappe.platform.web.ResolvedSession;
 import com.frappe.platform.web.SessionKind;
 import com.frappe.platform.web.SessionResolver;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import jakarta.servlet.http.Cookie;
 import java.util.Map;
 import java.util.Optional;
@@ -151,6 +153,9 @@ class RouteAccessTests {
     @Autowired
     ApplicationContext context;
 
+    @Autowired
+    ObservationRegistry observations;
+
     @BeforeEach
     void forgetEarlierCalls() {
         controllerCalls.set(0);
@@ -264,6 +269,19 @@ class RouteAccessTests {
                 .bodyText()
                 .isEqualTo("featured item");
         assertThat(http.get().uri("/v1/test/items/42")).hasStatus(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void securityFilterChainObservationsAreDroppedWhileAuthorizationIsObserved() {
+        assertThat(Observation.createNotStarted("spring.security.filterchains", observations)
+                        .isNoop())
+                .isTrue();
+        assertThat(Observation.createNotStarted("spring.security.authorizations", observations)
+                        .isNoop())
+                .isFalse();
+        assertThat(Observation.createNotStarted("spring.security.http.secured.requests", observations)
+                        .isNoop())
+                .isFalse();
     }
 
     @Test
