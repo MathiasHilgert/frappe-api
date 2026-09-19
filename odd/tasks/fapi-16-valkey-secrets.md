@@ -25,7 +25,7 @@ Strict TDD. Runner: `./gradlew test` with Testcontainers (Postgres reused as `FR
 ## Tasks
 - [x] T0 Verify versions and APIs from the jars (Spring Data Redis, Lettuce, Argon2, Bucket4j lettuce, testcontainers-redis); record here
 - [x] T1 Compose DX: env-overridable host ports, `valkey` service with the service-connection label; README
-- [ ] T2 Valkey wiring: starter, `FRAPPE_VALKEY_URL` required outside `local`, `TestValkeyConfiguration`, starts without Valkey
+- [x] T2 Valkey wiring: starter, `FRAPPE_VALKEY_URL` required outside `local`, `TestValkeyConfiguration`, starts without Valkey
 - [ ] T3 `ShortLivedSecretStore` put/consume: Argon2 hash only, single use under concurrency, 5 failures, replace, TTL
 - [ ] T4 `countIssue` sliding-window cap
 - [ ] T5 `RateLimiter` on Bucket4j: N+1 refused, shared across instances
@@ -60,5 +60,11 @@ Strict TDD. Runner: `./gradlew test` with Testcontainers (Postgres reused as `FR
 - RED `LocalProfileTest` (2): `expected: "jdbc:postgresql://localhost:15432/frappe" but was: "…:5432/frappe"` and `expected: "nats://localhost:4222" but was: null`. GREEN 2/2: `application-local.properties` builds `FRAPPE_DB_URL` and `frappe.nats.url` from `FRAPPE_POSTGRES_PORT` / `FRAPPE_NATS_PORT` (environment variables `FRAPPE_DB_URL` / `FRAPPE_NATS_URL` still win).
 - `docker compose config` interpolates (`FRAPPE_POSTGRES_PORT=15432` → published `15432`). README: `docker compose up -d --wait` and the port table.
 
+### T2 Valkey wiring
+- Dependencies: `spring-boot-starter-data-redis`, `spring-security-crypto`, `bcprov-jdk18on` 1.86 (runtime; `bcprov-lts8on` excluded from jnats, see T0), `bucket4j_jdk17-lettuce` 8.20.0; tests `spring-boot-starter-data-redis-test`, `com.redis:testcontainers-redis`.
+- RED `ValkeyConfigurationTests.startupOutsideLocalProfileFailsWithoutTheValkeyUrl`: startup failed later and elsewhere (`BeanCreationException … entityManagerFactory`, no `MissingValkeySettingsException`). RED `ValkeyUnavailableTests.startsAndStaysHealthyWithoutValkey`: `Status expected:<200 OK> but was:<503 SERVICE_UNAVAILABLE>`. GREEN 2/2 (and `DatabaseConfigurationTests` still green) with `RequiredValkeySettings` (EnvironmentPostProcessor in `spring.factories`, names `FRAPPE_VALKEY_URL`) and `application.properties`: `spring.data.redis.url=${FRAPPE_VALKEY_URL}`, `timeout` and `connect-timeout` 2s, Redis repositories off, `management.health.redis.enabled=false`.
+- RED `LocalProfileTest` (extended): `expected: "redis://localhost:16379" but was: null`. GREEN: local `FRAPPE_VALKEY_URL=redis://localhost:${FRAPPE_VALKEY_PORT:6379}` (with compose running, Boot's service connection wins anyway).
+- `FRAPPE_TEST_DB=frappe_fapi_16 ./gradlew spotlessApply check`: BUILD SUCCESSFUL (`OtlpUnavailableTests` green again).
+
 ## Next step
-T2.
+T3.

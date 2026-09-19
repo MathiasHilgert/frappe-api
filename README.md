@@ -119,7 +119,7 @@ docker compose exec postgres /docker-entrypoint-initdb.d/01-frappe-roles.sh
 ./gradlew bootRun
 ```
 
-Migrations run on startup. `bootRun` activates the `local` profile (`application-local.properties`), which points at the compose database with the default passwords; set `SPRING_PROFILES_ACTIVE` to override. Outside `local` there are no defaults: startup fails unless `FRAPPE_DB_URL`, `FRAPPE_APP_PASSWORD` and `FRAPPE_OWNER_PASSWORD` are set.
+Migrations run on startup. `bootRun` activates the `local` profile (`application-local.properties`), which points at the compose database with the default passwords; set `SPRING_PROFILES_ACTIVE` to override. Outside `local` there are no defaults: startup fails unless `FRAPPE_DB_URL`, `FRAPPE_APP_PASSWORD`, `FRAPPE_OWNER_PASSWORD` and `FRAPPE_VALKEY_URL` (`redis://host:6379`, `rediss://` for TLS, credentials in the URL) are set.
 
 Routes live under `/v1`; the OpenAPI spec is at `/v3/api-docs` and, in `local` only, the Scalar API reference at <http://localhost:8080/scalar>. Behind a reverse proxy set `FRAPPE_TRUSTED_PROXIES` to the proxy's addresses (CIDR list, default loopback only): `X-Forwarded-For` is honoured only from those.
 
