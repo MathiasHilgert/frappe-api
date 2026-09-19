@@ -87,6 +87,9 @@ dependencies {
 	// In-process HTTP stub for the DeepL adapter contract tests; never call the real DeepL API in tests.
 	testImplementation("org.wiremock:wiremock-standalone:3.13.2")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+	// Entity to aggregate mappers in each module's infrastructure.persistence (writing-code, persistence.md).
+	implementation("org.mapstruct:mapstruct:1.6.3")
+	annotationProcessor("org.mapstruct:mapstruct-processor:1.6.3")
 }
 
 dependencyManagement {
