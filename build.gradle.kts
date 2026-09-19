@@ -38,6 +38,7 @@ dependencies {
 	// Not managed by Boot; 3.1.1 is built on Boot 4.1. Scalar API reference through springdoc (wraps scalar-webmvc).
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-scalar:3.1.1")
 	implementation("com.bucket4j:bucket4j_jdk17-lettuce:8.20.0")
+	implementation("com.deepl.api:deepl-java:1.17.0")
 	implementation("com.github.f4b6a3:uuid-creator:6.1.1")
 	// Not managed by Boot; the official Resend SDK, used only inside platform.infrastructure.mail.
 	implementation("com.resend:resend-java:4.26.0")
@@ -80,6 +81,8 @@ dependencies {
 	testImplementation("org.springframework.modulith:spring-modulith-starter-test")
 	testImplementation("org.testcontainers:testcontainers-junit-jupiter")
 	testImplementation("org.testcontainers:testcontainers-postgresql")
+	// In-process HTTP stub for the DeepL adapter contract tests; never call the real DeepL API in tests.
+	testImplementation("org.wiremock:wiremock-standalone:3.13.2")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
