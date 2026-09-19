@@ -22,16 +22,36 @@ public class TestcontainersConfiguration {
         // One database name per worktree (FRAPPE_TEST_DB=frappe_fapi_<n>): reused containers are keyed by
         // their configuration, so worktrees sharing a name would share one container and its data.
         var db = Optional.ofNullable(System.getenv("FRAPPE_TEST_DB")).orElse("frappe");
-        return new PostgreSQLContainer(DockerImageName.parse("postgres:18-alpine"))
-                .withDatabaseName(db)
-                .withCopyFileToContainer(
-                        MountableFile.forHostPath("docker/postgres/initdb/01-frappe-roles.sh", 0755),
-                        "/docker-entrypoint-initdb.d/01-frappe-roles.sh")
-                .withReuse(true);
+        return postgres(db).withReuse(true);
     }
 
     @Bean
     DynamicPropertyRegistrar postgresProperties(PostgreSQLContainer postgres) {
+        return connectionProperties(postgres);
+    }
+
+    /**
+     * A Postgres 18 container with the application roles, not reused. Tests whose outbox rows must not be seen by the
+     * recovery jobs of other cached contexts (which share the reused database) run on one of these instead.
+     *
+     * @param databaseName the database to create
+     * @return the container, not started
+     */
+    public static PostgreSQLContainer postgres(String databaseName) {
+        return new PostgreSQLContainer(DockerImageName.parse("postgres:18-alpine"))
+                .withDatabaseName(databaseName)
+                .withCopyFileToContainer(
+                        MountableFile.forHostPath("docker/postgres/initdb/01-frappe-roles.sh", 0755),
+                        "/docker-entrypoint-initdb.d/01-frappe-roles.sh");
+    }
+
+    /**
+     * Points the application (as {@code frappe_app}) and Flyway (as {@code frappe_owner}) at a container.
+     *
+     * @param postgres the container
+     * @return the registrar
+     */
+    public static DynamicPropertyRegistrar connectionProperties(PostgreSQLContainer postgres) {
         return registry -> {
             registry.add("spring.datasource.url", postgres::getJdbcUrl);
             // Spring caches one context per distinct test configuration, each with its own pool; Hikari's default of
