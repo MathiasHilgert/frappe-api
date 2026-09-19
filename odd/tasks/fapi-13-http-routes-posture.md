@@ -30,7 +30,7 @@ Strict TDD. Runner: `./gradlew test` (MockMvcTester, `WebApplicationContextRunne
 - [x] T1 Public API + route catalog: startup fails for a route without `@Access`, with two mapped methods or an inconsistent posture; `/v1` prefix
 - [x] T2 Stateless security chain: bearer-only session resolution, posture enforcement (PUBLIC, AUTHENTICATED, PERMISSION, SYSTEM), deny by default, health and error dispatch reachable
 - [x] T3 OpenAPI: spec with bearer requirement and 401/403 on non-public routes; swagger-ui only in `local`
-- [ ] T4 Client IP from `X-Forwarded-For`, trusting only the proxy
+- [x] T4 Client IP from `X-Forwarded-For`, trusting only the proxy
 - [ ] T5 Docs (`writing-code/references/http-api.md` documents `@Access`), `./gradlew spotlessApply check --rerun-tasks` green
 
 ## Acceptance (from ticket)
@@ -75,5 +75,9 @@ Strict TDD. Runner: `./gradlew test` (MockMvcTester, `WebApplicationContextRunne
 - GREEN 4/4: `springdoc-openapi-starter-webmvc-ui:3.1.1`; `springdoc.swagger-ui.enabled=false` in `application.properties`, `true` in `application-local.properties`; spec and swagger-ui paths public in the chain; `PostureDocumentation` (`OpenApiCustomizer` adds the `bearer` HTTP scheme, `OperationCustomizer` adds the bearer requirement and 401 on every non-public route, 403 where the posture can refuse a session: PERMISSION, SYSTEM), wired by `OpenApiConfiguration`.
 - `FRAPPE_TEST_DB=frappe_fapi_13 ./gradlew spotlessApply check`: BUILD SUCCESSFUL, 198 tests.
 
+### T4 client address
+- RED `ClientAddressTests` (real server, RestTestClient over loopback, PUBLIC test route answering `getRemoteAddr()`): `theAddressForwardedByATrustedProxyIsTheClientAddress` and `addressesTheCallerPrependedAreNotTrusted` failed with `expected: "198.51.100.23" but was: "127.0.0.1"`; nested `WhenThePeerIsNoTrustedProxy.theForwardedAddressIsIgnored` (`FRAPPE_TRUSTED_PROXIES=10.0.0.0/8`) passed (headers were ignored altogether).
+- GREEN 3/3: `server.forward-headers-strategy=native` (Tomcat `RemoteIpValve`) and `server.tomcat.remoteip.internal-proxies=${FRAPPE_TRUSTED_PROXIES:127.0.0.0/8, ::1/128}`. Mutation check: without the `internal-proxies` line (Boot's default trusts every private range and loopback) the nested test fails, so it guards the narrowing.
+
 ## Next step
-T4.
+T5.
