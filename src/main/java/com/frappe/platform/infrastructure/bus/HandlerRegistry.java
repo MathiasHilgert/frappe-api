@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
@@ -34,6 +35,7 @@ final class HandlerRegistry {
     private final UseCaseKind kind;
     private final ConfigurableListableBeanFactory beans;
     private final Map<Class<?>, String> beanNamesByMessageType;
+    private final Map<Class<?>, Object> handlersByMessageType = new ConcurrentHashMap<>();
 
     private HandlerRegistry(
             UseCaseKind kind, ConfigurableListableBeanFactory beans, Map<Class<?>, String> beanNamesByMessageType) {
@@ -49,8 +51,8 @@ final class HandlerRegistry {
      * @param kind command or query
      * @return the registry
      * @throws InvalidHandlersException if two handlers share a message type, a handler's message type cannot be
-     *     resolved to a concrete class, the message lives outside a module package, or a command handler is not
-     *     transactional
+     *     resolved to a concrete class, the message lives outside a module package, a command handler is not
+     *     transactional (or read-only), or a query handler is not read-only transactional
      */
     static HandlerRegistry discover(ConfigurableListableBeanFactory beans, UseCaseKind kind) {
         var beanNamesByType = new LinkedHashMap<Class<?>, List<String>>();
@@ -66,9 +68,8 @@ final class HandlerRegistry {
                 problems.add(messageType.getName() + " (handled by '" + beanName + "') must live in a module package"
                         + " 'com.frappe.<module>'; the module of its use case is derived from it");
             }
-            if (kind.transactional() && !isTransactional(kind, declaration.get().handlerClass())) {
-                problems.add("'" + beanName + "' must be @Transactional (on handle or the class), so the state it"
-                        + " saves and the events it records commit together");
+            if (!hasRequiredTransaction(kind, declaration.get().handlerClass())) {
+                problems.add(transactionProblem(kind, beanName));
             }
             beanNamesByType
                     .computeIfAbsent(messageType, type -> new ArrayList<>())
@@ -94,18 +95,26 @@ final class HandlerRegistry {
     }
 
     /**
-     * The handler of a message type.
+     * The handler of a message type, looked up in the bean factory on first use and reused afterwards.
      *
      * @param messageType the exact type of the message
-     * @return the handler bean (the transactional proxy for a command handler)
+     * @return the handler bean (its transactional proxy)
      * @throws MissingHandlerException if no handler is declared for the type
      */
     Object handlerFor(Class<?> messageType) {
+        var cached = handlersByMessageType.get(messageType);
+        if (cached != null) {
+            return cached;
+        }
         var beanName = beanNamesByMessageType.get(messageType);
         if (beanName == null) {
             throw new MissingHandlerException(kind, messageType);
         }
-        return beans.getBean(beanName, kind.handlerType());
+        // Not computeIfAbsent: creating the handler may dispatch through this registry, which a
+        // ConcurrentHashMap rejects as a recursive update. Two racing first calls resolve the same bean.
+        var handler = beans.getBean(beanName, kind.handlerType());
+        var previous = handlersByMessageType.putIfAbsent(messageType, handler);
+        return previous != null ? previous : handler;
     }
 
     /**
@@ -145,9 +154,18 @@ final class HandlerRegistry {
         return Optional.of(messageType);
     }
 
-    private static boolean isTransactional(UseCaseKind kind, Class<?> handlerClass) {
+    private static boolean hasRequiredTransaction(UseCaseKind kind, Class<?> handlerClass) {
         var handle = ClassUtils.getMethod(kind.handlerType(), "handle", kind.messageType());
-        return TRANSACTION_ATTRIBUTES.hasTransactionAttribute(handle, handlerClass);
+        var transaction = TRANSACTION_ATTRIBUTES.getTransactionAttribute(handle, handlerClass);
+        return transaction != null && transaction.isReadOnly() == kind.readOnly();
+    }
+
+    private static String transactionProblem(UseCaseKind kind, String beanName) {
+        return kind.readOnly()
+                ? "'" + beanName + "' must be @Transactional(readOnly = true) (on handle or the class), so the query"
+                        + " reads in one transaction that carries its tenant setting and never writes"
+                : "'" + beanName + "' must be @Transactional (on handle or the class) and not read-only, so the state"
+                        + " it saves and the events it records commit or roll back together";
     }
 
     private static String unresolvableProblem(UseCaseKind kind, String beanName) {

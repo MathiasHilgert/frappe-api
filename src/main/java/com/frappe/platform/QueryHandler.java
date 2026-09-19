@@ -4,7 +4,9 @@ package com.frappe.platform;
  * Answers one {@link Query} type with a read model. Declaring a Spring bean that implements this interface is all it
  * takes; the bus finds it at startup by the query type.
  *
- * <p>Query handlers are not {@code @Transactional}: they read, and never save aggregates or record events. Handlers
+ * <p>The {@code handle} method (or the class) must be {@code @Transactional(readOnly = true)}: the query reads in one
+ * transaction, which carries the tenant setting ({@code set local}) row-level security needs, and never writes;
+ * startup fails otherwise. Handlers
  * never create telemetry: the bus observes every query.
  *
  * @param <Q> the answered query type, a concrete record

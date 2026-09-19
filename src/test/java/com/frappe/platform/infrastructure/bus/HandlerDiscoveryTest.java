@@ -70,8 +70,44 @@ class HandlerDiscoveryTest {
     static class FindTabHandler implements QueryHandler<FindTab, String> {
 
         @Override
+        @Transactional(readOnly = true)
         public String handle(FindTab query) {
             return "tab at " + query.table();
+        }
+    }
+
+    /** Counts its instances, to show the bus creates it lazily and reuses it. */
+    @Transactional(readOnly = true)
+    static class CountedFindTabHandler implements QueryHandler<FindTab, String> {
+
+        static final AtomicInteger instances = new AtomicInteger();
+
+        CountedFindTabHandler() {
+            instances.incrementAndGet();
+        }
+
+        @Override
+        public String handle(FindTab query) {
+            return "tab at " + query.table();
+        }
+    }
+
+    record ListTabs() implements Query<String> {}
+
+    static class NonTransactionalCountTabsHandler implements QueryHandler<CountTabs, Integer> {
+
+        @Override
+        public Integer handle(CountTabs query) {
+            return 0;
+        }
+    }
+
+    @Transactional
+    static class ReadWriteListTabsHandler implements QueryHandler<ListTabs, String> {
+
+        @Override
+        public String handle(ListTabs query) {
+            return "";
         }
     }
 
@@ -169,6 +205,42 @@ class HandlerDiscoveryTest {
                         .isInstanceOf(InvalidHandlersException.class)
                         .hasMessageContaining("'closeTabHandler'")
                         .hasMessageContaining("@Transactional"));
+    }
+
+    @Test
+    void aQueryHandlerWithoutAReadOnlyTransactionFailsStartup() {
+        contextRunner
+                .withBean("countTabsHandler", NonTransactionalCountTabsHandler.class)
+                .withBean("listTabsHandler", ReadWriteListTabsHandler.class)
+                .run(context -> assertThat(context)
+                        .getFailure()
+                        .rootCause()
+                        .isInstanceOf(InvalidHandlersException.class)
+                        .hasMessageContaining("'countTabsHandler'")
+                        .hasMessageContaining("'listTabsHandler'")
+                        .hasMessageContaining("@Transactional(readOnly = true)"));
+    }
+
+    @Test
+    void aHandlerIsCreatedOnFirstUseNotAtStartupAndThenReused() {
+        CountedFindTabHandler.instances.set(0);
+        contextRunner
+                .withBean(
+                        CountedFindTabHandler.class,
+                        CountedFindTabHandler::new,
+                        definition -> definition.setScope("prototype"))
+                .run(context -> {
+                    // Given
+                    var bus = context.getBean(QueryBus.class);
+                    assertThat(CountedFindTabHandler.instances).hasValue(0);
+
+                    // When
+                    bus.ask(new FindTab("1"));
+                    bus.ask(new FindTab("2"));
+
+                    // Then
+                    assertThat(CountedFindTabHandler.instances).hasValue(1);
+                });
     }
 
     @Test

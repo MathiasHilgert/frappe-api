@@ -8,22 +8,22 @@ import com.frappe.platform.QueryHandler;
 /** The two kinds of use case, with the types that define each and the value of the {@code use_case.kind} tag. */
 enum UseCaseKind {
 
-    /** Changes state; its handler must be transactional. */
-    COMMAND("command", Command.class, CommandHandler.class, true),
+    /** Changes state; its handler runs in a read-write transaction, rolled back on a failure. */
+    COMMAND("command", Command.class, CommandHandler.class, false),
 
-    /** Reads state; its handler is not transactional. */
-    QUERY("query", Query.class, QueryHandler.class, false);
+    /** Reads state; its handler runs in a read-only transaction (one snapshot, one tenant setting). */
+    QUERY("query", Query.class, QueryHandler.class, true);
 
     private final String tagValue;
     private final Class<?> messageType;
     private final Class<?> handlerType;
-    private final boolean transactional;
+    private final boolean readOnly;
 
-    UseCaseKind(String tagValue, Class<?> messageType, Class<?> handlerType, boolean transactional) {
+    UseCaseKind(String tagValue, Class<?> messageType, Class<?> handlerType, boolean readOnly) {
         this.tagValue = tagValue;
         this.messageType = messageType;
         this.handlerType = handlerType;
-        this.transactional = transactional;
+        this.readOnly = readOnly;
     }
 
     /**
@@ -54,11 +54,11 @@ enum UseCaseKind {
     }
 
     /**
-     * Whether handlers of this kind must run in a transaction of their own.
+     * Whether handlers of this kind must declare a read-only transaction; every handler declares a transaction.
      *
-     * @return {@code true} for commands
+     * @return {@code true} for queries
      */
-    boolean transactional() {
-        return transactional;
+    boolean readOnly() {
+        return readOnly;
     }
 }
