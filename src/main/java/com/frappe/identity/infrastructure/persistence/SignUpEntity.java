@@ -59,26 +59,56 @@ class SignUpEntity {
         this.startedAt = startedAtInstant;
     }
 
+    /**
+     * The column value.
+     *
+     * @return its id
+     */
     UUID id() {
         return id;
     }
 
+    /**
+     * The column value.
+     *
+     * @return the address as entered
+     */
     String email() {
         return email;
     }
 
+    /**
+     * The column value.
+     *
+     * @return the keyed digest of the canonical address
+     */
     UUID emailSubject() {
         return emailSubject;
     }
 
+    /**
+     * The column value.
+     *
+     * @return the language tag to mail in
+     */
     String locale() {
         return locale;
     }
 
+    /**
+     * The column value.
+     *
+     * @return when it last started
+     */
     Instant startedAt() {
         return startedAt;
     }
 
+    /**
+     * The column value.
+     *
+     * @return the stored version, 0 before the first insert
+     */
     long version() {
         return version == null ? 0 : version;
     }
