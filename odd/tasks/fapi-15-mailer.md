@@ -45,8 +45,8 @@ Modules' own templates; bounces, webhooks, attachments, marketing mail.
 - [x] T3. Renderer: one locale per message, whole-message fallback counted by `mail.locale.fallback`.
 - [x] T4. Transports: Resend (idempotency key), SMTP (Mailpit), `mail.send` observation, privacy of logs/spans.
 - [x] T5. Configuration: provider selection, fail-fast settings, compose Mailpit, local properties.
-- [ ] T6. Outbox example: listener fails on 5xx, recovery pass sends after the stub recovers.
-- [ ] T7. Docs and skills: README, `email.md`, errors/logging/observability references.
+- [x] T6. Outbox example: listener fails on 5xx, recovery pass sends after the stub recovers.
+- [x] T7. Docs and skills: README, `email.md`, errors/logging/observability references.
 - [ ] T8. Gate `./gradlew spotlessApply check --rerun-tasks` green; commit.
 
 ## Acceptance → tests
@@ -79,6 +79,14 @@ Recorded per task below as work proceeds.
 - T5 RED: `LocalComposeStackTest.runsMailpitForLocalMail` (no mailpit service), `LocalProfileTest` (no `spring.mail.*`),
   `MailConfigurationTests` (startup got to JPA instead of failing on mail settings), `MailpitIntegrationTests` (no
   `Mailer` bean). GREEN: all pass; `OpenApiOutsideLocalProfileTests` given the two mail variables.
+
+- T6: `MailOutboxIntegrationTests` passed on first run (behaviour already built in T4/T5). Validity check (mutation):
+  making `ObservedMailer` swallow `MailDeliveryException` fails it (`ConditionTimeoutException`, publication completed
+  without delivery); restored. Runs on its own non-reused Postgres so other cached contexts' recovery jobs cannot
+  dead-letter the test listener's failed publication (`UNKNOWN_LISTENER`).
+- T7: README (Mail section, variables, Mailpit ports), `writing-code/references/email.md` (new), errors (provider
+  failures never reach clients: translate, log once at ERROR, count), logging, observability, i18n, testing
+  integration-tests.
 
 ## Engram mirror
 
