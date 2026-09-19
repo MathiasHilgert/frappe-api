@@ -14,7 +14,8 @@ public interface QueryBus {
      * @return the answer of its handler
      * @throws NullPointerException if the query is {@code null}
      * @throws RuntimeException the handler's own exception, or a {@code MissingHandlerException} when no handler is
-     *     declared for the query type (a programming error)
+     *     declared for the query type: a programming error found by the first test that asks the query, never an
+     *     outcome to catch and handle
      */
     <R> R ask(Query<R> query);
 }

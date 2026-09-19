@@ -9,7 +9,7 @@ Every use case is one command or query dispatched through a bus to exactly one h
 - Public API in `com.frappe.platform` (pure Java, no Spring): `Result` (sealed, `Success` / `Failure` records, `map`, `flatMap`, `mapFailure`, `fold`), `Command<R>`, `Query<R>`, `CommandHandler<C, R>`, `QueryHandler<Q, R>`, `CommandBus#dispatch`, `QueryBus#ask`.
 - Handlers are discovered at startup from Spring beans, keyed by the message type resolved with `ResolvableType`. Two handlers for one type fail startup naming both beans; a message without a handler throws `MissingHandlerException` naming the type.
 - An observing decorator around both buses creates one Micrometer `Observation` `use_case` per dispatch, outside the handler's `@Transactional` proxy, so the commit happens inside the observation. Span name `<module> <UseCase>`; low-cardinality tags `use_case.name`, `use_case.module`, `use_case.kind`, `outcome` (`success` | `failure` | `error`).
-- Command handlers are `@Transactional`; query handlers are not.
+- Command handlers are `@Transactional`; query handlers are not. Revised after review (T6): query handlers are `@Transactional(readOnly = true)`, and a returned `Failure` rolls the command's transaction back.
 - Bus and `Result` are hand-written (ticket, Libraries): no maintained library offers a plain in-process CQRS bus without a framework runtime (Axon); Vavr's `Either` would pull a full collections library into the pure domain for one type.
 
 ## Out of scope
@@ -25,6 +25,7 @@ Strict TDD (project standard, `testing-code`). Runner: `./gradlew test` with `FR
 - [x] T3 Observing decorator: one `use_case` observation per dispatch with outcome and error
 - [x] T4 Postgres proof: rollback leaves neither state nor outbox row; a commit failure is observed as `error`
 - [x] T5 Docs (`writing-code` use cases and observability, `observing-the-api` conventions); verification
+- [x] T6 Review decisions: rollback on `Failure`, read-only query transactions enforced at startup, lazy cached handler lookup, `MissingHandlerException` Javadoc, fixture version note
 
 ## Acceptance (from ticket)
 - A1 One handler for a command: dispatching runs it once and returns its `Result` unchanged.
@@ -78,10 +79,17 @@ Strict TDD (project standard, `testing-code`). Runner: `./gradlew test` with `FR
 - `writing-code/references/observability.md` and `observing-the-api/references/conventions.md`: `use_case` added to the automatic telemetry, with its tags and how to read `outcome`. `testing-code/references/unit-tests.md`: the example asserted on `isFailure()` / `error()`, which `Result` does not have; now `isEqualTo(Result.failure(...))`. Package docs of `com.frappe.platform` and `com.frappe.platform.infrastructure` mention the bus.
 - Verification `FRAPPE_TEST_DB=frappe_fapi_11 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 48 test classes, 192 tests, 0 failures, 0 errors (spotless, javadoc with doclint `-Werror`, `ModularityTests` included).
 
+### T6 Review decisions (orchestrator, review approved without blockers)
+- API check (spring-aop / spring-tx 7.0.9 sources): `AbstractAdvisingBeanPostProcessor#postProcessAfterInitialization` appends its advisor to an existing `Advised` proxy (`beforeExistingAdvisors=false`), i.e. innermost, inside the transaction interceptor; the auto-proxy creator is registered with `HIGHEST_PRECEDENCE`, the advising post-processor defaults to `LOWEST_PRECEDENCE`, so the transaction proxy exists when ours runs. `TransactionAspectSupport.currentTransactionStatus()` returns the interceptor's status (else `NoTransactionException`). `determineBeanType` would predict a proxy type of its own, so it is overridden to the bean class, and `isEligible(Object, String)` returns `false`: we only extend existing transaction proxies, never create one.
+- RED (4): `UseCaseBusIntegrationTests.aCommandReturningAFailureRollsBackItsStateAndItsOutboxRow` (`expected: 0 but was: 1`, the probe row committed), `UseCaseObservationTest.aFailureResultRollsBackTheTransactionInsteadOfCommittingIt` (`Expecting AtomicInteger(0) to have value: 1`, no rollback), `HandlerDiscoveryTest.aQueryHandlerWithoutAReadOnlyTransactionFailsStartup` (context started), `HandlerDiscoveryTest.aHandlerIsCreatedOnFirstUseNotAtStartupAndThenReused` (prototype handler: `AtomicInteger(2)`, expected 1).
+- GREEN: `RollbackOnFailurePostProcessor` (static `@Bean`) marks the transaction rollback-only when `handle` returns a `Result.Failure`; the failure is returned and observed as `outcome=failure` (timer `error=none`). `HandlerRegistry` requires a read-only transaction for queries and a read-write one for commands (bean named in the startup failure), and caches handler instances per message type in a `ConcurrentHashMap` on first use (`get` + `putIfAbsent`, not `computeIfAbsent`, because creating a handler may dispatch). Bus tests 10 + 7 + 4 green.
+- Docs: `CommandBus` / `QueryBus` Javadoc (`MissingHandlerException` is a programming error, not to be caught), `CommandHandler` / `QueryHandler` Javadoc, `use-cases.md` (workaround removed, read-only queries, lookup on first use), `persistence.md` (every use case has the transaction `set local` needs), `integration-tests.md` (fixture versions share the production version space).
+- Verification `FRAPPE_TEST_DB=frappe_fapi_11 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 48 classes, 196 tests, 0 failures, 0 errors.
+
 ## Open questions / follow-ups
-- Query handlers are not `@Transactional` by convention only (documented); the bus enforces the rule for command handlers alone. Enforcing "no transaction" on queries would be a one-line check if wanted.
-- A handler that returns `Result.Failure` after saving is not rolled back (Spring rolls back on exceptions only); `use-cases.md` states the rule (return failures before saving). A bus-level `setRollbackOnly` on `Failure` would need the bus inside the transaction, which the ticket rules out.
-- `MissingHandlerException` and `InvalidHandlersException` are package-private in `infrastructure.bus` (errors standard); the public ports mention `MissingHandlerException` in their Javadoc as plain code text.
+- A command handler that joins an outer transaction (e.g. dispatched from inside another transaction) and returns a `Failure` marks the whole transaction rollback-only; the outer commit then fails with `UnexpectedRollbackException`. Handlers are dispatched from outside transactions today, so this is noted, not handled.
+- Handlers are resolved once and reused, so a prototype-scoped handler behaves like a singleton.
+- `MissingHandlerException` and `InvalidHandlersException` are package-private in `infrastructure.bus` (errors standard).
 
 ## Next step
 Review and PR (not created here: no push, no Plane change).

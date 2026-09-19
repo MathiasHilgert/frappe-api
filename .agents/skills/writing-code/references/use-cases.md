@@ -39,12 +39,12 @@ Result<TabId, TabError> closed = commandBus.dispatch(new CloseTab(tabId));
 
 - `Result.success(value)` / `Result.failure(error)`; neither holds `null`. Compose with `map`, `flatMap`, `mapFailure` (e.g. domain error → web error); read with `fold` or a `switch` over `Result.Success` / `Result.Failure`.
 - A returned `Failure` is a business refusal: the bus reports it as `outcome=failure`. An exception is a defect or infrastructure fault: `outcome=error`. Never throw for an expected failure, or error alerts stop meaning anything.
-- A `Failure` does not roll back by itself: return it before saving (the `flatMap` chain above), never after a partial save.
+- A returned `Failure` rolls the command's transaction back: nothing the handler saved or recorded before refusing persists, and the bus still reports `outcome=failure`.
 
 ## Rules
 
-- `@Transactional` on command handlers only (on `handle` or the class); startup fails for a command handler without it. Saving the aggregate and its events happens in that transaction (see `domain-events.md`). Query handlers are not transactional.
-- Exactly one handler per message type: two handlers for one type fail startup naming both beans; a message without a handler throws `MissingHandlerException` naming the type. Handlers are keyed by the exact record class; declare them as classes (not lambdas or generic classes) so the message type resolves. Messages live in `com.frappe.<module>…`.
+- Command handlers are `@Transactional` (read-write), query handlers `@Transactional(readOnly = true)`, on `handle` or the class; startup fails naming the bean otherwise. Saving the aggregate and its events happens in the command's transaction (see `domain-events.md`); the query's read-only transaction carries the tenant setting for RLS (`persistence.md`).
+- Exactly one handler per message type: two handlers for one type fail startup naming both beans; a message without a handler throws `MissingHandlerException` naming the type (a programming error: never catch it). Handlers are looked up on first use and reused. Handlers are keyed by the exact record class; declare them as classes (not lambdas or generic classes) so the message type resolves. Messages live in `com.frappe.<module>…`.
 - Handlers never create telemetry. The bus observes every dispatch (`use_case`, see `observability.md`) outside the handler's transaction proxy, so the commit is part of the measured use case.
 - Repository interfaces (ports) live in `domain`; implementations in `infrastructure.persistence`.
 - A handler touches one aggregate instance per transaction. Cross-aggregate effects go through events.

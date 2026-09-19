@@ -14,7 +14,8 @@ public interface CommandBus {
      * @return the result of its handler
      * @throws NullPointerException if the command is {@code null}
      * @throws RuntimeException the handler's own exception, or a {@code MissingHandlerException} when no handler is
-     *     declared for the command type (a programming error)
+     *     declared for the command type: a programming error found by the first test that dispatches the command,
+     *     never an outcome to catch and handle
      */
     <R> R dispatch(Command<R> command);
 }
