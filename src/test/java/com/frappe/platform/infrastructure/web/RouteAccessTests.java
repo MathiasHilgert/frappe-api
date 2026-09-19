@@ -12,6 +12,7 @@ import com.frappe.platform.web.SessionResolver;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 import jakarta.servlet.http.Cookie;
+import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -19,6 +20,8 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -27,6 +30,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -228,6 +232,24 @@ class RouteAccessTests {
                         .uri("/v1/test/self")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer person-token", "Bearer guest-token"))
                 .hasStatus(HttpStatus.UNAUTHORIZED);
+    }
+
+    @ParameterizedTest(name = "{0} {1} -> {2}")
+    @CsvSource({
+        "HEAD, /v1/test/self, 401",
+        "GET, /v1/test/%73elf, 401",
+        "GET, /v1/test/self/, 404",
+        "OPTIONS, /v1/test/self, 200",
+        "POST, /v1/test/self, 405"
+    })
+    void noVariantOfAnAuthenticatedRouteRunsItsControllerAnonymously(String method, String uri, int status) {
+        // When
+        var result =
+                http.method(HttpMethod.valueOf(method)).uri(URI.create(uri)).exchange();
+
+        // Then
+        assertThat(result).hasStatus(status);
+        assertThat(controllerCalls).hasValue(0);
     }
 
     @Test
