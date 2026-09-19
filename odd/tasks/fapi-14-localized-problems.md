@@ -25,7 +25,7 @@ Strict TDD. Mode source: project standard (`testing-code`, CLAUDE.md). Runner: `
 - [x] T3 401 (and the fail-closed 403) from the security chain as problems
 - [x] T4 Unexpected failures: generic localized 500 per infrastructure failure kind (database down, SQL error, provider, NATS, Valkey, failing filter); one ERROR log + metric
 - [x] T5 `Result` failures through the `ProblemMapper` registry: mapped status/type/code/params, localized; unmapped → 500; duplicate mapper → startup fails
-- [ ] T6 Docs (`writing-code/references/errors.md`, `http-api.md`, `i18n.md`), `./gradlew spotlessApply check --rerun-tasks` green
+- [x] T6 Docs (`writing-code/references/errors.md`, `http-api.md`, `i18n.md`), `./gradlew spotlessApply check --rerun-tasks` green
 
 ## Acceptance (from ticket, adjusted)
 - No session on an authenticated route → 401 `application/problem+json` with type, code, title, status, traceId.
@@ -74,3 +74,17 @@ Strict TDD. Mode source: project standard (`testing-code`, CLAUDE.md). Runner: `
 - RED: `ProblemMappersTest` did not compile (`ProblemMappers` missing). `RefusedRequestProblemsTests` (MockMvcTester; the test module `probe` gets a web adapter `com.frappe.probe.infrastructure.web.ProbeWebRoutes`: a route calling the real `RecordProbe` use case with `.orElseThrow(RequestRefusedException::new)`, a `ProblemMapper<ProbeError>` → 409 `probe-rejected` with param `limit`, and test catalogs `i18n/probe`): 5/7 failed, the refusal answered 500 internal-error (`expected: 409 but was: 500`, titles "Se produjo un error inesperado" instead of "Sonda rechazada"); the missing-text case logged the refusal instead of the missing key.
 - GREEN: `ProblemMappersTest` 4/4 (found by type incl. enum constants with bodies and sealed records; no mapper → empty; two mappers for one type and a mapper for a subtype of another fail startup naming both types). `RefusedRequestProblemsTests` 7/7: mapped status/type/code/params with localized title/detail (en; es, pt-BR, xx), no ERROR log for a refusal; success still 200; unmapped failure → generic 500 with one ERROR log naming the failure type; a mapped key missing from the catalogs → generic 500 with one ERROR log naming the key. `ModularityTests`, `UseCaseArchitectureTests`, probe and web packages green.
 - Code: `ProblemMappers` (registry, startup overlap check), bean in `ProblemConfiguration` from every `ProblemMapper` bean; `ProblemAdvice#refused` (`@ExceptionHandler(RequestRefusedException.class)`; catches only `NoSuchMessageException` around the text lookup).
+
+### T6 docs and verification
+- `writing-code/references/http-api.md`: "Errors (RFC 9457 problems)" rewritten: the shape with an example, `ProblemMapper` + `RequestRefusedException` with a route and mapper example, rules (4xx only, kebab-case slug, keys `<messageKey>.title|detail`, params as ordered arguments, overlap/unmapped/missing-key behaviour), the platform problem table, the generic internal-error rule, validation `errors[]`.
+- `errors.md`: the HTTP boundary (`ProblemAdvice` / `ProblemErrorController`, one ERROR log + counter, accepted Tomcat duplicate for filter exceptions) and `RequestRefusedException` as the one exception for an expected failure, at the web edge only.
+- `i18n.md`: "Errors (problem details)" now describes mapper keys and platform keys; why per-exception `problemDetail.*` codes are not used. `use-cases.md`: `Result#orElseThrow` for the web edge only. `short-lived-secrets.md`: an uncaught `SecretStoreUnavailableException` is the generic 500 (was "map it to 503"). `testing-code/references/integration-tests.md`: what to assert on problems.
+- Verification `FRAPPE_TEST_DB=frappe_fapi_14 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 95 test classes, 493 tests, 0 failures, 0 errors, 0 skipped (spotless, javadoc with doclint, script tests included).
+- Plane pages (Engineering Standards / Architecture) are not touched here (no Plane writes); they need the same sync by the orchestrator.
+
+## Open questions
+- `code` equals the type's slug. The ticket lists both as stable fields; if a finer `code` than the type is wanted (for example several codes under `invalid-request`), `Problem` needs a separate code.
+- Infrastructure outages (Valkey, database) answer the generic 500, per the standing rule. A 503 `service-unavailable` with `Retry-After` would tell clients to retry; it was left out because the rule says any unexpected exception is the generic 500, and `short-lived-secrets.md` previously said 503.
+- `traceId` is omitted when no trace is current (tracing switched off); in every profile with tracing on it is present.
+- Validation pointers use Java property names; a DTO renaming a field with `@JsonProperty` would get the Java name in the pointer.
+- `HandlerMethodValidationException` (constraints on `@RequestParam`/`@PathVariable`) answers `invalid-request` without `errors[]`; parameter errors can be added when the first route needs them.

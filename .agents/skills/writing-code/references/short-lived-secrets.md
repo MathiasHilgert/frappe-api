@@ -106,7 +106,7 @@ boolean verified = secrets.consume(key, submittedCode);
 
 ## Failures
 
-- Both ports throw `SecretStoreUnavailableException` (public, in `com.frappe.platform`, so callers can catch it) when Valkey is down or does not answer within `spring.data.redis.timeout` (2 s). Map it to `503` with a `ProblemDetail`; never skip the check or treat it as a pass, and never log the code.
+- Both ports throw `SecretStoreUnavailableException` (public, in `com.frappe.platform`, so callers can catch it) when Valkey is down or does not answer within `spring.data.redis.timeout` (2 s). Uncaught, it reaches the client as the generic `internal-error` problem (500) and is logged once (`errors.md`); never skip the check or treat it as a pass, and never log the code.
 - The API starts and stays healthy without Valkey (`management.health.redis.enabled=false`): only flows that need a code or a limit fail.
 - Lettuce commands are observed automatically (spans and timers per command); add no telemetry around the ports.
 

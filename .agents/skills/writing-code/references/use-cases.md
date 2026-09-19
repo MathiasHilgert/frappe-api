@@ -48,6 +48,7 @@ Result<TabId, TabError> closed = closeTab.close(tabId);
 ## Result
 
 - `Result.success(value)` / `Result.failure(error)`; neither holds `null`. Compose with `map`, `flatMap`, `mapFailure` (e.g. domain error → web error); read with `fold` or a `switch` over `Result.Success` / `Result.Failure`.
+- `orElseThrow(exceptionOf)` is for the web edge only: a route calls `result.orElseThrow(RequestRefusedException::new)` and the platform answers the failure with its module's mapped problem (`http-api.md`, "Errors"). Inside a module, compose results.
 - A returned `Failure` is a business refusal: observed as `outcome=failure`. An exception is a defect or infrastructure fault: `outcome=error`. Never throw for an expected failure, or error alerts stop meaning anything.
 - A returned `Failure` rolls back the transaction the use case started: nothing it saved or recorded before refusing persists. When the use case joins a caller's transaction, the caller (its owner) decides from the returned failure.
 - A `Failure` never commits the use case's own transaction. State that must survive a refusal (failed-login attempts, rate counters) does not go there: short-lived counters and attempts live in Valkey through `RateLimiter` / `ShortLivedSecretStore` (FAPI-16); anything else durable is written by a separate use case or bean with `@Transactional(propagation = REQUIRES_NEW)`, which commits on its own before the refusal is returned.

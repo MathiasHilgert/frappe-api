@@ -46,11 +46,63 @@ class CloseTabRoute {
 - Jakarta Bean Validation on request DTOs for shape (required, length, format).
 - Business rules are validated in the domain and come back as `Result` failures.
 
-## Errors (RFC 9457)
+## Errors (RFC 9457 problems)
 
-- Every error is a `ProblemDetail`. Map domain errors in one place per module (`@RestControllerAdvice` or a mapper).
-- `type` is a stable URI per error (`https://frappe.app/problems/tab-already-closed`), `title` and `detail` localized, extra fields as properties.
-- Typical status: validation `400`, unauthenticated `401`, forbidden `403`, missing `404`, rule violation `409`/`422`, optimistic lock `409`.
+Every failure is one shape, `application/problem+json` with `Content-Language`: `type` (stable URI `https://frappe.app/problems/<slug>`), `title` and `detail` (localized, `i18n.md`), `status`, `instance` (the request path), `code` (the slug), `params` (raw values, `{}` when none) and `traceId` (the request's OpenTelemetry trace id). Clients branch on `type` or `code`, never on text. Validation problems add `errors[]`.
+
+```json
+{"type": "https://frappe.app/problems/tab-already-closed", "title": "Tab already closed",
+ "status": 409, "detail": "Tab T-12 is already closed.", "instance": "/v1/tabs/T-12/close",
+ "code": "tab-already-closed", "params": {"tabId": "T-12"}, "traceId": "4bf92f3577b34da6a3ce929d0e0e4736"}
+```
+
+### Business failures: `ProblemMapper`
+
+A route turns a failed `Result` into `RequestRefusedException` (kernel, `com.frappe.platform.web`); one `ProblemMapper<E>` bean per failure type, in the module's `infrastructure.web`, decides status, slug and message key in one place:
+
+```java
+@PostMapping("/tabs/{tabId}/close")
+ResponseEntity<Void> close(@PathVariable UUID tabId, ResolvedSession caller) {
+    closeTab.close(new TabId(tabId), caller).orElseThrow(RequestRefusedException::new);
+    return ResponseEntity.noContent().build();
+}
+
+@Component
+class TabProblems implements ProblemMapper<TabError> {
+    public Class<TabError> failureType() { return TabError.class; }
+
+    public Problem problemOf(TabError error) {
+        return switch (error) {
+            case TabError.AlreadyClosed closed ->
+                    Problem.of(409, "tab-already-closed", "order.tab.already-closed").with("tabId", closed.tabId());
+            case TabError.NotFound notFound -> Problem.of(404, "tab-not-found", "order.tab.not-found");
+        };
+    }
+}
+```
+
+- `Problem.of(status, slug, messageKey)`: status 4xx only (a business failure is never a server fault), slug kebab-case and stable once published, key in the module's catalogs. Text: `<messageKey>.title` and `<messageKey>.detail` in all three catalogs; `with(name, value)` params fill the detail's `{0}`, `{1}`… in order and are returned raw.
+- Two mappers for the same failure type, or one for a subtype of another's, fail startup. A failure without a mapper, or a key missing from the catalogs, is a bug: the client gets the generic 500 problem and it is logged.
+- Typical status: missing `404`, rule violation `409`/`422`, optimistic lock `409`.
+
+### Platform problems
+
+The platform answers everything no module maps (`com.frappe.platform.infrastructure.web`): `ProblemAdvice` (a `ResponseEntityExceptionHandler`, replacing Boot's), `SecurityRefusals` (the chain's entry point and access-denied handler, delegating to Spring MVC's exception resolvers) and `ProblemErrorController` (Boot's `ErrorController` for error dispatches, e.g. an exception thrown by a filter). The type follows the status, with text under `platform.problem.<slug>.title|detail`:
+
+| Type (`code`) | Status | When |
+| --- | --- | --- |
+| `invalid-request` | 400 | unreadable body, bad parameters, validation (`errors[]`) |
+| `unauthenticated` | 401 + `WWW-Authenticate: Bearer` | no token, or one that resolves to no session |
+| `forbidden` | 403 | a caller with a session on a path the chain refuses (fail closed); routes never answer it |
+| `not-found` | 404 | no route serves the path |
+| `method-not-allowed` | 405 + `Allow` | the path exists, the method does not |
+| `not-acceptable`, `content-too-large`, `unsupported-media-type` | 406, 413, 415 | content negotiation, body size and type |
+| `request-rejected` | other 4xx | any other client error the framework raises |
+| `internal-error` | 500 | anything unexpected (defect or infrastructure fault) |
+
+- `internal-error` is generic on purpose: title "An unexpected error occurred", no params, and nothing of the cause (no exception message or class, SQL, technology or provider name, host, stack trace). The cause goes to one ERROR log line and the counter `http.server.unexpected.errors{error}` (`errors.md`); support finds it by the `traceId`.
+- Validation (`@Valid @RequestBody`): one `errors[]` entry per violated constraint, `{"pointer": "/lines/0/quantity", "code": "min", "params": {"value": 1}, "detail": "must be at least 1"}`: RFC 6901 pointer into the body, constraint name in kebab-case, the constraint's attributes as params, detail from `platform.validation.<code>` (falling back to `platform.validation.invalid`; arguments are the attributes sorted by name).
+- `server.error.include-stacktrace=never` and `include-message=never` stay set as defense in depth.
 
 ## OpenAPI and i18n
 
