@@ -25,8 +25,7 @@ class TabTest {
         var result = tab.close(clock);
 
         // Then
-        assertThat(result.isFailure()).isTrue();
-        assertThat(result.error()).isEqualTo(TabError.ALREADY_CLOSED);
+        assertThat(result).isEqualTo(Result.failure(TabError.ALREADY_CLOSED));
         assertThat(tab.pullEvents()).isEmpty();
     }
 }

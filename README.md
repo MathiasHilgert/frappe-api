@@ -46,7 +46,7 @@ Users are global: one person can own or work for several businesses with a singl
 A Java modular monolith on Spring Boot and Spring Modulith: one deployable application split into modules whose boundaries are verified on every build.
 
 - **Module anatomy.** The module root package is its public surface (an `XxxApi` interface and published events). Everything below it (`domain`, `application`, `infrastructure`) is internal.
-- **Pure domain.** Aggregates, value objects and events have no Spring or JPA dependencies. Use cases run through a command/query bus.
+- **Pure domain.** Aggregates, value objects and events have no Spring or JPA dependencies. Use cases are plain classes, one per operation (`@CommandUseCase` / `@QueryUseCase`), called directly; the platform adds their transaction rollback on failure and telemetry.
 - **Communication.** Modules talk through domain events; a public `Api` is used only for unavoidable synchronous reads. No module touches another's tables.
 - **Events.** Every event is written to a Postgres outbox in the same transaction as the aggregate, then relayed to NATS JetStream. Delivery is at-least-once and consumers are idempotent.
 - **Tenancy.** Shared tables with `tenant_id`, isolated by Postgres row-level security.
@@ -54,7 +54,7 @@ A Java modular monolith on Spring Boot and Spring Modulith: one deployable appli
 
 ```mermaid
 sequenceDiagram
-    participant H as Command handler
+    participant H as Command use case
     participant A as Aggregate
     participant DB as Postgres (same transaction)
     participant R as Outbox relay
@@ -71,7 +71,7 @@ sequenceDiagram
 
 ## Tech stack
 
-Java 25 · Spring Boot 4.1 · Spring Modulith 2.1 · Gradle (Kotlin DSL) · PostgreSQL 18 + Flyway · NATS JetStream · Testcontainers · Spotless + Palantir Java Format · gitleaks · GitHub Actions · OpenTelemetry
+Java 25 · Spring Boot 4.1 · Spring Modulith 2.1 · Gradle (Kotlin DSL) · PostgreSQL 18 + Flyway · NATS JetStream · Valkey 9 · Testcontainers · Spotless + Palantir Java Format · gitleaks · GitHub Actions · OpenTelemetry
 
 ## Getting started
 
@@ -83,13 +83,27 @@ Java 25 · Spring Boot 4.1 · Spring Modulith 2.1 · Gradle (Kotlin DSL) · Post
 
 ### Local infrastructure
 
-Start Postgres, NATS (JetStream enabled) and the observability stack (Grafana LGTM):
+Start Postgres, NATS (JetStream enabled), Valkey and the observability stack (Grafana LGTM), and wait until they are ready:
 
 ```bash
-docker compose up -d
+docker compose up -d --wait
 ```
 
 Spring Boot's Docker Compose support also starts these services when the application runs locally.
+
+Every host port can be moved with an environment variable (shell or a `.env` file next to `compose.yaml`) when another project already uses it; the `local` profile follows the Postgres and NATS ports, and Spring Boot finds Valkey and Grafana LGTM on any port:
+
+| Service | Variable | Default |
+| --- | --- | --- |
+| Postgres | `FRAPPE_POSTGRES_PORT` | `5432` |
+| NATS (client, monitoring) | `FRAPPE_NATS_PORT`, `FRAPPE_NATS_MONITOR_PORT` | `4222`, `8222` |
+| Valkey | `FRAPPE_VALKEY_PORT` | `6379` |
+| Grafana, OTLP gRPC, OTLP HTTP | `FRAPPE_GRAFANA_PORT`, `FRAPPE_OTLP_GRPC_PORT`, `FRAPPE_OTLP_HTTP_PORT` | `3000`, `4317`, `4318` |
+
+```bash
+FRAPPE_POSTGRES_PORT=15432 docker compose up -d --wait
+FRAPPE_POSTGRES_PORT=15432 ./gradlew bootRun
+```
 
 On first start Postgres creates two roles: `frappe_owner` runs the Flyway migrations and owns the schemas, `frappe_app` is what the application uses at runtime (data access only, no DDL). Local passwords default to the role names; override them with `FRAPPE_OWNER_PASSWORD` and `FRAPPE_APP_PASSWORD` in compose and the application.
 
@@ -99,13 +113,33 @@ Postgres runs the roles script automatically only on a new data volume. If start
 docker compose exec postgres /docker-entrypoint-initdb.d/01-frappe-roles.sh
 ```
 
+### Valkey
+
+Valkey 9 holds what is short-lived: verification, reset and email-change codes, and login and recovery rate limits, behind the platform ports `ShortLivedSecretStore` and `RateLimiter` (modules never use Redis APIs).
+
+- Compose runs `valkey/valkey:9-alpine` as service `valkey`. Spring Boot 4.1.1 does not recognise the valkey image by name, so the service carries the label `org.springframework.boot.service-connection: redis`; with it, `bootRun` connects to Valkey on any host port with no URL set. Outside `local`, set `FRAPPE_VALKEY_URL`.
+- Only Argon2id hashes of codes are stored, computed over an HMAC with a server-side pepper (`FRAPPE_SECRET_PEPPER`) that never reaches Valkey, so a leaked dump cannot be brute-forced offline. Keys hold ids and network addresses, never email addresses. Inspect them with `docker compose exec valkey valkey-cli --scan --pattern 'frappe:*'`.
+- Without Valkey the API still starts and serves, and `/actuator/health` stays UP: only the flows that need a code or a rate limit fail, fast (2 s timeouts), with `SecretStoreUnavailableException`.
+
 ### Run the application
 
 ```bash
 ./gradlew bootRun
 ```
 
-Migrations run on startup. `bootRun` activates the `local` profile (`application-local.properties`), which points at the compose database with the default passwords; set `SPRING_PROFILES_ACTIVE` to override. Outside `local` there are no defaults: startup fails unless `FRAPPE_DB_URL`, `FRAPPE_APP_PASSWORD` and `FRAPPE_OWNER_PASSWORD` are set.
+Migrations run on startup. `bootRun` activates the `local` profile (`application-local.properties`), which points at the compose database with the default passwords; set `SPRING_PROFILES_ACTIVE` to override. Outside `local` there are no defaults: startup fails unless `FRAPPE_DB_URL`, `FRAPPE_APP_PASSWORD`, `FRAPPE_OWNER_PASSWORD`, `FRAPPE_VALKEY_URL` (`redis://host:6379`, `rediss://` for TLS, credentials in the URL) and `FRAPPE_SECRET_PEPPER` (at least 32 random characters, e.g. `openssl rand -base64 48`) are set.
+
+Routes live under `/v1`; the OpenAPI spec is at `/v3/api-docs` and, in `local` only, the Scalar API reference at <http://localhost:8080/scalar>. Behind a reverse proxy set `FRAPPE_TRUSTED_PROXIES` to the proxy's addresses (CIDR list, default loopback only): `X-Forwarded-For` is honoured only from those.
+
+### Secrets
+
+The application reads secrets from environment variables only, and the `local` profile needs none. Real keys (production, and dev keys for local work) live in Bitwarden Secrets Manager on the EU cloud, one project per environment (`frappe-dev`, `frappe-production`) with a read-only machine account each. To run anything with the `frappe-dev` secrets injected, install [`bws`](https://github.com/bitwarden/sdk-sm/releases), export the access token of the dev machine account as `BWS_ACCESS_TOKEN` and run:
+
+```bash
+scripts/with-secrets.sh ./gradlew --no-daemon bootRun
+```
+
+Values are passed to that process only, never printed or written to disk. [`docs/secrets.md`](docs/secrets.md) has the setup, the inventory of every secret and the runbook (add, rotate, revoke, leak).
 
 ### Observability
 
@@ -148,7 +182,7 @@ git config core.hooksPath .githooks
 
 ## Continuous integration
 
-Every pull request tells the story of what was verified before it can merge. A history-aware secrets scan runs first, independently of the rest. In parallel, the quality gate checks out the branch, verifies formatting, verifies module boundaries and finally runs the test suite against a real Postgres instance, in that order, annotating the pull request with the test results and publishing a summary with the outcome of each stage and the generated Modulith component diagram. Separately, CodeQL and a dependency review look for known and structural vulnerabilities, and a title check enforces Conventional Commits before merge. Dependabot keeps Gradle, GitHub Actions and Docker dependencies current on a weekly schedule.
+Every pull request tells the story of what was verified before it can merge. A history-aware secrets scan runs first, independently of the rest. In parallel, the quality gate checks out the branch, verifies formatting and Javadoc, tests the developer scripts, verifies module boundaries, runs the test suite against a real Postgres instance and finally runs `./gradlew check`, so CI runs exactly the local gate, annotating the pull request with the test results and publishing a summary with the outcome of each stage and the generated Modulith component diagram. Separately, CodeQL and a dependency review look for known and structural vulnerabilities, and a title check enforces Conventional Commits before merge. Dependabot keeps Gradle, GitHub Actions and Docker dependencies current on a weekly schedule.
 
 ```mermaid
 flowchart LR
@@ -158,9 +192,12 @@ flowchart LR
     PR --> CodeQL[CodeQL analysis]
     PR --> DepReview[Dependency review]
     Gate --> Format[Verify formatting]
-    Format --> Modules[Verify module boundaries]
+    Format --> Javadoc[Verify Javadoc]
+    Javadoc --> Scripts[Test developer scripts]
+    Scripts --> Modules[Verify module boundaries]
     Modules --> Tests[Run tests against Postgres]
-    Tests --> Summary[Job summary + PR annotations]
+    Tests --> Check[Run the whole local gate]
+    Check --> Summary[Job summary + PR annotations]
     Title --> Merge[Ready to merge]
     Secrets --> Merge
     Summary --> Merge

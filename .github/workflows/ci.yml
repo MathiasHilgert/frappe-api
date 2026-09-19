@@ -45,12 +45,20 @@ jobs:
           java-version: 25
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+      # The named steps tell the story; the last one runs ./gradlew check itself, so CI runs every task the local gate
+      # runs (tasks already done are up to date).
       - name: Verify formatting
         run: ./gradlew spotlessCheck
+      - name: Verify Javadoc
+        run: ./gradlew javadoc
+      - name: Test the developer scripts
+        run: ./gradlew scriptTests
       - name: Verify module boundaries
         run: ./gradlew test --tests ModularityTests
       - name: Run the test suite against real Postgres
         run: ./gradlew test
+      - name: Run the whole local gate
+        run: ./gradlew check
       - name: Annotate the pull request with test results
         uses: mikepenz/action-junit-report@v6
         if: always()
@@ -73,7 +81,7 @@ jobs:
             echo "| Stage | Result |"
             echo "| --- | --- |"
             echo "| Secrets scan | see the Secrets job |"
-            echo "| Formatting, module boundaries and tests | ${{ job.status }} |"
+            echo "| Formatting, Javadoc, developer scripts, module boundaries, tests (\`./gradlew check\`) | ${{ job.status }} |"
             echo
             if compgen -G "build/test-results/test/TEST-*.xml" > /dev/null; then
               TOTAL=$(grep -oh 'tests="[0-9]*"' build/test-results/test/TEST-*.xml | grep -oE '[0-9]+' | paste -sd+ | bc)

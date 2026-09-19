@@ -1,3 +1,4 @@
+# Host ports default to the standard ones; set FRAPPE_<SERVICE>_PORT (see README) when another project already uses one.
 services:
   postgres:
     image: 'postgres:18-alpine'
@@ -14,7 +15,7 @@ services:
     volumes:
       - './docker/postgres/initdb:/docker-entrypoint-initdb.d:ro'
     ports:
-      - '5432:5432'
+      - '${FRAPPE_POSTGRES_PORT:-5432}:5432'
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U frappe -d frappe']
       interval: 5s
@@ -25,19 +26,33 @@ services:
     image: 'nats:2.12-alpine'
     command: '-js -m 8222'
     ports:
-      - '4222:4222'
-      - '8222:8222'
+      - '${FRAPPE_NATS_PORT:-4222}:4222'
+      - '${FRAPPE_NATS_MONITOR_PORT:-8222}:8222'
     healthcheck:
       test: ['CMD-SHELL', 'wget -qO- http://localhost:8222/healthz || exit 1']
       interval: 5s
       timeout: 5s
       retries: 5
 
-  # Grafana (http://localhost:3000) with Tempo (traces), Prometheus (metrics) and Loki (logs) behind one OTLP receiver.
+  # Grafana (http://localhost:3000, or FRAPPE_GRAFANA_PORT) with Tempo (traces), Prometheus (metrics) and Loki (logs) behind one OTLP receiver.
   # Spring Boot's Docker Compose support recognises the image and points the app's OTLP exporters at it.
   otel-lgtm:
     image: 'grafana/otel-lgtm:0.33.1'
     ports:
-      - '3000:3000'
-      - '4317:4317'
-      - '4318:4318'
+      - '${FRAPPE_GRAFANA_PORT:-3000}:3000'
+      - '${FRAPPE_OTLP_GRPC_PORT:-4317}:4317'
+      - '${FRAPPE_OTLP_HTTP_PORT:-4318}:4318'
+
+  # Short-lived secrets and rate limits. Spring Boot 4.1 does not recognise the valkey image by name; the label makes
+  # its Docker Compose support connect to it as Redis (Valkey speaks the same protocol).
+  valkey:
+    image: 'valkey/valkey:9-alpine'
+    labels:
+      org.springframework.boot.service-connection: 'redis'
+    ports:
+      - '${FRAPPE_VALKEY_PORT:-6379}:6379'
+    healthcheck:
+      test: ['CMD', 'valkey-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5

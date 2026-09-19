@@ -1,0 +1,7 @@
+# Bitwarden Secrets Manager CLI (bws) profile used by scripts/with-secrets.sh. No secrets here: the access token
+# comes from BWS_ACCESS_TOKEN. See docs/secrets.md.
+[profiles.frappe-eu]
+# EU cloud; bws derives <base>/api and <base>/identity.
+server_base = "https://vault.bitwarden.eu"
+# Never write the session state file (~/.config/bws/state): nothing touches disk, and a revoked token stops at once.
+state_opt_out = "true"

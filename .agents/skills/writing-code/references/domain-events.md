@@ -27,12 +27,12 @@ public record TabClosed(UUID eventId, Instant occurredAt, UUID aggregateId, long
 
 ## Publishing (outbox)
 
-- Aggregates register events; the command handler saves the aggregate, then hands the pulled events to the kernel port `com.frappe.platform.DomainEventPublisher`, inside the command transaction. Never inject Spring's `ApplicationEventPublisher` in application code.
+- Aggregates register events; the command use case saves the aggregate, then hands the pulled events to the kernel port `com.frappe.platform.DomainEventPublisher`, inside the command transaction. Never inject Spring's `ApplicationEventPublisher` in application code.
 
 ```java
 @Transactional
-public Result<TabId, TabError> handle(CloseTab cmd) {
-    return tabs.byId(cmd.tabId())
+public Result<TabId, TabError> close(TabId tabId) {
+    return tabs.byId(tabId)
             .flatMap(tab -> tab.close(clock))
             .map(tab -> {
                 tabs.save(tab);
@@ -90,7 +90,7 @@ Drop `where id = ...` to replay all, or filter by `reason` / `event_type`. To di
   1. In one transaction, insert `eventId` into the module's `inbox` table (unique key).
   2. If the insert conflicts, skip — already processed.
   3. Otherwise apply the effect in the same transaction.
-- Consumers call the module's own bus (a command), never another module's internals.
+- Consumers call the module's own command use case, never another module's internals.
 - `NatsProcessObservations.of(message)` (see "Trace context") is the hook for platform's NATS subscription/inbox adapter, which wraps every processed message in it. Module consumers reach it through that adapter, never directly: it stays package-private in `platform.infrastructure.nats` until the inbox ticket. Do not create spans or timers for consuming by hand.
 - Never rely on ordering across aggregates; within one aggregate use the event's version or timestamp to discard stale events.
 
