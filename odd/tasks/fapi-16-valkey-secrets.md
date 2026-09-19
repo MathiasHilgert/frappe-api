@@ -28,7 +28,7 @@ Strict TDD. Runner: `./gradlew test` with Testcontainers (Postgres reused as `FR
 - [x] T2 Valkey wiring: starter, `FRAPPE_VALKEY_URL` required outside `local`, `TestValkeyConfiguration`, starts without Valkey
 - [x] T3 `ShortLivedSecretStore` put/consume: Argon2 hash only, single use under concurrency, 5 failures, replace, TTL
 - [x] T4 `countIssue` sliding-window cap
-- [ ] T5 `RateLimiter` on Bucket4j: N+1 refused, shared across instances
+- [x] T5 `RateLimiter` on Bucket4j: N+1 refused, shared across instances
 - [ ] T6 Invariants and failure: raw read holds only hashes and no email; Valkey down → `SecretStoreUnavailableException`; docs (README, testing skill, writing-code); full check
 
 ## Acceptance (from ticket)
@@ -78,5 +78,11 @@ Strict TDD. Runner: `./gradlew test` with Testcontainers (Postgres reused as `FR
 - Mutation check: trimming one millisecond late (`now - window - 1`) failed `allowsIssuingAgainOnceTheOldestIssueLeavesTheWindow`; restored.
 - Code: `count-issue.lua` (ZREMRANGEBYSCORE, ZCARD, ZADD with a UUIDv7 member, PEXPIRE window), `ValkeyKeys.secretIssues`, time from the injected `Clock`.
 
+### T5 rate limiter
+- RED (compilation) `LimitKeyTest` (9) and `RateLimiterIntegrationTests` (4): `LimitKey`, `RateLimiter`, `ValkeyRateLimiter` missing. First GREEN attempt failed 4/4 with `ClassCastException: [Ljava.lang.Object; cannot be cast to [[B` in `SharedConnectionRedisApi.eval`: Bucket4j passes keys as an erased `K[]` (`new Object[]{key}`), which the bridge method of a class fixed to `byte[]` keys casts. Fix: `SharedConnectionRedisApi<K>` stays generic (documented). GREEN 9/9 and 4/4.
+- Acceptance: `refusesTheCallAfterNCallsInThePeriod` (N+1 refused), `twoApplicationInstancesShareTheBucket` (second `LettuceConnectionFactory` to the same container, calls spread over both instances, both see the empty bucket); plus `allowsCallsAgainOnceThePeriodRefilledTheBucket` (application clock via a Bucket4j `TimeMeter`) and `limitsEachKeySeparately`.
+- Code: `LimitKey` (module, purpose, subject = lowercase UUID or IP address, capacity, period; factories `ofId`, `ofAddress` without IPv6 scope), `RateLimiter`, `ValkeyRateLimiter` (greedy refill of `capacity` per `period`, expiry 10 s after the bucket is full again, `DataAccessException | RedisException` → `SecretStoreUnavailableException`), `SharedConnectionRedisApi` (Spring's lazily opened shared Lettuce connection; fails fast if the factory does not share it), `ValkeyKeys.rateLimit`.
+- `./gradlew javadoc`, `ModularityTests`: green.
+
 ## Next step
-T5.
+T6.

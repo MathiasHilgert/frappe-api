@@ -1,7 +1,8 @@
 package com.frappe.platform;
 
 /**
- * The store behind {@link ShortLivedSecretStore} (Valkey) cannot be reached or did not answer in time. Callers fail the request as temporarily unavailable; they never skip the check.
+ * The store behind {@link ShortLivedSecretStore} and {@link RateLimiter} (Valkey) cannot be reached or did not answer
+ * in time. Callers fail the request as temporarily unavailable; they never skip the check.
  */
 public final class SecretStoreUnavailableException extends RuntimeException {
 
