@@ -18,17 +18,6 @@ final class NatsPublishObservation {
     /** Observation name; the timer is exported as {@code nats.publish}. */
     static final String NAME = "nats.publish";
 
-    /** Low-cardinality key: the messaging system, always {@code nats}. */
-    static final String MESSAGING_SYSTEM = "messaging.system";
-
-    /** Low-cardinality key: the NATS subject. */
-    static final String DESTINATION = "messaging.destination.name";
-
-    /** High-cardinality key: the domain event id ({@code Nats-Msg-Id}). */
-    static final String MESSAGE_ID = "messaging.message.id";
-
-    private static final String NATS = "nats";
-
     private NatsPublishObservation() {}
 
     /**
@@ -47,8 +36,9 @@ final class NatsPublishObservation {
             Optional<W3cTraceContext> creationContext) {
         return Observation.createNotStarted(NAME, () -> LinkedMessageContext.producer(creationContext), registry)
                 .contextualName("publish " + subject)
-                .lowCardinalityKeyValue(MESSAGING_SYSTEM, NATS)
-                .lowCardinalityKeyValue(DESTINATION, subject)
-                .highCardinalityKeyValue(MESSAGE_ID, event.eventId().toString());
+                .lowCardinalityKeyValue(MessagingObservationKeys.MESSAGING_SYSTEM, MessagingObservationKeys.NATS)
+                .lowCardinalityKeyValue(MessagingObservationKeys.DESTINATION, subject)
+                .highCardinalityKeyValue(
+                        MessagingObservationKeys.MESSAGE_ID, event.eventId().toString());
     }
 }

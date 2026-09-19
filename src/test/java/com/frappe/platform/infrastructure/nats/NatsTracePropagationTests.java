@@ -66,6 +66,10 @@ class NatsTracePropagationTests {
             implements DomainEvent {}
 
     @Externalized
+    record OrderPicked(UUID eventId, Instant occurredAt, UUID aggregateId, long aggregateVersion, int eventVersion)
+            implements DomainEvent {}
+
+    @Externalized
     record OrderServed(UUID eventId, Instant occurredAt, UUID aggregateId, long aggregateVersion, int eventVersion)
             implements DomainEvent {}
 
@@ -101,6 +105,9 @@ class NatsTracePropagationTests {
 
     @Autowired
     IncompleteEventPublications incomplete;
+
+    @Autowired
+    NatsProcessObservations processObservations;
 
     @BeforeEach
     void forgetEarlierSpans() {
@@ -179,6 +186,32 @@ class NatsTracePropagationTests {
             assertThat(linked.getTraceId()).isEqualTo(recorded.traceId());
             assertThat(linked.getSpanId()).isEqualTo(recorded.spanId());
         });
+    }
+
+    @Test
+    void aConsumerSpanLinksToTheProducingSpanInsteadOfJoiningItsTrace() throws Exception {
+        // Given an event published in a command trace
+        var subject = "frappe.platform.order-picked.v1";
+        var event = new OrderPicked(ids.newId(), clock.instant(), ids.newId(), 1, 1);
+        var commandTrace = inTrace("test.command", () -> publish(event));
+        awaitMessage(subject);
+
+        // When a consumer processes the message
+        var subscription = client.connection().jetStream().subscribe(subject);
+        try {
+            var message = subscription.nextMessage(WAIT);
+            processObservations.of(message).observe(() -> {});
+        } finally {
+            subscription.unsubscribe();
+        }
+
+        // Then
+        var processSpan = await().atMost(WAIT).until(() -> finishedSpan("process " + subject), span -> span != null);
+        assertThat(processSpan.getKind()).isEqualTo(SpanKind.CONSUMER);
+        assertThat(processSpan.getTraceId()).isNotEqualTo(commandTrace);
+        assertThat(processSpan.getLinks())
+                .extracting(link -> link.getSpanContext().getTraceId())
+                .containsExactly(commandTrace);
     }
 
     private void publish(DomainEvent event) {

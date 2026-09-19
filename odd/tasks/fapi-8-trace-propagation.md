@@ -23,7 +23,7 @@ Strict TDD. Runner: `./gradlew test` (in-memory span exporter, Testcontainers Po
 - [x] T0 Verify Micrometer Tracing / Boot 4.1.1 propagation APIs (Propagator, SenderContext/ReceiverContext, links) from sources; decide trace-context storage; record here
 - [x] T1 Capture trace context at record time and persist it with the publication (commit/rollback semantics match the outbox)
 - [x] T2 Producer span + header injection on publish, using the stored context (also after resubmission)
-- [ ] T3 Consumer helper: extract and link; no header → works without link; malformed → works, WARN once
+- [x] T3 Consumer helper: extract and link; no header → works without link; malformed → works, WARN once
 - [ ] T4 Docs (`writing-code` events, `observing-the-api`), `./gradlew check` green, PR per template
 
 ## Acceptance (from ticket)
@@ -64,5 +64,11 @@ Strict TDD. Runner: `./gradlew test` (in-memory span exporter, Testcontainers Po
 - Added to the A2 test afterwards (green at once, a guard of the design, no RED): the successful publish after the resubmission is in another trace than the command and links to it, so late delivery never stretches the producing trace.
 - `./gradlew spotlessApply check`: BUILD SUCCESSFUL.
 
+### T3 consumer helper
+- RED (compilation) `NatsProcessObservationsTest` (3): `NatsProcessObservations` missing. GREEN 3/3: CONSUMER `LinkedMessageContext` linked to the creation context, name `nats.process`, contextual name `process <subject>`, `messaging.*` keys; a message without headers or without `traceparent` is processed without a link and without a log line; a malformed `traceparent` is ignored, the first occurrence logged at WARN (`nats.subject`, `frappe.event_id`), the second at DEBUG.
+- `NatsTracePropagationTests.aConsumerSpanLinksToTheProducingSpanInsteadOfJoiningItsTrace` (A3): a test consumer subscribes to the subject, processes the message through the helper; the CONSUMER span is in another trace and links to the command trace. Green on the first run (helper and span handler already existed from the unit RED/GREEN above, so this acceptance test is a guard, not its own RED). 5/5 in the class.
+- Refactor: the `messaging.*` key names moved to `MessagingObservationKeys`, shared by publish and process observations.
+- `./gradlew spotlessApply check`: BUILD SUCCESSFUL.
+
 ## Next step
-T3.
+T4.

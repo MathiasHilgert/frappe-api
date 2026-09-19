@@ -43,6 +43,17 @@ class NatsConfiguration {
     }
 
     /**
+     * Observations for consumers of NATS messages; their spans link to the trace the event was recorded in.
+     *
+     * @param observations where they are recorded
+     * @return the observations
+     */
+    @Bean
+    NatsProcessObservations natsProcessObservations(ObservationRegistry observations) {
+        return new NatsProcessObservations(observations);
+    }
+
+    /**
      * Externalizes every event annotated with {@code @Externalized}; replaces Modulith's default configuration.
      *
      * @return the selection and routing rules
