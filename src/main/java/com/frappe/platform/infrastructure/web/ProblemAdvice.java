@@ -1,7 +1,9 @@
 package com.frappe.platform.infrastructure.web;
 
+import com.frappe.platform.web.RequestRefusedException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.NoSuchMessageException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -25,17 +27,42 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 class ProblemAdvice extends ResponseEntityExceptionHandler {
 
     private final Problems problems;
+    private final ProblemMappers mappers;
     private final UnexpectedFailures unexpectedFailures;
 
     /**
      * Creates the advice.
      *
      * @param problems builds the problems
+     * @param mappers the modules' problem mappers
      * @param unexpectedFailures records failures answered with the generic problem
      */
-    ProblemAdvice(Problems problems, UnexpectedFailures unexpectedFailures) {
+    ProblemAdvice(Problems problems, ProblemMappers mappers, UnexpectedFailures unexpectedFailures) {
         this.problems = problems;
+        this.mappers = mappers;
         this.unexpectedFailures = unexpectedFailures;
+    }
+
+    /**
+     * A business failure a route handed over: answered with the problem its module mapped it to. A failure without a
+     * mapper, or a mapped problem whose text is missing from the catalogs, is a bug: the generic internal-error problem,
+     * logged.
+     *
+     * @param refusal the route's refusal, carrying the failure
+     * @param request the current request
+     * @return the mapped problem
+     */
+    @ExceptionHandler(RequestRefusedException.class)
+    ResponseEntity<Object> refused(RequestRefusedException refusal, HttpServletRequest request) {
+        var mapped = mappers.problemOf(refusal.failure());
+        if (mapped.isEmpty()) {
+            return unexpected(refusal, request);
+        }
+        try {
+            return ResponseEntity.status(mapped.get().status()).body(problems.mapped(mapped.get(), request));
+        } catch (NoSuchMessageException missingText) {
+            return unexpected(missingText, request);
+        }
     }
 
     /**

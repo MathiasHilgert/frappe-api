@@ -1,5 +1,6 @@
 package com.frappe.platform.infrastructure.web;
 
+import com.frappe.platform.web.ProblemMapper;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.tracing.Tracer;
 import org.springframework.beans.factory.ObjectProvider;
@@ -29,6 +30,17 @@ class ProblemConfiguration {
     @Bean
     Problems problems(MessageSource messageSource, LocaleResolver localeResolver, ObjectProvider<Tracer> tracer) {
         return new Problems(messageSource, localeResolver, tracer.getIfAvailable(() -> Tracer.NOOP));
+    }
+
+    /**
+     * Every module's problem mappers; creating it fails startup when two of them overlap.
+     *
+     * @param mappers the mapper beans
+     * @return the registry
+     */
+    @Bean
+    ProblemMappers problemMappers(ObjectProvider<ProblemMapper<?>> mappers) {
+        return new ProblemMappers(mappers.orderedStream().toList());
     }
 
     /**
