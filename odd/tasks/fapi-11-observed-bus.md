@@ -19,7 +19,7 @@ HTTP, authorization, query caching, async or retried dispatch, any business use 
 Strict TDD (project standard, `testing-code`). Runner: `./gradlew test` with `FRAPPE_TEST_DB=frappe_fapi_11` (Testcontainers Postgres). RED observed before every behavior.
 
 ## Tasks
-- [ ] T0 Verify the library APIs used (Spring `ResolvableType`, bean factory lookups, transaction attribute source, Micrometer Observation and its test kit) from the jars in the Gradle cache; record findings and design
+- [x] T0 Verify the library APIs used (Spring `ResolvableType`, bean factory lookups, transaction attribute source, Micrometer Observation and its test kit) from the jars in the Gradle cache; record findings and design
 - [ ] T1 `Result` in the kernel (pure Java)
 - [ ] T2 Messages, handler interfaces, bus ports; startup discovery keyed by message type; duplicate and missing handler failures
 - [ ] T3 Observing decorator: one `use_case` observation per dispatch with outcome and error
@@ -38,5 +38,19 @@ Strict TDD (project standard, `testing-code`). Runner: `./gradlew test` with `FR
 
 ## Progress / evidence
 
+### T0 findings (verified from the sources jars in the Gradle cache: spring-core, spring-beans, spring-aop, spring-tx 7.0.9; micrometer-observation and micrometer-observation-test 1.17.1; spring-boot-test 4.1.1)
+- `ResolvableType.forClass(Class<?> baseType, Class<?> implementationClass)` returns the base type as seen from the implementation (`forType(impl).as(base)`); `getGeneric(0).resolve()` yields the message class or `null` when the implementation leaves it generic.
+- `ListableBeanFactory#getBeanNamesForType(Class)` and `BeanFactory#getType(String)` find handler beans and their types without instantiating them (no cycle when a handler depends on a bus). A `@Transactional` bean's type may be its CGLIB subclass; `ClassUtils.getUserClass` returns the declared class, whose generics are intact. Boot proxies by class, so JDK proxies (which would lose the generics) do not occur by default; an unresolvable handler type fails startup with an actionable message instead of being skipped.
+- `AnnotationTransactionAttributeSource` (public methods only, the proxy default) answers `hasTransactionAttribute(Method, Class)`; `computeTransactionAttribute` resolves the interface method to the implementation via `AopUtils.getMostSpecificMethod` → `BridgeMethodResolver`, and falls back to class-level `@Transactional`. That is exactly the rule Spring's transaction proxy applies, so the startup check cannot disagree with runtime behaviour.
+- Micrometer: `Observation.createNotStarted(customConvention, defaultConvention, contextSupplier, registry)` returns a no-op (scope-handling) observation for a no-op registry; `SimpleObservation` asks the convention for key values at `start()` **and** `stop()`, so an outcome derived from the context (result or error) is final at stop. `Observation#observe(Supplier)` starts, opens a scope, records any `Throwable` with `error(...)`, rethrows and stops in `finally`; no hand-written broad catch is needed. `DefaultMeterObservationHandler` turns the observation into the timer `use_case` (plus `use_case.active`), tagged with the low-cardinality keys and `error`.
+- Test kit: `TestObservationRegistry`, `TestObservationRegistryAssert.hasSingleObservationThat()`, `hasNameEqualTo`, `hasContextualNameEqualTo`, `hasLowCardinalityKeyValue`, `hasError(Throwable)`, `doesNotHaveError`, `hasBeenStopped`. `ApplicationContextRunner` (spring-boot-test) for startup behaviour without a database.
+- No CQRS or `Either` library is in the dependency graph (no Vavr, Axon, PipelinR); the ticket's justification for hand-written `Result` and bus stands.
+
+### Design (T0)
+- Package `com.frappe.platform.infrastructure.bus` (internal): `HandlerRegistry` (built once per kind at startup; problems collected and thrown together as `InvalidHandlersException`: duplicates naming every bean, unresolvable handler types, command handlers without a transaction, messages outside a module package), routing buses `HandlerCommandBus` / `HandlerQueryBus` (look up and invoke; `MissingHandlerException`), decorators `ObservedCommandBus` / `ObservedQueryBus`, and the Micrometer idiom `UseCaseObservationContext` + `UseCaseObservationConvention`. `BusConfiguration` exposes only the decorated buses as beans.
+- The transaction rule is enforced for command handlers at startup (a command handler without `@Transactional` would save state and outbox rows non-atomically); the query rule stays a convention, documented in `use-cases.md`.
+- Outcome: `error` when the dispatch throws (including a failing commit, which surfaces from the handler's proxy inside the observation), `failure` when the result is a `Result.Failure`, `success` otherwise; at start it is `unknown`, like Spring's HTTP convention before the response exists.
+- Module and use case names derive from the message type (`com.frappe.<module>…`, simple name); handlers never see telemetry.
+
 ## Next step
-T0.
+T1.
