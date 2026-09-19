@@ -27,7 +27,7 @@ Strict TDD. Runner: `./gradlew test` (MockMvcTester, `WebApplicationContextRunne
 
 ## Tasks
 - [x] T0 Verify Spring Security 7 / Boot 4.1.1 / springdoc versions and APIs from the jars; record here
-- [ ] T1 Public API + route catalog: startup fails for a route without `@Access`, with two mapped methods or an inconsistent posture; `/v1` prefix
+- [x] T1 Public API + route catalog: startup fails for a route without `@Access`, with two mapped methods or an inconsistent posture; `/v1` prefix
 - [ ] T2 Stateless security chain: bearer-only session resolution, posture enforcement (PUBLIC, AUTHENTICATED, PERMISSION, SYSTEM), deny by default, health and error dispatch reachable
 - [ ] T3 OpenAPI: spec with bearer requirement and 401/403 on non-public routes; swagger-ui only in `local`
 - [ ] T4 Client IP from `X-Forwarded-For`, trusting only the proxy
@@ -55,5 +55,11 @@ Strict TDD. Runner: `./gradlew test` (MockMvcTester, `WebApplicationContextRunne
 - springdoc 3.1.1: `org.springdoc.core.customizers.OperationCustomizer#customize(Operation, HandlerMethod)`, `OpenApiCustomizer`; properties `springdoc.swagger-ui.enabled`, `springdoc.api-docs.enabled`.
 - Forwarded headers: `server.forward-headers-strategy=native` enables Tomcat's `RemoteIpValve` (X-Forwarded-For/-Proto/-Host); `server.tomcat.remoteip.internal-proxies` accepts a CIDR list or a regex; Boot's default trusts every private range (10/8, 172.16/12, 192.168/16, 100.64/10, 127/8, link-local, fc00::/7, ::1), so it is narrowed to the configured proxy.
 
+### T1 route catalog and `/v1`
+- RED `RouteStartupTests` (6, `WebApplicationContextRunner` with WebMvc, DispatcherServlet, message converters and error autoconfiguration + `RouteConfiguration`): compilation failed, `com.frappe.platform.web` (`Access`, `Posture`), `RouteConfiguration` and `InvalidRouteException` missing.
+- GREEN 6/6: `startupFailsForARouteWithoutAccessAndNamesTheClass`, `startupFailsForAControllerWithTwoMappedMethodsAndNamesTheClass`, `startupFailsForAPermissionRouteThatNamesNoPermission`, `startupFailsForAPermissionOnAPostureThatChecksNone`, `listsEveryInvalidRouteAtOnce`, `startsWithValidRoutesAndServesThemUnderV1WhileFrameworkControllersKeepTheirPaths` (Boot's `/error` controller is neither checked nor prefixed).
+- Code: `Access`, `Posture`, named interface `web` (`package-info`); `RouteCatalog` (checks, one `InvalidRouteException` listing every problem with its fix), `Route`, `ApiPathPrefix` (`addPathPrefix("/v1", HandlerTypePredicate.forBasePackage("com.frappe"))`), `RouteConfiguration`.
+- Shared test touched: `RequestTracingTests.ProbeController` now declares `@Access(Posture.PUBLIC)` and is called under `/v1` (it would otherwise fail startup, as intended). `RequestTracingTests` 3/3, `FrappeApiApplicationTests` 1/1, `ModularityTests` 2/2 green; `spotlessCheck javadoc` green.
+
 ## Next step
-T1.
+T2.

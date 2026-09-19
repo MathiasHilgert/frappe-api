@@ -8,6 +8,8 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.frappe.TestNatsConfiguration;
 import com.frappe.TestcontainersConfiguration;
+import com.frappe.platform.web.Access;
+import com.frappe.platform.web.Posture;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import io.opentelemetry.sdk.trace.data.SpanData;
@@ -59,6 +61,7 @@ class RequestTracingTests {
     }
 
     @RestController
+    @Access(Posture.PUBLIC)
     static class ProbeController {
 
         private final JdbcClient jdbc;
@@ -91,7 +94,7 @@ class RequestTracingTests {
     @Test
     void aRequestProducesAnHttpServerSpanWithDatabaseSpansInTheSameTrace() {
         // When
-        http.get().uri(PROBE_PATH).exchange().expectStatus().isOk();
+        http.get().uri("/v1" + PROBE_PATH).exchange().expectStatus().isOk();
 
         // Then
         var server = await().atMost(Duration.ofSeconds(10)).until(this::probeServerSpan, span -> span != null);
@@ -120,7 +123,7 @@ class RequestTracingTests {
 
         // When
         try {
-            http.get().uri(PROBE_PATH).exchange().expectStatus().isOk();
+            http.get().uri("/v1" + PROBE_PATH).exchange().expectStatus().isOk();
         } finally {
             logger.detachAppender(captured);
         }
