@@ -1,6 +1,7 @@
 package com.frappe.platform.infrastructure.i18n;
 
 import com.frappe.platform.i18n.IcuMessageSource;
+import com.frappe.platform.i18n.Messages;
 import com.frappe.platform.i18n.TenantLocaleDefaults;
 import com.frappe.platform.i18n.UserLocalePreference;
 import java.util.Optional;
@@ -43,6 +44,17 @@ class I18nConfiguration {
     @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
     IcuMessageSource messageSource() {
         return IcuMessageSource.load(IcuMessageSource.CATALOG_LOCATIONS);
+    }
+
+    /**
+     * The {@link Messages} port modules use, resolving in the current request's locale.
+     *
+     * @param messageSource the application message source
+     * @return the messages
+     */
+    @Bean
+    Messages messages(IcuMessageSource messageSource) {
+        return new MessageSourceMessages(messageSource);
     }
 
     /**

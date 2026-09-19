@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.frappe.TestNatsConfiguration;
 import com.frappe.TestcontainersConfiguration;
 import com.frappe.platform.i18n.IcuMessageSource;
+import com.frappe.platform.i18n.Messages;
 import com.frappe.platform.i18n.SupportedLocales;
 import com.frappe.platform.i18n.UserLocalePreference;
 import java.util.Optional;
@@ -14,7 +15,6 @@ import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTe
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -48,7 +48,7 @@ class I18nIntegrationTests {
         }
 
         @Bean
-        LocaleProbeController localeProbeController(MessageSource messages) {
+        LocaleProbeController localeProbeController(Messages messages) {
             return new LocaleProbeController(messages);
         }
     }
@@ -56,15 +56,15 @@ class I18nIntegrationTests {
     @RestController
     static class LocaleProbeController {
 
-        private final MessageSource messages;
+        private final Messages messages;
 
-        LocaleProbeController(MessageSource messages) {
+        LocaleProbeController(Messages messages) {
             this.messages = messages;
         }
 
         @GetMapping(ITEMS_PATH)
         String items(@RequestParam int count) {
-            return messages.getMessage("sample.items", new Object[] {count}, LocaleContextHolder.getLocale());
+            return messages.get("sample.items", count);
         }
 
         @GetMapping(PROBE_PATH)
