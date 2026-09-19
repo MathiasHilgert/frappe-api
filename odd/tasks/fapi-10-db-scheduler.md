@@ -27,7 +27,7 @@ Strict TDD (brief and project rule). Runner: `./gradlew test` with `FRAPPE_TEST_
 - [x] T2 Task conventions: `ScheduledTasks` (recurring, one-time, per-entity), `EntitySchedule`, `frappe.scheduling.*` retry settings with exponential backoff, task name rule
 - [x] T3 Observation `scheduled.task` and failure logging (ECS fields); JSON task data; pausing the scheduler with the application context
 - [x] T4 Acceptance: two schedulers racing on real Postgres (exactly once, dead instance taken over, retries with backoff observed as errors, per-entity schedule change without restart)
-- [ ] T5 Outbox recovery through db-scheduler; remove the lock and `@EnableScheduling`
+- [x] T5 Outbox recovery through db-scheduler; remove the lock and `@EnableScheduling`
 - [ ] T6 Docs (`writing-code`: declaring a task; outbox recovery, observability, errors), final verification
 
 ## Acceptance (from the ticket)
@@ -90,5 +90,14 @@ Strict TDD (brief and project rule). Runner: `./gradlew test` with `FRAPPE_TEST_
   - Natural-key uniqueness: `SchedulerTableIntegrationTests.schedulingTheSameNaturalKeyTwiceKeepsOneExecution` (T1).
 - `./gradlew spotlessApply check`: BUILD SUCCESSFUL.
 
+### T5 outbox recovery through db-scheduler
+- RED (compilation) `FailedPublicationResubmitterTest` (moved to `recover(Trigger)`; the executor hand-off and lock tests removed with the lock), `OutboxRecoveryTaskTest` (2), `OutboxRecoveryTriggerTest` (4): `recover`, `OutboxRecoveryTask`, `OutboxRecoveryTrigger` missing.
+- RED `OutboxRecoverySchedulingIntegrationTests` (observed with the new unit tests set aside, against the old code): `recoveryIsOneExecutionInTheSchedulerTable` (no `platform.outbox-recovery` row) and `springsInProcessSchedulingIsNotEnabled` (`ScheduledAnnotationBeanPostProcessor` present). The first version of the second test looked the processor up by a wrong bean name and passed on the old code; replaced by a lookup by type, which failed as expected.
+- GREEN: `OutboxRecoveryTask` declares `platform.outbox-recovery` via `ScheduledTasks.recurring(name, FixedDelay.of(interval), Trigger.class, SCHEDULED, handler)`; the stored data is the trigger of the next pass. `OutboxRecoveryTrigger` (`@EventListener MessagingTransportRecovered`) reschedules that execution to now with `TRANSPORT_RECOVERED` and calls `triggerCheckForDueExecutions()`; a running pass (`TaskInstanceCurrentlyExecutingException`) or a not yet scheduled task (`TaskInstanceNotFoundException`) is left alone at DEBUG, a database failure (`SQLRuntimeException`, shaded by db-scheduler) logs one WARN. `FailedPublicationResubmitter` lost `Runnable`, `ReentrantLock` and the trigger executor; `OutboxRecoveryConfiguration` lost `@EnableScheduling`, `SchedulingConfigurer` and `TaskScheduler`. 13/13, 2/2, 4/4.
+- Found while going green: `spring-modulith-moments` (pulled in by `spring-modulith-starter-core`, enabled by default) carries `@EnableScheduling` and publishes `HourHasPassed`/`DayHasPassed` from every instance: exactly the double execution this ticket removes. Disabled with `spring.modulith.moments.enabled=false`; then 2/2.
+- `OutboxRecoveryIntegrationTests` failed 3/3 in the suite: its 500ms recovery interval only holds when the scheduler polls faster than its 10s default; the test sets `db-scheduler.polling-interval=100ms`. 3/3.
+- `rg 'ReentrantLock|EnableScheduling|@Scheduled|SchedulingConfigurer|TaskScheduler|runLock' src`: no code left (one comment on Moments).
+- `FRAPPE_TEST_DB=frappe_fapi_10 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 55 classes, 216 tests.
+
 ## Next step
-T5.
+T6.

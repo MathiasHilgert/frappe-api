@@ -1,6 +1,5 @@
 package com.frappe.platform.infrastructure.events;
 
-import com.frappe.platform.infrastructure.MessagingTransportRecovered;
 import com.frappe.platform.infrastructure.events.OutboxObservations.Trigger;
 import com.frappe.platform.infrastructure.events.PublicationRedelivery.Outcome;
 import io.micrometer.observation.Observation;
@@ -12,8 +11,6 @@ import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.Executor;
-import java.util.concurrent.locks.ReentrantLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
@@ -31,15 +28,15 @@ import org.springframework.dao.DataAccessException;
  *   <li>refreshes the dead-letter gauge.
  * </ol>
  *
- * <p>Runs on a fixed delay and, handed to the task scheduler, at once on {@link MessagingTransportRecovered}; passes
- * never overlap. The schedule covers what a reconnect does not: a publish can fail while the connection survives (a
- * slow or paused server), and a publication can be left behind by an instance that died, neither of which triggers a
- * reconnect. Passes on several instances may select the same row; the guarded claim lets only one resubmit it, and the
- * short window in which a slow attempt is judged stuck and retried by another instance is harmless: JetStream drops the
- * duplicate within its 10-minute window by {@code Nats-Msg-Id}, later ones are dropped by the consumer inbox on {@code
- * eventId}.
+ * <p>Runs as the one cluster-wide execution of {@link OutboxRecoveryTask} (db-scheduler), on a fixed delay and at once
+ * when a messaging transport came back ({@link OutboxRecoveryTrigger}); passes therefore never overlap, on one instance
+ * or across instances. The schedule covers what a reconnect does not: a publish can fail while the connection survives
+ * (a slow or paused server), and a publication can be left behind by an instance that died, neither of which triggers
+ * a reconnect. The guarded claim still lets only one resubmission through, and the short window in which a slow attempt
+ * is judged stuck and retried is harmless: JetStream drops the duplicate within its 10-minute window by {@code
+ * Nats-Msg-Id}, later ones are dropped by the consumer inbox on {@code eventId}.
  */
-final class FailedPublicationResubmitter implements Runnable {
+final class FailedPublicationResubmitter {
 
     private static final Logger log = LoggerFactory.getLogger(FailedPublicationResubmitter.class);
 
@@ -48,9 +45,7 @@ final class FailedPublicationResubmitter implements Runnable {
     private final DeadLetterMetrics metrics;
     private final OutboxRecoveryProperties properties;
     private final Clock clock;
-    private final Executor triggerExecutor;
     private final ObservationRegistry observations;
-    private final ReentrantLock runLock = new ReentrantLock();
 
     /**
      * Creates the resubmitter.
@@ -60,7 +55,6 @@ final class FailedPublicationResubmitter implements Runnable {
      * @param metrics the dead-letter gauge
      * @param properties recovery settings
      * @param clock the application clock
-     * @param triggerExecutor runs passes triggered by a recovered transport, off the publishing thread
      * @param observations records every pass and redelivery ({@link OutboxObservations})
      */
     FailedPublicationResubmitter(
@@ -69,52 +63,24 @@ final class FailedPublicationResubmitter implements Runnable {
             DeadLetterMetrics metrics,
             OutboxRecoveryProperties properties,
             Clock clock,
-            Executor triggerExecutor,
             ObservationRegistry observations) {
         this.redelivery = redelivery;
         this.outbox = outbox;
         this.metrics = metrics;
         this.properties = properties;
         this.clock = clock;
-        this.triggerExecutor = triggerExecutor;
         this.observations = observations;
     }
 
-    /** Runs one scheduled recovery pass; a database failure is logged and the next run tries again. */
-    @Override
-    public void run() {
-        runLock.lock();
-        try {
-            observedPass(Trigger.SCHEDULED, properties.interval());
-        } finally {
-            runLock.unlock();
-        }
-    }
-
     /**
-     * Hands a recovery pass to the executor when a transport came back and returns at once, so the publishing thread
-     * (NATS connection setup) never does recovery work. The pass ignores the backoff, because the pending failures
-     * were most likely caused by the outage; the batch still bounds it. It is dropped if a pass is already running:
-     * that pass covers the same rows.
+     * Runs one recovery pass and observes it. A pass started by a recovered transport ignores the backoff, because the
+     * pending failures were most likely caused by the outage; the batch still bounds it. A database failure is logged
+     * and the next pass tries again.
      *
-     * @param recovered the transport that came back
+     * @param trigger what started the pass
      */
-    void onTransportRecovered(MessagingTransportRecovered recovered) {
-        triggerExecutor.execute(() -> {
-            if (!runLock.tryLock()) {
-                return;
-            }
-            try {
-                observedPass(Trigger.TRANSPORT_RECOVERED, Duration.ZERO);
-            } finally {
-                runLock.unlock();
-            }
-        });
-    }
-
-    // One pass at a time per instance (runLock): the scheduled pass waits for a triggered one instead of overlapping
-    // it, so the in-flight headroom it computes is never stale.
-    private void observedPass(Trigger trigger, Duration baseBackoff) {
+    void recover(Trigger trigger) {
+        var baseBackoff = trigger == Trigger.TRANSPORT_RECOVERED ? Duration.ZERO : properties.interval();
         var observation = OutboxObservations.recovery(observations, trigger).start();
         try (var scope = observation.openScope()) {
             recoverExclusively(baseBackoff, observation);

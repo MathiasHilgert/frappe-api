@@ -37,13 +37,15 @@ import org.testcontainers.containers.GenericContainer;
 
 /**
  * Recovery without a NATS reconnect: pausing the container fails the publish (timeout) while the client stays
- * connected, so only the scheduled recovery (stuck detection and resubmission) can bring the publication home.
+ * connected, so only the scheduled recovery (stuck detection and resubmission) can bring the publication home. The
+ * scheduler polls every 100ms here, so the 500ms recovery interval is kept (production polls every 10s).
  */
 @SpringBootTest(
         properties = {
             "frappe.nats.publish-timeout=1s",
             "frappe.outbox.recovery.interval=500ms",
-            "frappe.outbox.recovery.stuck-after=2s"
+            "frappe.outbox.recovery.stuck-after=2s",
+            "db-scheduler.polling-interval=100ms"
         })
 @Import({TestcontainersConfiguration.class, TestNatsConfiguration.class})
 @ActiveProfiles("local")
