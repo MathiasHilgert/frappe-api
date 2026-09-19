@@ -11,6 +11,7 @@ import com.frappe.platform.SecretKey;
 import com.frappe.platform.ShortLivedSecretStore;
 import java.time.Duration;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -19,6 +20,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 /** The secret store's contract against a real Valkey 9. */
@@ -34,6 +37,9 @@ class ShortLivedSecretStoreIntegrationTests {
 
     @Autowired
     IdGenerator ids;
+
+    @Autowired
+    StringRedisTemplate redis;
 
     @Test
     void consumesTheRightSecretOnce() {
@@ -143,6 +149,28 @@ class ShortLivedSecretStoreIntegrationTests {
     @Test
     void consumeIsFalseWhenNoSecretWasPut() {
         assertThat(secrets.consume(newKey(), "493817")).isFalse();
+    }
+
+    @Test
+    void putsOnTheSharedConnectionWithoutOpeningNewOnes() {
+        // Given
+        var key = newKey();
+        secrets.put(key, "111111", TEN_MINUTES);
+        var before = connectionsReceived();
+
+        // When
+        for (var put = 0; put < 5; put++) {
+            secrets.put(key, "22222" + put, TEN_MINUTES);
+        }
+
+        // Then
+        assertThat(connectionsReceived()).isEqualTo(before);
+    }
+
+    private long connectionsReceived() {
+        var stats = redis.execute((RedisCallback<Properties>)
+                connection -> connection.serverCommands().info("stats"));
+        return Long.parseLong(stats.getProperty("total_connections_received"));
     }
 
     private SecretKey newKey() {

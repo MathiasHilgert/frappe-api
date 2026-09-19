@@ -43,5 +43,5 @@ if (!limiter.tryConsume(perAddress) || !limiter.tryConsume(perAccount)) {
 ## Adapter notes (`platform.infrastructure.valkey`)
 
 - Keys: `frappe:secret:<module>:<purpose>:<subject>` (hash: `hash`, `failures`; expires with the TTL), `frappe:secret-issues:…` (sorted set of issue times), `frappe:rate-limit:…` (Bucket4j state).
-- Two Lua scripts next to the adapter, because no library offers them: `consume-secret.lua` settles an attempt atomically after the Argon2 check in Java (salted hashes cannot be compared inside Valkey) and `count-issue.lua` is the sliding window.
+- Three Lua scripts next to the adapter, because no library offers them: `put-secret.lua` replaces a secret with its TTL and a zero failure count in one step (MULTI/EXEC would take a dedicated connection per call), `consume-secret.lua` settles an attempt atomically after the Argon2 check in Java (salted hashes cannot be compared inside Valkey) and `count-issue.lua` is the sliding window. Every command runs on the shared connection.
 - Bucket4j runs on Spring's shared, lazily opened Lettuce connection (`SharedConnectionRedisApi`); its own builders connect eagerly and would stop startup without Valkey.

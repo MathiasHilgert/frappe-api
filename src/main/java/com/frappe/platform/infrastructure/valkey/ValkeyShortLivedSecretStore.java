@@ -7,12 +7,9 @@ import com.frappe.platform.ShortLivedSecretStore;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.dao.DataAccessException;
-import org.springframework.data.redis.core.RedisOperations;
-import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -29,14 +26,14 @@ final class ValkeyShortLivedSecretStore implements ShortLivedSecretStore {
 
     private static final String HASH_FIELD = "hash";
 
-    private static final String FAILURES_FIELD = "failures";
-
     private static final String MATCHED = "1";
 
     private static final String NOT_MATCHED = "0";
 
     /** What both scripts return when they consumed the secret or recorded the issue. */
     private static final long RECORDED = 1;
+
+    private static final RedisScript<Long> PUT = script("put-secret.lua");
 
     private static final RedisScript<Long> CONSUME = script("consume-secret.lua");
 
@@ -73,7 +70,8 @@ final class ValkeyShortLivedSecretStore implements ShortLivedSecretStore {
         var hash = hashes.encode(secret);
         var redisKey = ValkeyKeys.secret(key);
         try {
-            redis.execute(replaceSecret(redisKey, hash, ttl));
+            // A script on the shared connection: MULTI/EXEC would take a dedicated connection for every call.
+            redis.execute(PUT, List.of(redisKey), hash, String.valueOf(ttl.toMillis()));
         } catch (DataAccessException e) {
             throw new SecretStoreUnavailableException("Storing a secret failed: Valkey is unavailable", e);
         }
@@ -117,21 +115,6 @@ final class ValkeyShortLivedSecretStore implements ShortLivedSecretStore {
         } catch (DataAccessException e) {
             throw new SecretStoreUnavailableException("Counting a secret issue failed: Valkey is unavailable", e);
         }
-    }
-
-    /** Writes hash, zero failures and expiry in one transaction, so a secret never exists without its TTL. */
-    private static SessionCallback<List<Object>> replaceSecret(String redisKey, String hash, Duration ttl) {
-        return new SessionCallback<>() {
-            @Override
-            @SuppressWarnings("unchecked")
-            public <K, V> List<Object> execute(RedisOperations<K, V> operations) {
-                var strings = (RedisOperations<String, String>) operations;
-                strings.multi();
-                strings.opsForHash().putAll(redisKey, Map.of(HASH_FIELD, hash, FAILURES_FIELD, "0"));
-                strings.expire(redisKey, ttl);
-                return strings.exec();
-            }
-        };
     }
 
     private static void requireSecret(String secret) {
