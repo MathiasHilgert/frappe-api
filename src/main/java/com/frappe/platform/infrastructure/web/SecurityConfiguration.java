@@ -13,6 +13,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
+import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
 
 /**
  * The one security filter chain: stateless, bearer tokens only, every request decided by its route's posture before
@@ -47,10 +48,13 @@ class SecurityConfiguration {
     @Bean
     SecurityFilterChain apiSecurityFilterChain(
             HttpSecurity http, RouteCatalog routes, ObjectProvider<SessionResolver> sessionResolver) throws Exception {
-        var bearerSessions = new BearerSessionFilter(sessionResolver.getIfAvailable(() -> NO_SESSIONS));
+        // Stateless: the context lives in a request attribute, saved once and reloaded on async and error dispatches.
+        var contexts = new RequestAttributeSecurityContextRepository();
+        var bearerSessions = new BearerSessionFilter(sessionResolver.getIfAvailable(() -> NO_SESSIONS), contexts);
         var routeAuthorization = new RouteAuthorizationManager(routes);
         return http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sessions -> sessions.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .securityContext(context -> context.securityContextRepository(contexts))
                 .requestCache(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)

@@ -13,6 +13,7 @@ import jakarta.servlet.http.Cookie;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -69,6 +70,11 @@ class RouteAccessTests {
         }
 
         @Bean
+        AsyncSelfRoute asyncSelfRoute() {
+            return new AsyncSelfRoute();
+        }
+
+        @Bean
         AnyItemRoute anyItemRoute() {
             return new AnyItemRoute();
         }
@@ -103,6 +109,16 @@ class RouteAccessTests {
         String answer(@AuthenticationPrincipal ResolvedSession caller) {
             calls.incrementAndGet();
             return caller.principalId().toString();
+        }
+    }
+
+    @RestController
+    @Access(Posture.AUTHENTICATED)
+    static class AsyncSelfRoute {
+
+        @GetMapping("/test/self-async")
+        Callable<String> answer(@AuthenticationPrincipal ResolvedSession caller) {
+            return () -> caller.principalId().toString();
         }
     }
 
@@ -148,6 +164,14 @@ class RouteAccessTests {
     @Test
     void anAuthenticatedRouteAnswersTheCallerOfAResolvedSession() {
         assertThat(http.get().uri("/v1/test/self").header(HttpHeaders.AUTHORIZATION, "Bearer person-token"))
+                .hasStatusOk()
+                .bodyText()
+                .isEqualTo(PERSON_ID.toString());
+    }
+
+    @Test
+    void anAuthenticatedRouteAnsweringAsynchronouslyKeepsTheCallerForTheAsyncDispatch() {
+        assertThat(http.get().uri("/v1/test/self-async").header(HttpHeaders.AUTHORIZATION, "Bearer person-token"))
                 .hasStatusOk()
                 .bodyText()
                 .isEqualTo(PERSON_ID.toString());

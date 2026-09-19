@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.context.SecurityContextHolderStrategy;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
@@ -21,6 +22,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * parameters are never read, so there is no CSRF surface and tokens never land in URLs or access logs. A missing,
  * malformed or unresolvable token leaves the request anonymous; the route's posture then decides (401 unless
  * public), so a stale token never blocks a public route such as sign-in.
+ *
+ * <p>The authenticated context is also saved in the request (as Spring Security's own bearer token filter does), so
+ * async dispatches ({@code Callable}, {@code DeferredResult}, streaming) keep the caller: this filter runs once per
+ * request, and the chain reloads the context from the same repository on every later dispatch.
  */
 final class BearerSessionFilter extends OncePerRequestFilter {
 
@@ -30,15 +35,18 @@ final class BearerSessionFilter extends OncePerRequestFilter {
     private static final Pattern BEARER = Pattern.compile("(?i)Bearer ([A-Za-z0-9\\-._~+/]+=*)");
 
     private final SessionResolver sessions;
+    private final SecurityContextRepository repository;
     private final SecurityContextHolderStrategy contexts = SecurityContextHolder.getContextHolderStrategy();
 
     /**
      * Creates the filter.
      *
      * @param sessions resolves bearer tokens to sessions
+     * @param repository where the chain loads the context from on every dispatch of the request
      */
-    BearerSessionFilter(SessionResolver sessions) {
+    BearerSessionFilter(SessionResolver sessions, SecurityContextRepository repository) {
         this.sessions = sessions;
+        this.repository = repository;
     }
 
     @Override
