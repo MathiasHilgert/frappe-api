@@ -44,7 +44,7 @@ Modules' own templates; bounces, webhooks, attachments, marketing mail.
 - [x] T2. Build: JTE generate for main and test templates, MJML layout compiled to a JTE template.
 - [x] T3. Renderer: one locale per message, whole-message fallback counted by `mail.locale.fallback`.
 - [x] T4. Transports: Resend (idempotency key), SMTP (Mailpit), `mail.send` observation, privacy of logs/spans.
-- [ ] T5. Configuration: provider selection, fail-fast settings, compose Mailpit, local properties.
+- [x] T5. Configuration: provider selection, fail-fast settings, compose Mailpit, local properties.
 - [ ] T6. Outbox example: listener fails on 5xx, recovery pass sends after the stub recovers.
 - [ ] T7. Docs and skills: README, `email.md`, errors/logging/observability references.
 - [ ] T8. Gate `./gradlew spotlessApply check --rerun-tasks` green; commit.
@@ -53,12 +53,13 @@ Modules' own templates; bounces, webhooks, attachments, marketing mail.
 
 | Acceptance | Test |
 | --- | --- |
-| Mail sent with compose appears in Mailpit | `SmtpMailpitIntegrationTests` (Testcontainers Mailpit, same image) |
+| Mail sent with compose appears in Mailpit | `MailpitIntegrationTests` (Testcontainers Mailpit, same image) |
 | Complete es template → subject and body entirely Spanish | `MailRendererTest` |
 | Missing key → whole mail in fallback, counter with tags | `MailRendererTest` |
 | No API key outside local → startup fails naming the variable | `MailConfigurationTests` |
 | Resend 5xx (stubbed) → publication incomplete, recovery sends | `MailOutboxIntegrationTests` |
 | No body, API key or full address in logs/spans | `ResendMailTransportTest`, `ObservedMailerTest` |
+| Compose Mailpit, local profile | `LocalComposeStackTest`, `LocalProfileTest` |
 
 ## Progress / evidence
 
@@ -74,6 +75,10 @@ Recorded per task below as work proceeds.
 - T4 RED: `ResendMailTransportTest`, `ObservedMailerTest` fail to compile (`cannot find symbol ObservedMailer`,
   `ResendMailTransport`, `SmtpMailTransport`, `MailTransport`). GREEN: 5 + 4 tests pass (incl. no recipient, code or
   API key in logs/spans for the Resend and SMTP adapters; one ERROR log with ECS fields on failure).
+
+- T5 RED: `LocalComposeStackTest.runsMailpitForLocalMail` (no mailpit service), `LocalProfileTest` (no `spring.mail.*`),
+  `MailConfigurationTests` (startup got to JPA instead of failing on mail settings), `MailpitIntegrationTests` (no
+  `Mailer` bean). GREEN: all pass; `OpenApiOutsideLocalProfileTests` given the two mail variables.
 
 ## Engram mirror
 

@@ -56,3 +56,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  # Local mail: the app sends over SMTP (application-local.properties), the web UI (http://localhost:8025, or
+  # FRAPPE_MAILPIT_UI_PORT) shows every mail. Spring Boot 4.1 has no Mailpit service connection, so the profile sets
+  # spring.mail.* itself.
+  mailpit:
+    image: 'axllent/mailpit:v1.31'
+    ports:
+      - '${FRAPPE_MAILPIT_SMTP_PORT:-1025}:1025'
+      - '${FRAPPE_MAILPIT_UI_PORT:-8025}:8025'
