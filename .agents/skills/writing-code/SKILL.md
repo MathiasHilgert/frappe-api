@@ -19,6 +19,7 @@ Load before creating or changing any production code, migration or configuration
 - Never read another module's tables, entities or internal packages; use its events, or its `Api` for an unavoidable synchronous read.
 - IDs are UUIDv7 from the injected `IdGenerator`; money is `Money`; time comes from an injected `Clock`, never `Instant.now()`.
 - Infrastructure faults: dedicated exceptions with cause, catch only expected types, log or rethrow (never both).
+- Telemetry: infrastructure is observed automatically; features only declare business metrics on events (`@Counted`/`@Measured`); no telemetry types in domain or application; metric tags never carry tenant or entity ids.
 - Logs are ECS JSON with context in key/values; Javadoc on every type and member (`check` enforces doclint).
 - English identifiers and API; user-facing text via message bundles.
 - `./gradlew spotlessApply check` green before handing over.
@@ -34,6 +35,7 @@ Load before creating or changing any production code, migration or configuration
 | Controllers, `/v1`, validation, errors, OpenAPI, i18n, sessions, RBAC | `references/http-api.md` |
 | Creating ids, reading time | `references/ids.md` |
 | Logging | `references/logging.md` |
+| Metrics, spans, observations, business metrics | `references/observability.md` |
 | Exceptions, catching, interrupts | `references/errors.md` |
 | Javadoc, comments, package-info | `references/documentation.md` |
 | Any class or test: structure, naming, immutability | `references/clean-code.md` |

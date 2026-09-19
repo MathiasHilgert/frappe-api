@@ -1,6 +1,7 @@
 package com.frappe.platform.infrastructure.nats;
 
 import com.frappe.platform.DomainEvent;
+import io.micrometer.observation.ObservationRegistry;
 import io.nats.client.JetStreamApiException;
 import io.nats.client.JetStreamOptions;
 import io.nats.client.impl.Headers;
@@ -42,6 +43,7 @@ class NatsEventTransport implements EventExternalizationTransport {
     private final NatsClient client;
     private final JetStreamOptions options;
     private final JsonMapper json;
+    private final ObservationRegistry observations;
 
     /**
      * Creates the transport.
@@ -49,18 +51,22 @@ class NatsEventTransport implements EventExternalizationTransport {
      * @param client owner of the connection
      * @param publishTimeout how long to wait for the JetStream ack
      * @param json payload serializer
+     * @param observations records every publish as a {@link NatsPublishObservation}
      */
-    NatsEventTransport(NatsClient client, Duration publishTimeout, JsonMapper json) {
+    NatsEventTransport(NatsClient client, Duration publishTimeout, JsonMapper json, ObservationRegistry observations) {
         this.client = client;
         this.options = JetStreamOptions.builder().requestTimeout(publishTimeout).build();
         this.json = json;
+        this.observations = observations;
     }
 
     @Override
     public CompletableFuture<?> externalize(Object payload, RoutingTarget target) {
         var event = (DomainEvent) payload;
         var subject = target.getTarget();
-        try {
+        var observation =
+                NatsPublishObservation.of(observations, subject, event).start();
+        try (var scope = observation.openScope()) {
             var ack = client.publish(subject, headers(event), json.writeValueAsBytes(event), options);
             log.atDebug()
                     .addKeyValue(LogFields.EVENT_ID, event.eventId())
@@ -72,6 +78,7 @@ class NatsEventTransport implements EventExternalizationTransport {
                             ack.isDuplicate());
             return CompletableFuture.completedFuture(ack);
         } catch (IOException | JetStreamApiException | NatsUnavailableException | JacksonException e) {
+            observation.error(e);
             // The failed future is the result, not a rethrow: this is the one place with the event context to log.
             var failure = new EventPublicationException(
                     "Publishing " + event.getClass().getSimpleName() + " " + event.eventId() + " to " + subject
@@ -83,6 +90,8 @@ class NatsEventTransport implements EventExternalizationTransport {
                     .setCause(e)
                     .log("{}", failure.getMessage());
             return CompletableFuture.failedFuture(failure);
+        } finally {
+            observation.stop();
         }
     }
 

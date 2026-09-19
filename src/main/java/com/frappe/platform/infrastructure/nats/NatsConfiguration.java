@@ -1,5 +1,6 @@
 package com.frappe.platform.infrastructure.nats;
 
+import io.micrometer.observation.ObservationRegistry;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -66,6 +67,7 @@ class NatsConfiguration {
      * @param natsClient the connection owner
      * @param properties publish timeout
      * @param jsonMapper payload serializer
+     * @param observations records every publish
      * @return the externalizer
      */
     @Bean
@@ -73,8 +75,10 @@ class NatsConfiguration {
             EventExternalizationConfiguration configuration,
             NatsClient natsClient,
             NatsProperties properties,
-            JsonMapper jsonMapper) {
+            JsonMapper jsonMapper,
+            ObservationRegistry observations) {
         return new EventExternalizerModuleListener(
-                configuration, new NatsEventTransport(natsClient, properties.publishTimeout(), jsonMapper));
+                configuration,
+                new NatsEventTransport(natsClient, properties.publishTimeout(), jsonMapper, observations));
     }
 }
