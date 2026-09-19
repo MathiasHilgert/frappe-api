@@ -48,7 +48,7 @@ class CloseTabRoute {
 
 ## Errors (RFC 9457 problems)
 
-Every failure is one shape, `application/problem+json` with `Content-Language`: `type` (stable URI `https://frappe.app/problems/<slug>`), `title` and `detail` (localized, `i18n.md`), `status`, `instance` (the request path), `code` (the slug), `params` (raw values, `{}` when none) and `traceId` (the request's OpenTelemetry trace id). Clients branch on `type` or `code`, never on text. Validation problems add `errors[]`.
+Every failure is one shape, `application/problem+json` with `Content-Language`: `type` (stable URI `https://frappe.app/problems/<slug>`), `title` and `detail` (localized, `i18n.md`), `status`, `instance` (the path the client requested), `code` (the slug), `params` (raw values, `{}` when none) and `traceId` (the request's OpenTelemetry trace id). Clients branch on `type` or `code`, never on text. Validation problems add `errors[]`. The content type is set, not negotiated, so the problem goes out whatever `Accept` says.
 
 ```json
 {"type": "https://frappe.app/problems/tab-already-closed", "title": "Tab already closed",
@@ -81,27 +81,27 @@ class TabProblems implements ProblemMapper<TabError> {
 }
 ```
 
-- `Problem.of(status, slug, messageKey)`: status 4xx only (a business failure is never a server fault), slug kebab-case and stable once published, key in the module's catalogs. Text: `<messageKey>.title` and `<messageKey>.detail` in all three catalogs; `with(name, value)` params fill the detail's `{0}`, `{1}`… in order and are returned raw.
+- `Problem.of(status, slug, messageKey)`: status 4xx only (a business failure is never a server fault), slug kebab-case and stable once published, key in the module's catalogs. Text: `<messageKey>.title` and `<messageKey>.detail` in all three catalogs; `with(name, value)` params fill the detail's `{0}`, `{1}`… in order and are returned raw: String, Number, Boolean, UUID, enum or `java.time` values only. `RequestRefusedException` carries no stack trace.
 - Two mappers for the same failure type, or one for a subtype of another's, fail startup. A failure without a mapper, or a key missing from the catalogs, is a bug: the client gets the generic 500 problem and it is logged.
 - Typical status: missing `404`, rule violation `409`/`422`, optimistic lock `409`.
 
 ### Platform problems
 
-The platform answers everything no module maps (`com.frappe.platform.infrastructure.web`): `ProblemAdvice` (a `ResponseEntityExceptionHandler`, replacing Boot's), `SecurityRefusals` (the chain's entry point and access-denied handler, delegating to Spring MVC's exception resolvers) and `ProblemErrorController` (Boot's `ErrorController` for error dispatches, e.g. an exception thrown by a filter). The type follows the status, with text under `platform.problem.<slug>.title|detail`:
+The platform answers everything no module maps (`com.frappe.platform.infrastructure.web`): `ProblemBoundaryFilter` (hands every exception of a request to Spring MVC's exception resolvers), `ProblemAdvice` (a `ResponseEntityExceptionHandler`, replacing Boot's), `SecurityRefusals` (the chain's entry point and access-denied handler, delegating to the same resolvers), `ProblemErrorController` (Boot's `ErrorController` for error dispatches) and `ProblemErrorReportValve` (replaces Tomcat's HTML `ErrorReportValve`: requests Tomcat refuses before any filter, such as a garbled request line, an invalid path or `Host`, get the static English problem of their status, without a trace id). Error dispatches carry `Content-Language`, `Vary` and Spring Security's default headers too (`ErrorDispatchSecurityHeaders`); TRACE is 405 and never echoed. The type follows the status, with text under `platform.problem.<slug>.title|detail`:
 
 | Type (`code`) | Status | When |
 | --- | --- | --- |
-| `invalid-request` | 400 | unreadable body, bad parameters, validation (`errors[]`) |
+| `invalid-request` | 400 | unreadable, truncated or badly chunked body, bad parameters, validation (`errors[]`) |
 | `unauthenticated` | 401 + `WWW-Authenticate: Bearer` | no token, or one that resolves to no session |
-| `forbidden` | 403 | a caller with a session on a path the chain refuses (fail closed); routes never answer it |
-| `not-found` | 404 | no route serves the path |
+| `forbidden` | 403 | a caller with a session on a path the chain refuses (actuator endpoints other than health); routes never answer it |
+| `not-found` | 404 | no route serves the path, including framework handlers the chain keeps closed (`/error`), for everyone |
 | `method-not-allowed` | 405 + `Allow` | the path exists, the method does not |
 | `not-acceptable`, `content-too-large`, `unsupported-media-type` | 406, 413, 415 | content negotiation, body size and type |
 | `request-rejected` | other 4xx | any other client error the framework raises |
 | `internal-error` | 500 | anything unexpected (defect or infrastructure fault) |
 
 - `internal-error` is generic on purpose: title "An unexpected error occurred", no params, and nothing of the cause (no exception message or class, SQL, technology or provider name, host, stack trace). The cause goes to one ERROR log line and the counter `http.server.unexpected.errors{error}` (`errors.md`); support finds it by the `traceId`.
-- Validation (`@Valid @RequestBody`): one `errors[]` entry per violated constraint, `{"pointer": "/lines/0/quantity", "code": "min", "params": {"value": 1}, "detail": "must be at least 1"}`: RFC 6901 pointer into the body, constraint name in kebab-case, the constraint's attributes as params, detail from `platform.validation.<code>` (falling back to `platform.validation.invalid`; arguments are the attributes sorted by name).
+- Validation (`@Valid @RequestBody`): one `errors[]` entry per violated constraint, `{"pointer": "/lines/0/quantity", "code": "min", "params": {"value": 1}, "detail": "must be at least 1"}`: sorted by pointer then code; RFC 6901 pointer into the body, constraint name in kebab-case, only client-meaningful scalar attributes as params (`min`, `max`, `value`, `inclusive`, `integer`, `fraction`; never a pattern, flags or classes), detail from `platform.validation.<code>` (falling back to `platform.validation.invalid`; arguments are the attributes sorted by name).
 - `server.error.include-stacktrace=never` and `include-message=never` stay set as defense in depth.
 
 ## OpenAPI and i18n
