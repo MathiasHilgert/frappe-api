@@ -53,13 +53,15 @@ Strict TDD (project standard, `testing-code`). Runner: `./gradlew test` with `FR
 - Coding rules: RED compilation (`CodingRules` missing) for `staticFinalFieldsOfMutableTypesAreRejected` and `anyNoArgumentNowOrSystemTimeOutsideTheClockBeanMethodIsRejected`; first GREEN attempt flagged compiler-generated `$VALUES` / `$SwitchMap$` fields (now excluded as synthetic) and then a real finding in FAPI-13 code: `SecurityConfiguration.API_DOCUMENTATION` was a static `String[]`, now `List.of(...)`. Mutable types, judged by the declared type: arrays, concrete mutable collections and maps, atomics, builders, `Date`, `Calendar`, `ClassValue`, `ThreadLocal`; a field declared as `List` / `Set` / `Map` is expected to hold an unmodifiable value (review). A first version also inspected static initializers and flagged every field of a class whose initializer created a mutable instance: after the rebase on FAPI-12 it wrongly rejected `SupportedLocales` (its `Locale` constants and an unmodifiable set), so it was dropped. Time: any no-argument `java.time` `now()`, `System.currentTimeMillis()`, `UUID.randomUUID()`, `Clock.system*()` except in the Clock bean method (`IdConfiguration.clock`). 6/6.
 - Minors: `ClassValue` is an instance field of the interceptor; `UseCaseRegistrar` takes `Environment` and `ResourceLoader` through its static `@Bean` method; stale bus wording fixed in `Result`, `package-info`s, `persistence.md`, the writing-code eval scenario; `use-cases.md` documents matching, one operation, not final (CGLIB), allow-lists, NESTED, shared module, singletons; `module-tests.md` documents the shared module and the probe module.
 
+- Verification after the final rebase `FRAPPE_TEST_DB=frappe_fapi_11 ./gradlew spotlessApply check --rerun-tasks`: BUILD SUCCESSFUL, 86 classes, 427 tests, 0 failures, 0 errors.
+
 ## Open questions / follow-ups
 - The platform owns `@EnableTransactionManagement` for the whole application (order `LOWEST_PRECEDENCE - 200`); a future ordered advisor must choose its order relative to it.
 - The probe module's use cases are also registered in every other full test context (the scan covers `com.frappe`); they need only beans every such context has.
 - Nullness annotations (JSpecify) are not on the allow-lists yet; add them deliberately when domain code needs them.
 
 ## Next step
-Force-push the rebased branch (authorized) and re-review.
+Re-review of PR #14 (branch force-pushed after the rebase).
 
 ## History log (earlier designs, kept for the record)
 
