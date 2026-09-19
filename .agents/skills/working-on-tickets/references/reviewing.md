@@ -21,6 +21,7 @@ With two reviewers, send each the same brief separately; neither sees the other'
 - Tenant-scoped tables have `tenant_id` + RLS policy + a test proving isolation.
 - Money uses `Money`; time uses the injected `Clock`.
 - HTTP errors are ProblemDetail; endpoints under `/v1`.
+- Every added or changed route has manual-call evidence in the PR (happy path, each refusal, 401, `es`/`en`), and it matches the tests (`trying-endpoints.md`).
 - Migrations are forward-only Flyway scripts in the module schema.
 - Testcontainers, never H2. `./gradlew check` green.
 - Change stays within ticket scope.
