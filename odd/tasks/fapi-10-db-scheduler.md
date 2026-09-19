@@ -153,6 +153,7 @@ Events: None: scheduling publishes and consumes no domain events. Outbox recover
 
 ### Review round 2 (deep review of 3a277f9)
 - D1 duplicate failure logs. RED `SchedulingLogIntegrationTests.everyFailureAndTheGiveUpAreLoggedExactlyOnce` (the application's own scheduler, probe tasks from `SchedulingProbes`, one retry): `Expecting actual: [WARN, WARN, WARN, ERROR] to contain exactly [WARN, ERROR]`: db-scheduler's `ExecutePicked.failure` logs every failure through `Scheduler`'s `ConfigurableLogger` at WARN (the T0 note said DEBUG; wrong). GREEN with `db-scheduler.failure-logger-level=OFF`; `SchedulerSettingsIntegrationTests` asserts it; `scheduling.md` says why.
+- D2 transactional contract: `SchedulingTransactionIntegrationTests` schedules through the application's `OneTimeTask` and `EntityTask` probe beans inside a `TransactionTemplate`: rolled back → no `platform.scheduled_tasks` row for either; committed → one each. 2/2 on the first run: a guard of existing behaviour (the starter's `TransactionAwareDataSourceProxy`), no production change.
 
 ## Follow-ups / open questions
 - `OutboxRecoveryTrigger` drops a trigger while a pass runs (as the lock did before; `runNow` returns false). A pass that started just before NATS came back may still fail its publishes; those then wait for the next scheduled pass (1m with the defaults, plus their backoff).
