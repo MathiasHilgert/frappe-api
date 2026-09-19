@@ -26,7 +26,7 @@ Strict TDD. Runner: `./gradlew test` with Testcontainers (Postgres reused as `FR
 - [x] T0 Verify versions and APIs from the jars (Spring Data Redis, Lettuce, Argon2, Bucket4j lettuce, testcontainers-redis); record here
 - [x] T1 Compose DX: env-overridable host ports, `valkey` service with the service-connection label; README
 - [x] T2 Valkey wiring: starter, `FRAPPE_VALKEY_URL` required outside `local`, `TestValkeyConfiguration`, starts without Valkey
-- [ ] T3 `ShortLivedSecretStore` put/consume: Argon2 hash only, single use under concurrency, 5 failures, replace, TTL
+- [x] T3 `ShortLivedSecretStore` put/consume: Argon2 hash only, single use under concurrency, 5 failures, replace, TTL
 - [ ] T4 `countIssue` sliding-window cap
 - [ ] T5 `RateLimiter` on Bucket4j: N+1 refused, shared across instances
 - [ ] T6 Invariants and failure: raw read holds only hashes and no email; Valkey down → `SecretStoreUnavailableException`; docs (README, testing skill, writing-code); full check
@@ -66,5 +66,12 @@ Strict TDD. Runner: `./gradlew test` with Testcontainers (Postgres reused as `FR
 - RED `LocalProfileTest` (extended): `expected: "redis://localhost:16379" but was: null`. GREEN: local `FRAPPE_VALKEY_URL=redis://localhost:${FRAPPE_VALKEY_PORT:6379}` (with compose running, Boot's service connection wins anyway).
 - `FRAPPE_TEST_DB=frappe_fapi_16 ./gradlew spotlessApply check`: BUILD SUCCESSFUL (`OtlpUnavailableTests` green again).
 
+### T3 secret store put/consume
+- RED (compilation) `SecretKeyTest` (9) and `ShortLivedSecretStoreIntegrationTests` (7): `SecretKey`, `ShortLivedSecretStore` missing. GREEN 9/9 and 7/7 against Valkey 9 (`TestValkeyConfiguration`: `RedisContainer` on `valkey/valkey:9-alpine`, `@ServiceConnection(name = "redis")`, fresh per context).
+- Acceptance: `consumesTheRightSecretOnce`, `twoConcurrentRightSubmissionsGiveExactlyOneSuccess`, `theRightSecretStillWorksAfterFourWrongAttempts`, `theFifthWrongAttemptDeletesTheSecret`, `aSecondPutReplacesTheSecretWithAFreshFailureCount`, `consumeIsFalseOnceTheTtlHasPassed`; plus `consumeIsFalseWhenNoSecretWasPut`.
+- Mutation check of the concurrency test: with the script's stored-hash comparison removed, `twoConcurrentRightSubmissionsGiveExactlyOneSuccess` failed (both submissions succeeded); restored.
+- Code: `SecretKey` (lowercase kebab-case module/purpose, UUID subject), `ShortLivedSecretStore` (`MAX_FAILED_ATTEMPTS = 5`), `SecretStoreUnavailableException`; `ValkeyShortLivedSecretStore` (Argon2 v5.8 defaults, `put` as MULTI of HSET hash/failures=0 + EXPIRE, `consume` = HGET, Argon2 verify, `consume-secret.lua`), `ValkeyKeys`, `ValkeyConfiguration`. `DataAccessException` → `SecretStoreUnavailableException` (no secret or key in the message).
+- `./gradlew javadoc`, `ModularityTests`: green.
+
 ## Next step
-T3.
+T4.

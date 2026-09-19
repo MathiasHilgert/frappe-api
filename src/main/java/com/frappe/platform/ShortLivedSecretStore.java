@@ -1,0 +1,38 @@
+package com.frappe.platform;
+
+import java.time.Duration;
+
+/**
+ * Stores short-lived, single-use secrets such as verification, reset and email-change codes. Only a salted Argon2 hash
+ * is stored, so a dump of the store reveals no usable code.
+ *
+ * <p>A secret is consumed at most once and dies after {@value #MAX_FAILED_ATTEMPTS} wrong attempts, so a short numeric
+ * code cannot be brute-forced. All instances share the store.
+ */
+public interface ShortLivedSecretStore {
+
+    /** Wrong attempts after which a secret is deleted. */
+    int MAX_FAILED_ATTEMPTS = 5;
+
+    /**
+     * Stores a secret, replacing any earlier secret under the same key together with its failure count.
+     *
+     * @param key the secret's key
+     * @param secret the plain secret; only its hash is stored
+     * @param ttl how long the secret stays valid; positive
+     * @throws SecretStoreUnavailableException if the store cannot be reached
+     */
+    void put(SecretKey key, String secret, Duration ttl);
+
+    /**
+     * Checks a candidate and consumes the secret if it matches. A wrong candidate counts as a failed attempt; the
+     * {@value #MAX_FAILED_ATTEMPTS}th failed attempt deletes the secret.
+     *
+     * @param key the secret's key
+     * @param candidate the value submitted by the user
+     * @return {@code true} exactly once for a matching candidate; {@code false} for a wrong candidate, or when the
+     *     secret expired, was consumed, deleted after too many failures, or never stored
+     * @throws SecretStoreUnavailableException if the store cannot be reached
+     */
+    boolean consume(SecretKey key, String candidate);
+}
