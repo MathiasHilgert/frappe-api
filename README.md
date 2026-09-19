@@ -107,6 +107,8 @@ docker compose exec postgres /docker-entrypoint-initdb.d/01-frappe-roles.sh
 
 Migrations run on startup. `bootRun` activates the `local` profile (`application-local.properties`), which points at the compose database with the default passwords; set `SPRING_PROFILES_ACTIVE` to override. Outside `local` there are no defaults: startup fails unless `FRAPPE_DB_URL`, `FRAPPE_APP_PASSWORD` and `FRAPPE_OWNER_PASSWORD` are set.
 
+Routes live under `/v1`; the OpenAPI spec is at `/v3/api-docs` and, in `local` only, the Scalar API reference at <http://localhost:8080/scalar>. Behind a reverse proxy set `FRAPPE_TRUSTED_PROXIES` to the proxy's addresses (CIDR list, default loopback only): `X-Forwarded-For` is honoured only from those.
+
 ### Observability
 
 Traces, metrics and logs leave the app over OTLP (OpenTelemetry). Locally everything is zero config: compose runs `grafana/otel-lgtm` and Spring Boot's Docker Compose support wires the exporters to it; the `local` profile samples every request.
