@@ -9,6 +9,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Role;
 import org.springframework.core.Ordered;
+import org.springframework.core.env.Environment;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 /**
@@ -34,13 +36,16 @@ class UseCaseConfiguration {
     UseCaseConfiguration() {}
 
     /**
-     * Registers the use cases of the application packages as beans.
+     * Registers the use cases of the application packages as beans. Static and fed only by the environment and the
+     * resource loader (resolvable without creating beans), as a registry post-processor must be.
      *
+     * @param environment the application environment
+     * @param resourceLoader the application context's resource loader
      * @return the registrar
      */
     @Bean
-    static UseCaseRegistrar useCaseRegistrar() {
-        return new UseCaseRegistrar();
+    static UseCaseRegistrar useCaseRegistrar(Environment environment, ResourceLoader resourceLoader) {
+        return new UseCaseRegistrar(environment, resourceLoader);
     }
 
     /**
