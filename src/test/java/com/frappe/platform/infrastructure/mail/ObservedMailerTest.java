@@ -8,6 +8,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.frappe.CapturedLogs;
 import com.frappe.platform.mail.MailDeliveryException;
 import com.frappe.platform.mail.MailMessage;
 import com.resend.core.exception.ResendException;
@@ -49,7 +50,7 @@ class ObservedMailerTest {
     private final MailRenderer renderer =
             new MailRenderer(TemplateEngine.createPrecompiled(ContentType.Html), catalogs, meters);
 
-    private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
+    private ListAppender<ILoggingEvent> logs;
 
     private final Logger root = (Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
 
@@ -78,7 +79,8 @@ class ObservedMailerTest {
         });
         rootLevel = root.getLevel();
         root.setLevel(Level.DEBUG);
-        logs.start();
+        // Only this test's thread: cached contexts of other test classes keep logging in the background.
+        logs = CapturedLogs.fromCurrentThread();
         root.addAppender(logs);
     }
 

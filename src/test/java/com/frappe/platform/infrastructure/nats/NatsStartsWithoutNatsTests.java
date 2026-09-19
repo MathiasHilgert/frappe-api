@@ -29,6 +29,7 @@ import org.springframework.modulith.events.CompletedEventPublications;
 import org.springframework.modulith.events.EventPublication;
 import org.springframework.modulith.events.Externalized;
 import org.springframework.modulith.events.core.EventPublicationRegistry;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -43,6 +44,9 @@ import org.testcontainers.containers.GenericContainer;
         })
 @Import(TestcontainersConfiguration.class)
 @ActiveProfiles("local")
+// The class stops its own NATS afterwards: a cached context would keep reconnecting to it for the rest of the run, its
+// NATS client logging ERROR on every attempt in the background of other test classes. Close it with the class.
+@DirtiesContext
 class NatsStartsWithoutNatsTests {
 
     static final int PORT = freePort();
