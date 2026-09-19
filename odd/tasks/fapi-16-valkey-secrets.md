@@ -24,7 +24,7 @@ Strict TDD. Runner: `./gradlew test` with Testcontainers (Postgres reused as `FR
 
 ## Tasks
 - [x] T0 Verify versions and APIs from the jars (Spring Data Redis, Lettuce, Argon2, Bucket4j lettuce, testcontainers-redis); record here
-- [ ] T1 Compose DX: env-overridable host ports, `valkey` service with the service-connection label; README
+- [x] T1 Compose DX: env-overridable host ports, `valkey` service with the service-connection label; README
 - [ ] T2 Valkey wiring: starter, `FRAPPE_VALKEY_URL` required outside `local`, `TestValkeyConfiguration`, starts without Valkey
 - [ ] T3 `ShortLivedSecretStore` put/consume: Argon2 hash only, single use under concurrency, 5 failures, replace, TTL
 - [ ] T4 `countIssue` sliding-window cap
@@ -55,5 +55,10 @@ Strict TDD. Runner: `./gradlew test` with Testcontainers (Postgres reused as `FR
 - Bucket4j 8.20.0 Lettuce: `Bucket4jLettuce.casBasedBuilder(RedisClient)` connects eagerly (would stop startup without Valkey), but `new Bucket4jLettuce.LettuceBasedProxyManagerBuilder<>(RedisApi)` accepts any `RedisApi` (`eval`, `get`, `delete` returning `RedisFuture`), so the proxy manager can run on Spring's lazily opened shared connection (one client, observed by Boot's Lettuce observation). Failures surface as `io.lettuce.core.RedisException` (also for interrupts) or `io.github.bucket4j.TimeoutException` when a request timeout is configured. Buckets: `Bandwidth.builder().capacity(n).refillGreedy(n, period)`, `ExpirationAfterWriteStrategy.basedOnTimeForRefillingBucketUpToMax`.
 - Adding `spring-boot-starter-data-redis` alone turns `/actuator/health` DOWN (503) when no Valkey runs (`OtlpUnavailableTests` failed with `Status expected:<200 OK> but was:<503 SERVICE_UNAVAILABLE>`). Decision: a Valkey outage only affects code and rate-limit flows, which fail with `SecretStoreUnavailableException`; the API stays healthy (like NATS, which has no health contributor), so the Redis health contributor is disabled and proven by a test.
 
+### T1 compose DX
+- RED `LocalComposeStackTest` (2): `everyPublishedHostPortIsOverridableByAnEnvironmentVariable` failed on `'5432:5432'`, `runsValkeyAsTheRedisServiceConnection` failed (no `valkey` service); `LocalObservabilityStackTest` updated to the overridable ports failed on `"3000:3000"`. GREEN 3/3 after `compose.yaml` published every host port as `${FRAPPE_<SERVICE>_PORT:-<default>}:<port>` and added `valkey` (label `org.springframework.boot.service-connection: redis`, `valkey-cli ping` healthcheck for `--wait`).
+- RED `LocalProfileTest` (2): `expected: "jdbc:postgresql://localhost:15432/frappe" but was: "…:5432/frappe"` and `expected: "nats://localhost:4222" but was: null`. GREEN 2/2: `application-local.properties` builds `FRAPPE_DB_URL` and `frappe.nats.url` from `FRAPPE_POSTGRES_PORT` / `FRAPPE_NATS_PORT` (environment variables `FRAPPE_DB_URL` / `FRAPPE_NATS_URL` still win).
+- `docker compose config` interpolates (`FRAPPE_POSTGRES_PORT=15432` → published `15432`). README: `docker compose up -d --wait` and the port table.
+
 ## Next step
-T1.
+T2.

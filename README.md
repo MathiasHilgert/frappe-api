@@ -83,13 +83,27 @@ Java 25 · Spring Boot 4.1 · Spring Modulith 2.1 · Gradle (Kotlin DSL) · Post
 
 ### Local infrastructure
 
-Start Postgres, NATS (JetStream enabled) and the observability stack (Grafana LGTM):
+Start Postgres, NATS (JetStream enabled), Valkey and the observability stack (Grafana LGTM), and wait until they are ready:
 
 ```bash
-docker compose up -d
+docker compose up -d --wait
 ```
 
 Spring Boot's Docker Compose support also starts these services when the application runs locally.
+
+Every host port can be moved with an environment variable (shell or a `.env` file next to `compose.yaml`) when another project already uses it; the `local` profile follows the Postgres and NATS ports, and Spring Boot finds Valkey and Grafana LGTM on any port:
+
+| Service | Variable | Default |
+| --- | --- | --- |
+| Postgres | `FRAPPE_POSTGRES_PORT` | `5432` |
+| NATS (client, monitoring) | `FRAPPE_NATS_PORT`, `FRAPPE_NATS_MONITOR_PORT` | `4222`, `8222` |
+| Valkey | `FRAPPE_VALKEY_PORT` | `6379` |
+| Grafana, OTLP gRPC, OTLP HTTP | `FRAPPE_GRAFANA_PORT`, `FRAPPE_OTLP_GRPC_PORT`, `FRAPPE_OTLP_HTTP_PORT` | `3000`, `4317`, `4318` |
+
+```bash
+FRAPPE_POSTGRES_PORT=15432 docker compose up -d --wait
+FRAPPE_POSTGRES_PORT=15432 ./gradlew bootRun
+```
 
 On first start Postgres creates two roles: `frappe_owner` runs the Flyway migrations and owns the schemas, `frappe_app` is what the application uses at runtime (data access only, no DDL). Local passwords default to the role names; override them with `FRAPPE_OWNER_PASSWORD` and `FRAPPE_APP_PASSWORD` in compose and the application.
 
