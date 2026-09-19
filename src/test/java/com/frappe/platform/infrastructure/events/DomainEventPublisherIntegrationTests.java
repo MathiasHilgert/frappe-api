@@ -19,11 +19,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.modulith.events.Externalized;
+import org.springframework.modulith.events.core.EventSerializer;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.core.JacksonException;
 
 /**
  * The outbox write itself. NATS points at a closed port, so the relay never completes a publication and every row
@@ -56,6 +58,9 @@ class DomainEventPublisherIntegrationTests {
     @Autowired
     JdbcTemplate jdbc;
 
+    @Autowired
+    EventSerializer serializer;
+
     @Test
     void committedTransactionStoresOnePublicationRowPerEvent() {
         // Given
@@ -85,6 +90,14 @@ class DomainEventPublisherIntegrationTests {
                         Integer.class,
                         "%" + event.eventId() + "%"))
                 .isOne();
+    }
+
+    @Test
+    void theRegistrySerializerRejectsAnUnreadablePayloadWithAJacksonException() {
+        // When / Then
+        // PublicationRedelivery and NatsConnectSetup catch exactly this type; no wrapping in Modulith 2.1.1.
+        assertThatThrownBy(() -> serializer.deserialize("{\"eventId\": ", TableOpened.class))
+                .isInstanceOf(JacksonException.class);
     }
 
     @Test
