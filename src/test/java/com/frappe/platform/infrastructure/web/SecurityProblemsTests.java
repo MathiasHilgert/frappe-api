@@ -96,6 +96,12 @@ class SecurityProblemsTests {
     }
 
     @Test
+    void theErrorDispatchHandlerServesNoRequestOfItsOwn() {
+        assertThat(http.get().uri("/error")).hasStatus(HttpStatus.UNAUTHORIZED);
+        assertThat(http.get().uri("/v1/error")).hasStatus(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
     void aResolvedSessionStillReachesTheRoute() {
         assertThat(http.get()
                         .uri(ProblemRoutes.SELF_PATH)

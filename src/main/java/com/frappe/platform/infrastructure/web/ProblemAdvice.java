@@ -18,20 +18,38 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 /**
  * The API's one exception handler (it replaces Spring Boot's {@code ProblemDetailsExceptionHandler}): Spring MVC's own
  * {@link ResponseEntityExceptionHandler} decides the status and headers of every framework exception, and this advice
- * answers each with the platform's problem for that status, so no framework text reaches the client.
+ * answers each with the platform's problem for that status, so no framework text reaches the client. Every other
+ * exception is unexpected and answered with the generic internal-error problem.
  */
 @RestControllerAdvice
 class ProblemAdvice extends ResponseEntityExceptionHandler {
 
     private final Problems problems;
+    private final UnexpectedFailures unexpectedFailures;
 
     /**
      * Creates the advice.
      *
      * @param problems builds the problems
+     * @param unexpectedFailures records failures answered with the generic problem
      */
-    ProblemAdvice(Problems problems) {
+    ProblemAdvice(Problems problems, UnexpectedFailures unexpectedFailures) {
         this.problems = problems;
+        this.unexpectedFailures = unexpectedFailures;
+    }
+
+    /**
+     * Anything unexpected: a defect or an infrastructure fault. The client gets the generic internal-error problem,
+     * never the exception; the exception is logged and counted once.
+     *
+     * @param failure what was thrown
+     * @param request the current request
+     * @return the 500 problem
+     */
+    @ExceptionHandler(Exception.class)
+    ResponseEntity<Object> unexpected(Exception failure, HttpServletRequest request) {
+        unexpectedFailures.record(failure, request);
+        return ResponseEntity.internalServerError().body(problems.forStatus(HttpStatus.INTERNAL_SERVER_ERROR, request));
     }
 
     /**
@@ -65,6 +83,9 @@ class ProblemAdvice extends ResponseEntityExceptionHandler {
             Exception ex, @Nullable Object body, HttpHeaders headers, HttpStatusCode statusCode, WebRequest request) {
         // Spring MVC hands every servlet request to its exception handlers as a ServletWebRequest.
         var servletRequest = ((ServletWebRequest) request).getRequest();
+        if (statusCode.is5xxServerError()) {
+            unexpectedFailures.record(ex, servletRequest);
+        }
         var problem = ex instanceof MethodArgumentNotValidException invalid
                 ? problems.invalidFields(invalid.getBindingResult(), servletRequest)
                 : problems.forStatus(statusCode, servletRequest);

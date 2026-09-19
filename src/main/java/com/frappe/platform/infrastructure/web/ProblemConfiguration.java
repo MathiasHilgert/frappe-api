@@ -1,5 +1,6 @@
 package com.frappe.platform.infrastructure.web;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.tracing.Tracer;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.MessageSource;
@@ -7,7 +8,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.LocaleResolver;
 
-/** Wires the problem details every failure is answered with. */
+/**
+ * Wires the problem details every failure is answered with. {@link ProblemAdvice} and {@link ProblemErrorController} are
+ * found by component scanning, as Spring MVC requires for advice and controllers.
+ */
 @Configuration(proxyBeanMethods = false)
 class ProblemConfiguration {
 
@@ -28,13 +32,13 @@ class ProblemConfiguration {
     }
 
     /**
-     * The one exception handler of the API.
+     * Logs and counts the failures answered with the generic internal-error problem.
      *
-     * @param problems builds the problems
-     * @return the advice
+     * @param meters the meter registry
+     * @return the recorder
      */
     @Bean
-    ProblemAdvice problemAdvice(Problems problems) {
-        return new ProblemAdvice(problems);
+    UnexpectedFailures unexpectedFailures(MeterRegistry meters) {
+        return new UnexpectedFailures(meters);
     }
 }

@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import org.springframework.boot.webmvc.error.ErrorController;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.method.HandlerTypePredicate;
@@ -36,8 +37,12 @@ final class RouteCatalog {
     /** The package suffix every route class lives in: {@code com.frappe.<module>.infrastructure.web}. */
     static final String ROUTE_PACKAGE_SUFFIX = ".infrastructure.web";
 
-    /** Handler types that are application routes: every controller under {@code com.frappe}. */
-    static final Predicate<Class<?>> APPLICATION_ROUTES = HandlerTypePredicate.forBasePackage("com.frappe");
+    /**
+     * Handler types that are application routes: every controller under {@code com.frappe}, except Spring Boot's
+     * {@link ErrorController} contract (the platform's error-dispatch handler), which serves no path of its own.
+     */
+    static final Predicate<Class<?>> APPLICATION_ROUTES = HandlerTypePredicate.forBasePackage("com.frappe")
+            .and(type -> !ErrorController.class.isAssignableFrom(type));
 
     private final List<Route> routes;
     private final Map<RequestMappingInfo, Route> routesByMapping;

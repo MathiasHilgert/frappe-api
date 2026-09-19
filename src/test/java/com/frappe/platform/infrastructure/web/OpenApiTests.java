@@ -99,5 +99,7 @@ class OpenApiTests {
         spec.doesNotHavePath("$.paths['/v1/test/docs/self'].get.parameters");
         spec.doesNotHavePath("$.paths['/v1/test/docs/public'].get.security");
         spec.doesNotHavePath("$.paths['/v1/test/docs/public'].get.responses['401']");
+        // The error-dispatch handler is a framework contract, not an operation of the API.
+        spec.doesNotHavePath("$.paths['/error']");
     }
 }
