@@ -54,6 +54,16 @@ tasks:
     cmds:
       - go run github.com/fe3dback/go-arch-lint@v1.19.0 check --project-path .
 
+  application:run:
+    desc: Run the API locally with go run.
+    cmds:
+      - go run ./cmd/api
+
+  secrets:run:
+    desc: Run the API with secrets injected by the Infisical CLI.
+    cmds:
+      - infisical run -- go run ./cmd/api
+
   ci:run:
     desc: Run the full local check suite (lint, format check, tests, vuln scan, architecture check).
     cmds:
