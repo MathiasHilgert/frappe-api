@@ -14,12 +14,12 @@ import (
 // configuration or error, used to exercise NewApplication without
 // depending on real environment variables.
 type stubProvider struct {
-	err    error
-	config configuration.Configuration
+	err                 error
+	loadedConfiguration configuration.Configuration
 }
 
 func (provider stubProvider) Load(context.Context) (configuration.Configuration, error) {
-	return provider.config, provider.err
+	return provider.loadedConfiguration, provider.err
 }
 
 // validConfiguration returns a Configuration that satisfies every
@@ -41,7 +41,7 @@ func validConfiguration() configuration.Configuration {
 }
 
 func TestNewApplicationBuildsAnApplicationThatStartsAndStops(t *testing.T) {
-	application, err := dependencies.NewApplication(context.Background(), stubProvider{config: validConfiguration()})
+	application, err := dependencies.NewApplication(context.Background(), stubProvider{loadedConfiguration: validConfiguration()})
 	if err != nil {
 		t.Fatalf("NewApplication returned unexpected error: %v", err)
 	}

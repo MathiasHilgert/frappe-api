@@ -12,24 +12,24 @@ import (
 // TestApplicationUpRunsHooksInRegistrationOrder verifies that Up invokes
 // every hook's Up function in the exact order the hooks were appended.
 func TestApplicationUpRunsHooksInRegistrationOrder(t *testing.T) {
-	application_ := application.New()
+	instance := application.New()
 
 	var order []string
-	application_.Append(application.Hook{
+	instance.Append(application.Hook{
 		Name: "first",
 		Up: func(context.Context) error {
 			order = append(order, "first")
 			return nil
 		},
 	})
-	application_.Append(application.Hook{
+	instance.Append(application.Hook{
 		Name: "second",
 		Up: func(context.Context) error {
 			order = append(order, "second")
 			return nil
 		},
 	})
-	application_.Append(application.Hook{
+	instance.Append(application.Hook{
 		Name: "third",
 		Up: func(context.Context) error {
 			order = append(order, "third")
@@ -37,7 +37,7 @@ func TestApplicationUpRunsHooksInRegistrationOrder(t *testing.T) {
 		},
 	})
 
-	if err := application_.Up(context.Background()); err != nil {
+	if err := instance.Up(context.Background()); err != nil {
 		t.Fatalf("Up returned unexpected error: %v", err)
 	}
 
@@ -56,13 +56,13 @@ func TestApplicationUpRunsHooksInRegistrationOrder(t *testing.T) {
 // hook's Up fails, only the hooks that already started are torn down, in
 // reverse order, and hooks that never started are left untouched.
 func TestApplicationUpRollsBackOnlyStartedHooksOnFailure(t *testing.T) {
-	application_ := application.New()
+	instance := application.New()
 
 	var downOrder []string
 	failing := errors.New("second hook failed")
 	thirdUpCalled := false
 
-	application_.Append(application.Hook{
+	instance.Append(application.Hook{
 		Name: "first",
 		Up:   func(context.Context) error { return nil },
 		Down: func(context.Context) error {
@@ -70,7 +70,7 @@ func TestApplicationUpRollsBackOnlyStartedHooksOnFailure(t *testing.T) {
 			return nil
 		},
 	})
-	application_.Append(application.Hook{
+	instance.Append(application.Hook{
 		Name: "second",
 		Up:   func(context.Context) error { return failing },
 		Down: func(context.Context) error {
@@ -78,7 +78,7 @@ func TestApplicationUpRollsBackOnlyStartedHooksOnFailure(t *testing.T) {
 			return nil
 		},
 	})
-	application_.Append(application.Hook{
+	instance.Append(application.Hook{
 		Name: "third",
 		Up: func(context.Context) error {
 			thirdUpCalled = true
@@ -90,7 +90,7 @@ func TestApplicationUpRollsBackOnlyStartedHooksOnFailure(t *testing.T) {
 		},
 	})
 
-	err := application_.Up(context.Background())
+	err := instance.Up(context.Background())
 	if err == nil {
 		t.Fatal("Up returned nil error, want the Up failure")
 	}
@@ -110,17 +110,17 @@ func TestApplicationUpRollsBackOnlyStartedHooksOnFailure(t *testing.T) {
 // TestApplicationDownRunsHooksInReverseOrder verifies that Down tears down
 // hooks in the reverse of their registration order.
 func TestApplicationDownRunsHooksInReverseOrder(t *testing.T) {
-	application_ := application.New()
+	instance := application.New()
 
 	var order []string
-	application_.Append(application.Hook{
+	instance.Append(application.Hook{
 		Name: "first",
 		Down: func(context.Context) error {
 			order = append(order, "first")
 			return nil
 		},
 	})
-	application_.Append(application.Hook{
+	instance.Append(application.Hook{
 		Name: "second",
 		Down: func(context.Context) error {
 			order = append(order, "second")
@@ -128,7 +128,7 @@ func TestApplicationDownRunsHooksInReverseOrder(t *testing.T) {
 		},
 	})
 
-	if err := application_.Down(context.Background()); err != nil {
+	if err := instance.Down(context.Background()); err != nil {
 		t.Fatalf("Down returned unexpected error: %v", err)
 	}
 
@@ -147,21 +147,21 @@ func TestApplicationDownRunsHooksInReverseOrder(t *testing.T) {
 // Down never stops at the first failing hook and returns every error
 // joined together.
 func TestApplicationDownAggregatesAllErrorsWithoutStoppingEarly(t *testing.T) {
-	application_ := application.New()
+	instance := application.New()
 
 	firstError := errors.New("first hook down failed")
 	secondError := errors.New("second hook down failed")
 	thirdCalled := false
 
-	application_.Append(application.Hook{
+	instance.Append(application.Hook{
 		Name: "first",
 		Down: func(context.Context) error { return firstError },
 	})
-	application_.Append(application.Hook{
+	instance.Append(application.Hook{
 		Name: "second",
 		Down: func(context.Context) error { return secondError },
 	})
-	application_.Append(application.Hook{
+	instance.Append(application.Hook{
 		Name: "third",
 		Down: func(context.Context) error {
 			thirdCalled = true
@@ -169,7 +169,7 @@ func TestApplicationDownAggregatesAllErrorsWithoutStoppingEarly(t *testing.T) {
 		},
 	})
 
-	err := application_.Down(context.Background())
+	err := instance.Down(context.Background())
 	if err == nil {
 		t.Fatal("Down returned nil error, want the joined errors")
 	}
@@ -188,10 +188,10 @@ func TestApplicationDownAggregatesAllErrorsWithoutStoppingEarly(t *testing.T) {
 // under its own timeout derived from the configured shutdown timeout, and a
 // hook that outlives it receives a canceled context.
 func TestApplicationPerHookTimeoutCancelsSlowHook(t *testing.T) {
-	application_ := application.New(application.WithHookTimeout(10 * time.Millisecond))
+	instance := application.New(application.WithHookTimeout(10 * time.Millisecond))
 
 	var observedError error
-	application_.Append(application.Hook{
+	instance.Append(application.Hook{
 		Name: "slow",
 		Down: func(ctx context.Context) error {
 			select {
@@ -204,7 +204,7 @@ func TestApplicationPerHookTimeoutCancelsSlowHook(t *testing.T) {
 		},
 	})
 
-	err := application_.Down(context.Background())
+	err := instance.Down(context.Background())
 	if err == nil {
 		t.Fatal("Down returned nil error, want the hook timeout error")
 	}
@@ -216,14 +216,14 @@ func TestApplicationPerHookTimeoutCancelsSlowHook(t *testing.T) {
 // TestApplicationHookWithNilUpAndDownIsSkippedSafely verifies that a hook
 // with a nil Up or Down function is simply skipped instead of panicking.
 func TestApplicationHookWithNilUpAndDownIsSkippedSafely(t *testing.T) {
-	application_ := application.New()
+	instance := application.New()
 
-	application_.Append(application.Hook{Name: "no-op"})
+	instance.Append(application.Hook{Name: "no-op"})
 
-	if err := application_.Up(context.Background()); err != nil {
+	if err := instance.Up(context.Background()); err != nil {
 		t.Fatalf("Up returned unexpected error: %v", err)
 	}
-	if err := application_.Down(context.Background()); err != nil {
+	if err := instance.Down(context.Background()); err != nil {
 		t.Fatalf("Down returned unexpected error: %v", err)
 	}
 }

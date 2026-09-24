@@ -13,15 +13,15 @@ import (
 // it. It is the single place that knows the full set of modules the
 // running program uses.
 func NewApplication(ctx context.Context, provider configuration.Provider) (*application.Application, error) {
-	config, err := provider.Load(ctx)
+	loadedConfiguration, err := provider.Load(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("load configuration: %w", err)
 	}
 
-	application_ := application.New(application.WithHookTimeout(config.HTTP.ShutdownTimeout))
+	instance := application.New(application.WithHookTimeout(loadedConfiguration.HTTP.ShutdownTimeout))
 
 	// No concrete module exists yet; modules will be registered here with
-	// application_.Use(...) as they are added.
+	// instance.Use(...) as they are added.
 
-	return application_, nil
+	return instance, nil
 }

@@ -33,10 +33,10 @@ func TestValidateAcceptsAValidConfiguration(t *testing.T) {
 }
 
 func TestValidateRejectsAMissingApplicationEnvironment(t *testing.T) {
-	config := validConfiguration()
-	config.Application.Environment = ""
+	loadedConfiguration := validConfiguration()
+	loadedConfiguration.Application.Environment = ""
 
-	err := configuration.Validate(config)
+	err := configuration.Validate(loadedConfiguration)
 	if err == nil {
 		t.Fatal("Validate returned nil error for a missing Environment")
 	}
@@ -46,10 +46,10 @@ func TestValidateRejectsAMissingApplicationEnvironment(t *testing.T) {
 }
 
 func TestValidateRejectsAnInvalidApplicationEnvironment(t *testing.T) {
-	config := validConfiguration()
-	config.Application.Environment = "production-ish"
+	loadedConfiguration := validConfiguration()
+	loadedConfiguration.Application.Environment = "production-ish"
 
-	err := configuration.Validate(config)
+	err := configuration.Validate(loadedConfiguration)
 	if err == nil {
 		t.Fatal("Validate returned nil error for an invalid Environment")
 	}
@@ -59,10 +59,10 @@ func TestValidateRejectsAnInvalidApplicationEnvironment(t *testing.T) {
 }
 
 func TestValidateRejectsAnHTTPPortOutOfRange(t *testing.T) {
-	config := validConfiguration()
-	config.HTTP.Port = 70000
+	loadedConfiguration := validConfiguration()
+	loadedConfiguration.HTTP.Port = 70000
 
-	err := configuration.Validate(config)
+	err := configuration.Validate(loadedConfiguration)
 	if err == nil {
 		t.Fatal("Validate returned nil error for an out-of-range HTTP port")
 	}
@@ -72,10 +72,10 @@ func TestValidateRejectsAnHTTPPortOutOfRange(t *testing.T) {
 }
 
 func TestValidateRejectsAnInvalidLoggingLevel(t *testing.T) {
-	config := validConfiguration()
-	config.Logging.Level = "trace"
+	loadedConfiguration := validConfiguration()
+	loadedConfiguration.Logging.Level = "trace"
 
-	err := configuration.Validate(config)
+	err := configuration.Validate(loadedConfiguration)
 	if err == nil {
 		t.Fatal("Validate returned nil error for an invalid Logging level")
 	}
@@ -85,11 +85,11 @@ func TestValidateRejectsAnInvalidLoggingLevel(t *testing.T) {
 }
 
 func TestValidateAggregatesMultipleErrors(t *testing.T) {
-	config := validConfiguration()
-	config.Application.Environment = ""
-	config.Logging.Level = "trace"
+	loadedConfiguration := validConfiguration()
+	loadedConfiguration.Application.Environment = ""
+	loadedConfiguration.Logging.Level = "trace"
 
-	err := configuration.Validate(config)
+	err := configuration.Validate(loadedConfiguration)
 	if err == nil {
 		t.Fatal("Validate returned nil error for two invalid fields")
 	}

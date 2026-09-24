@@ -12,16 +12,16 @@ import (
 // dependency registered through Provide is started during Up and its value
 // becomes readable from the returned handle afterward.
 func TestProvideMakesDependencyValueAvailableAfterUp(t *testing.T) {
-	application_ := application.New()
+	instance := application.New()
 
-	handle := application.Provide(application_, application.Dependency[string]{
+	handle := application.Provide(instance, application.Dependency[string]{
 		Name: "greeting",
 		Up: func(context.Context) (string, error) {
 			return "hello", nil
 		},
 	})
 
-	if err := application_.Up(context.Background()); err != nil {
+	if err := instance.Up(context.Background()); err != nil {
 		t.Fatalf("Up returned unexpected error: %v", err)
 	}
 
@@ -37,10 +37,10 @@ func TestProvideMakesDependencyValueAvailableAfterUp(t *testing.T) {
 // TestProvideDependencyDownReceivesTheUpValue verifies that a dependency's
 // Down function receives the exact value produced by its Up function.
 func TestProvideDependencyDownReceivesTheUpValue(t *testing.T) {
-	application_ := application.New()
+	instance := application.New()
 
 	var receivedOnDown int
-	application.Provide(application_, application.Dependency[int]{
+	application.Provide(instance, application.Dependency[int]{
 		Name: "counter",
 		Up: func(context.Context) (int, error) {
 			return 42, nil
@@ -51,10 +51,10 @@ func TestProvideDependencyDownReceivesTheUpValue(t *testing.T) {
 		},
 	})
 
-	if err := application_.Up(context.Background()); err != nil {
+	if err := instance.Up(context.Background()); err != nil {
 		t.Fatalf("Up returned unexpected error: %v", err)
 	}
-	if err := application_.Down(context.Background()); err != nil {
+	if err := instance.Down(context.Background()); err != nil {
 		t.Fatalf("Down returned unexpected error: %v", err)
 	}
 
@@ -67,9 +67,9 @@ func TestProvideDependencyDownReceivesTheUpValue(t *testing.T) {
 // before Up has run reports that no value is available yet, instead of
 // returning a zero value silently.
 func TestHandleGetBeforeUpReportsNotReady(t *testing.T) {
-	application_ := application.New()
+	instance := application.New()
 
-	handle := application.Provide(application_, application.Dependency[int]{
+	handle := application.Provide(instance, application.Dependency[int]{
 		Name: "counter",
 		Up: func(context.Context) (int, error) {
 			return 7, nil
@@ -85,7 +85,7 @@ func TestHandleGetBeforeUpReportsNotReady(t *testing.T) {
 // module's hooks by calling its Register method with the Application as
 // the Lifecycle.
 func TestModuleRegisterAddsHooksThroughUse(t *testing.T) {
-	application_ := application.New()
+	instance := application.New()
 
 	started := false
 	module := stubModule{
@@ -102,10 +102,10 @@ func TestModuleRegisterAddsHooksThroughUse(t *testing.T) {
 		},
 	}
 
-	if err := application_.Use(module); err != nil {
+	if err := instance.Use(module); err != nil {
 		t.Fatalf("Use returned unexpected error: %v", err)
 	}
-	if err := application_.Up(context.Background()); err != nil {
+	if err := instance.Up(context.Background()); err != nil {
 		t.Fatalf("Up returned unexpected error: %v", err)
 	}
 	if !started {
@@ -116,7 +116,7 @@ func TestModuleRegisterAddsHooksThroughUse(t *testing.T) {
 // TestUseReturnsModuleRegisterError verifies that Use propagates an error
 // returned by a module's Register method instead of silently ignoring it.
 func TestUseReturnsModuleRegisterError(t *testing.T) {
-	application_ := application.New()
+	instance := application.New()
 
 	registerErr := errors.New("registration failed")
 	module := stubModule{
@@ -124,7 +124,7 @@ func TestUseReturnsModuleRegisterError(t *testing.T) {
 		register: func(application.Lifecycle) error { return registerErr },
 	}
 
-	err := application_.Use(module)
+	err := instance.Use(module)
 	if !errors.Is(err, registerErr) {
 		t.Fatalf("Use error = %v, want it to wrap %v", err, registerErr)
 	}
@@ -134,10 +134,10 @@ func TestUseReturnsModuleRegisterError(t *testing.T) {
 // application, waits until the given context is canceled, and then tears
 // everything down before returning.
 func TestApplicationRunStopsWhenContextIsCanceled(t *testing.T) {
-	application_ := application.New()
+	instance := application.New()
 
 	var downCalled bool
-	application_.Append(application.Hook{
+	instance.Append(application.Hook{
 		Name: "watched",
 		Down: func(context.Context) error {
 			downCalled = true
@@ -148,7 +148,7 @@ func TestApplicationRunStopsWhenContextIsCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	if err := application_.Run(ctx); err != nil {
+	if err := instance.Run(ctx); err != nil {
 		t.Fatalf("Run returned unexpected error: %v", err)
 	}
 	if !downCalled {

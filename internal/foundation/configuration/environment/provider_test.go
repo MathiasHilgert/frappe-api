@@ -17,25 +17,25 @@ func TestLoadAppliesDefaultsWhenOnlyTheRequiredVariableIsSet(t *testing.T) {
 	t.Setenv(requiredEnvironmentVariable, "development")
 
 	provider := environment.New()
-	config, err := provider.Load(context.Background())
+	loadedConfiguration, err := provider.Load(context.Background())
 	if err != nil {
 		t.Fatalf("Load returned unexpected error: %v", err)
 	}
 
-	if config.Application.Name != "frappe-api" {
-		t.Errorf("Application.Name = %q, want default %q", config.Application.Name, "frappe-api")
+	if loadedConfiguration.Application.Name != "frappe-api" {
+		t.Errorf("Application.Name = %q, want default %q", loadedConfiguration.Application.Name, "frappe-api")
 	}
-	if config.Application.Environment != "development" {
-		t.Errorf("Application.Environment = %q, want %q", config.Application.Environment, "development")
+	if loadedConfiguration.Application.Environment != "development" {
+		t.Errorf("Application.Environment = %q, want %q", loadedConfiguration.Application.Environment, "development")
 	}
-	if config.HTTP.Port != 8080 {
-		t.Errorf("HTTP.Port = %d, want default 8080", config.HTTP.Port)
+	if loadedConfiguration.HTTP.Port != 8080 {
+		t.Errorf("HTTP.Port = %d, want default 8080", loadedConfiguration.HTTP.Port)
 	}
-	if config.HTTP.ShutdownTimeout != 10*time.Second {
-		t.Errorf("HTTP.ShutdownTimeout = %s, want default 10s", config.HTTP.ShutdownTimeout)
+	if loadedConfiguration.HTTP.ShutdownTimeout != 10*time.Second {
+		t.Errorf("HTTP.ShutdownTimeout = %s, want default 10s", loadedConfiguration.HTTP.ShutdownTimeout)
 	}
-	if config.Logging.Level != "info" {
-		t.Errorf("Logging.Level = %q, want default %q", config.Logging.Level, "info")
+	if loadedConfiguration.Logging.Level != "info" {
+		t.Errorf("Logging.Level = %q, want default %q", loadedConfiguration.Logging.Level, "info")
 	}
 }
 
@@ -47,25 +47,25 @@ func TestLoadReadsEveryVariableFromTheEnvironment(t *testing.T) {
 	t.Setenv("LOGGING_LEVEL", "debug")
 
 	provider := environment.New()
-	config, err := provider.Load(context.Background())
+	loadedConfiguration, err := provider.Load(context.Background())
 	if err != nil {
 		t.Fatalf("Load returned unexpected error: %v", err)
 	}
 
-	if config.Application.Name != "custom-name" {
-		t.Errorf("Application.Name = %q, want %q", config.Application.Name, "custom-name")
+	if loadedConfiguration.Application.Name != "custom-name" {
+		t.Errorf("Application.Name = %q, want %q", loadedConfiguration.Application.Name, "custom-name")
 	}
-	if config.Application.Environment != "staging" {
-		t.Errorf("Application.Environment = %q, want %q", config.Application.Environment, "staging")
+	if loadedConfiguration.Application.Environment != "staging" {
+		t.Errorf("Application.Environment = %q, want %q", loadedConfiguration.Application.Environment, "staging")
 	}
-	if config.HTTP.Port != 9090 {
-		t.Errorf("HTTP.Port = %d, want 9090", config.HTTP.Port)
+	if loadedConfiguration.HTTP.Port != 9090 {
+		t.Errorf("HTTP.Port = %d, want 9090", loadedConfiguration.HTTP.Port)
 	}
-	if config.HTTP.ShutdownTimeout != 5*time.Second {
-		t.Errorf("HTTP.ShutdownTimeout = %s, want 5s", config.HTTP.ShutdownTimeout)
+	if loadedConfiguration.HTTP.ShutdownTimeout != 5*time.Second {
+		t.Errorf("HTTP.ShutdownTimeout = %s, want 5s", loadedConfiguration.HTTP.ShutdownTimeout)
 	}
-	if config.Logging.Level != "debug" {
-		t.Errorf("Logging.Level = %q, want %q", config.Logging.Level, "debug")
+	if loadedConfiguration.Logging.Level != "debug" {
+		t.Errorf("Logging.Level = %q, want %q", loadedConfiguration.Logging.Level, "debug")
 	}
 }
 
