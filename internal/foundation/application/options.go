@@ -10,10 +10,20 @@ import (
 // when no explicit timeout is configured.
 const defaultHookTimeout = 30 * time.Second
 
+// buildInfo holds the running build's identity, recorded once as the
+// frappe.application.info gauge when set through WithBuildInfo.
+type buildInfo struct {
+	version     string
+	commit      string
+	environment string
+	set         bool
+}
+
 // options holds the configuration assembled by functional Option values.
 type options struct {
-	logger      *slog.Logger
 	signals     []os.Signal
+	logger      *slog.Logger
+	buildInfo   buildInfo
 	hookTimeout time.Duration
 }
 
@@ -41,6 +51,17 @@ func WithLogger(logger *slog.Logger) Option {
 func WithSignals(signals ...os.Signal) Option {
 	return func(o *options) {
 		o.signals = signals
+	}
+}
+
+// WithBuildInfo records the running build's identity as the
+// frappe.application.info gauge, with version, commit and environment
+// attributes. Callers typically pass internal/foundation/build.Version
+// and internal/foundation/build.Commit together with the deployment
+// environment from configuration.
+func WithBuildInfo(version, commit, environment string) Option {
+	return func(o *options) {
+		o.buildInfo = buildInfo{version: version, commit: commit, environment: environment, set: true}
 	}
 }
 

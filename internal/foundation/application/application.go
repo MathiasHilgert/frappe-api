@@ -16,8 +16,14 @@ type Application struct {
 
 // New creates an Application configured by the given options.
 func New(optionFunctions ...Option) *Application {
+	resolvedOptions := newOptions(optionFunctions)
+
+	if resolvedOptions.buildInfo.set {
+		recordBuildInfo(context.Background(), resolvedOptions.buildInfo.version, resolvedOptions.buildInfo.commit, resolvedOptions.buildInfo.environment)
+	}
+
 	return &Application{
-		options: newOptions(optionFunctions),
+		options: resolvedOptions,
 	}
 }
 
@@ -42,6 +48,8 @@ func (application *Application) Up(ctx context.Context) error {
 		started = append(started, hook)
 	}
 
+	recordReady(ctx, 1)
+
 	return nil
 }
 
@@ -49,6 +57,7 @@ func (application *Application) Up(ctx context.Context) error {
 // stops early: every hook's Down is attempted, and every resulting error is
 // combined into one joined error.
 func (application *Application) Down(ctx context.Context) error {
+	recordReady(ctx, 0)
 	return application.tearDown(ctx, application.hooks)
 }
 
@@ -80,6 +89,7 @@ func (application *Application) runPhase(ctx context.Context, hook Hook, phaseFu
 	duration := time.Since(start)
 
 	application.logPhase(hook.Name, phase, duration, err)
+	recordHookPhase(ctx, hook.Name, phase, duration, err)
 
 	return err
 }
