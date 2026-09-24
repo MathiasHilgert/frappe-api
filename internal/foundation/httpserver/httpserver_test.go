@@ -17,6 +17,12 @@ import (
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/httpserver"
 )
 
+// readinessFunc adapts a plain func() bool into httpserver.Readiness, so
+// tests can express readiness as a closure.
+type readinessFunc func() bool
+
+func (f readinessFunc) Ready() bool { return f() }
+
 // testSettings returns Settings with short timeouts and an always-ready
 // ready function, suitable for exercising the server in tests.
 func testSettings(logBuffer *bytes.Buffer, ready func() bool, documentationEnabled bool) httpserver.Settings {
@@ -37,7 +43,7 @@ func testSettings(logBuffer *bytes.Buffer, ready func() bool, documentationEnabl
 		MaxHeaderBytes:       1 << 20,
 		MaxBodyBytes:         1 << 20,
 		DocumentationEnabled: documentationEnabled,
-		Ready:                ready,
+		Ready:                readinessFunc(ready),
 		Logger:               logger,
 	}
 }

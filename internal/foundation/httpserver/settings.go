@@ -5,12 +5,24 @@ import (
 	"time"
 )
 
-// ReadyFunc reports whether the application is ready to serve traffic. It
-// is injected by the composition root, typically as an
-// internal/foundation/application.Application's Ready method, so this
-// package never imports the application package directly (foundation
-// packages must not import each other).
-type ReadyFunc func() bool
+// Readiness reports whether the application is ready to serve traffic,
+// backing the /health/ready probe. It is a small, consumer-side interface
+// (declared here, not by whatever implements it) satisfied today by
+// internal/foundation/application.Application itself, which already has a
+// Ready() bool method, so this package never imports the application
+// package directly (foundation packages must not import each other). It
+// is intentionally this narrow so a future, HTTP-independent dependency
+// health-checking foundation package can implement it and be swapped in
+// without this package changing: httpserver never pings a dependency
+// itself, it only asks whatever Readiness it was given.
+type Readiness interface {
+	Ready() bool
+}
+
+// alwaysReady is the Readiness used when Settings.Ready is nil.
+type alwaysReady struct{}
+
+func (alwaysReady) Ready() bool { return true }
 
 // Settings configures a Server. Every field has a corresponding field on
 // internal/foundation/configuration.Configuration's HTTP struct; the
@@ -20,8 +32,9 @@ type Settings struct {
 	// slog.Default() is used.
 	Logger *slog.Logger
 	// Ready reports application readiness for the /health/ready probe.
-	// If nil, the server is treated as always ready.
-	Ready ReadyFunc
+	// If nil, the server is treated as always ready. /health/live never
+	// consults it and stays dependency-free.
+	Ready Readiness
 	// Title is the OpenAPI document's title.
 	Title string
 	// Version is the OpenAPI document's version, typically the running
@@ -56,11 +69,11 @@ func (settings Settings) logger() *slog.Logger {
 	return slog.Default()
 }
 
-// ready returns the configured ready function, falling back to an
-// always-ready function when none was set.
-func (settings Settings) ready() ReadyFunc {
+// ready returns the configured Readiness, falling back to an
+// always-ready implementation when none was set.
+func (settings Settings) ready() Readiness {
 	if settings.Ready != nil {
 		return settings.Ready
 	}
-	return func() bool { return true }
+	return alwaysReady{}
 }

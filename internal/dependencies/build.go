@@ -76,7 +76,7 @@ func NewApplication(ctx context.Context, provider configuration.Provider) (*appl
 		MaxHeaderBytes:       loadedConfiguration.HTTP.MaxHeaderBytes,
 		MaxBodyBytes:         loadedConfiguration.HTTP.MaxBodyBytes,
 		DocumentationEnabled: loadedConfiguration.HTTP.DocumentationEnabled,
-		Ready:                instance.Ready,
+		Ready:                instance,
 	})
 
 	// No concrete module exists yet; each one, as it is added, gets
