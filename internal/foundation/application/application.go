@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"sync/atomic"
 	"time"
 )
 
@@ -12,6 +13,7 @@ import (
 type Application struct {
 	hooks   []Hook
 	options options
+	ready   atomic.Bool
 }
 
 // New creates an Application configured by the given options.
@@ -44,7 +46,7 @@ func (application *Application) Up(ctx context.Context) error {
 		started = append(started, hook)
 	}
 
-	// Recorded here, once every hook (including telemetry's own Up, which
+// Recorded here, once every hook (including telemetry's own Up, which
 	// installs the real MeterProvider) has succeeded, so this gauge is
 	// exported through the SDK it depends on rather than lost to the
 	// still-noop delegate that is in place during New.
@@ -52,6 +54,7 @@ func (application *Application) Up(ctx context.Context) error {
 		recordBuildInfo(ctx, application.options.buildInfo.version, application.options.buildInfo.commit, application.options.buildInfo.environment)
 	}
 
+	application.ready.Store(true)
 	recordReady(ctx, 1)
 
 	return nil
@@ -61,8 +64,17 @@ func (application *Application) Up(ctx context.Context) error {
 // stops early: every hook's Down is attempted, and every resulting error is
 // combined into one joined error.
 func (application *Application) Down(ctx context.Context) error {
+	application.ready.Store(false)
 	recordReady(ctx, 0)
 	return application.tearDown(ctx, application.hooks)
+}
+
+// Ready reports whether every registered hook's Up has completed
+// successfully and Down has not started yet. It is safe to call
+// concurrently, so it can back an HTTP readiness probe while Up or Down
+// runs on another goroutine.
+func (application *Application) Ready() bool {
+	return application.ready.Load()
 }
 
 // tearDown runs Down for the given hooks in reverse order, continuing past
