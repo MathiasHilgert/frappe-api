@@ -91,6 +91,8 @@ linters:
           deny:
             - pkg: github.com/MathiasHilgert/frappe-api/internal/dependencies
               desc: "modules must not depend on the composition root; dependencies wires modules in, never the reverse"
+            - pkg: github.com/MathiasHilgert/frappe-api/internal/foundation/configuration
+              desc: "modules must not depend on the application-wide configuration package; each module declares its own Configuration struct and receives values by constructor injection from the composition root"
 
     gocyclo:
       # Functions above this cyclomatic complexity must be refactored.

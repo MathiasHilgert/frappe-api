@@ -25,6 +25,18 @@ components:
   cmd:
     in: cmd/**
 
+  # foundation_configuration and foundation_configuration_environment are
+  # split out of foundation (matched first, so they take precedence for
+  # this subpath) because modules must build their own
+  # Configuration/Dependencies structs by constructor injection and must
+  # never import the application-wide configuration package directly; see
+  # deps below and internal/dependencies/doc.go.
+  foundation_configuration_environment:
+    in: internal/foundation/configuration/environment/**
+
+  foundation_configuration:
+    in: internal/foundation/configuration/**
+
   foundation:
     in: internal/foundation/**
 
@@ -47,20 +59,32 @@ deps:
   cmd:
     mayDependOn:
       - foundation
+      - foundation_configuration
+      - foundation_configuration_environment
       - dependencies
       - module_root
       - module_adapters
       - module_application
       - module_domain
 
-  # foundation and module_domain intentionally have no deps entry: they are
-  # leaves and may not depend on any other component. Modules and foundation
-  # must never import the composition root: dependencies wires modules in,
-  # never the other way around.
+  # foundation, foundation_configuration and module_domain intentionally
+  # have no deps entry: they are leaves and may not depend on any other
+  # component. Modules and foundation must never import the composition
+  # root: dependencies wires modules in, never the other way around.
+  # Modules must never import foundation_configuration or
+  # foundation_configuration_environment: each module declares its own
+  # Configuration struct and receives values by constructor injection from
+  # the composition root instead.
+
+  foundation_configuration_environment:
+    mayDependOn:
+      - foundation_configuration
 
   dependencies:
     mayDependOn:
       - foundation
+      - foundation_configuration
+      - foundation_configuration_environment
       - module_root
       - module_adapters
       - module_application
