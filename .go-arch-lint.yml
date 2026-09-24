@@ -1,0 +1,84 @@
+# go-arch-lint (github.com/fe3dback/go-arch-lint) architecture specification.
+# Enforces the hexagonal layering documented in the repository: each module
+# is domain / application / adapters / module root, foundation makes the
+# application run without business logic, dependencies is the composition
+# root that wires modules into the application, and cmd is the only place
+# that knows concrete modules. Run locally with `task architecture:check`
+# (see .github/workflows/ci.yml for the pinned CI invocation).
+version: 3
+
+workdir: .
+
+allow:
+  # Vendor (third-party and stdlib) import restrictions per layer are
+  # enforced by depguard in .golangci.yml; go-arch-lint here only checks
+  # first-party component boundaries, so any vendor import is allowed.
+  depOnAnyVendor: true
+  # ignoreNotFoundComponents keeps the check passing while most components
+  # have no matching packages yet (almost no code exists at this point).
+  ignoreNotFoundComponents: true
+
+excludeFiles:
+  - '.*_test\.go$'
+
+components:
+  cmd:
+    in: cmd/**
+
+  foundation:
+    in: internal/foundation/**
+
+  dependencies:
+    in: internal/dependencies/**
+
+  module_domain:
+    in: internal/modules/*/domain/**
+
+  module_application:
+    in: internal/modules/*/application/**
+
+  module_adapters:
+    in: internal/modules/*/adapters/**
+
+  module_root:
+    in: internal/modules/*
+
+deps:
+  cmd:
+    mayDependOn:
+      - foundation
+      - dependencies
+      - module_root
+      - module_adapters
+      - module_application
+      - module_domain
+
+  # foundation and module_domain intentionally have no deps entry: they are
+  # leaves and may not depend on any other component. Modules and foundation
+  # must never import the composition root: dependencies wires modules in,
+  # never the other way around.
+
+  dependencies:
+    mayDependOn:
+      - foundation
+      - module_root
+      - module_adapters
+      - module_application
+      - module_domain
+
+  module_application:
+    mayDependOn:
+      - module_domain
+
+  module_adapters:
+    mayDependOn:
+      - module_domain
+      - module_application
+      - foundation
+
+  module_root:
+    mayDependOn:
+      - module_domain
+      - module_application
+      - module_adapters
+      - foundation

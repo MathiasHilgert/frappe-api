@@ -49,10 +49,16 @@ tasks:
     cmds:
       - go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
+  architecture:check:
+    desc: Check hexagonal architecture boundaries with go-arch-lint using .go-arch-lint.yml.
+    cmds:
+      - go run github.com/fe3dback/go-arch-lint@v1.19.0 check --project-path .
+
   ci:run:
-    desc: Run the full local check suite (lint, format check, tests, vuln scan).
+    desc: Run the full local check suite (lint, format check, tests, vuln scan, architecture check).
     cmds:
       - task: lint:run
       - task: lint:format
       - task: test:all
       - task: security:vuln
+      - task: architecture:check
