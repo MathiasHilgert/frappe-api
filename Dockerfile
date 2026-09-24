@@ -32,6 +32,18 @@ RUN --mount=type=cache,target=/go/pkg/mod \
       -ldflags="-s -w -X ${BUILD_PKG}.Version=${VERSION} -X ${BUILD_PKG}.Commit=${COMMIT}" \
       -o /out/app "$MAIN_PKG"
 
+# cmd/migrate is built into the same image, as a second small binary,
+# rather than as a separate image target: it shares every build layer
+# above (module download, source, toolchain) with cmd/api, so building it
+# too costs one more `go build` and a couple of extra megabytes, not a
+# second image to version and push. It is a separate process from cmd/api
+# regardless of which image ships it (see cmd/migrate/main.go for why
+# migrations must not run at API startup).
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    go build -trimpath -ldflags="-s -w" -o /out/migrate ./cmd/migrate
+
 # Runtime stage: distroless instead of scratch because it ships CA certs,
 # tzdata and a nonroot user without extra steps.
 FROM gcr.io/distroless/static-debian12:nonroot
@@ -41,6 +53,7 @@ LABEL org.opencontainers.image.source="https://github.com/MathiasHilgert/frappe-
       org.opencontainers.image.vendor="Nulled Software"
 
 COPY --from=builder /out/app /app
+COPY --from=builder /out/migrate /migrate
 
 USER nonroot:nonroot
 EXPOSE 8080
