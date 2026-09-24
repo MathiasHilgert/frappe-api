@@ -17,6 +17,7 @@ func validConfiguration() configuration.Configuration {
 			Name:        "frappe-api",
 			Environment: "development",
 			HookTimeout: 30 * time.Second,
+			Version:     "0.0.0",
 		},
 		HTTP: configuration.HTTP{
 			Port: 8080,
