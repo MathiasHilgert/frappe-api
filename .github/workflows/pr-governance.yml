@@ -23,7 +23,7 @@ jobs:
       - name: Check out base branch scripts only
         # No ref is set, so this checks out the base branch (main), never the
         # PR head. Scripts under .github/scripts/ are therefore trusted code.
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Validate branch name
         uses: actions/github-script@v8
@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out base branch scripts only
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Assign PR to author
         uses: actions/github-script@v8
