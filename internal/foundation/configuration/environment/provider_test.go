@@ -45,15 +45,32 @@ func TestLoadAppliesDefaultsWhenOnlyTheRequiredVariableIsSet(t *testing.T) {
 	if loadedConfiguration.Logging.Level != "info" {
 		t.Errorf("Logging.Level = %q, want default %q", loadedConfiguration.Logging.Level, "info")
 	}
+	if loadedConfiguration.HTTP.ShutdownDrainDelay != 5*time.Second {
+		t.Errorf("HTTP.ShutdownDrainDelay = %s, want default 5s", loadedConfiguration.HTTP.ShutdownDrainDelay)
+	}
+	if loadedConfiguration.Health.CheckInterval != 10*time.Second {
+		t.Errorf("Health.CheckInterval = %s, want default 10s", loadedConfiguration.Health.CheckInterval)
+	}
+	if loadedConfiguration.Health.CheckTimeout != 2*time.Second {
+		t.Errorf("Health.CheckTimeout = %s, want default 2s", loadedConfiguration.Health.CheckTimeout)
+	}
+	if loadedConfiguration.Health.FailureThreshold != 3 {
+		t.Errorf("Health.FailureThreshold = %d, want default 3", loadedConfiguration.Health.FailureThreshold)
+	}
 }
 
 func TestLoadReadsEveryVariableFromTheEnvironment(t *testing.T) {
 	provider := environment.New(environment.WithVariables(map[string]string{
 		"APPLICATION_NAME":          "custom-name",
 		requiredEnvironmentVariable: "staging",
-		"APPLICATION_HOOK_TIMEOUT":  "5s",
+		"APPLICATION_HOOK_TIMEOUT":  "10s",
 		"HTTP_PORT":                 "9090",
+		"HTTP_SHUTDOWN_TIMEOUT":     "5s",
+		"HTTP_SHUTDOWN_DRAIN_DELAY": "1s",
 		"LOGGING_LEVEL":             "debug",
+		"HEALTH_CHECK_INTERVAL":     "20s",
+		"HEALTH_CHECK_TIMEOUT":      "3s",
+		"HEALTH_FAILURE_THRESHOLD":  "5",
 	}))
 	loadedConfiguration, err := provider.Load(context.Background())
 	if err != nil {
@@ -66,14 +83,26 @@ func TestLoadReadsEveryVariableFromTheEnvironment(t *testing.T) {
 	if loadedConfiguration.Application.Environment != "staging" {
 		t.Errorf("Application.Environment = %q, want %q", loadedConfiguration.Application.Environment, "staging")
 	}
-	if loadedConfiguration.Application.HookTimeout != 5*time.Second {
-		t.Errorf("Application.HookTimeout = %s, want 5s", loadedConfiguration.Application.HookTimeout)
+	if loadedConfiguration.Application.HookTimeout != 10*time.Second {
+		t.Errorf("Application.HookTimeout = %s, want 10s", loadedConfiguration.Application.HookTimeout)
 	}
 	if loadedConfiguration.HTTP.Port != 9090 {
 		t.Errorf("HTTP.Port = %d, want 9090", loadedConfiguration.HTTP.Port)
 	}
 	if loadedConfiguration.Logging.Level != "debug" {
 		t.Errorf("Logging.Level = %q, want %q", loadedConfiguration.Logging.Level, "debug")
+	}
+	if loadedConfiguration.HTTP.ShutdownDrainDelay != time.Second {
+		t.Errorf("HTTP.ShutdownDrainDelay = %s, want 1s", loadedConfiguration.HTTP.ShutdownDrainDelay)
+	}
+	if loadedConfiguration.Health.CheckInterval != 20*time.Second {
+		t.Errorf("Health.CheckInterval = %s, want 20s", loadedConfiguration.Health.CheckInterval)
+	}
+	if loadedConfiguration.Health.CheckTimeout != 3*time.Second {
+		t.Errorf("Health.CheckTimeout = %s, want 3s", loadedConfiguration.Health.CheckTimeout)
+	}
+	if loadedConfiguration.Health.FailureThreshold != 5 {
+		t.Errorf("Health.FailureThreshold = %d, want 5", loadedConfiguration.Health.FailureThreshold)
 	}
 }
 

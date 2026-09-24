@@ -43,7 +43,19 @@ func (validationError *ValidationError) Error() string {
 // violated rule for every field that fails, or nil if configuration is
 // valid. The returned error never includes the offending value.
 func Validate(configuration Configuration) error {
-	if validationError := ValidateStruct(configuration); validationError != nil {
+	validationError := ValidateStruct(configuration)
+
+	if minimumHookTimeout := configuration.HTTP.ShutdownDrainDelay + configuration.HTTP.ShutdownTimeout; configuration.Application.HookTimeout < minimumHookTimeout {
+		if validationError == nil {
+			validationError = &ValidationError{}
+		}
+		validationError.Violations = append(validationError.Violations, Violation{
+			Variable: "APPLICATION_HOOK_TIMEOUT",
+			Rule:     "gte_http_shutdown_drain_delay_plus_shutdown_timeout",
+		})
+	}
+
+	if validationError != nil {
 		return validationError
 	}
 	return nil

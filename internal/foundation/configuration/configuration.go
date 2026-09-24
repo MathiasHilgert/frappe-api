@@ -48,6 +48,7 @@ type Configuration struct {
 	Application Application `envPrefix:"APPLICATION_"`
 	HTTP        HTTP        `envPrefix:"HTTP_"`
 	Telemetry   Telemetry   `envPrefix:"TELEMETRY_"`
+	Health      Health      `envPrefix:"HEALTH_"`
 }
 
 // Application holds identity and deployment environment settings.
@@ -95,6 +96,28 @@ type HTTP struct {
 	// DocumentationEnabled toggles the /docs UI and /openapi.json spec.
 	// Recommended false in production to avoid exposing API shape.
 	DocumentationEnabled bool `env:"DOCUMENTATION_ENABLED" envDefault:"true"`
+	// ShutdownDrainDelay is how long the server waits, still serving
+	// traffic, before starting graceful shutdown. It should exceed the
+	// time it takes a load balancer or Kubernetes to stop routing new
+	// requests to this instance once it is marked not-ready (endpoint
+	// propagation delay), so no new request is sent to a server that has
+	// already begun to stop. Set to 0 to disable the delay, which is
+	// reasonable for local development where there is no load balancer.
+	ShutdownDrainDelay time.Duration `env:"SHUTDOWN_DRAIN_DELAY" envDefault:"5s" validate:"min=0"`
+}
+
+// Health holds settings for the background dependency health checker in
+// internal/foundation/health.
+type Health struct {
+	// CheckInterval is how often every registered check is run in the
+	// background.
+	CheckInterval time.Duration `env:"CHECK_INTERVAL" envDefault:"10s" validate:"required,gt=0"`
+	// CheckTimeout bounds how long a single check's run may take.
+	CheckTimeout time.Duration `env:"CHECK_TIMEOUT" envDefault:"2s" validate:"required,gt=0"`
+	// FailureThreshold is how many consecutive failures a check must
+	// accumulate before it is marked failing. A single success
+	// immediately restores it.
+	FailureThreshold int `env:"FAILURE_THRESHOLD" envDefault:"3" validate:"min=1"`
 }
 
 // Logging holds settings for the application logger.
