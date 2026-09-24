@@ -1,0 +1,27 @@
+# Keep the build context minimal: only Go sources and module files are needed.
+.git
+.gitignore
+.github
+.claude
+odd/
+.atl/
+.codegraph/
+.idea/
+.vscode/
+*.swp
+.DS_Store
+.env*
+*.out
+coverage*
+*.test
+bin/
+dist/
+docs/
+*.md
+Taskfile*.yml
+Taskfile*.yaml
+compose*.yaml
+compose*.yml
+docker-compose*.yml
+Dockerfile*
+.dockerignore
