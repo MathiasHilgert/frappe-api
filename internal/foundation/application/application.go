@@ -18,6 +18,7 @@ type Application struct {
 	// fields stay grouped for optimal field alignment.
 	failure chan error
 	hooks   []Hook
+	checks  []Check
 	options options
 	ready   atomic.Bool
 }
@@ -36,6 +37,19 @@ func New(optionFunctions ...Option) *Application {
 // in the order they are appended, and stop in the reverse order.
 func (application *Application) Append(hook Hook) {
 	application.hooks = append(application.hooks, hook)
+}
+
+// AppendCheck registers check to be exposed later through Checks. It
+// implements CheckRegistry so Provide can collect a Dependency's declared
+// Check alongside its Hook.
+func (application *Application) AppendCheck(check Check) {
+	application.checks = append(application.checks, check)
+}
+
+// Checks returns every health check registered so far by dependencies
+// that declared a Check function, in registration order.
+func (application *Application) Checks() []Check {
+	return application.checks
 }
 
 // Up starts every registered hook in registration order. If a hook's Up

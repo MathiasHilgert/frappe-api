@@ -169,3 +169,56 @@ func (module stubModule) Name() string {
 func (module stubModule) Register(lifecycle application.Lifecycle) error {
 	return module.register(lifecycle)
 }
+
+// TestProvideWithoutCheckRegistersNoCheck verifies that a Dependency
+// without a Check function does not contribute any entry to Checks: a
+// dependency is health-checked if and only if it declares a Check.
+func TestProvideWithoutCheckRegistersNoCheck(t *testing.T) {
+	instance := application.New()
+
+	application.Provide(instance, application.Dependency[string]{
+		Name: "uncheckable",
+		Up: func(context.Context) (string, error) {
+			return "value", nil
+		},
+	})
+
+	if len(instance.Checks()) != 0 {
+		t.Fatalf("Checks() = %d entries, want 0", len(instance.Checks()))
+	}
+}
+
+// TestProvideWithCheckRegistersItAgainstTheUpValue verifies that a
+// Dependency's Check is registered by name and runs against the value
+// produced by Up.
+func TestProvideWithCheckRegistersItAgainstTheUpValue(t *testing.T) {
+	instance := application.New()
+
+	application.Provide(instance, application.Dependency[string]{
+		Name: "checkable",
+		Up: func(context.Context) (string, error) {
+			return "healthy", nil
+		},
+		Check: func(_ context.Context, value string) error {
+			if value != "healthy" {
+				return errors.New("unhealthy value: " + value)
+			}
+			return nil
+		},
+	})
+
+	if err := instance.Up(context.Background()); err != nil {
+		t.Fatalf("Up returned unexpected error: %v", err)
+	}
+
+	checks := instance.Checks()
+	if len(checks) != 1 {
+		t.Fatalf("Checks() = %d entries, want 1", len(checks))
+	}
+	if checks[0].Name != "checkable" {
+		t.Fatalf("check name = %q, want %q", checks[0].Name, "checkable")
+	}
+	if err := checks[0].Run(context.Background()); err != nil {
+		t.Fatalf("Run returned unexpected error: %v", err)
+	}
+}
