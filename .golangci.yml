@@ -103,6 +103,19 @@ linters:
               desc: "modules may use the OpenTelemetry API only; SDK setup and wiring belongs to internal/foundation/telemetry"
             - pkg: go.opentelemetry.io/otel/exporters
               desc: "modules may use the OpenTelemetry API only; exporter setup belongs to internal/foundation/telemetry"
+        databasetest:
+          # databasetest (internal/foundation/database/databasetest)
+          # pulls in testcontainers-go and pgtestdb, both test-only
+          # dependencies a production binary must never link. This rule
+          # is paired with the "_test.go" exclusion below, which turns
+          # depguard off for test files, so only non-test ("_test.go")
+          # files are actually denied this import; a "_test.go" file may
+          # import databasetest freely.
+          files:
+            - "**/*.go"
+          deny:
+            - pkg: github.com/MathiasHilgert/frappe-api/internal/foundation/database/databasetest
+              desc: "databasetest is test-only (testcontainers-go, pgtestdb); import it only from a _test.go file"
 
     gocyclo:
       # Functions above this cyclomatic complexity must be refactored.
@@ -131,6 +144,14 @@ linters:
           - gosec
           - unparam
           - errcheck
+      # Lets a "_test.go" file import databasetest (see the "databasetest"
+      # depguard rule above); every other depguard rule still applies to
+      # test files, so this only narrows that one rule instead of turning
+      # depguard off for tests entirely.
+      - path: _test\.go
+        linters:
+          - depguard
+        text: "databasetest"
 
 formatters:
   enable:
