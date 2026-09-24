@@ -1,0 +1,58 @@
+# Local task runner (go-task) providing parity with the CI workflows.
+# Install: https://taskfile.dev
+#
+# Naming convention: tasks are named "<domain>:<action>" (e.g. lint:run,
+# test:unit) so they stay easy to discover and type. Future domains (e.g.
+# migrations:run) should follow the same pattern.
+version: '3'
+
+tasks:
+  default:
+    desc: List all available tasks.
+    cmds:
+      - task --list
+
+  lint:run:
+    desc: Run static analysis with golangci-lint using .golangci.yml.
+    cmds:
+      - golangci-lint run
+
+  lint:format:
+    desc: Check formatting (gofumpt/goimports) without modifying files; shows a diff.
+    cmds:
+      - golangci-lint fmt --diff
+
+  lint:fix:
+    desc: Apply formatting and auto-fixable lint issues in place.
+    cmds:
+      - golangci-lint fmt
+      - golangci-lint run --fix
+
+  test:unit:
+    desc: Run unit tests with race detector and coverage.
+    cmds:
+      - go test -race -count=1 -coverprofile=coverage.out ./...
+
+  test:integration:
+    desc: Run integration tests (files tagged //go:build integration, TestIntegration*).
+    cmds:
+      - go test -race -count=1 -tags=integration -run Integration ./...
+
+  test:all:
+    desc: Run unit and integration tests.
+    cmds:
+      - task: test:unit
+      - task: test:integration
+
+  security:vuln:
+    desc: Scan dependencies and code for known vulnerabilities with govulncheck.
+    cmds:
+      - go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  ci:run:
+    desc: Run the full local check suite (lint, format check, tests, vuln scan).
+    cmds:
+      - task: lint:run
+      - task: lint:format
+      - task: test:all
+      - task: security:vuln
