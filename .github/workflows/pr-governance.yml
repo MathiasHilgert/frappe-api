@@ -26,28 +26,28 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Validate branch name
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const script = require('./.github/scripts/validate-branch-name.js');
             await script({ github, context, core });
 
       - name: Validate PR title
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const script = require('./.github/scripts/validate-pr-title.js');
             await script({ github, context, core });
 
       - name: Validate commit messages
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const script = require('./.github/scripts/validate-commits.js');
             await script({ github, context, core });
 
       - name: Check for AI attribution
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const script = require('./.github/scripts/check-ai-attribution.js');
@@ -61,14 +61,14 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Assign PR to author
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const script = require('./.github/scripts/assign-author.js');
             await script({ github, context, core });
 
       - name: Apply labels
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const script = require('./.github/scripts/apply-labels.js');
