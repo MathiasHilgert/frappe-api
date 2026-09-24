@@ -23,4 +23,16 @@
 // relevant fields from Configuration and passes them into that module's
 // constructor. This keeps every module's dependencies explicit and
 // testable in isolation, without reaching back into the composition root.
+//
+// # HTTP routes belong to modules, never to this package
+//
+// This package builds the foundation/httpserver.Server once and, for
+// each module it wires in, hands that module's constructor the shared
+// "/v1" huma.API returned by Server.V1. It never calls huma.Register (or
+// huma.Get/Post/...) itself and never names a single module's route: it
+// only threads the huma.API through, exactly like it threads through a
+// database handle. Declaring, listing or knowing routes is entirely the
+// owning module's job, done in that module's own adapters/http
+// subpackage; see foundation/httpserver's package doc for the full
+// module-side convention and a worked example.
 package dependencies

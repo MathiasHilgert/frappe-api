@@ -7,6 +7,7 @@ import (
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/application"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/build"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/configuration"
+	"github.com/MathiasHilgert/frappe-api/internal/foundation/httpserver"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/logging"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/telemetry"
 )
@@ -58,8 +59,40 @@ func NewApplication(ctx context.Context, provider configuration.Provider) (*appl
 		Down: telemetry.Down,
 	})
 
-	// No other concrete module exists yet; modules will be registered
-	// here with instance.Use(...) as they are added.
+	// The HTTP server is built synchronously (not yet listening) so its
+	// "/v1" huma.API is available immediately for modules to register
+	// their own routes on as they are wired in below. It is registered
+	// as a dependency after telemetry, so it comes up last (traces and
+	// metrics are ready before it accepts traffic) and goes down first
+	// (in-flight requests finish before telemetry flushes).
+	server := httpserver.New(httpserver.Settings{
+		Title:                loadedConfiguration.Application.Name,
+		Version:              build.Version,
+		Port:                 loadedConfiguration.HTTP.Port,
+		ReadHeaderTimeout:    loadedConfiguration.HTTP.ReadHeaderTimeout,
+		ReadTimeout:          loadedConfiguration.HTTP.ReadTimeout,
+		WriteTimeout:         loadedConfiguration.HTTP.WriteTimeout,
+		IdleTimeout:          loadedConfiguration.HTTP.IdleTimeout,
+		MaxHeaderBytes:       loadedConfiguration.HTTP.MaxHeaderBytes,
+		MaxBodyBytes:         loadedConfiguration.HTTP.MaxBodyBytes,
+		DocumentationEnabled: loadedConfiguration.HTTP.DocumentationEnabled,
+		Ready:                instance.Ready,
+	})
+
+	// No concrete module exists yet; each one, as it is added, gets
+	// wired here with its own constructor call passing server.V1() and
+	// instance.Use(...), following foundation/httpserver's doc.go
+	// convention.
+
+	application.Provide(instance, application.Dependency[*httpserver.Server]{
+		Name: httpserver.DependencyName,
+		Up: func(context.Context) (*httpserver.Server, error) {
+			return server, server.Listen()
+		},
+		Down: func(ctx context.Context, server *httpserver.Server) error {
+			return server.Shutdown(ctx)
+		},
+	})
 
 	return instance, nil
 }
