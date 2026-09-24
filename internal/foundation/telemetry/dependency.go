@@ -111,6 +111,14 @@ func Up(ctx context.Context, settings Settings) (SDK, error) {
 	meterProvider := sdkmetric.NewMeterProvider(
 		sdkmetric.WithResource(detectedResource),
 		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExporter)),
+		// Drop host-level metrics (system.*) emitted by the host
+		// instrumentation: in containers they describe the node, duplicate
+		// infrastructure monitoring and add billable series. Only process.*
+		// metrics are kept.
+		sdkmetric.WithView(sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "system.*"},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationDrop{}},
+		)),
 	)
 
 	loggerProvider := sdklog.NewLoggerProvider(
@@ -129,11 +137,10 @@ func Up(ctx context.Context, settings Settings) (SDK, error) {
 		return SDK{}, err
 	}
 
-	// Process and host metrics (process CPU time, process memory usage,
-	// host CPU time, host memory usage, host network I/O) from the
-	// maintained go.opentelemetry.io/contrib/instrumentation/host
-	// package. It has no equivalent open-file-descriptor metric, so that
-	// one is not emitted.
+	// Process metrics (process CPU time, process memory usage) from the
+	// maintained go.opentelemetry.io/contrib/instrumentation/host package.
+	// Its host-level system.* metrics are dropped by the view above. It has
+	// no open-file-descriptor metric, so that one is not emitted.
 	if err := host.Start(host.WithMeterProvider(meterProvider)); err != nil {
 		return SDK{}, err
 	}
