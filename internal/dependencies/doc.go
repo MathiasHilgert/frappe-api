@@ -10,7 +10,9 @@
 // application.Dependency[T] ready to be registered with
 // application.Provide. There is no dependency to build yet, so this
 // package currently only assembles the Application and its modules; the
-// per-dependency files will be added alongside the first real module.
+// per-dependency files will be added alongside the first real module. By
+// convention, once a module exists, each dependency file exposes module
+// structs it builds from the relevant slice of Configuration.
 //
 // Modules never see the whole Configuration and never import the
 // foundation/configuration package themselves (this is enforced by

@@ -29,10 +29,10 @@ func validConfiguration() configuration.Configuration {
 		Application: configuration.Application{
 			Name:        "frappe-api",
 			Environment: "development",
+			HookTimeout: 5 * time.Second,
 		},
 		HTTP: configuration.HTTP{
-			Port:            8080,
-			ShutdownTimeout: 5 * time.Second,
+			Port: 8080,
 		},
 		Logging: configuration.Logging{
 			Level: "info",

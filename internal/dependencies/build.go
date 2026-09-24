@@ -18,7 +18,7 @@ func NewApplication(ctx context.Context, provider configuration.Provider) (*appl
 		return nil, fmt.Errorf("load configuration: %w", err)
 	}
 
-	instance := application.New(application.WithHookTimeout(loadedConfiguration.HTTP.ShutdownTimeout))
+	instance := application.New(application.WithHookTimeout(loadedConfiguration.Application.HookTimeout))
 
 	// No concrete module exists yet; modules will be registered here with
 	// instance.Use(...) as they are added.
