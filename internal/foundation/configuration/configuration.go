@@ -46,9 +46,10 @@ import (
 type Configuration struct {
 	Logging     Logging     `envPrefix:"LOGGING_"`
 	Application Application `envPrefix:"APPLICATION_"`
+	Database    Database    `envPrefix:"DATABASE_"`
 	HTTP        HTTP        `envPrefix:"HTTP_"`
-	Telemetry   Telemetry   `envPrefix:"TELEMETRY_"`
 	Health      Health      `envPrefix:"HEALTH_"`
+	Telemetry   Telemetry   `envPrefix:"TELEMETRY_"`
 }
 
 // Application holds identity and deployment environment settings.
@@ -124,6 +125,28 @@ type Health struct {
 type Logging struct {
 	// Level is the minimum severity that gets logged.
 	Level string `env:"LEVEL" envDefault:"info" validate:"required,oneof=debug info warn error"`
+}
+
+// Database holds settings for the connection pool to the application's
+// Postgres database (the application role, never the schema-owning
+// migration role; see internal/foundation/database/doc.go).
+type Database struct {
+	// URL is the Postgres connection string for the application role.
+	// Treat it as a secret.
+	URL string `env:"URL" validate:"required"`
+	// MaxConnections bounds how many connections the pool may open.
+	MaxConnections int32 `env:"MAX_CONNECTIONS" envDefault:"10" validate:"min=1"`
+	// MinConnections is how many connections the pool keeps open, ready,
+	// even when idle.
+	MinConnections int32 `env:"MIN_CONNECTIONS" envDefault:"2" validate:"min=0"`
+	// MaxConnectionLifetime bounds how long a connection may be reused
+	// before it is closed and replaced.
+	MaxConnectionLifetime time.Duration `env:"MAX_CONNECTION_LIFETIME" envDefault:"30m" validate:"required,gt=0"`
+	// MaxConnectionIdleTime bounds how long a connection may sit idle in
+	// the pool before it is closed.
+	MaxConnectionIdleTime time.Duration `env:"MAX_CONNECTION_IDLE_TIME" envDefault:"5m" validate:"required,gt=0"`
+	// ConnectTimeout bounds how long establishing one connection may take.
+	ConnectTimeout time.Duration `env:"CONNECT_TIMEOUT" envDefault:"5s" validate:"required,gt=0"`
 }
 
 // Provider loads a Configuration from some source (environment variables,

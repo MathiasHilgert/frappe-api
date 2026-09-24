@@ -16,10 +16,11 @@ import (
 const requiredEnvironmentVariable = "APPLICATION_ENVIRONMENT"
 
 // minimalVariables returns the smallest environment map that satisfies
-// Load, containing only the required variable.
+// Load, containing only the required variables.
 func minimalVariables() map[string]string {
 	return map[string]string{
 		requiredEnvironmentVariable: "development",
+		"DATABASE_URL":              "postgres://user:password@localhost:5432/frappe",
 	}
 }
 
@@ -57,20 +58,41 @@ func TestLoadAppliesDefaultsWhenOnlyTheRequiredVariableIsSet(t *testing.T) {
 	if loadedConfiguration.Health.FailureThreshold != 3 {
 		t.Errorf("Health.FailureThreshold = %d, want default 3", loadedConfiguration.Health.FailureThreshold)
 	}
+	if loadedConfiguration.Database.MaxConnections != 10 {
+		t.Errorf("Database.MaxConnections = %d, want default 10", loadedConfiguration.Database.MaxConnections)
+	}
+	if loadedConfiguration.Database.MinConnections != 2 {
+		t.Errorf("Database.MinConnections = %d, want default 2", loadedConfiguration.Database.MinConnections)
+	}
+	if loadedConfiguration.Database.MaxConnectionLifetime != 30*time.Minute {
+		t.Errorf("Database.MaxConnectionLifetime = %s, want default 30m", loadedConfiguration.Database.MaxConnectionLifetime)
+	}
+	if loadedConfiguration.Database.MaxConnectionIdleTime != 5*time.Minute {
+		t.Errorf("Database.MaxConnectionIdleTime = %s, want default 5m", loadedConfiguration.Database.MaxConnectionIdleTime)
+	}
+	if loadedConfiguration.Database.ConnectTimeout != 5*time.Second {
+		t.Errorf("Database.ConnectTimeout = %s, want default 5s", loadedConfiguration.Database.ConnectTimeout)
+	}
 }
 
 func TestLoadReadsEveryVariableFromTheEnvironment(t *testing.T) {
 	provider := environment.New(environment.WithVariables(map[string]string{
-		"APPLICATION_NAME":          "custom-name",
-		requiredEnvironmentVariable: "staging",
-		"APPLICATION_HOOK_TIMEOUT":  "10s",
-		"HTTP_PORT":                 "9090",
-		"HTTP_SHUTDOWN_TIMEOUT":     "5s",
-		"HTTP_SHUTDOWN_DRAIN_DELAY": "1s",
-		"LOGGING_LEVEL":             "debug",
-		"HEALTH_CHECK_INTERVAL":     "20s",
-		"HEALTH_CHECK_TIMEOUT":      "3s",
-		"HEALTH_FAILURE_THRESHOLD":  "5",
+		"APPLICATION_NAME":                  "custom-name",
+		requiredEnvironmentVariable:         "staging",
+		"APPLICATION_HOOK_TIMEOUT":          "10s",
+		"HTTP_PORT":                         "9090",
+		"HTTP_SHUTDOWN_TIMEOUT":             "5s",
+		"HTTP_SHUTDOWN_DRAIN_DELAY":         "1s",
+		"LOGGING_LEVEL":                     "debug",
+		"HEALTH_CHECK_INTERVAL":             "20s",
+		"HEALTH_CHECK_TIMEOUT":              "3s",
+		"HEALTH_FAILURE_THRESHOLD":          "5",
+		"DATABASE_URL":                      "postgres://user:password@localhost:5432/frappe",
+		"DATABASE_MAX_CONNECTIONS":          "20",
+		"DATABASE_MIN_CONNECTIONS":          "4",
+		"DATABASE_MAX_CONNECTION_LIFETIME":  "1h",
+		"DATABASE_MAX_CONNECTION_IDLE_TIME": "10m",
+		"DATABASE_CONNECT_TIMEOUT":          "1s",
 	}))
 	loadedConfiguration, err := provider.Load(context.Background())
 	if err != nil {
@@ -103,6 +125,24 @@ func TestLoadReadsEveryVariableFromTheEnvironment(t *testing.T) {
 	}
 	if loadedConfiguration.Health.FailureThreshold != 5 {
 		t.Errorf("Health.FailureThreshold = %d, want 5", loadedConfiguration.Health.FailureThreshold)
+	}
+	if loadedConfiguration.Database.URL != "postgres://user:password@localhost:5432/frappe" {
+		t.Errorf("Database.URL = %q, want the configured URL", loadedConfiguration.Database.URL)
+	}
+	if loadedConfiguration.Database.MaxConnections != 20 {
+		t.Errorf("Database.MaxConnections = %d, want 20", loadedConfiguration.Database.MaxConnections)
+	}
+	if loadedConfiguration.Database.MinConnections != 4 {
+		t.Errorf("Database.MinConnections = %d, want 4", loadedConfiguration.Database.MinConnections)
+	}
+	if loadedConfiguration.Database.MaxConnectionLifetime != time.Hour {
+		t.Errorf("Database.MaxConnectionLifetime = %s, want 1h", loadedConfiguration.Database.MaxConnectionLifetime)
+	}
+	if loadedConfiguration.Database.MaxConnectionIdleTime != 10*time.Minute {
+		t.Errorf("Database.MaxConnectionIdleTime = %s, want 10m", loadedConfiguration.Database.MaxConnectionIdleTime)
+	}
+	if loadedConfiguration.Database.ConnectTimeout != time.Second {
+		t.Errorf("Database.ConnectTimeout = %s, want 1s", loadedConfiguration.Database.ConnectTimeout)
 	}
 }
 
@@ -184,6 +224,7 @@ func TestLoadFallsBackToTheDefaultWhenApplicationNameIsExplicitlyEmpty(t *testin
 	provider := environment.New(environment.WithVariables(map[string]string{
 		requiredEnvironmentVariable: "development",
 		"APPLICATION_NAME":          "",
+		"DATABASE_URL":              "postgres://user:password@localhost:5432/frappe",
 	}))
 	loadedConfiguration, err := provider.Load(context.Background())
 	if err != nil {
@@ -206,6 +247,7 @@ func TestLoadWrapsAValidationErrorRetrievableWithErrorsAs(t *testing.T) {
 
 func TestLoadDefaultsToTheProcessEnvironmentWhenNoVariablesAreInjected(t *testing.T) {
 	t.Setenv(requiredEnvironmentVariable, "development")
+	t.Setenv("DATABASE_URL", "postgres://user:password@localhost:5432/frappe")
 
 	provider := environment.New()
 	loadedConfiguration, err := provider.Load(context.Background())

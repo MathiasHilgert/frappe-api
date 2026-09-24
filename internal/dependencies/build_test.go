@@ -37,6 +37,17 @@ func validConfiguration() configuration.Configuration {
 		Logging: configuration.Logging{
 			Level: "info",
 		},
+		// A syntactically valid but unroutable address (port 1 refuses
+		// the connection immediately on every platform this test runs
+		// on) and a short connect timeout, so this unit test proves
+		// wiring and error propagation without needing a real database.
+		// The successful, full Up/Check/Down lifecycle against a real
+		// Postgres is covered by internal/foundation/database's
+		// integration test.
+		Database: configuration.Database{
+			URL:            "postgres://user:password@127.0.0.1:1/frappe?sslmode=disable",
+			ConnectTimeout: 200 * time.Millisecond,
+		},
 	}
 }
 
@@ -49,11 +60,13 @@ func TestNewApplicationBuildsAnApplicationThatStartsAndStops(t *testing.T) {
 		t.Fatal("NewApplication returned a nil Application")
 	}
 
-	if err := application.Up(context.Background()); err != nil {
-		t.Fatalf("Up returned unexpected error: %v", err)
-	}
-	if err := application.Down(context.Background()); err != nil {
-		t.Fatalf("Down returned unexpected error: %v", err)
+	// The database dependency's Up pings a real database and is
+	// expected to fail against the unroutable address above; Up rolls
+	// back every hook that already started (including telemetry), so no
+	// explicit Down call is needed or expected to succeed here.
+	err = application.Up(context.Background())
+	if err == nil {
+		t.Fatal("Up returned nil error against an unroutable database address")
 	}
 }
 
