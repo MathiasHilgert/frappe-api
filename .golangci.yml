@@ -1,6 +1,6 @@
 # golangci-lint v2 configuration.
 # This file defines static analysis (linters) and code formatting (formatters)
-# rules enforced locally (task lint:run / lint:fix) and in CI
+# rules enforced locally (task lint:run / lint:format / lint:fix) and in CI
 # (.github/workflows/ci.yml).
 version: "2"
 

@@ -17,10 +17,16 @@ tasks:
     cmds:
       - golangci-lint run
 
-  lint:fix:
+  lint:format:
     desc: Check formatting (gofumpt/goimports) without modifying files; shows a diff.
     cmds:
       - golangci-lint fmt --diff
+
+  lint:fix:
+    desc: Apply formatting and auto-fixable lint issues in place.
+    cmds:
+      - golangci-lint fmt
+      - golangci-lint run --fix
 
   test:unit:
     desc: Run unit tests with race detector and coverage.
@@ -47,6 +53,6 @@ tasks:
     desc: Run the full local check suite (lint, format check, tests, vuln scan).
     cmds:
       - task: lint:run
-      - task: lint:fix
+      - task: lint:format
       - task: test:all
       - task: security:vuln
