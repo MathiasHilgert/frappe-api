@@ -4,6 +4,9 @@
     bot signatures or footers added by AI tools. Check commits too.
   - No emojis or decorative symbols anywhere (title, description, commits, diagrams).
     Plain ASCII text only.
+  - Branch name MUST follow: <type>/<short-description>
+      Types: feat | fix | refactor | perf | test | docs | build | ci | chore | revert | style
+      Example: feat/cancel-pending-orders
   - PR title MUST follow Conventional Commits:
       <type>(<optional scope>)!: <short imperative summary>
     Types: feat | fix | refactor | perf | test | docs | build | ci | chore | revert | style

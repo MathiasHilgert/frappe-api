@@ -1,0 +1,67 @@
+# golangci-lint v2 configuration.
+# This file defines static analysis (linters) and code formatting (formatters)
+# rules enforced locally (task lint:run / lint:fix) and in CI
+# (.github/workflows/ci.yml).
+version: "2"
+
+linters:
+  # Start from a minimal default set and explicitly enable a solid,
+  # community-recommended set of linters instead of "enable-all".
+  default: none
+  enable:
+    - errcheck    # unchecked error return values
+    - govet       # suspicious constructs (vet)
+    - staticcheck # bugs, style and simplification issues (includes stylecheck rules)
+    - ineffassign # ineffectual assignments
+    - unused      # unused constants, variables, functions and types
+    - revive      # configurable, fast replacement for golint
+    - gosec       # security-focused checks
+    - gocritic    # opinionated set of diagnostics, style and performance checks
+    - misspell    # commonly misspelled English words in comments/strings
+    - unconvert   # unnecessary type conversions
+    - unparam     # unused function parameters
+    - bodyclose   # HTTP response bodies that are not closed
+    - errorlint   # error wrapping and comparison issues (errors.Is/As/%w)
+    - nolintlint  # malformed or unnecessary //nolint directives
+    - prealloc    # slices that could be preallocated
+    - gocyclo     # cyclomatic complexity
+    - gocognit    # cognitive complexity
+
+  settings:
+    gocyclo:
+      # Functions above this cyclomatic complexity must be refactored.
+      min-complexity: 10
+    gocognit:
+      # Functions above this cognitive complexity must be refactored.
+      min-complexity: 15
+    govet:
+      enable-all: true
+    revive:
+      # Fail on any rule violation rather than only warning.
+      severity: error
+    gosec:
+      # Excludes are intentionally empty; tighten via inline //nolint with
+      # justification instead of broad rule suppression.
+      excludes: []
+
+  exclusions:
+    rules:
+      # Test files get relaxed checks: table-driven tests and fixtures often
+      # trip complexity/param/security linters without adding real risk.
+      - path: _test\.go
+        linters:
+          - gocyclo
+          - gocognit
+          - gosec
+          - unparam
+          - errcheck
+
+formatters:
+  enable:
+    - gofumpt  # stricter, opinionated superset of gofmt
+    - goimports
+  settings:
+    goimports:
+      # Group first-party imports after stdlib/third-party for readability.
+      local-prefixes:
+        - github.com/MathiasHilgert/frappe-api

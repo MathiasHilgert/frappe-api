@@ -1,0 +1,35 @@
+# Dependabot: keeps Go modules and GitHub Actions versions current.
+# Labels are intentionally omitted; PR Governance (apply-labels.js) applies
+# and maintains them based on changed files and PR content.
+version: 2
+
+updates:
+  # Go module dependencies declared in go.mod / go.sum.
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps)"
+    groups:
+      # Bundle low-risk minor/patch bumps into a single PR to reduce noise;
+      # major bumps stay separate since they may need manual review.
+      go-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions versions used in .github/workflows/*.yml.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci(deps)"
+    groups:
+      actions-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"

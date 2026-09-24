@@ -1,0 +1,75 @@
+# PR Governance: enforces naming/commit conventions and keeps PR metadata
+# (assignee, labels) up to date. Uses pull_request_target so it runs with
+# write permissions and base-branch scripts even for fork PRs, but it must
+# NEVER check out or execute PR head code - only the trusted base scripts
+# under .github/scripts/ are loaded (default actions/checkout behavior).
+name: PR Governance
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  conventions:
+    name: Conventions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out base branch scripts only
+        # No ref is set, so this checks out the base branch (main), never the
+        # PR head. Scripts under .github/scripts/ are therefore trusted code.
+        uses: actions/checkout@v5
+
+      - name: Validate branch name
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const script = require('./.github/scripts/validate-branch-name.js');
+            await script({ github, context, core });
+
+      - name: Validate PR title
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const script = require('./.github/scripts/validate-pr-title.js');
+            await script({ github, context, core });
+
+      - name: Validate commit messages
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const script = require('./.github/scripts/validate-commits.js');
+            await script({ github, context, core });
+
+      - name: Check for AI attribution
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const script = require('./.github/scripts/check-ai-attribution.js');
+            await script({ github, context, core });
+
+  triage:
+    name: Triage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out base branch scripts only
+        uses: actions/checkout@v5
+
+      - name: Assign PR to author
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const script = require('./.github/scripts/assign-author.js');
+            await script({ github, context, core });
+
+      - name: Apply labels
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const script = require('./.github/scripts/apply-labels.js');
+            await script({ github, context, core });

@@ -1,0 +1,138 @@
+# CI: validates every pull request into main and every push to main.
+# Jobs run in parallel and are independent so a failure in one is easy to
+# pinpoint. All jobs tolerate the repository having no Go packages yet.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Read-only by default; no job needs to write to the repository.
+permissions:
+  contents: read
+
+jobs:
+  lint-and-format:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        # go-version-file keeps the toolchain in sync with go.mod automatically.
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run golangci-lint (static analysis)
+        # Runs the linter set defined in .golangci.yml (v2 format).
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+
+      - name: Run golangci-lint (formatting check)
+        # Fails if gofumpt/goimports would reformat any file, without
+        # mutating the checked-out tree.
+        run: golangci-lint fmt --diff
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Detect whether any Go packages exist yet
+        # The repository currently has no .go files. Guard the test step so
+        # CI stays green instead of failing on "no packages to test".
+        id: packages
+        run: |
+          if [ -n "$(go list ./... 2>/dev/null)" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run unit tests with race detector and coverage
+        if: steps.packages.outputs.found == 'true'
+        run: go test -race -count=1 -coverprofile=coverage.out ./...
+
+      - name: Publish coverage summary
+        if: steps.packages.outputs.found == 'true'
+        run: |
+          {
+            echo "## Unit test coverage"
+            echo '```'
+            go tool cover -func=coverage.out | tail -n 1
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report no Go packages found
+        if: steps.packages.outputs.found == 'false'
+        run: echo "No Go packages found yet; skipping unit tests." >> "$GITHUB_STEP_SUMMARY"
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Detect whether any Go packages exist yet
+        id: packages
+        run: |
+          if [ -n "$(go list ./... 2>/dev/null)" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run integration tests
+        # Convention: integration test files must start with the build tag
+        # `//go:build integration` and their tests must be named
+        # `TestIntegration...` so the -run filter below only selects them.
+        if: steps.packages.outputs.found == 'true'
+        run: go test -race -count=1 -tags=integration -run Integration ./...
+
+      - name: Report no Go packages found
+        if: steps.packages.outputs.found == 'false'
+        run: echo "No Go packages found yet; skipping integration tests." >> "$GITHUB_STEP_SUMMARY"
+
+  vulnerability-scan:
+    name: Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Scan dependencies and code for known vulnerabilities
+        # govulncheck works even with zero packages; it simply reports
+        # nothing to scan instead of failing.
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
