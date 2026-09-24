@@ -75,6 +75,36 @@ tasks:
     cmds:
       - docker compose stop observability
 
+  database:up:
+    desc: Start the local Postgres database.
+    cmds:
+      - docker compose up -d database
+
+  database:down:
+    desc: Stop the local Postgres database.
+    cmds:
+      - docker compose stop database
+
+  migrations:create:
+    desc: 'Create a new SQL migration file, timestamp-versioned (usage: task migrations:create -- <name>).'
+    cmds:
+      - go run github.com/pressly/goose/v3/cmd/goose@v3.28.0 -dir migrations create {{.CLI_ARGS}} sql
+
+  migrations:run:
+    desc: Apply every pending migration (requires DATABASE_MIGRATION_URL).
+    cmds:
+      - go run ./cmd/migrate up
+
+  migrations:rollback:
+    desc: Roll back the most recently applied migration (requires DATABASE_MIGRATION_URL).
+    cmds:
+      - go run ./cmd/migrate down
+
+  migrations:status:
+    desc: Show the status of every migration (requires DATABASE_MIGRATION_URL).
+    cmds:
+      - go run ./cmd/migrate status
+
   ci:run:
     desc: Run the full local check suite (lint, format check, tests, vuln scan, architecture check).
     cmds:
