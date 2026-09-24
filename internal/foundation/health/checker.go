@@ -38,26 +38,26 @@ func (checkState state) snapshot() CheckStatus {
 // for concurrent use: Report and Ready may be called from an HTTP
 // handler's goroutine while the background loop updates state.
 type Checker struct {
-	states map[string]*state
-	cancel context.CancelFunc
-	done   chan struct{}
-	checks []Check
-	config Config
-	mutex  sync.Mutex
+	states   map[string]*state
+	cancel   context.CancelFunc
+	done     chan struct{}
+	checks   []Check
+	settings Settings
+	mutex    sync.Mutex
 }
 
-// NewChecker creates a Checker for the given checks, applying config with
+// NewChecker creates a Checker for the given checks, applying settings with
 // package defaults filled in for any zero-valued field.
-func NewChecker(checks []Check, config Config) *Checker {
+func NewChecker(checks []Check, settings Settings) *Checker {
 	states := make(map[string]*state, len(checks))
 	for _, check := range checks {
 		states[check.Name] = &state{}
 	}
 
 	return &Checker{
-		config: config.withDefaults(),
-		checks: checks,
-		states: states,
+		settings: settings.withDefaults(),
+		checks:   checks,
+		states:   states,
 	}
 }
 
@@ -99,7 +99,7 @@ func (checker *Checker) Stop(ctx context.Context) error {
 func (checker *Checker) loop(ctx context.Context) {
 	defer close(checker.done)
 
-	ticker := time.NewTicker(checker.config.Interval)
+	ticker := time.NewTicker(checker.settings.Interval)
 	defer ticker.Stop()
 
 	for {
@@ -123,7 +123,7 @@ func (checker *Checker) runAll(ctx context.Context) {
 // run executes one check under a timeout-bounded context and updates its
 // state and metrics.
 func (checker *Checker) run(ctx context.Context, check Check) {
-	runCtx, cancel := context.WithTimeout(ctx, checker.config.Timeout)
+	runCtx, cancel := context.WithTimeout(ctx, checker.settings.Timeout)
 	defer cancel()
 
 	start := time.Now()
@@ -137,7 +137,7 @@ func (checker *Checker) run(ctx context.Context, check Check) {
 	if err != nil {
 		checkState.lastError = err
 		checkState.consecutiveFailures++
-		if checkState.consecutiveFailures >= checker.config.FailureThreshold {
+		if checkState.consecutiveFailures >= checker.settings.FailureThreshold {
 			checkState.failing = true
 		}
 	} else {

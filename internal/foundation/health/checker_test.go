@@ -20,7 +20,7 @@ func TestStartRunsChecksSynchronouslyBeforeReturning(t *testing.T) {
 			ran.Store(true)
 			return nil
 		}},
-	}, health.Config{Interval: time.Hour, Timeout: time.Second, FailureThreshold: 1})
+	}, health.Settings{Interval: time.Hour, Timeout: time.Second, FailureThreshold: 1})
 
 	if err := checker.Start(context.Background()); err != nil {
 		t.Fatalf("Start returned unexpected error: %v", err)
@@ -45,7 +45,7 @@ func TestFailureThresholdMarksCheckFailingOnlyAfterNConsecutiveFailures(t *testi
 			failures.Add(1)
 			return errors.New("boom")
 		}},
-	}, health.Config{Interval: time.Millisecond, Timeout: time.Second, FailureThreshold: 3})
+	}, health.Settings{Interval: time.Millisecond, Timeout: time.Second, FailureThreshold: 3})
 
 	if err := checker.Start(context.Background()); err != nil {
 		t.Fatalf("Start returned unexpected error: %v", err)
@@ -74,7 +74,7 @@ func TestOneSuccessRestoresAFailingCheck(t *testing.T) {
 			}
 			return nil
 		}},
-	}, health.Config{Interval: time.Millisecond, Timeout: time.Second, FailureThreshold: 1})
+	}, health.Settings{Interval: time.Millisecond, Timeout: time.Second, FailureThreshold: 1})
 
 	if err := checker.Start(context.Background()); err != nil {
 		t.Fatalf("Start returned unexpected error: %v", err)
@@ -102,7 +102,7 @@ func TestTimeoutCountsAsFailure(t *testing.T) {
 			<-ctx.Done()
 			return ctx.Err()
 		}},
-	}, health.Config{Interval: time.Hour, Timeout: time.Millisecond, FailureThreshold: 1})
+	}, health.Settings{Interval: time.Hour, Timeout: time.Millisecond, FailureThreshold: 1})
 
 	if err := checker.Start(context.Background()); err != nil {
 		t.Fatalf("Start returned unexpected error: %v", err)
@@ -125,7 +125,7 @@ func TestReportShapeReflectsEveryCheck(t *testing.T) {
 	checker := health.NewChecker([]health.Check{
 		{Name: "ok", Run: func(context.Context) error { return nil }},
 		{Name: "broken", Run: func(context.Context) error { return errors.New("nope") }},
-	}, health.Config{Interval: time.Hour, Timeout: time.Second, FailureThreshold: 1})
+	}, health.Settings{Interval: time.Hour, Timeout: time.Second, FailureThreshold: 1})
 
 	if err := checker.Start(context.Background()); err != nil {
 		t.Fatalf("Start returned unexpected error: %v", err)
@@ -156,7 +156,7 @@ func TestStopWaitsForTheBackgroundGoroutine(t *testing.T) {
 			runs.Add(1)
 			return nil
 		}},
-	}, health.Config{Interval: time.Millisecond, Timeout: time.Second, FailureThreshold: 1})
+	}, health.Settings{Interval: time.Millisecond, Timeout: time.Second, FailureThreshold: 1})
 
 	if err := checker.Start(context.Background()); err != nil {
 		t.Fatalf("Start returned unexpected error: %v", err)
@@ -192,7 +192,7 @@ func TestStopReturnsWhenContextIsDone(t *testing.T) {
 			<-blockForever
 			return nil
 		}},
-	}, health.Config{Interval: time.Millisecond, Timeout: time.Hour, FailureThreshold: 1})
+	}, health.Settings{Interval: time.Millisecond, Timeout: time.Hour, FailureThreshold: 1})
 
 	if err := checker.Start(context.Background()); err != nil {
 		t.Fatalf("Start returned unexpected error: %v", err)

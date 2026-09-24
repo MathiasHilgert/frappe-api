@@ -135,7 +135,7 @@ func NewApplication(ctx context.Context, provider configuration.Provider) (*appl
 	// budget must exceed HTTP.ShutdownDrainDelay plus the shutdown call
 	// it precedes on Down, which application.WithHookTimeout above
 	// already accounts for.
-	combinedReadiness.checker = provideHealthChecker(instance, health.Config{
+	combinedReadiness.checker = provideHealthChecker(instance, health.Settings{
 		Interval:         loadedConfiguration.Health.CheckInterval,
 		Timeout:          loadedConfiguration.Health.CheckTimeout,
 		FailureThreshold: loadedConfiguration.Health.FailureThreshold,

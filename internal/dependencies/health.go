@@ -29,12 +29,18 @@ func (readiness *readiness) Ready() bool {
 }
 
 // Report implements httpserver.Readiness, serving the health checker's
-// report as the /health/ready response body.
+// report as the /health/ready response body. The overall status is forced
+// to fail while the application lifecycle is not ready (starting up or
+// draining), so the body always agrees with the 503 status code.
 func (readiness *readiness) Report() any {
 	if readiness.checker == nil {
 		return health.Report{Status: health.StatusFail}
 	}
-	return readiness.checker.Report()
+	report := readiness.checker.Report()
+	if !readiness.application.Ready() {
+		report.Status = health.StatusFail
+	}
+	return report
 }
 
 // adaptChecks translates application.Check values, collected from every
@@ -52,8 +58,8 @@ func adaptChecks(applicationChecks []application.Check) []health.Check {
 // dependency and returns it. It must be called after every other Provide
 // call in this package that might declare a Check, so the checker
 // observes the full set of checks collected on instance.
-func provideHealthChecker(instance *application.Application, config health.Config) *health.Checker {
-	checker := health.NewChecker(adaptChecks(instance.Checks()), config)
+func provideHealthChecker(instance *application.Application, settings health.Settings) *health.Checker {
+	checker := health.NewChecker(adaptChecks(instance.Checks()), settings)
 
 	application.Provide(instance, application.Dependency[*health.Checker]{
 		Name: healthDependencyName,
