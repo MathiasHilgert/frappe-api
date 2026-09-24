@@ -49,13 +49,13 @@ type Application struct {
 	Name string `env:"NAME" envDefault:"frappe-api" validate:"required"`
 	// Environment is the deployment environment the program runs in.
 	Environment string `env:"ENVIRONMENT" validate:"required,oneof=development staging production"`
+	// Version identifies the running build of the program in telemetry.
+	Version string `env:"VERSION" envDefault:"0.0.0" validate:"required"`
 	// HookTimeout bounds how long a single lifecycle hook's Up or Down
 	// call may take before it is canceled. It is unrelated to any HTTP
 	// server shutdown timeout, which a future HTTP module will declare
 	// under its own HTTP_ prefix.
 	HookTimeout time.Duration `env:"HOOK_TIMEOUT" envDefault:"30s" validate:"required,gt=0"`
-	// Version identifies the running build of the program in telemetry.
-	Version string `env:"VERSION" envDefault:"0.0.0" validate:"required"`
 }
 
 // Telemetry holds settings for the telemetry SDK (tracing, metrics and
