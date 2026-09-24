@@ -119,6 +119,26 @@ jobs:
         if: steps.packages.outputs.found == 'false'
         run: echo "No Go packages found yet; skipping integration tests." >> "$GITHUB_STEP_SUMMARY"
 
+  architecture:
+    name: Architecture
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Check hexagonal architecture boundaries
+        # go-arch-lint validates the component dependency rules in
+        # .go-arch-lint.yml (domain/application/adapters/module root,
+        # foundation, dependencies, cmd). It tolerates the repository having
+        # no Go packages yet via ignoreNotFoundComponents.
+        run: go run github.com/fe3dback/go-arch-lint@v1.19.0 check --project-path .
+
   vulnerability-scan:
     name: Vulnerability Scan
     runs-on: ubuntu-latest

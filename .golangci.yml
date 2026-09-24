@@ -26,8 +26,72 @@ linters:
     - prealloc    # slices that could be preallocated
     - gocyclo     # cyclomatic complexity
     - gocognit    # cognitive complexity
+    - depguard    # forbidden import paths per architectural layer
 
   settings:
+    depguard:
+      # Hexagonal layering rules. Each layer only sees what it is allowed to
+      # depend on, so business logic never leaks framework or infrastructure
+      # concerns and foundation code never reaches back into business
+      # modules. See the target architecture notes in the repository docs.
+      rules:
+        domain:
+          files:
+            - "**/internal/modules/*/domain/*.go"
+            - "**/internal/modules/*/domain/**/*.go"
+          deny:
+            - pkg: net/http
+              desc: "domain must stay transport-agnostic; move HTTP concerns to adapters"
+            - pkg: database/sql
+              desc: "domain must stay persistence-agnostic; move storage concerns to adapters"
+            - pkg: github.com/jackc
+              desc: "domain must not depend on a concrete Postgres driver; keep persistence in adapters"
+            - pkg: github.com/lib/pq
+              desc: "domain must not depend on a concrete Postgres driver; keep persistence in adapters"
+            - pkg: github.com/go-sql-driver
+              desc: "domain must not depend on a concrete MySQL driver; keep persistence in adapters"
+            - pkg: encoding/json
+              desc: "domain must stay serialization-agnostic; (de)serialize at the adapter boundary"
+            - pkg: github.com/MathiasHilgert/frappe-api/internal/foundation
+              desc: "domain must stay free of foundation infrastructure entirely; foundation belongs to adapters and module root only"
+        application:
+          files:
+            - "**/internal/modules/*/application/*.go"
+            - "**/internal/modules/*/application/**/*.go"
+          deny:
+            - pkg: net/http
+              desc: "application use cases must stay transport-agnostic; move HTTP concerns to adapters"
+            - pkg: database/sql
+              desc: "application use cases must stay persistence-agnostic; move storage concerns to adapters"
+            - pkg: github.com/jackc
+              desc: "application must not depend on a concrete Postgres driver; keep persistence in adapters"
+            - pkg: github.com/lib/pq
+              desc: "application must not depend on a concrete Postgres driver; keep persistence in adapters"
+            - pkg: github.com/go-sql-driver
+              desc: "application must not depend on a concrete MySQL driver; keep persistence in adapters"
+            - pkg: github.com/MathiasHilgert/frappe-api/internal/foundation/httpserver
+              desc: "application must not depend on the HTTP server foundation package"
+            - pkg: github.com/MathiasHilgert/frappe-api/internal/foundation/database
+              desc: "application must not depend on the database foundation package"
+        foundation:
+          files:
+            - "**/internal/foundation/*.go"
+            - "**/internal/foundation/**/*.go"
+          deny:
+            - pkg: github.com/MathiasHilgert/frappe-api/internal/modules
+              desc: "foundation makes the application run and must stay free of business modules; modules depend on foundation, never the reverse"
+            - pkg: github.com/MathiasHilgert/frappe-api/internal/dependencies
+              desc: "foundation must not depend on the composition root; dependencies wires modules and foundation together, never the reverse"
+        modules:
+          # Applies to every layer of every module (domain, application,
+          # adapters, module root): only the composition root wires modules
+          # together, a module must never reach into it.
+          files:
+            - "**/internal/modules/**/*.go"
+          deny:
+            - pkg: github.com/MathiasHilgert/frappe-api/internal/dependencies
+              desc: "modules must not depend on the composition root; dependencies wires modules in, never the reverse"
+
     gocyclo:
       # Functions above this cyclomatic complexity must be refactored.
       min-complexity: 10
