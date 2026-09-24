@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
+	"go.opentelemetry.io/contrib/instrumentation/host"
 	runtimemetrics "go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
@@ -125,6 +126,15 @@ func Up(ctx context.Context, settings Settings) (SDK, error) {
 	))
 
 	if err := runtimemetrics.Start(runtimemetrics.WithMeterProvider(meterProvider)); err != nil {
+		return SDK{}, err
+	}
+
+	// Process and host metrics (process CPU time, process memory usage,
+	// host CPU time, host memory usage, host network I/O) from the
+	// maintained go.opentelemetry.io/contrib/instrumentation/host
+	// package. It has no equivalent open-file-descriptor metric, so that
+	// one is not emitted.
+	if err := host.Start(host.WithMeterProvider(meterProvider)); err != nil {
 		return SDK{}, err
 	}
 
