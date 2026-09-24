@@ -2,7 +2,10 @@ module github.com/MathiasHilgert/frappe-api
 
 go 1.27.1
 
-require github.com/go-playground/validator/v10 v10.30.5
+require (
+	github.com/caarlos0/env/v11 v11.4.1
+	github.com/go-playground/validator/v10 v10.30.5
+)
 
 require (
 	github.com/gabriel-vasile/mimetype v1.4.15 // indirect
