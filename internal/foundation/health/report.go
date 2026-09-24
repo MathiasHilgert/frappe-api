@@ -30,8 +30,9 @@ type CheckStatus struct {
 	// externally (it is the error's message text only). Empty when the
 	// check has never failed.
 	Output string `json:"output,omitempty"`
-	// Duration is how long the last run of this check took.
-	Duration time.Duration `json:"duration"`
+	// DurationMilliseconds is how long the last run of this check took, in
+	// milliseconds, so the JSON value is human readable.
+	DurationMilliseconds float64 `json:"durationMilliseconds"`
 	// ConsecutiveFailures counts how many times in a row this check has
 	// failed, without an intervening success.
 	ConsecutiveFailures int `json:"consecutiveFailures"`

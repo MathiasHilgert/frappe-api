@@ -2,7 +2,9 @@ package health_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -222,4 +224,16 @@ func waitUntil(t *testing.T, condition func() bool) {
 		time.Sleep(time.Millisecond)
 	}
 	t.Fatal("condition was never satisfied")
+}
+
+func TestReportSerializesDurationInMilliseconds(t *testing.T) {
+	status := health.CheckStatus{DurationMilliseconds: 1500}
+
+	encoded, err := json.Marshal(status)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	if !strings.Contains(string(encoded), `"durationMilliseconds":1500`) {
+		t.Errorf("encoded check status = %s, want durationMilliseconds 1500", encoded)
+	}
 }

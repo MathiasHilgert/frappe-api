@@ -19,10 +19,10 @@ type state struct {
 // CheckStatus.
 func (checkState state) snapshot() CheckStatus {
 	status := CheckStatus{
-		LastCheckedAt:       checkState.lastCheckedAt,
-		Status:              StatusPass,
-		Duration:            checkState.lastDuration,
-		ConsecutiveFailures: checkState.consecutiveFailures,
+		LastCheckedAt:        checkState.lastCheckedAt,
+		Status:               StatusPass,
+		DurationMilliseconds: float64(checkState.lastDuration) / float64(time.Millisecond),
+		ConsecutiveFailures:  checkState.consecutiveFailures,
 	}
 	if checkState.failing {
 		status.Status = StatusFail
