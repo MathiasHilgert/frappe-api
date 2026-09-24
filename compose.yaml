@@ -8,6 +8,9 @@ services:
     env_file:
       - path: .env
         required: false
+    environment:
+      # Sends traces, metrics and logs to the local observability stack.
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://observability:4318
     # Hardening: immutable root fs, no privilege escalation, no capabilities.
     read_only: true
     security_opt:
@@ -15,4 +18,15 @@ services:
     cap_drop:
       - ALL
     restart: unless-stopped
-    # Add depends_on here once backing services (e.g. a database) exist.
+    depends_on:
+      - observability
+
+  # Local observability stack: Grafana, Loki, Tempo and Mimir bundled
+  # together, receiving OTLP traces, metrics and logs over HTTP.
+  observability:
+    image: grafana/otel-lgtm:0.33.1
+    ports:
+      - "3000:3000" # Grafana UI
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+    restart: unless-stopped
