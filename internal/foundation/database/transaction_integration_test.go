@@ -6,29 +6,25 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/database"
+	"github.com/MathiasHilgert/frappe-api/internal/foundation/database/databasetest"
 )
 
 func TestIntegrationWithinTransactionAppliesSettingsOnlyInsideTheTransaction(t *testing.T) {
-	connectionString := startPostgresContainer(t, "frappe_superuser", "frappe_superuser")
+	t.Parallel()
+
+	pool := databasetest.NewOwner(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	pool, err := database.Up(ctx, database.Settings{URL: connectionString})
-	if err != nil {
-		t.Fatalf("Up returned unexpected error: %v", err)
-	}
-	t.Cleanup(func() { _ = database.Down(context.Background(), pool) })
-
 	var insideValue string
-	err = database.WithinTransaction(ctx, pool, database.TransactionSettings{
+	err := database.WithinTransaction(ctx, pool, database.TransactionSettings{
 		"application.tenant": "acme",
 	}, func(ctx context.Context, transaction pgx.Tx) error {
 		return transaction.QueryRow(ctx, "SELECT current_setting('application.tenant', true)").Scan(&insideValue)
@@ -53,23 +49,19 @@ func TestIntegrationWithinTransactionAppliesSettingsOnlyInsideTheTransaction(t *
 }
 
 func TestIntegrationWithinTransactionRollsBackOnWorkError(t *testing.T) {
-	connectionString := startPostgresContainer(t, "frappe_superuser", "frappe_superuser")
+	t.Parallel()
+
+	pool := databasetest.NewOwner(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-
-	pool, err := database.Up(ctx, database.Settings{URL: connectionString})
-	if err != nil {
-		t.Fatalf("Up returned unexpected error: %v", err)
-	}
-	t.Cleanup(func() { _ = database.Down(context.Background(), pool) })
 
 	if _, createErr := pool.Exec(ctx, "CREATE TABLE rollback_probe (value TEXT NOT NULL)"); createErr != nil {
 		t.Fatalf("create table: %v", createErr)
 	}
 
 	wantErr := errors.New("boom")
-	err = database.WithinTransaction(ctx, pool, nil, func(ctx context.Context, transaction pgx.Tx) error {
+	err := database.WithinTransaction(ctx, pool, nil, func(ctx context.Context, transaction pgx.Tx) error {
 		if _, insertErr := transaction.Exec(ctx, "INSERT INTO rollback_probe (value) VALUES ('should not persist')"); insertErr != nil {
 			return insertErr
 		}
@@ -161,23 +153,21 @@ func TestIntegrationNestedWithinTransactionJoinsTheOuterTransaction(t *testing.T
 // TestIntegrationRowLevelSecurityIsEnforcedForANonSuperuserRole proves Row
 // Level Security actually restricts a NOSUPERUSER, NOBYPASSRLS role on a
 // table created with FORCE ROW LEVEL SECURITY and a policy driven by the
-// same current_setting WithinTransaction populates, end to end.
+// same current_setting WithinTransaction populates, end to end. It uses
+// NewOwner (the schema-owning role) to create the scratch table and
+// policy, and New (the application role) to prove the restriction, the
+// same split of privileges the running API and cmd/migrate use.
 func TestIntegrationRowLevelSecurityIsEnforcedForANonSuperuserRole(t *testing.T) {
-	connectionString := startPostgresContainer(t, "frappe_superuser", "frappe_superuser")
+	t.Parallel()
+
+	ownerPool, applicationPool := databasetest.NewWithOwner(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	adminPool, err := database.Up(ctx, database.Settings{URL: connectionString})
-	if err != nil {
-		t.Fatalf("Up (admin) returned unexpected error: %v", err)
-	}
-	t.Cleanup(func() { _ = database.Down(context.Background(), adminPool) })
-
 	setupStatements := []string{
-		"CREATE ROLE rls_probe_role WITH LOGIN PASSWORD 'rls_probe_role' NOSUPERUSER NOBYPASSRLS",
 		"CREATE TABLE rls_probe (tenant TEXT NOT NULL, value TEXT NOT NULL)",
-		"GRANT SELECT, INSERT ON rls_probe TO rls_probe_role",
+		"GRANT SELECT, INSERT ON rls_probe TO frappe_application",
 		"ALTER TABLE rls_probe ENABLE ROW LEVEL SECURITY",
 		"ALTER TABLE rls_probe FORCE ROW LEVEL SECURITY",
 		`CREATE POLICY rls_probe_tenant_isolation ON rls_probe
@@ -186,20 +176,13 @@ func TestIntegrationRowLevelSecurityIsEnforcedForANonSuperuserRole(t *testing.T)
 		"INSERT INTO rls_probe (tenant, value) VALUES ('acme', 'acme-row'), ('globex', 'globex-row')",
 	}
 	for _, statement := range setupStatements {
-		if _, setupErr := adminPool.Exec(ctx, statement); setupErr != nil {
+		if _, setupErr := ownerPool.Exec(ctx, statement); setupErr != nil {
 			t.Fatalf("setup statement %q: %v", statement, setupErr)
 		}
 	}
 
-	restrictedConnectionString := restrictedConnectionString(t, connectionString, "rls_probe_role", "rls_probe_role")
-	restrictedPool, err := database.Up(ctx, database.Settings{URL: restrictedConnectionString})
-	if err != nil {
-		t.Fatalf("Up (restricted) returned unexpected error: %v", err)
-	}
-	t.Cleanup(func() { _ = database.Down(context.Background(), restrictedPool) })
-
 	var visibleValues []string
-	err = database.WithinTransaction(ctx, restrictedPool, database.TransactionSettings{
+	err := database.WithinTransaction(ctx, applicationPool, database.TransactionSettings{
 		"application.tenant": "acme",
 	}, func(ctx context.Context, transaction pgx.Tx) error {
 		rows, queryErr := transaction.Query(ctx, "SELECT value FROM rls_probe ORDER BY value")
@@ -224,23 +207,4 @@ func TestIntegrationRowLevelSecurityIsEnforcedForANonSuperuserRole(t *testing.T)
 	if len(visibleValues) != 1 || visibleValues[0] != "acme-row" {
 		t.Fatalf("visible rows for tenant acme = %v, want [acme-row] (Row Level Security must hide the globex row)", visibleValues)
 	}
-}
-
-// restrictedConnectionString rewrites adminConnectionString's userinfo to
-// the given username and password, keeping the same host, port and
-// database that startPostgresContainer already resolved.
-func restrictedConnectionString(t *testing.T, adminConnectionString, username, password string) string {
-	t.Helper()
-
-	// pgx.ConnConfig.ConnString returns the original string, not one rebuilt
-	// from modified fields, so the userinfo is rewritten on the URL itself.
-	// Keeping the admin credentials here would connect as a superuser and
-	// silently bypass Row Level Security.
-	parsed, err := url.Parse(adminConnectionString)
-	if err != nil {
-		t.Fatalf("parse admin connection string: %v", err)
-	}
-	parsed.User = url.UserPassword(username, password)
-
-	return parsed.String()
 }
