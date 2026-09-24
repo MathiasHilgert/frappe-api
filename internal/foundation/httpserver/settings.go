@@ -17,12 +17,19 @@ import (
 // itself, it only asks whatever Readiness it was given.
 type Readiness interface {
 	Ready() bool
+	// Report returns the readiness detail served as the /health/ready
+	// response body. Its concrete type is owned by whatever implements
+	// Readiness (for example internal/foundation/health.Report), and this
+	// package only ever marshals it as JSON; it never inspects its
+	// fields, keeping httpserver decoupled from the health package.
+	Report() any
 }
 
 // alwaysReady is the Readiness used when Settings.Ready is nil.
 type alwaysReady struct{}
 
 func (alwaysReady) Ready() bool { return true }
+func (alwaysReady) Report() any { return struct{}{} }
 
 // Settings configures a Server. Every field has a corresponding field on
 // internal/foundation/configuration.Configuration's HTTP struct; the
@@ -54,6 +61,13 @@ type Settings struct {
 	// Port is the TCP port Listen binds to. Zero lets the operating
 	// system choose a free port, which is useful in tests.
 	Port int
+	// DrainDelay is how long Shutdown waits, still serving traffic and
+	// reporting not-ready, before it starts the actual graceful
+	// shutdown. It gives a load balancer or Kubernetes time to notice
+	// /health/ready has turned unhealthy and stop routing new requests
+	// here, before connections start being closed. It respects context
+	// cancellation, so a caller in a hurry can still cut it short.
+	DrainDelay time.Duration
 	// MaxHeaderBytes bounds the size of request headers, in bytes.
 	MaxHeaderBytes int
 	// DocumentationEnabled toggles the /docs UI and /openapi.json spec.

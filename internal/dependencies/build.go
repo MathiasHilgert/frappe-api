@@ -7,6 +7,7 @@ import (
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/application"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/build"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/configuration"
+	"github.com/MathiasHilgert/frappe-api/internal/foundation/health"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/httpserver"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/logging"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/telemetry"
@@ -22,6 +23,14 @@ func NewApplication(ctx context.Context, provider configuration.Provider) (*appl
 		return nil, fmt.Errorf("load configuration: %w", err)
 	}
 
+	// The per-hook timeout (Application.HookTimeout) must exceed the HTTP
+	// server's own shutdown budget: HTTP.ShutdownDrainDelay (spent still
+	// serving traffic before shutdown starts) plus HTTP.ShutdownTimeout
+	// (spent waiting for in-flight requests during http.Server.Shutdown).
+	// Otherwise the hook's context would expire mid-drain and cut the
+	// delay short every time, defeating its purpose.
+	// configuration.Validate enforces this relationship, so
+	// Application.HookTimeout can be used directly here.
 	instance := application.New(
 		application.WithHookTimeout(loadedConfiguration.Application.HookTimeout),
 		application.WithBuildInfo(build.Version, build.Commit, loadedConfiguration.Application.Environment),
@@ -59,6 +68,13 @@ func NewApplication(ctx context.Context, provider configuration.Provider) (*appl
 		Down: telemetry.Down,
 	})
 
+	// combinedReadiness bridges application and health readiness into
+	// httpserver.Readiness (see readiness.Ready). Its checker field is
+	// filled in below, once every dependency that might declare a Check
+	// has been wired in, but the pointer itself is stable and can be
+	// handed to the server now.
+	combinedReadiness := &readiness{application: instance}
+
 	// The HTTP server is built synchronously (not yet listening) so its
 	// "/v1" huma.API is available immediately for modules to register
 	// their own routes on as they are wired in below. It is registered
@@ -76,7 +92,8 @@ func NewApplication(ctx context.Context, provider configuration.Provider) (*appl
 		MaxHeaderBytes:       loadedConfiguration.HTTP.MaxHeaderBytes,
 		MaxBodyBytes:         loadedConfiguration.HTTP.MaxBodyBytes,
 		DocumentationEnabled: loadedConfiguration.HTTP.DocumentationEnabled,
-		Ready:                instance,
+		DrainDelay:           loadedConfiguration.HTTP.ShutdownDrainDelay,
+		Ready:                combinedReadiness,
 	})
 
 	// No concrete module exists yet; each one, as it is added, gets
@@ -110,6 +127,18 @@ func NewApplication(ctx context.Context, provider configuration.Provider) (*appl
 		Down: func(ctx context.Context, server *httpserver.Server) error {
 			return server.Shutdown(ctx)
 		},
+	})
+
+	// The background health checker is registered last, after every
+	// dependency above that might declare a Check, so it observes the
+	// full set of checks collected on instance. Its own hook timeout
+	// budget must exceed HTTP.ShutdownDrainDelay plus the shutdown call
+	// it precedes on Down, which application.WithHookTimeout above
+	// already accounts for.
+	combinedReadiness.checker = provideHealthChecker(instance, health.Config{
+		Interval:         loadedConfiguration.Health.CheckInterval,
+		Timeout:          loadedConfiguration.Health.CheckTimeout,
+		FailureThreshold: loadedConfiguration.Health.FailureThreshold,
 	})
 
 	return instance, nil
