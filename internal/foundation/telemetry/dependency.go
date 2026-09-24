@@ -101,6 +101,12 @@ func Up(ctx context.Context, settings Settings) (SDK, error) {
 		sdktrace.WithBatcher(traceExporter),
 	)
 
+	// No WithExemplarFilter option is passed: the SDK's default is
+	// exemplar.TraceBasedFilter (go.opentelemetry.io/otel/sdk/metric's
+	// config.go), which only offers a measurement as an exemplar when it
+	// was recorded inside a sampled span. That is exactly what carries
+	// trace_id onto histogram data points, letting a metric spike be
+	// linked back to the trace that produced it.
 	meterProvider := sdkmetric.NewMeterProvider(
 		sdkmetric.WithResource(detectedResource),
 		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExporter)),
