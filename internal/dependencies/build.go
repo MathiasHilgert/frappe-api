@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/application"
+	"github.com/MathiasHilgert/frappe-api/internal/foundation/build"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/configuration"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/telemetry"
 )
@@ -19,7 +20,10 @@ func NewApplication(ctx context.Context, provider configuration.Provider) (*appl
 		return nil, fmt.Errorf("load configuration: %w", err)
 	}
 
-	instance := application.New(application.WithHookTimeout(loadedConfiguration.Application.HookTimeout))
+	instance := application.New(
+		application.WithHookTimeout(loadedConfiguration.Application.HookTimeout),
+		application.WithBuildInfo(build.Version, build.Commit, loadedConfiguration.Application.Environment),
+	)
 
 	// The telemetry dependency is registered first so it is up before
 	// every other hook and down after every other hook, keeping tracing,

@@ -18,10 +18,19 @@ COPY . .
 ARG MAIN_PKG=./cmd/api
 ARG TARGETOS
 ARG TARGETARCH
+
+# Build-time identity stamped into internal/foundation/build via -X, read
+# back by telemetry's resource and the frappe.application.info gauge.
+ARG VERSION=development
+ARG COMMIT=unknown
+ARG BUILD_PKG=github.com/MathiasHilgert/frappe-api/internal/foundation/build
+
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    go build -trimpath -ldflags="-s -w" -o /out/app "$MAIN_PKG"
+    go build -trimpath \
+      -ldflags="-s -w -X ${BUILD_PKG}.Version=${VERSION} -X ${BUILD_PKG}.Commit=${COMMIT}" \
+      -o /out/app "$MAIN_PKG"
 
 # Runtime stage: distroless instead of scratch because it ships CA certs,
 # tzdata and a nonroot user without extra steps.
