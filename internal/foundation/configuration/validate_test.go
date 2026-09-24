@@ -19,7 +19,15 @@ func validConfiguration() configuration.Configuration {
 			HookTimeout: 30 * time.Second,
 		},
 		HTTP: configuration.HTTP{
-			Port: 8080,
+			Port:                 8080,
+			ShutdownTimeout:      10 * time.Second,
+			ReadHeaderTimeout:    5 * time.Second,
+			ReadTimeout:          10 * time.Second,
+			WriteTimeout:         10 * time.Second,
+			IdleTimeout:          60 * time.Second,
+			MaxHeaderBytes:       1048576,
+			MaxBodyBytes:         2097152,
+			DocumentationEnabled: true,
 		},
 		Logging: configuration.Logging{
 			Level: "info",
