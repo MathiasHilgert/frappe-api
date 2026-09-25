@@ -108,12 +108,24 @@ module.exports = async ({ github, context, core }) => {
   const toAdd = [...desired].filter((label) => !current.includes(label));
 
   for (const label of toRemove) {
-    await github.rest.issues.removeLabel({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      issue_number: pr.number,
-      name: label,
-    });
+    try {
+      await github.rest.issues.removeLabel({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: pr.number,
+        name: label,
+      });
+    } catch (error) {
+      // A concurrent PR-governance run may have already removed this
+      // label, which the API reports as 404. Treat that race as a
+      // no-op instead of failing the workflow; any other error is
+      // still fatal.
+      if (error.status === 404) {
+        core.info(`Label "${label}" was already removed (404); skipping.`);
+        continue;
+      }
+      throw error;
+    }
   }
 
   if (toAdd.length > 0) {
