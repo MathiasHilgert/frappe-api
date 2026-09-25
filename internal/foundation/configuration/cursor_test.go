@@ -41,3 +41,24 @@ func TestValidateRejectsAShortCursorSecret(t *testing.T) {
 		t.Fatalf("Validate error = %v, want a violation naming HTTP_CURSOR_SECRET without its value", err)
 	}
 }
+
+func TestValidateRejectsAShortPreviousCursorSecret(t *testing.T) {
+	loadedConfiguration := validConfiguration()
+	loadedConfiguration.HTTP.CursorSecret = validCursorSecret
+	loadedConfiguration.HTTP.CursorPreviousSecrets = []string{validCursorSecret, "short"}
+
+	err := configuration.Validate(loadedConfiguration)
+	if err == nil || !strings.Contains(err.Error(), "HTTP_CURSOR_PREVIOUS_SECRETS") {
+		t.Fatalf("Validate error = %v, want a violation naming HTTP_CURSOR_PREVIOUS_SECRETS", err)
+	}
+}
+
+func TestValidateRejectsPreviousCursorSecretsWithoutACurrentOne(t *testing.T) {
+	loadedConfiguration := validConfiguration()
+	loadedConfiguration.HTTP.CursorPreviousSecrets = []string{validCursorSecret}
+
+	err := configuration.Validate(loadedConfiguration)
+	if err == nil || !strings.Contains(err.Error(), "HTTP_CURSOR_PREVIOUS_SECRETS") {
+		t.Fatalf("Validate error = %v, want a violation naming HTTP_CURSOR_PREVIOUS_SECRETS", err)
+	}
+}

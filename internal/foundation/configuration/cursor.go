@@ -11,8 +11,12 @@ var sharedEnvironments = []string{"staging", "production"}
 // production: replicas behind a load balancer must share it, or a cursor
 // issued by one replica is rejected by the next.
 func validateCursorSecret(application Application, settings HTTP) []Violation {
+	var violations []Violation
 	if slices.Contains(sharedEnvironments, application.Environment) && settings.CursorSecret == "" {
-		return []Violation{{Variable: "HTTP_CURSOR_SECRET", Rule: "required_outside_development"}}
+		violations = append(violations, Violation{Variable: "HTTP_CURSOR_SECRET", Rule: "required_outside_development"})
 	}
-	return nil
+	if len(settings.CursorPreviousSecrets) > 0 && settings.CursorSecret == "" {
+		violations = append(violations, Violation{Variable: "HTTP_CURSOR_PREVIOUS_SECRETS", Rule: "required_with_http_cursor_secret"})
+	}
+	return violations
 }

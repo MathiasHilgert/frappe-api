@@ -40,3 +40,20 @@ func TestProvideCursorCodecUsesARandomSecretWhenNoneIsConfigured(t *testing.T) {
 		t.Fatalf("two random secrets were equal: Decode error = %v", err)
 	}
 }
+
+func TestProvideCursorCodecAcceptsCursorsSignedWithAPreviousSecret(t *testing.T) {
+	previous := "ffffffffffffffffffffffffffffffff"
+	old, _ := provideCursorCodec(configuration.HTTP{CursorSecret: previous})
+	rotated, err := provideCursorCodec(configuration.HTTP{
+		CursorSecret:          "0123456789abcdef0123456789abcdef",
+		CursorPreviousSecrets: []string{previous},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, _ := old.Encode("scope", 1)
+	var position int
+	if err := rotated.Decode(token, "scope", &position); err != nil {
+		t.Fatalf("rotated codec rejected a cursor signed with the previous secret: %v", err)
+	}
+}

@@ -112,7 +112,9 @@ definitions is the API contract. It is served at `/openapi.json` (and
 - Enforcement: `rest.CheckNaming` runs in the composition root after all
   modules registered their operations and fails startup (and therefore
   every test that builds the application) listing each non snake_case
-  schema property and path segment.
+  schema property, path segment, and query or path parameter name.
+  `expand[]` is the single allowed exception (its `[]` suffix); header
+  parameters keep HTTP naming (`If-None-Match`).
 - Booleans read as predicates (`is_active`, `has_more`); timestamps end in
   `_at`, dates in `_on` or `_date`; counts end in `_count`.
 - Enum values are lowercase snake_case strings (`"pending_review"`).
@@ -171,7 +173,7 @@ Prefixed IDs (`identifier.New("dish")`, `identifier.Parse("dish", value)`):
   trailing bits); anything else is `identifier.ErrInvalid`, which an
   adapter maps to `404 Not Found` for a path parameter (the resource
   cannot exist) or `422` with an `errors[]` entry for a body or query
-  field.
+  value (see the status rule in [Errors](#11-errors)).
 - Clients MUST treat IDs as opaque strings; the embedded creation time is
   not a contract.
 - Use cases create IDs (`identifier` is allowed in the application layer
@@ -220,7 +222,9 @@ Link: </v1/geo/cities?country=AR&cursor=eyJzIjoi...&limit=2>; rel="next"
 - `Link: <...>; rel="next"` ([RFC 8288](https://www.rfc-editor.org/rfc/rfc8288))
   is sent only when a next page exists, with a relative URL keeping every
   query parameter of the request (GitHub style), so generic HTTP clients
-  paginate without reading the body.
+  paginate without reading the body. The URL and the list `url` use the
+  request path exactly as it was escaped on the wire (`%3E`, `%2C`, `%3B`,
+  `%20` stay encoded), so the header stays a valid RFC 8288 `URI-Reference`.
 - There is no `total_count`: counting is as expensive as the query itself
   on large tables. An endpoint MAY add one as an opt-in parameter when a
   product need justifies it.
@@ -235,16 +239,26 @@ Cursors (`rest.CursorCodec`):
   change at any time.
 - Signed with `HTTP_CURSOR_SECRET` (at least 32 bytes, shared by every
   replica, required in staging and production; development without it
-  uses a random per-process secret). A cursor is client input that ends up
+  uses a random per-process secret). Rotation: set the new secret and move
+  the old one to `HTTP_CURSOR_PREVIOUS_SECRETS` (comma-separated); cursors
+  are signed with the current secret and verified with any of them, so
+  outstanding cursors keep working until the old secret is removed. A cursor is client input that ends up
   in a `WHERE` clause: the signature rejects forged positions, probing of
   sort keys, and cursors issued for another collection, without a
   database round trip. It is not encrypted: it only contains values the
   client already received.
-- The scope names the collection and its filters
-  (`"geo.cities?country=AR"`), so a cursor only works on the listing that
-  issued it. An invalid, tampered, foreign-scope or old-version cursor is
+- The scope is derived automatically by `rest.PageParameters` and
+  `rest.NewPage`, never built by hand: a principal/tenant slot (empty
+  until authentication exists), the escaped request path, and the
+  canonical query (keys and each key's values sorted), which includes
+  every filter and `order_by` and excludes only `cursor`, `limit` and
+  `expand[]`. A cursor therefore only works on the exact listing (and,
+  later, principal) that issued it, whatever order the client writes the
+  parameters in; a client may change `limit` or `expand[]` between pages.
+- A malformed, tampered, old-version or other-listing cursor is
   `400 Bad Request` with `errors[0].location = "query.cursor"`; the client
-  restarts from the first page. Rotating the secret has the same effect.
+  restarts from the first page. Removing a secret from the rotation list
+  has the same effect on cursors it signed.
 - Cursors do not expire, but they are not bookmarks: a position may point
   to rows that no longer exist, and paging continues from the next
   existing row.
@@ -261,6 +275,10 @@ Cursors (`rest.CursorCodec`):
   documented per endpoint and always ends with the unique key.
 - Filters are declared as Huma query fields with validation tags; unknown
   values fail with `422`.
+- Field selection and partial responses (`?fields=`, sparse fieldsets) are
+  not supported for now: every response returns the full resource. Use
+  `expand[]` for related data; a selection mechanism will be designed if a
+  measured payload problem justifies it.
 - Free-text or fuzzy search is a separate sub-resource per collection,
   `GET /v1/<module>/<collection>/search?query=...` (Stripe's
   `/v1/customers/search`), returning the same list envelope. Search
@@ -297,8 +315,8 @@ GET /v1/geo/cities/3860259?expand[]=country&expand[]=subdivision.country
   and at most 20 per request (`rest.MaximumExpansionDepth`,
   `rest.MaximumExpansions`).
 - Each operation declares an allowlist (`rest.NewExpansions(...)`); any
-  other path is `400 Bad Request` with one `errors[]` entry per offending
-  value (`location: "query.expand[]"`).
+  other path is `422 Unprocessable Entity` with one `errors[]` entry per
+  offending value (`location: "query.expand[]"`).
 - On lists, paths are relative to each item (`expand[]=country`), not
   prefixed with `data.`.
 - Expansion MUST NOT cause N+1 queries: resolve each expanded path with
@@ -344,18 +362,30 @@ Every error is [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)
 - Field level problems go in `errors[]`, one entry per problem, with
   `location` (`body.price.amount`, `query.limit`, `path.id`), `message`
   and, when safe, the rejected `value`.
+- Status rule for client input, applied everywhere:
+  - `400`: the input is syntactically unusable: a malformed, tampered or
+    other-listing cursor, an unparseable body or invalid JSON.
+  - `422`: the input is well formed but its values are unacceptable:
+    schema validation (range, pattern, enum, required), an unknown
+    `expand[]` value, an invalid identifier in a body or query field, an
+    unknown filter value, a business rule.
+  - `404`: an invalid or unknown identifier in the path, since no such
+    resource can exist.
 - Status codes:
 
 | Status | When |
 | ------ | ---- |
-| `400 Bad Request` | Malformed request that schema validation cannot express: invalid cursor, unknown `expand[]` path, unparseable body. |
+| `400 Bad Request` | Syntactically unusable input: malformed or foreign cursor, unparseable body or JSON. |
 | `401 Unauthorized` | Missing or invalid credentials. |
 | `403 Forbidden` | Authenticated but not allowed. |
-| `404 Not Found` | The resource does not exist or the caller may not know it exists. |
+| `404 Not Found` | The resource does not exist, its path identifier is invalid, the caller may not know it exists, or it was deleted (see `410`). |
+| `406 Not Acceptable` | `Accept` names no representation the operation can produce (only `application/json` and `application/problem+json` exist today). |
 | `409 Conflict` | State conflict (duplicate natural key, concurrent update, idempotency key reuse in flight). |
+| `410 Gone` | Not used by default: deleted resources answer `404`. A resource MAY answer `410` only if it documents a tombstone retention period during which deletions are remembered. |
 | `412 Precondition Failed` | `If-Match` did not match. |
-| `422 Unprocessable Entity` | Schema or business validation failed (Huma's validation error). |
-| `429 Too Many Requests` | Rate limited, with `Retry-After` and `RateLimit-*` headers. |
+| `415 Unsupported Media Type` | The request body's `Content-Type` is not accepted (for example not `application/json`, or not `application/merge-patch+json` on `PATCH`). |
+| `422 Unprocessable Entity` | Well formed input with unacceptable values: schema validation (Huma's validation error), unknown `expand[]` value, invalid identifier or filter value in body or query, business rule. |
+| `429 Too Many Requests` | Rate limited, with `Retry-After` and the rate limit headers below. |
 | `500 Internal Server Error` | Unexpected failure; never includes the cause. Correlate with `X-Request-ID`. |
 | `503 Service Unavailable` | Temporarily unavailable, with `Retry-After` when known. |
 
@@ -387,8 +417,8 @@ Invalid expansion:
 
 ```json
 {
-  "title": "Bad Request",
-  "status": 400,
+  "title": "Unprocessable Entity",
+  "status": 422,
   "detail": "One or more expand[] values are invalid.",
   "errors": [
     { "message": "not expandable on this operation", "location": "query.expand[]", "value": "owner" },
@@ -399,6 +429,14 @@ Invalid expansion:
 
 - Error responses are always `Cache-Control: no-store` and carry
   `X-Request-ID`.
+- Rate limits are announced with the `RateLimit` and `RateLimit-Policy`
+  fields of the IETF
+  [RateLimit header fields for HTTP](https://datatracker.ietf.org/doc/draft-ietf-httpapi-ratelimit-headers/)
+  draft, for example `RateLimit-Policy: "default";q=100;w=60` and
+  `RateLimit: "default";r=42;t=18`, plus `Retry-After` on `429`. The
+  current middleware still emits the older draft's separate
+  `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset` fields;
+  moving it to `RateLimit` and `RateLimit-Policy` is pending.
 - A stable, machine readable `type` URI per error kind (RFC 9457 section
   3.1.1) MAY be added when clients need to branch on a specific failure;
   until then clients branch on `status` and `errors[].location`.
@@ -464,8 +502,8 @@ See `internal/foundation/httpserver/doc.go` for the helpers.
 - [ ] Every body field has a snake_case `json` tag and a `doc` tag.
 - [ ] Resources carry `object`; business entities use `identifier`
       prefixed IDs, reference data its natural key.
-- [ ] Collections return `rest.ListOutput[T]` via `rest.NewPage`, with a
-      scope that includes the filters, ordered by a unique key.
+- [ ] Collections return `rest.ListOutput[T]` via `rest.NewPage` (the
+      cursor scope is derived from the request), ordered by a unique key.
 - [ ] `expand[]` is validated with an allowlist and batch loaded.
 - [ ] Timestamps RFC 3339 UTC, money minor units plus ISO 4217.
 - [ ] Errors are `huma.Error...` problems with `errors[]` locations.
