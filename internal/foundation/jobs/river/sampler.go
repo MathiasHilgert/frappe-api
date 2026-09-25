@@ -45,21 +45,21 @@ func (sample *snapshot) store(depth map[depthKey]int64, leader bool) {
 
 // registerGauges registers the callback observing the latest snapshot. The
 // callback never queries the database, so a slow database never stalls a
-// metrics export.
+// metrics export. Queue depth is observed on the leader only.
 func (client *Client) registerGauges() (metric.Registration, error) {
-	instruments := clientTelemetry()
+	instruments := client.instruments
 	registration, err := instruments.meter.RegisterCallback(func(_ context.Context, observer metric.Observer) error {
 		client.sample.mutex.Lock()
 		defer client.sample.mutex.Unlock()
-		for key, count := range client.sample.depth {
-			observer.ObserveInt64(instruments.depth, count, metric.WithAttributes(
-				attribute.String("queue", key.queue), attribute.String("state", key.state)))
-		}
 		leader := int64(0)
 		if client.sample.leader {
 			leader = 1
+			for key, count := range client.sample.depth {
+				observer.ObserveInt64(instruments.depth, count, metric.WithAttributes(
+					attribute.String("queue", key.queue), attribute.String("state", key.state)))
+			}
 		}
-		observer.ObserveInt64(instruments.leader, leader, metric.WithAttributes(attribute.String("client", client.identifier)))
+		observer.ObserveInt64(instruments.leader, leader)
 		return nil
 	}, instruments.depth, instruments.leader)
 	if err != nil {

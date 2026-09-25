@@ -21,8 +21,8 @@ const (
 	MetadataTenant = "tenant"
 )
 
-// ErrNoEnqueuer is returned by Definition.Enqueue when neither the context
-// (ContextWithEnqueuer) nor the catalog (Catalog.Use) provides an Enqueuer.
+// ErrNoEnqueuer is returned by Definition.Enqueue before the composition
+// root installed an Enqueuer on the catalog with Catalog.Use.
 var ErrNoEnqueuer = errors.New("jobs: no enqueuer configured; the composition root must call Catalog.Use")
 
 // Uniqueness asks the backend to skip inserting a job when an equivalent
@@ -191,19 +191,4 @@ func SnoozeDuration(err error) (time.Duration, bool) {
 		return snooze.duration, true
 	}
 	return 0, false
-}
-
-// enqueuerContextKey keys the Enqueuer stored by ContextWithEnqueuer.
-type enqueuerContextKey struct{}
-
-// ContextWithEnqueuer returns a copy of ctx whose Enqueue calls go to
-// enqueuer instead of the catalog's. Tests use it (through jobstest) to
-// capture jobs without touching shared state.
-func ContextWithEnqueuer(ctx context.Context, enqueuer Enqueuer) context.Context {
-	return context.WithValue(ctx, enqueuerContextKey{}, enqueuer)
-}
-
-func enqueuerFromContext(ctx context.Context) (Enqueuer, bool) {
-	enqueuer, ok := ctx.Value(enqueuerContextKey{}).(Enqueuer)
-	return enqueuer, ok
 }

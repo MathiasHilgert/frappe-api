@@ -30,8 +30,9 @@ type Tenancy struct {
 }
 
 // Catalog holds every job definition, handler and schedule of the process.
-// Modules declare their jobs on the default catalog through For; tests may
-// build an isolated one with NewCatalog. It is safe for concurrent use.
+// The composition root creates one Catalog, hands catalog.Module("<module>")
+// to each module's wiring, installs the backend with Use and passes the
+// catalog to the backend adapter. It is safe for concurrent use.
 type Catalog struct {
 	enqueuer      Enqueuer
 	tenancy       Tenancy
@@ -45,6 +46,7 @@ type Catalog struct {
 // entry is what the catalog knows about one definition.
 type entry struct {
 	handler     Handler
+	module      string
 	name        string
 	queue       string
 	timeout     time.Duration
@@ -56,21 +58,6 @@ func NewCatalog() *Catalog {
 	return &Catalog{definitions: map[string]*entry{}, schedules: map[string]struct{}{}}
 }
 
-// defaultCatalog is the process-wide catalog behind For.
-var defaultCatalog = NewCatalog()
-
-// Default returns the process-wide catalog modules declare their jobs on.
-// The composition root installs the enqueuer on it and hands it to the
-// backend adapter.
-func Default() *Catalog {
-	return defaultCatalog
-}
-
-// For returns the module scope of the default catalog; see Catalog.For.
-func For(module string) *Module {
-	return defaultCatalog.For(module)
-}
-
 // Module scopes job definitions to one module: every job it defines is
 // named <module>.<action>.
 type Module struct {
@@ -78,9 +65,9 @@ type Module struct {
 	name    string
 }
 
-// For returns the scope of module, which must be a lowercase snake_case
+// Module returns the scope of module, which must be a lowercase snake_case
 // identifier; it panics otherwise, a programming error caught at startup.
-func (catalog *Catalog) For(module string) *Module {
+func (catalog *Catalog) Module(module string) *Module {
 	if !segmentPattern.MatchString(module) {
 		panic(fmt.Sprintf("jobs: invalid module name %q: must match %s", module, segmentPattern.String()))
 	}
@@ -93,7 +80,7 @@ func (module *Module) Name() string {
 }
 
 // Use installs the enqueuer every Definition.Enqueue of this catalog goes
-// to, unless the context carries one (ContextWithEnqueuer).
+// to: the backend in production, a jobstest.Recorder in tests.
 func (catalog *Catalog) Use(enqueuer Enqueuer) {
 	catalog.mutex.Lock()
 	defer catalog.mutex.Unlock()

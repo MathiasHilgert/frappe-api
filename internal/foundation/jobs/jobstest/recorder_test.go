@@ -15,12 +15,11 @@ type sendReceipt struct {
 }
 
 func TestRecorderCapturesTypedJobs(t *testing.T) {
-	catalog := jobs.NewCatalog()
-	definition := jobs.Define[sendReceipt](catalog.For("orders"), "send_receipt")
-	other := jobs.Define[sendReceipt](catalog.For("orders"), "other")
-
-	recorder := jobstest.NewRecorder()
-	ctx := recorder.Context(context.Background())
+	catalog, recorder := jobstest.NewCatalog()
+	module := catalog.Module("orders")
+	definition := jobs.Define[sendReceipt](module, "send_receipt")
+	other := jobs.Define[sendReceipt](module, "other")
+	ctx := context.Background()
 	if _, err := definition.Enqueue(ctx, sendReceipt{OrderID: "o-1"}, jobs.After(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
@@ -48,10 +47,10 @@ func TestRecorderCapturesTypedJobs(t *testing.T) {
 }
 
 func TestRunExecutesTheRegisteredHandler(t *testing.T) {
-	catalog := jobs.NewCatalog()
-	definition := jobs.Define[sendReceipt](catalog.For("orders"), "send_receipt")
+	module := jobs.NewCatalog().Module("orders")
+	definition := jobs.Define[sendReceipt](module, "send_receipt")
 	var received jobs.Job[sendReceipt]
-	jobs.Handle(definition, func(_ context.Context, job jobs.Job[sendReceipt]) error {
+	jobs.Handle(module, definition, func(_ context.Context, job jobs.Job[sendReceipt]) error {
 		received = job
 		if job.Args.OrderID == "" {
 			return jobs.Cancel(errors.New("no order"))

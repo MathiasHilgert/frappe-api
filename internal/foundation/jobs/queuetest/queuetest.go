@@ -23,8 +23,9 @@ import (
 const eventually = 20 * time.Second
 
 // Factory starts a backend working every handler registered on catalog
-// (the suite registers them before calling it) and returns its enqueuer.
-// The backend must be stopped when t ends.
+// (the suite registers them before calling it) and returns its enqueuer,
+// which the suite installs with catalog.Use. The backend must be stopped
+// when t ends.
 type Factory func(t *testing.T, catalog *jobs.Catalog) jobs.Enqueuer
 
 // Arguments is the payload of every suite job.
@@ -72,6 +73,7 @@ func Run(t *testing.T, factory Factory) {
 	t.Run("ExecutesWithArgumentsTenantAndAttempt", func(t *testing.T) { executesWithArgumentsTenantAndAttempt(t, factory) })
 	t.Run("DelaysWithAfter", func(t *testing.T) { delaysWithAfter(t, factory) })
 	t.Run("UniqueSkipsDuplicates", func(t *testing.T) { uniqueSkipsDuplicates(t, factory) })
+	t.Run("UniqueAllowsAgainAfterCompletion", func(t *testing.T) { uniqueAllowsAgainAfterCompletion(t, factory) })
 	t.Run("RetriesFailures", func(t *testing.T) { retriesFailures(t, factory) })
 	t.Run("CancelStopsRetries", func(t *testing.T) { cancelStopsRetries(t, factory) })
 	t.Run("SnoozeRunsAgainLater", func(t *testing.T) { snoozeRunsAgainLater(t, factory) })
@@ -84,8 +86,9 @@ func executesWithArgumentsTenantAndAttempt(t *testing.T, factory Factory) {
 		return tenant, ok
 	}})
 	received := &recorder{}
-	definition := jobs.Define[Arguments](catalog.For("contract"), "execute")
-	jobs.Handle(definition, func(_ context.Context, job jobs.Job[Arguments]) error {
+	module := catalog.Module("contract")
+	definition := jobs.Define[Arguments](module, "execute")
+	jobs.Handle(module, definition, func(_ context.Context, job jobs.Job[Arguments]) error {
 		received.add(job)
 		return nil
 	})
@@ -100,8 +103,9 @@ func executesWithArgumentsTenantAndAttempt(t *testing.T, factory Factory) {
 func delaysWithAfter(t *testing.T, factory Factory) {
 	catalog := jobs.NewCatalog()
 	received := &recorder{}
-	definition := jobs.Define[Arguments](catalog.For("contract"), "delay")
-	jobs.Handle(definition, func(_ context.Context, job jobs.Job[Arguments]) error {
+	module := catalog.Module("contract")
+	definition := jobs.Define[Arguments](module, "delay")
+	jobs.Handle(module, definition, func(_ context.Context, job jobs.Job[Arguments]) error {
 		received.add(job)
 		return nil
 	})
@@ -115,10 +119,11 @@ func delaysWithAfter(t *testing.T, factory Factory) {
 
 func uniqueSkipsDuplicates(t *testing.T, factory Factory) {
 	catalog := jobs.NewCatalog()
-	definition := jobs.Define[Arguments](catalog.For("contract"), "unique")
-	jobs.Handle(definition, func(context.Context, jobs.Job[Arguments]) error { return nil })
-	enqueuer := factory(t, catalog)
-	ctx := jobs.ContextWithEnqueuer(context.Background(), enqueuer)
+	module := catalog.Module("contract")
+	definition := jobs.Define[Arguments](module, "unique")
+	jobs.Handle(module, definition, func(context.Context, jobs.Job[Arguments]) error { return nil })
+	catalog.Use(factory(t, catalog))
+	ctx := context.Background()
 	first, err := definition.Enqueue(ctx, Arguments{Key: "same"}, jobs.After(time.Hour), jobs.Unique(0))
 	if err != nil {
 		t.Fatal(err)
@@ -139,8 +144,9 @@ func uniqueSkipsDuplicates(t *testing.T, factory Factory) {
 func retriesFailures(t *testing.T, factory Factory) {
 	catalog := jobs.NewCatalog()
 	received := &recorder{}
-	definition := jobs.Define[Arguments](catalog.For("contract"), "retry", jobs.WithMaxAttempts(3))
-	jobs.Handle(definition, func(_ context.Context, job jobs.Job[Arguments]) error {
+	module := catalog.Module("contract")
+	definition := jobs.Define[Arguments](module, "retry", jobs.WithMaxAttempts(3))
+	jobs.Handle(module, definition, func(_ context.Context, job jobs.Job[Arguments]) error {
 		if received.add(job) == 1 {
 			return errors.New("temporary")
 		}
@@ -156,8 +162,9 @@ func retriesFailures(t *testing.T, factory Factory) {
 func cancelStopsRetries(t *testing.T, factory Factory) {
 	catalog := jobs.NewCatalog()
 	received := &recorder{}
-	definition := jobs.Define[Arguments](catalog.For("contract"), "cancel", jobs.WithMaxAttempts(5))
-	jobs.Handle(definition, func(_ context.Context, job jobs.Job[Arguments]) error {
+	module := catalog.Module("contract")
+	definition := jobs.Define[Arguments](module, "cancel", jobs.WithMaxAttempts(5))
+	jobs.Handle(module, definition, func(_ context.Context, job jobs.Job[Arguments]) error {
 		received.add(job)
 		return jobs.Cancel(errors.New("gone"))
 	})
@@ -172,8 +179,9 @@ func cancelStopsRetries(t *testing.T, factory Factory) {
 func snoozeRunsAgainLater(t *testing.T, factory Factory) {
 	catalog := jobs.NewCatalog()
 	received := &recorder{}
-	definition := jobs.Define[Arguments](catalog.For("contract"), "snooze", jobs.WithMaxAttempts(1))
-	jobs.Handle(definition, func(_ context.Context, job jobs.Job[Arguments]) error {
+	module := catalog.Module("contract")
+	definition := jobs.Define[Arguments](module, "snooze", jobs.WithMaxAttempts(1))
+	jobs.Handle(module, definition, func(_ context.Context, job jobs.Job[Arguments]) error {
 		if received.add(job) == 1 {
 			return jobs.Snooze(time.Second)
 		}
@@ -186,10 +194,48 @@ func snoozeRunsAgainLater(t *testing.T, factory Factory) {
 	}
 }
 
+func uniqueAllowsAgainAfterCompletion(t *testing.T, factory Factory) {
+	catalog := jobs.NewCatalog()
+	received := &recorder{}
+	module := catalog.Module("contract")
+	definition := jobs.Define[Arguments](module, "unique_again")
+	jobs.Handle(module, definition, func(_ context.Context, job jobs.Job[Arguments]) error {
+		received.add(job)
+		return nil
+	})
+	catalog.Use(factory(t, catalog))
+	ctx := context.Background()
+	if _, err := definition.Enqueue(ctx, Arguments{Key: "again"}, jobs.Unique(0)); err != nil {
+		t.Fatal(err)
+	}
+	received.waitFor(t, 1)
+
+	// Unique(0) only deduplicates against unfinished jobs: once the first
+	// one completed, the same arguments must be accepted and run again.
+	deadline := time.Now().Add(eventually)
+	for {
+		receipt, err := definition.Enqueue(ctx, Arguments{Key: "again"}, jobs.Unique(0))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !receipt.Duplicate {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("queuetest: a completed job still blocks a Unique(0) enqueue")
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	executions := received.waitFor(t, 2)
+	if executions[0].ID == executions[1].ID {
+		t.Fatalf("the second enqueue must be a new job: %+v", executions)
+	}
+}
+
 func enqueue(ctx context.Context, t *testing.T, factory Factory, catalog *jobs.Catalog, definition *jobs.Definition[Arguments], args Arguments, options ...jobs.EnqueueOption) {
 	t.Helper()
-	enqueuer := factory(t, catalog)
-	if _, err := definition.Enqueue(jobs.ContextWithEnqueuer(ctx, enqueuer), args, options...); err != nil {
+	catalog.Use(factory(t, catalog))
+	if _, err := definition.Enqueue(ctx, args, options...); err != nil {
 		t.Fatalf("queuetest: Enqueue() = %v", err)
 	}
 }

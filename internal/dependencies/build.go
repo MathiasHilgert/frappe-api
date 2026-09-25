@@ -132,6 +132,12 @@ func NewApplication(ctx context.Context, provider configuration.Provider, option
 	// subscribes them at Up.
 	registry := events.NewRegistry()
 
+	// jobCatalog collects the jobs of every module, the jobs counterpart of
+	// registry: each module, as it is added, defines and handles its
+	// private jobs on jobCatalog.Module("<module>") below, before the jobs
+	// backend validates and works them at Up.
+	jobCatalog := jobs.NewCatalog()
+
 	// The HTTP server is built synchronously (not yet listening) so its
 	// "/v1" huma.API is available immediately for modules to register
 	// their own routes on as they are wired in below. It is registered
@@ -199,14 +205,14 @@ func NewApplication(ctx context.Context, provider configuration.Provider, option
 	// No concrete module exists yet; each one, as it is added, gets
 	// wired here with its own constructor call passing server.V1() and
 	// instance.Use(...), following foundation/httpserver's doc.go
-	// convention, and its Subscriptions(registry) call.
+	// convention, its Subscriptions(registry) call and its jobs wiring on
+	// jobCatalog.Module("<module>").
 
-	// The jobs backend works the handlers modules registered on the default
-	// catalog with jobs.Handle (read at Up, so after every module above is
-	// wired). It is provided after the application pool it runs on and
+	// The jobs backend works the handlers modules registered on jobCatalog
+	// with jobs.Handle (read at Up, so after every module above is wired). It is provided after the application pool it runs on and
 	// before the HTTP server, so it stops working jobs only after the
 	// server drained and before the pool closes.
-	provideJobs(instance, loadedConfiguration.Jobs, jobs.Default(), databasePool)
+	provideJobs(instance, loadedConfiguration.Jobs, jobCatalog, databasePool)
 
 	// The consumer runtime is provided after the broker and the application
 	// pool (the inbox runs on it) and before the HTTP server, so it stops

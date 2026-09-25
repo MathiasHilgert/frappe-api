@@ -48,7 +48,7 @@ func assertPanics(t *testing.T, function func()) {
 }
 
 func TestDefineBuildsModuleScopedNames(t *testing.T) {
-	module := jobs.NewCatalog().For("menu")
+	module := jobs.NewCatalog().Module("menu")
 	definition := jobs.Define[rebuildIndex](module, "rebuild_index")
 	if definition.Name() != "menu.rebuild_index" {
 		t.Fatalf("name = %q, want menu.rebuild_index", definition.Name())
@@ -60,11 +60,11 @@ func TestDefineBuildsModuleScopedNames(t *testing.T) {
 
 func TestDefinePanicsOnInvalidOrDuplicateNames(t *testing.T) {
 	catalog := jobs.NewCatalog()
-	assertPanics(t, func() { catalog.For("Menu") })
-	assertPanics(t, func() { catalog.For("menu.items") })
-	assertPanics(t, func() { catalog.For("") })
+	assertPanics(t, func() { catalog.Module("Menu") })
+	assertPanics(t, func() { catalog.Module("menu.items") })
+	assertPanics(t, func() { catalog.Module("") })
 
-	module := catalog.For("menu")
+	module := catalog.Module("menu")
 	for _, action := range []string{"", "RebuildIndex", "rebuild-index", "rebuild.index", "1rebuild", "rebuild index"} {
 		assertPanics(t, func() { jobs.Define[rebuildIndex](module, action) })
 	}
@@ -72,27 +72,38 @@ func TestDefinePanicsOnInvalidOrDuplicateNames(t *testing.T) {
 	assertPanics(t, func() { jobs.Define[rebuildIndex](module, "rebuild_index", jobs.WithMaxAttempts(-1)) })
 
 	jobs.Define[rebuildIndex](module, "rebuild_index")
-	assertPanics(t, func() { jobs.Define[rebuildIndex](catalog.For("menu"), "rebuild_index") })
+	assertPanics(t, func() { jobs.Define[rebuildIndex](catalog.Module("menu"), "rebuild_index") })
 	// The same action in another module is a different name.
-	jobs.Define[rebuildIndex](catalog.For("orders"), "rebuild_index")
+	jobs.Define[rebuildIndex](catalog.Module("orders"), "rebuild_index")
 }
 
 func TestHandlePanicsOnMisuse(t *testing.T) {
-	definition := jobs.Define[rebuildIndex](jobs.NewCatalog().For("menu"), "rebuild_index")
-	assertPanics(t, func() { jobs.Handle(definition, nil) })
-	jobs.Handle(definition, func(context.Context, jobs.Job[rebuildIndex]) error { return nil })
+	catalog := jobs.NewCatalog()
+	module := catalog.Module("menu")
+	definition := jobs.Define[rebuildIndex](module, "rebuild_index")
+	assertPanics(t, func() { jobs.Handle(module, definition, nil) })
+	// Jobs are private: another module, or the same name on another
+	// catalog, may not handle them.
 	assertPanics(t, func() {
-		jobs.Handle(definition, func(context.Context, jobs.Job[rebuildIndex]) error { return nil })
+		jobs.Handle(catalog.Module("orders"), definition, func(context.Context, jobs.Job[rebuildIndex]) error { return nil })
+	})
+	assertPanics(t, func() {
+		jobs.Handle(jobs.NewCatalog().Module("menu"), definition, func(context.Context, jobs.Job[rebuildIndex]) error { return nil })
+	})
+	jobs.Handle(module, definition, func(context.Context, jobs.Job[rebuildIndex]) error { return nil })
+	assertPanics(t, func() {
+		jobs.Handle(module, definition, func(context.Context, jobs.Job[rebuildIndex]) error { return nil })
 	})
 }
 
 func TestValidateRequiresHandlerForEveryDefinition(t *testing.T) {
 	catalog := jobs.NewCatalog()
-	definition := jobs.Define[rebuildIndex](catalog.For("menu"), "rebuild_index")
+	module := catalog.Module("menu")
+	definition := jobs.Define[rebuildIndex](module, "rebuild_index")
 	if err := catalog.Validate(); err == nil {
 		t.Fatal("Validate must fail while menu.rebuild_index has no handler")
 	}
-	jobs.Handle(definition, func(context.Context, jobs.Job[rebuildIndex]) error { return nil })
+	jobs.Handle(module, definition, func(context.Context, jobs.Job[rebuildIndex]) error { return nil })
 	if err := catalog.Validate(); err != nil {
 		t.Fatalf("Validate() = %v", err)
 	}
@@ -100,9 +111,9 @@ func TestValidateRequiresHandlerForEveryDefinition(t *testing.T) {
 
 func TestSchedulesAreValidatedAndListed(t *testing.T) {
 	catalog := jobs.NewCatalog()
-	module := catalog.For("menu")
+	module := catalog.Module("menu")
 	definition := jobs.Define[rebuildIndex](module, "rebuild_index", jobs.WithQueue("maintenance"))
-	jobs.Handle(definition, func(context.Context, jobs.Job[rebuildIndex]) error { return nil })
+	jobs.Handle(module, definition, func(context.Context, jobs.Job[rebuildIndex]) error { return nil })
 
 	assertPanics(t, func() { jobs.Every(definition, 0, rebuildIndex{}) })
 	assertPanics(t, func() { jobs.Every(definition, 500*time.Millisecond, rebuildIndex{}) })
@@ -137,7 +148,7 @@ func TestSchedulesAreValidatedAndListed(t *testing.T) {
 
 func TestEnqueueBuildsRequest(t *testing.T) {
 	catalog := jobs.NewCatalog()
-	definition := jobs.Define[rebuildIndex](catalog.For("menu"), "rebuild_index", jobs.WithMaxAttempts(3))
+	definition := jobs.Define[rebuildIndex](catalog.Module("menu"), "rebuild_index", jobs.WithMaxAttempts(3))
 	enqueuer := &fakeEnqueuer{}
 	catalog.Use(enqueuer)
 
@@ -181,12 +192,13 @@ func TestEnqueueCapturesTraceAndTenant(t *testing.T) {
 			return tenant, ok
 		},
 	})
-	definition := jobs.Define[rebuildIndex](catalog.For("menu"), "rebuild_index")
+	definition := jobs.Define[rebuildIndex](catalog.Module("menu"), "rebuild_index")
 	enqueuer := &fakeEnqueuer{}
+	catalog.Use(enqueuer)
 
 	ctx, parent := otel.Tracer("test").Start(context.Background(), "use case")
 	ctx = context.WithValue(ctx, tenantKey{}, "tenant-a")
-	if _, err := definition.Enqueue(jobs.ContextWithEnqueuer(ctx, enqueuer), rebuildIndex{MenuID: "m-1"}); err != nil {
+	if _, err := definition.Enqueue(ctx, rebuildIndex{MenuID: "m-1"}); err != nil {
 		t.Fatalf("Enqueue() = %v", err)
 	}
 	parent.End()
@@ -210,7 +222,7 @@ func TestEnqueueCapturesTraceAndTenant(t *testing.T) {
 
 func TestEnqueueFailures(t *testing.T) {
 	catalog := jobs.NewCatalog()
-	definition := jobs.Define[rebuildIndex](catalog.For("menu"), "rebuild_index")
+	definition := jobs.Define[rebuildIndex](catalog.Module("menu"), "rebuild_index")
 	if _, err := definition.Enqueue(context.Background(), rebuildIndex{}); !errors.Is(err, jobs.ErrNoEnqueuer) {
 		t.Fatalf("Enqueue() without enqueuer = %v, want ErrNoEnqueuer", err)
 	}
@@ -219,7 +231,7 @@ func TestEnqueueFailures(t *testing.T) {
 	if _, err := definition.Enqueue(context.Background(), rebuildIndex{}); !errors.Is(err, cause) {
 		t.Fatalf("Enqueue() = %v, want %v", err, cause)
 	}
-	unencodable := jobs.Define[func()](catalog.For("menu"), "unencodable")
+	unencodable := jobs.Define[func()](catalog.Module("menu"), "unencodable")
 	if _, err := unencodable.Enqueue(context.Background(), func() {}); err == nil {
 		t.Fatal("Enqueue() of unencodable arguments must fail")
 	}
@@ -234,11 +246,12 @@ func TestHandlerDecodesRestoresTenantAndContinuesTrace(t *testing.T) {
 			return context.WithValue(ctx, tenantKey{}, tenant)
 		},
 	})
-	definition := jobs.Define[rebuildIndex](catalog.For("menu"), "rebuild_index", jobs.WithTimeout(time.Minute))
+	module := catalog.Module("menu")
+	definition := jobs.Define[rebuildIndex](module, "rebuild_index", jobs.WithTimeout(time.Minute))
 	var received jobs.Job[rebuildIndex]
 	var boundTenant string
 	var handlerSpan trace.SpanContext
-	jobs.Handle(definition, func(ctx context.Context, job jobs.Job[rebuildIndex]) error {
+	jobs.Handle(module, definition, func(ctx context.Context, job jobs.Job[rebuildIndex]) error {
 		received = job
 		boundTenant, _ = ctx.Value(tenantKey{}).(string)
 		handlerSpan = trace.SpanContextFromContext(ctx)
@@ -292,7 +305,7 @@ func TestHandlerDecodesRestoresTenantAndContinuesTrace(t *testing.T) {
 
 func TestHandlerOutcomes(t *testing.T) {
 	catalog := jobs.NewCatalog()
-	module := catalog.For("menu")
+	module := catalog.Module("menu")
 	failure := errors.New("temporary")
 	results := map[string]error{
 		"fails":   failure,
@@ -300,9 +313,9 @@ func TestHandlerOutcomes(t *testing.T) {
 		"snoozes": jobs.Snooze(time.Minute),
 	}
 	for action, result := range results {
-		jobs.Handle(jobs.Define[rebuildIndex](module, action), func(context.Context, jobs.Job[rebuildIndex]) error { return result })
+		jobs.Handle(module, jobs.Define[rebuildIndex](module, action), func(context.Context, jobs.Job[rebuildIndex]) error { return result })
 	}
-	jobs.Handle(jobs.Define[rebuildIndex](module, "panics"), func(context.Context, jobs.Job[rebuildIndex]) error { panic("boom") })
+	jobs.Handle(module, jobs.Define[rebuildIndex](module, "panics"), func(context.Context, jobs.Job[rebuildIndex]) error { panic("boom") })
 
 	handlers := map[string]jobs.Handler{}
 	for _, registration := range catalog.Registrations() {
@@ -351,15 +364,6 @@ func TestCancelAndSnoozeHelpers(t *testing.T) {
 		t.Fatal("a plain error is not a snooze")
 	}
 	assertPanics(t, func() { _ = jobs.Snooze(-time.Second) })
-}
-
-func TestDefaultCatalogFor(t *testing.T) {
-	if jobs.For("defaultcatalogtest").Name() != "defaultcatalogtest" {
-		t.Fatal("For must return the named module of the default catalog")
-	}
-	if jobs.Default() == nil {
-		t.Fatal("Default() must not be nil")
-	}
 }
 
 func onlyRegistration(t *testing.T, catalog *jobs.Catalog) jobs.Registration {

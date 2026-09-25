@@ -56,7 +56,7 @@ func Define[Args any](module *Module, action string, options ...DefinitionOption
 	if !segmentPattern.MatchString(action) {
 		panic(fmt.Sprintf("jobs: invalid action %q of module %q: must match %s", action, module.name, segmentPattern.String()))
 	}
-	definition := &entry{name: module.name + "." + action, queue: DefaultQueue}
+	definition := &entry{module: module.name, name: module.name + "." + action, queue: DefaultQueue}
 	for _, option := range options {
 		option(definition)
 	}
@@ -112,13 +112,19 @@ type Job[Args any] struct {
 	MaxAttempts int
 }
 
-// Handle registers handler for every job of definition. The registered
+// Handle registers, on module, handler for every job of definition, which
+// must belong to module: jobs are private to the module that defines them.
+// It is the counterpart of events.On(registry, definition, handler). The
+// registered
 // Handler decodes the arguments, restores the enqueuing tenant, runs
 // handler in a consumer span linked to the producer span, and records
 // metrics and a structured log line. Arguments that cannot be decoded
-// cancel the job. It panics when handler is nil or the job is already
-// handled.
-func Handle[Args any](definition *Definition[Args], handler func(ctx context.Context, job Job[Args]) error) {
+// cancel the job. It panics when handler is nil, the job belongs to another
+// module or catalog, or it is already handled.
+func Handle[Args any](module *Module, definition *Definition[Args], handler func(ctx context.Context, job Job[Args]) error) {
+	if module.catalog != definition.catalog || module.name != definition.entry.module {
+		panic(fmt.Sprintf("jobs: %q is private to module %q; module %q may not handle it", definition.entry.name, definition.entry.module, module.name))
+	}
 	if handler == nil {
 		panic(fmt.Sprintf("jobs: Handle of %q requires a handler", definition.entry.name))
 	}
@@ -173,10 +179,7 @@ func (definition *Definition[Args]) Enqueue(ctx context.Context, args Args, opti
 		}
 	}
 
-	enqueuer, found := enqueuerFromContext(ctx)
-	if !found {
-		enqueuer = definition.catalog.currentEnqueuer()
-	}
+	enqueuer := definition.catalog.currentEnqueuer()
 	if enqueuer == nil {
 		return Receipt{}, ErrNoEnqueuer
 	}

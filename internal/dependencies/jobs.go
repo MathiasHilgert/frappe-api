@@ -49,8 +49,10 @@ func provideJobs(instance *application.Application, settings configuration.Jobs,
 			}
 			return client, nil
 		},
+		// Down only stops working: handlers still draining (and any other
+		// component still going down) keep enqueuing, which inserts on the
+		// pool without a started client. The pool closes after this hook.
 		Down: func(ctx context.Context, client *river.Client) error {
-			catalog.Use(nil)
 			return client.Stop(ctx)
 		},
 		Check: func(ctx context.Context, client *river.Client) error {

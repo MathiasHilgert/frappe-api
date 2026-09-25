@@ -14,9 +14,12 @@
 // number of replicas.
 //
 // Besides the metrics the jobs package records per job, the client records
-// frappe.jobs.periodic.ticks, and samples frappe.jobs.queue.depth (by queue
-// and state) and frappe.jobs.leader (1 on the elected replica) every
-// Settings.MetricsInterval.
+// frappe.jobs.periodic.ticks, and samples frappe.jobs.leader (1 on the
+// elected replica, 0 elsewhere, no attributes: series are told apart by the
+// service.instance.id resource attribute) and frappe.jobs.queue.depth (by
+// queue and state) every Settings.MetricsInterval. Queue depth is a
+// property of the shared database, so only the leader reports it: summing
+// the gauge across replicas never counts a job twice.
 package river
 
 import (
@@ -58,6 +61,9 @@ const (
 // Settings configures a Client. Zero values select River's or this
 // package's defaults.
 type Settings struct {
+	// MeterProvider records the backend metrics. Nil uses the global
+	// provider installed by the telemetry foundation.
+	MeterProvider metric.MeterProvider
 	// FetchPollInterval is how often each queue polls for jobs when no
 	// notification arrives.
 	FetchPollInterval time.Duration
@@ -76,6 +82,7 @@ type Settings struct {
 // Client is the River jobs backend. It is safe for concurrent use.
 type Client struct {
 	registration metric.Registration
+	instruments  clientInstruments
 	client       *riverqueue.Client[pgxTransaction]
 	pool         *pgxpool.Pool
 	queues       map[string]struct{}
@@ -99,6 +106,10 @@ func New(pool *pgxpool.Pool, catalog *jobs.Catalog, settings Settings) (*Client,
 		return nil, err
 	}
 	settings = withDefaults(settings)
+	instruments, err := newClientInstruments(settings.MeterProvider)
+	if err != nil {
+		return nil, err
+	}
 	identifier := "frappe-" + uuid.NewString()
 	queues := map[string]struct{}{jobs.DefaultQueue: {}}
 	for _, queue := range catalog.Queues() {
@@ -127,7 +138,7 @@ func New(pool *pgxpool.Pool, catalog *jobs.Catalog, settings Settings) (*Client,
 			config.Queues[queue] = riverqueue.QueueConfig{MaxWorkers: settings.Workers}
 		}
 		for _, schedule := range catalog.Schedules() {
-			config.PeriodicJobs = append(config.PeriodicJobs, periodicJob(schedule))
+			config.PeriodicJobs = append(config.PeriodicJobs, periodicJob(schedule, instruments.ticks))
 		}
 	}
 
@@ -136,12 +147,13 @@ func New(pool *pgxpool.Pool, catalog *jobs.Catalog, settings Settings) (*Client,
 		return nil, fmt.Errorf("river jobs: new client: %w", err)
 	}
 	return &Client{
-		client:     client,
-		pool:       pool,
-		queues:     queues,
-		identifier: identifier,
-		settings:   settings,
-		working:    working,
+		instruments: instruments,
+		client:      client,
+		pool:        pool,
+		queues:      queues,
+		identifier:  identifier,
+		settings:    settings,
+		working:     working,
 	}, nil
 }
 
@@ -155,7 +167,21 @@ func withDefaults(settings Settings) Settings {
 	if settings.MetricsInterval <= 0 {
 		settings.MetricsInterval = DefaultMetricsInterval
 	}
+	if settings.MeterProvider == nil {
+		settings.MeterProvider = otel.GetMeterProvider()
+	}
 	return settings
+}
+
+// unfinishedStates scopes jobs.Unique to jobs that have not finished, so an
+// equivalent job may be enqueued again once the previous one completed,
+// was cancelled or discarded.
+var unfinishedStates = []rivertype.JobState{
+	rivertype.JobStateAvailable,
+	rivertype.JobStatePending,
+	rivertype.JobStateRetryable,
+	rivertype.JobStateRunning,
+	rivertype.JobStateScheduled,
 }
 
 // Enqueue implements jobs.Enqueuer.
@@ -174,7 +200,7 @@ func (client *Client) Enqueue(ctx context.Context, request jobs.Request) (jobs.R
 		Metadata:    metadata,
 	}
 	if request.Unique != nil {
-		options.UniqueOpts = riverqueue.UniqueOpts{ByArgs: true, ByPeriod: request.Unique.Period}
+		options.UniqueOpts = riverqueue.UniqueOpts{ByArgs: true, ByPeriod: request.Unique.Period, ByState: unfinishedStates}
 	}
 	args := arguments{kind: request.Name, encoded: request.Arguments}
 
@@ -200,7 +226,11 @@ func (client *Client) Start(ctx context.Context) error {
 		return errors.New("river jobs: client already started")
 	}
 	if client.working {
-		if err := client.client.Start(ctx); err != nil {
+		// ctx only bounds starting: the application lifecycle cancels its
+		// Up phase context as soon as Up returns, and River ties its
+		// fetch, election and maintenance loops to the context it starts
+		// with. Stop and StopAndCancel end them instead.
+		if err := client.client.Start(context.WithoutCancel(ctx)); err != nil {
 			return fmt.Errorf("river jobs: start: %w", err)
 		}
 	}
@@ -331,13 +361,13 @@ func delivery(row *rivertype.JobRow) jobs.Delivery {
 
 // periodicJob adapts a jobs.Schedule, counting frappe.jobs.periodic.ticks
 // every time the leader enqueues it.
-func periodicJob(schedule jobs.Schedule) *riverqueue.PeriodicJob {
+func periodicJob(schedule jobs.Schedule, ticks metric.Int64Counter) *riverqueue.PeriodicJob {
 	digest := sha256.Sum256([]byte(schedule.Identifier))
 	identifier := schedule.Name + "." + hex.EncodeToString(digest[:8])
 	metadata, _ := json.Marshal(map[string]string{"schedule": schedule.Identifier})
 	attributes := metric.WithAttributes(attribute.String("name", schedule.Name), attribute.String("queue", schedule.Queue))
 	return riverqueue.NewPeriodicJob(schedule.Timing, func() (riverqueue.JobArgs, *riverqueue.InsertOpts) {
-		clientTelemetry().ticks.Add(context.Background(), 1, attributes)
+		ticks.Add(context.Background(), 1, attributes)
 		return arguments{kind: schedule.Name, encoded: schedule.Arguments}, &riverqueue.InsertOpts{
 			Queue:       schedule.Queue,
 			MaxAttempts: schedule.MaxAttempts,
@@ -354,25 +384,26 @@ type clientInstruments struct {
 	meter  metric.Meter
 }
 
-var clientTelemetry = sync.OnceValue(func() clientInstruments {
-	meter := otel.Meter(jobs.InstrumentationScope)
+// newClientInstruments creates the backend instruments on provider.
+func newClientInstruments(provider metric.MeterProvider) (clientInstruments, error) {
+	meter := provider.Meter(jobs.InstrumentationScope)
 	ticks, err := meter.Int64Counter("frappe.jobs.periodic.ticks",
 		metric.WithDescription("Periodic schedule ticks enqueued by the leader, by name and queue."),
 		metric.WithUnit("{tick}"))
-	must(err)
+	if err != nil {
+		return clientInstruments{}, fmt.Errorf("river jobs: create ticks counter: %w", err)
+	}
 	depth, err := meter.Int64ObservableGauge("frappe.jobs.queue.depth",
-		metric.WithDescription("Unfinished jobs, by queue and state."),
+		metric.WithDescription("Unfinished jobs, by queue and state, reported by the leader only."),
 		metric.WithUnit("{job}"))
-	must(err)
+	if err != nil {
+		return clientInstruments{}, fmt.Errorf("river jobs: create queue depth gauge: %w", err)
+	}
 	leader, err := meter.Int64ObservableGauge("frappe.jobs.leader",
 		metric.WithDescription("1 on the replica elected leader (which enqueues periodic jobs), 0 elsewhere."),
 		metric.WithUnit("1"))
-	must(err)
-	return clientInstruments{ticks: ticks, depth: depth, leader: leader, meter: meter}
-})
-
-func must(err error) {
 	if err != nil {
-		panic(fmt.Errorf("river jobs: create instrument: %w", err))
+		return clientInstruments{}, fmt.Errorf("river jobs: create leader gauge: %w", err)
 	}
+	return clientInstruments{ticks: ticks, depth: depth, leader: leader, meter: meter}, nil
 }

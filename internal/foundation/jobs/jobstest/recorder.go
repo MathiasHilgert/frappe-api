@@ -1,18 +1,19 @@
 // Package jobstest provides test doubles for the jobs package.
 //
-// Use cases enqueue through jobs definitions; in unit tests capture the
-// jobs with a Recorder installed on the context, which keeps parallel tests
-// isolated from each other and from the catalog's enqueuer:
+// Use cases enqueue through jobs definitions built on a catalog module; in
+// unit tests build them on an isolated catalog whose enqueuer is a
+// Recorder, so parallel tests never share state:
 //
-//	recorder := jobstest.NewRecorder()
-//	err := useCase.Execute(recorder.Context(ctx), input)
-//	enqueued := jobstest.Enqueued(t, recorder, menujobs.RebuildIndex)
+//	catalog, recorder := jobstest.NewCatalog()
+//	menuJobs := menu.DefineJobs(catalog.Module("menu"))
+//	err := useCase.Execute(ctx, input)
+//	enqueued := jobstest.Enqueued(t, recorder, menuJobs.RebuildIndex)
 //
 // Handlers are tested through Run, which executes the registered handler
 // synchronously, with the same decoding, tenant restoration and telemetry
 // as production:
 //
-//	err := jobstest.Run(t, menujobs.RebuildIndex, menujobs.RebuildIndexArgs{MenuID: id})
+//	err := jobstest.Run(t, menuJobs.RebuildIndex, menu.RebuildIndexArgs{MenuID: id})
 package jobstest
 
 import (
@@ -38,13 +39,18 @@ func NewRecorder() *Recorder {
 	return &Recorder{}
 }
 
-// Context returns a copy of ctx whose enqueues go to the recorder.
-func (recorder *Recorder) Context(ctx context.Context) context.Context {
+// NewCatalog returns an isolated catalog whose enqueues go to the returned
+// Recorder. Tests build a module's definitions on catalog.Module("<module>")
+// exactly as the composition root does.
+func NewCatalog() (*jobs.Catalog, *Recorder) {
+	catalog := jobs.NewCatalog()
+	recorder := NewRecorder()
 	// Handed over as the jobs.Enqueuer port, never the concrete type: the
 	// architecture deep scan treats injecting a concrete type as the
 	// receiver depending on it.
 	var enqueuer jobs.Enqueuer = recorder
-	return jobs.ContextWithEnqueuer(ctx, enqueuer)
+	catalog.Use(enqueuer)
+	return catalog, recorder
 }
 
 // Enqueue implements jobs.Enqueuer.
