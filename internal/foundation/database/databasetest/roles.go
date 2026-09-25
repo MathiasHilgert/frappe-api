@@ -29,6 +29,13 @@ const (
 	// passwords do.
 	applicationRolePassword   = "frappe_application_test_only" //nolint:gosec // test-only container credential, never a real secret.
 	applicationRoleCapability = "NOSUPERUSER NOBYPASSRLS"
+
+	// outboxRelayRoleUsername is the role the outbox relay connects as
+	// (see migrations/20260925190341_outbox.sql): it may only read,
+	// update and delete outbox rows, across every tenant.
+	outboxRelayRoleUsername   = "frappe_outbox_relay"
+	outboxRelayRolePassword   = "frappe_outbox_relay_test_only" //nolint:gosec // test-only container credential, never a real secret.
+	outboxRelayRoleCapability = "NOSUPERUSER NOBYPASSRLS"
 )
 
 // roleBootstrapLockKey is the pg_advisory_xact_lock key bootstrapRoles
@@ -36,7 +43,7 @@ const (
 // the same constant in every package test binary.
 const roleBootstrapLockKey = 7_246_300_001
 
-// bootstrapRoles creates the two application roles against the shared
+// bootstrapRoles creates the application roles against the shared
 // server, mirroring deployments/database/initialize.sql.
 //
 // Every package test binary of one "go test" invocation attaches to the
@@ -56,9 +63,9 @@ func bootstrapRoles(ctx context.Context, address serverAddress) error {
 
 	err = createRolesLocked(ctx, connection)
 	if isAlreadyExistsError(err) {
-		// The failed transaction rolled back both statements, so run
-		// them once more: the role another binary created is now
-		// visible and skipped, and the other role is still created.
+		// The failed transaction rolled back every statement, so run
+		// them once more: the roles another binary created are now
+		// visible and skipped, and the others are still created.
 		err = createRolesLocked(ctx, connection)
 	}
 	if err != nil {
@@ -68,7 +75,7 @@ func bootstrapRoles(ctx context.Context, address serverAddress) error {
 	return nil
 }
 
-// createRolesLocked runs both role statements in one transaction holding
+// createRolesLocked runs every role statement in one transaction holding
 // roleBootstrapLockKey, and commits it.
 func createRolesLocked(ctx context.Context, connection *sql.DB) error {
 	transaction, err := connection.BeginTx(ctx, nil)
@@ -81,6 +88,7 @@ func createRolesLocked(ctx context.Context, connection *sql.DB) error {
 		fmt.Sprintf("SELECT pg_advisory_xact_lock(%d)", roleBootstrapLockKey),
 		createRoleIfMissing(migrationRoleUsername, migrationRolePassword, migrationRoleCapability),
 		createRoleIfMissing(applicationRoleUsername, applicationRolePassword, applicationRoleCapability),
+		createRoleIfMissing(outboxRelayRoleUsername, outboxRelayRolePassword, outboxRelayRoleCapability),
 	}
 	for _, statement := range statements {
 		if _, execErr := transaction.ExecContext(ctx, statement); execErr != nil {

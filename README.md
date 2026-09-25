@@ -65,6 +65,7 @@ internal/
     database/           pgx pool, RLS-ready transactions
     events/             broker-agnostic events: CloudEvents envelope, ports, typed consumers
       outbox/           storage-agnostic transactional outbox and relay
+        postgres/       Postgres outbox store (LISTEN/NOTIFY wake-ups)
       memory/           in-memory broker (tests, running without a broker)
     health/             background dependency checks
     httpserver/         HTTP server, middleware, Huma /v1 API
@@ -115,7 +116,7 @@ Rules enforced in CI by `go-arch-lint` and `depguard`:
 | Lifecycle | Every dependency declares `Up`, `Down` and optionally `Check`. Up runs in order, Down in reverse, failures roll back what already started. |
 | Readiness | `/health/live` never checks dependencies. `/health/ready` is 503 until every `Up` finished and every declared check passes; it flips to 503 first on shutdown, then the server drains. |
 | Row Level Security | Tenant settings are applied per transaction with `set_config(..., true)`, never per session. The application role cannot bypass RLS; tables use `FORCE ROW LEVEL SECURITY`. |
-| Database roles | `frappe_migration` owns the schema and runs migrations; `frappe_application` is the runtime role. |
+| Database roles | `frappe_migration` owns the schema and runs migrations; `frappe_application` is the runtime role (RLS-bound; on `outbox` it may only `INSERT`); `frappe_outbox_relay` is the outbox relay's role (`SELECT`, `UPDATE`, `DELETE` on `outbox` only, across tenants). All three are created outside migrations (`deployments/database/initialize.sql` locally). |
 | Migrations | Run by `cmd/migrate` as a deploy step, never at API startup. Timestamp-versioned, out-of-order allowed. |
 | Rate limiting | GCRA in Valkey, IETF `RateLimit-*` headers, 429 as RFC 9457. Fails open if Valkey is unavailable. |
 | Errors | RFC 9457 `application/problem+json`. |

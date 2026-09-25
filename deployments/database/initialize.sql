@@ -1,4 +1,4 @@
--- Local development only: creates the two Postgres roles the application
+-- Local development only: creates the Postgres roles the application
 -- expects (see internal/foundation/database/doc.go for the two-role
 -- model). Mounted into /docker-entrypoint-initdb.d by compose.yaml, so the
 -- official postgres image runs it once, automatically, as the postgres
@@ -21,6 +21,13 @@ CREATE ROLE frappe_migration WITH LOGIN PASSWORD 'frappe_migration_development_o
 -- Used by the running API (DATABASE_URL). No superuser, and RLS can never
 -- be bypassed by this role, even on a table it happens to own.
 CREATE ROLE frappe_application WITH LOGIN PASSWORD 'frappe_application_development_only' NOSUPERUSER NOBYPASSRLS;
+
+-- Used only by the outbox relay (DATABASE_OUTBOX_RELAY_URL) to claim,
+-- settle and purge outbox rows across every tenant. It gets no privilege
+-- on any other table; migrations/20260925190341_outbox.sql grants it
+-- SELECT, UPDATE and DELETE on outbox only, which must exist before that
+-- migration runs. The password is development-only, like the ones above.
+CREATE ROLE frappe_outbox_relay WITH LOGIN PASSWORD 'frappe_outbox_relay_development_only' NOSUPERUSER NOBYPASSRLS;
 
 -- Since Postgres 15, the public schema is owned by pg_database_owner (the
 -- database owner, postgres here) and ordinary roles may no longer CREATE
