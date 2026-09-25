@@ -4,6 +4,7 @@ package ratelimit_test
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -48,10 +49,15 @@ func client(t *testing.T) valkeygo.Client {
 	return sharedClient
 }
 
-func newLimiter(t *testing.T, requests int, window time.Duration) *ratelimit.Limiter {
+// newLimiter builds a limiter whose keys are scoped to t.Name() plus a
+// caller-supplied nonce, so repeated `go test -count=N` runs of the same
+// test never reuse buckets left over from an earlier run. Callers that need
+// several limiters to share one key space (e.g. simulating replicas) pass
+// the same nonce to each call.
+func newLimiter(t *testing.T, requests int, window time.Duration, nonce int64) *ratelimit.Limiter {
 	t.Helper()
 	limiter, err := ratelimit.New(client(t), ratelimit.Settings{
-		Requests: requests, Window: window, KeyPrefix: "test:" + t.Name() + ":", Timeout: 5 * time.Second,
+		Requests: requests, Window: window, KeyPrefix: fmt.Sprintf("test:%s:%d:", t.Name(), nonce), Timeout: 5 * time.Second,
 	})
 	if err != nil {
 		t.Fatalf("New returned unexpected error: %v", err)
@@ -61,7 +67,7 @@ func newLimiter(t *testing.T, requests int, window time.Duration) *ratelimit.Lim
 
 func TestIntegrationAllowsTheConfiguredRequestsThenLimits(t *testing.T) {
 	t.Parallel()
-	limiter := newLimiter(t, 5, time.Minute)
+	limiter := newLimiter(t, 5, time.Minute, time.Now().UnixNano())
 	ctx := context.Background()
 
 	for index := range 5 {
@@ -97,7 +103,7 @@ func TestIntegrationAllowsTheConfiguredRequestsThenLimits(t *testing.T) {
 func TestIntegrationQuotaIsRestoredAfterTheWindow(t *testing.T) {
 	t.Parallel()
 	const window = time.Second
-	limiter := newLimiter(t, 3, window)
+	limiter := newLimiter(t, 3, window, time.Now().UnixNano())
 	ctx := context.Background()
 
 	for range 3 {
@@ -122,7 +128,8 @@ func TestIntegrationConcurrentRequestsNeverExceedTheLimit(t *testing.T) {
 	t.Parallel()
 	const requests = 20
 	// Two independent limiters sharing one key simulate two replicas.
-	replicas := []*ratelimit.Limiter{newLimiter(t, requests, time.Minute), newLimiter(t, requests, time.Minute)}
+	nonce := time.Now().UnixNano()
+	replicas := []*ratelimit.Limiter{newLimiter(t, requests, time.Minute, nonce), newLimiter(t, requests, time.Minute, nonce)}
 	ctx := context.Background()
 
 	var allowed atomic.Int64
