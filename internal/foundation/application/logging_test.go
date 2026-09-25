@@ -69,3 +69,28 @@ func TestHookLoggingHonorsExplicitLogger(t *testing.T) {
 		t.Fatalf("expected nothing logged to the default logger when an explicit one was given, got %q", laterDefault.String())
 	}
 }
+
+// TestHookLoggingRecordsDurationInMilliseconds proves that hook phase logs
+// report duration_milliseconds as a float64, matching the httpserver
+// access log convention, instead of a raw time.Duration nanosecond count
+// under the "duration" key.
+func TestHookLoggingRecordsDurationInMilliseconds(t *testing.T) {
+	var logged bytes.Buffer
+	instance := application.New(application.WithLogger(slog.New(slog.NewTextHandler(&logged, nil))))
+
+	instance.Append(application.Hook{
+		Name: "hook",
+		Up:   func(context.Context) error { return nil },
+	})
+	if err := instance.Up(context.Background()); err != nil {
+		t.Fatalf("Up returned unexpected error: %v", err)
+	}
+
+	output := logged.String()
+	if !strings.Contains(output, "duration_milliseconds=") {
+		t.Fatalf("expected hook phase log to report duration_milliseconds, got %q", output)
+	}
+	if strings.Contains(output, " duration=") {
+		t.Fatalf("expected hook phase log to not use the raw duration key, got %q", output)
+	}
+}

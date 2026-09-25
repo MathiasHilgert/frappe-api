@@ -111,16 +111,19 @@ func (application *Application) runPhase(ctx context.Context, hook Hook, phaseFu
 }
 
 // logPhase records the outcome of one hook phase through the resolved
-// logger.
+// logger. duration is reported as duration_milliseconds, a float64,
+// matching the httpserver access log convention, rather than a raw
+// time.Duration nanosecond count.
 func (application *Application) logPhase(name, phase string, duration time.Duration, err error) {
 	logger := application.resolveLogger()
+	durationMilliseconds := float64(duration) / float64(time.Millisecond)
 
 	if err != nil {
-		logger.Error("hook phase failed", slog.String("hook", name), slog.String("phase", phase), slog.Duration("duration", duration), slog.Any("error", err))
+		logger.Error("hook phase failed", slog.String("hook", name), slog.String("phase", phase), slog.Float64("duration_milliseconds", durationMilliseconds), slog.Any("error", err))
 		return
 	}
 
-	logger.Info("hook phase completed", slog.String("hook", name), slog.String("phase", phase), slog.Duration("duration", duration))
+	logger.Info("hook phase completed", slog.String("hook", name), slog.String("phase", phase), slog.Float64("duration_milliseconds", durationMilliseconds))
 }
 
 // resolveLogger returns the explicit logger given through WithLogger, if
