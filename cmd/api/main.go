@@ -9,12 +9,19 @@ import (
 	"os"
 
 	"github.com/MathiasHilgert/frappe-api/internal/dependencies"
+	"github.com/MathiasHilgert/frappe-api/internal/foundation/configuration/environment"
 )
 
 func main() {
-	application := dependencies.NewApplication()
+	ctx := context.Background()
 
-	if err := application.Run(context.Background()); err != nil {
+	application, err := dependencies.NewApplication(ctx, environment.New())
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	if err := application.Run(ctx); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
