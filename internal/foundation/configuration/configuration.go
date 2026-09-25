@@ -55,12 +55,26 @@ type Configuration struct {
 	Health      Health      `envPrefix:"HEALTH_"`
 	Telemetry   Telemetry   `envPrefix:"TELEMETRY_"`
 	Outbox      Outbox      `envPrefix:"OUTBOX_"`
+	Inbox       Inbox       `envPrefix:"INBOX_"`
+}
+
+// Inbox holds settings for the consumer inbox (see
+// internal/foundation/events/inbox), which deduplicates deliveries per
+// consumer. It is only used, and validated, while EVENTS_BROKER is not none.
+type Inbox struct {
+	// PurgeInterval is how often processed records older than Retention
+	// are purged.
+	PurgeInterval time.Duration `env:"PURGE_INTERVAL" envDefault:"1h"`
+	// Retention is how long processed records are kept. It must outlive
+	// every possible redelivery (it defaults to NATS_STREAM_MAX_AGE's
+	// default), or a late duplicate is handled again.
+	Retention time.Duration `env:"RETENTION" envDefault:"168h"`
 }
 
 // Outbox holds settings for the transactional outbox relay (see
-// internal/foundation/events/outbox). It defaults to disabled because no
-// broker adapter is wired yet: enabling it requires an events.Publisher
-// from the composition root and DATABASE_OUTBOX_RELAY_URL. While disabled,
+// internal/foundation/events/outbox). Enabling it requires a broker
+// (EVENTS_BROKER other than none), whose publisher the relay publishes to,
+// and DATABASE_OUTBOX_RELAY_URL. While disabled,
 // events recorded by use cases are still stored in the outbox table and
 // are published once the relay is enabled. The remaining fields are only
 // validated while it is enabled.

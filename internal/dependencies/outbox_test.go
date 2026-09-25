@@ -28,6 +28,15 @@ func TestNewApplicationRequiresAPublisherWhenTheOutboxIsEnabled(t *testing.T) {
 	}
 }
 
+func TestNewApplicationPublishesTheOutboxToTheSelectedBroker(t *testing.T) {
+	loadedConfiguration := outboxEnabledConfiguration()
+	loadedConfiguration.Events.Broker = configuration.EventsBrokerMemory
+	loadedConfiguration.Inbox = configuration.Inbox{PurgeInterval: time.Hour, Retention: time.Hour}
+	if _, err := dependencies.NewApplication(context.Background(), stubProvider{loadedConfiguration: loadedConfiguration}); err != nil {
+		t.Fatalf("NewApplication returned unexpected error: %v", err)
+	}
+}
+
 func TestNewApplicationWiresTheOutboxRelayWithAPublisher(t *testing.T) {
 	application, err := dependencies.NewApplication(context.Background(),
 		stubProvider{loadedConfiguration: outboxEnabledConfiguration()},

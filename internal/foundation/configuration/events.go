@@ -57,6 +57,26 @@ type NATS struct {
 	StreamReplicas int `env:"STREAM_REPLICAS" envDefault:"1" validate:"min=0"`
 }
 
+// brokerSelected reports whether EVENTS_BROKER selects a broker.
+func (events Events) brokerSelected() bool {
+	return events.Broker != "" && events.Broker != EventsBrokerNone
+}
+
+// validateInbox checks the INBOX_* settings only while a broker is selected.
+func validateInbox(inbox Inbox, events Events) []Violation {
+	if !events.brokerSelected() {
+		return nil
+	}
+	var violations []Violation
+	if inbox.PurgeInterval <= 0 {
+		violations = append(violations, Violation{Variable: "INBOX_PURGE_INTERVAL", Rule: "gt"})
+	}
+	if inbox.Retention <= 0 {
+		violations = append(violations, Violation{Variable: "INBOX_RETENTION", Rule: "gt"})
+	}
+	return violations
+}
+
 // validateEvents checks the NATS settings only while NATS is selected.
 func validateEvents(events Events, nats NATS) []Violation {
 	if events.Broker != EventsBrokerNATS {
