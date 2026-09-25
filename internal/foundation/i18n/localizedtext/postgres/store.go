@@ -96,9 +96,10 @@ func (store *Store) UpdateSource(ctx context.Context, id localizedtext.ID, sourc
 			// A translation into the new source locale is now the source.
 			`DELETE FROM localized_text_translations WHERE text_id = @id AND locale = @locale`,
 			// A requested translation without a value would arrive for the
-			// old source and be discarded: drop it so it is requested again.
+			// old source and be discarded, and a failed one gave up on the
+			// old source: drop both so they are requested again.
 			`DELETE FROM localized_text_translations
-				WHERE text_id = @id AND status = 'pending' AND value IS NULL AND source_hash <> @hash`,
+				WHERE text_id = @id AND status IN ('pending', 'failed') AND value IS NULL AND source_hash <> @hash`,
 			`UPDATE localized_text_translations SET status = 'stale'
 				WHERE text_id = @id AND source_hash <> @hash AND status <> 'stale' AND value IS NOT NULL`,
 		)
@@ -231,7 +232,7 @@ func (*Store) ExpiredPending(ctx context.Context, olderThan time.Duration, limit
 		return nil, err
 	}
 	rows, err := current.Query(ctx, `SELECT translations.text_id, translations.locale, localized_texts.source_hash,
-			coalesce(localized_texts.context, '')
+			coalesce(localized_texts.context, ''), translations.attempts
 		FROM localized_text_translations AS translations
 		JOIN localized_texts ON localized_texts.id = translations.text_id
 		WHERE localized_texts.tenant_id = current_setting('application.tenant', true)
@@ -248,7 +249,7 @@ func (*Store) ExpiredPending(ctx context.Context, olderThan time.Duration, limit
 		var id uuid.UUID
 		var locale string
 		request := localizedtext.TranslationRequest{Reason: localizedtext.ReasonExpired}
-		if scanError := rows.Scan(&id, &locale, &request.SourceHash, &request.Context); scanError != nil {
+		if scanError := rows.Scan(&id, &locale, &request.SourceHash, &request.Context, &request.Attempts); scanError != nil {
 			return nil, fmt.Errorf("scan expired pending translation: %w", scanError)
 		}
 		request.TextID = localizedtext.ID(id)
@@ -303,6 +304,36 @@ func (*Store) References(ctx context.Context) ([]localizedtext.Reference, error)
 	return references, nil
 }
 
+// Lease implements localizedtext.Store.
+func (*Store) Lease(ctx context.Context, locale i18n.Locale, ids []localizedtext.ID, until time.Time) error {
+	current, err := transaction(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = current.Exec(ctx, `UPDATE localized_text_translations SET requested_at = $3
+		WHERE text_id = ANY($1::uuid[]) AND locale = $2 AND origin = 'machine' AND status = 'pending'`,
+		toUUIDs(ids), locale.String(), until)
+	if err != nil {
+		return fmt.Errorf("lease pending translations: %w", err)
+	}
+	return nil
+}
+
+// MarkFailed implements localizedtext.Store.
+func (*Store) MarkFailed(ctx context.Context, locale i18n.Locale, ids []localizedtext.ID) error {
+	current, err := transaction(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = current.Exec(ctx, `UPDATE localized_text_translations SET status = 'failed'
+		WHERE text_id = ANY($1::uuid[]) AND locale = $2 AND origin = 'machine' AND status = 'pending'`,
+		toUUIDs(ids), locale.String())
+	if err != nil {
+		return fmt.Errorf("mark translations failed: %w", err)
+	}
+	return nil
+}
+
 // Referencing implements localizedtext.Store with one query: a UNION ALL
 // over references, in order, keeping the first match per text.
 // Identifiers are quoted with Sanitize.
@@ -343,8 +374,9 @@ func (*Store) Referencing(ctx context.Context, references []localizedtext.Refere
 
 // Tenants implements localizedtext.Store through the SECURITY DEFINER
 // function localized_text_tenants() (migration
-// 20260927000000_localized_text_tenants.sql), which crosses Row Level
-// Security and returns tenant identifiers only.
+// 20260927000000_localized_text_tenants.sql), which reads the tenant
+// directory a trigger fills as texts are created: tenant identifiers
+// only, sorted.
 func (*Store) Tenants(ctx context.Context) ([]string, error) {
 	current, err := transaction(ctx)
 	if err != nil {

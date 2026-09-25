@@ -22,6 +22,10 @@ import (
 // stay pending before it is requested again.
 const DefaultPendingTimeout = 15 * time.Minute
 
+// DefaultMaxRequestAttempts is how many times a machine translation is
+// requested before the expired sweep gives up on it (StatusFailed).
+const DefaultMaxRequestAttempts = 5
+
 // instrumentationName names the meter the Service reports on.
 const instrumentationName = "github.com/MathiasHilgert/frappe-api/internal/foundation/i18n/localizedtext"
 
@@ -44,6 +48,10 @@ type Settings struct {
 	// is requested again (the request was lost). Zero means
 	// DefaultPendingTimeout.
 	PendingTimeout time.Duration
+	// MaxRequestAttempts is how many requests a pending translation gets
+	// before RequestExpired marks it failed. Zero means
+	// DefaultMaxRequestAttempts.
+	MaxRequestAttempts int
 }
 
 // Service is the localized text API. Build one per application and hand
@@ -57,6 +65,7 @@ type Service struct {
 	logger         *slog.Logger
 	fields         map[[2]string]Field
 	pendingTimeout time.Duration
+	maxAttempts    int
 	mutex          sync.Mutex
 }
 
@@ -81,6 +90,7 @@ func NewService(settings Settings) (*Service, error) {
 		now:            settings.Now,
 		logger:         settings.Logger,
 		pendingTimeout: settings.PendingTimeout,
+		maxAttempts:    settings.MaxRequestAttempts,
 		fields:         map[[2]string]Field{},
 	}
 	if service.now == nil {
@@ -91,6 +101,9 @@ func NewService(settings Settings) (*Service, error) {
 	}
 	if service.pendingTimeout <= 0 {
 		service.pendingTimeout = DefaultPendingTimeout
+	}
+	if service.maxAttempts <= 0 {
+		service.maxAttempts = DefaultMaxRequestAttempts
 	}
 	return service, nil
 }
@@ -176,14 +189,19 @@ func (service *Service) ExpiredPending(ctx context.Context, limit int) ([]Transl
 // RequestExpired requests again up to limit of the current tenant's
 // pending machine translations whose request expired (older than
 // PendingTimeout; the job was lost or gave up), and returns how many it
-// requested. A text without its own Context gets the default Context of
-// the declared Field that references it. Without a requester it does
+// requested. One requested MaxRequestAttempts times already is marked
+// failed instead. A text without its own Context gets the default Context
+// of the declared Field that references it. Without a requester it does
 // nothing.
 func (service *Service) RequestExpired(ctx context.Context, limit int) (int, error) {
 	if service.requester == nil {
 		return 0, nil
 	}
-	requests, err := service.ExpiredPending(ctx, limit)
+	expired, err := service.ExpiredPending(ctx, limit)
+	if err != nil || len(expired) == 0 {
+		return 0, err
+	}
+	requests, err := service.giveUpExhausted(ctx, expired)
 	if err != nil || len(requests) == 0 {
 		return 0, err
 	}
@@ -198,6 +216,44 @@ func (service *Service) RequestExpired(ctx context.Context, limit int) (int, err
 		return 0, err
 	}
 	return len(recorded), nil
+}
+
+// giveUpExhausted marks failed the requests that reached
+// MaxRequestAttempts and returns the others.
+func (service *Service) giveUpExhausted(ctx context.Context, expired []TranslationRequest) ([]TranslationRequest, error) {
+	exhausted := map[i18n.Locale][]ID{}
+	requests := make([]TranslationRequest, 0, len(expired))
+	for _, request := range expired {
+		if request.Attempts >= service.maxAttempts {
+			exhausted[request.Locale] = append(exhausted[request.Locale], request.TextID)
+			continue
+		}
+		requests = append(requests, request)
+	}
+	for locale, ids := range exhausted {
+		if err := service.store.MarkFailed(ctx, locale, ids); err != nil {
+			return nil, err
+		}
+	}
+	return requests, nil
+}
+
+// LeasePending keeps the pending machine translations of ids into locale
+// from being requested again until until, while a job works on them.
+func (service *Service) LeasePending(ctx context.Context, locale i18n.Locale, ids []ID, until time.Time) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return service.store.Lease(ctx, locale, ids, until)
+}
+
+// MarkFailed gives up the pending machine translations of ids into
+// locale (StatusFailed) until their source changes.
+func (service *Service) MarkFailed(ctx context.Context, locale i18n.Locale, ids []ID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return service.store.MarkFailed(ctx, locale, ids)
 }
 
 // defaultContexts fills the Context of requests that have none with the

@@ -40,7 +40,7 @@ type Store interface {
 	MarkPending(ctx context.Context, requests []TranslationRequest, pendingTimeout time.Duration) ([]TranslationRequest, error)
 	// ExpiredPending returns up to limit of the tenant's pending machine
 	// translations requested more than olderThan ago, oldest first, with
-	// the text's own Context (empty means the Field default).
+	// the text's own Context (empty means the Field default) and Attempts.
 	ExpiredPending(ctx context.Context, olderThan time.Duration, limit int) ([]TranslationRequest, error)
 	// Get returns a text with all its translations, or ErrNotFound.
 	Get(ctx context.Context, id ID) (Text, error)
@@ -57,6 +57,14 @@ type Store interface {
 	// olderThan ago that no reference points at, and returns how many it
 	// deleted.
 	DeleteOrphans(ctx context.Context, references []Reference, olderThan time.Duration, limit int) (int64, error)
+	// Lease sets requested_at of the pending machine translations of ids
+	// into locale to until, so while a job still works on them (retrying,
+	// snoozed) neither reads nor the expired sweep request them again.
+	Lease(ctx context.Context, locale i18n.Locale, ids []ID, until time.Time) error
+	// MarkFailed turns the pending machine translations of ids into
+	// locale failed: they are not requested again until the source
+	// changes.
+	MarkFailed(ctx context.Context, locale i18n.Locale, ids []ID) error
 	// Referencing returns, for each of ids some reference points at, one
 	// such reference (the first in references order that matches).
 	Referencing(ctx context.Context, references []Reference, ids []ID) (map[ID]Reference, error)

@@ -85,7 +85,11 @@
 //
 // Pending requests carry requested_at and attempts; one older than
 // Settings.PendingTimeout is requested again on read, and
-// Service.RequestExpired requests them again for the periodic sweeper. Reads request
+// Service.RequestExpired requests them again for the periodic sweeper,
+// or marks them failed after Settings.MaxRequestAttempts requests. A job
+// working on a translation leases it (Service.LeasePending), and a
+// rejected one is marked failed (Service.MarkFailed) until its source
+// changes. Reads request
 // translations best effort inside a savepoint (logged, counted, added to
 // the span), so they never fail because of a request.
 package localizedtext

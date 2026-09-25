@@ -99,6 +99,10 @@ const (
 	// arrived yet. Its Value is empty, or the previous machine value
 	// while it is being regenerated.
 	StatusPending Status = "pending"
+	// StatusFailed marks a machine translation given up: the provider
+	// rejected it for good, or it was requested MaxRequestAttempts times.
+	// It is not requested again until the source changes.
+	StatusFailed Status = "failed"
 )
 
 // Reason says why a translation is requested.
@@ -201,7 +205,10 @@ type TranslationRequest struct {
 	SourceHash string
 	Context    string
 	Reason     Reason
-	TextID     ID
+	// Attempts is how many times the translation was requested already;
+	// only ExpiredPending fills it.
+	Attempts int
+	TextID   ID
 }
 
 // Hash returns the hex SHA-256 of a source: its locale and value,
