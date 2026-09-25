@@ -19,6 +19,8 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/pressly/goose/v3"
 	"github.com/pressly/goose/v3/lock"
@@ -30,10 +32,23 @@ import (
 )
 
 func main() {
-	if err := run(context.Background(), os.Args[1:]); err != nil {
+	ctx, stop := signalContext(context.Background())
+	err := run(ctx, os.Args[1:])
+	stop()
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+// signalContext returns a copy of parent that is canceled on SIGINT or
+// SIGTERM, so an operator's Ctrl+C or an orchestrator's stop request
+// cancels the in-flight migration through ctx, letting deferred cleanup
+// (closing the database handle) run, instead of the default signal
+// behavior of killing the process outright. Call stop to release the signal
+// handler.
+func signalContext(parent context.Context) (ctx context.Context, stop context.CancelFunc) {
+	return signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
 }
 
 func run(ctx context.Context, args []string) error {
