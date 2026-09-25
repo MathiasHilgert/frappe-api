@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
@@ -100,7 +101,8 @@ type Server struct {
 	// ready. It is buffered so Listen's goroutine never blocks trying to
 	// report the error, even if nothing is currently receiving from
 	// Errors().
-	errors chan error
+	errors     chan error
+	drainDelay time.Duration
 }
 
 // New builds a Server from settings: a root router exposing /health/live
@@ -162,6 +164,7 @@ func New(settings Settings) *Server {
 		v1:         v1,
 		logger:     logger,
 		errors:     make(chan error, 1),
+		drainDelay: settings.DrainDelay,
 	}
 }
 
@@ -232,9 +235,49 @@ func (server *Server) Errors() <-chan error {
 	return server.errors
 }
 
-// Shutdown gracefully stops the server, waiting for in-flight requests to
-// finish or ctx to be done. It is meant to be wired as an
-// application.Dependency[*Server]'s Down function.
+// Shutdown drains, then gracefully stops the server. By the time Down
+// starts, application readiness is already false (see
+// application.Application.Down), so /health/ready is already reporting
+// 503; Shutdown first waits the configured DrainDelay, still serving
+// traffic, to give a load balancer or Kubernetes time to notice that and
+// stop routing new requests here. It then calls http.Server.Shutdown,
+// which waits for in-flight requests to finish or ctx to be done. The
+// drain wait itself also respects ctx cancellation, so a caller in a
+// hurry (or a canceled hook context) can cut it short.
 func (server *Server) Shutdown(ctx context.Context) error {
+	server.logDrain("started", server.drainDelay)
+
+	if err := server.drain(ctx); err != nil {
+		server.logDrain("canceled", server.drainDelay)
+		return server.httpServer.Shutdown(ctx)
+	}
+
+	server.logDrain("completed", server.drainDelay)
 	return server.httpServer.Shutdown(ctx)
+}
+
+// drain waits for drainDelay or until ctx is done, whichever comes
+// first.
+func (server *Server) drain(ctx context.Context) error {
+	if server.drainDelay <= 0 {
+		return nil
+	}
+
+	timer := time.NewTimer(server.drainDelay)
+	defer timer.Stop()
+
+	select {
+	case <-timer.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// logDrain records one drain lifecycle event, if a logger is configured.
+func (server *Server) logDrain(event string, delay time.Duration) {
+	if server.logger == nil {
+		return
+	}
+	server.logger.Info("http server shutdown drain", slog.String("event", event), slog.Duration("delay", delay))
 }

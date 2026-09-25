@@ -28,9 +28,15 @@ func validConfiguration() configuration.Configuration {
 			MaxHeaderBytes:       1048576,
 			MaxBodyBytes:         2097152,
 			DocumentationEnabled: true,
+			ShutdownDrainDelay:   5 * time.Second,
 		},
 		Logging: configuration.Logging{
 			Level: "info",
+		},
+		Health: configuration.Health{
+			CheckInterval:    10 * time.Second,
+			CheckTimeout:     2 * time.Second,
+			FailureThreshold: 3,
 		},
 	}
 }
@@ -104,6 +110,32 @@ func TestValidateAggregatesMultipleErrors(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "APPLICATION_ENVIRONMENT") || !strings.Contains(err.Error(), "LOGGING_LEVEL") {
 		t.Fatalf("error does not name both invalid env vars: %v", err)
+	}
+}
+
+func TestValidateRejectsAHookTimeoutShorterThanDrainPlusShutdown(t *testing.T) {
+	loadedConfiguration := validConfiguration()
+	loadedConfiguration.HTTP.ShutdownDrainDelay = 5 * time.Second
+	loadedConfiguration.HTTP.ShutdownTimeout = 10 * time.Second
+	loadedConfiguration.Application.HookTimeout = 10 * time.Second
+
+	err := configuration.Validate(loadedConfiguration)
+	if err == nil {
+		t.Fatal("Validate returned nil error for a HookTimeout shorter than ShutdownDrainDelay+ShutdownTimeout")
+	}
+	if !strings.Contains(err.Error(), "APPLICATION_HOOK_TIMEOUT") {
+		t.Fatalf("error does not name APPLICATION_HOOK_TIMEOUT: %v", err)
+	}
+}
+
+func TestValidateAcceptsAHookTimeoutEqualToDrainPlusShutdown(t *testing.T) {
+	loadedConfiguration := validConfiguration()
+	loadedConfiguration.HTTP.ShutdownDrainDelay = 5 * time.Second
+	loadedConfiguration.HTTP.ShutdownTimeout = 10 * time.Second
+	loadedConfiguration.Application.HookTimeout = 15 * time.Second
+
+	if err := configuration.Validate(loadedConfiguration); err != nil {
+		t.Fatalf("Validate returned unexpected error: %v", err)
 	}
 }
 

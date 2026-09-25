@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -23,10 +24,13 @@ import (
 )
 
 // readinessFunc adapts a plain func() bool into httpserver.Readiness, so
-// tests can express readiness as a closure.
+// tests can express readiness as a closure. Check returns a fixed,
+// deterministic report so tests can assert on the serialized body.
 type readinessFunc func() bool
 
-func (f readinessFunc) Ready() bool { return f() }
+func (f readinessFunc) Check() (any, bool) {
+	return map[string]string{"status": "test"}, f()
+}
 
 // testSettings returns Settings with short timeouts and an always-ready
 // ready function, suitable for exercising the server in tests.
@@ -92,6 +96,32 @@ func TestHealthReadyReports503WhenNotReady(t *testing.T) {
 
 	if recorder.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
+	}
+}
+
+// TestHealthReadyServesReportAsHealthJSON verifies that /health/ready
+// serves the injected Readiness' Report as a JSON body with the
+// application/health+json content type, in both the ready and not-ready
+// cases.
+func TestHealthReadyServesReportAsHealthJSON(t *testing.T) {
+	for _, ready := range []bool{true, false} {
+		server := httpserver.New(testSettings(nil, func() bool { return ready }, true))
+
+		recorder := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodGet, "/health/ready", nil)
+		server.Handler().ServeHTTP(recorder, request)
+
+		if contentType := recorder.Header().Get("Content-Type"); contentType != "application/health+json" {
+			t.Fatalf("ready=%v Content-Type = %q, want %q", ready, contentType, "application/health+json")
+		}
+
+		var body map[string]string
+		if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+			t.Fatalf("ready=%v response body is not valid JSON: %v", ready, err)
+		}
+		if body["status"] != "test" {
+			t.Fatalf("ready=%v body = %v, want the injected Report", ready, body)
+		}
 	}
 }
 
@@ -481,5 +511,128 @@ func TestListenThenShutdownIsGraceful(t *testing.T) {
 
 	if err := server.Shutdown(t.Context()); err != nil {
 		t.Fatalf("Shutdown returned unexpected error: %v", err)
+	}
+}
+
+// TestShutdownServesRequestsDuringTheDrainDelay verifies that the server
+// keeps accepting requests while Shutdown is waiting out DrainDelay,
+// instead of stopping the listener immediately.
+func TestShutdownServesRequestsDuringTheDrainDelay(t *testing.T) {
+	var ready atomic.Bool
+	ready.Store(true)
+
+	settings := testSettings(nil, ready.Load, true)
+	settings.Port = 0
+	settings.DrainDelay = 100 * time.Millisecond
+	server := httpserver.New(settings)
+
+	if err := server.Listen(); err != nil {
+		t.Fatalf("Listen returned unexpected error: %v", err)
+	}
+	address := server.Addr()
+
+	shutdownDone := make(chan error, 1)
+	go func() {
+		ready.Store(false)
+		shutdownDone <- server.Shutdown(t.Context())
+	}()
+
+	// Give Shutdown a moment to start draining, well before DrainDelay
+	// elapses, then confirm the server still answers.
+	time.Sleep(20 * time.Millisecond)
+
+	response, err := http.Get("http://" + address + "/health/live")
+	if err != nil {
+		t.Fatalf("GET /health/live during drain failed: %v", err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("status during drain = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+
+	if err := <-shutdownDone; err != nil {
+		t.Fatalf("Shutdown returned unexpected error: %v", err)
+	}
+}
+
+// TestHealthReadyReports503DuringTheDrainDelay verifies that
+// /health/ready already reports not-ready while Shutdown is draining,
+// since the caller is expected to have flipped readiness to false before
+// calling Shutdown (as application.Application.Down does).
+func TestHealthReadyReports503DuringTheDrainDelay(t *testing.T) {
+	settings := testSettings(nil, func() bool { return false }, true)
+	settings.Port = 0
+	settings.DrainDelay = 100 * time.Millisecond
+	server := httpserver.New(settings)
+
+	if err := server.Listen(); err != nil {
+		t.Fatalf("Listen returned unexpected error: %v", err)
+	}
+	address := server.Addr()
+
+	shutdownDone := make(chan error, 1)
+	go func() { shutdownDone <- server.Shutdown(t.Context()) }()
+
+	time.Sleep(20 * time.Millisecond)
+
+	response, err := http.Get("http://" + address + "/health/ready")
+	if err != nil {
+		t.Fatalf("GET /health/ready during drain failed: %v", err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("status during drain = %d, want %d", response.StatusCode, http.StatusServiceUnavailable)
+	}
+
+	if err := <-shutdownDone; err != nil {
+		t.Fatalf("Shutdown returned unexpected error: %v", err)
+	}
+}
+
+// TestShutdownHappensAfterTheDrainDelay verifies that Shutdown does not
+// call the underlying http.Server.Shutdown until DrainDelay has elapsed.
+func TestShutdownHappensAfterTheDrainDelay(t *testing.T) {
+	settings := testSettings(nil, func() bool { return false }, true)
+	settings.Port = 0
+	settings.DrainDelay = 80 * time.Millisecond
+	server := httpserver.New(settings)
+
+	if err := server.Listen(); err != nil {
+		t.Fatalf("Listen returned unexpected error: %v", err)
+	}
+
+	start := time.Now()
+	if err := server.Shutdown(t.Context()); err != nil {
+		t.Fatalf("Shutdown returned unexpected error: %v", err)
+	}
+	elapsed := time.Since(start)
+
+	if elapsed < settings.DrainDelay {
+		t.Fatalf("Shutdown returned after %s, want at least the drain delay %s", elapsed, settings.DrainDelay)
+	}
+}
+
+// TestShutdownDrainDelayIsCutShortByContextCancellation verifies that
+// canceling ctx during the drain wait cuts it short instead of always
+// waiting the full DrainDelay.
+func TestShutdownDrainDelayIsCutShortByContextCancellation(t *testing.T) {
+	settings := testSettings(nil, func() bool { return false }, true)
+	settings.Port = 0
+	settings.DrainDelay = time.Hour
+	server := httpserver.New(settings)
+
+	if err := server.Listen(); err != nil {
+		t.Fatalf("Listen returned unexpected error: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	_ = server.Shutdown(ctx)
+	elapsed := time.Since(start)
+
+	if elapsed >= settings.DrainDelay {
+		t.Fatalf("Shutdown waited %s, want context cancellation to cut the hour-long drain delay short", elapsed)
 	}
 }

@@ -16,13 +16,30 @@ import (
 // without this package changing: httpserver never pings a dependency
 // itself, it only asks whatever Readiness it was given.
 type Readiness interface {
-	Ready() bool
+	// Check reports the current readiness detail (report) and whether it
+	// implies the server is ready (ready), taken together from the same
+	// underlying state. It is one call, not two, specifically so the
+	// /health/ready handler can never serve an HTTP status code that
+	// disagrees with its own response body: two separate methods,
+	// called one after the other, could observe a state update land in
+	// between them. report's concrete type is owned by whatever
+	// implements Readiness (for example internal/foundation/health.Report),
+	// and this package only ever marshals it as JSON; it never inspects
+	// its fields, keeping httpserver decoupled from the health package.
+	Check() (report any, ready bool)
 }
 
-// alwaysReady is the Readiness used when Settings.Ready is nil.
+// alwaysReady is the Readiness used when Settings.Ready is nil. Its
+// report body matches the shape internal/foundation/health.Report
+// serializes to for an all-passing report ({"status":"pass"}, with no
+// "checks" key when there are none to report), without this package
+// importing that package (foundation packages must not import each
+// other).
 type alwaysReady struct{}
 
-func (alwaysReady) Ready() bool { return true }
+func (alwaysReady) Check() (any, bool) {
+	return map[string]string{"status": "pass"}, true
+}
 
 // Settings configures a Server. Every field has a corresponding field on
 // internal/foundation/configuration.Configuration's HTTP struct; the
@@ -54,6 +71,13 @@ type Settings struct {
 	// Port is the TCP port Listen binds to. Zero lets the operating
 	// system choose a free port, which is useful in tests.
 	Port int
+	// DrainDelay is how long Shutdown waits, still serving traffic and
+	// reporting not-ready, before it starts the actual graceful
+	// shutdown. It gives a load balancer or Kubernetes time to notice
+	// /health/ready has turned unhealthy and stop routing new requests
+	// here, before connections start being closed. It respects context
+	// cancellation, so a caller in a hurry can still cut it short.
+	DrainDelay time.Duration
 	// MaxHeaderBytes bounds the size of request headers, in bytes.
 	MaxHeaderBytes int
 	// DocumentationEnabled toggles the /docs UI and /openapi.json spec.

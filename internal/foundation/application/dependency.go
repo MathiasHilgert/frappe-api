@@ -11,6 +11,11 @@ type Dependency[T any] struct {
 	// Down releases the dependency's value. It may be nil if the
 	// dependency has nothing to release.
 	Down func(ctx context.Context, value T) error
+	// Check reports whether the dependency's produced value is healthy.
+	// It is optional: a dependency is health-checked if and only if it
+	// declares a Check. There is no separate "critical" flag; every
+	// declared check affects readiness.
+	Check func(ctx context.Context, value T) error
 	// Name identifies the dependency for logging and error reporting.
 	Name string
 }
@@ -30,7 +35,9 @@ func (handle *Handle[T]) Get() (T, bool) {
 }
 
 // Provide registers dependency as a hook on lifecycle and returns a handle
-// that exposes the produced value once the Application's Up has run.
+// that exposes the produced value once the Application's Up has run. If
+// dependency declares a Check, it is also registered as a named health
+// check that closes over the value stored in handle.
 func Provide[T any](lifecycle Lifecycle, dependency Dependency[T]) *Handle[T] {
 	handle := &Handle[T]{}
 
@@ -39,6 +46,12 @@ func Provide[T any](lifecycle Lifecycle, dependency Dependency[T]) *Handle[T] {
 		Up:   dependencyUpHook(dependency, handle),
 		Down: dependencyDownHook(dependency, handle),
 	})
+
+	if dependency.Check != nil {
+		registerCheck(lifecycle, dependency.Name, func(ctx context.Context) error {
+			return dependency.Check(ctx, handle.value)
+		})
+	}
 
 	return handle
 }
