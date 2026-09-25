@@ -3,6 +3,7 @@ package i18n
 import (
 	"context"
 	"net/http"
+	"strings"
 )
 
 // Response headers set by Middleware (RFC 9110).
@@ -20,11 +21,12 @@ type localized struct {
 	locale  Locale
 }
 
-// WithLocale returns a copy of ctx that carries locale and this catalog,
+// WithLocale returns a copy of ctx that carries locale, resolved to a
+// supported locale with Resolve, and this catalog,
 // for code outside an HTTP request (for example an event consumer) that
 // needs T or TranslateWith.
 func (catalog *Catalog) WithLocale(ctx context.Context, locale Locale) context.Context {
-	return context.WithValue(ctx, localizedKey{}, localized{catalog: catalog, locale: locale})
+	return context.WithValue(ctx, localizedKey{}, localized{catalog: catalog, locale: catalog.Resolve(locale)})
 }
 
 // FromContext returns the locale negotiated for ctx by Middleware (or set
@@ -57,7 +59,7 @@ func TranslateWith(ctx context.Context, key Key, data Data) string {
 // so caches never serve one language's response to another.
 func (catalog *Catalog) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		locale := catalog.Negotiate(r.Header.Get(AcceptLanguageHeader))
+		locale := catalog.Negotiate(strings.Join(r.Header.Values(AcceptLanguageHeader), ","))
 		header := w.Header()
 		header.Set(ContentLanguageHeader, locale.String())
 		header.Add(varyHeader, AcceptLanguageHeader)

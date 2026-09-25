@@ -1,6 +1,7 @@
 package configuration_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/configuration"
@@ -34,4 +35,23 @@ func TestValidateRejectsInvalidInternationalization(t *testing.T) {
 	loadedConfiguration = validConfiguration()
 	loadedConfiguration.Internationalization.SourceLocale = "und"
 	assertViolation(t, loadedConfiguration, "I18N_SOURCE_LOCALE")
+}
+
+func TestValidateRejectsNonCanonicalLocales(t *testing.T) {
+	for _, tag := range []string{"iw", "in", "pt-br", "zh-hans"} {
+		loadedConfiguration := validConfiguration()
+		loadedConfiguration.Internationalization.SupportedLocales = []string{"es-419", tag}
+		assertViolation(t, loadedConfiguration, "I18N_SUPPORTED_LOCALES")
+	}
+}
+
+func TestInternationalizationDefaultsMatchTheExportedConstants(t *testing.T) {
+	field, _ := reflect.TypeFor[configuration.Internationalization]().FieldByName("SupportedLocales")
+	if got := field.Tag.Get("envDefault"); got != configuration.DefaultSupportedLocales {
+		t.Fatalf("SupportedLocales envDefault = %q, want DefaultSupportedLocales %q", got, configuration.DefaultSupportedLocales)
+	}
+	field, _ = reflect.TypeFor[configuration.Internationalization]().FieldByName("SourceLocale")
+	if got := field.Tag.Get("envDefault"); got != configuration.DefaultSourceLocale {
+		t.Fatalf("SourceLocale envDefault = %q, want DefaultSourceLocale %q", got, configuration.DefaultSourceLocale)
+	}
 }

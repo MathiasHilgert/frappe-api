@@ -6,12 +6,23 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MathiasHilgert/frappe-api/internal/foundation/configuration"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/i18n"
 )
 
-// defaultLocales mirrors the I18N_SUPPORTED_LOCALES default. Every one of
-// them must ship an embedded catalog.
-var defaultLocales = []string{"es-419", "en", "pt-BR", "fr", "it", "de", "ru", "zh-Hans", "ko", "ja"}
+// defaultLocales is the I18N_SUPPORTED_LOCALES default. Every one of them
+// must ship an embedded catalog.
+var defaultLocales = strings.Split(configuration.DefaultSupportedLocales, ",")
+
+func TestEmbeddedCatalogsHaveEveryPluralForm(t *testing.T) {
+	problems, err := i18n.CheckPluralForms(i18n.EmbeddedMessages, configuration.DefaultSourceLocale, defaultLocales)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, problem := range problems {
+		t.Error(problem)
+	}
+}
 
 // TestEmbeddedCatalogsAreComplete fails when any embedded catalog is
 // missing a key present in the source locale (es-419), has a key the

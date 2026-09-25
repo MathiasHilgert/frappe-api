@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"strings"
 
 	goi18n "github.com/nicksnyder/go-i18n/v2/i18n"
 	"golang.org/x/text/language"
@@ -49,8 +50,8 @@ type Settings struct {
 	// Source is the locale every message is authored in and the final
 	// fallback. It must be one of Supported.
 	Source Locale
-	// Supported lists the locales the platform serves, in preference
-	// order for ties during negotiation.
+	// Supported lists the locales the platform serves. On a negotiation
+	// tie the source locale always wins, then this order.
 	Supported []Locale
 }
 
@@ -133,29 +134,89 @@ func (catalog *Catalog) Supported() []Locale {
 	return append([]Locale(nil), catalog.supported...)
 }
 
+// MaxAcceptLanguageBytes caps how much of an Accept-Language value
+// Negotiate parses. Negotiation runs before rate limiting, so a larger
+// value is cut to the whole entries that fit within the cap.
+const MaxAcceptLanguageBytes = 512
+
 // Negotiate returns the supported locale that best matches an
 // Accept-Language header value, or the source locale when the header is
-// empty, malformed or matches nothing.
+// empty or nothing in it matches. Malformed entries are dropped and the
+// valid ones still count; only the first MaxAcceptLanguageBytes are read.
 func (catalog *Catalog) Negotiate(acceptLanguage string) Locale {
-	if acceptLanguage == "" {
+	requested := parseAcceptLanguage(truncateAcceptLanguage(acceptLanguage))
+	if len(requested) == 0 {
 		return catalog.source
 	}
-	requested, _, err := language.ParseAcceptLanguage(acceptLanguage)
-	if err != nil || len(requested) == 0 {
-		return catalog.source
-	}
-	_, index, confidence := catalog.matcher.Match(requested...)
+	return catalog.match(requested...)
+}
+
+// match returns the supported locale best matching tags, or the source.
+func (catalog *Catalog) match(tags ...language.Tag) Locale {
+	_, index, confidence := catalog.matcher.Match(tags...)
 	if confidence == language.No {
 		return catalog.source
 	}
 	return catalog.supported[index]
 }
 
+// Resolve returns the supported locale that serves locale: itself when
+// supported, otherwise the best match (es-MX resolves to es-419, pt to
+// pt-BR), or the source when nothing matches.
+func (catalog *Catalog) Resolve(locale Locale) Locale {
+	if _, ok := catalog.localizers[locale.tag]; ok {
+		return locale
+	}
+	if locale.IsZero() {
+		return catalog.source
+	}
+	return catalog.match(locale.tag)
+}
+
+// truncateAcceptLanguage cuts value to the whole comma-separated entries
+// that fit in MaxAcceptLanguageBytes, or to nothing when even the first
+// entry does not fit.
+func truncateAcceptLanguage(value string) string {
+	if len(value) <= MaxAcceptLanguageBytes {
+		return value
+	}
+	cut := strings.LastIndexByte(value[:MaxAcceptLanguageBytes+1], ',')
+	if cut < 0 {
+		return ""
+	}
+	return value[:cut]
+}
+
+// parseAcceptLanguage returns the tags of value ordered by weight. When
+// the header as a whole is malformed, every entry is parsed on its own
+// and the invalid ones are dropped, so one bad entry never discards the
+// client's valid preferences.
+func parseAcceptLanguage(value string) []language.Tag {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	if tags, _, err := language.ParseAcceptLanguage(value); err == nil {
+		return tags
+	}
+	valid := make([]string, 0, strings.Count(value, ",")+1)
+	for entry := range strings.SplitSeq(value, ",") {
+		if _, _, err := language.ParseAcceptLanguage(entry); err == nil && strings.TrimSpace(entry) != "" {
+			valid = append(valid, entry)
+		}
+	}
+	tags, _, err := language.ParseAcceptLanguage(strings.Join(valid, ","))
+	if err != nil {
+		return nil
+	}
+	return tags
+}
+
 // Translate renders key in locale with data, falling back to the source
 // locale when locale lacks the key, and to the key itself when no locale
-// has it (so a missing message is visible, never a failed request). An
-// unsupported locale is served as the source.
+// has it (so a missing message is visible, never a failed request). A
+// locale that is not supported is first resolved with Resolve.
 func (catalog *Catalog) Translate(locale Locale, key Key, data Data) string {
+	locale = catalog.Resolve(locale)
 	configuration := &goi18n.LocalizeConfig{MessageID: string(key), TemplateData: map[string]any(data)}
 	if count, ok := data[countField]; ok {
 		configuration.PluralCount = count
@@ -177,18 +238,13 @@ func (catalog *Catalog) Translate(locale Locale, key Key, data Data) string {
 // messages, keyed by message ID, with each message's "other" form as the
 // value. It backs the catalog completeness test.
 func MessageKeys(messages fs.FS, locale string) (map[string]string, error) {
-	path := locale + ".json"
-	content, err := fs.ReadFile(messages, path)
+	parsed, err := parseMessages(messages, locale)
 	if err != nil {
-		return nil, fmt.Errorf("catalog for locale %s: %w", locale, err)
+		return nil, err
 	}
-	file, err := goi18n.ParseMessageFileBytes(content, path, map[string]goi18n.UnmarshalFunc{"json": json.Unmarshal})
-	if err != nil {
-		return nil, fmt.Errorf("catalog for locale %s: %w", locale, err)
-	}
-	keys := make(map[string]string, len(file.Messages))
-	for _, message := range file.Messages {
-		keys[message.ID] = message.Other
+	keys := make(map[string]string, len(parsed))
+	for id, message := range parsed {
+		keys[id] = message.Other
 	}
 	return keys, nil
 }

@@ -60,3 +60,18 @@ func TestLocalizationIsOptional(t *testing.T) {
 		t.Fatalf("Content-Language = %q, want none", got)
 	}
 }
+
+func TestRecoveredPanicDropsContentLanguage(t *testing.T) {
+	settings := testSettings(nil, func() bool { return true }, false)
+	settings.Localization = fakeLocalization
+	server := httpserver.New(settings)
+	huma.Get(server.V1(), "/boom", func(context.Context, *struct{}) (*struct{}, error) { panic("boom") })
+
+	recorder := serve(server, httptest.NewRequest(http.MethodGet, "/v1/boom", nil))
+	if recorder.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", recorder.Code)
+	}
+	if got := recorder.Header().Get("Content-Language"); got != "" {
+		t.Fatalf("Content-Language = %q on an unlocalized 500, want none", got)
+	}
+}

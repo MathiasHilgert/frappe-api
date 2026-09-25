@@ -1,5 +1,8 @@
 {
   "locale.name": "한국어",
   "error.internal.title": "내부 서버 오류",
-  "error.not_found.title": "찾을 수 없음"
+  "error.not_found.title": "찾을 수 없음",
+  "time.minutes": {
+    "other": "{{.Count}}분"
+  }
 }

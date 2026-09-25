@@ -1,5 +1,8 @@
 {
   "locale.name": "简体中文",
   "error.internal.title": "服务器内部错误",
-  "error.not_found.title": "未找到"
+  "error.not_found.title": "未找到",
+  "time.minutes": {
+    "other": "{{.Count}} 分钟"
+  }
 }

@@ -46,3 +46,16 @@ func TestMiddlewareDefaultsToSource(t *testing.T) {
 		t.Fatalf("Content-Language = %q, want es-419", got)
 	}
 }
+
+func TestMiddlewareCombinesRepeatedAcceptLanguageLines(t *testing.T) {
+	catalog := testCatalog(t)
+	handler := catalog.Middleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.Header.Add("Accept-Language", "ja;q=0.9")
+	request.Header.Add("Accept-Language", "pt-BR;q=0.8")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if got := recorder.Header().Get("Content-Language"); got != "pt-BR" {
+		t.Fatalf("Content-Language = %q, want pt-BR from the second header line", got)
+	}
+}

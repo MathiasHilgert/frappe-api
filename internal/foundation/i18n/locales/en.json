@@ -1,5 +1,9 @@
 {
   "locale.name": "English",
   "error.internal.title": "Internal server error",
-  "error.not_found.title": "Not found"
+  "error.not_found.title": "Not found",
+  "time.minutes": {
+    "one": "{{.Count}} minute",
+    "other": "{{.Count}} minutes"
+  }
 }
