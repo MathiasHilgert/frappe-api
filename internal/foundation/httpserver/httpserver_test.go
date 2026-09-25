@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net"
 	"net/http"
@@ -13,6 +14,10 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/httpserver"
 )
@@ -239,6 +244,192 @@ func TestDocumentationEndpointsAreDisabledWhenToggledOff(t *testing.T) {
 			t.Fatalf("%s status = %d, want %d while documentation is disabled", path, recorder.Code, http.StatusNotFound)
 		}
 	}
+}
+
+// TestAPIRequestSpanNameCarriesMatchedRoute verifies that a request handled
+// by the /v1 API produces a span named after the matched mux pattern, with
+// an http.route attribute, instead of the broken "GET /" every request
+// produced when otelhttp saw only the outer catch-all mux pattern.
+func TestAPIRequestSpanNameCarriesMatchedRoute(t *testing.T) {
+	recorder := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	previous := otel.GetTracerProvider()
+	otel.SetTracerProvider(provider)
+	defer otel.SetTracerProvider(previous)
+
+	server := httpserver.New(testSettings(nil, func() bool { return true }, true))
+
+	type pingOutput struct{}
+	huma.Register(server.V1(), huma.Operation{
+		OperationID: "ping",
+		Method:      http.MethodGet,
+		Path:        "/ping",
+	}, func(context.Context, *struct{}) (*pingOutput, error) {
+		return &pingOutput{}, nil
+	})
+
+	responseRecorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/v1/ping", nil)
+	server.Handler().ServeHTTP(responseRecorder, request)
+
+	spans := recorder.Ended()
+	if len(spans) != 1 {
+		t.Fatalf("got %d ended spans, want 1", len(spans))
+	}
+
+	span := spans[0]
+	if want := "GET /v1/ping"; span.Name() != want {
+		t.Fatalf("span name = %q, want %q", span.Name(), want)
+	}
+
+	foundRoute := false
+	for _, attribute := range span.Attributes() {
+		if attribute.Key == semconv.HTTPRouteKey {
+			foundRoute = true
+			if got := attribute.Value.AsString(); got != "/v1/ping" {
+				t.Fatalf("http.route = %q, want %q", got, "/v1/ping")
+			}
+		}
+	}
+	if !foundRoute {
+		t.Fatal("span is missing the http.route attribute")
+	}
+}
+
+// TestUnmatchedRequestSpanNameIsUnmatched verifies that a request with no
+// matching route gets a constant span name instead of the raw request path,
+// which would otherwise create unbounded trace cardinality.
+func TestUnmatchedRequestSpanNameIsUnmatched(t *testing.T) {
+	recorder := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	previous := otel.GetTracerProvider()
+	otel.SetTracerProvider(provider)
+	defer otel.SetTracerProvider(previous)
+
+	server := httpserver.New(testSettings(nil, func() bool { return true }, true))
+
+	responseRecorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/v1/does-not-exist/at-all", nil)
+	server.Handler().ServeHTTP(responseRecorder, request)
+
+	spans := recorder.Ended()
+	if len(spans) != 1 {
+		t.Fatalf("got %d ended spans, want 1", len(spans))
+	}
+	if want := "GET unmatched"; spans[0].Name() != want {
+		t.Fatalf("span name = %q, want %q", spans[0].Name(), want)
+	}
+}
+
+// TestAccessLogRecordsMatchedRoute verifies that the access log route field
+// is the matched Huma operation's route pattern, not the outer catch-all
+// mux pattern or the raw request path.
+func TestAccessLogRecordsMatchedRoute(t *testing.T) {
+	var logBuffer bytes.Buffer
+	server := httpserver.New(testSettings(&logBuffer, func() bool { return true }, true))
+
+	type pingOutput struct{}
+	huma.Register(server.V1(), huma.Operation{
+		OperationID: "ping",
+		Method:      http.MethodGet,
+		Path:        "/ping",
+	}, func(context.Context, *struct{}) (*pingOutput, error) {
+		return &pingOutput{}, nil
+	})
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/v1/ping", nil)
+	server.Handler().ServeHTTP(recorder, request)
+
+	logged := logBuffer.String()
+	if !strings.Contains(logged, "route=/v1/ping") {
+		t.Fatalf("access log missing matched route: %s", logged)
+	}
+}
+
+// TestAccessLogRecordsDurationInMilliseconds verifies that the access log
+// reports duration as duration_milliseconds, a float64, rather than a raw
+// time.Duration nanosecond count under the "duration" key.
+func TestAccessLogRecordsDurationInMilliseconds(t *testing.T) {
+	var logBuffer bytes.Buffer
+	server := httpserver.New(testSettings(&logBuffer, func() bool { return true }, true))
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/v1/", nil)
+	server.Handler().ServeHTTP(recorder, request)
+
+	logged := logBuffer.String()
+	if !strings.Contains(logged, "duration_milliseconds=") {
+		t.Fatalf("access log missing duration_milliseconds: %s", logged)
+	}
+	if strings.Contains(logged, " duration=") {
+		t.Fatalf("access log still uses raw duration key: %s", logged)
+	}
+}
+
+// TestPanicRecoveryLogsMatchedRouteAndAccessLogStillFires verifies that a
+// panic recovered from within the API surface is (a) logged with the
+// matched route rather than "/", and (b) still produces one access log
+// line reporting status 500, proving recovery now runs inside the access
+// log rather than outside it where a panic would skip the log entirely.
+func TestPanicRecoveryLogsMatchedRouteAndAccessLogStillFires(t *testing.T) {
+	var logBuffer bytes.Buffer
+	server := httpserver.New(testSettings(&logBuffer, func() bool { return true }, true))
+
+	type panicOutput struct{}
+	huma.Register(server.V1(), huma.Operation{
+		OperationID: "panics",
+		Method:      http.MethodGet,
+		Path:        "/panics",
+	}, func(context.Context, *struct{}) (*panicOutput, error) {
+		panic("boom")
+	})
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/v1/panics", nil)
+	server.Handler().ServeHTTP(recorder, request)
+
+	logged := logBuffer.String()
+	if !strings.Contains(logged, "route=/v1/panics") {
+		t.Fatalf("panic recovery log missing matched route: %s", logged)
+	}
+	if !strings.Contains(logged, "msg=\"request completed\"") {
+		t.Fatalf("access log line missing after recovered panic: %s", logged)
+	}
+	if !strings.Contains(logged, "status=500") {
+		t.Fatalf("access log status is not 500 after recovered panic: %s", logged)
+	}
+}
+
+// TestPanicAfterHeadersWrittenAbortsInsteadOfDoubleWriting verifies that a
+// panic occurring after the handler has already written a response header
+// does not attempt to also write a problem+json body (which would trigger a
+// superfluous WriteHeader), and instead aborts the response.
+func TestPanicAfterHeadersWrittenAbortsInsteadOfDoubleWriting(t *testing.T) {
+	var logBuffer bytes.Buffer
+	server := httpserver.New(testSettings(&logBuffer, func() bool { return true }, true))
+
+	type partialOutput struct{}
+	huma.Register(server.V1(), huma.Operation{
+		OperationID: "partial",
+		Method:      http.MethodGet,
+		Path:        "/partial",
+	}, func(_ context.Context, _ *struct{}) (*partialOutput, error) {
+		panic(http.ErrAbortHandler)
+	})
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/v1/partial", nil)
+
+	defer func() {
+		recovered, ok := recover().(error)
+		if !ok || !errors.Is(recovered, http.ErrAbortHandler) {
+			t.Fatalf("recovered = %v, want http.ErrAbortHandler to propagate", recovered)
+		}
+	}()
+
+	server.Handler().ServeHTTP(recorder, request)
+	t.Fatal("expected http.ErrAbortHandler to propagate past the handler")
 }
 
 // TestUpFailsWhenPortIsOccupied verifies that Listen fails synchronously

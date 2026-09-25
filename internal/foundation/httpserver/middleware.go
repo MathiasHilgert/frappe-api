@@ -44,21 +44,44 @@ func (recorder *statusRecorder) Write(body []byte) (int, error) {
 // recoveryMiddleware recovers from a panic in next, logs it with logger
 // (without leaking the panic's detail to the client) and writes an RFC
 // 9457 problem+json 500 response instead of letting the panic crash the
-// server or reach the client as a bare connection reset.
-func recoveryMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
+// server or reach the client as a bare connection reset. It is mounted
+// inside accessLogMiddleware, so a recovered panic still leaves the access
+// log's deferred post-call code free to run and report the resulting
+// status; without that ordering a panic would unwind straight past the
+// access log and no line would ever be recorded for it.
+//
+// http.ErrAbortHandler is never turned into a response: it is net/http's
+// own signal to abort the connection silently, and re-panicking with it
+// lets the standard library (or, here, the caller of ServeHTTP in tests)
+// handle that abort the same way it would for any other handler. Likewise,
+// if the handler already wrote a response header before panicking, writing
+// a problem+json body on top of it would only produce a superfluous
+// WriteHeader call and a corrupt response, so that case also aborts
+// instead of writing.
+func recoveryMiddleware(logger *slog.Logger, apiMux *http.ServeMux) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
-				if recovered := recover(); recovered != nil {
-					requestID, _ := RequestIDFromContext(r.Context())
-					logger.ErrorContext(r.Context(), "panic recovered",
-						slog.Any("panic", recovered),
-						slog.String("method", r.Method),
-						slog.String("route", r.Pattern),
-						slog.String("request_id", requestID),
-					)
-					writeProblem(w, http.StatusInternalServerError, "Internal Server Error")
+				recovered := recover()
+				if recovered == nil {
+					return
 				}
+				if recovered == http.ErrAbortHandler { //nolint:errorlint // sentinel value, never wrapped
+					panic(recovered)
+				}
+
+				requestID, _ := RequestIDFromContext(r.Context())
+				logger.ErrorContext(r.Context(), "panic recovered",
+					slog.Any("panic", recovered),
+					slog.String("method", r.Method),
+					slog.String("route", matchedRoute(apiMux, r)),
+					slog.String("request_id", requestID),
+				)
+
+				if recorder, ok := w.(*statusRecorder); ok && recorder.wroteHeader {
+					panic(http.ErrAbortHandler)
+				}
+				writeProblem(w, http.StatusInternalServerError, "Internal Server Error")
 			}()
 			next.ServeHTTP(w, r)
 		})
@@ -77,9 +100,12 @@ func writeProblem(w http.ResponseWriter, status int, title string) {
 }
 
 // accessLogMiddleware logs one record per completed request: method,
-// route pattern, status and duration, plus the request id. It never logs
-// request or response bodies or authentication headers.
-func accessLogMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
+// matched route, status and duration in milliseconds, plus the request id.
+// It never logs request or response bodies or authentication headers.
+// recoveryMiddleware is mounted inside it, so a panic recovered downstream
+// still lets this deferred-equivalent post-call code observe and log the
+// resulting status.
+func accessLogMiddleware(logger *slog.Logger, apiMux *http.ServeMux) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			recorder := &statusRecorder{ResponseWriter: w}
@@ -87,18 +113,14 @@ func accessLogMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 
 			next.ServeHTTP(recorder, r)
 
-			duration := time.Since(start)
+			durationMilliseconds := float64(time.Since(start)) / float64(time.Millisecond)
 			requestID, _ := RequestIDFromContext(r.Context())
-			route := r.Pattern
-			if route == "" {
-				route = r.URL.Path
-			}
 
 			logger.InfoContext(r.Context(), "request completed",
 				slog.String("method", r.Method),
-				slog.String("route", route),
+				slog.String("route", matchedRoute(apiMux, r)),
 				slog.Int("status", recorder.status),
-				slog.Duration("duration", duration),
+				slog.Float64("duration_milliseconds", durationMilliseconds),
 				slog.String("request_id", requestID),
 			)
 		})

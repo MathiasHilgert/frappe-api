@@ -5,11 +5,74 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
+	"go.opentelemetry.io/otel/trace"
 )
+
+// unmatchedRoute is the span name and access log route recorded for a
+// request that matched no Huma operation, instead of the raw request path.
+// Using the raw path would create unbounded trace and log cardinality from
+// scanners and typos hitting arbitrary paths.
+const unmatchedRoute = "unmatched"
+
+// matchedRoute reports the route pattern apiMux would dispatch r to,
+// without the leading "METHOD " prefix Go's http.ServeMux registers
+// patterns with, or unmatchedRoute if nothing matches. apiMux.Handler
+// performs a read-only pattern match; it does not serve the request or
+// mutate it, so it is safe to call ahead of the actual dispatch and from
+// middleware that never invokes apiMux itself.
+func matchedRoute(apiMux *http.ServeMux, r *http.Request) string {
+	_, pattern := apiMux.Handler(r)
+	if pattern == "" {
+		return unmatchedRoute
+	}
+	if _, path, found := strings.Cut(pattern, " "); found {
+		return path
+	}
+	return pattern
+}
+
+// spanRouteMiddleware attaches the semconv http.route attribute for the
+// matched /v1 API route to both the current span and the otelhttp metrics
+// labeler, so route-scoped metrics get it too. The span name itself is
+// handled separately, by passing spanName as otelhttp's span name
+// formatter: otelhttp calls that formatter again after the handler
+// returns, using whatever r.Pattern the OUTER catch-all mux left on the
+// request (always "/"), which would silently undo a rename done here.
+// spanName instead recomputes the /v1 route itself on every call, so it
+// produces the same, correct name regardless of when otelhttp invokes it.
+func spanRouteMiddleware(apiMux *http.ServeMux) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			route := matchedRoute(apiMux, r)
+
+			span := trace.SpanFromContext(r.Context())
+			span.SetAttributes(semconv.HTTPRoute(route))
+
+			if labeler, ok := otelhttp.LabelerFromContext(r.Context()); ok {
+				labeler.Add(semconv.HTTPRoute(route))
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// spanName is otelhttp's span name formatter. It ignores r.Pattern (which
+// otelhttp evaluates against the OUTER catch-all mux, always "/") and
+// instead matches r against apiMux directly, so it reports the actual /v1
+// route both when otelhttp first starts the span and when it reformats the
+// name again after the handler returns.
+func spanName(apiMux *http.ServeMux) func(string, *http.Request) string {
+	return func(_ string, r *http.Request) string {
+		return r.Method + " " + matchedRoute(apiMux, r)
+	}
+}
 
 // DependencyName identifies the HTTP server dependency for logging and
 // error reporting when the composition root registers it as an
@@ -48,23 +111,25 @@ func New(settings Settings) *Server {
 
 	logger := settings.logger()
 
-	// Outermost first: otelhttp names spans/http.route from the matched
-	// mux pattern (see otelhttp.WithSpanNameFormatter), panic recovery
-	// keeps a panic from crashing the process or leaking internals,
-	// request id makes every request correlatable, and the access log
-	// records the outcome. maxBodyBytes bounds request bodies right
-	// before they reach the mux.
-	handler := recoveryMiddleware(logger)(
+	// Outermost first: spanRouteMiddleware renames the span otelhttp
+	// already started to the matched /v1 route (otelhttp's own formatter
+	// cannot do this: it only ever sees the outer catch-all mux pattern,
+	// "/"), request id makes every request correlatable, the access log
+	// records the outcome, panic recovery keeps a panic from crashing the
+	// process or leaking internals while still letting the access log
+	// above it observe the resulting status, and maxBodyBytes bounds
+	// request bodies right before they reach the mux.
+	handler := spanRouteMiddleware(apiMux)(
 		requestIDMiddleware(
-			accessLogMiddleware(logger)(
-				maxBodyBytesMiddleware(settings.MaxBodyBytes)(apiMux),
+			accessLogMiddleware(logger, apiMux)(
+				recoveryMiddleware(logger, apiMux)(
+					maxBodyBytesMiddleware(settings.MaxBodyBytes)(apiMux),
+				),
 			),
 		),
 	)
 	instrumented := otelhttp.NewHandler(handler, "frappe-api",
-		otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string {
-			return r.Method + " " + r.Pattern
-		}),
+		otelhttp.WithSpanNameFormatter(spanName(apiMux)),
 	)
 
 	router.Handle("/", instrumented)
