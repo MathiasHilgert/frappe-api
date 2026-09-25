@@ -11,6 +11,10 @@ services:
     environment:
       # Sends traces, metrics and logs to the local observability stack.
       OTEL_EXPORTER_OTLP_ENDPOINT: http://observability:4318
+      # Trace sampling defaults to a parent-based trace ID ratio derived from
+      # APPLICATION_ENVIRONMENT (1.0 development and staging, 0.1 production).
+      # Override with the standard OTEL_TRACES_SAMPLER and
+      # OTEL_TRACES_SAMPLER_ARG (see internal/foundation/telemetry/doc.go).
       # Connects as the application role only, never the schema-owning
       # migration role (see internal/foundation/database/doc.go).
       DATABASE_URL: postgres://frappe_application:frappe_application_development_only@database:5432/frappe?sslmode=disable
