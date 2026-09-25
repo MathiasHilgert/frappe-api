@@ -129,12 +129,13 @@ func NewApplication(ctx context.Context, provider configuration.Provider) (*appl
 		},
 	})
 
-	// The background health checker is registered last, after every
-	// dependency above that might declare a Check, so it observes the
-	// full set of checks collected on instance. Its own hook timeout
-	// budget must exceed HTTP.ShutdownDrainDelay plus the shutdown call
-	// it precedes on Down, which application.WithHookTimeout above
-	// already accounts for.
+	// The health checker dependency is provided here, but it now builds
+	// its *health.Checker lazily at Up time, reading instance.Checks()
+	// at that point rather than now, so its own position relative to
+	// other Provide calls in this package no longer matters. Its hook
+	// timeout budget must exceed HTTP.ShutdownDrainDelay plus the
+	// shutdown call it precedes on Down, which application.WithHookTimeout
+	// above already accounts for.
 	combinedReadiness.checker = provideHealthChecker(instance, health.Settings{
 		Interval:         loadedConfiguration.Health.CheckInterval,
 		Timeout:          loadedConfiguration.Health.CheckTimeout,

@@ -3,6 +3,7 @@ package health
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -61,10 +62,20 @@ type Checker struct {
 }
 
 // NewChecker creates a Checker for the given checks, applying settings with
-// package defaults filled in for any zero-valued field.
-func NewChecker(checks []Check, settings Settings) *Checker {
+// package defaults filled in for any zero-valued field. It returns an
+// error if settings is invalid (see Settings.Validate) or if two checks
+// share the same name, which would otherwise let the second silently
+// overwrite the first's state.
+func NewChecker(checks []Check, settings Settings) (*Checker, error) {
+	if err := settings.Validate(); err != nil {
+		return nil, err
+	}
+
 	states := make(map[string]*state, len(checks))
 	for _, check := range checks {
+		if _, exists := states[check.Name]; exists {
+			return nil, fmt.Errorf("health: duplicate check name %q", check.Name)
+		}
 		states[check.Name] = &state{}
 	}
 
@@ -72,7 +83,7 @@ func NewChecker(checks []Check, settings Settings) *Checker {
 		settings: settings.withDefaults(),
 		checks:   checks,
 		states:   states,
-	}
+	}, nil
 }
 
 // Start runs every registered check once, synchronously, so the very

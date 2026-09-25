@@ -17,12 +17,15 @@ import (
 // immediately after Start returns, without waiting for the interval.
 func TestStartRunsChecksSynchronouslyBeforeReturning(t *testing.T) {
 	var ran atomic.Bool
-	checker := health.NewChecker([]health.Check{
+	checker, err := health.NewChecker([]health.Check{
 		{Name: "eager", Run: func(context.Context) error {
 			ran.Store(true)
 			return nil
 		}},
 	}, health.Settings{Interval: time.Hour, Timeout: time.Second, FailureThreshold: 1})
+	if err != nil {
+		t.Fatalf("NewChecker returned unexpected error: %v", err)
+	}
 
 	if err := checker.Start(context.Background()); err != nil {
 		t.Fatalf("Start returned unexpected error: %v", err)
@@ -49,7 +52,7 @@ func TestFailureThresholdMarksCheckFailingOnlyAfterNConsecutiveFailures(t *testi
 	var succeedFirst atomic.Bool
 	succeedFirst.Store(true)
 
-	checker := health.NewChecker([]health.Check{
+	checker, err := health.NewChecker([]health.Check{
 		{Name: "flaky", Run: func(context.Context) error {
 			if succeedFirst.Load() {
 				return nil
@@ -58,6 +61,9 @@ func TestFailureThresholdMarksCheckFailingOnlyAfterNConsecutiveFailures(t *testi
 			return errors.New("boom")
 		}},
 	}, health.Settings{Interval: time.Millisecond, Timeout: time.Second, FailureThreshold: 3})
+	if err != nil {
+		t.Fatalf("NewChecker returned unexpected error: %v", err)
+	}
 
 	if err := checker.Start(context.Background()); err != nil {
 		t.Fatalf("Start returned unexpected error: %v", err)
@@ -85,7 +91,7 @@ func TestOneSuccessRestoresAFailingCheck(t *testing.T) {
 	var failing atomic.Bool
 	failing.Store(true)
 
-	checker := health.NewChecker([]health.Check{
+	checker, err := health.NewChecker([]health.Check{
 		{Name: "recovering", Run: func(context.Context) error {
 			if failing.Load() {
 				return errors.New("still down")
@@ -93,6 +99,9 @@ func TestOneSuccessRestoresAFailingCheck(t *testing.T) {
 			return nil
 		}},
 	}, health.Settings{Interval: time.Millisecond, Timeout: time.Second, FailureThreshold: 1})
+	if err != nil {
+		t.Fatalf("NewChecker returned unexpected error: %v", err)
+	}
 
 	if err := checker.Start(context.Background()); err != nil {
 		t.Fatalf("Start returned unexpected error: %v", err)
@@ -115,12 +124,15 @@ func TestOneSuccessRestoresAFailingCheck(t *testing.T) {
 // TestTimeoutCountsAsFailure verifies that a check which exceeds the
 // configured per-check timeout is treated as a failed run.
 func TestTimeoutCountsAsFailure(t *testing.T) {
-	checker := health.NewChecker([]health.Check{
+	checker, err := health.NewChecker([]health.Check{
 		{Name: "slow", Run: func(ctx context.Context) error {
 			<-ctx.Done()
 			return ctx.Err()
 		}},
 	}, health.Settings{Interval: time.Hour, Timeout: time.Millisecond, FailureThreshold: 1})
+	if err != nil {
+		t.Fatalf("NewChecker returned unexpected error: %v", err)
+	}
 
 	if err := checker.Start(context.Background()); err != nil {
 		t.Fatalf("Start returned unexpected error: %v", err)
@@ -140,10 +152,13 @@ func TestTimeoutCountsAsFailure(t *testing.T) {
 // TestReportShapeReflectsEveryCheck verifies that Report aggregates an
 // overall pass/fail status and includes every registered check by name.
 func TestReportShapeReflectsEveryCheck(t *testing.T) {
-	checker := health.NewChecker([]health.Check{
+	checker, err := health.NewChecker([]health.Check{
 		{Name: "ok", Run: func(context.Context) error { return nil }},
 		{Name: "broken", Run: func(context.Context) error { return errors.New("nope") }},
 	}, health.Settings{Interval: time.Hour, Timeout: time.Second, FailureThreshold: 1})
+	if err != nil {
+		t.Fatalf("NewChecker returned unexpected error: %v", err)
+	}
 
 	if err := checker.Start(context.Background()); err != nil {
 		t.Fatalf("Start returned unexpected error: %v", err)
@@ -169,12 +184,15 @@ func TestReportShapeReflectsEveryCheck(t *testing.T) {
 // return until the background loop goroutine has exited.
 func TestStopWaitsForTheBackgroundGoroutine(t *testing.T) {
 	var runs atomic.Int32
-	checker := health.NewChecker([]health.Check{
+	checker, err := health.NewChecker([]health.Check{
 		{Name: "counting", Run: func(context.Context) error {
 			runs.Add(1)
 			return nil
 		}},
 	}, health.Settings{Interval: time.Millisecond, Timeout: time.Second, FailureThreshold: 1})
+	if err != nil {
+		t.Fatalf("NewChecker returned unexpected error: %v", err)
+	}
 
 	if err := checker.Start(context.Background()); err != nil {
 		t.Fatalf("Start returned unexpected error: %v", err)
@@ -200,7 +218,7 @@ func TestStopWaitsForTheBackgroundGoroutine(t *testing.T) {
 func TestStopReturnsWhenContextIsDone(t *testing.T) {
 	var calls atomic.Int32
 	blockForever := make(chan struct{})
-	checker := health.NewChecker([]health.Check{
+	checker, err := health.NewChecker([]health.Check{
 		{Name: "blocking", Run: func(context.Context) error {
 			if calls.Add(1) == 1 {
 				// First call: the synchronous run inside Start. Return
@@ -211,9 +229,12 @@ func TestStopReturnsWhenContextIsDone(t *testing.T) {
 			return nil
 		}},
 	}, health.Settings{Interval: time.Millisecond, Timeout: time.Hour, FailureThreshold: 1})
+	if err != nil {
+		t.Fatalf("NewChecker returned unexpected error: %v", err)
+	}
 
-	if err := checker.Start(context.Background()); err != nil {
-		t.Fatalf("Start returned unexpected error: %v", err)
+	if startErr := checker.Start(context.Background()); startErr != nil {
+		t.Fatalf("Start returned unexpected error: %v", startErr)
 	}
 
 	waitUntil(t, func() bool { return calls.Load() >= 2 })
@@ -221,7 +242,7 @@ func TestStopReturnsWhenContextIsDone(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
 	defer cancel()
 
-	err := checker.Stop(ctx)
+	err = checker.Stop(ctx)
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("Stop error = %v, want context.DeadlineExceeded", err)
 	}
@@ -234,9 +255,12 @@ func TestStopReturnsWhenContextIsDone(t *testing.T) {
 // the first ever success. The threshold only smooths transient flapping
 // once a check has proven healthy at least once.
 func TestReadyIsFalseImmediatelyWhenADependencyIsDownAtBoot(t *testing.T) {
-	checker := health.NewChecker([]health.Check{
+	checker, err := health.NewChecker([]health.Check{
 		{Name: "down-at-boot", Run: func(context.Context) error { return errors.New("boom") }},
 	}, health.Settings{Interval: time.Hour, Timeout: time.Second, FailureThreshold: 3})
+	if err != nil {
+		t.Fatalf("NewChecker returned unexpected error: %v", err)
+	}
 
 	if err := checker.Start(context.Background()); err != nil {
 		t.Fatalf("Start returned unexpected error: %v", err)
@@ -256,7 +280,7 @@ func TestReadyIsFalseImmediatelyWhenADependencyIsDownAtBoot(t *testing.T) {
 // would force.
 func TestASlowCheckDoesNotDelayOtherChecksWithinACycle(t *testing.T) {
 	var fastRuns atomic.Int32
-	checker := health.NewChecker([]health.Check{
+	checker, err := health.NewChecker([]health.Check{
 		{Name: "slow", Run: func(ctx context.Context) error {
 			<-ctx.Done()
 			return ctx.Err()
@@ -266,6 +290,9 @@ func TestASlowCheckDoesNotDelayOtherChecksWithinACycle(t *testing.T) {
 			return nil
 		}},
 	}, health.Settings{Interval: time.Hour, Timeout: 500 * time.Millisecond, FailureThreshold: 1})
+	if err != nil {
+		t.Fatalf("NewChecker returned unexpected error: %v", err)
+	}
 
 	go func() { _ = checker.Start(context.Background()) }()
 	defer func() { _ = checker.Stop(context.Background()) }()
@@ -277,7 +304,10 @@ func TestASlowCheckDoesNotDelayOtherChecksWithinACycle(t *testing.T) {
 // returns an error instead of racing the first call's background loop
 // setup (which writes checker.cancel and checker.done unguarded).
 func TestStartIsNotIdempotent(t *testing.T) {
-	checker := health.NewChecker(nil, health.Settings{Interval: time.Hour, Timeout: time.Second, FailureThreshold: 1})
+	checker, err := health.NewChecker(nil, health.Settings{Interval: time.Hour, Timeout: time.Second, FailureThreshold: 1})
+	if err != nil {
+		t.Fatalf("NewChecker returned unexpected error: %v", err)
+	}
 
 	if err := checker.Start(context.Background()); err != nil {
 		t.Fatalf("first Start returned unexpected error: %v", err)
@@ -293,7 +323,10 @@ func TestStartIsNotIdempotent(t *testing.T) {
 // detector, that Start and Stop do not race on the checker's internal
 // cancel/done bookkeeping when called from different goroutines.
 func TestStartAndStopAreSafeForConcurrentUse(t *testing.T) {
-	checker := health.NewChecker(nil, health.Settings{Interval: time.Hour, Timeout: time.Second, FailureThreshold: 1})
+	checker, err := health.NewChecker(nil, health.Settings{Interval: time.Hour, Timeout: time.Second, FailureThreshold: 1})
+	if err != nil {
+		t.Fatalf("NewChecker returned unexpected error: %v", err)
+	}
 
 	started := make(chan struct{})
 	go func() {
@@ -304,6 +337,30 @@ func TestStartAndStopAreSafeForConcurrentUse(t *testing.T) {
 
 	if err := checker.Stop(context.Background()); err != nil {
 		t.Fatalf("Stop returned unexpected error: %v", err)
+	}
+}
+
+// TestNewCheckerRejectsDuplicateCheckNames verifies that two checks
+// registered under the same name are rejected instead of silently
+// letting the second overwrite the first's state.
+func TestNewCheckerRejectsDuplicateCheckNames(t *testing.T) {
+	_, err := health.NewChecker([]health.Check{
+		{Name: "same", Run: func(context.Context) error { return nil }},
+		{Name: "same", Run: func(context.Context) error { return nil }},
+	}, health.Settings{})
+
+	if err == nil {
+		t.Fatal("NewChecker returned nil error for duplicate check names")
+	}
+}
+
+// TestNewCheckerRejectsInvalidSettings verifies that NewChecker validates
+// settings instead of silently ignoring an invalid explicit value.
+func TestNewCheckerRejectsInvalidSettings(t *testing.T) {
+	_, err := health.NewChecker(nil, health.Settings{Interval: -1})
+
+	if err == nil {
+		t.Fatal("NewChecker returned nil error for a negative Interval")
 	}
 }
 
