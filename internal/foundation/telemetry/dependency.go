@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"os"
 	"sync"
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
@@ -154,17 +155,20 @@ func Up(ctx context.Context, settings Settings) (SDK, error) {
 		return SDK{}, err
 	}
 
-	tracerProvider := sdktrace.NewTracerProvider(
+	tracerProviderOptions := append([]sdktrace.TracerProviderOption{
 		sdktrace.WithResource(detectedResource),
 		sdktrace.WithBatcher(traceExporter),
-	)
+	}, samplerOptions(settings.DeploymentEnvironment, os.LookupEnv)...)
+	tracerProvider := sdktrace.NewTracerProvider(tracerProviderOptions...)
 
 	// No WithExemplarFilter option is passed: the SDK's default is
 	// exemplar.TraceBasedFilter (go.opentelemetry.io/otel/sdk/metric's
 	// config.go), which only offers a measurement as an exemplar when it
 	// was recorded inside a sampled span. That is exactly what carries
 	// trace_id onto histogram data points, letting a metric spike be
-	// linked back to the trace that produced it.
+	// linked back to the trace that produced it. Because only sampled
+	// spans qualify, a lower trace sample ratio (see sampler.go) also means
+	// proportionally fewer exemplars.
 	meterProvider := sdkmetric.NewMeterProvider(
 		sdkmetric.WithResource(detectedResource),
 		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExporter)),
