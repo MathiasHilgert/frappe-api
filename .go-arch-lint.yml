@@ -154,6 +154,24 @@ components:
   foundation_i18n_localizedtext_postgres:
     in: internal/foundation/i18n/localizedtext/postgres/**
 
+  # foundation_jobs is the backend-agnostic jobs platform
+  # (internal/foundation/jobs): the catalog, typed definitions, the
+  # Enqueuer port and its telemetry. It is a leaf split out of foundation
+  # because a module's application layer may enqueue its own jobs.
+  # foundation_jobs_river is the River backend, the only jobs package that
+  # needs the database foundation package (to join the business
+  # transaction), and foundation_jobs_support holds the jobstest doubles
+  # and the queuetest contract suite. All three are matched before the
+  # general foundation component.
+  foundation_jobs:
+    in: internal/foundation/jobs
+
+  foundation_jobs_river:
+    in: internal/foundation/jobs/river/**
+
+  foundation_jobs_support:
+    in: internal/foundation/jobs/**
+
   foundation:
     in: internal/foundation/**
 
@@ -190,6 +208,9 @@ components:
 deps:
   cmd:
     mayDependOn:
+      - foundation_jobs
+      - foundation_jobs_river
+      - foundation_jobs_support
       - foundation_cache
       - foundation_cache_eventinvalidation
       - foundation_cache_support
@@ -286,8 +307,20 @@ deps:
       - foundation_i18n
       - foundation_i18n_localizedtext
 
+  foundation_jobs_river:
+    mayDependOn:
+      - foundation
+      - foundation_jobs
+
+  foundation_jobs_support:
+    mayDependOn:
+      - foundation_jobs
+
   dependencies:
     mayDependOn:
+      - foundation_jobs
+      - foundation_jobs_river
+      - foundation_jobs_support
       - foundation_cache
       - foundation_cache_eventinvalidation
       - foundation_cache_support
@@ -329,6 +362,7 @@ deps:
   # localized text API (foundation_i18n_localizedtext, with i18n.Locale).
   module_application:
     mayDependOn:
+      - foundation_jobs
       - module_domain
       - module_events
       - module_metrics
@@ -341,6 +375,7 @@ deps:
     mayDependOn:
       - foundation_i18n
       - foundation_i18n_localizedtext
+      - foundation_jobs
       - foundation_cache
       - foundation_cache_eventinvalidation
       - module_domain
@@ -355,6 +390,7 @@ deps:
     mayDependOn:
       - foundation_i18n
       - foundation_i18n_localizedtext
+      - foundation_jobs
       - foundation_cache
       - foundation_cache_eventinvalidation
       - module_domain

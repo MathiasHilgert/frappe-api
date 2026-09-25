@@ -13,6 +13,7 @@ import (
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/events"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/health"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/httpserver"
+	"github.com/MathiasHilgert/frappe-api/internal/foundation/jobs"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/logging"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/telemetry"
 )
@@ -199,6 +200,13 @@ func NewApplication(ctx context.Context, provider configuration.Provider, option
 	// wired here with its own constructor call passing server.V1() and
 	// instance.Use(...), following foundation/httpserver's doc.go
 	// convention, and its Subscriptions(registry) call.
+
+	// The jobs backend works the handlers modules registered on the default
+	// catalog with jobs.Handle (read at Up, so after every module above is
+	// wired). It is provided after the application pool it runs on and
+	// before the HTTP server, so it stops working jobs only after the
+	// server drained and before the pool closes.
+	provideJobs(instance, loadedConfiguration.Jobs, jobs.Default(), databasePool)
 
 	// The consumer runtime is provided after the broker and the application
 	// pool (the inbox runs on it) and before the HTTP server, so it stops

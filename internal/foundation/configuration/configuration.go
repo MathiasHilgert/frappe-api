@@ -58,6 +58,7 @@ type Configuration struct {
 	RateLimit   RateLimit   `envPrefix:"RATE_LIMIT_"`
 	Health      Health      `envPrefix:"HEALTH_"`
 	Inbox       Inbox       `envPrefix:"INBOX_"`
+	Jobs        Jobs        `envPrefix:"JOBS_"`
 	Telemetry   Telemetry   `envPrefix:"TELEMETRY_"`
 }
 

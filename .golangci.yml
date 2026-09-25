@@ -83,6 +83,8 @@ linters:
               desc: "use the storage-agnostic localizedtext.Service; the Postgres store is wired by the composition root"
             - pkg: github.com/MathiasHilgert/frappe-api/internal/foundation/cache
               desc: "caching is infrastructure: decorate the module's read port in adapters with cache.ReadThrough; use cases never see the cache"
+            - pkg: github.com/MathiasHilgert/frappe-api/internal/foundation/jobs/river
+              desc: "application enqueues through its jobs definitions (foundation/jobs); the River backend is wired by the composition root only"
         foundation:
           files:
             - "**/internal/foundation/*.go"
