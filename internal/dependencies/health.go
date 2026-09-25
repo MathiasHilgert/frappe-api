@@ -26,26 +26,26 @@ type readiness struct {
 	checker     *application.Handle[*health.Checker]
 }
 
-// Ready implements httpserver.Readiness.
-func (readiness *readiness) Ready() bool {
-	checker, ready := readiness.checker.Get()
-	return readiness.application.Ready() && ready && checker.Ready()
-}
-
-// Report implements httpserver.Readiness, serving the health checker's
-// report as the /health/ready response body. The overall status is forced
-// to fail while the application lifecycle is not ready (starting up or
-// draining), so the body always agrees with the 503 status code.
-func (readiness *readiness) Report() any {
-	checker, ready := readiness.checker.Get()
-	if !ready {
-		return health.Report{Status: health.StatusFail}
+// Check implements httpserver.Readiness. It takes the health checker's
+// report and its implied readiness from a single Checker.Snapshot call,
+// so the two returned values (which back the /health/ready response's
+// body and status code respectively) can never disagree with each other
+// the way two separate calls could. The overall status is forced to fail
+// while the application lifecycle is not ready (starting up or
+// draining), so the body always agrees with the 503 status code in that
+// case too.
+func (readiness *readiness) Check() (any, bool) {
+	checker, checkerReady := readiness.checker.Get()
+	if !checkerReady {
+		return health.Report{Status: health.StatusFail}, false
 	}
-	report := checker.Report()
+
+	report, checksReady := checker.Snapshot()
+	ready := checksReady && readiness.application.Ready()
 	if !readiness.application.Ready() {
 		report.Status = health.StatusFail
 	}
-	return report
+	return report, ready
 }
 
 // adaptChecks translates application.Check values, collected from every

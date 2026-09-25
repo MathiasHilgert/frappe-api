@@ -455,6 +455,54 @@ func TestCheckerLogsDetailOnlyOnStateTransitions(t *testing.T) {
 	}
 }
 
+// TestSnapshotReadyAgreesWithItsOwnReportStatus verifies that Snapshot
+// returns a report and a ready flag taken from the same underlying
+// state, under one lock, so a caller building an HTTP response from them
+// can never observe them disagree (unlike calling Ready() and Report()
+// separately, which can race against a concurrent state update between
+// the two calls).
+func TestSnapshotReadyAgreesWithItsOwnReportStatus(t *testing.T) {
+	var failing atomic.Bool
+	checker, err := health.NewChecker([]health.Check{
+		{Name: "flapping", Run: func(context.Context) error {
+			if failing.Load() {
+				return errors.New("down")
+			}
+			return nil
+		}},
+	}, health.Settings{Interval: time.Microsecond, Timeout: time.Second, FailureThreshold: 1})
+	if err != nil {
+		t.Fatalf("NewChecker returned unexpected error: %v", err)
+	}
+
+	if err := checker.Start(context.Background()); err != nil {
+		t.Fatalf("Start returned unexpected error: %v", err)
+	}
+	defer func() { _ = checker.Stop(context.Background()) }()
+
+	stop := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				failing.Store(!failing.Load())
+			}
+		}
+	}()
+	defer close(stop)
+
+	deadline := time.Now().Add(200 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		report, ready := checker.Snapshot()
+		reportReady := report.Status == health.StatusPass
+		if reportReady != ready {
+			t.Fatalf("Snapshot disagreement: report.Status implies ready=%v, Snapshot's own ready=%v", reportReady, ready)
+		}
+	}
+}
+
 // waitUntil polls condition until it is true or a short deadline elapses,
 // failing the test if the deadline is reached first.
 func waitUntil(t *testing.T, condition func() bool) {

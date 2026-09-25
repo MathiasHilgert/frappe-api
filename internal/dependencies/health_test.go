@@ -25,12 +25,16 @@ func TestReadinessReportFailsWhenApplicationIsNotReady(t *testing.T) {
 		checker:     handle,
 	}
 
-	report, ok := subject.Report().(health.Report)
+	body, ready := subject.Check()
+	report, ok := body.(health.Report)
 	if !ok {
-		t.Fatalf("Report() type = %T, want health.Report", subject.Report())
+		t.Fatalf("Check() report type = %T, want health.Report", body)
 	}
 	if report.Status != health.StatusFail {
-		t.Errorf("Report().Status = %q, want %q while the application is not ready", report.Status, health.StatusFail)
+		t.Errorf("Check() report.Status = %q, want %q while the application is not ready", report.Status, health.StatusFail)
+	}
+	if ready {
+		t.Error("Check() ready = true while the application is not ready, want false")
 	}
 }
 

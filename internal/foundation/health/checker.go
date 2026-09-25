@@ -246,22 +246,32 @@ func (checker *Checker) logger() *slog.Logger {
 }
 
 // Ready reports whether every registered check is currently passing. A
-// Checker with no registered checks is always ready.
+// Checker with no registered checks is always ready. It is equivalent to
+// the second return value of Snapshot, provided as its own method for
+// callers that only need the boolean; a caller that needs both a report
+// and the readiness it implies (for example to build one consistent HTTP
+// response) must use Snapshot instead of calling Ready and Report
+// separately, since a state update between those two separate calls
+// could otherwise make them disagree.
 func (checker *Checker) Ready() bool {
-	checker.mutex.Lock()
-	defer checker.mutex.Unlock()
-
-	for _, checkState := range checker.states {
-		if checkState.failing {
-			return false
-		}
-	}
-	return true
+	_, ready := checker.Snapshot()
+	return ready
 }
 
 // Report builds the current aggregate Report from every registered
-// check's state.
+// check's state. See Snapshot's doc comment for why a caller that also
+// needs the readiness this report implies should call Snapshot instead.
 func (checker *Checker) Report() Report {
+	report, _ := checker.Snapshot()
+	return report
+}
+
+// Snapshot builds the current aggregate Report and its implied readiness
+// together, under a single lock, so the two can never disagree the way
+// two separate Ready and Report calls could if a state update landed
+// between them. ready is true if and only if report.Status is
+// StatusPass.
+func (checker *Checker) Snapshot() (Report, bool) {
 	checker.mutex.Lock()
 	defer checker.mutex.Unlock()
 
@@ -279,5 +289,5 @@ func (checker *Checker) Report() Report {
 		}
 	}
 
-	return report
+	return report, report.Status == StatusPass
 }

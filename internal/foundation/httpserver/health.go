@@ -23,13 +23,15 @@ func registerHealth(router *http.ServeMux, readiness Readiness) {
 	})
 
 	router.HandleFunc("GET /health/ready", func(w http.ResponseWriter, _ *http.Request) {
+		report, ready := readiness.Check()
+
 		status := http.StatusOK
-		if !readiness.Ready() {
+		if !ready {
 			status = http.StatusServiceUnavailable
 		}
 
 		w.Header().Set("Content-Type", healthContentType)
 		w.WriteHeader(status)
-		_ = json.NewEncoder(w).Encode(readiness.Report())
+		_ = json.NewEncoder(w).Encode(report)
 	})
 }

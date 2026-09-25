@@ -24,12 +24,13 @@ import (
 )
 
 // readinessFunc adapts a plain func() bool into httpserver.Readiness, so
-// tests can express readiness as a closure. Report returns a fixed,
-// deterministic value so tests can assert on the serialized body.
+// tests can express readiness as a closure. Check returns a fixed,
+// deterministic report so tests can assert on the serialized body.
 type readinessFunc func() bool
 
-func (f readinessFunc) Ready() bool { return f() }
-func (f readinessFunc) Report() any { return map[string]string{"status": "test"} }
+func (f readinessFunc) Check() (any, bool) {
+	return map[string]string{"status": "test"}, f()
+}
 
 // testSettings returns Settings with short timeouts and an always-ready
 // ready function, suitable for exercising the server in tests.

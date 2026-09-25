@@ -16,20 +16,23 @@ import (
 // without this package changing: httpserver never pings a dependency
 // itself, it only asks whatever Readiness it was given.
 type Readiness interface {
-	Ready() bool
-	// Report returns the readiness detail served as the /health/ready
-	// response body. Its concrete type is owned by whatever implements
-	// Readiness (for example internal/foundation/health.Report), and this
-	// package only ever marshals it as JSON; it never inspects its
-	// fields, keeping httpserver decoupled from the health package.
-	Report() any
+	// Check reports the current readiness detail (report) and whether it
+	// implies the server is ready (ready), taken together from the same
+	// underlying state. It is one call, not two, specifically so the
+	// /health/ready handler can never serve an HTTP status code that
+	// disagrees with its own response body: two separate methods,
+	// called one after the other, could observe a state update land in
+	// between them. report's concrete type is owned by whatever
+	// implements Readiness (for example internal/foundation/health.Report),
+	// and this package only ever marshals it as JSON; it never inspects
+	// its fields, keeping httpserver decoupled from the health package.
+	Check() (report any, ready bool)
 }
 
 // alwaysReady is the Readiness used when Settings.Ready is nil.
 type alwaysReady struct{}
 
-func (alwaysReady) Ready() bool { return true }
-func (alwaysReady) Report() any { return struct{}{} }
+func (alwaysReady) Check() (any, bool) { return struct{}{}, true }
 
 // Settings configures a Server. Every field has a corresponding field on
 // internal/foundation/configuration.Configuration's HTTP struct; the
