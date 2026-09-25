@@ -21,7 +21,11 @@ type buildInfo struct {
 
 // options holds the configuration assembled by functional Option values.
 type options struct {
-	signals     []os.Signal
+	signals []os.Signal
+	// logger is nil unless WithLogger was given: a nil logger means hook
+	// logging resolves slog.Default() lazily, at the time each phase logs,
+	// instead of freezing onto whatever was default at New. See
+	// Application.resolveLogger.
 	logger      *slog.Logger
 	buildInfo   buildInfo
 	hookTimeout time.Duration
@@ -39,7 +43,10 @@ func WithHookTimeout(timeout time.Duration) Option {
 	}
 }
 
-// WithLogger sets the logger used to record hook start and stop events.
+// WithLogger sets an explicit logger used to record hook start and stop
+// events. Without this option, the Application resolves slog.Default()
+// lazily each time a hook phase logs, rather than capturing it once at
+// New; see Application.resolveLogger.
 func WithLogger(logger *slog.Logger) Option {
 	return func(o *options) {
 		o.logger = logger
@@ -70,7 +77,6 @@ func WithBuildInfo(version, commit, environment string) Option {
 func newOptions(optionFunctions []Option) options {
 	resolved := options{
 		hookTimeout: defaultHookTimeout,
-		logger:      slog.Default(),
 	}
 	for _, apply := range optionFunctions {
 		apply(&resolved)

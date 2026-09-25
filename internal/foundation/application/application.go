@@ -98,13 +98,10 @@ func (application *Application) runPhase(ctx context.Context, hook Hook, phaseFu
 	return err
 }
 
-// logPhase records the outcome of one hook phase through the configured
+// logPhase records the outcome of one hook phase through the resolved
 // logger.
 func (application *Application) logPhase(name, phase string, duration time.Duration, err error) {
-	logger := application.options.logger
-	if logger == nil {
-		return
-	}
+	logger := application.resolveLogger()
 
 	if err != nil {
 		logger.Error("hook phase failed", slog.String("hook", name), slog.String("phase", phase), slog.Duration("duration", duration), slog.Any("error", err))
@@ -112,4 +109,16 @@ func (application *Application) logPhase(name, phase string, duration time.Durat
 	}
 
 	logger.Info("hook phase completed", slog.String("hook", name), slog.String("phase", phase), slog.Duration("duration", duration))
+}
+
+// resolveLogger returns the explicit logger given through WithLogger, if
+// any, or slog.Default() otherwise. It is called at the time each hook
+// phase logs rather than once at New, so lifecycle logs still reach the
+// slog default logger installed by a hook that runs before others, such
+// as telemetry's own Up.
+func (application *Application) resolveLogger() *slog.Logger {
+	if application.options.logger != nil {
+		return application.options.logger
+	}
+	return slog.Default()
 }
