@@ -79,6 +79,8 @@ linters:
               desc: "application must not depend on the HTTP server foundation package"
             - pkg: github.com/MathiasHilgert/frappe-api/internal/foundation/database
               desc: "application must not depend on the database foundation package"
+            - pkg: github.com/MathiasHilgert/frappe-api/internal/foundation/i18n/localizedtext/postgres
+              desc: "use the storage-agnostic localizedtext.Service; the Postgres store is wired by the composition root"
             - pkg: github.com/MathiasHilgert/frappe-api/internal/foundation/cache
               desc: "caching is infrastructure: decorate the module's read port in adapters with cache.ReadThrough; use cases never see the cache"
         foundation:

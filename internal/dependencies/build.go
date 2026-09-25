@@ -141,10 +141,15 @@ func NewApplication(ctx context.Context, provider configuration.Provider, option
 	// /v1 request's locale from Accept-Language (see
 	// internal/foundation/i18n). Modules receive it through their
 	// Dependencies when they translate outside a request.
-	catalog, localizationError := provideLocalization(loadedConfiguration.Internationalization)
+	// localizedTexts is the *localizedtext.Service every module with
+	// user-entered, translatable fields receives through its Dependencies;
+	// each module declares its fields with localizedTexts.Field at wiring
+	// time (see internal/foundation/i18n/localizedtext/doc.go).
+	catalog, localizedTexts, localizationError := provideInternationalization(loadedConfiguration.Internationalization)
 	if localizationError != nil {
 		return nil, fmt.Errorf("localization: %w", localizationError)
 	}
+	provideLocaleCheck(instance, databasePool, catalog)
 
 	server := httpserver.New(httpserver.Settings{
 		Title:                loadedConfiguration.Application.Name,
@@ -187,6 +192,8 @@ func NewApplication(ctx context.Context, provider configuration.Provider, option
 	// disabled or unavailable, entries simply load from the source.
 	cacheBackend := provideCache(loadedConfiguration.Cache, valkeyClient)
 	_ = cacheBackend
+
+	_ = localizedTexts
 
 	// No concrete module exists yet; each one, as it is added, gets
 	// wired here with its own constructor call passing server.V1() and
