@@ -22,6 +22,10 @@ services:
       # enabled here against the bundled Valkey.
       RATE_LIMIT_ENABLED: "true"
       VALKEY_ADDRESS: valkey:6379
+      # The read-through cache is off by default and uses the bundled
+      # Valkey here, sharing the rate limiter's client.
+      CACHE_ENABLED: "true"
+      CACHE_STORE: valkey
       # The event broker is off by default (EVENTS_BROKER=none) and uses
       # the bundled NATS JetStream here.
       EVENTS_BROKER: nats

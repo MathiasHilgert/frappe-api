@@ -44,18 +44,19 @@ import (
 // program. It is composed of one struct per concern, each with its own
 // environment prefix.
 type Configuration struct {
-	Logging     Logging     `envPrefix:"LOGGING_"`
 	Events      Events      `envPrefix:"EVENTS_"`
+	Logging     Logging     `envPrefix:"LOGGING_"`
 	Application Application `envPrefix:"APPLICATION_"`
 	Valkey      Valkey      `envPrefix:"VALKEY_"`
+	Cache       Cache       `envPrefix:"CACHE_"`
 	Database    Database    `envPrefix:"DATABASE_"`
 	NATS        NATS        `envPrefix:"NATS_"`
 	HTTP        HTTP        `envPrefix:"HTTP_"`
+	Outbox      Outbox      `envPrefix:"OUTBOX_"`
 	RateLimit   RateLimit   `envPrefix:"RATE_LIMIT_"`
 	Health      Health      `envPrefix:"HEALTH_"`
-	Telemetry   Telemetry   `envPrefix:"TELEMETRY_"`
-	Outbox      Outbox      `envPrefix:"OUTBOX_"`
 	Inbox       Inbox       `envPrefix:"INBOX_"`
+	Telemetry   Telemetry   `envPrefix:"TELEMETRY_"`
 }
 
 // Inbox holds settings for the consumer inbox (see
@@ -112,6 +113,23 @@ type RateLimit struct {
 	// Requests is how many requests one client may make per Window.
 	Requests int `env:"REQUESTS" envDefault:"100"`
 	// Enabled toggles rate limiting. When true, VALKEY_ADDRESS is required.
+	Enabled bool `env:"ENABLED" envDefault:"false"`
+}
+
+// Cache holds settings for the read-through cache (see
+// internal/foundation/cache). It defaults to disabled, which keeps every
+// cache decorator working on a store that always misses; compose.yaml
+// enables it on Valkey. Settings are only validated while it is enabled.
+type Cache struct {
+	// Store selects the storage: CacheStoreMemory (single process) or
+	// CacheStoreValkey (shared, requires VALKEY_ADDRESS).
+	Store string `env:"STORE" envDefault:"memory"`
+	// DefaultTimeToLive applies to entries created without a lifetime.
+	DefaultTimeToLive time.Duration `env:"DEFAULT_TIME_TO_LIVE" envDefault:"5m"`
+	// OperationTimeout bounds one store round trip; on timeout or any
+	// error the read fails open and loads from the source.
+	OperationTimeout time.Duration `env:"OPERATION_TIMEOUT" envDefault:"100ms"`
+	// Enabled turns caching on.
 	Enabled bool `env:"ENABLED" envDefault:"false"`
 }
 

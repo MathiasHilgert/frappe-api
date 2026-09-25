@@ -12,7 +12,6 @@ import (
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/configuration"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/httpserver"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/ratelimit"
-	"github.com/MathiasHilgert/frappe-api/internal/foundation/valkey"
 )
 
 // errLimiterNotReady is returned while the Valkey-backed limiter has not
@@ -46,56 +45,40 @@ func (adapter rateLimiterAdapter) Allow(ctx context.Context, key string) (httpse
 	}, nil
 }
 
-// provideRateLimit registers the Valkey client (with a health check) and
-// returns the httpserver rate limit settings. When rate limiting is
-// disabled nothing is registered, Valkey is never contacted, and the
+// rateLimiterDependencyName identifies the limiter built on the shared
+// Valkey client.
+const rateLimiterDependencyName = "rate_limiter"
+
+// provideRateLimit returns the httpserver rate limit settings and, when
+// rate limiting is enabled, registers the limiter on the shared Valkey
+// client (see provideValkey, which must be called first so the client is
+// up before the limiter is built). When rate limiting is disabled the
 // returned settings have a nil Limiter, which disables the middleware.
 // It must be called before the HTTP server dependency is provided, so
-// Valkey comes up before the server accepts traffic and goes down after.
-func provideRateLimit(instance *application.Application, loadedConfiguration configuration.Configuration) (httpserver.RateLimitSettings, error) {
+// the limiter comes up before the server accepts traffic.
+func provideRateLimit(instance *application.Application, loadedConfiguration configuration.Configuration, client *application.Handle[valkeygo.Client]) (httpserver.RateLimitSettings, error) {
 	trustedProxies, err := parseTrustedProxies(loadedConfiguration.HTTP.TrustedProxies)
 	if err != nil {
 		return httpserver.RateLimitSettings{}, err
 	}
 	settings := httpserver.RateLimitSettings{TrustedProxies: trustedProxies}
-	if !loadedConfiguration.RateLimit.Enabled {
+	if !loadedConfiguration.RateLimit.Enabled || client == nil {
 		return settings, nil
 	}
 
-	valkeySettings := valkey.Settings{
-		Address:      loadedConfiguration.Valkey.Address,
-		Password:     loadedConfiguration.Valkey.Password,
-		Database:     loadedConfiguration.Valkey.Database,
-		DialTimeout:  loadedConfiguration.Valkey.DialTimeout,
-		WriteTimeout: loadedConfiguration.Valkey.WriteTimeout,
-	}
 	limiterSettings := ratelimit.Settings{
 		Requests: loadedConfiguration.RateLimit.Requests,
 		Window:   loadedConfiguration.RateLimit.Window,
 		Timeout:  loadedConfiguration.RateLimit.Timeout,
 	}
-
-	var client valkeygo.Client
 	limiter := application.Provide(instance, application.Dependency[*ratelimit.Limiter]{
-		Name: valkey.DependencyName,
-		Up: func(ctx context.Context) (*ratelimit.Limiter, error) {
-			connected, err := valkey.Up(ctx, valkeySettings)
-			if err != nil {
-				return nil, err
+		Name: rateLimiterDependencyName,
+		Up: func(context.Context) (*ratelimit.Limiter, error) {
+			connected, ready := client.Get()
+			if !ready {
+				return nil, errLimiterNotReady
 			}
-			built, err := ratelimit.New(connected, limiterSettings)
-			if err != nil {
-				connected.Close()
-				return nil, err
-			}
-			client = connected
-			return built, nil
-		},
-		Down: func(ctx context.Context, _ *ratelimit.Limiter) error {
-			return valkey.Down(ctx, client)
-		},
-		Check: func(ctx context.Context, _ *ratelimit.Limiter) error {
-			return valkey.Check(ctx, client)
+			return ratelimit.New(connected, limiterSettings)
 		},
 	})
 	settings.Limiter = rateLimiterAdapter{limiter: limiter}
