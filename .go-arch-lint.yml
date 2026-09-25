@@ -90,6 +90,13 @@ components:
   foundation_events_support:
     in: internal/foundation/events/**
 
+  # foundation_nats is the NATS JetStream broker adapter
+  # (internal/foundation/nats). It implements the foundation_events ports,
+  # so, unlike the general foundation leaves, it may depend on
+  # foundation_events. Matched before the general foundation component.
+  foundation_nats:
+    in: internal/foundation/nats/**
+
   foundation:
     in: internal/foundation/**
 
@@ -133,6 +140,7 @@ deps:
       - foundation_events_outbox
       - foundation_events_outbox_postgres
       - foundation_events_support
+      - foundation_nats
       - dependencies
       - module_root
       - module_adapters
@@ -180,9 +188,14 @@ deps:
       - foundation_events
       - foundation_events_outbox
 
+  foundation_nats:
+    mayDependOn:
+      - foundation_events
+
   dependencies:
     mayDependOn:
       - foundation
+      - foundation_nats
       - foundation_configuration
       - foundation_configuration_environment
       - foundation_events
