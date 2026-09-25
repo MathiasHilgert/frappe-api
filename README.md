@@ -63,6 +63,9 @@ internal/
     application/        lifecycle: hooks, Up/Down, readiness
     configuration/      configuration and validation (environment provider)
     database/           pgx pool, RLS-ready transactions
+    events/             broker-agnostic events: CloudEvents envelope, ports, typed consumers
+      outbox/           storage-agnostic transactional outbox and relay
+      memory/           in-memory broker (tests, running without a broker)
     health/             background dependency checks
     httpserver/         HTTP server, middleware, Huma /v1 API
     logging/            JSON logs to stdout, level gating
@@ -74,6 +77,7 @@ internal/
       domain/           entities and rules, no infrastructure
       application/      use cases and the ports they need
       adapters/         http, postgres, ...
+      events/           published events: the only package other modules may import
       metrics/          module metrics
       tracing/          module spans
       module.go         module wiring
@@ -100,7 +104,8 @@ Rules enforced in CI by `go-arch-lint` and `depguard`:
 - `domain` imports nothing from infrastructure (no HTTP, database, JSON or OpenTelemetry).
 - `application` depends only on its own `domain`; it never touches the database or `pgx`.
 - `foundation` never imports `modules` or `dependencies`.
-- A module never imports another module's internals.
+- A module never imports another module's internals; `modules/<module>/events` is the only package other modules' application, adapters and module root may import, and it depends on `foundation/events` only. `domain` never imports events.
+- Only `foundation/nats` and `dependencies` may import the NATS client; everything else uses the broker-agnostic ports.
 - Modules never read the global configuration: each module declares its own `Configuration` and `Dependencies` and receives them by constructor.
 
 ## Key concepts
@@ -114,6 +119,7 @@ Rules enforced in CI by `go-arch-lint` and `depguard`:
 | Migrations | Run by `cmd/migrate` as a deploy step, never at API startup. Timestamp-versioned, out-of-order allowed. |
 | Rate limiting | GCRA in Valkey, IETF `RateLimit-*` headers, 429 as RFC 9457. Fails open if Valkey is unavailable. |
 | Errors | RFC 9457 `application/problem+json`. |
+| Events | CloudEvents 1.0 JSON, type `frappe.<module>.<event>.v<version>`, defined with `events.Define`. Use cases `Record` into a transactional outbox (storage-agnostic `outbox.Store`); a relay publishes to any broker behind `events.Publisher`. At-least-once: consumers registered with `events.On` must be idempotent; failures retry with backoff, then dead letter. `partitionkey` and `sequence` extensions order events per entity. See `internal/foundation/events/doc.go`. |
 | Telemetry | OTLP to any collector (local otel-lgtm or Grafana Cloud). Parent-based trace sampling: 100% in development, 10% in production. |
 
 ## Configuration
