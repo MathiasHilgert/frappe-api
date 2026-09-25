@@ -12,6 +12,7 @@ require (
 	github.com/peterldowns/pgtestdb v0.1.1
 	github.com/peterldowns/pgtestdb/migrators/goosemigrator v0.1.1
 	github.com/pressly/goose/v3 v3.28.0
+	github.com/rs/cors v1.11.1
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.44.0
 	go.opentelemetry.io/contrib/bridges/otelslog v0.20.1

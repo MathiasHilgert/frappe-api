@@ -119,6 +119,14 @@ func NewApplication(ctx context.Context, provider configuration.Provider) (*appl
 		DocumentationEnabled: loadedConfiguration.HTTP.DocumentationEnabled,
 		DrainDelay:           loadedConfiguration.HTTP.ShutdownDrainDelay,
 		Ready:                combinedReadiness,
+		CORS: httpserver.CORSSettings{
+			AllowedOrigins:   loadedConfiguration.HTTP.CORSAllowedOrigins,
+			AllowedMethods:   loadedConfiguration.HTTP.CORSAllowedMethods,
+			AllowedHeaders:   loadedConfiguration.HTTP.CORSAllowedHeaders,
+			ExposedHeaders:   loadedConfiguration.HTTP.CORSExposedHeaders,
+			AllowCredentials: loadedConfiguration.HTTP.CORSAllowCredentials,
+			MaxAge:           loadedConfiguration.HTTP.CORSMaxAge,
+		},
 	})
 
 	// No concrete module exists yet; each one, as it is added, gets

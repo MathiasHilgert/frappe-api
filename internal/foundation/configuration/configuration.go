@@ -76,6 +76,17 @@ type Telemetry struct {
 
 // HTTP holds settings for the HTTP server.
 type HTTP struct {
+	// CORSAllowedOrigins lists the exact origins (scheme://host[:port])
+	// allowed to call the API, comma-separated. Empty disables CORS
+	// entirely. "*" allows any origin but is rejected together with
+	// CORSAllowCredentials.
+	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS"`
+	// CORSAllowedMethods lists the methods a preflight may request.
+	CORSAllowedMethods []string `env:"CORS_ALLOWED_METHODS" envDefault:"GET,POST,PUT,PATCH,DELETE"`
+	// CORSAllowedHeaders lists the request headers a preflight may request.
+	CORSAllowedHeaders []string `env:"CORS_ALLOWED_HEADERS" envDefault:"Authorization,Content-Type,X-Request-ID"`
+	// CORSExposedHeaders lists the response headers exposed to browsers.
+	CORSExposedHeaders []string `env:"CORS_EXPOSED_HEADERS" envDefault:"X-Request-ID,RateLimit-Limit,RateLimit-Remaining,RateLimit-Reset,Retry-After"`
 	// Port is the TCP port the HTTP server listens on.
 	Port int `env:"PORT" envDefault:"8080" validate:"min=1,max=65535"`
 	// ShutdownTimeout bounds how long graceful shutdown may take.
@@ -97,6 +108,8 @@ type HTTP struct {
 	// DocumentationEnabled toggles the /docs UI and /openapi.json spec.
 	// Recommended false in production to avoid exposing API shape.
 	DocumentationEnabled bool `env:"DOCUMENTATION_ENABLED" envDefault:"true"`
+	// CORSAllowCredentials allows credentials on cross-origin requests.
+	CORSAllowCredentials bool `env:"CORS_ALLOW_CREDENTIALS" envDefault:"false"`
 	// ShutdownDrainDelay is how long the server waits, still serving
 	// traffic, before starting graceful shutdown. It should exceed the
 	// time it takes a load balancer or Kubernetes to stop routing new
@@ -105,6 +118,8 @@ type HTTP struct {
 	// already begun to stop. Set to 0 to disable the delay, which is
 	// reasonable for local development where there is no load balancer.
 	ShutdownDrainDelay time.Duration `env:"SHUTDOWN_DRAIN_DELAY" envDefault:"5s" validate:"min=0"`
+	// CORSMaxAge is how long a browser may cache a preflight response.
+	CORSMaxAge time.Duration `env:"CORS_MAX_AGE" envDefault:"10m" validate:"min=0"`
 }
 
 // Health holds settings for the background dependency health checker in
