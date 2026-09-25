@@ -12,8 +12,13 @@ module.exports = async ({ github, context, core }) => {
     per_page: 100,
   });
 
+  // Merge commits (more than one parent) are created by Git or GitHub when
+  // updating a branch with main. They disappear on squash merge, so they are
+  // exempt from Conventional Commits.
+  const authored = commits.filter((commit) => commit.parents.length < 2);
+
   const offenders = [];
-  for (const commit of commits) {
+  for (const commit of authored) {
     const header = commit.commit.message.split('\n')[0];
     if (!CONVENTIONAL_COMMIT_RE.test(header)) {
       offenders.push(`${commit.sha.slice(0, 7)}: "${header}"`);
@@ -31,6 +36,6 @@ module.exports = async ({ github, context, core }) => {
 
   core.summary
     .addHeading('Commit message check', 3)
-    .addRaw(`All ${commits.length} commit(s) follow Conventional Commits.`)
+    .addRaw(`All ${authored.length} authored commit(s) follow Conventional Commits (${commits.length - authored.length} merge commit(s) skipped).`)
     .write();
 };
