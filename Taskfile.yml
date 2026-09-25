@@ -6,7 +6,35 @@
 # migrations:run) should follow the same pattern.
 version: '3'
 
+# Load local variables (copy .env.example to .env). Missing file is ignored;
+# variables already exported in the shell take precedence.
+dotenv: ['.env']
+
 tasks:
+  local:up:
+    desc: Start every local service, apply migrations and run the API with hot reload (Ctrl+C stops the API; services keep running).
+    cmds:
+      - docker compose up -d --wait database valkey observability
+      - task: migrations:run
+      - echo "Services ready. Grafana http://localhost:3000, API http://localhost:8080 (hot reload)"
+      - task: application:watch
+
+  application:watch:
+    desc: Run the API with hot reload (air); rebuilds and restarts on Go or SQL changes.
+    cmds:
+      - go run github.com/air-verse/air@v1.67.4
+
+  local:down:
+    desc: Stop every local service, keeping data volumes.
+    cmds:
+      - docker compose down
+
+  local:reset:
+    desc: Stop every local service and delete their data volumes.
+    prompt: This deletes all local database and observability data. Continue?
+    cmds:
+      - docker compose down --volumes
+
   default:
     desc: List all available tasks.
     cmds:

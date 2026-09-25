@@ -35,3 +35,6 @@ go.work.sum
 odd/
 .atl/
 .claude/worktrees/
+
+# Hot reload build output (air)
+/tmp/
