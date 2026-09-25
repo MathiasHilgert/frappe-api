@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"os"
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/contrib/instrumentation/host"
@@ -38,6 +39,13 @@ type Settings struct {
 	// DeploymentEnvironment becomes the resource's
 	// deployment.environment.name attribute.
 	DeploymentEnvironment string
+	// LoggingLevel is the minimum severity the installed default logger
+	// records, mirroring configuration.Logging.Level's validated values
+	// ("debug", "info", "warn", "error"). It applies to both the console
+	// and the OTLP log export, so LOGGING_LEVEL is honored the same way
+	// whether or not telemetry export is enabled. An empty or
+	// unrecognized value defaults to "info".
+	LoggingLevel string
 	// Enabled controls whether the telemetry SDK installs real,
 	// SDK-backed global providers. When false, Up leaves the no-op global
 	// providers in place.
@@ -51,6 +59,7 @@ type SDK struct {
 	tracerProvider *sdktrace.TracerProvider
 	meterProvider  *sdkmetric.MeterProvider
 	loggerProvider *sdklog.LoggerProvider
+	previousLogger *slog.Logger
 }
 
 // Up builds and installs the OpenTelemetry SDK as global providers,
@@ -58,9 +67,12 @@ type SDK struct {
 // builds a resource from settings, creates OTLP-over-HTTP exporters for
 // traces, metrics and logs, installs them as the global tracer, meter
 // and logger providers together with a tracecontext-and-baggage
-// propagator, starts Go runtime metric collection, and replaces the
-// default slog logger with one bridged into the logging pipeline so log
-// records carry trace_id.
+// propagator, starts Go runtime metric collection, and installs a
+// fan-out default slog logger that writes every record both to the
+// console (stdout, as JSON) and into the OTLP logging pipeline so log
+// records carry trace_id. Both destinations are gated by the same
+// settings.LoggingLevel, so console output is never silenced and never
+// lost if the collector is unreachable.
 //
 // When settings.Enabled is false, Up does nothing and the global
 // providers stay the no-op implementations OpenTelemetry installs by
@@ -145,16 +157,23 @@ func Up(ctx context.Context, settings Settings) (SDK, error) {
 		return SDK{}, err
 	}
 
-	bridgedLogger := slog.New(otelslog.NewHandler(
+	level := parseLoggingLevel(settings.LoggingLevel)
+
+	consoleHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})
+	otelHandler := otelslog.NewHandler(
 		settings.ServiceName,
 		otelslog.WithLoggerProvider(loggerProvider),
-	))
-	slog.SetDefault(bridgedLogger)
+	)
+	fanoutLogger := slog.New(newFanoutHandler(level, consoleHandler, otelHandler))
+
+	previousLogger := slog.Default()
+	slog.SetDefault(fanoutLogger)
 
 	return SDK{
 		tracerProvider: tracerProvider,
 		meterProvider:  meterProvider,
 		loggerProvider: loggerProvider,
+		previousLogger: previousLogger,
 	}, nil
 }
 
@@ -176,6 +195,10 @@ func Down(ctx context.Context, value SDK) error {
 	if value.loggerProvider != nil {
 		errs = append(errs, value.loggerProvider.ForceFlush(ctx))
 		errs = append(errs, value.loggerProvider.Shutdown(ctx))
+	}
+
+	if value.previousLogger != nil {
+		slog.SetDefault(value.previousLogger)
 	}
 
 	return errors.Join(errs...)

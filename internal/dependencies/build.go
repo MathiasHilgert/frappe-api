@@ -33,6 +33,7 @@ func NewApplication(ctx context.Context, provider configuration.Provider) (*appl
 		ServiceName:           loadedConfiguration.Application.Name,
 		ServiceVersion:        loadedConfiguration.Application.Version,
 		DeploymentEnvironment: loadedConfiguration.Application.Environment,
+		LoggingLevel:          loadedConfiguration.Logging.Level,
 	}
 	application.Provide(instance, application.Dependency[telemetry.SDK]{
 		Name: telemetry.DependencyName,
