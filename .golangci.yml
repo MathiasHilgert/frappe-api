@@ -103,6 +103,18 @@ linters:
               desc: "modules may use the OpenTelemetry API only; SDK setup and wiring belongs to internal/foundation/telemetry"
             - pkg: go.opentelemetry.io/otel/exporters
               desc: "modules may use the OpenTelemetry API only; exporter setup belongs to internal/foundation/telemetry"
+        nats:
+          # The event platform is broker-agnostic: code talks to the
+          # events.Publisher and events.Subscriber ports. Only the NATS
+          # adapter (internal/foundation/nats) and the composition root
+          # that wires it may import the NATS client.
+          files:
+            - "**/*.go"
+            - "!**/internal/foundation/nats/**"
+            - "!**/internal/dependencies/**"
+          deny:
+            - pkg: github.com/nats-io
+              desc: "use the broker-agnostic ports in internal/foundation/events; only internal/foundation/nats and internal/dependencies may import the NATS client"
         databasetest:
           # databasetest (internal/foundation/database/databasetest)
           # pulls in testcontainers-go and pgtestdb, both test-only

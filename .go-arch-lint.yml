@@ -61,6 +61,25 @@ components:
   foundation_configuration:
     in: internal/foundation/configuration/**
 
+  # foundation_events is the broker-agnostic event platform
+  # (internal/foundation/events): event definitions, the CloudEvents
+  # envelope and the Recorder/Publisher/Subscriber ports. It is a leaf and
+  # is split out of foundation because modules (including their application
+  # layer and their published events packages) may depend on it, while they
+  # must not depend on the rest of foundation. foundation_events_outbox is
+  # the storage-agnostic transactional outbox built on those ports, and
+  # foundation_events_support holds its adapters and test kits (in-memory
+  # broker and store, eventstest, brokertest, storetest). All three are
+  # matched before the general foundation component.
+  foundation_events:
+    in: internal/foundation/events
+
+  foundation_events_outbox:
+    in: internal/foundation/events/outbox
+
+  foundation_events_support:
+    in: internal/foundation/events/**
+
   foundation:
     in: internal/foundation/**
 
@@ -69,6 +88,15 @@ components:
 
   module_domain:
     in: internal/modules/*/domain/**
+
+  # module_events is a module's published language
+  # (internal/modules/<module>/events): its event definitions and payload
+  # types. It is the only package of a module that other modules may
+  # import, and it may depend on foundation_events only, so importing it
+  # never drags another module's internals along. A module's domain stays
+  # pure and may not import it; application, adapters and module root may.
+  module_events:
+    in: internal/modules/*/events/**
 
   module_metrics:
     in: internal/modules/*/metrics/**
@@ -91,11 +119,15 @@ deps:
       - foundation
       - foundation_configuration
       - foundation_configuration_environment
+      - foundation_events
+      - foundation_events_outbox
+      - foundation_events_support
       - dependencies
       - module_root
       - module_adapters
       - module_application
       - module_domain
+      - module_events
 
   cmd_migrate:
     mayDependOn:
@@ -109,11 +141,11 @@ deps:
   # migrations intentionally has no deps entry: it is a leaf and may not
   # depend on any other component, including foundation.
 
-  # foundation, foundation_configuration and module_domain intentionally
-  # have no deps entry: they are leaves and may not depend on any other
-  # component. Modules and foundation must never import the composition
-  # root: dependencies wires modules in, never the other way around.
-  # Modules must never import foundation_configuration or
+  # foundation, foundation_configuration, foundation_events and
+  # module_domain intentionally have no deps entry: they are leaves and may
+  # not depend on any other component. Modules and foundation must never
+  # import the composition root: dependencies wires modules in, never the
+  # other way around. Modules must never import foundation_configuration or
   # foundation_configuration_environment: each module declares its own
   # Configuration struct and receives values by constructor injection from
   # the composition root instead.
@@ -122,15 +154,34 @@ deps:
     mayDependOn:
       - foundation_configuration
 
+  foundation_events_outbox:
+    mayDependOn:
+      - foundation_events
+
+  foundation_events_support:
+    mayDependOn:
+      - foundation_events
+      - foundation_events_outbox
+
   dependencies:
     mayDependOn:
       - foundation
       - foundation_configuration
       - foundation_configuration_environment
+      - foundation_events
+      - foundation_events_outbox
+      - foundation_events_support
       - module_root
       - module_adapters
       - module_application
       - module_domain
+      - module_events
+
+  # module_events may depend on foundation_events only: a published events
+  # package carries definitions and payload types, nothing else.
+  module_events:
+    mayDependOn:
+      - foundation_events
 
   module_metrics:
     mayDependOn:
@@ -140,25 +191,33 @@ deps:
     mayDependOn:
       - foundation
 
+  # module_application may use foundation_events (Recorder port, events.On)
+  # and module_events (its own and other modules' published events).
   module_application:
     mayDependOn:
       - module_domain
+      - module_events
       - module_metrics
       - module_tracing
+      - foundation_events
 
   module_adapters:
     mayDependOn:
       - module_domain
       - module_application
+      - module_events
       - module_metrics
       - module_tracing
       - foundation
+      - foundation_events
 
   module_root:
     mayDependOn:
       - module_domain
       - module_application
       - module_adapters
+      - module_events
       - module_metrics
       - module_tracing
       - foundation
+      - foundation_events
