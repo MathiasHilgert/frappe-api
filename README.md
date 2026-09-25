@@ -193,6 +193,31 @@ Options: `cache.Global()` (not tenant-owned), `cache.Version(n)` (bump when the 
 | `CACHE_DEFAULT_TIME_TO_LIVE` | `5m` | Lifetime of entries created with a zero lifetime. |
 | `CACHE_OPERATION_TIMEOUT` | `100ms` | Max latency an unhealthy store adds before a read fails open. |
 
+### Localized texts: translatable user data
+
+User-entered strings that need translations (a dish description) never get a per-entity translation table. The entity holds `<field>_text_id uuid REFERENCES localized_texts (id)`, and `internal/foundation/i18n/localizedtext` manages the text:
+
+- `localized_texts` holds the source value, locale, SHA-256 `source_hash` and an optional machine translation `context`; `localized_text_translations` holds one row per locale with `origin` (`manual`/`machine`), `status` (`current`/`stale`/`pending`) and the `source_hash` it was made for. `locales` lists the supported locales (a new locale needs a migration).
+- Changing a source marks older translations stale. Manual ones stay manual and are only flagged; machine ones are requested again. A machine translation never overwrites a manual one and is discarded if the source changed meanwhile.
+- Reads resolve the locale through the catalog and fall back to the source. `LocalizeMany` loads a whole list in one query.
+- RLS: `tenant_id` comes from the transaction's `application.tenant`. Global texts (`tenant_id` NULL) are readable by every tenant and written only by `frappe_migration`.
+- `TranslationRequester` is the "translation needed" port. Nothing is wired yet; machine translation plugs in there.
+
+```go
+var dishDescription = localizedtext.Field{
+    Table: "dishes", Column: "description_text_id",
+    Context: "Description of a dish on a restaurant menu", // used when the text has no context
+}
+descriptions, err := localizedTexts.Field(dishDescription) // at wiring time
+
+// in the use case's transaction
+textID, err := descriptions.Create(ctx, localizedtext.Source{Value: command.Description})
+localized, err := descriptions.LocalizeMany(ctx, ids, locale) // map[ID]Localized{Value, Locale, Fallback, Origin, Status}
+err = descriptions.Delete(ctx, textID)                         // with the dish, same transaction
+```
+
+`Service.DeleteOrphans(ctx, olderThan, limit)` removes texts no declared field references (per tenant transaction, `SKIP LOCKED`). A scheduler will call it once one exists.
+
 ## Testing
 
 - Unit tests run without external services: `task test:unit`.

@@ -25,6 +25,19 @@ func TestProvideLocalizationBuildsTheEmbeddedCatalog(t *testing.T) {
 	}
 }
 
+func TestProvideLocalizedTextsBuildsTheServiceOnTheCatalog(t *testing.T) {
+	catalog, err := provideLocalization(configuration.Internationalization{
+		SourceLocale: "es-419", SupportedLocales: []string{"es-419", "en"},
+	})
+	if err != nil {
+		t.Fatalf("provideLocalization: %v", err)
+	}
+	service, err := provideLocalizedTexts(catalog)
+	if err != nil || service == nil {
+		t.Fatalf("provideLocalizedTexts = %v, %v; want a service", service, err)
+	}
+}
+
 func TestProvideLocalizationRejectsALocaleWithoutCatalog(t *testing.T) {
 	if _, err := provideLocalization(configuration.Internationalization{
 		SourceLocale: "es-419", SupportedLocales: []string{"es-419", "he"},
