@@ -6,6 +6,7 @@ import (
 	"net"
 
 	valkeygo "github.com/valkey-io/valkey-go"
+	"github.com/valkey-io/valkey-go/valkeyotel"
 )
 
 // DependencyName identifies the Valkey dependency for logging and error
@@ -22,7 +23,11 @@ func Up(ctx context.Context, settings Settings) (valkeygo.Client, error) {
 	}
 	settings = settings.withDefaults()
 
-	client, err := valkeygo.NewClient(valkeygo.ClientOption{
+	// valkeyotel wraps the client so every command produces a span and
+	// command metrics through the global tracer and meter providers. It
+	// never records db.statement (command arguments such as rate limit
+	// keys), so client addresses never reach telemetry.
+	client, err := valkeyotel.NewClient(valkeygo.ClientOption{
 		InitAddress:      []string{settings.Address},
 		Password:         settings.Password,
 		SelectDB:         settings.Database,

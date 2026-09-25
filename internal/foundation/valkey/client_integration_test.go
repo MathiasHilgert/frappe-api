@@ -8,6 +8,9 @@ import (
 	"time"
 
 	testcontainersvalkey "github.com/testcontainers/testcontainers-go/modules/valkey"
+	"go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/valkey"
 )
@@ -54,5 +57,40 @@ func TestIntegrationUpFailsFastOnAnUnreachableServer(t *testing.T) {
 
 	if _, err := valkey.Up(ctx, valkey.Settings{Address: "127.0.0.1:1", DialTimeout: 500 * time.Millisecond}); err == nil {
 		t.Fatal("Up returned nil error against an unreachable address")
+	}
+}
+
+func TestIntegrationClientCommandsProduceSpans(t *testing.T) {
+	recorder := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	previous := otel.GetTracerProvider()
+	otel.SetTracerProvider(provider)
+	defer otel.SetTracerProvider(previous)
+
+	address := startValkey(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	client, err := valkey.Up(ctx, valkey.Settings{Address: address})
+	if err != nil {
+		t.Fatalf("Up returned unexpected error: %v", err)
+	}
+	defer func() { _ = valkey.Down(ctx, client) }()
+
+	if err := client.Do(ctx, client.B().Set().Key("span-test").Value("1").Build()).Error(); err != nil {
+		t.Fatalf("SET returned unexpected error: %v", err)
+	}
+
+	names := map[string]bool{}
+	for _, span := range recorder.Ended() {
+		names[span.Name()] = true
+		for _, keyValue := range span.Attributes() {
+			if keyValue.Key == "db.statement" {
+				t.Fatalf("span %q records db.statement %q; command arguments must never be recorded", span.Name(), keyValue.Value.AsString())
+			}
+		}
+	}
+	if !names["SET"] {
+		t.Fatalf("ended span names = %v, want a SET span", names)
 	}
 }
