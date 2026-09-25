@@ -83,6 +83,7 @@ func TestLoadReadsEveryVariableFromTheEnvironment(t *testing.T) {
 		"HTTP_PORT":                         "9090",
 		"HTTP_SHUTDOWN_TIMEOUT":             "5s",
 		"HTTP_SHUTDOWN_DRAIN_DELAY":         "1s",
+		"HTTP_CURSOR_SECRET":                "0123456789abcdef0123456789abcdef",
 		"LOGGING_LEVEL":                     "debug",
 		"HEALTH_CHECK_INTERVAL":             "20s",
 		"HEALTH_CHECK_TIMEOUT":              "3s",

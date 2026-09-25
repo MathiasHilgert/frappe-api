@@ -2,6 +2,7 @@ package dependencies
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -15,6 +16,7 @@ import (
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/httpserver"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/jobs"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/logging"
+	"github.com/MathiasHilgert/frappe-api/internal/foundation/rest"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/telemetry"
 )
 
@@ -204,11 +206,27 @@ func NewApplication(ctx context.Context, provider configuration.Provider, option
 
 	_ = localizedTexts
 
+	// cursorCodec is the *rest.CursorCodec every module with paginated
+	// collections receives through its Dependencies (see
+	// docs/api-conventions.md). configuration.Validate already guarantees
+	// a usable secret, so cursorError is only reported together with the
+	// naming check below, keeping one failure exit for the API surface.
+	cursorCodec, cursorError := provideCursorCodec(loadedConfiguration.HTTP)
+	_ = cursorCodec
+
 	// No concrete module exists yet; each one, as it is added, gets
 	// wired here with its own constructor call passing server.V1() and
 	// instance.Use(...), following foundation/httpserver's doc.go
 	// convention, its Subscriptions(registry) call and its jobs wiring on
 	// jobCatalog.Module("<module>").
+
+	// Every module registered its operations above: enforce snake_case
+	// JSON properties and path segments on the resulting OpenAPI document,
+	// so a naming mistake fails startup and the tests that build the
+	// application instead of shipping.
+	if err := errors.Join(cursorError, rest.CheckNaming(server.V1().OpenAPI())); err != nil {
+		return nil, fmt.Errorf("api conventions: %w", err)
+	}
 
 	// The jobs backend works the handlers modules registered on jobCatalog
 	// with jobs.Handle (read at Up, so after every module above is wired). It is provided after the application pool it runs on and
@@ -221,33 +239,7 @@ func NewApplication(ctx context.Context, provider configuration.Provider, option
 	// after the server drained and before the broker and pool close.
 	provideConsumers(instance, loadedConfiguration.Inbox, broker, registry, postgresInbox(databasePool))
 
-	application.Provide(instance, application.Dependency[*httpserver.Server]{
-		Name: httpserver.DependencyName,
-		Up: func(context.Context) (*httpserver.Server, error) {
-			if err := server.Listen(); err != nil {
-				return nil, err
-			}
-
-			// The listener breaking unexpectedly after Listen has already
-			// returned successfully (anything Serve reports other than
-			// http.ErrServerClosed) is otherwise invisible to the rest of
-			// the process: nothing else observes it, and readiness would
-			// keep reporting true. Forwarding it into instance.Fail makes
-			// Run react the same way it would to a shutdown signal, tearing
-			// the whole application down instead of quietly serving no
-			// traffic.
-			go func() {
-				if err := <-server.Errors(); err != nil {
-					instance.Fail(fmt.Errorf("http server: %w", err))
-				}
-			}()
-
-			return server, nil
-		},
-		Down: func(ctx context.Context, server *httpserver.Server) error {
-			return server.Shutdown(ctx)
-		},
-	})
+	provideHTTPServer(instance, server)
 
 	// The health checker dependency is provided here, but it now builds
 	// its *health.Checker lazily at Up time, reading instance.Checks()
@@ -289,4 +281,36 @@ func telemetrySettingsFrom(loadedConfiguration configuration.Configuration, vers
 		ServiceVersion:        version,
 		DeploymentEnvironment: loadedConfiguration.Application.Environment,
 	}
+}
+
+// provideHTTPServer registers server as the application dependency that
+// listens on Up and drains on Down.
+func provideHTTPServer(instance *application.Application, server *httpserver.Server) {
+	application.Provide(instance, application.Dependency[*httpserver.Server]{
+		Name: httpserver.DependencyName,
+		Up: func(context.Context) (*httpserver.Server, error) {
+			if err := server.Listen(); err != nil {
+				return nil, err
+			}
+
+			// The listener breaking unexpectedly after Listen has already
+			// returned successfully (anything Serve reports other than
+			// http.ErrServerClosed) is otherwise invisible to the rest of
+			// the process: nothing else observes it, and readiness would
+			// keep reporting true. Forwarding it into instance.Fail makes
+			// Run react the same way it would to a shutdown signal, tearing
+			// the whole application down instead of quietly serving no
+			// traffic.
+			go func() {
+				if err := <-server.Errors(); err != nil {
+					instance.Fail(fmt.Errorf("http server: %w", err))
+				}
+			}()
+
+			return server, nil
+		},
+		Down: func(ctx context.Context, server *httpserver.Server) error {
+			return server.Shutdown(ctx)
+		},
+	})
 }

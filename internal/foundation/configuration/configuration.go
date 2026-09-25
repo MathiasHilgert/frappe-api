@@ -192,6 +192,14 @@ type Telemetry struct {
 
 // HTTP holds settings for the HTTP server.
 type HTTP struct {
+	// CursorSecret signs pagination cursors (HMAC-SHA256, see
+	// internal/foundation/rest.CursorCodec). Secret. It must be at least
+	// 32 bytes and identical on every replica, and it is required outside
+	// development. Empty in development makes the composition root use a
+	// random per-process secret, so cursors do not survive a restart.
+	// Rotating it invalidates outstanding cursors: clients restart from
+	// the first page.
+	CursorSecret string `env:"CURSOR_SECRET" validate:"omitempty,min=32"`
 	// CORSAllowedOrigins lists the exact origins (scheme://host[:port])
 	// allowed to call the API, comma-separated. Empty disables CORS
 	// entirely. "*" allows any origin but is rejected together with
