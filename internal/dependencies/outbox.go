@@ -19,9 +19,10 @@ import (
 const outboxDependencyName = "outbox"
 
 // ErrOutboxPublisherRequired is returned by NewApplication when
-// OUTBOX_ENABLED is true but no events.Publisher was given with
-// WithPublisher: the relay would have nowhere to publish.
-var ErrOutboxPublisherRequired = errors.New("outbox: OUTBOX_ENABLED=true requires an events.Publisher (dependencies.WithPublisher)")
+// OUTBOX_ENABLED is true but no publisher is available: EVENTS_BROKER is
+// none (configuration.Validate reports that too) and none was given with
+// WithPublisher. The relay would have nowhere to publish.
+var ErrOutboxPublisherRequired = errors.New("outbox: OUTBOX_ENABLED=true requires EVENTS_BROKER other than none")
 
 // Option customizes NewApplication.
 type Option func(*options)
@@ -31,8 +32,9 @@ type options struct {
 	publisher events.Publisher
 }
 
-// WithPublisher sets the broker publisher the outbox relay publishes to.
-// The entrypoint builds it from the broker adapter it links in.
+// WithPublisher overrides the publisher the outbox relay publishes to,
+// which defaults to the broker selected by EVENTS_BROKER. Tests use it to
+// observe what the relay publishes.
 func WithPublisher(publisher events.Publisher) Option {
 	return func(resolved *options) { resolved.publisher = publisher }
 }

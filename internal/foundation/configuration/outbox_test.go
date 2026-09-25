@@ -10,6 +10,7 @@ import (
 func outboxEnabledConfiguration() configuration.Configuration {
 	loadedConfiguration := validConfiguration()
 	loadedConfiguration.Database.OutboxRelayURL = "postgres://frappe_outbox_relay@localhost:5432/frappe"
+	loadedConfiguration.Events.Broker = configuration.EventsBrokerMemory
 	loadedConfiguration.Outbox = configuration.Outbox{
 		Enabled:       true,
 		BatchSize:     100,
@@ -54,5 +55,13 @@ func TestValidateRejectsInvalidOutboxSettings(t *testing.T) {
 			mutate(&loadedConfiguration)
 			assertViolation(t, loadedConfiguration, variable)
 		})
+	}
+}
+
+func TestValidateRequiresABrokerWhenTheOutboxIsEnabled(t *testing.T) {
+	for _, broker := range []string{"", configuration.EventsBrokerNone} {
+		loadedConfiguration := outboxEnabledConfiguration()
+		loadedConfiguration.Events.Broker = broker
+		assertViolation(t, loadedConfiguration, "OUTBOX_ENABLED")
 	}
 }

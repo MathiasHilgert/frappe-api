@@ -87,6 +87,18 @@ components:
   foundation_events_outbox_postgres:
     in: internal/foundation/events/outbox/postgres/**
 
+  # foundation_events_inbox is the storage-agnostic inbox (idempotent
+  # consumers) and the consumer runtime built on the events ports, and
+  # foundation_events_inbox_postgres its Postgres store, split out for the
+  # same reason as foundation_events_outbox_postgres. Both are matched
+  # before foundation_events_support, which holds the in-memory store and
+  # the inboxtest contract suite.
+  foundation_events_inbox:
+    in: internal/foundation/events/inbox
+
+  foundation_events_inbox_postgres:
+    in: internal/foundation/events/inbox/postgres/**
+
   foundation_events_support:
     in: internal/foundation/events/**
 
@@ -139,6 +151,8 @@ deps:
       - foundation_events
       - foundation_events_outbox
       - foundation_events_outbox_postgres
+      - foundation_events_inbox
+      - foundation_events_inbox_postgres
       - foundation_events_support
       - foundation_nats
       - dependencies
@@ -183,9 +197,19 @@ deps:
       - foundation_events
       - foundation_events_outbox
 
+  foundation_events_inbox:
+    mayDependOn:
+      - foundation_events
+
+  foundation_events_inbox_postgres:
+    mayDependOn:
+      - foundation
+      - foundation_events_inbox
+
   foundation_events_support:
     mayDependOn:
       - foundation_events
+      - foundation_events_inbox
       - foundation_events_outbox
 
   foundation_nats:
@@ -201,6 +225,8 @@ deps:
       - foundation_events
       - foundation_events_outbox
       - foundation_events_outbox_postgres
+      - foundation_events_inbox
+      - foundation_events_inbox_postgres
       - foundation_events_support
       - module_root
       - module_adapters

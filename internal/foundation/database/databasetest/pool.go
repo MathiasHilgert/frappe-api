@@ -102,6 +102,21 @@ func NewWithOutboxRelay(t *testing.T) (applicationPool, relayPool *pgxpool.Pool)
 	return applicationPool, relayPool
 }
 
+// NewWithEveryRole returns three *pgxpool.Pool values connected to the
+// SAME fresh, isolated database, as frappe_migration (ownerPool),
+// frappe_application (applicationPool) and frappe_outbox_relay
+// (relayPool). Use it for an end-to-end test of the event flow that needs
+// a scratch business table (created as the owner) next to the outbox and
+// inbox, each used under its production role.
+func NewWithEveryRole(t *testing.T) (ownerPool, applicationPool, relayPool *pgxpool.Pool) {
+	t.Helper()
+	cloned := newClonedDatabase(t)
+	ownerPool = poolForURL(t, cloned.URL())
+	applicationPool = poolForURL(t, roleURL(cloned, applicationRoleUsername, applicationRolePassword))
+	relayPool = poolForURL(t, roleURL(cloned, outboxRelayRoleUsername, outboxRelayRolePassword))
+	return ownerPool, applicationPool, relayPool
+}
+
 // newClonedDatabase clones the migrated template into a fresh, isolated
 // database and returns its connection details, still expressed for the
 // frappe_migration role: migrations always apply as frappe_migration in
