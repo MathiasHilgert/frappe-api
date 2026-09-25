@@ -132,13 +132,20 @@ func New(settings Settings) *Server {
 	// "/"), request id makes every request correlatable, the access log
 	// records the outcome, panic recovery keeps a panic from crashing the
 	// process or leaking internals while still letting the access log
-	// above it observe the resulting status, and maxBodyBytes bounds
-	// request bodies right before they reach the mux.
+	// above it observe the resulting status, CORS answers preflights
+	// before routing (so they are traced, carry a request id and are
+	// access logged, but never reach later middleware such as rate
+	// limiting or authentication, nor Huma's 404/405 handling), and
+	// maxBodyBytes bounds request bodies right before they reach the mux.
 	handler := spanRouteMiddleware(apiMux)(
 		requestIDMiddleware(
 			accessLogMiddleware(logger, apiMux)(
 				recoveryMiddleware(logger, apiMux)(
-					maxBodyBytesMiddleware(settings.MaxBodyBytes)(apiMux),
+					corsMiddleware(settings.CORS)(
+						rateLimitMiddleware(settings.RateLimit, logger, apiMux)(
+							maxBodyBytesMiddleware(settings.MaxBodyBytes)(apiMux),
+						),
+					),
 				),
 			),
 		),

@@ -57,6 +57,12 @@ type Settings struct {
 	// Version is the OpenAPI document's version, typically the running
 	// build's version.
 	Version string
+	// RateLimit configures rate limiting of the /v1 API. The zero value
+	// disables it.
+	RateLimit RateLimitSettings
+	// CORS configures Cross-Origin Resource Sharing for the /v1 API. The
+	// zero value disables CORS.
+	CORS CORSSettings
 	// MaxBodyBytes bounds the size of a request body, in bytes. A request
 	// whose body exceeds this limit is rejected.
 	MaxBodyBytes int64

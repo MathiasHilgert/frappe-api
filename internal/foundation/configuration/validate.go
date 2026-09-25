@@ -45,14 +45,21 @@ func (validationError *ValidationError) Error() string {
 func Validate(configuration Configuration) error {
 	validationError := ValidateStruct(configuration)
 
+	var crossFieldViolations []Violation
 	if minimumHookTimeout := configuration.HTTP.ShutdownDrainDelay + configuration.HTTP.ShutdownTimeout; configuration.Application.HookTimeout < minimumHookTimeout {
-		if validationError == nil {
-			validationError = &ValidationError{}
-		}
-		validationError.Violations = append(validationError.Violations, Violation{
+		crossFieldViolations = append(crossFieldViolations, Violation{
 			Variable: "APPLICATION_HOOK_TIMEOUT",
 			Rule:     "gte_http_shutdown_drain_delay_plus_shutdown_timeout",
 		})
+	}
+	crossFieldViolations = append(crossFieldViolations, validateCORS(configuration.HTTP)...)
+	crossFieldViolations = append(crossFieldViolations, validateRateLimit(configuration.RateLimit, configuration.Valkey)...)
+
+	if len(crossFieldViolations) > 0 {
+		if validationError == nil {
+			validationError = &ValidationError{}
+		}
+		validationError.Violations = append(validationError.Violations, crossFieldViolations...)
 	}
 
 	if validationError != nil {

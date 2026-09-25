@@ -85,6 +85,16 @@ tasks:
     cmds:
       - docker compose stop database
 
+  valkey:up:
+    desc: Start the local Valkey (backs rate limiting; set RATE_LIMIT_ENABLED=true and VALKEY_ADDRESS=localhost:6379).
+    cmds:
+      - docker compose up -d valkey
+
+  valkey:down:
+    desc: Stop the local Valkey.
+    cmds:
+      - docker compose stop valkey
+
   migrations:create:
     desc: 'Create a new SQL migration file, timestamp-versioned (usage: task migrations:create -- <name>).'
     cmds:

@@ -47,9 +47,44 @@ type Configuration struct {
 	Logging     Logging     `envPrefix:"LOGGING_"`
 	Application Application `envPrefix:"APPLICATION_"`
 	Database    Database    `envPrefix:"DATABASE_"`
+	Valkey      Valkey      `envPrefix:"VALKEY_"`
 	HTTP        HTTP        `envPrefix:"HTTP_"`
 	Health      Health      `envPrefix:"HEALTH_"`
+	RateLimit   RateLimit   `envPrefix:"RATE_LIMIT_"`
 	Telemetry   Telemetry   `envPrefix:"TELEMETRY_"`
+}
+
+// RateLimit holds settings for per-client rate limiting of the /v1 API,
+// backed by Valkey (see internal/foundation/ratelimit). It defaults to
+// disabled so a plain local run needs no Valkey; compose.yaml enables it.
+// Requests, Window and Timeout are only validated while it is enabled.
+type RateLimit struct {
+	// Window is the period Requests are allowed in.
+	Window time.Duration `env:"WINDOW" envDefault:"1m"`
+	// Timeout bounds one limiter round trip to Valkey; on timeout or any
+	// other limiter error the request is allowed (fail open).
+	Timeout time.Duration `env:"TIMEOUT" envDefault:"250ms"`
+	// Requests is how many requests one client may make per Window.
+	Requests int `env:"REQUESTS" envDefault:"100"`
+	// Enabled toggles rate limiting. When true, VALKEY_ADDRESS is required.
+	Enabled bool `env:"ENABLED" envDefault:"false"`
+}
+
+// Valkey holds settings for the Valkey connection (see
+// internal/foundation/valkey). It is only connected while a feature that
+// needs it, such as rate limiting, is enabled.
+type Valkey struct {
+	// Address is the server's host:port.
+	Address string `env:"ADDRESS"`
+	// Password authenticates the connection. Optional; treat it as a
+	// secret.
+	Password string `env:"PASSWORD"`
+	// Database is the logical database number selected on connect.
+	Database int `env:"DATABASE" envDefault:"0" validate:"min=0"`
+	// DialTimeout bounds establishing one connection.
+	DialTimeout time.Duration `env:"DIAL_TIMEOUT" envDefault:"5s" validate:"min=0"`
+	// WriteTimeout bounds writing one command to a connection.
+	WriteTimeout time.Duration `env:"WRITE_TIMEOUT" envDefault:"5s" validate:"min=0"`
 }
 
 // Application holds identity and deployment environment settings.
@@ -76,6 +111,22 @@ type Telemetry struct {
 
 // HTTP holds settings for the HTTP server.
 type HTTP struct {
+	// CORSAllowedOrigins lists the exact origins (scheme://host[:port])
+	// allowed to call the API, comma-separated. Empty disables CORS
+	// entirely. "*" allows any origin but is rejected together with
+	// CORSAllowCredentials.
+	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS"`
+	// TrustedProxies lists, comma-separated, the CIDRs of reverse proxies
+	// whose X-Forwarded-For header is trusted to identify the client for
+	// rate limiting. Empty (the default) ignores X-Forwarded-For and uses
+	// the connection's remote address.
+	TrustedProxies []string `env:"TRUSTED_PROXIES" validate:"dive,cidr"`
+	// CORSAllowedMethods lists the methods a preflight may request.
+	CORSAllowedMethods []string `env:"CORS_ALLOWED_METHODS" envDefault:"GET,POST,PUT,PATCH,DELETE"`
+	// CORSAllowedHeaders lists the request headers a preflight may request.
+	CORSAllowedHeaders []string `env:"CORS_ALLOWED_HEADERS" envDefault:"Authorization,Content-Type,X-Request-ID"`
+	// CORSExposedHeaders lists the response headers exposed to browsers.
+	CORSExposedHeaders []string `env:"CORS_EXPOSED_HEADERS" envDefault:"X-Request-ID,RateLimit-Limit,RateLimit-Remaining,RateLimit-Reset,Retry-After"`
 	// Port is the TCP port the HTTP server listens on.
 	Port int `env:"PORT" envDefault:"8080" validate:"min=1,max=65535"`
 	// ShutdownTimeout bounds how long graceful shutdown may take.
@@ -97,6 +148,8 @@ type HTTP struct {
 	// DocumentationEnabled toggles the /docs UI and /openapi.json spec.
 	// Recommended false in production to avoid exposing API shape.
 	DocumentationEnabled bool `env:"DOCUMENTATION_ENABLED" envDefault:"true"`
+	// CORSAllowCredentials allows credentials on cross-origin requests.
+	CORSAllowCredentials bool `env:"CORS_ALLOW_CREDENTIALS" envDefault:"false"`
 	// ShutdownDrainDelay is how long the server waits, still serving
 	// traffic, before starting graceful shutdown. It should exceed the
 	// time it takes a load balancer or Kubernetes to stop routing new
@@ -105,6 +158,8 @@ type HTTP struct {
 	// already begun to stop. Set to 0 to disable the delay, which is
 	// reasonable for local development where there is no load balancer.
 	ShutdownDrainDelay time.Duration `env:"SHUTDOWN_DRAIN_DELAY" envDefault:"5s" validate:"min=0"`
+	// CORSMaxAge is how long a browser may cache a preflight response.
+	CORSMaxAge time.Duration `env:"CORS_MAX_AGE" envDefault:"10m" validate:"min=0"`
 }
 
 // Health holds settings for the background dependency health checker in

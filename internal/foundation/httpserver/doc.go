@@ -95,6 +95,38 @@
 // transport-agnostic. net/http itself is denied from domain and
 // application for the same reason.
 //
+// # Middleware order
+//
+// Outermost first: otelhttp, span route, request id, access log, panic
+// recovery, CORS, rate limiting, body size limit, then the Huma mux.
+// CORS sits inside tracing and request id so preflights are traced,
+// correlated and logged, but outside rate limiting (and any future
+// authentication) so a preflight is answered with 204 before it can be
+// limited, rejected, or routed into a Huma 404/405. Rate limiting only
+// applies to /v1 paths; health probes are mounted outside the chain and
+// the OpenAPI documentation is outside /v1. The default rate limit key is
+// the client address (ClientAddressKey): RemoteAddr, or X-Forwarded-For
+// walked right to left only when RemoteAddr is a trusted proxy
+// (HTTP_TRUSTED_PROXIES). A limiter error fails open.
+//
+// # Rate limit metrics
+//
+//	Metric                       Kind             Attributes
+//	frappe.rate_limit.decisions  Int64Counter     outcome (allowed|limited), http.route
+//	frappe.rate_limit.errors     Int64Counter     reason (timeout|error), http.route
+//	frappe.rate_limit.duration   Float64Histogram outcome (allowed|limited|error), http.route; unit s
+//
+// frappe.rate_limit.duration measures one RateLimiter.Allow call. reason
+// is timeout when the call hit its context deadline (RATE_LIMIT_TIMEOUT)
+// or a network timeout, error otherwise. http.route is the matched route
+// template (for example /v1/things/{id}), or "unmatched".
+//
+// Cardinality rule: metric attributes only ever carry bounded values.
+// The client address, the rate limit key and the raw request path are
+// never used as attributes (they would create one time series per
+// client or per URL); investigate individual clients through logs and
+// traces instead.
+//
 // # Timeouts and streaming or upload handlers
 //
 // Settings.ReadTimeout and Settings.WriteTimeout are applied by the

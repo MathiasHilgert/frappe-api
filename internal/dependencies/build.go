@@ -100,6 +100,14 @@ func NewApplication(ctx context.Context, provider configuration.Provider) (*appl
 	// handed to the server now.
 	combinedReadiness := &readiness{application: instance}
 
+	// Rate limiting (and its Valkey client, when enabled) is provided
+	// before the HTTP server, so Valkey is up before traffic arrives and
+	// goes down only after the server has stopped.
+	rateLimitSettings, rateLimitError := provideRateLimit(instance, loadedConfiguration)
+	if rateLimitError != nil {
+		return nil, fmt.Errorf("rate limit: %w", rateLimitError)
+	}
+
 	// The HTTP server is built synchronously (not yet listening) so its
 	// "/v1" huma.API is available immediately for modules to register
 	// their own routes on as they are wired in below. It is registered
@@ -119,6 +127,15 @@ func NewApplication(ctx context.Context, provider configuration.Provider) (*appl
 		DocumentationEnabled: loadedConfiguration.HTTP.DocumentationEnabled,
 		DrainDelay:           loadedConfiguration.HTTP.ShutdownDrainDelay,
 		Ready:                combinedReadiness,
+		RateLimit:            rateLimitSettings,
+		CORS: httpserver.CORSSettings{
+			AllowedOrigins:   loadedConfiguration.HTTP.CORSAllowedOrigins,
+			AllowedMethods:   loadedConfiguration.HTTP.CORSAllowedMethods,
+			AllowedHeaders:   loadedConfiguration.HTTP.CORSAllowedHeaders,
+			ExposedHeaders:   loadedConfiguration.HTTP.CORSExposedHeaders,
+			AllowCredentials: loadedConfiguration.HTTP.CORSAllowCredentials,
+			MaxAge:           loadedConfiguration.HTTP.CORSMaxAge,
+		},
 	})
 
 	// No concrete module exists yet; each one, as it is added, gets
