@@ -95,6 +95,20 @@
 // transport-agnostic. net/http itself is denied from domain and
 // application for the same reason.
 //
+// # Middleware order
+//
+// Outermost first: otelhttp, span route, request id, access log, panic
+// recovery, CORS, rate limiting, body size limit, then the Huma mux.
+// CORS sits inside tracing and request id so preflights are traced,
+// correlated and logged, but outside rate limiting (and any future
+// authentication) so a preflight is answered with 204 before it can be
+// limited, rejected, or routed into a Huma 404/405. Rate limiting only
+// applies to /v1 paths; health probes are mounted outside the chain and
+// the OpenAPI documentation is outside /v1. The default rate limit key is
+// the client address (ClientAddressKey): RemoteAddr, or X-Forwarded-For
+// walked right to left only when RemoteAddr is a trusted proxy
+// (HTTP_TRUSTED_PROXIES). A limiter error fails open.
+//
 // # Timeouts and streaming or upload handlers
 //
 // Settings.ReadTimeout and Settings.WriteTimeout are applied by the

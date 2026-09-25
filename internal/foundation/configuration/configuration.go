@@ -47,9 +47,44 @@ type Configuration struct {
 	Logging     Logging     `envPrefix:"LOGGING_"`
 	Application Application `envPrefix:"APPLICATION_"`
 	Database    Database    `envPrefix:"DATABASE_"`
+	Valkey      Valkey      `envPrefix:"VALKEY_"`
 	HTTP        HTTP        `envPrefix:"HTTP_"`
 	Health      Health      `envPrefix:"HEALTH_"`
+	RateLimit   RateLimit   `envPrefix:"RATE_LIMIT_"`
 	Telemetry   Telemetry   `envPrefix:"TELEMETRY_"`
+}
+
+// RateLimit holds settings for per-client rate limiting of the /v1 API,
+// backed by Valkey (see internal/foundation/ratelimit). It defaults to
+// disabled so a plain local run needs no Valkey; compose.yaml enables it.
+// Requests, Window and Timeout are only validated while it is enabled.
+type RateLimit struct {
+	// Window is the period Requests are allowed in.
+	Window time.Duration `env:"WINDOW" envDefault:"1m"`
+	// Timeout bounds one limiter round trip to Valkey; on timeout or any
+	// other limiter error the request is allowed (fail open).
+	Timeout time.Duration `env:"TIMEOUT" envDefault:"250ms"`
+	// Requests is how many requests one client may make per Window.
+	Requests int `env:"REQUESTS" envDefault:"100"`
+	// Enabled toggles rate limiting. When true, VALKEY_ADDRESS is required.
+	Enabled bool `env:"ENABLED" envDefault:"false"`
+}
+
+// Valkey holds settings for the Valkey connection (see
+// internal/foundation/valkey). It is only connected while a feature that
+// needs it, such as rate limiting, is enabled.
+type Valkey struct {
+	// Address is the server's host:port.
+	Address string `env:"ADDRESS"`
+	// Password authenticates the connection. Optional; treat it as a
+	// secret.
+	Password string `env:"PASSWORD"`
+	// Database is the logical database number selected on connect.
+	Database int `env:"DATABASE" envDefault:"0" validate:"min=0"`
+	// DialTimeout bounds establishing one connection.
+	DialTimeout time.Duration `env:"DIAL_TIMEOUT" envDefault:"5s" validate:"min=0"`
+	// WriteTimeout bounds writing one command to a connection.
+	WriteTimeout time.Duration `env:"WRITE_TIMEOUT" envDefault:"5s" validate:"min=0"`
 }
 
 // Application holds identity and deployment environment settings.
@@ -81,6 +116,11 @@ type HTTP struct {
 	// entirely. "*" allows any origin but is rejected together with
 	// CORSAllowCredentials.
 	CORSAllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS"`
+	// TrustedProxies lists, comma-separated, the CIDRs of reverse proxies
+	// whose X-Forwarded-For header is trusted to identify the client for
+	// rate limiting. Empty (the default) ignores X-Forwarded-For and uses
+	// the connection's remote address.
+	TrustedProxies []string `env:"TRUSTED_PROXIES" validate:"dive,cidr"`
 	// CORSAllowedMethods lists the methods a preflight may request.
 	CORSAllowedMethods []string `env:"CORS_ALLOWED_METHODS" envDefault:"GET,POST,PUT,PATCH,DELETE"`
 	// CORSAllowedHeaders lists the request headers a preflight may request.

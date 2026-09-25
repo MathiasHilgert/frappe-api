@@ -14,6 +14,10 @@ services:
       # Connects as the application role only, never the schema-owning
       # migration role (see internal/foundation/database/doc.go).
       DATABASE_URL: postgres://frappe_application:frappe_application_development_only@database:5432/frappe?sslmode=disable
+      # Rate limiting is off by default (so `go run` needs no Valkey) and
+      # enabled here against the bundled Valkey.
+      RATE_LIMIT_ENABLED: "true"
+      VALKEY_ADDRESS: valkey:6379
     # No healthcheck is defined here on purpose. The image is
     # gcr.io/distroless/static-debian12:nonroot (see Dockerfile), which has
     # no shell and no curl/wget to run a command-based healthcheck with.
@@ -33,6 +37,22 @@ services:
         condition: service_started
       database:
         condition: service_healthy
+      valkey:
+        condition: service_healthy
+
+  # Local Valkey, backing distributed rate limiting (see
+  # internal/foundation/ratelimit). Development only: no password, no
+  # persistence needed for rate limit state.
+  valkey:
+    image: valkey/valkey:8.1.4
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
 
   # Local Postgres. Roles are bootstrapped once, on first volume init, by
   # deployments/database/initialize.sql (see that file and
