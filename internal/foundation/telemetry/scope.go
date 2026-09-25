@@ -24,7 +24,7 @@ const countUnit = "{count}"
 // secondsUnit is the unit applied to Duration histograms.
 const secondsUnit = "s"
 
-// Scope is a module's namespaced handle onto a meter and a tracer. It
+// ModuleScope is a module's namespaced handle onto a meter and a tracer. It
 // prefixes every metric name with "frappe.<module>." and every span name
 // with "<module>.", and it works before the telemetry SDK's Up has run
 // because it delegates to the global OpenTelemetry providers.

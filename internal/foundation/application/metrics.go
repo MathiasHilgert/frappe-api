@@ -61,19 +61,19 @@ func recordHookPhase(ctx context.Context, name, phase string, duration time.Dura
 		outcome = "failure"
 	}
 
-	attributes := metric.WithAttributes(
-		attribute.String("hook", name),
-		attribute.String("phase", phase),
-	)
+	// Built once and reused below, instead of separately for the
+	// duration histogram and the failure counter.
+	hookAttribute := attribute.String("hook", name)
+	phaseAttribute := attribute.String("phase", phase)
 
 	hookDuration.Record(ctx, duration.Seconds(), metric.WithAttributes(
-		attribute.String("hook", name),
-		attribute.String("phase", phase),
+		hookAttribute,
+		phaseAttribute,
 		attribute.String("outcome", outcome),
 	))
 
 	if err != nil {
-		hookFailures.Add(ctx, 1, attributes)
+		hookFailures.Add(ctx, 1, metric.WithAttributes(hookAttribute, phaseAttribute))
 	}
 }
 
