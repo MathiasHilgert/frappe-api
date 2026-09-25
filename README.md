@@ -58,6 +58,7 @@ Screaming, hexagonal architecture. Infrastructure and business never share a roo
 cmd/
   api/                  API entrypoint
   migrate/              migration runner (separate binary, same image)
+  geosnapshot/          builds the GeoNames snapshot (development tool)
 internal/
   foundation/           what makes the application run, zero business
     application/        lifecycle: hooks, Up/Down, readiness
@@ -88,7 +89,7 @@ internal/
       tracing/          module spans
       module.go         module wiring
   dependencies/         composition root: builds dependencies, injects modules
-migrations/             SQL migrations (goose, timestamp-versioned, embedded)
+migrations/             SQL migrations (goose, timestamp-versioned, embedded), Go data seeds, data/geo snapshot
 deployments/            local infrastructure (database init script)
 ```
 
@@ -294,6 +295,22 @@ Metrics: `frappe.deepl.characters.sent` (by `target`, `outcome`: only `success` 
 | `LOCALIZED_TEXTS_SWEEP_LIMIT` | `500` | Rows one sweep handles per tenant. |
 | `LOCALIZED_TEXTS_PENDING_TIMEOUT` | `15m` | How long an unleased pending translation waits before it is requested again. |
 | `LOCALIZED_TEXTS_MAX_REQUEST_ATTEMPTS` | `5` | Requests before a translation is marked `failed`. |
+
+### Geographic data (GeoNames)
+
+Countries, first-level subdivisions, cities, IANA time zones and their localized names are global reference data (no tenant, read-only for `frappe_application`), seeded by migration from a compressed snapshot in `migrations/data/geo` (about 2.3 MB).
+
+| Item | Detail |
+|------|--------|
+| Tables | `countries` (ISO alpha-2 key), `time_zones` (IANA id), `subdivisions`, `cities` (GeoNames ids), and `country_names`, `subdivision_names`, `city_names` keyed by entity and locale |
+| Coverage | Every country and subdivision; cities above 500 inhabitants in Latin America and the Caribbean, above 15000 elsewhere, plus national capitals |
+| Localized names | Best GeoNames alternate name per supported locale (preferred, not historic or colloquial); no row means use the entity's own name |
+| Search | `pg_trgm` + `unaccent` GIN indexes on `geo_search_key(name)`; query with `geo_search_key(name) % geo_search_key($1)` |
+| Update | `go run ./cmd/geosnapshot -download -sources .geonames -dump-date <YYYY-MM-DD>`, then add a new seed migration; never edit an applied one |
+
+The seed is a Go migration (`migrations/geo.go`) that streams each file through `COPY`; `cmd/migrate` and the integration test template register it next to the SQL files.
+
+Data from [GeoNames](https://www.geonames.org), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). See [NOTICE](NOTICE).
 
 ## Testing
 

@@ -25,6 +25,14 @@
 // statement separator (for example a function body); goose splits on
 // semicolons outside of such blocks.
 //
+// # Go migrations
+//
+// Data seeds a SQL file cannot express (streaming a compressed snapshot
+// through COPY) are plain Go functions listed by GoMigrations, reading
+// their files from Data. They carry a version like any SQL file; this
+// package still never imports the migration tool: cmd/migrate and the
+// databasetest template register them with goose.
+//
 // # Versioning
 //
 // Files are named "<timestamp>_<description>.sql" (goose's default

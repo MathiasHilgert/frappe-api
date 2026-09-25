@@ -33,7 +33,8 @@
 //     migrations that grant privileges "TO frappe_application" by name
 //     apply exactly as they do against a real deployment.
 //   - github.com/peterldowns/pgtestdb migrates one template database, as
-//     frappe_migration, keyed by a hash of migrations.FS's contents, then clones that
+//     frappe_migration, keyed by a hash of migrations.FS and migrations.Data (see
+//     templateMigrator, which also applies migrations.GoMigrations), then clones that
 //     template into a fresh, isolated database for every call to New or
 //     NewOwner. A test is never migrated directly: cloning a
 //     already-migrated template is what makes many parallel tests cheap.

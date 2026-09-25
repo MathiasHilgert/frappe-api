@@ -138,6 +138,7 @@ func applyMigrations(ctx context.Context, t *testing.T, migration *sql.DB) {
 	provider, err := goose.NewProvider(goose.DialectPostgres, migration, migrations.FS,
 		goose.WithSessionLocker(sessionLocker),
 		goose.WithAllowOutofOrder(true),
+		goMigrations(),
 	)
 	if err != nil {
 		t.Fatalf("create migration provider: %v", err)

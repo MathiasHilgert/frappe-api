@@ -24,7 +24,7 @@ import (
 // available everywhere this module builds); it only runs under
 // "task test:integration" / CI, which do have Docker.
 func TestIntegrationMigrationsApplyOnAFreshDatabase(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
 	container, err := postgres.Run(ctx, "postgres:18.1",
@@ -68,7 +68,7 @@ func TestIntegrationMigrationsApplyOnAFreshDatabase(t *testing.T) {
 		t.Fatalf("create frappe_outbox_relay role: %v", execErr)
 	}
 
-	provider, err := goose.NewProvider(goose.DialectPostgres, sqlDatabase, migrations.FS, goose.WithAllowOutofOrder(true))
+	provider, err := goose.NewProvider(goose.DialectPostgres, sqlDatabase, migrations.FS, goose.WithAllowOutofOrder(true), goMigrations())
 	if err != nil {
 		t.Fatalf("create migration provider: %v", err)
 	}
@@ -79,6 +79,9 @@ func TestIntegrationMigrationsApplyOnAFreshDatabase(t *testing.T) {
 	}
 	if len(results) == 0 {
 		t.Fatal("Up applied zero migrations")
+	}
+	for _, result := range results {
+		t.Logf("applied %d in %s", result.Source.Version, result.Duration)
 	}
 
 	version, err := provider.GetDBVersion(ctx)
