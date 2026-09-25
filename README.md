@@ -1,0 +1,144 @@
+# frappe-api
+
+Backend API of the frappe platform for restaurants, cafes and food businesses across LATAM. Go, hexagonal architecture, Postgres with Row Level Security, and OpenTelemetry from day one.
+
+> Proprietary software of Nülled Software. See [LICENSE](LICENSE). No use, copy or distribution without written permission.
+
+## Quick start
+
+Requirements: Go (version in `go.mod`), [Task](https://taskfile.dev), Docker (Docker Desktop, OrbStack or Colima).
+
+```bash
+cp .env.example .env              # local defaults, adjust if needed
+task database:up valkey:up        # Postgres and Valkey
+task observability:up             # optional: Grafana LGTM on http://localhost:3000
+task migrations:run               # apply database migrations
+task application:run              # API on http://localhost:8080
+```
+
+Verify:
+
+```bash
+curl -i http://localhost:8080/health/ready   # 200 application/health+json
+open http://localhost:8080/docs               # OpenAPI docs (development only)
+```
+
+Without Docker services, run with `TELEMETRY_ENABLED=false RATE_LIMIT_ENABLED=false`; a database is still required.
+
+## Everyday commands
+
+Tasks follow `<domain>:<action>`. Run `task` to list them all.
+
+| Goal | Command |
+|------|---------|
+| Run the API | `task application:run` |
+| Run with Infisical secrets | `task secrets:run` |
+| Full local check (same as CI) | `task ci:run` |
+| Unit tests | `task test:unit` |
+| Integration tests (Docker) | `task test:integration` |
+| Lint / auto-fix | `task lint:run` / `task lint:fix` |
+| Architecture rules | `task architecture:check` |
+| New migration | `task migrations:create -- <name>` |
+| Migration status / rollback | `task migrations:status` / `task migrations:rollback` |
+| Vulnerability scan | `task security:vuln` |
+
+## Architecture
+
+Screaming, hexagonal architecture. Infrastructure and business never share a root.
+
+```
+cmd/
+  api/                  API entrypoint
+  migrate/              migration runner (separate binary, same image)
+internal/
+  foundation/           what makes the application run, zero business
+    application/        lifecycle: hooks, Up/Down, readiness
+    configuration/      configuration and validation (environment provider)
+    database/           pgx pool, RLS-ready transactions
+    health/             background dependency checks
+    httpserver/         HTTP server, middleware, Huma /v1 API
+    logging/            JSON logs to stdout, level gating
+    ratelimit/          GCRA rate limiter on Valkey
+    telemetry/          OpenTelemetry traces, metrics, logs
+    valkey/             Valkey client
+  modules/              business modules (one folder per module)
+    <module>/
+      domain/           entities and rules, no infrastructure
+      application/      use cases and the ports they need
+      adapters/         http, postgres, ...
+      metrics/          module metrics
+      tracing/          module spans
+      module.go         module wiring
+  dependencies/         composition root: builds dependencies, injects modules
+migrations/             SQL migrations (goose, timestamp-versioned, embedded)
+deployments/            local infrastructure (database init script)
+```
+
+```mermaid
+flowchart LR
+  Cmd[cmd/api] --> Dependencies[internal/dependencies]
+  Dependencies --> Foundation[internal/foundation]
+  Dependencies --> Modules[internal/modules]
+  subgraph Module[a module]
+    Adapters --> Application
+    Adapters --> Domain
+    Application --> Domain
+  end
+  Adapters --> Foundation
+```
+
+Rules enforced in CI by `go-arch-lint` and `depguard`:
+
+- `domain` imports nothing from infrastructure (no HTTP, database, JSON or OpenTelemetry).
+- `application` depends only on its own `domain`; it never touches the database or `pgx`.
+- `foundation` never imports `modules` or `dependencies`.
+- A module never imports another module's internals.
+- Modules never read the global configuration: each module declares its own `Configuration` and `Dependencies` and receives them by constructor.
+
+## Key concepts
+
+| Concept | How it works |
+|---------|--------------|
+| Lifecycle | Every dependency declares `Up`, `Down` and optionally `Check`. Up runs in order, Down in reverse, failures roll back what already started. |
+| Readiness | `/health/live` never checks dependencies. `/health/ready` is 503 until every `Up` finished and every declared check passes; it flips to 503 first on shutdown, then the server drains. |
+| Row Level Security | Tenant settings are applied per transaction with `set_config(..., true)`, never per session. The application role cannot bypass RLS; tables use `FORCE ROW LEVEL SECURITY`. |
+| Database roles | `frappe_migration` owns the schema and runs migrations; `frappe_application` is the runtime role. |
+| Migrations | Run by `cmd/migrate` as a deploy step, never at API startup. Timestamp-versioned, out-of-order allowed. |
+| Rate limiting | GCRA in Valkey, IETF `RateLimit-*` headers, 429 as RFC 9457. Fails open if Valkey is unavailable. |
+| Errors | RFC 9457 `application/problem+json`. |
+| Telemetry | OTLP to any collector (local otel-lgtm or Grafana Cloud). Parent-based trace sampling: 100% in development, 10% in production. |
+
+## Configuration
+
+All configuration comes from environment variables, validated at startup: invalid or missing values stop the application with a message naming the variable. [`.env.example`](.env.example) lists every variable with its default.
+
+Secrets are never committed. Locally, `task secrets:run` injects them with the Infisical CLI; in deployed environments the orchestrator injects them as environment variables.
+
+## Testing
+
+- Unit tests run without external services: `task test:unit`.
+- Integration tests use the `integration` build tag and testcontainers. `databasetest.New(t)` returns an isolated, migrated database cloned from a template in milliseconds, safe with `t.Parallel()`.
+- With Colima, point testcontainers at its socket:
+
+```bash
+export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
+export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
+```
+
+## Contributing
+
+| Item | Convention |
+|------|------------|
+| Branches | `<type>/<short-description>`, e.g. `feat/cancel-orders` |
+| Commits and PR titles | [Conventional Commits](https://www.conventionalcommits.org) |
+| Merging | Squash merge only; branches are deleted after merge |
+| PR description | Follow the template in `.github/pull_request_template.md` |
+| Naming | Full words, no abbreviations (`configuration`, not `config`) |
+| Text | English, plain ASCII, no emojis, no AI attribution |
+| Tests | Test-driven development; tests ship with the behavior |
+
+Every PR must pass: lint and format, `go mod tidy`, unit tests, integration tests, vulnerability scan, architecture rules, and PR conventions. Labels and assignee are applied automatically.
+
+## License
+
+Proprietary. Copyright (c) 2026 Nülled Software. All rights reserved. See [LICENSE](LICENSE).
