@@ -1,0 +1,8 @@
+{
+  "locale.name": "日本語",
+  "error.internal.title": "内部サーバーエラー",
+  "error.not_found.title": "見つかりません",
+  "time.minutes": {
+    "other": "{{.Count}}分"
+  }
+}

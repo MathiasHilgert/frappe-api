@@ -101,6 +101,9 @@ func recoveryMiddleware(logger *slog.Logger, apiMux *http.ServeMux) func(http.Ha
 				if recorder, ok := w.(*statusRecorder); ok && recorder.wroteHeader {
 					panic(http.ErrAbortHandler)
 				}
+				// The 500 body is not localized, so drop the Content-Language
+				// the localization middleware set for the negotiated locale.
+				w.Header().Del("Content-Language")
 				writeProblem(w, http.StatusInternalServerError, "Internal Server Error")
 			}()
 			next.ServeHTTP(w, r)

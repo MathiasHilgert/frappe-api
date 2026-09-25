@@ -1,0 +1,10 @@
+{
+  "locale.name": "Français",
+  "error.internal.title": "Erreur interne du serveur",
+  "error.not_found.title": "Introuvable",
+  "time.minutes": {
+    "one": "{{.Count}} minute",
+    "many": "{{.Count}} de minutes",
+    "other": "{{.Count}} minutes"
+  }
+}

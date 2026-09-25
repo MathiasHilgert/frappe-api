@@ -44,6 +44,8 @@ import (
 // program. It is composed of one struct per concern, each with its own
 // environment prefix.
 type Configuration struct {
+	Internationalization Internationalization `envPrefix:"I18N_"`
+
 	Events      Events      `envPrefix:"EVENTS_"`
 	Logging     Logging     `envPrefix:"LOGGING_"`
 	Application Application `envPrefix:"APPLICATION_"`
@@ -57,6 +59,17 @@ type Configuration struct {
 	Health      Health      `envPrefix:"HEALTH_"`
 	Inbox       Inbox       `envPrefix:"INBOX_"`
 	Telemetry   Telemetry   `envPrefix:"TELEMETRY_"`
+}
+
+// Internationalization holds the platform locale settings (see
+// internal/foundation/i18n). Every value is a BCP 47 tag.
+type Internationalization struct {
+	// SourceLocale is the locale messages are authored in and the final
+	// fallback. It must be one of SupportedLocales.
+	SourceLocale string `env:"SOURCE_LOCALE" envDefault:"es-419"`
+	// SupportedLocales lists, comma-separated, the locales the platform
+	// serves. Each needs an embedded catalog in internal/foundation/i18n.
+	SupportedLocales []string `env:"SUPPORTED_LOCALES" envDefault:"es-419,en,pt-BR,fr,it,de,ru,zh-Hans,ko,ja"`
 }
 
 // Inbox holds settings for the consumer inbox (see

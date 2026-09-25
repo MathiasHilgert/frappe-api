@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"log/slog"
+	"net/http"
 	"time"
 )
 
@@ -64,6 +65,13 @@ type Settings struct {
 	// RateLimit configures rate limiting of the /v1 API. The zero value
 	// disables it.
 	RateLimit RateLimitSettings
+	// Localization, when set, wraps the /v1 API to negotiate the request
+	// locale (internal/foundation/i18n.Catalog.Middleware, wired by the
+	// composition root; this package never imports i18n). It runs after
+	// CORS, so preflights skip it, and before caching and rate limiting,
+	// so every response, including 304 and 429, carries Content-Language
+	// and "Vary: Accept-Language". Nil disables it.
+	Localization func(http.Handler) http.Handler
 	// CORS configures Cross-Origin Resource Sharing for the /v1 API. The
 	// zero value disables CORS.
 	CORS CORSSettings
@@ -110,4 +118,13 @@ func (settings Settings) ready() Readiness {
 		return settings.Ready
 	}
 	return alwaysReady{}
+}
+
+// localization returns the configured localization middleware, or a
+// pass-through when none was set.
+func (settings Settings) localization() func(http.Handler) http.Handler {
+	if settings.Localization != nil {
+		return settings.Localization
+	}
+	return func(next http.Handler) http.Handler { return next }
 }

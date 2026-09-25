@@ -37,6 +37,10 @@ func validConfiguration() configuration.Configuration {
 		Logging: configuration.Logging{
 			Level: "info",
 		},
+		Internationalization: configuration.Internationalization{
+			SourceLocale:     "es-419",
+			SupportedLocales: []string{"es-419", "en"},
+		},
 		// A syntactically valid but unroutable address (port 1 refuses
 		// the connection immediately on every platform this test runs
 		// on) and a short connect timeout, so this unit test proves

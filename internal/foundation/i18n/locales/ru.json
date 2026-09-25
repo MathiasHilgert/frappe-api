@@ -1,0 +1,11 @@
+{
+  "locale.name": "Русский",
+  "error.internal.title": "Внутренняя ошибка сервера",
+  "error.not_found.title": "Не найдено",
+  "time.minutes": {
+    "one": "{{.Count}} минута",
+    "few": "{{.Count}} минуты",
+    "many": "{{.Count}} минут",
+    "other": "{{.Count}} минуты"
+  }
+}

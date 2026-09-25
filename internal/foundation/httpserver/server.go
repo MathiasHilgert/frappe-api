@@ -135,7 +135,9 @@ func New(settings Settings) *Server {
 	// above it observe the resulting status, CORS answers preflights
 	// before routing (so they are traced, carry a request id and are
 	// access logged, but never reach later middleware such as rate
-	// limiting or authentication, nor Huma's 404/405 handling), caching
+	// limiting or authentication, nor Huma's 404/405 handling), localization
+	// negotiates the request locale and sets Content-Language and Vary,
+	// caching
 	// applies the default no-store or the handler's declared cache policy
 	// (outside rate limiting, so a 429 is no-store too), and
 	// maxBodyBytes bounds request bodies right before they reach the mux.
@@ -144,9 +146,11 @@ func New(settings Settings) *Server {
 			accessLogMiddleware(logger, apiMux)(
 				recoveryMiddleware(logger, apiMux)(
 					corsMiddleware(settings.CORS)(
-						cachingMiddleware(settings.CacheVaryHeaders, apiMux)(
-							rateLimitMiddleware(settings.RateLimit, logger, apiMux)(
-								maxBodyBytesMiddleware(settings.MaxBodyBytes)(apiMux),
+						settings.localization()(
+							cachingMiddleware(settings.CacheVaryHeaders, apiMux)(
+								rateLimitMiddleware(settings.RateLimit, logger, apiMux)(
+									maxBodyBytesMiddleware(settings.MaxBodyBytes)(apiMux),
+								),
 							),
 						),
 					),

@@ -40,6 +40,10 @@ func loggingTestConfiguration(level string) configuration.Configuration {
 		HTTP:      configuration.HTTP{Port: 8080},
 		Logging:   configuration.Logging{Level: level},
 		Telemetry: configuration.Telemetry{Enabled: false},
+		Internationalization: configuration.Internationalization{
+			SourceLocale:     "es-419",
+			SupportedLocales: []string{"es-419"},
+		},
 		Database: configuration.Database{
 			URL:            "postgres://user:password@127.0.0.1:1/frappe?sslmode=disable",
 			ConnectTimeout: 200 * time.Millisecond,

@@ -33,6 +33,10 @@ func validConfiguration() configuration.Configuration {
 		Logging: configuration.Logging{
 			Level: "info",
 		},
+		Internationalization: configuration.Internationalization{
+			SupportedLocales: []string{"es-419", "en", "pt-BR", "fr", "it", "de", "ru", "zh-Hans", "ko", "ja"},
+			SourceLocale:     "es-419",
+		},
 		Health: configuration.Health{
 			CheckInterval:    10 * time.Second,
 			CheckTimeout:     2 * time.Second,
