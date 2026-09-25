@@ -132,3 +132,33 @@ func TestAccessLogDefaultsToStatus200WhenHandlerWritesNothing(t *testing.T) {
 		t.Fatalf("access log missing default status 200: %s", logged)
 	}
 }
+
+// TestRequestIDAllowlist table-tests isValidRequestID against the
+// documented allowlist ^[A-Za-z0-9._-]{1,128}$, instead of only rejecting
+// control characters and length.
+func TestRequestIDAllowlist(t *testing.T) {
+	tests := []struct {
+		name string
+		id   string
+		want bool
+	}{
+		{name: "empty", id: "", want: false},
+		{name: "simple alphanumeric", id: "abc123", want: true},
+		{name: "uuid", id: "29730131-a3bc-45e0-886b-073e927861e5", want: true},
+		{name: "dots and underscores", id: "a.b_c-d", want: true},
+		{name: "contains space", id: "bad id", want: false},
+		{name: "contains slash", id: "bad/id", want: false},
+		{name: "contains control character", id: "bad\nid", want: false},
+		{name: "contains unicode", id: "bad-idé", want: false},
+		{name: "exactly max length", id: strings.Repeat("a", maxRequestIDLength), want: true},
+		{name: "over max length", id: strings.Repeat("a", maxRequestIDLength+1), want: false},
+	}
+
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			if got := isValidRequestID(testCase.id); got != testCase.want {
+				t.Fatalf("isValidRequestID(%q) = %v, want %v", testCase.id, got, testCase.want)
+			}
+		})
+	}
+}

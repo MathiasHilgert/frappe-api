@@ -2,7 +2,9 @@ package httpserver
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"regexp"
 
 	"github.com/google/uuid"
 )
@@ -14,6 +16,15 @@ const RequestIDHeader = "X-Request-ID"
 // maxRequestIDLength bounds how long an inbound request id may be before
 // it is rejected and a fresh one is generated instead.
 const maxRequestIDLength = 128
+
+// requestIDPattern is the allowlist an inbound request id must match to be
+// trusted: ASCII letters, digits, dots, underscores and hyphens only, 1 to
+// maxRequestIDLength characters. This is deliberately narrower than "no
+// control characters": it also rejects spaces, slashes and other
+// characters that are technically legal in a header value but are not
+// safe to echo unescaped into a log line, a downstream header, or a URL
+// path built from the request id.
+var requestIDPattern = regexp.MustCompile(fmt.Sprintf(`^[A-Za-z0-9._-]{1,%d}$`, maxRequestIDLength))
 
 // requestIDContextKey is the context key under which the request id is
 // stored, private to this package so callers must go through
@@ -46,16 +57,12 @@ func RequestIDFromContext(ctx context.Context) (string, bool) {
 }
 
 // isValidRequestID reports whether id is safe to trust as an inbound
-// request id: non-empty, within a sane length, and free of control
-// characters that could break log lines or be used to inject headers.
+// request id, by matching it against requestIDPattern: 1 to
+// maxRequestIDLength ASCII letters, digits, dots, underscores or hyphens.
+// Anything else (control characters that could break log lines or inject
+// headers, but also spaces, slashes and non-ASCII characters that are
+// merely unwelcome rather than dangerous) is rejected, and a fresh id is
+// generated instead.
 func isValidRequestID(id string) bool {
-	if id == "" || len(id) > maxRequestIDLength {
-		return false
-	}
-	for _, r := range id {
-		if r < 0x20 || r == 0x7f {
-			return false
-		}
-	}
-	return true
+	return requestIDPattern.MatchString(id)
 }
