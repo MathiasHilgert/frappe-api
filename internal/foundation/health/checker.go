@@ -13,6 +13,13 @@ type state struct {
 	lastDuration        time.Duration
 	consecutiveFailures int
 	failing             bool
+	// succeededOnce is true once this check has passed at least one run.
+	// Until then, any single failure marks the check failing immediately:
+	// FailureThreshold only smooths transient flapping for a check that
+	// has already proven healthy, it must not let a dependency that is
+	// down from boot report ready while failures below the threshold
+	// accumulate.
+	succeededOnce bool
 }
 
 // snapshot copies state under the caller-held lock into an immutable
@@ -137,13 +144,14 @@ func (checker *Checker) run(ctx context.Context, check Check) {
 	if err != nil {
 		checkState.lastError = err
 		checkState.consecutiveFailures++
-		if checkState.consecutiveFailures >= checker.settings.FailureThreshold {
+		if !checkState.succeededOnce || checkState.consecutiveFailures >= checker.settings.FailureThreshold {
 			checkState.failing = true
 		}
 	} else {
 		checkState.lastError = nil
 		checkState.consecutiveFailures = 0
 		checkState.failing = false
+		checkState.succeededOnce = true
 	}
 	passing := !checkState.failing
 	checker.mutex.Unlock()

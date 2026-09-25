@@ -38,12 +38,22 @@ func TestStartRunsChecksSynchronouslyBeforeReturning(t *testing.T) {
 }
 
 // TestFailureThresholdMarksCheckFailingOnlyAfterNConsecutiveFailures
-// verifies that a check is not marked failing until it has accumulated
-// the configured number of consecutive failures.
+// verifies that, once a check has succeeded at least once, it is not
+// marked failing again until it has accumulated the configured number of
+// consecutive failures (the threshold smooths transient flapping for a
+// check that has already proven healthy; it does not apply to a check
+// that has never succeeded, see
+// TestReadyIsFalseImmediatelyWhenADependencyIsDownAtBoot).
 func TestFailureThresholdMarksCheckFailingOnlyAfterNConsecutiveFailures(t *testing.T) {
 	var failures atomic.Int32
+	var succeedFirst atomic.Bool
+	succeedFirst.Store(true)
+
 	checker := health.NewChecker([]health.Check{
 		{Name: "flaky", Run: func(context.Context) error {
+			if succeedFirst.Load() {
+				return nil
+			}
 			failures.Add(1)
 			return errors.New("boom")
 		}},
@@ -55,7 +65,13 @@ func TestFailureThresholdMarksCheckFailingOnlyAfterNConsecutiveFailures(t *testi
 	defer func() { _ = checker.Stop(context.Background()) }()
 
 	if !checker.Ready() {
-		t.Fatal("Ready() = false after only 1 consecutive failure, want true until threshold is reached")
+		t.Fatal("Ready() = false after the initial passing run, want true")
+	}
+
+	succeedFirst.Store(false)
+
+	if !checker.Ready() {
+		t.Fatal("Ready() = false immediately after the first failure following a success, want true until threshold is reached")
 	}
 
 	waitUntil(t, func() bool { return failures.Load() >= 3 })
@@ -210,6 +226,26 @@ func TestStopReturnsWhenContextIsDone(t *testing.T) {
 		t.Fatalf("Stop error = %v, want context.DeadlineExceeded", err)
 	}
 	close(blockForever)
+}
+
+// TestReadyIsFalseImmediatelyWhenADependencyIsDownAtBoot verifies that a
+// check failing on its very first run marks the checker not-ready right
+// away, instead of requiring FailureThreshold consecutive failures before
+// the first ever success. The threshold only smooths transient flapping
+// once a check has proven healthy at least once.
+func TestReadyIsFalseImmediatelyWhenADependencyIsDownAtBoot(t *testing.T) {
+	checker := health.NewChecker([]health.Check{
+		{Name: "down-at-boot", Run: func(context.Context) error { return errors.New("boom") }},
+	}, health.Settings{Interval: time.Hour, Timeout: time.Second, FailureThreshold: 3})
+
+	if err := checker.Start(context.Background()); err != nil {
+		t.Fatalf("Start returned unexpected error: %v", err)
+	}
+	defer func() { _ = checker.Stop(context.Background()) }()
+
+	if checker.Ready() {
+		t.Fatal("Ready() = true immediately after Start with a dependency down at boot, want false")
+	}
 }
 
 // waitUntil polls condition until it is true or a short deadline elapses,
