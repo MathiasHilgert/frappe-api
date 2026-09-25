@@ -1,0 +1,35 @@
+# Security: scheduled vulnerability scan of main. CI only scans on pull
+# requests and pushes, so new advisories against unchanged dependencies
+# would go unnoticed without this daily run.
+name: Security
+
+on:
+  schedule:
+    # Daily at 06:00 UTC.
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+# Read-only; the scan never writes to the repository.
+permissions:
+  contents: read
+
+jobs:
+  vulnerability-scan:
+    name: Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Scan dependencies and code for known vulnerabilities
+        # Same invocation as the CI vulnerability job; govulncheck works even
+        # with zero packages and reports nothing to scan instead of failing.
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
