@@ -142,7 +142,9 @@ func New(settings Settings) *Server {
 			accessLogMiddleware(logger, apiMux)(
 				recoveryMiddleware(logger, apiMux)(
 					corsMiddleware(settings.CORS)(
-						maxBodyBytesMiddleware(settings.MaxBodyBytes)(apiMux),
+						rateLimitMiddleware(settings.RateLimit, logger, apiMux)(
+							maxBodyBytesMiddleware(settings.MaxBodyBytes)(apiMux),
+						),
 					),
 				),
 			),
