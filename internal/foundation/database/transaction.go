@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -57,6 +58,10 @@ func (settings TransactionSettings) validate() error {
 	return nil
 }
 
+// rollbackTimeout bounds how long WithinTransaction waits for a rollback,
+// which runs detached from the caller's (possibly canceled) ctx.
+const rollbackTimeout = 5 * time.Second
+
 // transactionBeginner is what WithinTransaction begins a unit of work on:
 // a *pgxpool.Pool (a new top-level transaction on its own connection) or
 // a pgx.Tx (a savepoint inside that transaction, on its connection).
@@ -106,11 +111,18 @@ func runWithin(ctx context.Context, beginner transactionBeginner, settings Trans
 		if committed {
 			return
 		}
+		// Rollback runs on a ctx detached from the caller's cancellation
+		// (bounded by rollbackTimeout instead): work most often fails
+		// because ctx was canceled or timed out, and rolling back on that
+		// same ctx would fail immediately and leave the connection (or
+		// the savepoint) open until pgx cleans it up.
+		rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), rollbackTimeout)
+		defer cancel()
 		// Rollback error is intentionally ignored: once work has failed
 		// or panicked, the transaction is already gone (or about to be,
 		// on connection loss), and reporting a rollback failure would
 		// only obscure the original error or panic.
-		_ = transaction.Rollback(ctx)
+		_ = transaction.Rollback(rollbackCtx)
 	}()
 
 	if err := applySettings(ctx, transaction, settings); err != nil {

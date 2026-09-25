@@ -159,6 +159,25 @@ func TestWithinTransactionRollsBackTheSavepointOnWorkError(t *testing.T) {
 	}
 }
 
+func TestWithinTransactionRollsBackEvenWhenCtxIsCanceled(t *testing.T) {
+	outer := &recordingTransaction{}
+	ctx, cancel := context.WithCancel(database.ContextWithTransaction(context.Background(), outer))
+
+	err := database.WithinTransaction(ctx, (*pgxpool.Pool)(nil), nil, func(context.Context, pgx.Tx) error {
+		cancel()
+		return context.Canceled
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("WithinTransaction error = %v, want %v", err, context.Canceled)
+	}
+	if outer.savepoint == nil || !outer.savepoint.rolledBack {
+		t.Fatal("savepoint was not rolled back")
+	}
+	if !outer.savepoint.rollbackContextOK {
+		t.Fatal("Rollback received a canceled ctx; it must run on a ctx detached from the caller's cancellation")
+	}
+}
+
 // Positive coverage for a valid setting-name shape (for example
 // "application.tenant") and for transaction-local scoping and rollback
 // behavior lives in the integration test (transaction_integration_test.go),
