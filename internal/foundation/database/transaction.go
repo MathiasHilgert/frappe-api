@@ -57,11 +57,28 @@ func (settings TransactionSettings) validate() error {
 	return nil
 }
 
+// transactionBeginner is what WithinTransaction begins a unit of work on:
+// a *pgxpool.Pool (a new top-level transaction on its own connection) or
+// a pgx.Tx (a savepoint inside that transaction, on its connection).
+type transactionBeginner interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
+
 // WithinTransaction begins a transaction on pool, applies every setting in
 // settings with SELECT set_config($1, $2, true) so each becomes
-// transaction-local, runs work, and commits if work returns nil or rolls
-// back otherwise. If work panics, WithinTransaction rolls back and
-// re-panics with the original value.
+// transaction-local, runs work with a ctx carrying the transaction (see
+// TransactionFromContext), and commits if work returns nil or rolls back
+// otherwise. If work panics, WithinTransaction rolls back and re-panics
+// with the original value.
+//
+// When ctx already carries a transaction (a nested call), WithinTransaction
+// does not touch pool: it joins that transaction through a savepoint, so
+// the nested work stays atomic with the outer unit of work and never waits
+// on a second pooled connection. The savepoint is released on success and
+// rolled back on failure; the outer transaction is left for its owner to
+// commit or roll back. Settings applied inside a savepoint stay in effect
+// until the outer transaction ends (Postgres scopes set_config(..., true)
+// to the top-level transaction), unless the savepoint is rolled back.
 //
 // Settings are transaction-local, never session-level: see doc.go for why
 // a session-level SET would be unsafe on a pooled connection.
@@ -70,7 +87,16 @@ func WithinTransaction(ctx context.Context, pool *pgxpool.Pool, settings Transac
 		return err
 	}
 
-	transaction, err := pool.Begin(ctx)
+	if outer, ok := TransactionFromContext(ctx); ok {
+		return runWithin(ctx, outer, settings, work)
+	}
+	return runWithin(ctx, pool, settings, work)
+}
+
+// runWithin begins a transaction (or a savepoint) on beginner and runs
+// work inside it; see WithinTransaction.
+func runWithin(ctx context.Context, beginner transactionBeginner, settings TransactionSettings, work func(ctx context.Context, transaction pgx.Tx) error) error {
+	transaction, err := beginner.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}

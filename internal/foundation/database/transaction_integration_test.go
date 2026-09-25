@@ -5,6 +5,7 @@ package database_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -83,6 +84,76 @@ func TestIntegrationWithinTransactionRollsBackOnWorkError(t *testing.T) {
 	}
 	if rowCount != 0 {
 		t.Fatalf("rollback_probe has %d rows, want 0 (work's insert must have been rolled back)", rowCount)
+	}
+}
+
+// TestIntegrationNestedWithinTransactionJoinsTheOuterTransaction proves a
+// nested WithinTransaction runs inside the outer transaction through a
+// savepoint: a failed nested unit rolls back only its own writes, and a
+// failed outer unit rolls back the nested unit's released writes too.
+// It uses a pool of one connection, so a nested call that opened a second
+// connection instead of joining would deadlock and hit the ctx timeout.
+func TestIntegrationNestedWithinTransactionJoinsTheOuterTransaction(t *testing.T) {
+	connectionString := startPostgresContainer(t, "frappe_superuser", "frappe_superuser")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	pool, err := database.Up(ctx, database.Settings{URL: connectionString, MaxConnections: 1})
+	if err != nil {
+		t.Fatalf("Up returned unexpected error: %v", err)
+	}
+	t.Cleanup(func() { _ = database.Down(context.Background(), pool) })
+
+	if _, createErr := pool.Exec(ctx, "CREATE TABLE nested_probe (value TEXT NOT NULL)"); createErr != nil {
+		t.Fatalf("create table: %v", createErr)
+	}
+
+	insert := func(value string) func(context.Context, pgx.Tx) error {
+		return func(ctx context.Context, transaction pgx.Tx) error {
+			_, insertErr := transaction.Exec(ctx, "INSERT INTO nested_probe (value) VALUES ($1)", value)
+			return insertErr
+		}
+	}
+
+	nestedErr := errors.New("nested failure")
+	outerErr := errors.New("outer failure")
+	err = database.WithinTransaction(ctx, pool, nil, func(ctx context.Context, transaction pgx.Tx) error {
+		if insertErr := insert("outer")(ctx, transaction); insertErr != nil {
+			return insertErr
+		}
+		if releasedErr := database.WithinTransaction(ctx, pool, nil, insert("released")); releasedErr != nil {
+			return releasedErr
+		}
+		failedErr := database.WithinTransaction(ctx, pool, nil, func(ctx context.Context, transaction pgx.Tx) error {
+			if insertErr := insert("rolled back savepoint")(ctx, transaction); insertErr != nil {
+				return insertErr
+			}
+			return nestedErr
+		})
+		if !errors.Is(failedErr, nestedErr) {
+			return fmt.Errorf("nested error = %w, want %w", failedErr, nestedErr)
+		}
+
+		var visible int
+		if countErr := transaction.QueryRow(ctx, "SELECT count(*) FROM nested_probe").Scan(&visible); countErr != nil {
+			return countErr
+		}
+		if visible != 2 {
+			return fmt.Errorf("rows visible inside the outer transaction = %d, want 2", visible)
+		}
+		return outerErr
+	})
+	if !errors.Is(err, outerErr) {
+		t.Fatalf("WithinTransaction error = %v, want %v", err, outerErr)
+	}
+
+	var rowCount int
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM nested_probe").Scan(&rowCount); err != nil {
+		t.Fatalf("count rows: %v", err)
+	}
+	if rowCount != 0 {
+		t.Fatalf("nested_probe has %d rows, want 0 (the outer rollback must undo the released savepoint)", rowCount)
 	}
 }
 
