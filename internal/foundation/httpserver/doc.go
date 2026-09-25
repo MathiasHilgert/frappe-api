@@ -94,4 +94,34 @@
 // it from domain and application layers, keeping business logic
 // transport-agnostic. net/http itself is denied from domain and
 // application for the same reason.
+//
+// # Timeouts and streaming or upload handlers
+//
+// Settings.ReadTimeout and Settings.WriteTimeout are applied by the
+// underlying http.Server as fixed, whole-request deadlines: ReadTimeout
+// bounds the entire request (headers and body) from the first byte read,
+// and WriteTimeout bounds the entire response from the end of the request
+// headers. Both are sized, by default, for ordinary request/response API
+// traffic. A handler that streams a large response body, accepts a large
+// or slow upload, or holds a long-lived connection (Server-Sent Events, a
+// long poll) will be cut off mid-transfer once the global deadline is
+// reached, regardless of whether it is still making progress.
+//
+// A handler that needs more time than the global deadline allows for one
+// specific request should extend its own deadline with
+// http.ResponseController, rather than raising Settings.ReadTimeout or
+// WriteTimeout for every request server-wide:
+//
+//	controller := http.NewResponseController(w)
+//	if err := controller.SetWriteDeadline(time.Now().Add(2 * time.Minute)); err != nil {
+//		// The underlying ResponseWriter does not support per-request
+//		// deadlines; fall back to the server-wide WriteTimeout.
+//	}
+//
+// This works through this package's own middleware chain because
+// statusRecorder (the ResponseWriter wrapper the access log and panic
+// recovery middleware install) implements Unwrap() http.ResponseWriter,
+// which http.ResponseController follows to reach the underlying
+// connection's real deadline-setting and flushing support instead of
+// stopping at the wrapper.
 package httpserver
