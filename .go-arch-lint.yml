@@ -25,6 +25,17 @@ components:
   cmd:
     in: cmd/**
 
+  # cmd/migrate is split out of cmd so it, and only it, may depend on
+  # migrations: cmd/api must never import migrations (it never runs
+  # migrations itself; see cmd/migrate/main.go).
+  cmd_migrate:
+    in: cmd/migrate/**
+
+  # migrations is a leaf: it embeds SQL files and must not import
+  # anything first-party. Only cmd_migrate may depend on it.
+  migrations:
+    in: migrations/**
+
   # foundation_configuration and foundation_configuration_environment are
   # split out of foundation (matched first, so they take precedence for
   # this subpath) because modules must build their own
@@ -72,6 +83,13 @@ deps:
       - module_adapters
       - module_application
       - module_domain
+
+  cmd_migrate:
+    mayDependOn:
+      - migrations
+
+  # migrations intentionally has no deps entry: it is a leaf and may not
+  # depend on any other component, including foundation.
 
   # foundation, foundation_configuration and module_domain intentionally
   # have no deps entry: they are leaves and may not depend on any other

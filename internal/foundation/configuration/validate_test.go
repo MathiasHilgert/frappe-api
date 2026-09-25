@@ -38,6 +38,14 @@ func validConfiguration() configuration.Configuration {
 			CheckTimeout:     2 * time.Second,
 			FailureThreshold: 3,
 		},
+		Database: configuration.Database{
+			URL:                   "postgres://user:password@localhost:5432/frappe",
+			MaxConnections:        10,
+			MinConnections:        2,
+			MaxConnectionLifetime: 30 * time.Minute,
+			MaxConnectionIdleTime: 5 * time.Minute,
+			ConnectTimeout:        5 * time.Second,
+		},
 	}
 }
 

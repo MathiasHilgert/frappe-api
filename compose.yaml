@@ -11,6 +11,9 @@ services:
     environment:
       # Sends traces, metrics and logs to the local observability stack.
       OTEL_EXPORTER_OTLP_ENDPOINT: http://observability:4318
+      # Connects as the application role only, never the schema-owning
+      # migration role (see internal/foundation/database/doc.go).
+      DATABASE_URL: postgres://frappe_application:frappe_application_development_only@database:5432/frappe?sslmode=disable
     # No healthcheck is defined here on purpose. The image is
     # gcr.io/distroless/static-debian12:nonroot (see Dockerfile), which has
     # no shell and no curl/wget to run a command-based healthcheck with.
@@ -26,7 +29,38 @@ services:
       - ALL
     restart: unless-stopped
     depends_on:
-      - observability
+      observability:
+        condition: service_started
+      database:
+        condition: service_healthy
+
+  # Local Postgres. Roles are bootstrapped once, on first volume init, by
+  # deployments/database/initialize.sql (see that file and
+  # internal/foundation/database/doc.go for the two-role model).
+  database:
+    image: postgres:18.1
+    environment:
+      POSTGRES_DB: frappe
+      # Only the postgres superuser's own password; frappe_migration and
+      # frappe_application are created by initialize.sql instead, each
+      # with their own development-only password.
+      POSTGRES_PASSWORD: postgres_development_only
+    ports:
+      - "5432:5432"
+    volumes:
+      # The postgres 18+ image keeps PGDATA in a major-version subdirectory
+      # (/var/lib/postgresql/18/docker) and declares its volume at
+      # /var/lib/postgresql, so pg_upgrade --link can work across majors.
+      # Mounting at the old /var/lib/postgresql/data path would not persist
+      # the data directory at all.
+      - database-data:/var/lib/postgresql
+      - ./deployments/database/initialize.sql:/docker-entrypoint-initdb.d/initialize.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d frappe"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
 
   # Local observability stack: Grafana, Loki, Tempo and Mimir bundled
   # together, receiving OTLP traces, metrics and logs over HTTP.
@@ -37,3 +71,6 @@ services:
       - "4317:4317" # OTLP gRPC
       - "4318:4318" # OTLP HTTP
     restart: unless-stopped
+
+volumes:
+  database-data:

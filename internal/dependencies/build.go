@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/application"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/build"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/configuration"
+	"github.com/MathiasHilgert/frappe-api/internal/foundation/database"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/health"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/httpserver"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/logging"
@@ -66,6 +69,28 @@ func NewApplication(ctx context.Context, provider configuration.Provider) (*appl
 			return sdk, nil
 		},
 		Down: telemetry.Down,
+	})
+
+	// The database pool is registered after telemetry (so pool tracing
+	// and metrics have a real SDK to export through by the time the pool
+	// is created) and before the HTTP server (so the server goes down
+	// before the pool: no request can be mid-query against a pool that
+	// has already closed its connections).
+	databaseSettings := database.Settings{
+		URL:                   loadedConfiguration.Database.URL,
+		MaxConnections:        loadedConfiguration.Database.MaxConnections,
+		MinConnections:        loadedConfiguration.Database.MinConnections,
+		MaxConnectionLifetime: loadedConfiguration.Database.MaxConnectionLifetime,
+		MaxConnectionIdleTime: loadedConfiguration.Database.MaxConnectionIdleTime,
+		ConnectTimeout:        loadedConfiguration.Database.ConnectTimeout,
+	}
+	application.Provide(instance, application.Dependency[*pgxpool.Pool]{
+		Name: database.DependencyName,
+		Up: func(ctx context.Context) (*pgxpool.Pool, error) {
+			return database.Up(ctx, databaseSettings)
+		},
+		Down:  database.Down,
+		Check: database.Check,
 	})
 
 	// combinedReadiness bridges application and health readiness into
