@@ -169,12 +169,14 @@ func TestIntegrationRowLevelSecurityIsEnforcedForANonSuperuserRole(t *testing.T)
 	setupStatements := []string{
 		"CREATE TABLE rls_probe (tenant TEXT NOT NULL, value TEXT NOT NULL)",
 		"GRANT SELECT, INSERT ON rls_probe TO frappe_application",
+		// Seed before FORCE ROW LEVEL SECURITY: once forced, the policy also
+		// applies to the table owner, which has no tenant set here.
+		"INSERT INTO rls_probe (tenant, value) VALUES ('acme', 'acme-row'), ('globex', 'globex-row')",
 		"ALTER TABLE rls_probe ENABLE ROW LEVEL SECURITY",
 		"ALTER TABLE rls_probe FORCE ROW LEVEL SECURITY",
 		`CREATE POLICY rls_probe_tenant_isolation ON rls_probe
 			USING (tenant = current_setting('application.tenant', true))
 			WITH CHECK (tenant = current_setting('application.tenant', true))`,
-		"INSERT INTO rls_probe (tenant, value) VALUES ('acme', 'acme-row'), ('globex', 'globex-row')",
 	}
 	for _, statement := range setupStatements {
 		if _, setupErr := ownerPool.Exec(ctx, statement); setupErr != nil {
