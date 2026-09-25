@@ -44,6 +44,18 @@ jobs:
         # mutating the checked-out tree.
         run: golangci-lint fmt --diff
 
+      - name: Check go.mod and go.sum are tidy
+        # Fails if `go mod tidy` would change go.mod or go.sum, so stale or
+        # missing module requirements are caught before merge. git status is
+        # used instead of git diff so a missing or newly created go.sum works.
+        run: |
+          go mod tidy
+          if [ -n "$(git status --porcelain -- go.mod go.sum)" ]; then
+            git diff -- go.mod go.sum
+            echo "::error::go.mod/go.sum are not tidy. Run 'go mod tidy' (or 'task dependencies:tidy') and commit the result."
+            exit 1
+          fi
+
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
