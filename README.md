@@ -9,21 +9,27 @@ Backend API of the frappe platform for restaurants, cafes and food businesses ac
 Requirements: Go (version in `go.mod`), [Task](https://taskfile.dev), Docker (Docker Desktop, OrbStack or Colima).
 
 ```bash
-cp .env.example .env              # local defaults, adjust if needed
-task database:up valkey:up        # Postgres and Valkey
-task observability:up             # optional: Grafana LGTM on http://localhost:3000
-task migrations:run               # apply database migrations
-task application:run              # API on http://localhost:8080
+cp .env.example .env   # local defaults, loaded by every task
+task local:up          # services, migrations and the API with hot reload
 ```
+
+`task local:up` starts Postgres, Valkey and Grafana LGTM, waits until they are healthy, applies migrations and runs the API on http://localhost:8080 with hot reload (air). Saving a `.go` or `.sql` file rebuilds and restarts it gracefully.
 
 Verify:
 
 ```bash
 curl -i http://localhost:8080/health/ready   # 200 application/health+json
 open http://localhost:8080/docs               # OpenAPI docs (development only)
+open http://localhost:3000                    # Grafana: logs, traces, metrics
 ```
 
-Without Docker services, run with `TELEMETRY_ENABLED=false RATE_LIMIT_ENABLED=false`; a database is still required.
+Stop:
+
+| Action | Effect |
+|--------|--------|
+| Ctrl+C | Stops the API; services keep running for a fast next start |
+| `task local:down` | Stops every service, keeps data |
+| `task local:reset` | Stops every service and deletes local data (asks first) |
 
 ## Everyday commands
 
@@ -31,7 +37,9 @@ Tasks follow `<domain>:<action>`. Run `task` to list them all.
 
 | Goal | Command |
 |------|---------|
-| Run the API | `task application:run` |
+| Everything local, hot reload | `task local:up` / `task local:down` |
+| API only, hot reload | `task application:watch` |
+| API only, no reload | `task application:run` |
 | Run with Infisical secrets | `task secrets:run` |
 | Full local check (same as CI) | `task ci:run` |
 | Unit tests | `task test:unit` |
