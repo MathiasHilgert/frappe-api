@@ -162,3 +162,28 @@ func TestRequestIDAllowlist(t *testing.T) {
 		})
 	}
 }
+
+// TestDocumentationDisabledAlsoClearsSchemasPath verifies that disabling
+// documentation also disables /schemas/..., not just /docs and
+// /openapi.json, since it exposes the same internal API shape.
+func TestDocumentationDisabledAlsoClearsSchemasPath(t *testing.T) {
+	server := New(internalTestSettings())
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/schemas/PingOutput", nil)
+	server.Handler().ServeHTTP(recorder, request)
+	if recorder.Code == http.StatusNotFound {
+		t.Fatalf("/schemas/... returned 404 while documentation is enabled")
+	}
+
+	settings := internalTestSettings()
+	settings.DocumentationEnabled = false
+	disabledServer := New(settings)
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodGet, "/schemas/PingOutput", nil)
+	disabledServer.Handler().ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("/schemas/... status = %d, want %d while documentation is disabled", recorder.Code, http.StatusNotFound)
+	}
+}

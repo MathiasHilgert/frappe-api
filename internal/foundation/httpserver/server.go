@@ -117,6 +117,7 @@ func New(settings Settings) *Server {
 	if !settings.DocumentationEnabled {
 		config.DocsPath = ""
 		config.OpenAPIPath = ""
+		config.SchemasPath = ""
 	}
 	api := humago.New(apiMux, config)
 	v1 := huma.NewGroup(api, "/v1")
