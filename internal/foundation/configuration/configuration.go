@@ -10,6 +10,13 @@
 // and logs through the OpenTelemetry SDK; when false, telemetry stays
 // wired to the no-op global OpenTelemetry providers.
 //
+// Because TELEMETRY_ENABLED defaults to true, running the program locally
+// without a collector listening at OTEL_EXPORTER_OTLP_ENDPOINT (default
+// http://localhost:4318) makes every export attempt fail. Either start
+// the bundled local collector stack first, with `task observability:up`
+// (see Taskfile.yml and compose.yaml), or set TELEMETRY_ENABLED=false to
+// run without exporting at all.
+//
 // The OTLP exporter endpoint and headers are not declared as fields on
 // this Configuration: they are read directly by the OpenTelemetry SDK
 // from the standard OTEL_EXPORTER_OTLP_* environment variables, most
