@@ -26,9 +26,13 @@ type CheckStatus struct {
 	LastCheckedAt time.Time `json:"lastCheckedAt"`
 	// Status is StatusPass or StatusFail.
 	Status string `json:"status"`
-	// Output is the last error message observed, safe to expose
-	// externally (it is the error's message text only). Empty when the
-	// check has never failed.
+	// Output is a fixed, generic message describing the last failure
+	// (for example "check failed" or "check failed: timeout"), safe to
+	// expose on an unauthenticated endpoint. It never carries the
+	// underlying error's own text, which may contain connection
+	// strings, hostnames, credentials or other internal detail: that
+	// detail is logged separately, through slog, only on a pass/fail
+	// transition. Empty when the check has never failed.
 	Output string `json:"output,omitempty"`
 	// DurationMilliseconds is how long the last run of this check took, in
 	// milliseconds, so the JSON value is human readable.

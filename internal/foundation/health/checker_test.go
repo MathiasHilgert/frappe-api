@@ -1,9 +1,11 @@
 package health_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -175,8 +177,11 @@ func TestReportShapeReflectsEveryCheck(t *testing.T) {
 	if report.Checks["ok"].Status != health.StatusPass {
 		t.Fatalf(`Checks["ok"].Status = %q, want %q`, report.Checks["ok"].Status, health.StatusPass)
 	}
-	if report.Checks["broken"].Output != "nope" {
-		t.Fatalf(`Checks["broken"].Output = %q, want %q`, report.Checks["broken"].Output, "nope")
+	if report.Checks["broken"].Output == "" {
+		t.Fatal(`Checks["broken"].Output is empty, want a non-empty generic message`)
+	}
+	if report.Checks["broken"].Output == "nope" {
+		t.Fatal(`Checks["broken"].Output leaks the raw error text; see TestReportOutputDoesNotLeakTheRawErrorText`)
 	}
 }
 
@@ -361,6 +366,92 @@ func TestNewCheckerRejectsInvalidSettings(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("NewChecker returned nil error for a negative Interval")
+	}
+}
+
+// TestReportOutputDoesNotLeakTheRawErrorText verifies that a failing
+// check's exposed Output is a generic message, safe for an unauthenticated
+// caller, rather than the check's raw error text (which may contain
+// connection strings, hostnames or other internal detail).
+func TestReportOutputDoesNotLeakTheRawErrorText(t *testing.T) {
+	checker, err := health.NewChecker([]health.Check{
+		{Name: "broken", Run: func(context.Context) error {
+			return errors.New("dial tcp 10.0.0.5:5432: connection refused (user=admin password=hunter2)")
+		}},
+	}, health.Settings{Interval: time.Hour, Timeout: time.Second, FailureThreshold: 1})
+	if err != nil {
+		t.Fatalf("NewChecker returned unexpected error: %v", err)
+	}
+
+	if err := checker.Start(context.Background()); err != nil {
+		t.Fatalf("Start returned unexpected error: %v", err)
+	}
+	defer func() { _ = checker.Stop(context.Background()) }()
+
+	output := checker.Report().Checks["broken"].Output
+	if strings.Contains(output, "10.0.0.5") || strings.Contains(output, "hunter2") {
+		t.Fatalf("Output = %q, leaks the raw error text", output)
+	}
+	if output == "" {
+		t.Fatal("Output is empty for a failing check, want a generic message")
+	}
+}
+
+// TestReportOutputReportsTimeoutDistinctly verifies that a check that
+// failed because it exceeded its timeout gets a distinct generic message
+// from an ordinary failure, still without leaking raw error text.
+func TestReportOutputReportsTimeoutDistinctly(t *testing.T) {
+	checker, err := health.NewChecker([]health.Check{
+		{Name: "slow", Run: func(ctx context.Context) error {
+			<-ctx.Done()
+			return ctx.Err()
+		}},
+	}, health.Settings{Interval: time.Hour, Timeout: time.Millisecond, FailureThreshold: 1})
+	if err != nil {
+		t.Fatalf("NewChecker returned unexpected error: %v", err)
+	}
+
+	if err := checker.Start(context.Background()); err != nil {
+		t.Fatalf("Start returned unexpected error: %v", err)
+	}
+	defer func() { _ = checker.Stop(context.Background()) }()
+
+	output := checker.Report().Checks["slow"].Output
+	if !strings.Contains(output, "timeout") {
+		t.Fatalf("Output = %q, want it to mention timeout", output)
+	}
+}
+
+// TestCheckerLogsDetailOnlyOnStateTransitions verifies that the detailed
+// error is logged through slog only when a check's status transitions
+// (passing to failing, or failing to passing), not on every single run,
+// to avoid log spam from a check that stays failing for a long time.
+func TestCheckerLogsDetailOnlyOnStateTransitions(t *testing.T) {
+	var logBuffer bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logBuffer, nil))
+
+	var runs atomic.Int32
+	checker, err := health.NewChecker([]health.Check{
+		{Name: "broken", Run: func(context.Context) error {
+			runs.Add(1)
+			return errors.New("dial tcp 10.0.0.5:5432: connection refused")
+		}},
+	}, health.Settings{Interval: 2 * time.Millisecond, Timeout: time.Second, FailureThreshold: 1, Logger: logger})
+	if err != nil {
+		t.Fatalf("NewChecker returned unexpected error: %v", err)
+	}
+
+	if err := checker.Start(context.Background()); err != nil {
+		t.Fatalf("Start returned unexpected error: %v", err)
+	}
+	defer func() { _ = checker.Stop(context.Background()) }()
+
+	waitUntil(t, func() bool { return runs.Load() >= 5 })
+
+	logged := logBuffer.String()
+	occurrences := strings.Count(logged, "connection refused")
+	if occurrences != 1 {
+		t.Fatalf("detailed error logged %d times, want exactly 1 (only on the pass-to-fail transition)", occurrences)
 	}
 }
 

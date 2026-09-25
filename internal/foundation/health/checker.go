@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 )
@@ -25,7 +26,8 @@ type state struct {
 }
 
 // snapshot copies state under the caller-held lock into an immutable
-// CheckStatus.
+// CheckStatus. Output is a generic, safe-to-expose message, never the raw
+// error text: see CheckStatus.Output's own doc comment for why.
 func (checkState state) snapshot() CheckStatus {
 	status := CheckStatus{
 		LastCheckedAt:        checkState.lastCheckedAt,
@@ -37,9 +39,21 @@ func (checkState state) snapshot() CheckStatus {
 		status.Status = StatusFail
 	}
 	if checkState.lastError != nil {
-		status.Output = checkState.lastError.Error()
+		status.Output = genericOutput(checkState.lastError)
 	}
 	return status
+}
+
+// genericOutput turns err into a fixed, safe-to-expose message instead of
+// its raw text, which may contain connection strings, hostnames,
+// credentials or other internal detail. A context deadline is reported
+// distinctly as a timeout, since that distinction is useful externally
+// without leaking anything.
+func genericOutput(err error) string {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "check failed: timeout"
+	}
+	return "check failed"
 }
 
 // Checker runs a fixed set of registered checks periodically in the
@@ -179,6 +193,7 @@ func (checker *Checker) run(ctx context.Context, check Check) {
 
 	checker.mutex.Lock()
 	checkState := checker.states[check.Name]
+	wasFailing := checkState.failing
 	checkState.lastCheckedAt = start
 	checkState.lastDuration = duration
 	if err != nil {
@@ -194,9 +209,40 @@ func (checker *Checker) run(ctx context.Context, check Check) {
 		checkState.succeededOnce = true
 	}
 	passing := !checkState.failing
+	transitioned := checkState.failing != wasFailing
 	checker.mutex.Unlock()
 
+	// The detailed error is only ever logged on a pass/fail transition,
+	// never on every run, so a check that stays failing for a long time
+	// does not spam the log; CheckStatus.Output stays a generic message
+	// regardless (see genericOutput).
+	if transitioned {
+		checker.logTransition(check.Name, passing, err)
+	}
+
 	recordCheck(ctx, check.Name, duration, passing)
+}
+
+// logTransition records a check's pass/fail transition through the
+// resolved logger, including the detailed error when the check just
+// started failing.
+func (checker *Checker) logTransition(name string, passing bool, err error) {
+	logger := checker.logger()
+	if passing {
+		logger.Info("health check recovered", slog.String("check", name))
+		return
+	}
+	logger.Error("health check failing", slog.String("check", name), slog.Any("error", err))
+}
+
+// logger returns the configured logger, resolving slog.Default() lazily
+// each time a transition logs, rather than capturing it once, when none
+// was set through Settings.Logger.
+func (checker *Checker) logger() *slog.Logger {
+	if checker.settings.Logger != nil {
+		return checker.settings.Logger
+	}
+	return slog.Default()
 }
 
 // Ready reports whether every registered check is currently passing. A

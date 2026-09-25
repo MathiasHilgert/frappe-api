@@ -2,6 +2,7 @@ package health
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 )
 
@@ -15,6 +16,15 @@ const (
 
 // Settings configures a Checker's background run loop.
 type Settings struct {
+	// Logger receives the detailed error behind a check's pass/fail
+	// transition. It is only ever written to on a transition (passing to
+	// failing, or failing to passing), never on every run, to avoid log
+	// spam from a check that stays failing for a long time. The
+	// externally exposed CheckStatus.Output never carries this detail;
+	// see CheckStatus.Output's own doc comment. If nil, slog.Default()
+	// is used, resolved lazily at the time it is needed rather than
+	// captured once here.
+	Logger *slog.Logger
 	// Interval is how often every registered check is run in the
 	// background. Defaults to DefaultInterval.
 	Interval time.Duration
