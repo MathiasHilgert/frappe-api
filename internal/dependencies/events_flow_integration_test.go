@@ -108,11 +108,26 @@ func TestIntegrationEventFlowIsAtomicTracedAndExactlyOnce(t *testing.T) {
 	}
 }
 
+// The OTel global delegates bind to the first provider installed in the
+// process, and package-level instruments never rebind. Installing a new
+// provider per run (for example with -count=2) would leave later readers
+// empty, so the providers are installed once and shared; assertions use
+// baselines.
+var (
+	installFlowTelemetry sync.Once
+	flowSpans            *tracetest.SpanRecorder
+	flowMetrics          *sdkmetric.ManualReader
+)
+
 func startFlow(t *testing.T) *flow {
 	t.Helper()
-	current := &flow{spans: tracetest.NewSpanRecorder(), metrics: sdkmetric.NewManualReader()}
-	otel.SetTracerProvider(sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(current.spans)))
-	otel.SetMeterProvider(sdkmetric.NewMeterProvider(sdkmetric.WithReader(current.metrics)))
+	installFlowTelemetry.Do(func() {
+		flowSpans = tracetest.NewSpanRecorder()
+		flowMetrics = sdkmetric.NewManualReader()
+		otel.SetTracerProvider(sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(flowSpans)))
+		otel.SetMeterProvider(sdkmetric.NewMeterProvider(sdkmetric.WithReader(flowMetrics)))
+	})
+	current := &flow{spans: flowSpans, metrics: flowMetrics}
 
 	current.ownerPool, current.applicationPool, current.relayPool = databasetest.NewWithEveryRole(t)
 	if _, err := current.ownerPool.Exec(t.Context(),
