@@ -87,7 +87,25 @@ func NewApplication(ctx context.Context, provider configuration.Provider) (*appl
 	application.Provide(instance, application.Dependency[*httpserver.Server]{
 		Name: httpserver.DependencyName,
 		Up: func(context.Context) (*httpserver.Server, error) {
-			return server, server.Listen()
+			if err := server.Listen(); err != nil {
+				return nil, err
+			}
+
+			// The listener breaking unexpectedly after Listen has already
+			// returned successfully (anything Serve reports other than
+			// http.ErrServerClosed) is otherwise invisible to the rest of
+			// the process: nothing else observes it, and readiness would
+			// keep reporting true. Forwarding it into instance.Fail makes
+			// Run react the same way it would to a shutdown signal, tearing
+			// the whole application down instead of quietly serving no
+			// traffic.
+			go func() {
+				if err := <-server.Errors(); err != nil {
+					instance.Fail(fmt.Errorf("http server: %w", err))
+				}
+			}()
+
+			return server, nil
 		},
 		Down: func(ctx context.Context, server *httpserver.Server) error {
 			return server.Shutdown(ctx)

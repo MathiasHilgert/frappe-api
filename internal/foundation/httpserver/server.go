@@ -2,7 +2,9 @@ package httpserver
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -89,6 +91,16 @@ type Server struct {
 	httpServer *http.Server
 	listener   net.Listener
 	v1         huma.API
+	logger     *slog.Logger
+	// errors delivers a fatal Serve error (any error other than
+	// http.ErrServerClosed) exactly once, so a caller such as the
+	// application lifecycle can react to the listener breaking
+	// unexpectedly and shut the whole process down instead of the server
+	// silently going deaf while everything else believes it is still
+	// ready. It is buffered so Listen's goroutine never blocks trying to
+	// report the error, even if nothing is currently receiving from
+	// Errors().
+	errors chan error
 }
 
 // New builds a Server from settings: a root router exposing /health/live
@@ -147,6 +159,8 @@ func New(settings Settings) *Server {
 	return &Server{
 		httpServer: httpServer,
 		v1:         v1,
+		logger:     logger,
+		errors:     make(chan error, 1),
 	}
 }
 
@@ -186,15 +200,35 @@ func (server *Server) Listen() error {
 	server.listener = listener
 
 	go func() {
-		// Serve returns http.ErrServerClosed on a graceful Shutdown; any
-		// other error would indicate the listener broke unexpectedly.
-		// There is no error channel to report it on once Listen has
-		// already returned successfully, so it is left to Shutdown's own
-		// error and normal process monitoring to surface such failures.
-		_ = server.httpServer.Serve(listener)
+		// Serve returns http.ErrServerClosed on a graceful Shutdown; that
+		// is the expected, non-fatal return and is never reported. Any
+		// other error means the listener broke unexpectedly (for example,
+		// something outside a normal Shutdown closed it, or accept
+		// started failing), so it is logged and delivered on Errors() for
+		// a caller such as the application lifecycle to react to.
+		err := server.httpServer.Serve(listener)
+		if err == nil || errors.Is(err, http.ErrServerClosed) {
+			return
+		}
+
+		server.logger.Error("http server stopped unexpectedly", slog.Any("error", err))
+		select {
+		case server.errors <- err:
+		default:
+		}
 	}()
 
 	return nil
+}
+
+// Errors returns a channel that delivers a fatal Serve error (any error
+// other than http.ErrServerClosed) at most once, after Listen has started
+// serving. A graceful Shutdown never sends on it. Callers, such as the
+// application lifecycle, should treat any value received here as a signal
+// to shut the whole process down: the server is no longer accepting
+// traffic, so continuing to report readiness as true would be wrong.
+func (server *Server) Errors() <-chan error {
+	return server.errors
 }
 
 // Shutdown gracefully stops the server, waiting for in-flight requests to

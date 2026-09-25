@@ -11,6 +11,12 @@ import (
 // Application owns a set of hooks and starts or stops them together,
 // honoring registration order on Up and the reverse order on Down.
 type Application struct {
+	// failure carries an error reported through Fail into Run's shutdown
+	// wait. It is buffered by one so Fail never blocks its caller, even
+	// if Run has not reached its wait yet or has already returned.
+	// Declared first (not next to Fail below) so the struct's pointer
+	// fields stay grouped for optimal field alignment.
+	failure chan error
 	hooks   []Hook
 	options options
 	ready   atomic.Bool
@@ -22,6 +28,7 @@ func New(optionFunctions ...Option) *Application {
 
 	return &Application{
 		options: resolvedOptions,
+		failure: make(chan error, 1),
 	}
 }
 
@@ -67,6 +74,27 @@ func (application *Application) Down(ctx context.Context) error {
 	application.ready.Store(false)
 	recordReady(ctx, 0)
 	return application.tearDown(ctx, application.hooks)
+}
+
+// Fail requests that the Application shut down early because a
+// dependency hit a fatal error after Up already completed, such as
+// httpserver.Server's Listen goroutine observing its listener break
+// outside of a graceful Shutdown. It is meant to be called from that
+// dependency's own goroutine, asynchronously, at any point during or
+// after Run: Run reacts to it exactly like a shutdown signal, then
+// returns err joined with any error Down produces. Only the first call
+// takes effect; a nil err, or a call after one already landed, is a
+// no-op rather than blocking or overwriting the first failure. Fail does
+// not itself flip Ready to false: that already happens as soon as the
+// resulting Down begins.
+func (application *Application) Fail(err error) {
+	if err == nil {
+		return
+	}
+	select {
+	case application.failure <- err:
+	default:
+	}
 }
 
 // Ready reports whether every registered hook's Up has completed
