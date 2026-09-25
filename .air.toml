@@ -1,0 +1,23 @@
+# Hot reload for local development (https://github.com/air-verse/air).
+# Run with `task application:watch`. Rebuilds cmd/api on Go or SQL changes
+# and restarts the process, which runs the full graceful shutdown.
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/api ./cmd/api"
+  entrypoint = ["./tmp/api"]
+  include_ext = ["go", "sql"]
+  exclude_dir = ["tmp", "bin", "dist", ".git", ".github", ".claude", "deployments", "odd", ".atl", ".codegraph"]
+  exclude_regex = ["_test\\.go$"]
+  delay = 500
+  # Send SIGINT and wait, so the application shuts down gracefully.
+  send_interrupt = true
+  kill_delay = "10s"
+  stop_on_error = true
+
+[log]
+  main_only = true
+
+[misc]
+  clean_on_exit = true
