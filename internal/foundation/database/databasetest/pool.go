@@ -88,6 +88,20 @@ func NewWithOwner(t *testing.T) (ownerPool, applicationPool *pgxpool.Pool) {
 	return ownerPool, applicationPool
 }
 
+// NewWithOutboxRelay returns two *pgxpool.Pool values connected to the
+// SAME fresh, isolated database: one as frappe_application
+// (applicationPool), which may only append to the outbox, and one as
+// frappe_outbox_relay (relayPool), which may only claim, settle and purge
+// it. Use it to test the Postgres outbox store under the exact privileges
+// it runs with in production.
+func NewWithOutboxRelay(t *testing.T) (applicationPool, relayPool *pgxpool.Pool) {
+	t.Helper()
+	cloned := newClonedDatabase(t)
+	applicationPool = poolForURL(t, roleURL(cloned, applicationRoleUsername, applicationRolePassword))
+	relayPool = poolForURL(t, roleURL(cloned, outboxRelayRoleUsername, outboxRelayRolePassword))
+	return applicationPool, relayPool
+}
+
 // newClonedDatabase clones the migrated template into a fresh, isolated
 // database and returns its connection details, still expressed for the
 // frappe_migration role: migrations always apply as frappe_migration in

@@ -43,6 +43,15 @@ type Factory func(t *testing.T) Subject
 // eventually bounds every asynchronous expectation.
 const eventually = 5 * time.Second
 
+// clockTolerance is how much earlier than the test's own clock predicts a
+// lease may expire or a retry time may pass. A store that keeps time on its
+// database's clock (as the Postgres store does) measures intervals on a
+// different clock than the test; on a virtualized or loaded machine the two
+// drift apart by a few milliseconds over a 200ms interval. The tolerance is
+// an order of magnitude below the intervals asserted, so a store that
+// ignored leases or retry times entirely still fails.
+const clockTolerance = 20 * time.Millisecond
+
 // Run executes the contract suite against the store built by factory.
 func Run(t *testing.T, factory Factory) {
 	t.Helper()
@@ -235,7 +244,7 @@ func testLeaseExpiry(t *testing.T, subject Subject) {
 		t.Fatalf("leased message claimed again: %v", got)
 	}
 	reclaimed := waitClaimable(t, subject, "lease expiry")
-	if elapsed := time.Since(claimedAt); elapsed < lease {
+	if elapsed := time.Since(claimedAt); elapsed < lease-clockTolerance {
 		t.Fatalf("reclaimed after %v, before the %v lease expired", elapsed, lease)
 	}
 	if reclaimed[0].Message.ID != "message-001" {
@@ -277,7 +286,7 @@ func testMarkFailed(t *testing.T, subject Subject) {
 	}
 
 	retried := waitClaimable(t, subject, "retry time")
-	if elapsed := time.Since(failedAt); elapsed < delay {
+	if elapsed := time.Since(failedAt); elapsed < delay-clockTolerance {
 		t.Fatalf("claimed after %v, before retryAt (%v)", elapsed, delay)
 	}
 	if retried[0].Message.ID != "message-000" || retried[0].Attempts != 1 || retried[0].LastError != "broker unavailable" {

@@ -24,9 +24,9 @@
 //   - Each pool this package returns is capped at 4 connections (and
 //     asks for 0 idle ones) against the container's max_connections=500;
 //     see testPoolMaxConnections in pool.go for the budget.
-//   - The two application roles documented in
-//     internal/foundation/database/doc.go (frappe_migration,
-//     frappe_application) are created once against that container, under
+//   - The roles documented in internal/foundation/database/doc.go
+//     (frappe_migration, frappe_application) and the outbox relay role
+//     (frappe_outbox_relay) are created once against that container, under
 //     a transaction-scoped advisory lock so concurrent package binaries
 //     cannot race, from the same statements as
 //     deployments/database/initialize.sql, so

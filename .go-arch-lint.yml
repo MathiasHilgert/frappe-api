@@ -77,6 +77,16 @@ components:
   foundation_events_outbox:
     in: internal/foundation/events/outbox
 
+  # foundation_events_outbox_postgres is the Postgres outbox.Store. It is
+  # the only event-platform package that needs the database foundation
+  # package (to join the business transaction through
+  # database.TransactionFromContext), so it is split out of
+  # foundation_events_support rather than letting every support package
+  # (brokers, test kits) depend on foundation. Matched before
+  # foundation_events_support.
+  foundation_events_outbox_postgres:
+    in: internal/foundation/events/outbox/postgres/**
+
   foundation_events_support:
     in: internal/foundation/events/**
 
@@ -121,6 +131,7 @@ deps:
       - foundation_configuration_environment
       - foundation_events
       - foundation_events_outbox
+      - foundation_events_outbox_postgres
       - foundation_events_support
       - dependencies
       - module_root
@@ -158,6 +169,12 @@ deps:
     mayDependOn:
       - foundation_events
 
+  foundation_events_outbox_postgres:
+    mayDependOn:
+      - foundation
+      - foundation_events
+      - foundation_events_outbox
+
   foundation_events_support:
     mayDependOn:
       - foundation_events
@@ -170,6 +187,7 @@ deps:
       - foundation_configuration_environment
       - foundation_events
       - foundation_events_outbox
+      - foundation_events_outbox_postgres
       - foundation_events_support
       - module_root
       - module_adapters

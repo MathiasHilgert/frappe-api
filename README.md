@@ -65,6 +65,7 @@ internal/
     database/           pgx pool, RLS-ready transactions
     events/             broker-agnostic events: CloudEvents envelope, ports, typed consumers
       outbox/           storage-agnostic transactional outbox and relay
+        postgres/       Postgres outbox store (LISTEN/NOTIFY wake-ups)
       memory/           in-memory broker (tests, running without a broker)
     health/             background dependency checks
     httpserver/         HTTP server, middleware, Huma /v1 API
@@ -115,7 +116,7 @@ Rules enforced in CI by `go-arch-lint` and `depguard`:
 | Lifecycle | Every dependency declares `Up`, `Down` and optionally `Check`. Up runs in order, Down in reverse, failures roll back what already started. |
 | Readiness | `/health/live` never checks dependencies. `/health/ready` is 503 until every `Up` finished and every declared check passes; it flips to 503 first on shutdown, then the server drains. |
 | Row Level Security | Tenant settings are applied per transaction with `set_config(..., true)`, never per session. The application role cannot bypass RLS; tables use `FORCE ROW LEVEL SECURITY`. |
-| Database roles | `frappe_migration` owns the schema and runs migrations; `frappe_application` is the runtime role. |
+| Database roles | `frappe_migration` owns the schema and runs migrations; `frappe_application` is the runtime role (RLS-bound; on `outbox` it may only `INSERT`); `frappe_outbox_relay` is the outbox relay's role (`SELECT`, `UPDATE`, `DELETE` on `outbox` only, across tenants). All three are created outside migrations (`deployments/database/initialize.sql` locally). |
 | Migrations | Run by `cmd/migrate` as a deploy step, never at API startup. Timestamp-versioned, out-of-order allowed. |
 | Rate limiting | GCRA in Valkey, IETF `RateLimit-*` headers, 429 as RFC 9457. Fails open if Valkey is unavailable. |
 | Errors | RFC 9457 `application/problem+json`. |
@@ -127,6 +128,20 @@ Rules enforced in CI by `go-arch-lint` and `depguard`:
 All configuration comes from environment variables, validated at startup: invalid or missing values stop the application with a message naming the variable. [`.env.example`](.env.example) lists every variable with its default.
 
 Secrets are never committed. Locally, `task secrets:run` injects them with the Infisical CLI; in deployed environments the orchestrator injects them as environment variables.
+
+### Outbox
+
+Use cases record events into the `outbox` table inside their own transaction (`Append` fails outside one). The relay claims pending rows with `FOR UPDATE SKIP LOCKED` (safe on many replicas), publishes them through `events.Publisher`, and is woken by `LISTEN outbox` on a dedicated connection, with polling as a fallback. Leases and retry times use the database clock. The table has no RLS on purpose: it is never readable through the API, and privileges isolate it instead (`frappe_application` may only `INSERT`).
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `OUTBOX_ENABLED` | `false` | Runs the relay. Requires `DATABASE_OUTBOX_RELAY_URL` and a publisher from the entrypoint; stays off until a broker adapter lands. Recorded events are kept meanwhile. |
+| `DATABASE_OUTBOX_RELAY_URL` | | Connection string for `frappe_outbox_relay`. Secret. |
+| `OUTBOX_BATCH_SIZE` | `100` | Messages claimed at once. |
+| `OUTBOX_POLL_INTERVAL` | `1s` | Poll when no notification arrives. |
+| `OUTBOX_LEASE` | `30s` | Claim lease; must exceed the time to publish a batch. |
+| `OUTBOX_PURGE_INTERVAL` / `OUTBOX_RETENTION` | `1h` / `72h` | How often and after how long published rows are deleted. |
+| `OUTBOX_BASE_BACKOFF` / `OUTBOX_MAX_BACKOFF` | `1s` / `5m` | Exponential retry delay bounds. |
 
 ## Testing
 

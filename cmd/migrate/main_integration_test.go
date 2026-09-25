@@ -62,6 +62,11 @@ func TestIntegrationMigrationsApplyOnAFreshDatabase(t *testing.T) {
 	if _, execErr := sqlDatabase.ExecContext(ctx, "CREATE ROLE frappe_application WITH LOGIN PASSWORD 'frappe_application' NOSUPERUSER NOBYPASSRLS"); execErr != nil {
 		t.Fatalf("create frappe_application role: %v", execErr)
 	}
+	// migrations/20260925190341_outbox.sql grants the outbox relay role
+	// its privileges by name, so it must exist too.
+	if _, execErr := sqlDatabase.ExecContext(ctx, "CREATE ROLE frappe_outbox_relay WITH LOGIN PASSWORD 'frappe_outbox_relay' NOSUPERUSER NOBYPASSRLS"); execErr != nil {
+		t.Fatalf("create frappe_outbox_relay role: %v", execErr)
+	}
 
 	provider, err := goose.NewProvider(goose.DialectPostgres, sqlDatabase, migrations.FS, goose.WithAllowOutofOrder(true))
 	if err != nil {
@@ -82,5 +87,14 @@ func TestIntegrationMigrationsApplyOnAFreshDatabase(t *testing.T) {
 	}
 	if version <= 0 {
 		t.Fatalf("GetDBVersion = %d, want a positive applied version", version)
+	}
+
+	// Every Down section must reverse its Up cleanly: roll everything back
+	// and apply it again.
+	if _, err := provider.DownTo(ctx, 0); err != nil {
+		t.Fatalf("roll back every migration: %v", err)
+	}
+	if _, err := provider.Up(ctx); err != nil {
+		t.Fatalf("reapply migrations after rolling back: %v", err)
 	}
 }
