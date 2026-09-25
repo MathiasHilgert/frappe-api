@@ -137,6 +137,15 @@ func NewApplication(ctx context.Context, provider configuration.Provider, option
 	// as a dependency after telemetry, so it comes up last (traces and
 	// metrics are ready before it accepts traffic) and goes down first
 	// (in-flight requests finish before telemetry flushes).
+	// catalog holds the embedded static translations and negotiates each
+	// /v1 request's locale from Accept-Language (see
+	// internal/foundation/i18n). Modules receive it through their
+	// Dependencies when they translate outside a request.
+	catalog, localizationError := provideLocalization(loadedConfiguration.Internationalization)
+	if localizationError != nil {
+		return nil, fmt.Errorf("localization: %w", localizationError)
+	}
+
 	server := httpserver.New(httpserver.Settings{
 		Title:                loadedConfiguration.Application.Name,
 		Version:              build.Version,
@@ -151,6 +160,7 @@ func NewApplication(ctx context.Context, provider configuration.Provider, option
 		DrainDelay:           loadedConfiguration.HTTP.ShutdownDrainDelay,
 		Ready:                combinedReadiness,
 		RateLimit:            rateLimitSettings,
+		Localization:         catalog.Middleware,
 		CORS: httpserver.CORSSettings{
 			AllowedOrigins:   loadedConfiguration.HTTP.CORSAllowedOrigins,
 			AllowedMethods:   loadedConfiguration.HTTP.CORSAllowedMethods,

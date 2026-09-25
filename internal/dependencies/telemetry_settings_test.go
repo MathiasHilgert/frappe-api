@@ -24,6 +24,10 @@ func TestTelemetrySettingsFromUsesTheGivenVersionNotConfiguration(t *testing.T) 
 		Logging: configuration.Logging{
 			Level: "info",
 		},
+		Internationalization: configuration.Internationalization{
+			SourceLocale:     "es-419",
+			SupportedLocales: []string{"es-419", "en"},
+		},
 		Telemetry: configuration.Telemetry{
 			Enabled: true,
 		},

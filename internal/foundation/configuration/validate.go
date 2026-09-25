@@ -57,6 +57,7 @@ func Validate(configuration Configuration) error {
 	crossFieldViolations = append(crossFieldViolations, validateCache(configuration.Cache, configuration.Valkey)...)
 	crossFieldViolations = append(crossFieldViolations, validateOutbox(configuration.Outbox, configuration.Database, configuration.Events)...)
 	crossFieldViolations = append(crossFieldViolations, validateEvents(configuration.Events, configuration.NATS)...)
+	crossFieldViolations = append(crossFieldViolations, validateInternationalization(configuration.Internationalization)...)
 	crossFieldViolations = append(crossFieldViolations, validateInbox(configuration.Inbox, configuration.Events)...)
 
 	if len(crossFieldViolations) > 0 {
