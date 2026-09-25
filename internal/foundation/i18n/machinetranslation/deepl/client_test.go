@@ -101,14 +101,18 @@ func TestTranslateSendsABatchWithContextAndReturnsTranslationsInOrder(t *testing
 }
 
 func TestTranslateMapsTargetLocalesToDeepLCodes(t *testing.T) {
+	// The configured English variant is EN-US; explicit regions win.
 	cases := map[string]string{
-		"en": "EN-GB", "es-419": "ES-419", "pt-BR": "PT-BR", "zh-Hans": "ZH-HANS",
-		"de": "DE", "ja": "JA", "ko": "KO", "ru": "RU", "it": "IT",
+		"en": "EN-US", "en-GB": "EN-GB", "en-US": "EN-US", "en-AU": "EN-US",
+		"es-419": "ES-419", "es-MX": "ES", "es": "ES",
+		"pt-BR": "PT-BR", "pt-PT": "PT-PT", "pt": "PT-PT",
+		"zh-Hans": "ZH-HANS", "zh-Hant": "ZH-HANT", "zh-TW": "ZH-HANT", "zh": "ZH-HANS",
+		"fr-CA": "FR", "de-AT": "DE", "de": "DE", "ja": "JA", "ko": "KO", "ru": "RU", "it": "IT",
 	}
 	for locale, want := range cases {
 		t.Run(locale, func(t *testing.T) {
 			server, seen := newServer(t, http.StatusOK, nil, `{"translations":[{"text":"x"}]}`)
-			client := newClient(t, server.URL, func(settings *deepl.Settings) { settings.EnglishVariant = "EN-GB" })
+			client := newClient(t, server.URL)
 			if _, err := client.Translate(context.Background(), request("fr", locale, "bonjour")); err != nil {
 				t.Fatalf("Translate: %v", err)
 			}
@@ -158,7 +162,7 @@ func TestTranslateClassifiesFailures(t *testing.T) {
 			t.Fatalf("err = %v, want ErrQuotaExceeded", err)
 		}
 	})
-	for _, status := range []int{http.StatusBadRequest, http.StatusForbidden, http.StatusRequestEntityTooLarge} {
+	for _, status := range []int{http.StatusBadRequest, http.StatusNotFound} {
 		t.Run(http.StatusText(status)+" is permanent", func(t *testing.T) {
 			server, _ := newServer(t, status, nil, `{"message":"nope"}`)
 			_, err := newClient(t, server.URL).Translate(context.Background(), request("es-419", "en", "hola"))
@@ -168,6 +172,15 @@ func TestTranslateClassifiesFailures(t *testing.T) {
 			}
 			if strings.Contains(err.Error(), testKey) {
 				t.Fatalf("error leaks the API key: %v", err)
+			}
+		})
+	}
+	for _, status := range []int{http.StatusUnauthorized, http.StatusForbidden} {
+		t.Run(http.StatusText(status)+" is unauthorized", func(t *testing.T) {
+			server, _ := newServer(t, status, nil, `{"message":"Wrong key"}`)
+			_, err := newClient(t, server.URL).Translate(context.Background(), request("es-419", "en", "hola"))
+			if !errors.Is(err, machinetranslation.ErrUnauthorized) {
+				t.Fatalf("err = %v, want ErrUnauthorized", err)
 			}
 		})
 	}

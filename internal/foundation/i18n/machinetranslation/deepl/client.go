@@ -9,12 +9,14 @@
 //   - One request carries a batch of texts for one source and one target
 //     language, plus an optional context, which DeepL does not translate
 //     and does not bill.
-//   - Target codes: en goes to the configured English variant (EN-US or
-//     EN-GB); a locale with a region or script keeps it (ES-419, PT-BR,
-//     ZH-HANS); others use the upper-cased language (FR, DE, JA). Source
-//     codes are the language only (ES, EN, PT, ZH).
+//   - Target codes come from an allowlist: en is EN-GB or EN-US when the
+//     tag names the region, else the configured variant; pt is PT-BR or
+//     PT-PT; es is ES-419 or ES; zh is ZH-HANT for Traditional Chinese,
+//     else ZH-HANS; everything else is the upper-cased language (fr-CA is
+//     FR). Source codes are the language only (ES, EN, PT, ZH).
 //   - 429 (and 529) are rate limits, honoring Retry-After; 456 is an
-//     exhausted quota; other 4xx are permanent; 5xx and network errors
+//     exhausted quota; 401 and 403 are rejected credentials; 413 is a
+//     payload too large; other 4xx are permanent; 5xx and network errors
 //     are transient (https://developers.deepl.com/docs/best-practices/error-handling).
 package deepl
 
@@ -200,7 +202,14 @@ func (client *Client) Translate(ctx context.Context, request machinetranslation.
 	attributes := metric.WithAttributes(attribute.String("target", target))
 	started := time.Now()
 	translations, outcome, err := client.send(ctx, request, target)
-	client.requests.Add(ctx, 1, metric.WithAttributes(attribute.String("target", target), attribute.String("outcome", outcome)))
+	outcomeAttributes := metric.WithAttributes(attribute.String("target", target), attribute.String("outcome", outcome))
+	client.requests.Add(ctx, 1, outcomeAttributes)
+	characters := 0
+	for _, text := range request.Texts {
+		characters += utf8.RuneCountInString(text)
+	}
+	// Tagged with the outcome: only successful characters are billed.
+	client.characters.Add(ctx, int64(characters), outcomeAttributes)
 	client.duration.Record(ctx, time.Since(started).Seconds(), attributes)
 	return translations, err
 }
@@ -219,11 +228,6 @@ func (client *Client) send(ctx context.Context, request machinetranslation.Reque
 	}
 	httpRequest.Header.Set("Authorization", client.authorization)
 	httpRequest.Header.Set("Content-Type", "application/json")
-	characters := 0
-	for _, text := range request.Texts {
-		characters += utf8.RuneCountInString(text)
-	}
-	client.characters.Add(ctx, int64(characters), metric.WithAttributes(attribute.String("target", target)))
 	response, err := client.http.Do(httpRequest)
 	if err != nil {
 		// url.Error carries the URL only; the key travels in a header.
@@ -256,6 +260,10 @@ func outcomeFor(status int) string {
 		return "rate_limited"
 	case status == statusQuotaExceeded:
 		return "quota_exceeded"
+	case status == http.StatusRequestEntityTooLarge:
+		return "payload_too_large"
+	case status == http.StatusUnauthorized || status == http.StatusForbidden:
+		return "unauthorized"
 	case status >= http.StatusInternalServerError:
 		return "server_error"
 	default:
@@ -281,6 +289,10 @@ func classify(response *http.Response) error {
 		return machinetranslation.RateLimitedError{RetryAfter: retryAfter(response.Header.Get("Retry-After"))}
 	case "quota_exceeded":
 		return fmt.Errorf("%w: %w", machinetranslation.ErrQuotaExceeded, cause)
+	case "unauthorized":
+		return fmt.Errorf("%w: %w", machinetranslation.ErrUnauthorized, cause)
+	case "payload_too_large":
+		return fmt.Errorf("%w: %w", machinetranslation.ErrPayloadTooLarge, cause)
 	case "server_error":
 		return cause
 	default:
@@ -301,20 +313,46 @@ func retryAfter(header string) time.Duration {
 	return DefaultRetryAfter
 }
 
+// targetCode maps locale to a DeepL target code from the allowlist of
+// variants DeepL supports; anything else is the bare language, so an
+// unsupported variant (fr-CA, de-AT, es-MX) never reaches DeepL.
 func (client *Client) targetCode(locale i18n.Locale) string {
 	tag := locale.Tag()
 	base, _ := tag.Base()
-	if base.String() == "en" {
-		return client.englishVariant
+	region := ""
+	if found, confidence := tag.Region(); confidence == language.Exact {
+		region = found.String()
 	}
-	code := base.String()
-	if script, confidence := tag.Script(); confidence == language.Exact {
-		// The script was written in the tag (zh-Hans).
-		code += "-" + script.String()
-	} else if region, regionConfidence := tag.Region(); regionConfidence == language.Exact {
-		code += "-" + region.String()
+	switch base.String() {
+	case "en":
+		return client.englishCode(region)
+	case "pt":
+		return variant(region == "BR", "PT-BR", "PT-PT")
+	case "es":
+		return variant(region == "419", "ES-419", "ES")
+	case "zh":
+		// The script is inferred when absent: zh-TW is Hant, zh is Hans.
+		script, _ := tag.Script()
+		return variant(script.String() == "Hant", "ZH-HANT", "ZH-HANS")
+	default:
+		return strings.ToUpper(base.String())
 	}
-	return strings.ToUpper(code)
+}
+
+// englishCode honors an explicit en-GB or en-US, else the configured
+// variant.
+func (client *Client) englishCode(region string) string {
+	if region == "GB" || region == "US" {
+		return "EN-" + region
+	}
+	return client.englishVariant
+}
+
+func variant(condition bool, when, otherwise string) string {
+	if condition {
+		return when
+	}
+	return otherwise
 }
 
 func sourceCode(locale i18n.Locale) string {
