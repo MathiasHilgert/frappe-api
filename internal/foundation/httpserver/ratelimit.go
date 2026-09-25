@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"math"
 	"net"
@@ -15,6 +16,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 )
 
 // Rate limit response headers. RateLimit-Limit, RateLimit-Remaining and
@@ -80,14 +82,31 @@ type RateLimitSettings struct {
 // OpenTelemetry API only, so this package never imports the telemetry SDK.
 var meter = otel.Meter("github.com/MathiasHilgert/frappe-api/internal/foundation/httpserver")
 
+// Rate limit metric attribute values. Every rate limit metric carries
+// only these bounded values plus http.route (the matched route template,
+// or unmatchedRoute): never the client address, the rate limit key or the
+// raw request path, which would give each metric unbounded cardinality.
+const (
+	rateLimitOutcomeAllowed = "allowed"
+	rateLimitOutcomeLimited = "limited"
+	rateLimitOutcomeError   = "error"
+	rateLimitReasonTimeout  = "timeout"
+	rateLimitReasonError    = "error"
+)
+
 var (
 	rateLimitDecisions, _ = meter.Int64Counter(
 		"frappe.rate_limit.decisions",
-		metric.WithDescription("Rate limit decisions, by outcome (allowed or limited)"),
+		metric.WithDescription("Rate limit decisions, by outcome (allowed or limited) and http.route"),
 	)
 	rateLimitErrors, _ = meter.Int64Counter(
 		"frappe.rate_limit.errors",
-		metric.WithDescription("Rate limiter failures; the request was allowed (fail open)"),
+		metric.WithDescription("Rate limiter failures, by reason (timeout or error) and http.route; the request was allowed (fail open)"),
+	)
+	rateLimitDuration, _ = meter.Float64Histogram(
+		"frappe.rate_limit.duration",
+		metric.WithDescription("Latency of one rate limiter Allow call, by outcome (allowed, limited or error) and http.route"),
+		metric.WithUnit("s"),
 	)
 )
 
@@ -95,8 +114,9 @@ var (
 // open: a limiter error lets the request through (the limiter protects
 // capacity and must never cause an outage itself), records
 // frappe.rate_limit.errors and logs a warning at most once per
-// rateLimitErrorLogInterval. CORS preflights are always skipped.
-func rateLimitMiddleware(settings RateLimitSettings, logger *slog.Logger) func(http.Handler) http.Handler {
+// rateLimitErrorLogInterval. CORS preflights are always skipped. apiMux
+// resolves the http.route metric attribute.
+func rateLimitMiddleware(settings RateLimitSettings, logger *slog.Logger, apiMux *http.ServeMux) func(http.Handler) http.Handler {
 	if settings.Limiter == nil {
 		return func(next http.Handler) http.Handler { return next }
 	}
@@ -113,9 +133,12 @@ func rateLimitMiddleware(settings RateLimitSettings, logger *slog.Logger) func(h
 				return
 			}
 
+			route := semconv.HTTPRoute(matchedRoute(apiMux, r))
+			started := time.Now()
 			decision, err := settings.Limiter.Allow(r.Context(), keyFunction(r))
+			elapsed := time.Since(started)
 			if err != nil {
-				rateLimitErrors.Add(r.Context(), 1)
+				recordRateLimitError(r.Context(), route, elapsed, err)
 				errorLog.warn(r.Context(), err)
 				next.ServeHTTP(w, r)
 				return
@@ -123,12 +146,12 @@ func rateLimitMiddleware(settings RateLimitSettings, logger *slog.Logger) func(h
 
 			writeRateLimitHeaders(w.Header(), decision)
 			if !decision.Allowed {
-				recordDecision(r.Context(), "limited")
+				recordDecision(r.Context(), route, elapsed, rateLimitOutcomeLimited)
 				w.Header().Set(RetryAfterHeader, deltaSeconds(decision.RetryAfter))
 				writeProblem(w, http.StatusTooManyRequests, "Too Many Requests")
 				return
 			}
-			recordDecision(r.Context(), "allowed")
+			recordDecision(r.Context(), route, elapsed, rateLimitOutcomeAllowed)
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -143,8 +166,30 @@ func isRateLimited(r *http.Request) bool {
 	return r.URL.Path == versionedAPIPrefix || strings.HasPrefix(r.URL.Path, versionedAPIPrefix+"/")
 }
 
-func recordDecision(ctx context.Context, outcome string) {
-	rateLimitDecisions.Add(ctx, 1, metric.WithAttributes(attribute.String("outcome", outcome)))
+func recordDecision(ctx context.Context, route attribute.KeyValue, elapsed time.Duration, outcome string) {
+	attributes := metric.WithAttributes(attribute.String("outcome", outcome), route)
+	rateLimitDecisions.Add(ctx, 1, attributes)
+	rateLimitDuration.Record(ctx, elapsed.Seconds(), attributes)
+}
+
+func recordRateLimitError(ctx context.Context, route attribute.KeyValue, elapsed time.Duration, err error) {
+	rateLimitErrors.Add(ctx, 1, metric.WithAttributes(attribute.String("reason", rateLimitErrorReason(err)), route))
+	rateLimitDuration.Record(ctx, elapsed.Seconds(),
+		metric.WithAttributes(attribute.String("outcome", rateLimitOutcomeError), route))
+}
+
+// rateLimitErrorReason classifies a limiter error: "timeout" when the
+// Allow call ran out of time (its context deadline, bounded by
+// RATE_LIMIT_TIMEOUT, or a network timeout), "error" for anything else.
+func rateLimitErrorReason(err error) string {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return rateLimitReasonTimeout
+	}
+	var networkError net.Error
+	if errors.As(err, &networkError) && networkError.Timeout() {
+		return rateLimitReasonTimeout
+	}
+	return rateLimitReasonError
 }
 
 func writeRateLimitHeaders(header http.Header, decision RateLimitDecision) {
