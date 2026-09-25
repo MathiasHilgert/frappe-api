@@ -1,5 +1,5 @@
 {
-  "locale.name": "\u65e5\u672c\u8a9e",
-  "error.internal.title": "\u5185\u90e8\u30b5\u30fc\u30d0\u30fc\u30a8\u30e9\u30fc",
-  "error.not_found.title": "\u898b\u3064\u304b\u308a\u307e\u305b\u3093"
+  "locale.name": "日本語",
+  "error.internal.title": "内部サーバーエラー",
+  "error.not_found.title": "見つかりません"
 }

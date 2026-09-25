@@ -1,5 +1,5 @@
 {
-  "locale.name": "\u0420\u0443\u0441\u0441\u043a\u0438\u0439",
-  "error.internal.title": "\u0412\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u044f\u044f \u043e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430",
-  "error.not_found.title": "\u041d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e"
+  "locale.name": "Русский",
+  "error.internal.title": "Внутренняя ошибка сервера",
+  "error.not_found.title": "Не найдено"
 }

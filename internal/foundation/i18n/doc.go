@@ -21,7 +21,9 @@
 //
 // Messages live in locales/<tag>.json (go-i18n JSON: a flat
 // "key": "text" object, or {"one": ..., "other": ...} for plurals, with
-// text/template placeholders such as {{.Name}}). In a handler:
+// text/template placeholders such as {{.Name}}). Catalogs are raw UTF-8
+// by design, exempt from the repository's plain-ASCII rule, so
+// translators can read and edit them directly. In a handler:
 //
 //	title := i18n.T(ctx, "business_type.restaurant.name")
 //	count := i18n.TranslateWith(ctx, "menu.items", i18n.Data{"Count": n})
