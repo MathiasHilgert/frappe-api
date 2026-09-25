@@ -114,6 +114,14 @@ func NewApplication(ctx context.Context, provider configuration.Provider, option
 		return nil, fmt.Errorf("rate limit: %w", rateLimitError)
 	}
 
+	// The event broker selected by EVENTS_BROKER (and, for nats, its
+	// client) is provided before the HTTP server, so it is up before
+	// traffic arrives and goes down after the server stopped. Its
+	// Publisher and Subscriber are handed to the outbox relay and the
+	// subscription registry once those are wired in.
+	broker := provideEvents(instance, loadedConfiguration)
+	_ = broker
+
 	// The HTTP server is built synchronously (not yet listening) so its
 	// "/v1" huma.API is available immediately for modules to register
 	// their own routes on as they are wired in below. It is registered

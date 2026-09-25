@@ -45,12 +45,14 @@ import (
 // environment prefix.
 type Configuration struct {
 	Logging     Logging     `envPrefix:"LOGGING_"`
+	Events      Events      `envPrefix:"EVENTS_"`
 	Application Application `envPrefix:"APPLICATION_"`
-	Database    Database    `envPrefix:"DATABASE_"`
 	Valkey      Valkey      `envPrefix:"VALKEY_"`
+	Database    Database    `envPrefix:"DATABASE_"`
+	NATS        NATS        `envPrefix:"NATS_"`
 	HTTP        HTTP        `envPrefix:"HTTP_"`
-	Health      Health      `envPrefix:"HEALTH_"`
 	RateLimit   RateLimit   `envPrefix:"RATE_LIMIT_"`
+	Health      Health      `envPrefix:"HEALTH_"`
 	Telemetry   Telemetry   `envPrefix:"TELEMETRY_"`
 	Outbox      Outbox      `envPrefix:"OUTBOX_"`
 }

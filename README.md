@@ -13,7 +13,7 @@ cp .env.example .env   # local defaults, loaded by every task
 task local:up          # services, migrations and the API with hot reload
 ```
 
-`task local:up` starts Postgres, Valkey and Grafana LGTM, waits until they are healthy, applies migrations and runs the API on http://localhost:8080 with hot reload (air). Saving a `.go` or `.sql` file rebuilds and restarts it gracefully.
+`task local:up` starts Postgres, Valkey, NATS and Grafana LGTM, waits until they are healthy, applies migrations and runs the API on http://localhost:8080 with hot reload (air). Saving a `.go` or `.sql` file rebuilds and restarts it gracefully.
 
 Verify:
 
@@ -70,6 +70,7 @@ internal/
     health/             background dependency checks
     httpserver/         HTTP server, middleware, Huma /v1 API
     logging/            JSON logs to stdout, level gating
+    nats/               NATS JetStream event broker adapter
     ratelimit/          GCRA rate limiter on Valkey
     telemetry/          OpenTelemetry traces, metrics, logs
     valkey/             Valkey client
@@ -119,6 +120,7 @@ Rules enforced in CI by `go-arch-lint` and `depguard`:
 | Database roles | `frappe_migration` owns the schema and runs migrations; `frappe_application` is the runtime role (RLS-bound; on `outbox` it may only `INSERT`); `frappe_outbox_relay` is the outbox relay's role (`SELECT`, `UPDATE`, `DELETE` on `outbox` only, across tenants). All three are created outside migrations (`deployments/database/initialize.sql` locally). |
 | Migrations | Run by `cmd/migrate` as a deploy step, never at API startup. Timestamp-versioned, out-of-order allowed. |
 | Rate limiting | GCRA in Valkey, IETF `RateLimit-*` headers, 429 as RFC 9457. Fails open if Valkey is unavailable. |
+| Event broker | `EVENTS_BROKER` selects `none` (default), `memory` (single process) or `nats` (JetStream stream `FRAPPE_EVENTS`, dedup on event ID, durable pull consumers, dead letters in `FRAPPE_EVENTS_DEAD_LETTER`). Only `internal/foundation/nats` and `internal/dependencies` may import the NATS client. |
 | Errors | RFC 9457 `application/problem+json`. |
 | Events | CloudEvents 1.0 JSON, type `frappe.<module>.<event>.v<version>`, defined with `events.Define`. Use cases `Record` into a transactional outbox (storage-agnostic `outbox.Store`); a relay publishes to any broker behind `events.Publisher`. At-least-once: consumers registered with `events.On` must be idempotent; failures retry with backoff, then dead letter. `partitionkey` and `sequence` extensions order events per entity. See `internal/foundation/events/doc.go`. |
 | Telemetry | OTLP to any collector (local otel-lgtm or Grafana Cloud). Parent-based trace sampling: 100% in development, 10% in production. |

@@ -14,7 +14,7 @@ tasks:
   local:up:
     desc: Start every local service, apply migrations and run the API with hot reload (Ctrl+C stops the API; services keep running).
     cmds:
-      - docker compose up -d --wait database valkey observability
+      - docker compose up -d --wait database valkey nats observability
       - task: migrations:run
       - echo "Services ready. Grafana http://localhost:3000, API http://localhost:8080 (hot reload)"
       - task: application:watch
@@ -122,6 +122,16 @@ tasks:
     desc: Stop the local Valkey.
     cmds:
       - docker compose stop valkey
+
+  nats:up:
+    desc: Start the local NATS with JetStream (the event broker; set EVENTS_BROKER=nats and NATS_URL=nats://localhost:4222).
+    cmds:
+      - docker compose up -d --wait nats
+
+  nats:down:
+    desc: Stop the local NATS, keeping its JetStream volume.
+    cmds:
+      - docker compose stop nats
 
   migrations:create:
     desc: 'Create a new SQL migration file, timestamp-versioned (usage: task migrations:create -- <name>).'
