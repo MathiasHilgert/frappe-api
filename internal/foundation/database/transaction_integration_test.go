@@ -87,12 +87,13 @@ func TestIntegrationWithinTransactionRollsBackOnWorkError(t *testing.T) {
 // It uses a pool of one connection, so a nested call that opened a second
 // connection instead of joining would deadlock and hit the ctx timeout.
 func TestIntegrationNestedWithinTransactionJoinsTheOuterTransaction(t *testing.T) {
-	connectionString := startPostgresContainer(t, "frappe_superuser", "frappe_superuser")
+	t.Parallel()
+	ownerPool := databasetest.NewOwner(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	pool, err := database.Up(ctx, database.Settings{URL: connectionString, MaxConnections: 1})
+	pool, err := database.Up(ctx, database.Settings{URL: ownerPool.Config().ConnString(), MaxConnections: 1})
 	if err != nil {
 		t.Fatalf("Up returned unexpected error: %v", err)
 	}
