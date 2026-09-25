@@ -64,6 +64,14 @@
   Rules:
     - Keep diagrams colorless: no `style`, `classDef`, `linkStyle` or theme overrides.
     - One diagram per concern. Give each a short heading.
+    - Avoid syntax errors (GitHub shows "Unable to render rich display"):
+      - Sequence messages: no `;` (it ends the statement) and no `#`. Write
+        "one transaction: order and outbox row", not "BEGIN; insert; COMMIT".
+      - Flowchart labels with symbols or spaces: quote them, A["GET /v1/orders/{id}"].
+        Unquoted (), [], {}, <, >, | and " break the parser.
+      - Node ids: letters and digits only (no spaces, dots or dashes).
+      - `end` is a keyword; do not use it as a node id.
+    - Preview before submitting: https://mermaid.live (or GitHub's Preview tab).
 -->
 
 ### <diagram title>
