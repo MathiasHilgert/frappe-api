@@ -41,6 +41,26 @@ func (recorder *statusRecorder) Write(body []byte) (int, error) {
 	return recorder.ResponseWriter.Write(body)
 }
 
+// Unwrap exposes the wrapped http.ResponseWriter so http.ResponseController
+// can reach optional interfaces the underlying writer implements, such as
+// http.Flusher, http.Hijacker or SetWriteDeadline, through this wrapper
+// instead of losing them. See the "Unwrap" convention documented on
+// http.ResponseController.
+func (recorder *statusRecorder) Unwrap() http.ResponseWriter {
+	return recorder.ResponseWriter
+}
+
+// Status reports the status code the wrapped handler actually resolved
+// to: whatever was passed to WriteHeader or Write, or http.StatusOK if the
+// handler returned without calling either, matching net/http's own
+// default instead of leaving the access log to report the zero value.
+func (recorder *statusRecorder) Status() int {
+	if !recorder.wroteHeader {
+		return http.StatusOK
+	}
+	return recorder.status
+}
+
 // recoveryMiddleware recovers from a panic in next, logs it with logger
 // (without leaking the panic's detail to the client) and writes an RFC
 // 9457 problem+json 500 response instead of letting the panic crash the
@@ -119,7 +139,7 @@ func accessLogMiddleware(logger *slog.Logger, apiMux *http.ServeMux) func(http.H
 			logger.InfoContext(r.Context(), "request completed",
 				slog.String("method", r.Method),
 				slog.String("route", matchedRoute(apiMux, r)),
-				slog.Int("status", recorder.status),
+				slog.Int("status", recorder.Status()),
 				slog.Float64("duration_milliseconds", durationMilliseconds),
 				slog.String("request_id", requestID),
 			)
