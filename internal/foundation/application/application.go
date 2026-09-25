@@ -18,10 +18,6 @@ type Application struct {
 func New(optionFunctions ...Option) *Application {
 	resolvedOptions := newOptions(optionFunctions)
 
-	if resolvedOptions.buildInfo.set {
-		recordBuildInfo(context.Background(), resolvedOptions.buildInfo.version, resolvedOptions.buildInfo.commit, resolvedOptions.buildInfo.environment)
-	}
-
 	return &Application{
 		options: resolvedOptions,
 	}
@@ -46,6 +42,14 @@ func (application *Application) Up(ctx context.Context) error {
 			return errors.Join(err, rollbackErr)
 		}
 		started = append(started, hook)
+	}
+
+	// Recorded here, once every hook (including telemetry's own Up, which
+	// installs the real MeterProvider) has succeeded, so this gauge is
+	// exported through the SDK it depends on rather than lost to the
+	// still-noop delegate that is in place during New.
+	if application.options.buildInfo.set {
+		recordBuildInfo(ctx, application.options.buildInfo.version, application.options.buildInfo.commit, application.options.buildInfo.environment)
 	}
 
 	recordReady(ctx, 1)

@@ -42,6 +42,19 @@ func collectMetricNames(t *testing.T, reader sdkmetric.Reader) map[string]bool {
 // under one installation keeps the test faithful to how the SDK is
 // actually installed once in main.go.
 func TestApplicationLifecycleEmitsMetrics(t *testing.T) {
+	// Both instances are constructed before the real MeterProvider is
+	// installed below, mirroring how main.go actually runs: application.New
+	// happens before the telemetry hook's Up installs the SDK. Since the
+	// OpenTelemetry global meter binds its delegated instruments to the
+	// first real MeterProvider it ever sees (for the lifetime of the
+	// process, see go.opentelemetry.io/otel/internal/global's
+	// delegateMeterOnce), any metric recorded synchronously during New,
+	// before that installation, would be silently dropped by the
+	// still-noop delegate. Constructing here, before SetMeterProvider,
+	// keeps this test honest about that ordering.
+	failingInstance := application.New()
+	succeedingInstance := application.New(application.WithBuildInfo("1.2.3", "abc123", "development"))
+
 	reader := sdkmetric.NewManualReader()
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	previous := otel.GetMeterProvider()
@@ -49,7 +62,6 @@ func TestApplicationLifecycleEmitsMetrics(t *testing.T) {
 	defer otel.SetMeterProvider(previous)
 
 	// A failing instance exercises the hook duration and failure metrics.
-	failingInstance := application.New()
 	failing := errors.New("boom")
 	failingInstance.Append(application.Hook{
 		Name: "failing-hook",
@@ -59,9 +71,8 @@ func TestApplicationLifecycleEmitsMetrics(t *testing.T) {
 		t.Fatal("Up returned nil error, want the hook failure")
 	}
 
-	// A succeeding instance, built with build info, exercises the ready
+	// The succeeding instance, built with build info, exercises the ready
 	// and info gauges across a full Up/Down cycle.
-	succeedingInstance := application.New(application.WithBuildInfo("1.2.3", "abc123", "development"))
 	succeedingInstance.Append(application.Hook{
 		Name: "ok-hook",
 		Up:   func(context.Context) error { return nil },
