@@ -40,7 +40,7 @@ type Store interface {
 	MarkPending(ctx context.Context, requests []TranslationRequest, pendingTimeout time.Duration) ([]TranslationRequest, error)
 	// ExpiredPending returns up to limit of the tenant's pending machine
 	// translations requested more than olderThan ago, oldest first, with
-	// the text's own Context (empty means the Field default).
+	// the text's own Context (empty means the Field default) and Attempts.
 	ExpiredPending(ctx context.Context, olderThan time.Duration, limit int) ([]TranslationRequest, error)
 	// Get returns a text with all its translations, or ErrNotFound.
 	Get(ctx context.Context, id ID) (Text, error)
@@ -57,6 +57,21 @@ type Store interface {
 	// olderThan ago that no reference points at, and returns how many it
 	// deleted.
 	DeleteOrphans(ctx context.Context, references []Reference, olderThan time.Duration, limit int) (int64, error)
+	// Lease sets requested_at of the pending machine translations of ids
+	// into locale to until, so while a job still works on them (retrying,
+	// snoozed) neither reads nor the expired sweep request them again.
+	Lease(ctx context.Context, locale i18n.Locale, ids []ID, until time.Time) error
+	// MarkFailed turns the pending machine translations of ids into
+	// locale failed: they are not requested again until the source
+	// changes.
+	MarkFailed(ctx context.Context, locale i18n.Locale, ids []ID) error
+	// Referencing returns, for each of ids some reference points at, one
+	// such reference (the first in references order that matches).
+	Referencing(ctx context.Context, references []Reference, ids []ID) (map[ID]Reference, error)
+	// Tenants lists every tenant owning at least one text, across Row
+	// Level Security, for the periodic sweeps that run once per tenant.
+	// It exposes tenant identifiers only.
+	Tenants(ctx context.Context) ([]string, error)
 	// Isolate runs work so that its failure, including a database error,
 	// leaves the caller's transaction usable (a savepoint).
 	Isolate(ctx context.Context, work func(ctx context.Context) error) error
@@ -66,8 +81,8 @@ type Store interface {
 // calls it, inside the caller's transaction, whenever a text needs a
 // machine translation (new or changed source, or a missing, stale or
 // expired pending machine translation found on read). It must not
-// translate inline; the machine translation feature appends the requests
-// to the outbox and translates asynchronously, then stores results with
+// translate inline; the machinetranslation package enqueues jobs in the
+// same transaction, translates asynchronously and stores results with
 // Service.SetMachineTranslation.
 type TranslationRequester interface {
 	RequestTranslations(ctx context.Context, requests []TranslationRequest) error

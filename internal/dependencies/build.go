@@ -151,8 +151,10 @@ func NewApplication(ctx context.Context, provider configuration.Provider, option
 	// localizedTexts is the *localizedtext.Service every module with
 	// user-entered, translatable fields receives through its Dependencies;
 	// each module declares its fields with localizedTexts.Field at wiring
-	// time (see internal/foundation/i18n/localizedtext/doc.go).
-	catalog, localizedTexts, localizationError := provideInternationalization(loadedConfiguration.Internationalization)
+	// time (see internal/foundation/i18n/localizedtext/doc.go). Its
+	// machine translation (DeepL, when DEEPL_API_KEY is set) and the
+	// periodic sweeps are jobs of the localized_texts module on jobCatalog.
+	catalog, localizedTexts, localizationError := provideInternationalization(loadedConfiguration, jobCatalog.Module(localizedTextsJobsModule), databasePool)
 	if localizationError != nil {
 		return nil, fmt.Errorf("localization: %w", localizationError)
 	}

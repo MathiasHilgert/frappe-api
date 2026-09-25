@@ -37,7 +37,7 @@ func TestProvideLocalizedTextsBuildsTheServiceOnTheCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("provideLocalization: %v", err)
 	}
-	service, err := provideLocalizedTexts(catalog)
+	service, err := provideLocalizedTexts(catalog, nil, configuration.LocalizedTexts{})
 	if err != nil || service == nil {
 		t.Fatalf("provideLocalizedTexts = %v, %v; want a service", service, err)
 	}

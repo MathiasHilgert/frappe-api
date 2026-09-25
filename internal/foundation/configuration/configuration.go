@@ -46,6 +46,8 @@ import (
 type Configuration struct {
 	Internationalization Internationalization `envPrefix:"I18N_"`
 
+	DeepL DeepL `envPrefix:"DEEPL_"`
+
 	Events      Events      `envPrefix:"EVENTS_"`
 	Logging     Logging     `envPrefix:"LOGGING_"`
 	Application Application `envPrefix:"APPLICATION_"`
@@ -60,6 +62,8 @@ type Configuration struct {
 	Inbox       Inbox       `envPrefix:"INBOX_"`
 	Jobs        Jobs        `envPrefix:"JOBS_"`
 	Telemetry   Telemetry   `envPrefix:"TELEMETRY_"`
+
+	LocalizedTexts LocalizedTexts `envPrefix:"LOCALIZED_TEXTS_"`
 }
 
 // Internationalization holds the platform locale settings (see

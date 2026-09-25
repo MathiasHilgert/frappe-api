@@ -14,12 +14,6 @@ import (
 // jobsDependencyName identifies the jobs backend dependency.
 const jobsDependencyName = "jobs"
 
-// jobsTenancy captures and restores the tenant of jobs. The tenant model
-// is not defined yet, so it is empty and jobs carry no tenant; wire the
-// same resolver as the cache and a binder feeding the Row Level Security
-// setting here once it exists.
-var jobsTenancy jobs.Tenancy
-
 // provideJobs registers the River jobs backend for catalog on the
 // application pool. At Up it validates the catalog (every job has a
 // handler), installs the backend as the catalog's enqueuer and, when

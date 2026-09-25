@@ -60,6 +60,7 @@ func Validate(configuration Configuration) error {
 	crossFieldViolations = append(crossFieldViolations, validateInternationalization(configuration.Internationalization)...)
 	crossFieldViolations = append(crossFieldViolations, validateInbox(configuration.Inbox, configuration.Events)...)
 	crossFieldViolations = append(crossFieldViolations, validateJobs(configuration.Jobs)...)
+	crossFieldViolations = append(crossFieldViolations, validateDeepL(configuration.DeepL)...)
 
 	if len(crossFieldViolations) > 0 {
 		if validationError == nil {
