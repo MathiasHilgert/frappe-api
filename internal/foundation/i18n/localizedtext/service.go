@@ -173,6 +173,71 @@ func (service *Service) ExpiredPending(ctx context.Context, limit int) ([]Transl
 	return service.store.ExpiredPending(ctx, service.pendingTimeout, limit)
 }
 
+// RequestExpired requests again up to limit of the current tenant's
+// pending machine translations whose request expired (older than
+// PendingTimeout; the job was lost or gave up), and returns how many it
+// requested. A text without its own Context gets the default Context of
+// the declared Field that references it. Without a requester it does
+// nothing.
+func (service *Service) RequestExpired(ctx context.Context, limit int) (int, error) {
+	if service.requester == nil {
+		return 0, nil
+	}
+	requests, err := service.ExpiredPending(ctx, limit)
+	if err != nil || len(requests) == 0 {
+		return 0, err
+	}
+	if err = service.defaultContexts(ctx, requests); err != nil {
+		return 0, err
+	}
+	recorded, err := service.store.MarkPending(ctx, requests, service.pendingTimeout)
+	if err != nil || len(recorded) == 0 {
+		return 0, err
+	}
+	if err := service.requester.RequestTranslations(ctx, recorded); err != nil {
+		return 0, err
+	}
+	return len(recorded), nil
+}
+
+// defaultContexts fills the Context of requests that have none with the
+// default Context of the declared Field referencing their text.
+func (service *Service) defaultContexts(ctx context.Context, requests []TranslationRequest) error {
+	var ids []ID
+	for _, request := range requests {
+		if request.Context == "" {
+			ids = append(ids, request.TextID)
+		}
+	}
+	fields := service.Fields()
+	if len(ids) == 0 || len(fields) == 0 {
+		return nil
+	}
+	references := make([]Reference, len(fields))
+	contexts := make(map[Reference]string, len(fields))
+	for index, field := range fields {
+		references[index] = Reference{Table: field.Table, Column: field.Column}
+		contexts[references[index]] = field.Context
+	}
+	referencing, err := service.store.Referencing(ctx, references, ids)
+	if err != nil {
+		return err
+	}
+	for index := range requests {
+		if reference, ok := referencing[requests[index].TextID]; ok && requests[index].Context == "" {
+			requests[index].Context = contexts[Reference{Table: reference.Table, Column: reference.Column}]
+		}
+	}
+	return nil
+}
+
+// Tenants lists every tenant owning at least one text, so a periodic
+// sweep can run RequestExpired and DeleteOrphans once per tenant
+// transaction.
+func (service *Service) Tenants(ctx context.Context) ([]string, error) {
+	return service.store.Tenants(ctx)
+}
+
 // DeleteOrphans deletes up to limit texts, last updated more than
 // olderThan ago, that nothing references, and returns how many it
 // deleted. It is the periodic garbage collection behind Delete; run it

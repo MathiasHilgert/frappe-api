@@ -303,6 +303,64 @@ func (*Store) References(ctx context.Context) ([]localizedtext.Reference, error)
 	return references, nil
 }
 
+// Referencing implements localizedtext.Store with one query: a UNION ALL
+// over references, in order, keeping the first match per text.
+// Identifiers are quoted with Sanitize.
+func (*Store) Referencing(ctx context.Context, references []localizedtext.Reference, ids []localizedtext.ID) (map[localizedtext.ID]localizedtext.Reference, error) {
+	current, err := transaction(ctx)
+	if err != nil {
+		return nil, err
+	}
+	found := map[localizedtext.ID]localizedtext.Reference{}
+	if len(references) == 0 || len(ids) == 0 {
+		return found, nil
+	}
+	selects := make([]string, len(references))
+	for index, reference := range references {
+		selects[index] = fmt.Sprintf("SELECT %d AS position, %s AS text_id FROM %s WHERE %s = ANY($1::uuid[])",
+			index, pgx.Identifier{reference.Column}.Sanitize(), pgx.Identifier{reference.Table}.Sanitize(),
+			pgx.Identifier{reference.Column}.Sanitize())
+	}
+	rows, err := current.Query(ctx, `SELECT DISTINCT ON (text_id) text_id, position FROM (`+
+		strings.Join(selects, " UNION ALL ")+`) AS referencing ORDER BY text_id, position`, toUUIDs(ids))
+	if err != nil {
+		return nil, fmt.Errorf("load referencing fields: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		var position int
+		if err := rows.Scan(&id, &position); err != nil {
+			return nil, fmt.Errorf("scan referencing field: %w", err)
+		}
+		found[localizedtext.ID(id)] = references[position]
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("load referencing fields: %w", err)
+	}
+	return found, nil
+}
+
+// Tenants implements localizedtext.Store through the SECURITY DEFINER
+// function localized_text_tenants() (migration
+// 20260927000000_localized_text_tenants.sql), which crosses Row Level
+// Security and returns tenant identifiers only.
+func (*Store) Tenants(ctx context.Context) ([]string, error) {
+	current, err := transaction(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := current.Query(ctx, `SELECT tenant FROM localized_text_tenants() AS tenant`)
+	if err != nil {
+		return nil, fmt.Errorf("list localized text tenants: %w", err)
+	}
+	tenants, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return nil, fmt.Errorf("list localized text tenants: %w", err)
+	}
+	return tenants, nil
+}
+
 // Isolate implements localizedtext.Store with a savepoint (a nested
 // database.WithinTransaction), so a failed work leaves the caller's
 // transaction usable.

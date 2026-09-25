@@ -32,9 +32,9 @@
 //
 // TranslationRequester is called, in the caller's transaction, whenever
 // a text needs a machine translation. Requests are first recorded as
-// pending rows, so each one is requested once. The machine translation
-// feature implements it (outbox, then an asynchronous translator); until
-// then no requester is wired and nothing is requested.
+// pending rows, so each one is requested once. The machinetranslation
+// package implements it with background jobs; without a requester (no
+// DeepL key) nothing is requested.
 //
 // # Usage from a module
 //
@@ -77,14 +77,15 @@
 //	return descriptions.Delete(ctx, localizedtext.ID(dish.DescriptionTextID))
 //
 // Service.DeleteOrphans is the periodic garbage collection for
-// unreferenced texts (a scheduler will call it per tenant). It takes the
+// unreferenced texts (the machinetranslation sweep calls it per tenant,
+// listing tenants with Service.Tenants). It takes the
 // foreign keys to localized_texts from pg_constraint as the source of
 // truth and refuses to run unless they match the declared Fields exactly
 // and are ON DELETE NO ACTION or RESTRICT.
 //
 // Pending requests carry requested_at and attempts; one older than
 // Settings.PendingTimeout is requested again on read, and
-// Service.ExpiredPending lists them for a sweeper. Reads request
+// Service.RequestExpired requests them again for the periodic sweeper. Reads request
 // translations best effort inside a savepoint (logged, counted, added to
 // the span), so they never fail because of a request.
 package localizedtext

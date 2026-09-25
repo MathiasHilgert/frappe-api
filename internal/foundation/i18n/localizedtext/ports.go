@@ -57,6 +57,13 @@ type Store interface {
 	// olderThan ago that no reference points at, and returns how many it
 	// deleted.
 	DeleteOrphans(ctx context.Context, references []Reference, olderThan time.Duration, limit int) (int64, error)
+	// Referencing returns, for each of ids some reference points at, one
+	// such reference (the first in references order that matches).
+	Referencing(ctx context.Context, references []Reference, ids []ID) (map[ID]Reference, error)
+	// Tenants lists every tenant owning at least one text, across Row
+	// Level Security, for the periodic sweeps that run once per tenant.
+	// It exposes tenant identifiers only.
+	Tenants(ctx context.Context) ([]string, error)
 	// Isolate runs work so that its failure, including a database error,
 	// leaves the caller's transaction usable (a savepoint).
 	Isolate(ctx context.Context, work func(ctx context.Context) error) error
@@ -66,8 +73,8 @@ type Store interface {
 // calls it, inside the caller's transaction, whenever a text needs a
 // machine translation (new or changed source, or a missing, stale or
 // expired pending machine translation found on read). It must not
-// translate inline; the machine translation feature appends the requests
-// to the outbox and translates asynchronously, then stores results with
+// translate inline; the machinetranslation package enqueues jobs in the
+// same transaction, translates asynchronously and stores results with
 // Service.SetMachineTranslation.
 type TranslationRequester interface {
 	RequestTranslations(ctx context.Context, requests []TranslationRequest) error
