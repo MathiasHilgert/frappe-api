@@ -110,7 +110,10 @@ func NewApplication(ctx context.Context, provider configuration.Provider, option
 	// Rate limiting (and its Valkey client, when enabled) is provided
 	// before the HTTP server, so Valkey is up before traffic arrives and
 	// goes down only after the server has stopped.
-	rateLimitSettings, rateLimitError := provideRateLimit(instance, loadedConfiguration)
+	// One Valkey client is shared by rate limiting and the cache; it is
+	// registered only when one of them uses it.
+	valkeyClient := provideValkey(instance, loadedConfiguration)
+	rateLimitSettings, rateLimitError := provideRateLimit(instance, loadedConfiguration, valkeyClient)
 	if rateLimitError != nil {
 		return nil, fmt.Errorf("rate limit: %w", rateLimitError)
 	}
@@ -167,6 +170,13 @@ func NewApplication(ctx context.Context, provider configuration.Provider, option
 		return nil, outboxError
 	}
 	_ = outboxRecorder
+
+	// cacheBackend is the *cache.Backend every module receives through its
+	// Dependencies; module adapters build their cache.ReadThrough entries
+	// on it (see internal/foundation/cache/doc.go). It never fails a read:
+	// disabled or unavailable, entries simply load from the source.
+	cacheBackend := provideCache(loadedConfiguration.Cache, valkeyClient)
+	_ = cacheBackend
 
 	// No concrete module exists yet; each one, as it is added, gets
 	// wired here with its own constructor call passing server.V1() and

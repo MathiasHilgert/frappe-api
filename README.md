@@ -61,6 +61,7 @@ cmd/
 internal/
   foundation/           what makes the application run, zero business
     application/        lifecycle: hooks, Up/Down, readiness
+    cache/              read-through cache: Store port, memory and valkey adapters, event invalidation
     configuration/      configuration and validation (environment provider)
     database/           pgx pool, RLS-ready transactions
     events/             broker-agnostic events: CloudEvents envelope, ports, typed consumers
@@ -119,6 +120,7 @@ Rules enforced in CI by `go-arch-lint` and `depguard`:
 | Row Level Security | Tenant settings are applied per transaction with `set_config(..., true)`, never per session. The application role cannot bypass RLS; tables use `FORCE ROW LEVEL SECURITY`. |
 | Database roles | `frappe_migration` owns the schema and runs migrations; `frappe_application` is the runtime role (RLS-bound; on `outbox` it may only `INSERT`; on `inbox` only `INSERT`, `DELETE` and `SELECT (processed_at)`); `frappe_outbox_relay` is the outbox relay's role (`SELECT`, `UPDATE`, `DELETE` on `outbox` only, across tenants). All three are created outside migrations (`deployments/database/initialize.sql` locally). |
 | Migrations | Run by `cmd/migrate` as a deploy step, never at API startup. Timestamp-versioned, out-of-order allowed. |
+| Cache | Infrastructure only: a module adapter decorates its read port with `cache.New(backend, "<module>.<entry>", lifetime, next.Find)` and calls `Get`; use cases and domain never see it. Keys are `frappe:<tenant:<id>|global>:<name>:v<version>:<key>`, tenant from context (no tenant, no caching), escaped keys, singleflight, fails open, no negative caching, jitter, event-driven invalidation. See `internal/foundation/cache/doc.go`. |
 | Rate limiting | GCRA in Valkey, IETF `RateLimit-*` headers, 429 as RFC 9457. Fails open if Valkey is unavailable. |
 | Event broker | `EVENTS_BROKER` selects `none` (default), `memory` (single process) or `nats` (JetStream stream `FRAPPE_EVENTS`, dedup on event ID, durable pull consumers, dead letters in `FRAPPE_EVENTS_DEAD_LETTER`). Only `internal/foundation/nats` and `internal/dependencies` may import the NATS client. |
 | HTTP caching | Every `/v1` response is `Cache-Control: no-store` unless the handler declares a policy (`httpserver.Private`, `Revalidate`, `Public`, `NoStore`) with an ETag through `httpserver.NotModified`, which answers matching `If-None-Match` GET/HEAD requests with 304 before the body is computed. Private and Revalidate add `Vary: Authorization`; Public is only for non-tenant data. See `internal/foundation/httpserver/doc.go`. |
@@ -155,6 +157,39 @@ Locally, `compose.yaml` runs the whole flow: `EVENTS_BROKER=nats`, `OUTBOX_ENABL
 | `OUTBOX_PURGE_INTERVAL` / `OUTBOX_RETENTION` | `1h` / `72h` | How often and after how long published rows are deleted. |
 | `OUTBOX_BASE_BACKOFF` / `OUTBOX_MAX_BACKOFF` | `1s` / `5m` | Exponential retry delay bounds. |
 | `INBOX_PURGE_INTERVAL` / `INBOX_RETENTION` | `1h` / `168h` | How often and after how long inbox records are deleted. Retention must outlive every redelivery (it matches `NATS_STREAM_MAX_AGE`), or a late duplicate is handled again. |
+
+### Cache: decorate a read port
+
+```go
+// adapters: the use case keeps depending on application.Menus
+type CachedMenus struct {
+    application.Menus
+    byID *cache.ReadThrough[uuid.UUID, domain.Menu]
+}
+
+func NewCachedMenus(backend *cache.Backend, next application.Menus) *CachedMenus {
+    return &CachedMenus{Menus: next, byID: cache.New(backend, "menu.by_id", 5*time.Minute, next.FindByID)}
+}
+
+func (menus *CachedMenus) FindByID(ctx context.Context, id uuid.UUID) (domain.Menu, error) {
+    return menus.byID.Get(ctx, id)
+}
+
+// module root: drop entries when menu.updated is consumed
+eventinvalidation.On(registry, menuevents.Updated, byID,
+    func(event events.Event[menuevents.MenuUpdated]) (string, []uuid.UUID) {
+        return event.Data.Tenant, []uuid.UUID{event.Data.MenuID}
+    })
+```
+
+Options: `cache.Global()` (not tenant-owned), `cache.Version(n)` (bump when the cached type changes; old entries are orphaned), `cache.Codec(c)`, `cache.Jitter(fraction)`. `InvalidateFor(ctx, tenant, keys...)` is the only explicit-tenant call, for event consumers. Metrics: `frappe.cache.requests{module,outcome}`, `frappe.cache.load.duration{module}`, `frappe.cache.errors{operation,reason}`.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `CACHE_ENABLED` | `false` | Off: every entry loads from the source. |
+| `CACHE_STORE` | `memory` | `memory` or `valkey` (shares the rate limiter's client; requires `VALKEY_ADDRESS`). |
+| `CACHE_DEFAULT_TIME_TO_LIVE` | `5m` | Lifetime of entries created with a zero lifetime. |
+| `CACHE_OPERATION_TIMEOUT` | `100ms` | Max latency an unhealthy store adds before a read fails open. |
 
 ## Testing
 
