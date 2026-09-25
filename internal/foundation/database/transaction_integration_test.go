@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"testing"
 	"time"
 
@@ -231,12 +232,15 @@ func TestIntegrationRowLevelSecurityIsEnforcedForANonSuperuserRole(t *testing.T)
 func restrictedConnectionString(t *testing.T, adminConnectionString, username, password string) string {
 	t.Helper()
 
-	configuration, err := pgx.ParseConfig(adminConnectionString)
+	// pgx.ConnConfig.ConnString returns the original string, not one rebuilt
+	// from modified fields, so the userinfo is rewritten on the URL itself.
+	// Keeping the admin credentials here would connect as a superuser and
+	// silently bypass Row Level Security.
+	parsed, err := url.Parse(adminConnectionString)
 	if err != nil {
 		t.Fatalf("parse admin connection string: %v", err)
 	}
-	configuration.User = username
-	configuration.Password = password
+	parsed.User = url.UserPassword(username, password)
 
-	return configuration.ConnString()
+	return parsed.String()
 }
