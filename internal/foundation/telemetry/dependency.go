@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"os"
 	"sync"
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
@@ -42,13 +41,6 @@ type Settings struct {
 	// DeploymentEnvironment becomes the resource's
 	// deployment.environment.name attribute.
 	DeploymentEnvironment string
-	// LoggingLevel is the minimum severity the installed default logger
-	// records, mirroring configuration.Logging.Level's validated values
-	// ("debug", "info", "warn", "error"). It applies to both the console
-	// and the OTLP log export, so LOGGING_LEVEL is honored the same way
-	// whether or not telemetry export is enabled. An empty or
-	// unrecognized value defaults to "info".
-	LoggingLevel string
 	// Enabled controls whether the telemetry SDK installs real,
 	// SDK-backed global providers. When false, Up leaves the no-op global
 	// providers in place.
@@ -74,8 +66,18 @@ type SDK struct {
 	tracerProvider            shutdowner
 	meterProvider             shutdowner
 	loggerProvider            shutdowner
-	previousLogger            *slog.Logger
+	logHandler                slog.Handler
 	previousLogGlobalProvider otellog.LoggerProvider
+}
+
+// LogHandler returns the slog.Handler that bridges log records into the
+// OTel logs pipeline (through otelslog), so the composition root can
+// attach it to the process logger built by internal/foundation/logging
+// once Up has succeeded. It returns nil when telemetry is disabled: the
+// process logger must keep working, JSON and level-gated, without this
+// handler, and logging must never depend on telemetry to build itself.
+func (sdk SDK) LogHandler() slog.Handler {
+	return sdk.logHandler
 }
 
 // startInstrumentation starts every OpenTelemetry contrib instrumentation
@@ -110,23 +112,23 @@ func defaultStartInstrumentation(meterProvider *sdkmetric.MeterProvider) error {
 // all of that succeeds does it install the tracer, meter and log
 // providers as the OpenTelemetry globals (through otel.SetTracerProvider,
 // otel.SetMeterProvider and go.opentelemetry.io/otel/log/global's
-// SetLoggerProvider, so both the OTel Logs API and the bridged slog
-// default logger are covered), together with a tracecontext-and-baggage
-// propagator and a fan-out default slog logger that writes every record
-// both to the console (stdout, as JSON) and into the OTLP logging
-// pipeline so log records carry trace_id. Both destinations are gated by
-// the same settings.LoggingLevel, so console output is never silenced and
-// never lost if the collector is unreachable.
+// SetLoggerProvider, so both the OTel Logs API and the bridged slog log
+// handler are covered), together with a tracecontext-and-baggage
+// propagator and an otelslog handler that bridges log records into the
+// OTLP logging pipeline so they carry trace_id. That handler is returned
+// through SDK.LogHandler, ready for the composition root to attach to the
+// process logger internal/foundation/logging built; telemetry never
+// touches slog.Default itself, so logging never depends on telemetry.
 //
 // If any step after the providers are built fails, Up shuts down every
 // provider it already built (joining any shutdown errors with the
 // original failure through errors.Join) and returns the zero SDK: no
-// provider is left reachable through the OTel globals or slog.Default,
-// and nothing orphaned needs a later Down call.
+// provider is left reachable through the OTel globals, and nothing
+// orphaned needs a later Down call.
 //
 // When settings.Enabled is false, Up does nothing and the global
 // providers stay the no-op implementations OpenTelemetry installs by
-// default.
+// default; SDK.LogHandler returns nil.
 func Up(ctx context.Context, settings Settings) (SDK, error) {
 	if !settings.Enabled {
 		return SDK{}, nil
@@ -187,9 +189,8 @@ func Up(ctx context.Context, settings Settings) (SDK, error) {
 
 	// Every step above succeeded: only now is anything installed as a
 	// global, so a failure never leaves an orphaned provider behind one of
-	// the OTel globals or slog.Default.
+	// the OTel globals.
 	previousLogGlobalProvider := otellogglobal.GetLoggerProvider()
-	previousLogger := slog.Default()
 
 	otel.SetTracerProvider(tracerProvider)
 	otel.SetMeterProvider(meterProvider)
@@ -199,21 +200,16 @@ func Up(ctx context.Context, settings Settings) (SDK, error) {
 	))
 	otellogglobal.SetLoggerProvider(loggerProvider)
 
-	level := parseLoggingLevel(settings.LoggingLevel)
-
-	consoleHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})
 	otelHandler := otelslog.NewHandler(
 		settings.ServiceName,
 		otelslog.WithLoggerProvider(loggerProvider),
 	)
-	fanoutLogger := slog.New(newFanoutHandler(level, consoleHandler, otelHandler))
-	slog.SetDefault(fanoutLogger)
 
 	return SDK{
 		tracerProvider:            tracerProvider,
 		meterProvider:             meterProvider,
 		loggerProvider:            loggerProvider,
-		previousLogger:            previousLogger,
+		logHandler:                otelHandler,
 		previousLogGlobalProvider: previousLogGlobalProvider,
 	}, nil
 }
@@ -260,10 +256,6 @@ func Down(ctx context.Context, value SDK) error {
 		}(index, provider)
 	}
 	waitGroup.Wait()
-
-	if value.previousLogger != nil {
-		slog.SetDefault(value.previousLogger)
-	}
 
 	if value.previousLogGlobalProvider != nil {
 		otellogglobal.SetLoggerProvider(value.previousLogGlobalProvider)

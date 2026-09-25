@@ -40,9 +40,6 @@ func TestTelemetrySettingsFromUsesTheGivenVersionNotConfiguration(t *testing.T) 
 	if settings.DeploymentEnvironment != loadedConfiguration.Application.Environment {
 		t.Fatalf("settings.DeploymentEnvironment = %q, want %q", settings.DeploymentEnvironment, loadedConfiguration.Application.Environment)
 	}
-	if settings.LoggingLevel != loadedConfiguration.Logging.Level {
-		t.Fatalf("settings.LoggingLevel = %q, want %q", settings.LoggingLevel, loadedConfiguration.Logging.Level)
-	}
 	if settings.Enabled != loadedConfiguration.Telemetry.Enabled {
 		t.Fatalf("settings.Enabled = %v, want %v", settings.Enabled, loadedConfiguration.Telemetry.Enabled)
 	}
