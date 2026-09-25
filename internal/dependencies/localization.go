@@ -11,6 +11,7 @@ import (
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/i18n"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/i18n/localizedtext"
 	localizedtextpostgres "github.com/MathiasHilgert/frappe-api/internal/foundation/i18n/localizedtext/postgres"
+	"github.com/MathiasHilgert/frappe-api/internal/foundation/jobs"
 )
 
 // localeCheckDependencyName names the startup check that every supported
@@ -42,29 +43,36 @@ func checkLocales(pool *application.Handle[*pgxpool.Pool], catalog *i18n.Catalog
 }
 
 // provideInternationalization builds the static catalog and, on it, the
-// localized text Service.
-func provideInternationalization(settings configuration.Internationalization) (*i18n.Catalog, *localizedtext.Service, error) {
-	catalog, err := provideLocalization(settings)
+// localized text Service with machine translation: its jobs are defined
+// on module and handled by the Service. Without DEEPL_API_KEY no
+// requester is wired, so nothing is requested or marked pending and reads
+// fall back to the source; the orphan sweep still runs.
+func provideInternationalization(loaded configuration.Configuration, module *jobs.Module, pool *application.Handle[*pgxpool.Pool]) (*i18n.Catalog, *localizedtext.Service, error) {
+	catalog, err := provideLocalization(loaded.Internationalization)
 	if err != nil {
 		return nil, nil, err
 	}
-	service, err := provideLocalizedTexts(catalog)
+	machine, err := provideMachineTranslation(loaded, module, pool)
+	if err != nil {
+		return nil, nil, fmt.Errorf("machine translation: %w", err)
+	}
+	service, err := provideLocalizedTexts(catalog, machine.Requester())
 	if err != nil {
 		return nil, nil, fmt.Errorf("localized texts: %w", err)
 	}
+	machine.Register(module, service)
 	return catalog, service, nil
 }
 
 // provideLocalizedTexts builds the localized text Service (user-entered,
 // translatable strings) on the Postgres store, which always joins the
-// caller's transaction and so needs no pool of its own. No
-// TranslationRequester is wired yet: until machine translation exists,
-// nothing is requested or marked pending, and reads fall back to the
-// source.
-func provideLocalizedTexts(catalog *i18n.Catalog) (*localizedtext.Service, error) {
+// caller's transaction and so needs no pool of its own. A nil requester
+// disables machine translation requests.
+func provideLocalizedTexts(catalog *i18n.Catalog, requester localizedtext.TranslationRequester) (*localizedtext.Service, error) {
 	return localizedtext.NewService(localizedtext.Settings{
-		Store:   localizedtextpostgres.NewStore(),
-		Locales: catalog,
+		Store:     localizedtextpostgres.NewStore(),
+		Locales:   catalog,
+		Requester: requester,
 	})
 }
 
