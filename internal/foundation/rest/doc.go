@@ -1,0 +1,54 @@
+// Package rest holds the reusable building blocks of the project-wide API
+// conventions (docs/api-conventions.md) for module HTTP adapters:
+//
+//   - List, NewList and ListOutput: the {"object":"list"} collection
+//     envelope, with an RFC 8288 Link rel="next" header.
+//   - CursorCodec: opaque, HMAC-SHA256 signed, versioned and scoped
+//     pagination cursors.
+//   - PageParameters and NewPage: the limit (1 to 100, default 10) and
+//     cursor query parameters, and the page built from LIMIT n+1 rows.
+//   - ExpandParameters, Expansions and Expand: expand[] parsing against a
+//     per-operation allowlist, at most 4 levels deep and 20 values.
+//   - CheckNaming: fails when a registered schema property or path segment
+//     is not snake_case; the composition root runs it at startup.
+//
+// Prefixed public identifiers live in internal/foundation/identifier,
+// separate from this package, because use cases (the application layer)
+// create them and the application layer must not import Huma.
+//
+// # Why a separate package
+//
+// httpserver owns the server, its middleware and the Huma API instance;
+// modules import it only for cache policies. The conventions are about
+// the shape of resources, which every module adapter touches on every
+// operation, so they get a small package with no server state, testable
+// with humatest alone.
+//
+// # A paginated operation
+//
+//	type ListCitiesInput struct {
+//		Country string `query:"country" pattern:"^[A-Z]{2}$"`
+//		rest.ExpandParameters
+//		rest.PageParameters
+//	}
+//
+//	var cityExpansions = rest.NewExpansions("country", "subdivision")
+//
+//	huma.Get(api, "/geo/cities", func(ctx context.Context, input *ListCitiesInput) (*rest.ListOutput[City], error) {
+//		expand, err := cityExpansions.Parse(input.Expand)
+//		if err != nil {
+//			return nil, err
+//		}
+//		scope := "geo.cities?country=" + input.Country
+//		var after CityPosition
+//		if _, err := input.Position(codec, scope, &after); err != nil {
+//			return nil, err
+//		}
+//		rows, err := service.Cities(ctx, input.Country, after, input.Limit+1, expand)
+//		if err != nil {
+//			return nil, err
+//		}
+//		return rest.NewPage(codec, scope, input.PageParameters, rows,
+//			func(last City) any { return CityPosition{Name: last.Name, ID: last.ID} })
+//	})
+package rest
