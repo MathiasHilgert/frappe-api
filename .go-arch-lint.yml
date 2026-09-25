@@ -154,6 +154,17 @@ components:
   foundation_i18n_localizedtext_postgres:
     in: internal/foundation/i18n/localizedtext/postgres/**
 
+  # foundation_i18n_machinetranslation holds the Translator port and the
+  # jobs that machine translate localized texts (and sweep them); it needs
+  # the localized text API and the jobs platform, never the database: the
+  # composition root hands it a tenant Transactor.
+  # foundation_i18n_machinetranslation_deepl is its DeepL adapter.
+  foundation_i18n_machinetranslation:
+    in: internal/foundation/i18n/machinetranslation
+
+  foundation_i18n_machinetranslation_deepl:
+    in: internal/foundation/i18n/machinetranslation/deepl/**
+
   # foundation_jobs is the backend-agnostic jobs platform
   # (internal/foundation/jobs): the catalog, typed definitions, the
   # Enqueuer port and its telemetry. It is a leaf split out of foundation
@@ -307,6 +318,17 @@ deps:
       - foundation_i18n
       - foundation_i18n_localizedtext
 
+  foundation_i18n_machinetranslation:
+    mayDependOn:
+      - foundation_i18n
+      - foundation_i18n_localizedtext
+      - foundation_jobs
+
+  foundation_i18n_machinetranslation_deepl:
+    mayDependOn:
+      - foundation_i18n
+      - foundation_i18n_machinetranslation
+
   foundation_jobs_river:
     mayDependOn:
       - foundation
@@ -337,6 +359,8 @@ deps:
       - foundation_i18n
       - foundation_i18n_localizedtext
       - foundation_i18n_localizedtext_postgres
+      - foundation_i18n_machinetranslation
+      - foundation_i18n_machinetranslation_deepl
       - module_root
       - module_adapters
       - module_application
