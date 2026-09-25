@@ -107,6 +107,10 @@ linters:
               desc: "modules may use the OpenTelemetry API only; SDK setup and wiring belongs to internal/foundation/telemetry"
             - pkg: go.opentelemetry.io/otel/exporters
               desc: "modules may use the OpenTelemetry API only; exporter setup belongs to internal/foundation/telemetry"
+            - pkg: github.com/riverqueue
+              desc: "modules define, enqueue and handle jobs through internal/foundation/jobs only; River is a backend detail wired by the composition root"
+            - pkg: github.com/MathiasHilgert/frappe-api/internal/foundation/jobs/river
+              desc: "modules define, enqueue and handle jobs through internal/foundation/jobs only; the River backend is wired by the composition root"
         nats:
           # The event platform is broker-agnostic: code talks to the
           # events.Publisher and events.Subscriber ports. Only the NATS

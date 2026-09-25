@@ -69,6 +69,9 @@ internal/
         postgres/       Postgres outbox store (LISTEN/NOTIFY wake-ups)
       memory/           in-memory broker (tests, running without a broker)
     health/             background dependency checks
+    jobs/               background and periodic jobs: typed definitions, Enqueuer port, telemetry
+      river/            River (Postgres) backend: workers, periodic leader, depth and leader gauges
+      jobstest/         Recorder and Run test doubles; queuetest/ is the backend contract suite
     httpserver/         HTTP server, middleware, Huma /v1 API
     logging/            JSON logs to stdout, level gating
     nats/               NATS JetStream event broker adapter
@@ -128,6 +131,7 @@ Rules enforced in CI by `go-arch-lint` and `depguard`:
 | HTTP caching | Every `/v1` response is `Cache-Control: no-store` unless the handler declares a policy (`httpserver.Private`, `Revalidate`, `Public`, `NoStore`) with an ETag through `httpserver.NotModified`, which answers matching `If-None-Match` GET/HEAD requests with 304 before the body is computed. Private and Revalidate add `Vary: Authorization`; Public is only for non-tenant data. See `internal/foundation/httpserver/doc.go`. |
 | Errors | RFC 9457 `application/problem+json`. |
 | Events | CloudEvents 1.0 JSON, type `frappe.<module>.<event>.v<version>`, defined with `events.Define`. Use cases `Record` into a transactional outbox (storage-agnostic `outbox.Store`); a relay publishes to any broker behind `events.Publisher`. Delivery is at-least-once; the consumer runtime deduplicates every handler registered with `events.On` through the inbox, so handlers are exactly-once in effect. Failures retry with backoff, then dead letter. `partitionkey` and `sequence` extensions order events per entity. See `internal/foundation/events/doc.go`. |
+| Jobs | Background and periodic jobs on Postgres (River) behind `foundation/jobs`; modules never import River. The composition root creates one `jobs.Catalog` and hands `catalog.Module("<module>")` to each module (like `registry.Module` for events). A module defines private jobs on it with `jobs.Define[Args]`, named `<module>.<action_snake_case>` (validated and unique at startup), handles them with `jobs.Handle(module, definition, handler)` and enqueues with `Definition.Enqueue(ctx, args, jobs.After, jobs.Queue, jobs.Unique)`. Enqueue joins the transaction in ctx, so a rolled back unit of work drops its jobs. `jobs.Unique(0)` deduplicates against unfinished jobs only. `jobs.Every` and `jobs.Cron` run once per tick across replicas (elected leader). Handlers are idempotent, take IDs as arguments and may return `jobs.Cancel` or `jobs.Snooze`. The tenant and trace context of the enqueuer are restored for the handler. See `internal/foundation/jobs/doc.go`. |
 | Telemetry | OTLP to any collector (local otel-lgtm or Grafana Cloud). Parent-based trace sampling: 100% in development, 10% in production. |
 
 ## Configuration
@@ -159,6 +163,42 @@ Locally, `compose.yaml` runs the whole flow: `EVENTS_BROKER=nats`, `OUTBOX_ENABL
 | `OUTBOX_PURGE_INTERVAL` / `OUTBOX_RETENTION` | `1h` / `72h` | How often and after how long published rows are deleted. |
 | `OUTBOX_BASE_BACKOFF` / `OUTBOX_MAX_BACKOFF` | `1s` / `5m` | Exponential retry delay bounds. |
 | `INBOX_PURGE_INTERVAL` / `INBOX_RETENTION` | `1h` / `168h` | How often and after how long inbox records are deleted. Retention must outlive every redelivery (it matches `NATS_STREAM_MAX_AGE`), or a late duplicate is handled again. |
+
+### Jobs: define, enqueue, handle, schedule
+
+```go
+// Composition root: one catalog, one module scope per module.
+jobCatalog := jobs.NewCatalog()
+menu.Wire(menu.Dependencies{Jobs: jobCatalog.Module("menu") /* ... */})
+
+// Module (private to it): define, handle and schedule at wiring time.
+type RebuildIndexArgs struct {
+    MenuID uuid.UUID `json:"menuId"`
+}
+
+rebuildIndex := jobs.Define[RebuildIndexArgs](dependencies.Jobs, "rebuild_index", jobs.WithMaxAttempts(5))
+jobs.Handle(dependencies.Jobs, rebuildIndex, func(ctx context.Context, job jobs.Job[RebuildIndexArgs]) error {
+    return useCase.Execute(ctx, job.Args.MenuID)
+})
+jobs.Cron(rebuildIndex, "0 3 * * *", RebuildIndexArgs{})
+
+// Use case, given rebuildIndex: inside a unit of work it is inserted only if it commits.
+_, err := rebuildIndex.Enqueue(ctx, RebuildIndexArgs{MenuID: id}, jobs.After(time.Minute), jobs.Unique(0))
+```
+
+The schema is `migrations/20260926000000_river.sql`, generated with `river migrate-get` so goose stays the only migration tool; a River release with a new schema version gets a new goose migration generated the same way. Tests build definitions on `jobstest.NewCatalog()`, which returns an isolated catalog and the `Recorder` its enqueues go to (`jobstest.Enqueued`), and use `jobstest.Run` to execute a handler synchronously; backends prove themselves with `queuetest.Run`.
+
+Telemetry: a producer span `<name> enqueue` and a consumer span `<name> process` linked to it (trace context travels in the job metadata); metrics `frappe.jobs.enqueued`, `frappe.jobs.handled` and `frappe.jobs.handle.duration` (by `name`, `queue`, `outcome`), `frappe.jobs.attempts`, `frappe.jobs.lag`, `frappe.jobs.queue.depth` (by `queue`, `state`, reported by the leader only), `frappe.jobs.periodic.ticks` and `frappe.jobs.leader` (no attributes; replicas differ by resource); one log line per attempt with `job_id`, `job_name`, `job_attempt` and `tenant`.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `JOBS_ENABLED` | `true` | Works jobs on this replica and joins the periodic leader election. Disabled replicas still enqueue. |
+| `JOBS_WORKERS` | `10` | Concurrent attempts per queue. |
+| `JOBS_MAX_ATTEMPTS` | `25` | Attempts of a job whose definition sets none. |
+| `JOBS_JOB_TIMEOUT` | `1m` | Attempt timeout of a job whose definition sets none. |
+| `JOBS_FETCH_POLL_INTERVAL` | `1s` | Poll when no notification arrives. |
+| `JOBS_COMPLETED_RETENTION` | `24h` | How long completed jobs are kept. |
+| `JOBS_METRICS_INTERVAL` | `15s` | How often queue depth and leadership are sampled. |
 
 ### Cache: decorate a read port
 
