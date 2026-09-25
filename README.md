@@ -129,6 +129,20 @@ All configuration comes from environment variables, validated at startup: invali
 
 Secrets are never committed. Locally, `task secrets:run` injects them with the Infisical CLI; in deployed environments the orchestrator injects them as environment variables.
 
+### Outbox
+
+Use cases record events into the `outbox` table inside their own transaction (`Append` fails outside one). The relay claims pending rows with `FOR UPDATE SKIP LOCKED` (safe on many replicas), publishes them through `events.Publisher`, and is woken by `LISTEN outbox` on a dedicated connection, with polling as a fallback. Leases and retry times use the database clock. The table has no RLS on purpose: it is never readable through the API, and privileges isolate it instead (`frappe_application` may only `INSERT`).
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `OUTBOX_ENABLED` | `false` | Runs the relay. Requires `DATABASE_OUTBOX_RELAY_URL` and a publisher from the entrypoint; stays off until a broker adapter lands. Recorded events are kept meanwhile. |
+| `DATABASE_OUTBOX_RELAY_URL` | | Connection string for `frappe_outbox_relay`. Secret. |
+| `OUTBOX_BATCH_SIZE` | `100` | Messages claimed at once. |
+| `OUTBOX_POLL_INTERVAL` | `1s` | Poll when no notification arrives. |
+| `OUTBOX_LEASE` | `30s` | Claim lease; must exceed the time to publish a batch. |
+| `OUTBOX_PURGE_INTERVAL` / `OUTBOX_RETENTION` | `1h` / `72h` | How often and after how long published rows are deleted. |
+| `OUTBOX_BASE_BACKOFF` / `OUTBOX_MAX_BACKOFF` | `1s` / `5m` | Exponential retry delay bounds. |
+
 ## Testing
 
 - Unit tests run without external services: `task test:unit`.

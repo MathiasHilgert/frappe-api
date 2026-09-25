@@ -52,6 +52,35 @@ type Configuration struct {
 	Health      Health      `envPrefix:"HEALTH_"`
 	RateLimit   RateLimit   `envPrefix:"RATE_LIMIT_"`
 	Telemetry   Telemetry   `envPrefix:"TELEMETRY_"`
+	Outbox      Outbox      `envPrefix:"OUTBOX_"`
+}
+
+// Outbox holds settings for the transactional outbox relay (see
+// internal/foundation/events/outbox). It defaults to disabled because no
+// broker adapter is wired yet: enabling it requires an events.Publisher
+// from the composition root and DATABASE_OUTBOX_RELAY_URL. While disabled,
+// events recorded by use cases are still stored in the outbox table and
+// are published once the relay is enabled. The remaining fields are only
+// validated while it is enabled.
+type Outbox struct {
+	// PollInterval is how often the relay looks for pending messages when
+	// no notification arrives.
+	PollInterval time.Duration `env:"POLL_INTERVAL" envDefault:"1s"`
+	// Lease is how long a claimed batch stays invisible to other replicas.
+	Lease time.Duration `env:"LEASE" envDefault:"30s"`
+	// PurgeInterval is how often published messages are purged.
+	PurgeInterval time.Duration `env:"PURGE_INTERVAL" envDefault:"1h"`
+	// Retention is how long published messages are kept.
+	Retention time.Duration `env:"RETENTION" envDefault:"72h"`
+	// BaseBackoff is the retry delay after a first failed publish; it
+	// doubles with every further failure.
+	BaseBackoff time.Duration `env:"BASE_BACKOFF" envDefault:"1s"`
+	// MaxBackoff caps the retry delay; it must be >= BaseBackoff.
+	MaxBackoff time.Duration `env:"MAX_BACKOFF" envDefault:"5m"`
+	// BatchSize is the maximum number of messages claimed at once.
+	BatchSize int `env:"BATCH_SIZE" envDefault:"100"`
+	// Enabled runs the relay.
+	Enabled bool `env:"ENABLED" envDefault:"false"`
 }
 
 // RateLimit holds settings for per-client rate limiting of the /v1 API,
@@ -189,6 +218,10 @@ type Database struct {
 	// URL is the Postgres connection string for the application role.
 	// Treat it as a secret.
 	URL string `env:"URL" validate:"required"`
+	// OutboxRelayURL is the Postgres connection string for the
+	// frappe_outbox_relay role, used only by the outbox relay. Required
+	// while OUTBOX_ENABLED is true. Treat it as a secret.
+	OutboxRelayURL string `env:"OUTBOX_RELAY_URL"`
 	// MaxConnections bounds how many connections the pool may open.
 	MaxConnections int32 `env:"MAX_CONNECTIONS" envDefault:"10" validate:"min=1"`
 	// MinConnections is how many connections the pool keeps open, ready,

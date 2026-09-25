@@ -19,8 +19,14 @@ import (
 // NewApplication loads the application-wide configuration through
 // provider and builds the Application, wiring every concrete module into
 // it. It is the single place that knows the full set of modules the
-// running program uses.
-func NewApplication(ctx context.Context, provider configuration.Provider) (*application.Application, error) {
+// running program uses. optionFunctions carry what only the entrypoint
+// can build, such as the broker publisher (WithPublisher).
+func NewApplication(ctx context.Context, provider configuration.Provider, optionFunctions ...Option) (*application.Application, error) {
+	var resolved options
+	for _, apply := range optionFunctions {
+		apply(&resolved)
+	}
+
 	loadedConfiguration, err := provider.Load(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("load configuration: %w", err)
@@ -137,6 +143,16 @@ func NewApplication(ctx context.Context, provider configuration.Provider) (*appl
 			MaxAge:           loadedConfiguration.HTTP.CORSMaxAge,
 		},
 	})
+
+	// The outbox relay is provided after the application pool and before
+	// the HTTP server, so it starts before traffic arrives and stops only
+	// after the server drained. outboxRecorder is the events.Recorder every
+	// module receives by constructor injection as it is wired in below.
+	outboxRecorder, outboxError := provideOutbox(instance, loadedConfiguration, resolved.publisher)
+	if outboxError != nil {
+		return nil, outboxError
+	}
+	_ = outboxRecorder
 
 	// No concrete module exists yet; each one, as it is added, gets
 	// wired here with its own constructor call passing server.V1() and
