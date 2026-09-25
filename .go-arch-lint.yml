@@ -32,9 +32,22 @@ components:
     in: cmd/migrate/**
 
   # migrations is a leaf: it embeds SQL files and must not import
-  # anything first-party. Only cmd_migrate may depend on it.
+  # anything first-party. Only cmd_migrate and foundation_database_test
+  # (its integration-test helper, matched first below so it never falls
+  # into the general foundation component) may depend on it.
   migrations:
     in: migrations/**
+
+  # foundation_database_test is internal/foundation/database/databasetest:
+  # a test-only helper that provisions isolated Postgres databases for
+  # integration tests (pgtestdb + testcontainers-go). Matched before the
+  # general foundation component below so it gets its own, narrower
+  # dependency rules. No production component lists it in mayDependOn, so
+  # go-arch-lint itself keeps it out of production code; see also the
+  # depguard rule in .golangci.yml, which blocks importing it from any
+  # non "_test.go" file.
+  foundation_database_test:
+    in: internal/foundation/database/databasetest/**
 
   # foundation_configuration and foundation_configuration_environment are
   # split out of foundation (matched first, so they take precedence for
@@ -86,6 +99,11 @@ deps:
 
   cmd_migrate:
     mayDependOn:
+      - migrations
+
+  foundation_database_test:
+    mayDependOn:
+      - foundation
       - migrations
 
   # migrations intentionally has no deps entry: it is a leaf and may not
