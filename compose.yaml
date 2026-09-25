@@ -11,6 +11,13 @@ services:
     environment:
       # Sends traces, metrics and logs to the local observability stack.
       OTEL_EXPORTER_OTLP_ENDPOINT: http://observability:4318
+    # No healthcheck is defined here on purpose. The image is
+    # gcr.io/distroless/static-debian12:nonroot (see Dockerfile), which has
+    # no shell and no curl/wget to run a command-based healthcheck with.
+    # The app does expose GET /health/live and /health/ready (see
+    # internal/foundation/httpserver); an orchestrator with its own HTTP
+    # probe support (Kubernetes livenessProbe/readinessProbe, an external
+    # load balancer, and so on) should use those instead.
     # Hardening: immutable root fs, no privilege escalation, no capabilities.
     read_only: true
     security_opt:

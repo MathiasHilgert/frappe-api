@@ -76,6 +76,25 @@ type Telemetry struct {
 type HTTP struct {
 	// Port is the TCP port the HTTP server listens on.
 	Port int `env:"PORT" envDefault:"8080" validate:"min=1,max=65535"`
+	// ShutdownTimeout bounds how long graceful shutdown may take.
+	ShutdownTimeout time.Duration `env:"SHUTDOWN_TIMEOUT" envDefault:"10s" validate:"required,gt=0"`
+	// ReadHeaderTimeout bounds how long reading request headers may take.
+	ReadHeaderTimeout time.Duration `env:"READ_HEADER_TIMEOUT" envDefault:"5s" validate:"required,gt=0"`
+	// ReadTimeout bounds how long reading the full request, including the
+	// body, may take.
+	ReadTimeout time.Duration `env:"READ_TIMEOUT" envDefault:"10s" validate:"required,gt=0"`
+	// WriteTimeout bounds how long writing the response may take.
+	WriteTimeout time.Duration `env:"WRITE_TIMEOUT" envDefault:"10s" validate:"required,gt=0"`
+	// IdleTimeout bounds how long a keep-alive connection may sit idle
+	// between requests.
+	IdleTimeout time.Duration `env:"IDLE_TIMEOUT" envDefault:"60s" validate:"required,gt=0"`
+	// MaxHeaderBytes bounds the size of request headers, in bytes.
+	MaxHeaderBytes int `env:"MAX_HEADER_BYTES" envDefault:"1048576" validate:"min=1"`
+	// MaxBodyBytes bounds the size of a request body, in bytes.
+	MaxBodyBytes int64 `env:"MAX_BODY_BYTES" envDefault:"2097152" validate:"min=1"`
+	// DocumentationEnabled toggles the /docs UI and /openapi.json spec.
+	// Recommended false in production to avoid exposing API shape.
+	DocumentationEnabled bool `env:"DOCUMENTATION_ENABLED" envDefault:"true"`
 }
 
 // Logging holds settings for the application logger.

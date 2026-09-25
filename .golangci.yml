@@ -42,6 +42,8 @@ linters:
           deny:
             - pkg: net/http
               desc: "domain must stay transport-agnostic; move HTTP concerns to adapters"
+            - pkg: github.com/danielgtaylor/huma
+              desc: "domain must stay transport-agnostic; huma route registration belongs in adapters/http"
             - pkg: database/sql
               desc: "domain must stay persistence-agnostic; move storage concerns to adapters"
             - pkg: github.com/jackc
@@ -63,6 +65,8 @@ linters:
           deny:
             - pkg: net/http
               desc: "application use cases must stay transport-agnostic; move HTTP concerns to adapters"
+            - pkg: github.com/danielgtaylor/huma
+              desc: "application use cases must stay transport-agnostic; huma route registration belongs in adapters/http"
             - pkg: database/sql
               desc: "application use cases must stay persistence-agnostic; move storage concerns to adapters"
             - pkg: github.com/jackc

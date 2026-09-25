@@ -4,14 +4,22 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"sync/atomic"
 	"time"
 )
 
 // Application owns a set of hooks and starts or stops them together,
 // honoring registration order on Up and the reverse order on Down.
 type Application struct {
+	// failure carries an error reported through Fail into Run's shutdown
+	// wait. It is buffered by one so Fail never blocks its caller, even
+	// if Run has not reached its wait yet or has already returned.
+	// Declared first (not next to Fail below) so the struct's pointer
+	// fields stay grouped for optimal field alignment.
+	failure chan error
 	hooks   []Hook
 	options options
+	ready   atomic.Bool
 }
 
 // New creates an Application configured by the given options.
@@ -20,6 +28,7 @@ func New(optionFunctions ...Option) *Application {
 
 	return &Application{
 		options: resolvedOptions,
+		failure: make(chan error, 1),
 	}
 }
 
@@ -52,6 +61,7 @@ func (application *Application) Up(ctx context.Context) error {
 		recordBuildInfo(ctx, application.options.buildInfo.version, application.options.buildInfo.commit, application.options.buildInfo.environment)
 	}
 
+	application.ready.Store(true)
 	recordReady(ctx, 1)
 
 	return nil
@@ -61,8 +71,38 @@ func (application *Application) Up(ctx context.Context) error {
 // stops early: every hook's Down is attempted, and every resulting error is
 // combined into one joined error.
 func (application *Application) Down(ctx context.Context) error {
+	application.ready.Store(false)
 	recordReady(ctx, 0)
 	return application.tearDown(ctx, application.hooks)
+}
+
+// Fail requests that the Application shut down early because a
+// dependency hit a fatal error after Up already completed, such as
+// httpserver.Server's Listen goroutine observing its listener break
+// outside of a graceful Shutdown. It is meant to be called from that
+// dependency's own goroutine, asynchronously, at any point during or
+// after Run: Run reacts to it exactly like a shutdown signal, then
+// returns err joined with any error Down produces. Only the first call
+// takes effect; a nil err, or a call after one already landed, is a
+// no-op rather than blocking or overwriting the first failure. Fail does
+// not itself flip Ready to false: that already happens as soon as the
+// resulting Down begins.
+func (application *Application) Fail(err error) {
+	if err == nil {
+		return
+	}
+	select {
+	case application.failure <- err:
+	default:
+	}
+}
+
+// Ready reports whether every registered hook's Up has completed
+// successfully and Down has not started yet. It is safe to call
+// concurrently, so it can back an HTTP readiness probe while Up or Down
+// runs on another goroutine.
+func (application *Application) Ready() bool {
+	return application.ready.Load()
 }
 
 // tearDown runs Down for the given hooks in reverse order, continuing past
@@ -99,16 +139,19 @@ func (application *Application) runPhase(ctx context.Context, hook Hook, phaseFu
 }
 
 // logPhase records the outcome of one hook phase through the resolved
-// logger.
+// logger. duration is reported as duration_milliseconds, a float64,
+// matching the httpserver access log convention, rather than a raw
+// time.Duration nanosecond count.
 func (application *Application) logPhase(name, phase string, duration time.Duration, err error) {
 	logger := application.resolveLogger()
+	durationMilliseconds := float64(duration) / float64(time.Millisecond)
 
 	if err != nil {
-		logger.Error("hook phase failed", slog.String("hook", name), slog.String("phase", phase), slog.Duration("duration", duration), slog.Any("error", err))
+		logger.Error("hook phase failed", slog.String("hook", name), slog.String("phase", phase), slog.Float64("duration_milliseconds", durationMilliseconds), slog.Any("error", err))
 		return
 	}
 
-	logger.Info("hook phase completed", slog.String("hook", name), slog.String("phase", phase), slog.Duration("duration", duration))
+	logger.Info("hook phase completed", slog.String("hook", name), slog.String("phase", phase), slog.Float64("duration_milliseconds", durationMilliseconds))
 }
 
 // resolveLogger returns the explicit logger given through WithLogger, if
