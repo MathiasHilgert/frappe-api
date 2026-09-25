@@ -109,6 +109,25 @@ components:
   foundation_nats:
     in: internal/foundation/nats/**
 
+  # foundation_cache is the storage-agnostic read-through cache
+  # (internal/foundation/cache): the Store port, Backend and ReadThrough.
+  # It is a leaf split out of foundation so that only module adapters,
+  # module roots, the composition root and cmd may use it; a module's
+  # application and domain layers never see the cache.
+  # foundation_cache_eventinvalidation invalidates entries from events and
+  # is the only cache package that may depend on foundation_events.
+  # foundation_cache_support holds the Store adapters and the cachetest
+  # contract suite. All three are matched before the general foundation
+  # component.
+  foundation_cache:
+    in: internal/foundation/cache
+
+  foundation_cache_eventinvalidation:
+    in: internal/foundation/cache/eventinvalidation/**
+
+  foundation_cache_support:
+    in: internal/foundation/cache/**
+
   foundation:
     in: internal/foundation/**
 
@@ -145,6 +164,9 @@ components:
 deps:
   cmd:
     mayDependOn:
+      - foundation_cache
+      - foundation_cache_eventinvalidation
+      - foundation_cache_support
       - foundation
       - foundation_configuration
       - foundation_configuration_environment
@@ -216,8 +238,20 @@ deps:
     mayDependOn:
       - foundation_events
 
+  foundation_cache_eventinvalidation:
+    mayDependOn:
+      - foundation_cache
+      - foundation_events
+
+  foundation_cache_support:
+    mayDependOn:
+      - foundation_cache
+
   dependencies:
     mayDependOn:
+      - foundation_cache
+      - foundation_cache_eventinvalidation
+      - foundation_cache_support
       - foundation
       - foundation_nats
       - foundation_configuration
@@ -260,6 +294,8 @@ deps:
 
   module_adapters:
     mayDependOn:
+      - foundation_cache
+      - foundation_cache_eventinvalidation
       - module_domain
       - module_application
       - module_events
@@ -270,6 +306,8 @@ deps:
 
   module_root:
     mayDependOn:
+      - foundation_cache
+      - foundation_cache_eventinvalidation
       - module_domain
       - module_application
       - module_adapters
