@@ -1,4 +1,4 @@
-# frappe-api
+# Frappé API
 
 Backend API of the frappe platform for restaurants, cafes and food businesses across LATAM. Go, hexagonal architecture, Postgres with Row Level Security, and OpenTelemetry from day one.
 
