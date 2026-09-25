@@ -46,6 +46,10 @@ func validConfiguration() configuration.Configuration {
 			MaxConnectionIdleTime: 5 * time.Minute,
 			ConnectTimeout:        5 * time.Second,
 		},
+		Inbox: configuration.Inbox{
+			PurgeInterval: time.Hour,
+			Retention:     168 * time.Hour,
+		},
 	}
 }
 

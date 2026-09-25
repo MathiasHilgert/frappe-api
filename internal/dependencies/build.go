@@ -10,6 +10,7 @@ import (
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/build"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/configuration"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/database"
+	"github.com/MathiasHilgert/frappe-api/internal/foundation/events"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/health"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/httpserver"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/logging"
@@ -90,7 +91,7 @@ func NewApplication(ctx context.Context, provider configuration.Provider, option
 		MaxConnectionIdleTime: loadedConfiguration.Database.MaxConnectionIdleTime,
 		ConnectTimeout:        loadedConfiguration.Database.ConnectTimeout,
 	}
-	application.Provide(instance, application.Dependency[*pgxpool.Pool]{
+	databasePool := application.Provide(instance, application.Dependency[*pgxpool.Pool]{
 		Name: database.DependencyName,
 		Up: func(ctx context.Context) (*pgxpool.Pool, error) {
 			return database.Up(ctx, databaseSettings)
@@ -117,10 +118,15 @@ func NewApplication(ctx context.Context, provider configuration.Provider, option
 	// The event broker selected by EVENTS_BROKER (and, for nats, its
 	// client) is provided before the HTTP server, so it is up before
 	// traffic arrives and goes down after the server stopped. Its
-	// Publisher and Subscriber are handed to the outbox relay and the
-	// subscription registry once those are wired in.
+	// Publisher feeds the outbox relay and its Subscriber the consumer
+	// runtime, both wired in below.
 	broker := provideEvents(instance, loadedConfiguration)
-	_ = broker
+
+	// registry collects the subscriptions of every module: each module, as
+	// it is added, registers its handlers with its own
+	// Subscriptions(registry) call below, before the consumer runtime
+	// subscribes them at Up.
+	registry := events.NewRegistry()
 
 	// The HTTP server is built synchronously (not yet listening) so its
 	// "/v1" huma.API is available immediately for modules to register
@@ -156,7 +162,7 @@ func NewApplication(ctx context.Context, provider configuration.Provider, option
 	// the HTTP server, so it starts before traffic arrives and stops only
 	// after the server drained. outboxRecorder is the events.Recorder every
 	// module receives by constructor injection as it is wired in below.
-	outboxRecorder, outboxError := provideOutbox(instance, loadedConfiguration, resolved.publisher)
+	outboxRecorder, outboxError := provideOutbox(instance, loadedConfiguration, resolveOutboxPublisher(resolved.publisher, broker))
 	if outboxError != nil {
 		return nil, outboxError
 	}
@@ -165,7 +171,12 @@ func NewApplication(ctx context.Context, provider configuration.Provider, option
 	// No concrete module exists yet; each one, as it is added, gets
 	// wired here with its own constructor call passing server.V1() and
 	// instance.Use(...), following foundation/httpserver's doc.go
-	// convention.
+	// convention, and its Subscriptions(registry) call.
+
+	// The consumer runtime is provided after the broker and the application
+	// pool (the inbox runs on it) and before the HTTP server, so it stops
+	// after the server drained and before the broker and pool close.
+	provideConsumers(instance, loadedConfiguration.Inbox, broker, registry, postgresInbox(databasePool))
 
 	application.Provide(instance, application.Dependency[*httpserver.Server]{
 		Name: httpserver.DependencyName,

@@ -3,12 +3,16 @@ package configuration
 import "time"
 
 // validateOutbox checks the OUTBOX_* settings, and that the relay role's
-// connection string is set, only while the outbox relay is enabled.
-func validateOutbox(outbox Outbox, database Database) []Violation {
+// connection string is set and a broker is selected, only while the outbox
+// relay is enabled.
+func validateOutbox(outbox Outbox, database Database, events Events) []Violation {
 	if !outbox.Enabled {
 		return nil
 	}
 	var violations []Violation
+	if !events.brokerSelected() {
+		violations = append(violations, Violation{Variable: "OUTBOX_ENABLED", Rule: "requires_events_broker"})
+	}
 	if database.OutboxRelayURL == "" {
 		violations = append(violations, Violation{Variable: "DATABASE_OUTBOX_RELAY_URL", Rule: "required_when_outbox_enabled"})
 	}

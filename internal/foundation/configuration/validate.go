@@ -54,8 +54,9 @@ func Validate(configuration Configuration) error {
 	}
 	crossFieldViolations = append(crossFieldViolations, validateCORS(configuration.HTTP)...)
 	crossFieldViolations = append(crossFieldViolations, validateRateLimit(configuration.RateLimit, configuration.Valkey)...)
-	crossFieldViolations = append(crossFieldViolations, validateOutbox(configuration.Outbox, configuration.Database)...)
+	crossFieldViolations = append(crossFieldViolations, validateOutbox(configuration.Outbox, configuration.Database, configuration.Events)...)
 	crossFieldViolations = append(crossFieldViolations, validateEvents(configuration.Events, configuration.NATS)...)
+	crossFieldViolations = append(crossFieldViolations, validateInbox(configuration.Inbox, configuration.Events)...)
 
 	if len(crossFieldViolations) > 0 {
 		if validationError == nil {
