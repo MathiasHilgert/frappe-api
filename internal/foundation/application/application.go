@@ -16,8 +16,10 @@ type Application struct {
 
 // New creates an Application configured by the given options.
 func New(optionFunctions ...Option) *Application {
+	resolvedOptions := newOptions(optionFunctions)
+
 	return &Application{
-		options: newOptions(optionFunctions),
+		options: resolvedOptions,
 	}
 }
 
@@ -42,6 +44,16 @@ func (application *Application) Up(ctx context.Context) error {
 		started = append(started, hook)
 	}
 
+	// Recorded here, once every hook (including telemetry's own Up, which
+	// installs the real MeterProvider) has succeeded, so this gauge is
+	// exported through the SDK it depends on rather than lost to the
+	// still-noop delegate that is in place during New.
+	if application.options.buildInfo.set {
+		recordBuildInfo(ctx, application.options.buildInfo.version, application.options.buildInfo.commit, application.options.buildInfo.environment)
+	}
+
+	recordReady(ctx, 1)
+
 	return nil
 }
 
@@ -49,6 +61,7 @@ func (application *Application) Up(ctx context.Context) error {
 // stops early: every hook's Down is attempted, and every resulting error is
 // combined into one joined error.
 func (application *Application) Down(ctx context.Context) error {
+	recordReady(ctx, 0)
 	return application.tearDown(ctx, application.hooks)
 }
 
@@ -80,17 +93,15 @@ func (application *Application) runPhase(ctx context.Context, hook Hook, phaseFu
 	duration := time.Since(start)
 
 	application.logPhase(hook.Name, phase, duration, err)
+	recordHookPhase(ctx, hook.Name, phase, duration, err)
 
 	return err
 }
 
-// logPhase records the outcome of one hook phase through the configured
+// logPhase records the outcome of one hook phase through the resolved
 // logger.
 func (application *Application) logPhase(name, phase string, duration time.Duration, err error) {
-	logger := application.options.logger
-	if logger == nil {
-		return
-	}
+	logger := application.resolveLogger()
 
 	if err != nil {
 		logger.Error("hook phase failed", slog.String("hook", name), slog.String("phase", phase), slog.Duration("duration", duration), slog.Any("error", err))
@@ -98,4 +109,16 @@ func (application *Application) logPhase(name, phase string, duration time.Durat
 	}
 
 	logger.Info("hook phase completed", slog.String("hook", name), slog.String("phase", phase), slog.Duration("duration", duration))
+}
+
+// resolveLogger returns the explicit logger given through WithLogger, if
+// any, or slog.Default() otherwise. It is called at the time each hook
+// phase logs rather than once at New, so lifecycle logs still reach the
+// slog default logger installed by a hook that runs before others, such
+// as telemetry's own Up.
+func (application *Application) resolveLogger() *slog.Logger {
+	if application.options.logger != nil {
+		return application.options.logger
+	}
+	return slog.Default()
 }

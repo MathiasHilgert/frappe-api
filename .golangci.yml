@@ -54,6 +54,8 @@ linters:
               desc: "domain must stay serialization-agnostic; (de)serialize at the adapter boundary"
             - pkg: github.com/MathiasHilgert/frappe-api/internal/foundation
               desc: "domain must stay free of foundation infrastructure entirely; foundation belongs to adapters and module root only"
+            - pkg: go.opentelemetry.io/otel
+              desc: "domain must stay free of telemetry entirely; metrics and tracing belong in the module's metrics/tracing subpackages"
         application:
           files:
             - "**/internal/modules/*/application/*.go"
@@ -93,6 +95,10 @@ linters:
               desc: "modules must not depend on the composition root; dependencies wires modules in, never the reverse"
             - pkg: github.com/MathiasHilgert/frappe-api/internal/foundation/configuration
               desc: "modules must not depend on the application-wide configuration package; each module declares its own Configuration struct and receives values by constructor injection from the composition root"
+            - pkg: go.opentelemetry.io/otel/sdk
+              desc: "modules may use the OpenTelemetry API only; SDK setup and wiring belongs to internal/foundation/telemetry"
+            - pkg: go.opentelemetry.io/otel/exporters
+              desc: "modules may use the OpenTelemetry API only; exporter setup belongs to internal/foundation/telemetry"
 
     gocyclo:
       # Functions above this cyclomatic complexity must be refactored.

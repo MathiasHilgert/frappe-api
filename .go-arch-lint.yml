@@ -46,6 +46,12 @@ components:
   module_domain:
     in: internal/modules/*/domain/**
 
+  module_metrics:
+    in: internal/modules/*/metrics/**
+
+  module_tracing:
+    in: internal/modules/*/tracing/**
+
   module_application:
     in: internal/modules/*/application/**
 
@@ -90,14 +96,26 @@ deps:
       - module_application
       - module_domain
 
+  module_metrics:
+    mayDependOn:
+      - foundation
+
+  module_tracing:
+    mayDependOn:
+      - foundation
+
   module_application:
     mayDependOn:
       - module_domain
+      - module_metrics
+      - module_tracing
 
   module_adapters:
     mayDependOn:
       - module_domain
       - module_application
+      - module_metrics
+      - module_tracing
       - foundation
 
   module_root:
@@ -105,4 +123,6 @@ deps:
       - module_domain
       - module_application
       - module_adapters
+      - module_metrics
+      - module_tracing
       - foundation

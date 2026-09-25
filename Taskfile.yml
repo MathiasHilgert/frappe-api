@@ -64,6 +64,17 @@ tasks:
     cmds:
       - infisical run -- go run ./cmd/api
 
+  observability:up:
+    desc: Start the local observability stack (Grafana, Loki, Tempo, Mimir).
+    cmds:
+      - docker compose up -d observability
+      - echo "Grafana URL http://localhost:3000"
+
+  observability:down:
+    desc: Stop the local observability stack.
+    cmds:
+      - docker compose stop observability
+
   ci:run:
     desc: Run the full local check suite (lint, format check, tests, vuln scan, architecture check).
     cmds:
