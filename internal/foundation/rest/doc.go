@@ -3,14 +3,17 @@
 //
 //   - List, NewList and ListOutput: the {"object":"list"} collection
 //     envelope, with an RFC 8288 Link rel="next" header.
-//   - CursorCodec: opaque, HMAC-SHA256 signed, versioned and scoped
-//     pagination cursors.
+//   - CursorCodec: opaque, HMAC-SHA256 signed (with secret rotation),
+//     versioned and scoped pagination cursors.
 //   - PageParameters and NewPage: the limit (1 to 100, default 10) and
-//     cursor query parameters, and the page built from LIMIT n+1 rows.
+//     cursor query parameters, and the page built from LIMIT n+1 rows. The
+//     cursor scope is derived from the request (principal slot, escaped
+//     path, every filter and order_by), never built by hand.
 //   - ExpandParameters, Expansions and Expand: expand[] parsing against a
 //     per-operation allowlist, at most 4 levels deep and 20 values.
 //   - CheckNaming: fails when a registered schema property or path segment
-//     is not snake_case; the composition root runs it at startup.
+//     or query/path parameter is not snake_case (expand[] excepted); the
+//     composition root runs it at startup.
 //
 // Prefixed public identifiers live in internal/foundation/identifier,
 // separate from this package, because use cases (the application layer)
@@ -39,16 +42,15 @@
 //		if err != nil {
 //			return nil, err
 //		}
-//		scope := "geo.cities?country=" + input.Country
 //		var after CityPosition
-//		if _, err := input.Position(codec, scope, &after); err != nil {
+//		if _, err := input.Position(codec, &after); err != nil {
 //			return nil, err
 //		}
 //		rows, err := service.Cities(ctx, input.Country, after, input.Limit+1, expand)
 //		if err != nil {
 //			return nil, err
 //		}
-//		return rest.NewPage(codec, scope, input.PageParameters, rows,
+//		return rest.NewPage(codec, input.PageParameters, rows,
 //			func(last City) any { return CityPosition{Name: last.Name, ID: last.ID} })
 //	})
 package rest

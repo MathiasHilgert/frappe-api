@@ -44,7 +44,10 @@ import (
 )
 
 // ErrInvalid reports an identifier that is malformed or has the wrong
-// prefix. Adapters translate it into a 400 or 404 problem.
+// prefix. Adapters translate it into a 404 problem when it is a path
+// parameter (no such resource can exist), and into a 422 problem with an
+// errors[] entry when it is a body or query value
+// (docs/api-conventions.md, "Errors").
 var ErrInvalid = errors.New("invalid identifier")
 
 // suffixLength is the length of a 16 byte UUID in unpadded base32.

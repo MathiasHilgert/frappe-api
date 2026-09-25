@@ -17,8 +17,19 @@ import (
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/rest"
 )
 
+// menuInput repeats listInput's fields: Huma only binds parameters of
+// directly embedded structs, not of structs embedded two levels deep.
+type menuInput struct {
+	Name    string `path:"name"`
+	Country string `query:"country"`
+	OrderBy string `query:"order_by"`
+	rest.ExpandParameters
+	rest.PageParameters
+}
+
 type listInput struct {
 	Country string `query:"country"`
+	OrderBy string `query:"order_by"`
 	rest.ExpandParameters
 	rest.PageParameters
 }
@@ -37,12 +48,12 @@ func paginatedAPI(t *testing.T) humatest.TestAPI {
 	_, api := humatest.New(t)
 	codec := newCodec(t)
 	expansions := rest.NewExpansions("country")
-	huma.Get(api, "/dishes", func(_ context.Context, input *listInput) (*rest.ListOutput[dish], error) {
+	handler := func(_ context.Context, input *listInput) (*rest.ListOutput[dish], error) {
 		if _, err := expansions.Parse(input.Expand); err != nil {
 			return nil, err
 		}
 		var after position
-		found, err := input.Position(codec, "dishes", &after)
+		found, err := input.Position(codec, &after)
 		if err != nil {
 			return nil, err
 		}
@@ -52,7 +63,11 @@ func paginatedAPI(t *testing.T) humatest.TestAPI {
 				rows = append(rows, candidate)
 			}
 		}
-		return rest.NewPage(codec, "dishes", input.PageParameters, rows, func(last dish) any { return position{ID: last.ID} })
+		return rest.NewPage(codec, input.PageParameters, rows, func(last dish) any { return position{ID: last.ID} })
+	}
+	huma.Get(api, "/dishes", handler)
+	huma.Get(api, "/menus/{name}/dishes", func(ctx context.Context, input *menuInput) (*rest.ListOutput[dish], error) {
+		return handler(ctx, &listInput{Country: input.Country, OrderBy: input.OrderBy, ExpandParameters: input.ExpandParameters, PageParameters: input.PageParameters})
 	})
 	return api
 }
@@ -121,7 +136,7 @@ func TestPaginationRejectsInvalidInput(t *testing.T) {
 		"limit zero":        {"/dishes?limit=0", http.StatusUnprocessableEntity},
 		"limit above max":   {"/dishes?limit=101", http.StatusUnprocessableEntity},
 		"tampered cursor":   {"/dishes?cursor=abc.def", http.StatusBadRequest},
-		"unknown expansion": {"/dishes?expand[]=owner", http.StatusBadRequest},
+		"unknown expansion": {"/dishes?expand[]=owner", http.StatusUnprocessableEntity},
 	}
 	for name, testCase := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -154,5 +169,65 @@ func TestExpandAcceptsRepeatedBracketParameters(t *testing.T) {
 	api := paginatedAPI(t)
 	if response := api.Get("/dishes?expand[]=country&expand[]=country"); response.Code != http.StatusOK {
 		t.Fatalf("status = %d, body %s", response.Code, response.Body)
+	}
+}
+
+func firstCursor(t *testing.T, api humatest.TestAPI, path string) string {
+	t.Helper()
+	list := decodeList(t, api.Get(path))
+	if list.NextCursor == nil {
+		t.Fatalf("%s returned no next_cursor", path)
+	}
+	return url.QueryEscape(*list.NextCursor)
+}
+
+func TestCursorIsBoundToTheOrderAndFilters(t *testing.T) {
+	api := paginatedAPI(t)
+	cursor := firstCursor(t, api, "/dishes?order_by=-created_at&country=AR")
+	cases := map[string]struct {
+		path   string
+		status int
+	}{
+		"other order":            {"/dishes?order_by=name&country=AR&cursor=" + cursor, http.StatusBadRequest},
+		"other filter":           {"/dishes?order_by=-created_at&country=UY&cursor=" + cursor, http.StatusBadRequest},
+		"dropped filter":         {"/dishes?order_by=-created_at&cursor=" + cursor, http.StatusBadRequest},
+		"other collection":       {"/menus/lunch/dishes?order_by=-created_at&country=AR&cursor=" + cursor, http.StatusBadRequest},
+		"same query reordered":   {"/dishes?cursor=" + cursor + "&country=AR&order_by=-created_at", http.StatusOK},
+		"other limit and expand": {"/dishes?country=AR&order_by=-created_at&limit=3&expand[]=country&cursor=" + cursor, http.StatusOK},
+	}
+	for name, testCase := range cases {
+		t.Run(name, func(t *testing.T) {
+			if response := api.Get(testCase.path); response.Code != testCase.status {
+				t.Fatalf("status = %d, want %d, body %s", response.Code, testCase.status, response.Body)
+			}
+		})
+	}
+}
+
+func TestLinkAndURLKeepThePathEscaped(t *testing.T) {
+	api := paginatedAPI(t)
+	response := api.Get("/menus/a%3Eb%2Cc%3Bd%20e/dishes?limit=5")
+	list := decodeList(t, response)
+	escapedPath := "/menus/a%3Eb%2Cc%3Bd%20e/dishes"
+	if list.URL != escapedPath {
+		t.Fatalf("url = %q, want %q", list.URL, escapedPath)
+	}
+	want := "<" + escapedPath + "?cursor=" + url.QueryEscape(*list.NextCursor) + `&limit=5>; rel="next"`
+	if got := response.Header().Get("Link"); got != want {
+		t.Fatalf("Link = %q\nwant %q", got, want)
+	}
+	if next := api.Get(strings.TrimSuffix(strings.TrimPrefix(want, "<"), `>; rel="next"`)); next.Code != http.StatusOK {
+		t.Fatalf("following Link: status = %d, body %s", next.Code, next.Body)
+	}
+}
+
+func TestNewPageTreatsAMissingLimitAsTheDefault(t *testing.T) {
+	codec := newCodec(t)
+	output, err := rest.NewPage(codec, rest.PageParameters{}, catalog(), func(last dish) any { return position{ID: last.ID} })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(output.Body.Data) != rest.DefaultLimit || !output.Body.HasMore {
+		t.Fatalf("page = %d items, has_more %v, want %d and true", len(output.Body.Data), output.Body.HasMore, rest.DefaultLimit)
 	}
 }

@@ -29,7 +29,12 @@ func openAPIWith(values ...any) *huma.OpenAPI {
 
 func TestCheckNamingAcceptsSnakeCase(t *testing.T) {
 	openAPI := openAPIWith(snakeBody{}, rest.List[snakeBody]{})
-	openAPI.Paths = map[string]*huma.PathItem{"/v1/time_zones/{id...}": {}, "/v1/geo/cities": {}}
+	openAPI.Paths = map[string]*huma.PathItem{
+		"/v1/time_zones/{id...}": {Get: &huma.Operation{Parameters: []*huma.Param{{Name: "id", In: "path"}}}},
+		"/v1/geo/cities": {Get: &huma.Operation{Parameters: []*huma.Param{
+			{Name: "country_code", In: "query"}, {Name: "expand[]", In: "query"}, {Name: "If-None-Match", In: "header"},
+		}}},
+	}
 	if err := rest.CheckNaming(openAPI); err != nil {
 		t.Fatalf("CheckNaming error = %v", err)
 	}
@@ -37,9 +42,19 @@ func TestCheckNamingAcceptsSnakeCase(t *testing.T) {
 
 func TestCheckNamingRejectsOtherCases(t *testing.T) {
 	openAPI := openAPIWith(camelBody{})
-	openAPI.Paths = map[string]*huma.PathItem{"/v1/timeZones": {}}
+	openAPI.Paths = map[string]*huma.PathItem{
+		"/v1/timeZones": {},
+		"/v1/dishes/{dishId}": {Get: &huma.Operation{Parameters: []*huma.Param{
+			{Name: "dishId", In: "path"}, {Name: "countryCode", In: "query"}, {Name: "filter[]", In: "query"},
+		}}},
+	}
 	err := rest.CheckNaming(openAPI)
-	if err == nil || !strings.Contains(err.Error(), "createdAt") || !strings.Contains(err.Error(), "timeZones") {
-		t.Fatalf("CheckNaming error = %v, want violations naming createdAt and timeZones", err)
+	if err == nil {
+		t.Fatal("CheckNaming accepted non snake_case names")
+	}
+	for _, name := range []string{"createdAt", "timeZones", "dishId", "countryCode", "filter[]"} {
+		if !strings.Contains(err.Error(), `"`+name+`"`) {
+			t.Fatalf("CheckNaming error = %v, want a violation naming %s", err, name)
+		}
 	}
 }

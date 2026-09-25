@@ -2,6 +2,8 @@ package rest
 
 import (
 	"net/url"
+	"slices"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 )
@@ -35,23 +37,54 @@ type PageParameters struct {
 	Limit int `query:"limit" default:"10" minimum:"1" maximum:"100" doc:"Page size, 1 to 100."`
 }
 
-// Resolve captures the request path and query, so NewPage can report the
-// collection URL and build the Link header. Huma calls it after binding.
+// Resolve captures the request path, still escaped, and query, so NewPage
+// can report the collection URL, build the Link header and derive the
+// cursor scope. Huma calls it after binding.
 func (parameters *PageParameters) Resolve(ctx huma.Context) []error {
 	requestURL := ctx.URL()
-	parameters.path = requestURL.Path
+	parameters.path = requestURL.EscapedPath()
 	parameters.query = requestURL.Query()
 	return nil
 }
 
+// pageParameterNames are the query parameters that do not change which
+// rows a listing returns, or in which order, so they are left out of the
+// cursor scope: a client may change the page size or expansions between
+// pages.
+var pageParameterNames = []string{"cursor", "limit", "expand[]"}
+
+// principal is the scope slot for the authenticated principal and
+// tenant. It is empty until authentication exists; then a cursor issued
+// to one principal will not work for another.
+const principal = ""
+
+// scope derives the cursor scope from the request: the principal slot,
+// the escaped path and the canonical query (keys and each key's values
+// sorted, without pageParameterNames). Every filter and order_by is
+// therefore part of it, so a cursor only works on the exact listing that
+// issued it, whatever order the client writes the parameters in.
+func (parameters PageParameters) scope() string {
+	canonical := url.Values{}
+	for key, values := range parameters.query {
+		if slices.Contains(pageParameterNames, key) {
+			continue
+		}
+		sorted := slices.Clone(values)
+		slices.Sort(sorted)
+		canonical[key] = sorted
+	}
+	return strings.Join([]string{"principal=" + url.QueryEscape(principal), parameters.path, canonical.Encode()}, "|")
+}
+
 // Position decodes the request cursor into target. found is false for a
-// first page request (no cursor). A cursor the codec rejects becomes a
-// 400 problem naming query.cursor, never echoing its value.
-func (parameters PageParameters) Position(codec *CursorCodec, scope string, target any) (found bool, err error) {
+// first page request (no cursor). A malformed cursor, or one issued for
+// another listing (principal, path, filters or order), becomes a 400
+// problem naming query.cursor, never echoing its value.
+func (parameters PageParameters) Position(codec *CursorCodec, target any) (found bool, err error) {
 	if parameters.Cursor == "" {
 		return false, nil
 	}
-	if err := codec.Decode(parameters.Cursor, scope, target); err != nil {
+	if err := codec.Decode(parameters.Cursor, parameters.scope(), target); err != nil {
 		return false, huma.Error400BadRequest("The pagination cursor is invalid or belongs to another listing. Restart from the first page.",
 			&huma.ErrorDetail{Location: "query.cursor", Message: "invalid cursor"})
 	}
@@ -63,7 +96,12 @@ func (parameters PageParameters) Position(codec *CursorCodec, scope string, targ
 // whether a next page exists and is never returned. positionOf returns
 // the keyset position (the sort key values) of a row, which becomes the
 // next cursor when there is a next page.
-func NewPage[T any](codec *CursorCodec, scope string, parameters PageParameters, rows []T, positionOf func(T) any) (*ListOutput[T], error) {
+func NewPage[T any](codec *CursorCodec, parameters PageParameters, rows []T, positionOf func(T) any) (*ListOutput[T], error) {
+	if parameters.Limit < 1 {
+		// Only reachable when parameters did not go through Huma, which
+		// applies the default and rejects anything below 1.
+		parameters.Limit = DefaultLimit
+	}
 	output := &ListOutput[T]{}
 	if len(rows) <= parameters.Limit {
 		output.Body = NewList(parameters.path, rows, "")
@@ -71,7 +109,7 @@ func NewPage[T any](codec *CursorCodec, scope string, parameters PageParameters,
 	}
 
 	rows = rows[:parameters.Limit]
-	cursor, err := codec.Encode(scope, positionOf(rows[len(rows)-1]))
+	cursor, err := codec.Encode(parameters.scope(), positionOf(rows[len(rows)-1]))
 	if err != nil {
 		return nil, err
 	}

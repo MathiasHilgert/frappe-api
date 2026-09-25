@@ -10,11 +10,16 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 )
 
+// expandParameterName is the only parameter allowed a "[]" suffix: the
+// Stripe style expand[] (see ExpandParameters).
+const expandParameterName = "expand[]"
+
 // snakeCasePattern is a lowercase snake_case name: "created_at", "v1".
 var snakeCasePattern = regexp.MustCompile(`^[a-z][a-z0-9]*(_[a-z0-9]+)*$`)
 
-// CheckNaming reports every JSON property of a registered schema and
-// every literal path segment that is not snake_case, sorted. Path
+// CheckNaming reports every JSON property of a registered schema, every
+// literal path segment and every query or path parameter name that is not
+// snake_case, sorted (expand[] is the one allowed exception). Path
 // parameters ("{id}", "{id...}") are skipped: their names are Go side
 // only. The composition root runs it once after every module registered
 // its operations, so a camelCase json tag or path fails startup (and the
@@ -25,6 +30,7 @@ var snakeCasePattern = regexp.MustCompile(`^[a-z][a-z0-9]*(_[a-z0-9]+)*$`)
 // response and request field has a snake_case json tag".
 func CheckNaming(openAPI *huma.OpenAPI) error {
 	violations := append(schemaViolations(openAPI), pathViolations(openAPI)...)
+	violations = append(violations, parameterViolations(openAPI)...)
 	if len(violations) == 0 {
 		return nil
 	}
@@ -61,4 +67,40 @@ func pathViolations(openAPI *huma.OpenAPI) []string {
 		}
 	}
 	return violations
+}
+
+// parameterViolations lists the non snake_case query and path parameter
+// names of every operation. Header and cookie parameters follow HTTP
+// naming ("If-None-Match") and are skipped; expand[] is the one allowed
+// exception.
+func parameterViolations(openAPI *huma.OpenAPI) []string {
+	var violations []string
+	for path, item := range openAPI.Paths {
+		for _, operation := range operations(item) {
+			for _, parameter := range operation.Parameters {
+				if !validParameterName(parameter) {
+					violations = append(violations, fmt.Sprintf("path %s: %s parameter %q", path, parameter.In, parameter.Name))
+				}
+			}
+		}
+	}
+	return violations
+}
+
+// operations returns the operations of item that are set.
+func operations(item *huma.PathItem) []*huma.Operation {
+	if item == nil {
+		return nil
+	}
+	all := []*huma.Operation{item.Get, item.Put, item.Post, item.Delete, item.Options, item.Head, item.Patch, item.Trace}
+	return slices.DeleteFunc(all, func(operation *huma.Operation) bool { return operation == nil })
+}
+
+// validParameterName reports whether parameter's name follows the
+// conventions: query and path parameters are snake_case or expand[].
+func validParameterName(parameter *huma.Param) bool {
+	if parameter.In != "query" && parameter.In != "path" {
+		return true
+	}
+	return parameter.Name == expandParameterName || snakeCasePattern.MatchString(parameter.Name)
 }

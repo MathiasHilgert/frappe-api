@@ -50,22 +50,31 @@ type cursorPayload struct {
 // (it only contains values the client already received), so
 // confidentiality would add cost without benefit.
 type CursorCodec struct {
-	secret []byte
+	// secrets holds the current secret first, then the previous ones.
+	secrets [][]byte
 }
 
-// NewCursorCodec returns a codec that signs with secret, which must be at
-// least MinimumCursorSecretBytes long and shared by every replica.
-func NewCursorCodec(secret []byte) (*CursorCodec, error) {
-	if len(secret) < MinimumCursorSecretBytes {
-		return nil, fmt.Errorf("cursor secret must be at least %d bytes, got %d", MinimumCursorSecretBytes, len(secret))
+// NewCursorCodec returns a codec that signs with current and verifies
+// with current or any of previous, so a secret can be rotated without
+// breaking cursors clients already hold: deploy the new secret with the
+// old one in previous, then drop the old one once outstanding cursors no
+// longer matter. Every secret must be at least MinimumCursorSecretBytes
+// long and shared by every replica.
+func NewCursorCodec(current []byte, previous ...[]byte) (*CursorCodec, error) {
+	secrets := make([][]byte, 0, len(previous)+1)
+	for _, secret := range append([][]byte{current}, previous...) {
+		if len(secret) < MinimumCursorSecretBytes {
+			return nil, fmt.Errorf("cursor secret must be at least %d bytes, got %d", MinimumCursorSecretBytes, len(secret))
+		}
+		secrets = append(secrets, append([]byte(nil), secret...))
 	}
-	return &CursorCodec{secret: append([]byte(nil), secret...)}, nil
+	return &CursorCodec{secrets: secrets}, nil
 }
 
-// Encode returns the cursor for position in scope. scope names the
-// collection and, when the collection is filtered, the filter values
-// (for example "geo.cities?country=AR"), so a cursor only works on the
-// exact listing that produced it. position must marshal to JSON.
+// Encode returns the cursor for position in scope, signed with the
+// current secret. Handlers do not call it directly: NewPage derives scope
+// from the request (principal, path, filters and order). position must
+// marshal to JSON.
 func (codec *CursorCodec) Encode(scope string, position any) (string, error) {
 	encodedPosition, err := json.Marshal(position)
 	if err != nil {
@@ -76,12 +85,13 @@ func (codec *CursorCodec) Encode(scope string, position any) (string, error) {
 		return "", fmt.Errorf("encode cursor: %w", err)
 	}
 	encodedPayload := base64.RawURLEncoding.EncodeToString(payload)
-	return encodedPayload + "." + base64.RawURLEncoding.EncodeToString(codec.sign(encodedPayload)), nil
+	return encodedPayload + "." + base64.RawURLEncoding.EncodeToString(sign(codec.secrets[0], encodedPayload)), nil
 }
 
 // Decode verifies token and unmarshals its position into target. It
 // returns an error wrapping ErrInvalidCursor unless token was produced by
-// Encode with the same secret, format version and scope.
+// Encode with one of the codec's secrets, the same format version and
+// the same scope.
 func (codec *CursorCodec) Decode(token, scope string, target any) error {
 	if len(token) > MaximumCursorBytes {
 		return fmt.Errorf("%w: too long", ErrInvalidCursor)
@@ -91,7 +101,7 @@ func (codec *CursorCodec) Decode(token, scope string, target any) error {
 		return fmt.Errorf("%w: malformed", ErrInvalidCursor)
 	}
 	signature, err := base64.RawURLEncoding.DecodeString(encodedSignature)
-	if err != nil || !hmac.Equal(signature, codec.sign(encodedPayload)) {
+	if err != nil || !codec.verify(encodedPayload, signature) {
 		return fmt.Errorf("%w: bad signature", ErrInvalidCursor)
 	}
 	payloadBytes, err := base64.RawURLEncoding.DecodeString(encodedPayload)
@@ -111,8 +121,18 @@ func (codec *CursorCodec) Decode(token, scope string, target any) error {
 	return nil
 }
 
-func (codec *CursorCodec) sign(encodedPayload string) []byte {
-	mac := hmac.New(sha256.New, codec.secret)
+// verify reports whether signature signs encodedPayload with any secret.
+func (codec *CursorCodec) verify(encodedPayload string, signature []byte) bool {
+	for _, secret := range codec.secrets {
+		if hmac.Equal(signature, sign(secret, encodedPayload)) {
+			return true
+		}
+	}
+	return false
+}
+
+func sign(secret []byte, encodedPayload string) []byte {
+	mac := hmac.New(sha256.New, secret)
 	mac.Write([]byte(encodedPayload))
 	return mac.Sum(nil)
 }

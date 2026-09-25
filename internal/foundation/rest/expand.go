@@ -73,11 +73,12 @@ func (expand Expand) Paths() []string {
 }
 
 // Parse validates values against the allowlist. An invalid or unknown
-// path, or more than MaximumExpansions values, is a 400 problem with one
+// path, or more than MaximumExpansions values, is a 422 problem (well
+// formed but unacceptable values, docs/api-conventions.md) with one
 // detail per offending value.
 func (expansions Expansions) Parse(values []string) (Expand, error) {
 	if len(values) > MaximumExpansions {
-		return Expand{}, huma.Error400BadRequest(fmt.Sprintf("At most %d expand[] values are allowed.", MaximumExpansions),
+		return Expand{}, huma.Error422UnprocessableEntity(fmt.Sprintf("At most %d expand[] values are allowed.", MaximumExpansions),
 			&huma.ErrorDetail{Location: "query.expand[]", Message: "too many expansions"})
 	}
 	expand := Expand{paths: make(map[string]struct{}, len(values))}
@@ -94,7 +95,7 @@ func (expansions Expansions) Parse(values []string) (Expand, error) {
 		expand.paths[value] = struct{}{}
 	}
 	if len(details) > 0 {
-		return Expand{}, huma.Error400BadRequest("One or more expand[] values are invalid.", details...)
+		return Expand{}, huma.Error422UnprocessableEntity("One or more expand[] values are invalid.", details...)
 	}
 	return expand, nil
 }

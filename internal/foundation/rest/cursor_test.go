@@ -79,3 +79,28 @@ func TestCursorDecodeRejectsTamperingAndMisuse(t *testing.T) {
 		})
 	}
 }
+
+func TestCursorCodecRotatesSecrets(t *testing.T) {
+	previous := []byte("ffffffffffffffffffffffffffffffff")
+	old, _ := rest.NewCursorCodec(previous)
+	rotated, err := rest.NewCursorCodec(secret, previous)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, _ := rest.NewCursorCodec(secret)
+	oldToken, _ := old.Encode("scope", position{ID: "1"})
+	newToken, _ := rotated.Encode("scope", position{ID: "1"})
+	var decoded position
+	if err := rotated.Decode(oldToken, "scope", &decoded); err != nil {
+		t.Fatalf("rotated codec rejected a cursor signed with the previous secret: %v", err)
+	}
+	if err := current.Decode(newToken, "scope", &decoded); err != nil {
+		t.Fatalf("rotated codec did not sign with the current secret: %v", err)
+	}
+	if err := old.Decode(newToken, "scope", &decoded); !errors.Is(err, rest.ErrInvalidCursor) {
+		t.Fatalf("old codec accepted a cursor signed with the current secret: %v", err)
+	}
+	if _, err := rest.NewCursorCodec(secret, []byte("short")); err == nil {
+		t.Fatal("NewCursorCodec accepted a short previous secret")
+	}
+}
