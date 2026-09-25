@@ -48,7 +48,12 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - database-data:/var/lib/postgresql/data
+      # The postgres 18+ image keeps PGDATA in a major-version subdirectory
+      # (/var/lib/postgresql/18/docker) and declares its volume at
+      # /var/lib/postgresql, so pg_upgrade --link can work across majors.
+      # Mounting at the old /var/lib/postgresql/data path would not persist
+      # the data directory at all.
+      - database-data:/var/lib/postgresql
       - ./deployments/database/initialize.sql:/docker-entrypoint-initdb.d/initialize.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d frappe"]
