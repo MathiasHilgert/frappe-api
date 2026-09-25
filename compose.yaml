@@ -26,6 +26,11 @@ services:
       # the bundled NATS JetStream here.
       EVENTS_BROKER: nats
       NATS_URL: nats://nats:4222
+      # The outbox relay is off by default and enabled here: it publishes
+      # recorded events to the broker above, connecting as the outbox relay
+      # role (see deployments/database/initialize.sql).
+      OUTBOX_ENABLED: "true"
+      DATABASE_OUTBOX_RELAY_URL: postgres://frappe_outbox_relay:frappe_outbox_relay_development_only@database:5432/frappe?sslmode=disable
     # No healthcheck is defined here on purpose. The image is
     # gcr.io/distroless/static-debian12:nonroot (see Dockerfile), which has
     # no shell and no curl/wget to run a command-based healthcheck with.
