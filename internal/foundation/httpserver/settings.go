@@ -52,6 +52,10 @@ type Settings struct {
 	// If nil, the server is treated as always ready. /health/live never
 	// consults it and stays dependency-free.
 	Ready Readiness
+	// CacheVaryHeaders lists request headers (for example a tenant
+	// header) added to Vary, next to Authorization, on responses with a
+	// Private or Revalidate cache policy.
+	CacheVaryHeaders []string
 	// Title is the OpenAPI document's title.
 	Title string
 	// Version is the OpenAPI document's version, typically the running

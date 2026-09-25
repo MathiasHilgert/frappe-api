@@ -98,7 +98,7 @@
 // # Middleware order
 //
 // Outermost first: otelhttp, span route, request id, access log, panic
-// recovery, CORS, rate limiting, body size limit, then the Huma mux.
+// recovery, CORS, caching, rate limiting, body size limit, then the Huma mux.
 // CORS sits inside tracing and request id so preflights are traced,
 // correlated and logged, but outside rate limiting (and any future
 // authentication) so a preflight is answered with 204 before it can be
@@ -126,6 +126,46 @@
 // never used as attributes (they would create one time series per
 // client or per URL); investigate individual clients through logs and
 // traces instead.
+//
+// # HTTP caching
+//
+// Every /v1 response is "Cache-Control: no-store" unless its handler
+// declares a policy: /v1 data is authenticated and tenant scoped, so the
+// safe default is that no cache keeps it. Error responses (anything but
+// 2xx and 304) are always no-store, even when a policy was declared.
+//
+// A module adapter declares a policy and an ETag with NotModified, before
+// computing the body, and returns huma.Status304NotModified() when it
+// reports true (a GET or HEAD whose If-None-Match matches, weak
+// comparison per RFC 9110). The 304 carries ETag and Cache-Control and no
+// body, and increments frappe.http.not_modified{http.route}:
+//
+//	huma.Get(api, "/orders/{id}", func(ctx context.Context, input *OrderInput) (*OrderOutput, error) {
+//		version, err := service.OrderVersion(ctx, input.ID)
+//		if err != nil {
+//			return nil, err
+//		}
+//		etag := httpserver.ETagFromVersion("orders/"+input.ID, version)
+//		if httpserver.NotModified(ctx, etag, httpserver.Private(time.Minute)) {
+//			return nil, huma.Status304NotModified()
+//		}
+//		order, err := service.Order(ctx, input.ID)
+//		// ...build and return the 200 output...
+//	})
+//
+// Policies: NoStore(); Private(maxAge) ("private, max-age"); Revalidate()
+// ("no-cache", the client must revalidate every reuse); Public(maxAge,
+// staleWhileRevalidate). Private and Revalidate add Vary: Authorization
+// plus Settings.CacheVaryHeaders (for example a tenant header). Public adds
+// no such Vary and lets shared caches store the response: only use it for
+// data that is identical for every caller and tenant.
+//
+// ETagFromVersion (from a version column or updated_at) is preferred: it
+// lets the handler answer 304 without loading or serializing the body.
+// ETagFromBody hashes a deterministic representation with SHA-256 when no
+// version exists. If-Modified-Since is not supported: second-granularity
+// dates are not a reliable validator for rows updated within the same
+// second; use ETags.
 //
 // # Timeouts and streaming or upload handlers
 //
