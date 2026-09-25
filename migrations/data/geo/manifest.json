@@ -1,0 +1,64 @@
+{
+  "source": "https://download.geonames.org/export/dump/",
+  "license": "GeoNames (https://www.geonames.org), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
+  "dumpDate": "2026-09-25",
+  "sources": [
+    {
+      "file": "countryInfo.txt",
+      "sha256": "93bafc525813f22e4711ff9ed6d626343094ce48c26388dc7c49189b3d7d5512"
+    },
+    {
+      "file": "admin1CodesASCII.txt",
+      "sha256": "1da92a6323a5fec3176f3f743bf4cf4040fd56a876da55e46fbca23c863aa60a"
+    },
+    {
+      "file": "timeZones.txt",
+      "sha256": "ea6f8bdcc259c21c562e8f7e7e0b0457cb89403bed60c76aac49ccee9a9ed18c"
+    },
+    {
+      "file": "cities500.zip",
+      "sha256": "8d07609da318268df79d96c163ff1b6a81f14318c0cb77c3e5799119463ed713"
+    },
+    {
+      "file": "alternateNamesV2.zip",
+      "sha256": "c19d676ecdcbf279c4b3e5124094609feb81280b361d32247d0c5be9a00042d9"
+    }
+  ],
+  "tables": [
+    {
+      "file": "countries.tsv.gz",
+      "sha256": "eb33d9d86bc83e5f1fbbee22d78243b680a2e1f91dc591e605acd7f224637f22",
+      "rows": 252
+    },
+    {
+      "file": "time_zones.tsv.gz",
+      "sha256": "b4c27c925baffe700fd1287f37d8b042699904b4924f6daa79b141d18f47d18e",
+      "rows": 418
+    },
+    {
+      "file": "subdivisions.tsv.gz",
+      "sha256": "8025748dd33a038abe829a9258deee7f4c1cc080f45d9cfa05327f4aa5a91aa1",
+      "rows": 3865
+    },
+    {
+      "file": "cities.tsv.gz",
+      "sha256": "fc535936ffa3fc84b718aba2a2b2342c89e167661cbd3435c9606807f10cce5a",
+      "rows": 56853
+    },
+    {
+      "file": "country_names.tsv.gz",
+      "sha256": "6b29b862ac7df3cd89ce81ba1647aa0217c945ec46285333757b69ac7aebe982",
+      "rows": 1846
+    },
+    {
+      "file": "subdivision_names.tsv.gz",
+      "sha256": "6a856cfe8942d6efd59034610959f54cf5710e7638e23a97a339f23f8f78e374",
+      "rows": 20185
+    },
+    {
+      "file": "city_names.tsv.gz",
+      "sha256": "21dc68b99b304d762f4f2e14bcd7311d24428d33565f6556488f98a8fa18d99f",
+      "rows": 64471
+    }
+  ]
+}

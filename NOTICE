@@ -1,0 +1,20 @@
+Frappe API
+Copyright (c) 2026 Nulled Software. All rights reserved.
+
+This product includes third-party data:
+
+GeoNames geographical data
+  Source: GeoNames, https://www.geonames.org
+  Files:  https://download.geonames.org/export/dump/ (countryInfo.txt,
+          admin1CodesASCII.txt, timeZones.txt, cities500.zip,
+          alternateNamesV2.zip)
+  License: Creative Commons Attribution 4.0 International (CC BY 4.0),
+           https://creativecommons.org/licenses/by/4.0/
+  Changes: filtered (all countries and first-level subdivisions; cities
+           above 500 inhabitants in Latin America and the Caribbean, above
+           15000 elsewhere, plus national capitals), normalized into
+           tables, and reduced to one name per supported locale. The
+           snapshot lives in migrations/data/geo; its manifest.json records
+           the dump date and the SHA-256 of every source file.
+  No warranty: GeoNames provides the data "as is", without warranty of any
+  kind.
