@@ -2,6 +2,7 @@ package health
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 )
@@ -51,6 +52,12 @@ type Checker struct {
 	checks   []Check
 	settings Settings
 	mutex    sync.Mutex
+	// lifecycleMutex guards cancel, done and started, which are written
+	// once by Start and read by Stop; it is separate from mutex (which
+	// guards per-check state) so Stop is never blocked behind an
+	// in-flight check run.
+	lifecycleMutex sync.Mutex
+	started        bool
 }
 
 // NewChecker creates a Checker for the given checks, applying settings with
@@ -75,11 +82,19 @@ func NewChecker(checks []Check, settings Settings) *Checker {
 // running independently of ctx: cancel it with Stop, not by canceling
 // ctx.
 func (checker *Checker) Start(ctx context.Context) error {
-	checker.runAll(ctx)
+	checker.lifecycleMutex.Lock()
+	if checker.started {
+		checker.lifecycleMutex.Unlock()
+		return errors.New("health: Start called more than once")
+	}
+	checker.started = true
 
 	loopCtx, cancel := context.WithCancel(context.Background())
 	checker.cancel = cancel
 	checker.done = make(chan struct{})
+	checker.lifecycleMutex.Unlock()
+
+	checker.runAll(ctx)
 
 	go checker.loop(loopCtx)
 
@@ -87,15 +102,21 @@ func (checker *Checker) Start(ctx context.Context) error {
 }
 
 // Stop cancels the background loop and waits for it to finish before
-// returning, or until ctx is done, whichever comes first.
+// returning, or until ctx is done, whichever comes first. Calling Stop
+// before Start, or more than once, is a no-op.
 func (checker *Checker) Stop(ctx context.Context) error {
-	if checker.cancel == nil {
+	checker.lifecycleMutex.Lock()
+	cancel := checker.cancel
+	done := checker.done
+	checker.lifecycleMutex.Unlock()
+
+	if cancel == nil {
 		return nil
 	}
-	checker.cancel()
+	cancel()
 
 	select {
-	case <-checker.done:
+	case <-done:
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -119,12 +140,20 @@ func (checker *Checker) loop(ctx context.Context) {
 	}
 }
 
-// runAll runs every registered check once, sequentially, each bounded by
-// the configured per-check timeout.
+// runAll runs every registered check once, concurrently, each bounded by
+// its own per-check timeout, so one check that hangs (in particular one
+// that ignores the context it is given, despite Check.Run's contract)
+// cannot stall the others' state from updating within the same cycle.
 func (checker *Checker) runAll(ctx context.Context) {
+	var waitGroup sync.WaitGroup
 	for _, check := range checker.checks {
-		checker.run(ctx, check)
+		waitGroup.Add(1)
+		go func(check Check) {
+			defer waitGroup.Done()
+			checker.run(ctx, check)
+		}(check)
 	}
+	waitGroup.Wait()
 }
 
 // run executes one check under a timeout-bounded context and updates its

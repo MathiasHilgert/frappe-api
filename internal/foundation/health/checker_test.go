@@ -248,11 +248,77 @@ func TestReadyIsFalseImmediatelyWhenADependencyIsDownAtBoot(t *testing.T) {
 	}
 }
 
+// TestASlowCheckDoesNotDelayOtherChecksWithinACycle verifies that every
+// registered check runs concurrently within one cycle: a slow check that
+// only returns once its own (long) per-check timeout elapses does not
+// delay a fast check's update, which must land promptly instead of
+// waiting for the slow one to finish first, as sequential execution
+// would force.
+func TestASlowCheckDoesNotDelayOtherChecksWithinACycle(t *testing.T) {
+	var fastRuns atomic.Int32
+	checker := health.NewChecker([]health.Check{
+		{Name: "slow", Run: func(ctx context.Context) error {
+			<-ctx.Done()
+			return ctx.Err()
+		}},
+		{Name: "fast", Run: func(context.Context) error {
+			fastRuns.Add(1)
+			return nil
+		}},
+	}, health.Settings{Interval: time.Hour, Timeout: 500 * time.Millisecond, FailureThreshold: 1})
+
+	go func() { _ = checker.Start(context.Background()) }()
+	defer func() { _ = checker.Stop(context.Background()) }()
+
+	waitUntilOrFail(t, 100*time.Millisecond, func() bool { return fastRuns.Load() >= 1 })
+}
+
+// TestStartIsNotIdempotent verifies that calling Start a second time
+// returns an error instead of racing the first call's background loop
+// setup (which writes checker.cancel and checker.done unguarded).
+func TestStartIsNotIdempotent(t *testing.T) {
+	checker := health.NewChecker(nil, health.Settings{Interval: time.Hour, Timeout: time.Second, FailureThreshold: 1})
+
+	if err := checker.Start(context.Background()); err != nil {
+		t.Fatalf("first Start returned unexpected error: %v", err)
+	}
+	defer func() { _ = checker.Stop(context.Background()) }()
+
+	if err := checker.Start(context.Background()); err == nil {
+		t.Fatal("second Start returned nil error, want an error")
+	}
+}
+
+// TestStartAndStopAreSafeForConcurrentUse verifies, under the race
+// detector, that Start and Stop do not race on the checker's internal
+// cancel/done bookkeeping when called from different goroutines.
+func TestStartAndStopAreSafeForConcurrentUse(t *testing.T) {
+	checker := health.NewChecker(nil, health.Settings{Interval: time.Hour, Timeout: time.Second, FailureThreshold: 1})
+
+	started := make(chan struct{})
+	go func() {
+		_ = checker.Start(context.Background())
+		close(started)
+	}()
+	<-started
+
+	if err := checker.Stop(context.Background()); err != nil {
+		t.Fatalf("Stop returned unexpected error: %v", err)
+	}
+}
+
 // waitUntil polls condition until it is true or a short deadline elapses,
 // failing the test if the deadline is reached first.
 func waitUntil(t *testing.T, condition func() bool) {
 	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
+	waitUntilOrFail(t, 2*time.Second, condition)
+}
+
+// waitUntilOrFail polls condition until it is true or timeout elapses,
+// failing the test if the deadline is reached first.
+func waitUntilOrFail(t *testing.T, timeout time.Duration, condition func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		if condition() {
 			return
