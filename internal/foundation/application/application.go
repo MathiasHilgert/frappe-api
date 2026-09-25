@@ -46,7 +46,7 @@ func (application *Application) Up(ctx context.Context) error {
 		started = append(started, hook)
 	}
 
-// Recorded here, once every hook (including telemetry's own Up, which
+	// Recorded here, once every hook (including telemetry's own Up, which
 	// installs the real MeterProvider) has succeeded, so this gauge is
 	// exported through the SDK it depends on rather than lost to the
 	// still-noop delegate that is in place during New.
