@@ -67,7 +67,8 @@ func TestProvideHealthCheckerObservesADependencyDeclaredAfterIt(t *testing.T) {
 		t.Fatal("checker handle is not ready after Up")
 	}
 
-	if _, ok := checker.Report().Checks["declared-after-the-checker"]; !ok {
+	entries, ok := checker.Report().Checks["declared-after-the-checker:responseTime"]
+	if !ok || len(entries) == 0 {
 		t.Fatal("checker report is missing the dependency declared after provideHealthChecker was called")
 	}
 }

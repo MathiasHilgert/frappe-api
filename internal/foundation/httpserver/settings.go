@@ -29,10 +29,17 @@ type Readiness interface {
 	Check() (report any, ready bool)
 }
 
-// alwaysReady is the Readiness used when Settings.Ready is nil.
+// alwaysReady is the Readiness used when Settings.Ready is nil. Its
+// report body matches the shape internal/foundation/health.Report
+// serializes to for an all-passing report ({"status":"pass"}, with no
+// "checks" key when there are none to report), without this package
+// importing that package (foundation packages must not import each
+// other).
 type alwaysReady struct{}
 
-func (alwaysReady) Check() (any, bool) { return struct{}{}, true }
+func (alwaysReady) Check() (any, bool) {
+	return map[string]string{"status": "pass"}, true
+}
 
 // Settings configures a Server. Every field has a corresponding field on
 // internal/foundation/configuration.Configuration's HTTP struct; the

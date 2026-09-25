@@ -30,10 +30,10 @@ type state struct {
 // error text: see CheckStatus.Output's own doc comment for why.
 func (checkState state) snapshot() CheckStatus {
 	status := CheckStatus{
-		LastCheckedAt:        checkState.lastCheckedAt,
-		Status:               StatusPass,
-		DurationMilliseconds: float64(checkState.lastDuration) / float64(time.Millisecond),
-		ConsecutiveFailures:  checkState.consecutiveFailures,
+		Time:          checkState.lastCheckedAt,
+		Status:        StatusPass,
+		ObservedUnit:  "ms",
+		ObservedValue: float64(checkState.lastDuration) / float64(time.Millisecond),
 	}
 	if checkState.failing {
 		status.Status = StatusFail
@@ -277,13 +277,13 @@ func (checker *Checker) Snapshot() (Report, bool) {
 
 	report := Report{
 		Status: StatusPass,
-		Checks: make(map[string]CheckStatus, len(checker.states)),
+		Checks: make(map[string][]CheckStatus, len(checker.states)),
 	}
 
 	for _, check := range checker.checks {
 		checkState := checker.states[check.Name]
 		status := checkState.snapshot()
-		report.Checks[check.Name] = status
+		report.Checks[check.Name+":"+responseTimeMeasurement] = []CheckStatus{status}
 		if status.Status == StatusFail {
 			report.Status = StatusFail
 		}

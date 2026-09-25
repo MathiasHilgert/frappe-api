@@ -117,9 +117,12 @@ func TestOneSuccessRestoresAFailingCheck(t *testing.T) {
 	waitUntil(t, func() bool { return checker.Ready() })
 
 	report := checker.Report()
-	status := report.Checks["recovering"]
-	if status.ConsecutiveFailures != 0 {
-		t.Fatalf("ConsecutiveFailures = %d, want 0 after a success", status.ConsecutiveFailures)
+	status := report.Checks["recovering:responseTime"][0]
+	if status.Status != health.StatusPass {
+		t.Fatalf("Status = %q, want %q after a success", status.Status, health.StatusPass)
+	}
+	if status.Output != "" {
+		t.Fatalf("Output = %q, want empty after a success cleared the failure", status.Output)
 	}
 }
 
@@ -145,7 +148,7 @@ func TestTimeoutCountsAsFailure(t *testing.T) {
 		t.Fatal("Ready() = true for a check that timed out")
 	}
 
-	status := checker.Report().Checks["slow"]
+	status := checker.Report().Checks["slow:responseTime"][0]
 	if status.Status != health.StatusFail {
 		t.Fatalf("status = %q, want %q", status.Status, health.StatusFail)
 	}
@@ -174,14 +177,14 @@ func TestReportShapeReflectsEveryCheck(t *testing.T) {
 	if len(report.Checks) != 2 {
 		t.Fatalf("len(Checks) = %d, want 2", len(report.Checks))
 	}
-	if report.Checks["ok"].Status != health.StatusPass {
-		t.Fatalf(`Checks["ok"].Status = %q, want %q`, report.Checks["ok"].Status, health.StatusPass)
+	if report.Checks["ok:responseTime"][0].Status != health.StatusPass {
+		t.Fatalf(`Checks["ok:responseTime"][0].Status = %q, want %q`, report.Checks["ok:responseTime"][0].Status, health.StatusPass)
 	}
-	if report.Checks["broken"].Output == "" {
-		t.Fatal(`Checks["broken"].Output is empty, want a non-empty generic message`)
+	if report.Checks["broken:responseTime"][0].Output == "" {
+		t.Fatal(`Checks["broken:responseTime"][0].Output is empty, want a non-empty generic message`)
 	}
-	if report.Checks["broken"].Output == "nope" {
-		t.Fatal(`Checks["broken"].Output leaks the raw error text; see TestReportOutputDoesNotLeakTheRawErrorText`)
+	if report.Checks["broken:responseTime"][0].Output == "nope" {
+		t.Fatal(`Checks["broken:responseTime"][0].Output leaks the raw error text; see TestReportOutputDoesNotLeakTheRawErrorText`)
 	}
 }
 
@@ -388,7 +391,7 @@ func TestReportOutputDoesNotLeakTheRawErrorText(t *testing.T) {
 	}
 	defer func() { _ = checker.Stop(context.Background()) }()
 
-	output := checker.Report().Checks["broken"].Output
+	output := checker.Report().Checks["broken:responseTime"][0].Output
 	if strings.Contains(output, "10.0.0.5") || strings.Contains(output, "hunter2") {
 		t.Fatalf("Output = %q, leaks the raw error text", output)
 	}
@@ -416,7 +419,7 @@ func TestReportOutputReportsTimeoutDistinctly(t *testing.T) {
 	}
 	defer func() { _ = checker.Stop(context.Background()) }()
 
-	output := checker.Report().Checks["slow"].Output
+	output := checker.Report().Checks["slow:responseTime"][0].Output
 	if !strings.Contains(output, "timeout") {
 		t.Fatalf("Output = %q, want it to mention timeout", output)
 	}
@@ -524,14 +527,64 @@ func waitUntilOrFail(t *testing.T, timeout time.Duration, condition func() bool)
 	t.Fatal("condition was never satisfied")
 }
 
-func TestReportSerializesDurationInMilliseconds(t *testing.T) {
-	status := health.CheckStatus{DurationMilliseconds: 1500}
+// TestReportSerializesTheIETFHealthJSONShape verifies that Report
+// conforms to the IETF "Health Check Response Format for HTTP APIs"
+// draft: checks keyed by "<name>:responseTime", each holding an array of
+// observations with observedValue/observedUnit rather than a bespoke
+// "durationMilliseconds" field.
+func TestReportSerializesTheIETFHealthJSONShape(t *testing.T) {
+	status := health.CheckStatus{ObservedValue: 1500, ObservedUnit: "ms", Status: health.StatusPass}
+	report := health.Report{Status: health.StatusPass, Checks: map[string][]health.CheckStatus{
+		"example:responseTime": {status},
+	}}
 
-	encoded, err := json.Marshal(status)
+	encoded, err := json.Marshal(report)
 	if err != nil {
 		t.Fatalf("json.Marshal: %v", err)
 	}
-	if !strings.Contains(string(encoded), `"durationMilliseconds":1500`) {
-		t.Errorf("encoded check status = %s, want durationMilliseconds 1500", encoded)
+
+	var decoded map[string]any
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+
+	if decoded["status"] != "pass" {
+		t.Fatalf(`decoded["status"] = %v, want "pass"`, decoded["status"])
+	}
+
+	checks, ok := decoded["checks"].(map[string]any)
+	if !ok {
+		t.Fatalf(`decoded["checks"] type = %T, want map[string]any`, decoded["checks"])
+	}
+	observations, ok := checks["example:responseTime"].([]any)
+	if !ok || len(observations) != 1 {
+		t.Fatalf(`checks["example:responseTime"] = %v, want a one-element array`, checks["example:responseTime"])
+	}
+	observation, ok := observations[0].(map[string]any)
+	if !ok {
+		t.Fatalf("observation type = %T, want map[string]any", observations[0])
+	}
+	if observation["observedValue"] != 1500.0 {
+		t.Errorf(`observedValue = %v, want 1500`, observation["observedValue"])
+	}
+	if observation["observedUnit"] != "ms" {
+		t.Errorf(`observedUnit = %v, want "ms"`, observation["observedUnit"])
+	}
+	if _, hasLegacyField := observation["durationMilliseconds"]; hasLegacyField {
+		t.Error("observation still carries the bespoke durationMilliseconds field")
+	}
+}
+
+// TestNotReadyFallbackReportSerializesToJustStatusFail verifies that a
+// Report with no checks at all (the shape dependencies.readiness falls
+// back to before the checker is ready) serializes to exactly
+// {"status":"fail"}, without a null "checks" field.
+func TestNotReadyFallbackReportSerializesToJustStatusFail(t *testing.T) {
+	encoded, err := json.Marshal(health.Report{Status: health.StatusFail})
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	if string(encoded) != `{"status":"fail"}` {
+		t.Fatalf("encoded = %s, want %s", encoded, `{"status":"fail"}`)
 	}
 }
