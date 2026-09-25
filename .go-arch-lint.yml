@@ -21,6 +21,12 @@ allow:
 excludeFiles:
   - '.*_test\.go$'
 
+# .claude/worktrees holds gitignored agent worktrees (untracked checkouts
+# used by Claude Code sessions). They are not part of this module and may
+# contain in-progress or stray Go files, so go-arch-lint must not scan them.
+exclude:
+  - .claude/worktrees
+
 components:
   cmd:
     in: cmd/**
