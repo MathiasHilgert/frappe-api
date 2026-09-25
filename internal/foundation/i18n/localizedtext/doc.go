@@ -76,6 +76,15 @@
 //	}
 //	return descriptions.Delete(ctx, localizedtext.ID(dish.DescriptionTextID))
 //
-// Service.DeleteOrphans is the periodic garbage collection for texts no
-// declared field references (a scheduler will call it per tenant).
+// Service.DeleteOrphans is the periodic garbage collection for
+// unreferenced texts (a scheduler will call it per tenant). It takes the
+// foreign keys to localized_texts from pg_constraint as the source of
+// truth and refuses to run unless they match the declared Fields exactly
+// and are ON DELETE NO ACTION or RESTRICT.
+//
+// Pending requests carry requested_at and attempts; one older than
+// Settings.PendingTimeout is requested again on read, and
+// Service.ExpiredPending lists them for a sweeper. Reads request
+// translations best effort inside a savepoint (logged, counted, added to
+// the span), so they never fail because of a request.
 package localizedtext

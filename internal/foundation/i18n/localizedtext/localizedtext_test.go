@@ -5,6 +5,7 @@ import (
 	"errors"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/i18n"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/i18n/localizedtext"
@@ -39,8 +40,10 @@ func testCatalog(t *testing.T) *i18n.Catalog {
 // Store method panics through the nil embedded interface.
 type fakeStore struct {
 	localizedtext.Store
-	texts   map[localizedtext.ID]localizedtext.Text
-	pending []localizedtext.TranslationRequest
+	texts      map[localizedtext.ID]localizedtext.Text
+	pending    []localizedtext.TranslationRequest
+	references []localizedtext.Reference
+	swept      []localizedtext.Reference
 }
 
 func (store *fakeStore) LoadForLocale(_ context.Context, ids []localizedtext.ID, locale i18n.Locale) ([]localizedtext.Text, error) {
@@ -58,7 +61,20 @@ func (store *fakeStore) LoadForLocale(_ context.Context, ids []localizedtext.ID,
 	return loaded, nil
 }
 
-func (store *fakeStore) MarkPending(_ context.Context, requests []localizedtext.TranslationRequest) ([]localizedtext.TranslationRequest, error) {
+func (store *fakeStore) Isolate(ctx context.Context, work func(ctx context.Context) error) error {
+	return work(ctx)
+}
+
+func (store *fakeStore) References(context.Context) ([]localizedtext.Reference, error) {
+	return store.references, nil
+}
+
+func (store *fakeStore) DeleteOrphans(_ context.Context, references []localizedtext.Reference, _ time.Duration, _ int) (int64, error) {
+	store.swept = references
+	return 0, nil
+}
+
+func (store *fakeStore) MarkPending(_ context.Context, requests []localizedtext.TranslationRequest, _ time.Duration) ([]localizedtext.TranslationRequest, error) {
 	store.pending = append(store.pending, requests...)
 	return requests, nil
 }
@@ -253,7 +269,7 @@ func TestLocalizeServesStaleTranslationsButRegeneratesOnlyMachineOnes(t *testing
 
 func TestLocalizeDoesNotRerequestPendingTranslations(t *testing.T) {
 	t.Parallel()
-	text := sourceText(localizedtext.Translation{Locale: english, Origin: localizedtext.OriginMachine, Status: localizedtext.StatusPending})
+	text := sourceText(localizedtext.Translation{Locale: english, Origin: localizedtext.OriginMachine, Status: localizedtext.StatusPending, RequestedAt: time.Now()})
 	subject := newFixture(t, text)
 	localized, err := subject.texts.Localize(context.Background(), text.ID, english)
 	if err != nil {

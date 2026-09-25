@@ -67,7 +67,10 @@ CREATE INDEX localized_texts_tenant_updated_at ON localized_texts (tenant_id, up
 -- one. status is current, stale (the source changed after it was
 -- translated: source_hash differs from the text's) or pending (a machine
 -- translation was requested; value is NULL until it arrives, or keeps the
--- previous machine value while it is regenerated). Deleting a text
+-- previous machine value while it is regenerated). requested_at is when
+-- a machine translation was last requested and attempts how many times:
+-- a pending row older than the pending timeout was lost and is requested
+-- again (attempts lets the translator give up or alert). Deleting a text
 -- deletes its translations.
 CREATE TABLE localized_text_translations (
     text_id uuid NOT NULL REFERENCES localized_texts (id) ON DELETE CASCADE,
@@ -77,6 +80,8 @@ CREATE TABLE localized_text_translations (
     status text NOT NULL CHECK (status IN ('current', 'stale', 'pending')),
     source_hash text NOT NULL,
     translated_at timestamptz NOT NULL DEFAULT now(),
+    requested_at timestamptz,
+    attempts integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
     PRIMARY KEY (text_id, locale),
     CHECK (value IS NOT NULL OR status = 'pending'),
     CHECK (origin = 'machine' OR status <> 'pending')
@@ -84,8 +89,8 @@ CREATE TABLE localized_text_translations (
 -- +goose StatementEnd
 
 -- +goose StatementBegin
--- Serves the machine translation worker looking for work to redo.
-CREATE INDEX localized_text_translations_not_current ON localized_text_translations (status, locale)
+-- Serves the machine translation sweeper looking for expired requests.
+CREATE INDEX localized_text_translations_not_current ON localized_text_translations (status, requested_at)
     WHERE status <> 'current';
 -- +goose StatementEnd
 

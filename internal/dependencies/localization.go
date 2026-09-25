@@ -1,13 +1,45 @@
 package dependencies
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/MathiasHilgert/frappe-api/internal/foundation/application"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/configuration"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/i18n"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/i18n/localizedtext"
 	localizedtextpostgres "github.com/MathiasHilgert/frappe-api/internal/foundation/i18n/localizedtext/postgres"
 )
+
+// localeCheckDependencyName names the startup check that every supported
+// locale exists in the locales table.
+const localeCheckDependencyName = "localized-text-locales"
+
+// provideLocaleCheck registers a startup step, after the database pool,
+// that fails fast when a configured locale (the source is one of the
+// supported) is missing from the locales table, instead of failing
+// every localized text write in it at runtime.
+func provideLocaleCheck(instance *application.Application, pool *application.Handle[*pgxpool.Pool], catalog *i18n.Catalog) {
+	application.Provide(instance, application.Dependency[struct{}]{
+		Name: localeCheckDependencyName,
+		Up: func(ctx context.Context) (struct{}, error) {
+			return checkLocales(pool, catalog)(ctx)
+		},
+	})
+}
+
+// checkLocales returns the Up of the locale check.
+func checkLocales(pool *application.Handle[*pgxpool.Pool], catalog *i18n.Catalog) func(ctx context.Context) (struct{}, error) {
+	return func(ctx context.Context) (struct{}, error) {
+		connected, ready := pool.Get()
+		if !ready || connected == nil {
+			return struct{}{}, errDatabaseNotReady
+		}
+		return struct{}{}, localizedtextpostgres.CheckLocales(ctx, connected, catalog.Supported())
+	}
+}
 
 // provideInternationalization builds the static catalog and, on it, the
 // localized text Service.

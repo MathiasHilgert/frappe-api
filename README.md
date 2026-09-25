@@ -201,7 +201,11 @@ User-entered strings that need translations (a dish description) never get a per
 - Changing a source marks older translations stale. Manual ones stay manual and are only flagged; machine ones are requested again. A machine translation never overwrites a manual one and is discarded if the source changed meanwhile.
 - Reads resolve the locale through the catalog and fall back to the source. `LocalizeMany` loads a whole list in one query.
 - RLS: `tenant_id` comes from the transaction's `application.tenant`. Global texts (`tenant_id` NULL) are readable by every tenant and written only by `frappe_migration`.
-- `TranslationRequester` is the "translation needed" port. Nothing is wired yet; machine translation plugs in there.
+- `TranslationRequester` is the "translation needed" port. Nothing is wired yet; machine translation plugs in there. Requests are recorded as pending rows (`requested_at`, `attempts`); a pending row older than `PendingTimeout` (default 15m) is requested again, and `Service.ExpiredPending` lists them for a sweeper.
+- Reads request translations best effort, in a savepoint: a failure is logged, counted (`frappe.localizedtext.request.failures`) and added to the span, and the read still succeeds. Recording pending rows needs a writable transaction.
+- `UpdateSource` keeps the stored context unless `Source.Context` is set or `ClearContext` is true. Global texts return `ErrReadOnlyText` on writes.
+- At startup the API fails if a supported locale is missing from `locales`.
+- Referencing foreign keys must be `ON DELETE NO ACTION` or `RESTRICT`, and each one must be declared as a `Field`. The orphan sweep reads them from `pg_constraint` and refuses to run on any mismatch.
 
 ```go
 var dishDescription = localizedtext.Field{

@@ -149,6 +149,7 @@ func NewApplication(ctx context.Context, provider configuration.Provider, option
 	if localizationError != nil {
 		return nil, fmt.Errorf("localization: %w", localizationError)
 	}
+	provideLocaleCheck(instance, databasePool, catalog)
 
 	server := httpserver.New(httpserver.Settings{
 		Title:                loadedConfiguration.Application.Name,

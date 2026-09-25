@@ -26,6 +26,19 @@ var (
 	ErrSourceLocale = errors.New("localizedtext: cannot translate a text into its source locale")
 	// ErrInvalidField reports a malformed or conflicting Field declaration.
 	ErrInvalidField = errors.New("localizedtext: invalid field")
+	// ErrReadOnlyText reports a write to a text the current tenant can
+	// read but not change: a global text, maintained by migrations only.
+	ErrReadOnlyText = errors.New("localizedtext: text is read-only for this tenant (global text)")
+	// ErrUndeclaredReference reports a foreign key to localized_texts
+	// whose column no Field declares; the orphan sweep refuses to run.
+	ErrUndeclaredReference = errors.New("localizedtext: foreign key to localized_texts is not declared as a Field")
+	// ErrMissingForeignKey reports a declared Field without a foreign key
+	// to localized_texts; the orphan sweep refuses to run.
+	ErrMissingForeignKey = errors.New("localizedtext: declared field has no foreign key to localized_texts")
+	// ErrUnsafeForeignKey reports a foreign key to localized_texts whose
+	// ON DELETE action is not NO ACTION or RESTRICT: deleting a text must
+	// never silently cascade into, or null out, an entity.
+	ErrUnsafeForeignKey = errors.New("localizedtext: foreign key to localized_texts must be ON DELETE NO ACTION or RESTRICT")
 	// ErrNoFields reports an orphan sweep with no declared field: with
 	// nothing referencing texts, every text would look orphaned.
 	ErrNoFields = errors.New("localizedtext: no field declared, refusing to delete orphans")
@@ -96,16 +109,25 @@ const (
 	ReasonMissing Reason = "missing"
 	// ReasonStale requests a machine translation of a changed source.
 	ReasonStale Reason = "stale"
+	// ReasonExpired requests again a pending machine translation whose
+	// request was lost (older than the pending timeout).
+	ReasonExpired Reason = "expired"
 )
 
 // Translation is one translation of a text into one locale.
 type Translation struct {
 	Locale       i18n.Locale
 	TranslatedAt time.Time
-	Value        string
-	Origin       Origin
-	Status       Status
-	SourceHash   string
+	// RequestedAt is when a machine translation was last requested (zero
+	// if never); a pending translation older than the Service's
+	// PendingTimeout is requested again.
+	RequestedAt time.Time
+	Value       string
+	Origin      Origin
+	Status      Status
+	SourceHash  string
+	// Attempts counts machine translation requests.
+	Attempts int
 }
 
 // Text is a stored localized text with (some of) its translations.
@@ -135,10 +157,31 @@ func (text Text) Translation(locale i18n.Locale) (Translation, bool) {
 // Source is what a module author writes: the source value, its locale
 // (zero means the platform source locale) and an optional per-text
 // machine translation hint overriding the Field's default Context.
+// UpdateSource keeps the stored Context when Context is empty; set
+// ClearContext to remove it (the Field's default then applies).
 type Source struct {
-	Value   string
-	Locale  i18n.Locale
-	Context string
+	Value        string
+	Locale       i18n.Locale
+	Context      string
+	ClearContext bool
+}
+
+// OnDelete is the ON DELETE action of a foreign key.
+type OnDelete string
+
+const (
+	// OnDeleteNoAction is the default ON DELETE action.
+	OnDeleteNoAction OnDelete = "no action"
+	// OnDeleteRestrict is ON DELETE RESTRICT.
+	OnDeleteRestrict OnDelete = "restrict"
+)
+
+// Reference is a single-column foreign key to localized_texts (id), as
+// found in the database catalog.
+type Reference struct {
+	Table    string
+	Column   string
+	OnDelete OnDelete
 }
 
 // Localized is a text resolved for one requested locale.

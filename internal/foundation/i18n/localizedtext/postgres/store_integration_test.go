@@ -233,8 +233,8 @@ func TestIntegrationGlobalTextsAreReadableButNotWritableByTenants(t *testing.T) 
 	}
 	if err := subject.within(t, acme, func(ctx context.Context) error {
 		return subject.texts.UpdateSource(ctx, id, localizedtext.Source{Value: "Cambiado"})
-	}); !errors.Is(err, localizedtext.ErrNotFound) {
-		t.Fatalf("tenant UpdateSource(global) error = %v, want ErrNotFound", err)
+	}); !errors.Is(err, localizedtext.ErrReadOnlyText) {
+		t.Fatalf("tenant UpdateSource(global) error = %v, want ErrReadOnlyText", err)
 	}
 	if err := subject.within(t, acme, func(ctx context.Context) error {
 		return subject.texts.SetManualTranslation(ctx, id, french, "Restaurant")
