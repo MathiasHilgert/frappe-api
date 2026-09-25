@@ -33,6 +33,13 @@ func TestSettingsValidateRejectsMinConnectionsAboveMax(t *testing.T) {
 	}
 }
 
+func TestSettingsValidateRejectsMinConnectionsAboveTheDefaultMax(t *testing.T) {
+	settings := database.Settings{URL: "postgres://localhost", MinConnections: database.DefaultMaxConnections + 1}
+	if err := settings.Validate(); err == nil {
+		t.Fatal("Validate returned nil error for MinConnections above the default MaxConnections")
+	}
+}
+
 func TestSettingsValidateRejectsNegativeDurations(t *testing.T) {
 	cases := map[string]database.Settings{
 		"lifetime": {URL: "postgres://localhost", MaxConnectionLifetime: -time.Second},

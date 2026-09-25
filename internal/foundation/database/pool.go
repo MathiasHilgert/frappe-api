@@ -21,24 +21,10 @@ const DependencyName = "database"
 // once before returning, so a misconfigured or unreachable database fails
 // fast at startup instead of on the first query.
 func Up(ctx context.Context, settings Settings) (*pgxpool.Pool, error) {
-	settings = settings.withDefaults()
-	if err := settings.Validate(); err != nil {
+	poolConfig, err := poolConfiguration(settings)
+	if err != nil {
 		return nil, err
 	}
-
-	poolConfig, err := pgxpool.ParseConfig(settings.URL)
-	if err != nil {
-		return nil, fmt.Errorf("parse database url: %w", err)
-	}
-
-	poolConfig.MaxConns = settings.MaxConnections
-	poolConfig.MinConns = settings.MinConnections
-	poolConfig.MaxConnLifetime = settings.MaxConnectionLifetime
-	poolConfig.MaxConnIdleTime = settings.MaxConnectionIdleTime
-	poolConfig.ConnConfig.ConnectTimeout = settings.ConnectTimeout
-	poolConfig.ConnConfig.Tracer = otelpgx.NewTracer(
-		otelpgx.WithDisableSQLStatementInAttributes(),
-	)
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
@@ -56,6 +42,32 @@ func Up(ctx context.Context, settings Settings) (*pgxpool.Pool, error) {
 	}
 
 	return pool, nil
+}
+
+// poolConfiguration validates the raw settings, then applies defaults to
+// zero-valued fields, and translates the result into a pgxpool.Config.
+// Validating before defaulting keeps an explicit, meaningful zero (such as
+// MinConnections) from being silently replaced.
+func poolConfiguration(settings Settings) (*pgxpool.Config, error) {
+	if err := settings.Validate(); err != nil {
+		return nil, err
+	}
+	settings = settings.withDefaults()
+
+	poolConfig, err := pgxpool.ParseConfig(settings.URL)
+	if err != nil {
+		return nil, fmt.Errorf("parse database url: %w", err)
+	}
+
+	poolConfig.MaxConns = settings.MaxConnections
+	poolConfig.MinConns = settings.MinConnections
+	poolConfig.MaxConnLifetime = settings.MaxConnectionLifetime
+	poolConfig.MaxConnIdleTime = settings.MaxConnectionIdleTime
+	poolConfig.ConnConfig.ConnectTimeout = settings.ConnectTimeout
+	poolConfig.ConnConfig.Tracer = otelpgx.NewTracer(
+		otelpgx.WithDisableSQLStatementInAttributes(),
+	)
+	return poolConfig, nil
 }
 
 // Down closes pool, ready to be wired as an application.Dependency[*pgxpool.
