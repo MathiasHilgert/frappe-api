@@ -22,6 +22,14 @@ import (
 // eventually bounds every asynchronous expectation of the suite.
 const eventually = 20 * time.Second
 
+// clockSkew tolerates the drift between the test process clock and the
+// backend's own clock (for River, the Postgres server clock) when asserting
+// a delayed job did not run early. jobs.After computes ScheduledAt from the
+// test process's clock, but the backend decides availability against its
+// own clock, which is not guaranteed to be perfectly synchronized with the
+// test host's, especially in containerized integration environments.
+const clockSkew = 50 * time.Millisecond
+
 // Factory starts a backend working every handler registered on catalog
 // (the suite registers them before calling it) and returns its enqueuer,
 // which the suite installs with catalog.Use. The backend must be stopped
@@ -112,8 +120,8 @@ func delaysWithAfter(t *testing.T, factory Factory) {
 	enqueuedAt := time.Now()
 	enqueue(context.Background(), t, factory, catalog, definition, Arguments{Key: "later"}, jobs.After(2*time.Second))
 	received.waitFor(t, 1)
-	if elapsed := time.Since(enqueuedAt); elapsed < 2*time.Second {
-		t.Fatalf("delayed job ran after %s, want at least 2s", elapsed)
+	if elapsed := time.Since(enqueuedAt); elapsed < 2*time.Second-clockSkew {
+		t.Fatalf("delayed job ran after %s, want at least 2s (tolerating %s of clock skew)", elapsed, clockSkew)
 	}
 }
 
