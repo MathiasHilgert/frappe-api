@@ -16,12 +16,6 @@ import (
 // Postgres major and minor version as local development and production.
 const containerImage = "postgres:18.1"
 
-// containerName is passed to testcontainers.WithReuseByName so that every
-// package's integration tests in one "go test" process, and every
-// process running concurrently on the same Docker host, share a single
-// container instead of each starting its own.
-const containerName = "frappe-api-test-database"
-
 // superuserUsername and superuserPassword are the credentials of the
 // container's own postgres superuser, used only to bootstrap the two
 // application roles (see roles.go) and to let pgtestdb create and drop
@@ -44,7 +38,7 @@ type serverAddress struct {
 }
 
 var (
-	sharedServerOnce  sync.Once //nolint:gochecknoglobals // one container per process is the deliberate design (see package doc).
+	sharedServerOnce  sync.Once //nolint:gochecknoglobals // one server lookup per test binary; the container is shared per "go test" invocation (see package doc).
 	sharedServer      serverAddress
 	sharedServerError error
 )
@@ -59,7 +53,7 @@ func server(ctx context.Context) (serverAddress, error) {
 	return sharedServer, sharedServerError
 }
 
-// startServer starts (or attaches to a reused) Postgres container tuned
+// startServer starts (or attaches to this "go test" invocation's) Postgres container tuned
 // for disposable test workloads and bootstraps the two application
 // roles. It is called at most once per process, by server, through
 // sharedServerOnce.
@@ -69,7 +63,7 @@ func startServer(ctx context.Context) (serverAddress, error) {
 		postgres.WithUsername(superuserUsername),
 		postgres.WithPassword(superuserPassword),
 		postgres.BasicWaitStrategies(),
-		testcontainers.WithReuseByName(containerName),
+		testcontainers.WithReuseByName(containerNameForSession(testcontainers.SessionID())),
 		// Tuned for parallel, disposable test workloads: durability
 		// guarantees a real deployment needs are worthless here, since a
 		// crash only means the next test run starts a fresh container,
@@ -79,10 +73,14 @@ func startServer(ctx context.Context) (serverAddress, error) {
 			"-c", "fsync=off",
 			"-c", "synchronous_commit=off",
 			"-c", "full_page_writes=off",
-			"-c", "max_connections=500",
+			"-c", "max_connections=500", // see testPoolMaxConnections in pool.go.
 		),
+		// The postgres module does not set PGDATA, so the image default
+		// applies: from postgres:18 on it is /var/lib/postgresql/18/docker,
+		// no longer /var/lib/postgresql/data. Mounting tmpfs at the parent
+		// /var/lib/postgresql covers PGDATA for this and later majors.
 		testcontainers.WithTmpfs(map[string]string{
-			"/var/lib/postgresql/data": "rw",
+			"/var/lib/postgresql": "rw",
 		}),
 	)
 	if err != nil {

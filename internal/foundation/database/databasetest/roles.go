@@ -31,13 +31,22 @@ const (
 	applicationRoleCapability = "NOSUPERUSER NOBYPASSRLS"
 )
 
+// roleBootstrapLockKey is the pg_advisory_xact_lock key bootstrapRoles
+// holds while it creates roles. Its value is arbitrary; it only has to be
+// the same constant in every package test binary.
+const roleBootstrapLockKey = 7_246_300_001
+
 // bootstrapRoles creates the two application roles against the shared
-// server, mirroring deployments/database/initialize.sql. It is
-// idempotent: on a reused container (testcontainers.WithReuseByName),
-// the roles may already exist from a previous "go test" run, so each
-// statement uses a DO block that only creates the role when it is
-// missing, instead of a plain CREATE ROLE that would fail on the second
-// run.
+// server, mirroring deployments/database/initialize.sql.
+//
+// Every package test binary of one "go test" invocation attaches to the
+// same container and calls bootstrapRoles concurrently, so the
+// check-then-create in createRoleIfMissing alone would race. The
+// statements therefore run in one transaction that first takes a
+// transaction-scoped advisory lock, serializing the binaries; as a second
+// line of defense, a duplicate_object or unique_violation error (see
+// isAlreadyExistsError), which only means another binary created a role
+// first, triggers one retry instead of failing.
 func bootstrapRoles(ctx context.Context, address serverAddress) error {
 	connection, err := sql.Open("pgx", superuserURL(address, superuserDatabase))
 	if err != nil {
@@ -45,17 +54,41 @@ func bootstrapRoles(ctx context.Context, address serverAddress) error {
 	}
 	defer func() { _ = connection.Close() }()
 
+	err = createRolesLocked(ctx, connection)
+	if isAlreadyExistsError(err) {
+		// The failed transaction rolled back both statements, so run
+		// them once more: the role another binary created is now
+		// visible and skipped, and the other role is still created.
+		err = createRolesLocked(ctx, connection)
+	}
+	if err != nil {
+		return fmt.Errorf("databasetest: bootstrap roles: %w", err)
+	}
+
+	return nil
+}
+
+// createRolesLocked runs both role statements in one transaction holding
+// roleBootstrapLockKey, and commits it.
+func createRolesLocked(ctx context.Context, connection *sql.DB) error {
+	transaction, err := connection.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = transaction.Rollback() }()
+
 	statements := []string{
+		fmt.Sprintf("SELECT pg_advisory_xact_lock(%d)", roleBootstrapLockKey),
 		createRoleIfMissing(migrationRoleUsername, migrationRolePassword, migrationRoleCapability),
 		createRoleIfMissing(applicationRoleUsername, applicationRolePassword, applicationRoleCapability),
 	}
 	for _, statement := range statements {
-		if _, execErr := connection.ExecContext(ctx, statement); execErr != nil {
-			return fmt.Errorf("databasetest: bootstrap role: %w", execErr)
+		if _, execErr := transaction.ExecContext(ctx, statement); execErr != nil {
+			return execErr
 		}
 	}
 
-	return nil
+	return transaction.Commit()
 }
 
 // createRoleIfMissing returns a DO block that creates a LOGIN role with

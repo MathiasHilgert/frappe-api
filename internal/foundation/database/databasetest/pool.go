@@ -21,6 +21,23 @@ import (
 // ping) may take.
 const databaseUpTimeout = 30 * time.Second
 
+// testPoolMaxConnections and testPoolMinConnections size every pool this
+// package returns. The container allows max_connections=500 (see
+// container.go); with 4 connections per pool, and at most two pools per
+// test (NewWithOwner), roughly 60 tests can hold full pools concurrently
+// across all package binaries, leaving headroom for pgtestdb's own
+// superuser connections. Production defaults (10 max) would exhaust the
+// server at a quarter of that.
+//
+// testPoolMinConnections is 0 so idle test pools hold no connections.
+// Note: database.Settings on this branch still replaces a zero
+// MinConnections with DefaultMinConnections (2); once the fix making 0 a
+// valid, explicit value lands, the pools hold no idle connections.
+const (
+	testPoolMaxConnections = int32(4)
+	testPoolMinConnections = int32(0)
+)
+
 // New returns a *pgxpool.Pool, connected to a fresh, isolated database
 // as the frappe_application role (see internal/foundation/database/doc.
 // go for the two-role model), ready for use by a parallel integration
@@ -119,7 +136,11 @@ func poolForURL(t *testing.T, connectionURL string) *pgxpool.Pool {
 	ctx, cancel := context.WithTimeout(context.Background(), databaseUpTimeout)
 	defer cancel()
 
-	pool, err := database.Up(ctx, database.Settings{URL: connectionURL})
+	pool, err := database.Up(ctx, database.Settings{
+		URL:            connectionURL,
+		MaxConnections: testPoolMaxConnections,
+		MinConnections: testPoolMinConnections,
+	})
 	if err != nil {
 		t.Fatalf("databasetest: build pool: %v", err)
 	}

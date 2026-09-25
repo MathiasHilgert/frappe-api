@@ -1,28 +1,39 @@
 //go:build integration
 
 // Package databasetest gives integration tests an isolated Postgres
-// database per test, backed by one shared, reused container per test
-// process and one migrated template database per role, so no test ever
+// database per test, backed by one shared container per "go test"
+// invocation and one migrated template database, so no test ever
 // migrates a fresh database from scratch and no test starts its own
 // container.
 //
 // # Architecture
 //
 //   - One Postgres container (testcontainers-go, pinned to the same
-//     postgres:18.1 image as compose.yaml) is started at most once per
-//     process, lazily, on first use, and reused by every package's tests
-//     in that process through testcontainers.WithReuseByName. It is tuned
+//     postgres:18.1 image as compose.yaml) is started lazily, on first
+//     use, and shared by every package test binary of the same "go test"
+//     invocation through testcontainers.WithReuseByName. The name embeds
+//     a hash of testcontainers.SessionID, which is derived from the
+//     parent "go test" process, so a concurrent second invocation gets
+//     its own container instead of attaching to one that Ryuk removes
+//     when the first invocation ends. Nothing is reused across
+//     invocations: Ryuk reaps the container after the run. It is tuned
 //     for throughput, not durability (fsync, synchronous_commit and
-//     full_page_writes disabled; PGDATA on tmpfs), since a crash simply
-//     means the next test run starts a fresh container.
+//     full_page_writes disabled; /var/lib/postgresql, which contains
+//     postgres:18's default PGDATA /var/lib/postgresql/18/docker, on
+//     tmpfs).
+//   - Each pool this package returns is capped at 4 connections (and
+//     asks for 0 idle ones) against the container's max_connections=500;
+//     see testPoolMaxConnections in pool.go for the budget.
 //   - The two application roles documented in
 //     internal/foundation/database/doc.go (frappe_migration,
-//     frappe_application) are created once against that container, from
-//     the same statements as deployments/database/initialize.sql, so
+//     frappe_application) are created once against that container, under
+//     a transaction-scoped advisory lock so concurrent package binaries
+//     cannot race, from the same statements as
+//     deployments/database/initialize.sql, so
 //     migrations that grant privileges "TO frappe_application" by name
 //     apply exactly as they do against a real deployment.
-//   - github.com/peterldowns/pgtestdb migrates one template database per
-//     role, keyed by a hash of migrations.FS's contents, then clones that
+//   - github.com/peterldowns/pgtestdb migrates one template database, as
+//     frappe_migration, keyed by a hash of migrations.FS's contents, then clones that
 //     template into a fresh, isolated database for every call to New or
 //     NewOwner. A test is never migrated directly: cloning a
 //     already-migrated template is what makes many parallel tests cheap.
