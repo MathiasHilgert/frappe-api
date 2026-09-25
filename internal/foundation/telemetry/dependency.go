@@ -13,6 +13,8 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	otellog "go.opentelemetry.io/otel/log"
+	otellogglobal "go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -56,23 +58,58 @@ type Settings struct {
 // them down again. A zero-value SDK, as produced when telemetry is
 // disabled, has nothing to shut down.
 type SDK struct {
-	tracerProvider *sdktrace.TracerProvider
-	meterProvider  *sdkmetric.MeterProvider
-	loggerProvider *sdklog.LoggerProvider
-	previousLogger *slog.Logger
+	tracerProvider            *sdktrace.TracerProvider
+	meterProvider             *sdkmetric.MeterProvider
+	loggerProvider            *sdklog.LoggerProvider
+	previousLogger            *slog.Logger
+	previousLogGlobalProvider otellog.LoggerProvider
 }
 
-// Up builds and installs the OpenTelemetry SDK as global providers,
-// ready to be wired as an application.Dependency[SDK]'s Up function. It
-// builds a resource from settings, creates OTLP-over-HTTP exporters for
-// traces, metrics and logs, installs them as the global tracer, meter
-// and logger providers together with a tracecontext-and-baggage
-// propagator, starts Go runtime metric collection, and installs a
-// fan-out default slog logger that writes every record both to the
-// console (stdout, as JSON) and into the OTLP logging pipeline so log
-// records carry trace_id. Both destinations are gated by the same
-// settings.LoggingLevel, so console output is never silenced and never
-// lost if the collector is unreachable.
+// startInstrumentation starts every OpenTelemetry contrib instrumentation
+// package that observes through meterProvider. It is a package-level
+// variable, rather than a direct call, so tests can substitute a failing
+// implementation and prove Up cleans up correctly when a step after the
+// providers are built fails. defaultStartInstrumentation is restored by
+// every test that overrides it.
+var startInstrumentation = defaultStartInstrumentation
+
+// defaultStartInstrumentation starts Go runtime metrics and host
+// (process) metrics collection against meterProvider.
+func defaultStartInstrumentation(meterProvider *sdkmetric.MeterProvider) error {
+	if err := runtimemetrics.Start(runtimemetrics.WithMeterProvider(meterProvider)); err != nil {
+		return err
+	}
+
+	// Process metrics (process CPU time, process memory usage) from the
+	// maintained go.opentelemetry.io/contrib/instrumentation/host package.
+	// Its host-level system.* metrics are dropped by the view Up
+	// configures on meterProvider. It has no open-file-descriptor metric,
+	// so that one is not emitted.
+	return host.Start(host.WithMeterProvider(meterProvider))
+}
+
+// Up builds the OpenTelemetry SDK and, only once every step below has
+// succeeded, installs it as the global providers, ready to be wired as an
+// application.Dependency[SDK]'s Up function. It builds a resource from
+// settings, creates OTLP-over-HTTP exporters for traces, metrics and
+// logs, builds the tracer, meter and logger providers, and starts Go
+// runtime and host instrumentation against the meter provider. Only after
+// all of that succeeds does it install the tracer, meter and log
+// providers as the OpenTelemetry globals (through otel.SetTracerProvider,
+// otel.SetMeterProvider and go.opentelemetry.io/otel/log/global's
+// SetLoggerProvider, so both the OTel Logs API and the bridged slog
+// default logger are covered), together with a tracecontext-and-baggage
+// propagator and a fan-out default slog logger that writes every record
+// both to the console (stdout, as JSON) and into the OTLP logging
+// pipeline so log records carry trace_id. Both destinations are gated by
+// the same settings.LoggingLevel, so console output is never silenced and
+// never lost if the collector is unreachable.
+//
+// If any step after the providers are built fails, Up shuts down every
+// provider it already built (joining any shutdown errors with the
+// original failure through errors.Join) and returns the zero SDK: no
+// provider is left reachable through the OTel globals or slog.Default,
+// and nothing orphaned needs a later Down call.
 //
 // When settings.Enabled is false, Up does nothing and the global
 // providers stay the no-op implementations OpenTelemetry installs by
@@ -138,24 +175,23 @@ func Up(ctx context.Context, settings Settings) (SDK, error) {
 		sdklog.WithProcessor(sdklog.NewBatchProcessor(logExporter)),
 	)
 
+	if err := startInstrumentation(meterProvider); err != nil {
+		return SDK{}, shutdownPartial(ctx, tracerProvider, meterProvider, loggerProvider, err)
+	}
+
+	// Every step above succeeded: only now is anything installed as a
+	// global, so a failure never leaves an orphaned provider behind one of
+	// the OTel globals or slog.Default.
+	previousLogGlobalProvider := otellogglobal.GetLoggerProvider()
+	previousLogger := slog.Default()
+
 	otel.SetTracerProvider(tracerProvider)
 	otel.SetMeterProvider(meterProvider)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
 		propagation.Baggage{},
 	))
-
-	if err := runtimemetrics.Start(runtimemetrics.WithMeterProvider(meterProvider)); err != nil {
-		return SDK{}, err
-	}
-
-	// Process metrics (process CPU time, process memory usage) from the
-	// maintained go.opentelemetry.io/contrib/instrumentation/host package.
-	// Its host-level system.* metrics are dropped by the view above. It has
-	// no open-file-descriptor metric, so that one is not emitted.
-	if err := host.Start(host.WithMeterProvider(meterProvider)); err != nil {
-		return SDK{}, err
-	}
+	otellogglobal.SetLoggerProvider(loggerProvider)
 
 	level := parseLoggingLevel(settings.LoggingLevel)
 
@@ -165,16 +201,32 @@ func Up(ctx context.Context, settings Settings) (SDK, error) {
 		otelslog.WithLoggerProvider(loggerProvider),
 	)
 	fanoutLogger := slog.New(newFanoutHandler(level, consoleHandler, otelHandler))
-
-	previousLogger := slog.Default()
 	slog.SetDefault(fanoutLogger)
 
 	return SDK{
-		tracerProvider: tracerProvider,
-		meterProvider:  meterProvider,
-		loggerProvider: loggerProvider,
-		previousLogger: previousLogger,
+		tracerProvider:            tracerProvider,
+		meterProvider:             meterProvider,
+		loggerProvider:            loggerProvider,
+		previousLogger:            previousLogger,
+		previousLogGlobalProvider: previousLogGlobalProvider,
 	}, nil
+}
+
+// shutdownPartial shuts down every provider Up already built when a later
+// step fails, before any of them was installed as a global. It joins
+// every shutdown error with cause and returns that joined error.
+func shutdownPartial(ctx context.Context, tracerProvider *sdktrace.TracerProvider, meterProvider *sdkmetric.MeterProvider, loggerProvider *sdklog.LoggerProvider, cause error) error {
+	errs := []error{cause}
+	if tracerProvider != nil {
+		errs = append(errs, tracerProvider.Shutdown(ctx))
+	}
+	if meterProvider != nil {
+		errs = append(errs, meterProvider.Shutdown(ctx))
+	}
+	if loggerProvider != nil {
+		errs = append(errs, loggerProvider.Shutdown(ctx))
+	}
+	return errors.Join(errs...)
 }
 
 // Down flushes and shuts down every provider started by Up, ready to be
@@ -199,6 +251,10 @@ func Down(ctx context.Context, value SDK) error {
 
 	if value.previousLogger != nil {
 		slog.SetDefault(value.previousLogger)
+	}
+
+	if value.previousLogGlobalProvider != nil {
+		otellogglobal.SetLoggerProvider(value.previousLogGlobalProvider)
 	}
 
 	return errors.Join(errs...)
