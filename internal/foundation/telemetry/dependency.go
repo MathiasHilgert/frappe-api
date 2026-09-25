@@ -119,14 +119,7 @@ func Up(ctx context.Context, settings Settings) (SDK, error) {
 		return SDK{}, nil
 	}
 
-	detectedResource, err := resource.Merge(
-		resource.Default(),
-		resource.NewSchemaless(
-			semconv.ServiceName(settings.ServiceName),
-			semconv.ServiceVersion(settings.ServiceVersion),
-			semconv.DeploymentEnvironmentName(settings.DeploymentEnvironment),
-		),
-	)
+	detectedResource, err := buildResource(settings)
 	if err != nil {
 		return SDK{}, err
 	}
@@ -258,4 +251,21 @@ func Down(ctx context.Context, value SDK) error {
 	}
 
 	return errors.Join(errs...)
+}
+
+// buildResource builds the OpenTelemetry resource shared by every
+// provider Up installs, merging the process/runtime attributes
+// resource.Default() detects with this service's identity: its name,
+// version (settings.ServiceVersion, always build.Version in production —
+// see internal/dependencies.telemetrySettingsFrom) and deployment
+// environment.
+func buildResource(settings Settings) (*resource.Resource, error) {
+	return resource.Merge(
+		resource.Default(),
+		resource.NewSchemaless(
+			semconv.ServiceName(settings.ServiceName),
+			semconv.ServiceVersion(settings.ServiceVersion),
+			semconv.DeploymentEnvironmentName(settings.DeploymentEnvironment),
+		),
+	)
 }

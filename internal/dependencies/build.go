@@ -28,13 +28,7 @@ func NewApplication(ctx context.Context, provider configuration.Provider) (*appl
 	// The telemetry dependency is registered first so it is up before
 	// every other hook and down after every other hook, keeping tracing,
 	// metrics and the log bridge available for the whole lifecycle.
-	telemetrySettings := telemetry.Settings{
-		Enabled:               loadedConfiguration.Telemetry.Enabled,
-		ServiceName:           loadedConfiguration.Application.Name,
-		ServiceVersion:        loadedConfiguration.Application.Version,
-		DeploymentEnvironment: loadedConfiguration.Application.Environment,
-		LoggingLevel:          loadedConfiguration.Logging.Level,
-	}
+	telemetrySettings := telemetrySettingsFrom(loadedConfiguration, build.Version)
 	application.Provide(instance, application.Dependency[telemetry.SDK]{
 		Name: telemetry.DependencyName,
 		Up: func(ctx context.Context) (telemetry.SDK, error) {
@@ -47,4 +41,21 @@ func NewApplication(ctx context.Context, provider configuration.Provider) (*appl
 	// here with instance.Use(...) as they are added.
 
 	return instance, nil
+}
+
+// telemetrySettingsFrom builds the telemetry.Settings the composition root
+// installs, given loadedConfiguration and version. version is always
+// internal/foundation/build.Version (the ldflags-stamped build identity)
+// in production code: it is a parameter, rather than a direct reference to
+// the build package, only so this mapping stays a small, pure, directly
+// testable function. There is a single source of truth for the exported
+// service.version: build.Version, never a configuration field.
+func telemetrySettingsFrom(loadedConfiguration configuration.Configuration, version string) telemetry.Settings {
+	return telemetry.Settings{
+		Enabled:               loadedConfiguration.Telemetry.Enabled,
+		ServiceName:           loadedConfiguration.Application.Name,
+		ServiceVersion:        version,
+		DeploymentEnvironment: loadedConfiguration.Application.Environment,
+		LoggingLevel:          loadedConfiguration.Logging.Level,
+	}
 }
