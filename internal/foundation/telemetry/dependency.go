@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"sync"
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/contrib/instrumentation/host"
@@ -54,13 +55,25 @@ type Settings struct {
 	Enabled bool
 }
 
-// SDK holds the providers installed by Up, so Down can flush and shut
-// them down again. A zero-value SDK, as produced when telemetry is
-// disabled, has nothing to shut down.
+// shutdowner is the minimal capability Down needs from a built provider:
+// shutting it down releases its resources and flushes any buffered data
+// (each of the three SDK provider types documents that Shutdown implies a
+// flush, which is why Down does not call ForceFlush separately). Declaring
+// it as an interface, rather than storing three concrete provider pointer
+// types on SDK, lets tests substitute a slow or failing fake to prove Down
+// shuts every provider down concurrently and joins every error, without
+// depending on a real, network-backed OTLP collector.
+type shutdowner interface {
+	Shutdown(ctx context.Context) error
+}
+
+// SDK holds the providers installed by Up, so Down can shut them down
+// again. A zero-value SDK, as produced when telemetry is disabled, has
+// nothing to shut down.
 type SDK struct {
-	tracerProvider            *sdktrace.TracerProvider
-	meterProvider             *sdkmetric.MeterProvider
-	loggerProvider            *sdklog.LoggerProvider
+	tracerProvider            shutdowner
+	meterProvider             shutdowner
+	loggerProvider            shutdowner
 	previousLogger            *slog.Logger
 	previousLogGlobalProvider otellog.LoggerProvider
 }
@@ -222,25 +235,31 @@ func shutdownPartial(ctx context.Context, tracerProvider *sdktrace.TracerProvide
 	return errors.Join(errs...)
 }
 
-// Down flushes and shuts down every provider started by Up, ready to be
-// wired as an application.Dependency[SDK]'s Down function. It joins any
-// errors encountered, and is a no-op when value is the zero SDK, which is
-// what Up returns when telemetry is disabled.
+// Down shuts down every provider started by Up, ready to be wired as an
+// application.Dependency[SDK]'s Down function. It shuts down the tracer,
+// meter and logger providers concurrently, each on its own goroutine, so a
+// slow or hung export on one signal (traces, metrics or logs) does not
+// delay shutting down the others; it joins every error encountered
+// (through errors.Join) into one returned error. No separate ForceFlush
+// call is made: each provider's Shutdown already flushes any buffered
+// data before releasing it. Down is a no-op when value is the zero SDK,
+// which is what Up returns when telemetry is disabled.
 func Down(ctx context.Context, value SDK) error {
-	var errs []error
+	providers := []shutdowner{value.tracerProvider, value.meterProvider, value.loggerProvider}
 
-	if value.tracerProvider != nil {
-		errs = append(errs, value.tracerProvider.ForceFlush(ctx))
-		errs = append(errs, value.tracerProvider.Shutdown(ctx))
+	errs := make([]error, len(providers))
+	var waitGroup sync.WaitGroup
+	for index, provider := range providers {
+		if provider == nil {
+			continue
+		}
+		waitGroup.Add(1)
+		go func(index int, provider shutdowner) {
+			defer waitGroup.Done()
+			errs[index] = provider.Shutdown(ctx)
+		}(index, provider)
 	}
-	if value.meterProvider != nil {
-		errs = append(errs, value.meterProvider.ForceFlush(ctx))
-		errs = append(errs, value.meterProvider.Shutdown(ctx))
-	}
-	if value.loggerProvider != nil {
-		errs = append(errs, value.loggerProvider.ForceFlush(ctx))
-		errs = append(errs, value.loggerProvider.Shutdown(ctx))
-	}
+	waitGroup.Wait()
 
 	if value.previousLogger != nil {
 		slog.SetDefault(value.previousLogger)
