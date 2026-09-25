@@ -29,9 +29,11 @@ const flowTenant = "acme"
 // fakeDeepL answers /v2/translate with "<target>:<text>", holding back
 // any text listed in blocked until its channel is closed.
 type fakeDeepL struct {
-	blocked  map[string]chan struct{}
-	received []string
-	mutex    sync.Mutex
+	blocked     map[string]chan struct{}
+	translated  map[string]int
+	received    []string
+	rateLimited int
+	mutex       sync.Mutex
 }
 
 func (fake *fakeDeepL) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -45,6 +47,19 @@ func (fake *fakeDeepL) ServeHTTP(writer http.ResponseWriter, request *http.Reque
 	}
 	fake.mutex.Lock()
 	fake.received = append(fake.received, body.Text...)
+	if fake.rateLimited > 0 {
+		fake.rateLimited--
+		fake.mutex.Unlock()
+		writer.Header().Set("Retry-After", "1")
+		writer.WriteHeader(http.StatusTooManyRequests)
+		return
+	}
+	if fake.translated == nil {
+		fake.translated = map[string]int{}
+	}
+	for _, text := range body.Text {
+		fake.translated[text]++
+	}
 	fake.mutex.Unlock()
 	type translation struct {
 		Text string `json:"text"`
@@ -66,11 +81,18 @@ type translationFlow struct {
 	texts *localizedtext.FieldTexts
 }
 
-func newTranslationFlow(t *testing.T, fake *fakeDeepL) translationFlow {
+func newTranslationFlow(t *testing.T, fake *fakeDeepL, mutate ...func(*configuration.Configuration)) translationFlow {
 	t.Helper()
 	server := httptest.NewServer(fake)
 	t.Cleanup(server.Close)
-	pool := databasetest.New(t)
+	owner, pool := databasetest.NewWithOwner(t)
+	// The declared field's table, so the sweeps find its foreign key.
+	if _, err := owner.Exec(context.Background(), `CREATE TABLE dishes (
+		id uuid PRIMARY KEY,
+		description_text_id uuid REFERENCES localized_texts (id)
+	)`); err != nil {
+		t.Fatalf("create dishes: %v", err)
+	}
 	instance := application.New(application.WithHookTimeout(10 * time.Second))
 	poolHandle := application.Provide(instance, application.Dependency[*pgxpool.Pool]{
 		Name: "database",
@@ -83,6 +105,9 @@ func newTranslationFlow(t *testing.T, fake *fakeDeepL) translationFlow {
 			APIKey: "flow-key:fx", BaseURL: server.URL, EnglishVariant: "EN-GB", Timeout: 10 * time.Second, BatchSize: 50,
 		},
 		LocalizedTexts: configuration.LocalizedTexts{ExpiredSweepInterval: time.Hour, OrphanSweepInterval: time.Hour},
+	}
+	for _, change := range mutate {
+		change(&loaded)
 	}
 	_, service, err := provideInternationalization(loaded, catalog.Module(localizedTextsJobsModule), poolHandle)
 	if err != nil {
@@ -263,4 +288,60 @@ func (fake *fakeDeepL) saw(text string) bool {
 		}
 	}
 	return false
+}
+
+func (fake *fakeDeepL) translations(text string) int {
+	fake.mutex.Lock()
+	defer fake.mutex.Unlock()
+	return fake.translated[text]
+}
+
+// TestIntegrationRateLimitedTranslationsAreNotRequestedTwice keeps DeepL
+// rate limiting across several expired sweep ticks (a one second pending
+// timeout and sweep interval): the snoozed jobs lease their texts, so
+// after recovery each text is translated exactly once per locale.
+func TestIntegrationRateLimitedTranslationsAreNotRequestedTwice(t *testing.T) {
+	english, french := i18n.MustParseLocale("en"), i18n.MustParseLocale("fr")
+	fake := &fakeDeepL{rateLimited: 12}
+	flow := newTranslationFlow(t, fake, func(loaded *configuration.Configuration) {
+		loaded.LocalizedTexts.ExpiredSweepInterval = time.Second
+		loaded.LocalizedTexts.PendingTimeout = time.Second
+	})
+	// The sweep must already tick while DeepL rate limits.
+	flow.sweeps(t, 1)
+	id := flow.create(t, "Tamal")
+	flow.eventually(t, id, english, machineCurrent("EN-GB:Tamal"))
+	flow.eventually(t, id, french, machineCurrent("FR:Tamal"))
+	if sweeps := flow.sweeps(t, 4); sweeps < 4 {
+		t.Fatalf("expired sweeps = %d, want several during the test", sweeps)
+	}
+	flow.idle(t)
+	if got := fake.translations("Tamal"); got != 2 {
+		t.Fatalf("successful DeepL translations of the text = %d, want 2 (en and fr once each)", got)
+	}
+	var jobCount int
+	if err := flow.pool.QueryRow(context.Background(), "SELECT count(*) FROM river_job WHERE kind = 'localized_texts.machine_translate'").Scan(&jobCount); err != nil {
+		t.Fatal(err)
+	}
+	if jobCount != 2 {
+		t.Fatalf("translate jobs = %d, want 2 (the sweep must not request leased texts again)", jobCount)
+	}
+}
+
+// sweeps waits until at least minimum expired sweeps completed and
+// returns how many did.
+func (flow translationFlow) sweeps(t *testing.T, minimum int) int {
+	t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		var count int
+		if err := flow.pool.QueryRow(context.Background(), `SELECT count(*) FROM river_job
+			WHERE kind = 'localized_texts.request_expired_translations' AND state = 'completed'`).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		if count >= minimum || time.Now().After(deadline) {
+			return count
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 }

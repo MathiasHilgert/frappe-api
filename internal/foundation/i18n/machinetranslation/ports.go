@@ -15,8 +15,10 @@ import (
 type Translator interface {
 	// Translate translates every text of request, keeping order: the
 	// result has exactly one translation per text. It must classify
-	// provider failures with RateLimitedError, ErrQuotaExceeded and
-	// PermanentError; any other error is treated as transient.
+	// provider failures with RateLimitedError, ErrQuotaExceeded,
+	// ErrUnauthorized,
+	// ErrPayloadTooLarge and PermanentError; any other error is treated
+	// as transient.
 	Translate(ctx context.Context, request Request) ([]string, error)
 }
 
@@ -36,6 +38,15 @@ type Request struct {
 // control limit) is exhausted: retrying before the period renews only
 // wastes attempts, so the job is cancelled.
 var ErrQuotaExceeded = errors.New("machinetranslation: provider quota exceeded")
+
+// ErrUnauthorized reports rejected credentials: every translation pauses
+// like on an exhausted quota, since no request can succeed.
+var ErrUnauthorized = errors.New("machinetranslation: provider rejected the credentials")
+
+// ErrPayloadTooLarge reports a request over the provider's size limit:
+// the job splits the batch and tries again, and a single text still too
+// large is marked failed.
+var ErrPayloadTooLarge = errors.New("machinetranslation: request payload too large")
 
 // RateLimitedError reports too many requests; the job is snoozed for
 // RetryAfter (a default when the provider sent none).
@@ -67,6 +78,8 @@ type Texts interface {
 	Get(ctx context.Context, id localizedtext.ID) (localizedtext.Text, error)
 	SetMachineTranslation(ctx context.Context, id localizedtext.ID, locale i18n.Locale, value, sourceHash string) (bool, error)
 	RequestExpired(ctx context.Context, limit int) (int, error)
+	LeasePending(ctx context.Context, locale i18n.Locale, ids []localizedtext.ID, until time.Time) error
+	MarkFailed(ctx context.Context, locale i18n.Locale, ids []localizedtext.ID) error
 	DeleteOrphans(ctx context.Context, olderThan time.Duration, limit int) (int64, error)
 	Tenants(ctx context.Context) ([]string, error)
 }

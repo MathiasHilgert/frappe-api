@@ -56,7 +56,7 @@ func provideInternationalization(loaded configuration.Configuration, module *job
 	if err != nil {
 		return nil, nil, fmt.Errorf("machine translation: %w", err)
 	}
-	service, err := provideLocalizedTexts(catalog, machine.Requester())
+	service, err := provideLocalizedTexts(catalog, machine.Requester(), loaded.LocalizedTexts)
 	if err != nil {
 		return nil, nil, fmt.Errorf("localized texts: %w", err)
 	}
@@ -68,11 +68,13 @@ func provideInternationalization(loaded configuration.Configuration, module *job
 // translatable strings) on the Postgres store, which always joins the
 // caller's transaction and so needs no pool of its own. A nil requester
 // disables machine translation requests.
-func provideLocalizedTexts(catalog *i18n.Catalog, requester localizedtext.TranslationRequester) (*localizedtext.Service, error) {
+func provideLocalizedTexts(catalog *i18n.Catalog, requester localizedtext.TranslationRequester, settings configuration.LocalizedTexts) (*localizedtext.Service, error) {
 	return localizedtext.NewService(localizedtext.Settings{
-		Store:     localizedtextpostgres.NewStore(),
-		Locales:   catalog,
-		Requester: requester,
+		Store:              localizedtextpostgres.NewStore(),
+		Locales:            catalog,
+		Requester:          requester,
+		PendingTimeout:     settings.PendingTimeout,
+		MaxRequestAttempts: settings.MaxRequestAttempts,
 	})
 }
 

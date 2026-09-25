@@ -14,6 +14,7 @@ func deepLConfiguration() configuration.Configuration {
 		EnglishVariant: "EN-US",
 		Timeout:        30 * time.Second,
 		BatchSize:      50,
+		QuotaPause:     time.Hour,
 	}
 	return loadedConfiguration
 }
@@ -39,6 +40,7 @@ func TestValidateRejectsInvalidDeepLSettings(t *testing.T) {
 		"DEEPL_TIMEOUT":         func(loaded *configuration.Configuration) { loaded.DeepL.Timeout = 0 },
 		"DEEPL_BATCH_SIZE":      func(loaded *configuration.Configuration) { loaded.DeepL.BatchSize = 51 },
 		"DEEPL_BASE_URL":        func(loaded *configuration.Configuration) { loaded.DeepL.BaseURL = "api.deepl.com" },
+		"DEEPL_QUOTA_PAUSE":     func(loaded *configuration.Configuration) { loaded.DeepL.QuotaPause = 0 },
 	}
 	for variable, mutate := range cases {
 		t.Run(variable, func(t *testing.T) {
@@ -55,6 +57,8 @@ func TestValidateRejectsNegativeLocalizedTextSweepSettings(t *testing.T) {
 		"LOCALIZED_TEXTS_ORPHAN_SWEEP_INTERVAL":  func(loaded *configuration.Configuration) { loaded.LocalizedTexts.OrphanSweepInterval = -1 },
 		"LOCALIZED_TEXTS_ORPHAN_MINIMUM_AGE":     func(loaded *configuration.Configuration) { loaded.LocalizedTexts.OrphanMinimumAge = -1 },
 		"LOCALIZED_TEXTS_SWEEP_LIMIT":            func(loaded *configuration.Configuration) { loaded.LocalizedTexts.SweepLimit = -1 },
+		"LOCALIZED_TEXTS_PENDING_TIMEOUT":        func(loaded *configuration.Configuration) { loaded.LocalizedTexts.PendingTimeout = -1 },
+		"LOCALIZED_TEXTS_MAX_REQUEST_ATTEMPTS":   func(loaded *configuration.Configuration) { loaded.LocalizedTexts.MaxRequestAttempts = -1 },
 	}
 	for variable, mutate := range cases {
 		t.Run(variable, func(t *testing.T) {

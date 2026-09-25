@@ -27,6 +27,8 @@ type fakeTexts struct {
 	texts         map[localizedtext.ID]localizedtext.Text
 	stored        map[localizedtext.ID]string
 	orphanErrors  map[string]error
+	leased        map[localizedtext.ID]time.Time
+	failed        map[localizedtext.ID]bool
 	tenantsSeen   []string
 	tenants       []string
 	expiredCalled int
@@ -35,7 +37,10 @@ type fakeTexts struct {
 }
 
 func newFakeTexts(texts ...localizedtext.Text) *fakeTexts {
-	fake := &fakeTexts{texts: map[localizedtext.ID]localizedtext.Text{}, stored: map[localizedtext.ID]string{}}
+	fake := &fakeTexts{
+		texts: map[localizedtext.ID]localizedtext.Text{}, stored: map[localizedtext.ID]string{},
+		leased: map[localizedtext.ID]time.Time{}, failed: map[localizedtext.ID]bool{},
+	}
 	for _, text := range texts {
 		fake.texts[text.ID] = text
 	}
@@ -71,6 +76,20 @@ func (fake *fakeTexts) DeleteOrphans(ctx context.Context, _ time.Duration, _ int
 	return 0, fake.orphanErrors[tenantOf(ctx)]
 }
 
+func (fake *fakeTexts) LeasePending(_ context.Context, _ i18n.Locale, ids []localizedtext.ID, until time.Time) error {
+	for _, id := range ids {
+		fake.leased[id] = until
+	}
+	return nil
+}
+
+func (fake *fakeTexts) MarkFailed(_ context.Context, _ i18n.Locale, ids []localizedtext.ID) error {
+	for _, id := range ids {
+		fake.failed[id] = true
+	}
+	return nil
+}
+
 func (fake *fakeTexts) Tenants(context.Context) ([]string, error) {
 	return fake.tenants, nil
 }
@@ -93,6 +112,7 @@ func (fake *fakeTexts) transactor(ctx context.Context, tenant string, work func(
 // fakeTranslator prefixes every text with its target, or fails.
 type fakeTranslator struct {
 	failure  error
+	fail     func(request machinetranslation.Request) error
 	requests []machinetranslation.Request
 }
 
@@ -100,6 +120,11 @@ func (translator *fakeTranslator) Translate(_ context.Context, request machinetr
 	translator.requests = append(translator.requests, request)
 	if translator.failure != nil {
 		return nil, translator.failure
+	}
+	if translator.fail != nil {
+		if err := translator.fail(request); err != nil {
+			return nil, err
+		}
 	}
 	translated := make([]string, len(request.Texts))
 	for index, text := range request.Texts {
@@ -274,8 +299,12 @@ func TestTranslateMapsProviderFailures(t *testing.T) {
 			machinetranslation.RateLimitedError{RetryAfter: 7 * time.Second},
 			func(err error) bool { duration, ok := jobs.SnoozeDuration(err); return ok && duration == 7*time.Second },
 		},
-		"quota exceeded cancels": {
-			machinetranslation.ErrQuotaExceeded, jobs.IsCancel,
+		"quota exceeded snoozes while the circuit is open": {
+			machinetranslation.ErrQuotaExceeded,
+			func(err error) bool {
+				duration, ok := jobs.SnoozeDuration(err)
+				return ok && duration == machinetranslation.DefaultQuotaPause
+			},
 		},
 		"permanent cancels": {
 			machinetranslation.PermanentError{Cause: errors.New("bad key")}, jobs.IsCancel,

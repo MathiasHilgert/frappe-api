@@ -99,5 +99,6 @@ func provideMachineTranslation(loaded configuration.Configuration, module *jobs.
 		OrphanSweepInterval:  sweeps.OrphanSweepInterval,
 		OrphanMinimumAge:     sweeps.OrphanMinimumAge,
 		SweepLimit:           sweeps.SweepLimit,
+		QuotaPause:           loaded.DeepL.QuotaPause,
 	})
 }

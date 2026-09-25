@@ -29,6 +29,9 @@ type DeepL struct {
 	Timeout time.Duration `env:"TIMEOUT" envDefault:"30s"`
 	// BatchSize is the maximum number of texts per job and request.
 	BatchSize int `env:"BATCH_SIZE" envDefault:"50"`
+	// QuotaPause is how long all machine translation pauses after DeepL
+	// reported an exhausted quota (456) or rejected the key (401, 403).
+	QuotaPause time.Duration `env:"QUOTA_PAUSE" envDefault:"1h"`
 }
 
 // LocalizedTexts holds the periodic localized text sweeps. Zero values
@@ -44,6 +47,13 @@ type LocalizedTexts struct {
 	OrphanMinimumAge time.Duration `env:"ORPHAN_MINIMUM_AGE" envDefault:"24h" validate:"min=0"`
 	// SweepLimit bounds the rows one sweep handles per tenant.
 	SweepLimit int `env:"SWEEP_LIMIT" envDefault:"500" validate:"min=0"`
+	// PendingTimeout is how long a requested machine translation may stay
+	// pending (unleased) before reads and the expired sweep request it
+	// again.
+	PendingTimeout time.Duration `env:"PENDING_TIMEOUT" envDefault:"15m" validate:"min=0"`
+	// MaxRequestAttempts is how many requests a machine translation gets
+	// before the expired sweep marks it failed.
+	MaxRequestAttempts int `env:"MAX_REQUEST_ATTEMPTS" envDefault:"5" validate:"min=0"`
 }
 
 // validateDeepL checks the DEEPL_* settings while an API key is set. It
@@ -62,8 +72,10 @@ func validateDeepL(deepL DeepL) []Violation {
 	if !slices.Contains([]string{"", "prefer_more", "prefer_less"}, deepL.Formality) {
 		violations = append(violations, Violation{Variable: "DEEPL_FORMALITY", Rule: "oneof=prefer_more prefer_less"})
 	}
-	if deepL.Timeout <= 0 {
-		violations = append(violations, Violation{Variable: "DEEPL_TIMEOUT", Rule: "gt"})
+	for variable, duration := range map[string]time.Duration{"DEEPL_TIMEOUT": deepL.Timeout, "DEEPL_QUOTA_PAUSE": deepL.QuotaPause} {
+		if duration <= 0 {
+			violations = append(violations, Violation{Variable: variable, Rule: "gt"})
+		}
 	}
 	if deepL.BatchSize < 1 || deepL.BatchSize > maximumDeepLBatchSize {
 		violations = append(violations, Violation{Variable: "DEEPL_BATCH_SIZE", Rule: "between_1_and_50"})

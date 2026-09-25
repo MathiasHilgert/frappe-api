@@ -237,7 +237,7 @@ Options: `cache.Global()` (not tenant-owned), `cache.Version(n)` (bump when the 
 
 User-entered strings that need translations (a dish description) never get a per-entity translation table. The entity holds `<field>_text_id uuid REFERENCES localized_texts (id)`, and `internal/foundation/i18n/localizedtext` manages the text:
 
-- `localized_texts` holds the source value, locale, SHA-256 `source_hash` and an optional machine translation `context`; `localized_text_translations` holds one row per locale with `origin` (`manual`/`machine`), `status` (`current`/`stale`/`pending`) and the `source_hash` it was made for. `locales` lists the supported locales (a new locale needs a migration).
+- `localized_texts` holds the source value, locale, SHA-256 `source_hash` and an optional machine translation `context`; `localized_text_translations` holds one row per locale with `origin` (`manual`/`machine`), `status` (`current`/`stale`/`pending`/`failed`) and the `source_hash` it was made for. `locales` lists the supported locales (a new locale needs a migration).
 - Changing a source marks older translations stale. Manual ones stay manual and are only flagged; machine ones are requested again. A machine translation never overwrites a manual one and is discarded if the source changed meanwhile.
 - Reads resolve the locale through the catalog and fall back to the source. `LocalizeMany` loads a whole list in one query.
 - RLS: `tenant_id` comes from the transaction's `application.tenant`. Global texts (`tenant_id` NULL) are readable by every tenant and written only by `frappe_migration`.
@@ -266,16 +266,17 @@ err = descriptions.Delete(ctx, textID)                         // with the dish,
 
 `internal/foundation/i18n/machinetranslation` holds the `Translator` port and the River jobs (module `localized_texts`); `machinetranslation/deepl` is the adapter. DeepL is never called inside an HTTP request:
 
-1. A write or read that needs a translation records a pending row and, in the same transaction, enqueues `localized_texts.machine_translate` with the text IDs and source hashes, one job per locale, context and batch (`DEEPL_BATCH_SIZE`). The job carries the transaction's `application.tenant` (`jobs.Tenancy`).
-2. The job loads the texts in a transaction for that tenant, skips texts that were deleted, changed since the request, translated manually or are already current, calls DeepL outside any transaction (one request per source locale and context: the text's own, else the field default) and stores each result with `SetMachineTranslation`, which discards it if the source changed meanwhile or a manual translation exists.
-3. `429`/`529` snooze the job for `Retry-After`; `456` (quota) and other `4xx` cancel it with an error log (the expired sweep requests the texts again later); `5xx` and network errors retry with backoff.
-4. `localized_texts.request_expired_translations` requests lost pending translations again, and `localized_texts.delete_orphan_texts` deletes unreferenced texts, once per tenant. Tenants are listed through `localized_text_tenants()`, a `SECURITY DEFINER` function that returns tenant identifiers only (no tenant model exists yet).
+1. A write or read that needs a translation records a pending row and, in the same transaction, enqueues `localized_texts.machine_translate` with the text IDs and source hashes, one job per locale, context and batch (`DEEPL_BATCH_SIZE`). The job carries the transaction's `application.tenant` (`jobs.Tenancy`). The pending row is the deduplication: a pending translation is not requested again until its request expires.
+2. The job loads the texts in a transaction for that tenant, skips texts that were deleted, changed since the request, translated manually or are already current, and leases the rest: their `requested_at` moves past the current attempt, and past every snooze or retry, so neither reads nor the expired sweep request a text a live job still works on (no duplicate billing).
+3. It calls DeepL outside any transaction, one request per source locale and context (the text's own, else the field default), split so the JSON encoded texts and context stay under 100 KiB (DeepL's limit is 128 KiB). It stores each result with `SetMachineTranslation`, which discards it if the source changed meanwhile or a manual translation exists.
+4. `429`/`529` snooze the job for `Retry-After`. `456` (quota) and `401`/`403` (key) pause all machine translation of the process for `DEEPL_QUOTA_PAUSE` (logged and counted once per pause, not per call) and snooze the jobs until then. `413` splits the batch; a single text still too large, or one DeepL rejects (other `4xx`), is marked `failed`. `5xx` and network errors retry with backoff (5 attempts).
+5. `localized_texts.request_expired_translations` requests lost pending translations again, and `localized_texts.delete_orphan_texts` deletes unreferenced texts, once per tenant. A translation requested `LOCALIZED_TEXTS_MAX_REQUEST_ATTEMPTS` times is marked `failed` instead. A `failed` translation is not requested again until its source changes. Tenants come from `localized_text_tenants()`, a `SECURITY DEFINER` function over a tenant directory that a trigger fills as texts are created; it returns tenant identifiers only, so the application role can list tenant identifiers and nothing else about other tenants (no tenant model exists yet).
 
 Global texts (`tenant_id` NULL) are never machine translated: they are not marked pending, and a job without a tenant is cancelled. Without `DEEPL_API_KEY` machine translation is disabled at startup (logged): nothing is requested or marked pending, reads fall back to the source, queued translation jobs are cancelled, and the orphan sweep still runs.
 
-DeepL codes: `en` is sent as `DEEPL_ENGLISH_VARIANT`; tags with a region or script keep it (`ES-419`, `PT-BR`, `ZH-HANS`); others use the language (`FR`, `DE`, `JA`, `KO`, `RU`, `IT`). The source language is sent as the language only (`ES`). The context is sent as DeepL `context`, which is not translated and not billed.
+DeepL codes come from an allowlist: `en` is `EN-GB` or `EN-US` when the tag says so, else `DEEPL_ENGLISH_VARIANT`; `pt` is `PT-BR` or `PT-PT`; `es` is `ES-419` or `ES`; `zh` is `ZH-HANT` for Traditional Chinese, else `ZH-HANS`; everything else is the language (`fr-CA` is `FR`). The source language is sent as the language only (`ES`). The context is sent as DeepL `context`, which is not translated and not billed.
 
-Metrics: `frappe.deepl.characters.sent` and `frappe.deepl.characters.billed` (by `target`), `frappe.deepl.requests` (by `target`, `outcome`), `frappe.deepl.request.duration`, `frappe.machinetranslation.translations` (by `outcome`: `stored`, `discarded_source_changed`, `skipped_*`), `frappe.machinetranslation.failures` (by `kind`) and `frappe.machinetranslation.swept` (by `sweep`). Spans: `machinetranslation translate` around each DeepL call, plus the otelhttp client span. The API key never appears in logs, errors or spans.
+Metrics: `frappe.deepl.characters.sent` (by `target`, `outcome`: only `success` is billed) and `frappe.deepl.characters.billed` (by `target`), `frappe.deepl.requests` (by `target`, `outcome`), `frappe.deepl.request.duration`, `frappe.machinetranslation.translations` (by `outcome`: `stored`, `discarded_source_changed`, `skipped_*`, `failed_*`), `frappe.machinetranslation.failures` (by `kind`), `frappe.machinetranslation.circuit.transitions` (by `state`, `reason`) and `frappe.machinetranslation.swept` (by `sweep`). Spans: `machinetranslation translate` around each DeepL call, plus the otelhttp client span. The API key never appears in logs, errors or spans.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
@@ -284,11 +285,14 @@ Metrics: `frappe.deepl.characters.sent` and `frappe.deepl.characters.billed` (by
 | `DEEPL_ENGLISH_VARIANT` | `EN-US` | `EN-US` or `EN-GB`. |
 | `DEEPL_FORMALITY` | empty | Empty, `prefer_more` or `prefer_less` (falls back to the default where a language has no formality). |
 | `DEEPL_TIMEOUT` | `30s` | Bound on one DeepL request. |
-| `DEEPL_BATCH_SIZE` | `50` | Texts per job and request (1 to 50; DeepL limits a request to 128 KiB). |
+| `DEEPL_BATCH_SIZE` | `50` | Texts per job and request (1 to 50); requests are also split by size. |
+| `DEEPL_QUOTA_PAUSE` | `1h` | How long machine translation pauses after an exhausted quota or rejected key. |
 | `LOCALIZED_TEXTS_EXPIRED_SWEEP_INTERVAL` | `5m` | How often lost translation requests are requested again. |
 | `LOCALIZED_TEXTS_ORPHAN_SWEEP_INTERVAL` | `1h` | How often unreferenced texts are deleted. |
 | `LOCALIZED_TEXTS_ORPHAN_MINIMUM_AGE` | `24h` | How long an unreferenced text is kept. |
 | `LOCALIZED_TEXTS_SWEEP_LIMIT` | `500` | Rows one sweep handles per tenant. |
+| `LOCALIZED_TEXTS_PENDING_TIMEOUT` | `15m` | How long an unleased pending translation waits before it is requested again. |
+| `LOCALIZED_TEXTS_MAX_REQUEST_ATTEMPTS` | `5` | Requests before a translation is marked `failed`. |
 
 ## Testing
 

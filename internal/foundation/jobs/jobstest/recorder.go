@@ -123,6 +123,11 @@ func Attempt(attempt int) RunOption {
 	return func(delivery *jobs.Delivery) { delivery.Attempt = attempt }
 }
 
+// MaxAttempts runs the job with maximum attempts.
+func MaxAttempts(maximum int) RunOption {
+	return func(delivery *jobs.Delivery) { delivery.MaxAttempts = maximum }
+}
+
 // Run executes the handler registered for definition once, synchronously,
 // with args, and returns its error. It fails the test when no handler is
 // registered or args cannot be encoded.

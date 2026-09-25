@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"sync"
 	"time"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 
@@ -24,6 +26,12 @@ const (
 	DefaultOrphanSweepInterval  = time.Hour
 	DefaultOrphanMinimumAge     = 24 * time.Hour
 	DefaultSweepLimit           = 500
+	// DefaultQuotaPause is how long every translation pauses after the
+	// provider reported an exhausted quota or rejected the credentials.
+	DefaultQuotaPause = time.Hour
+	// DefaultMaxRequestBytes bounds the JSON encoded texts and context of
+	// one provider request, well under DeepL's 128 KiB request limit.
+	DefaultMaxRequestBytes = 100 << 10
 )
 
 // Queue is the queue translation jobs run in, apart from other jobs so a
@@ -31,10 +39,20 @@ const (
 const Queue = "machine_translation"
 
 const (
-	instrumentationName  = "github.com/MathiasHilgert/frappe-api/internal/foundation/i18n/machinetranslation"
-	translateMaxAttempts = 10
+	instrumentationName = "github.com/MathiasHilgert/frappe-api/internal/foundation/i18n/machinetranslation"
+	// translateMaxAttempts bounds retries of transient failures: River
+	// retries after attempt^4 seconds, so five attempts span about 16
+	// minutes. After the last one the lease lapses, the expired sweep
+	// requests the texts again and, after MaxRequestAttempts requests,
+	// marks them failed.
+	translateMaxAttempts = 5
 	translateTimeout     = 2 * time.Minute
-	sweepTimeout         = 5 * time.Minute
+	// leaseMargin is added to every lease so a job that runs a little
+	// late is never mistaken for a lost one.
+	leaseMargin = time.Minute
+	// requestOverhead is the JSON of a request besides texts and context.
+	requestOverhead = 256
+	sweepTimeout    = 5 * time.Minute
 )
 
 var (
@@ -52,6 +70,8 @@ type Settings struct {
 	Transactor Transactor
 	// Logger defaults to slog.Default().
 	Logger *slog.Logger
+	// Now is the clock; nil means time.Now.
+	Now func() time.Time
 	// BatchSize is the maximum number of texts per job and provider
 	// request. Zero means DefaultBatchSize.
 	BatchSize int
@@ -68,6 +88,12 @@ type Settings struct {
 	// SweepLimit bounds the rows one sweep handles per tenant. Zero means
 	// DefaultSweepLimit.
 	SweepLimit int
+	// QuotaPause is how long all translation pauses after an exhausted
+	// quota or rejected credentials. Zero means DefaultQuotaPause.
+	QuotaPause time.Duration
+	// MaxRequestBytes bounds one provider request (JSON encoded texts and
+	// context). Zero means DefaultMaxRequestBytes.
+	MaxRequestBytes int
 }
 
 // TextReference is one text to translate, with the source hash it was
@@ -97,6 +123,7 @@ type MachineTranslation struct {
 	requestExpired *jobs.Definition[SweepArguments]
 	deleteOrphans  *jobs.Definition[SweepArguments]
 	tracer         trace.Tracer
+	circuit        *circuit
 	translations   metric.Int64Counter
 	failures       metric.Int64Counter
 	swept          metric.Int64Counter
@@ -124,16 +151,20 @@ func New(module *jobs.Module, settings Settings) (*MachineTranslation, error) {
 		requestExpired: jobs.Define[SweepArguments](module, "request_expired_translations", jobs.WithTimeout(sweepTimeout)),
 		deleteOrphans:  jobs.Define[SweepArguments](module, "delete_orphan_texts", jobs.WithTimeout(sweepTimeout)),
 	}
-	var errs [3]error
+	var errs [4]error
 	machine.translations, errs[0] = meter.Int64Counter("frappe.machinetranslation.translations",
 		metric.WithDescription("Requested machine translations by outcome (stored, discarded because the source changed, skipped)."))
 	machine.failures, errs[1] = meter.Int64Counter("frappe.machinetranslation.failures",
 		metric.WithDescription("Translation job failures by kind (rate_limited, quota_exceeded, permanent, transient, no_tenant, disabled)."))
 	machine.swept, errs[2] = meter.Int64Counter("frappe.machinetranslation.swept",
 		metric.WithDescription("Rows handled by the periodic sweeps, by sweep (expired, orphans)."))
+	var transitions metric.Int64Counter
+	transitions, errs[3] = meter.Int64Counter("frappe.machinetranslation.circuit.transitions",
+		metric.WithDescription("Machine translation pauses (state open, by reason) and resumptions (state closed)."))
 	if err := errors.Join(errs[:]...); err != nil {
 		return nil, fmt.Errorf("machinetranslation: create metrics: %w", err)
 	}
+	machine.circuit = &circuit{logger: settings.Logger, transitions: transitions}
 	return machine, nil
 }
 
@@ -146,6 +177,11 @@ func applyDefaults(settings *Settings) {
 	settings.OrphanSweepInterval = cmp.Or(max(settings.OrphanSweepInterval, 0), DefaultOrphanSweepInterval)
 	settings.OrphanMinimumAge = cmp.Or(max(settings.OrphanMinimumAge, 0), DefaultOrphanMinimumAge)
 	settings.SweepLimit = cmp.Or(max(settings.SweepLimit, 0), DefaultSweepLimit)
+	settings.QuotaPause = cmp.Or(max(settings.QuotaPause, 0), DefaultQuotaPause)
+	settings.MaxRequestBytes = cmp.Or(max(settings.MaxRequestBytes, 0), DefaultMaxRequestBytes)
+	if settings.Now == nil {
+		settings.Now = time.Now
+	}
 }
 
 // TranslateJob returns the translate job definition (tests run it).
@@ -237,4 +273,51 @@ func (requester requester) RequestTranslations(ctx context.Context, requests []l
 		}
 	}
 	return nil
+}
+
+// circuit pauses every translation of the process after the provider
+// reported an exhausted quota or rejected the credentials, so jobs stop
+// calling it until the pause ends. It logs and counts state changes only,
+// never each call.
+type circuit struct {
+	logger      *slog.Logger
+	transitions metric.Int64Counter
+	pausedUntil time.Time
+	mutex       sync.Mutex
+}
+
+// paused returns when the current pause ends, if one is running at now.
+func (breaker *circuit) paused(now time.Time) (time.Time, bool) {
+	breaker.mutex.Lock()
+	defer breaker.mutex.Unlock()
+	return breaker.pausedUntil, now.Before(breaker.pausedUntil)
+}
+
+// open pauses translation until until, logging only when it was not
+// already paused.
+func (breaker *circuit) open(ctx context.Context, now, until time.Time, reason string, cause error) {
+	breaker.mutex.Lock()
+	defer breaker.mutex.Unlock()
+	if until.After(breaker.pausedUntil) {
+		wasOpen := now.Before(breaker.pausedUntil)
+		breaker.pausedUntil = until
+		if wasOpen {
+			return
+		}
+		breaker.transitions.Add(ctx, 1, metric.WithAttributes(attribute.String("state", "open"), attribute.String("reason", reason)))
+		breaker.logger.ErrorContext(ctx, "machine translation paused: the provider refused further requests",
+			slog.String("reason", reason), slog.Time("until", until), slog.Any("error", cause))
+	}
+}
+
+// succeeded closes a pause that has ended, logging once.
+func (breaker *circuit) succeeded(ctx context.Context) {
+	breaker.mutex.Lock()
+	defer breaker.mutex.Unlock()
+	if breaker.pausedUntil.IsZero() {
+		return
+	}
+	breaker.pausedUntil = time.Time{}
+	breaker.transitions.Add(ctx, 1, metric.WithAttributes(attribute.String("state", "closed")))
+	breaker.logger.InfoContext(ctx, "machine translation resumed")
 }
