@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humago"
 	"github.com/danielgtaylor/huma/v2/humatest"
 
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/rest"
@@ -37,7 +39,9 @@ type testAPI struct {
 
 func newTestAPI(t *testing.T) testAPI {
 	t.Helper()
-	_, api := humatest.New(t)
+	// The go 1.22 ServeMux adapter, like the real server, so {id...}
+	// wildcards route as in production.
+	api := humatest.Wrap(t, humago.New(http.NewServeMux(), huma.DefaultConfig("geo", "0.0.0")))
 	cursors, err := rest.NewCursorCodec(bytes.Repeat([]byte("s"), rest.MinimumCursorSecretBytes))
 	if err != nil {
 		t.Fatalf("cursor codec: %v", err)

@@ -6,13 +6,15 @@ import (
 )
 
 // City is the city resource.
+//
+//nolint:govet // fieldalignment: field order is the JSON property order, "object" first.
 type City struct {
 	Object      string                               `json:"object" enum:"city" doc:"Always \"city\"." example:"city"`
 	ID          string                               `json:"id" doc:"GeoNames id." example:"3860259"`
 	Name        string                               `json:"name" doc:"Name in the response language (Content-Language), else the city's own name." example:"Cordoba"`
 	Country     rest.Expandable[Country]             `json:"country" doc:"Country id, or the country when expanded."`
 	Subdivision rest.NullableExpandable[Subdivision] `json:"subdivision" doc:"Subdivision id, the subdivision when expanded, or null when unknown."`
-	TimeZone    string                               `json:"time_zone" doc:"IANA time zone id." example:"America/Argentina/Cordoba"`
+	TimeZone    rest.Expandable[TimeZone]            `json:"time_zone" doc:"IANA time zone id, or the time zone when expanded."`
 	Population  int64                                `json:"population" doc:"Inhabitants, per GeoNames." example:"1428214"`
 	Latitude    float64                              `json:"latitude" doc:"WGS 84 latitude in degrees." example:"-31.4135"`
 	Longitude   float64                              `json:"longitude" doc:"WGS 84 longitude in degrees." example:"-64.18105"`
@@ -25,7 +27,7 @@ func (City) from(city domain.City) City {
 		ID:         handler{}.placeIDText(city.ID),
 		Name:       city.Name,
 		Country:    rest.ExpandableID[Country](city.CountryCode),
-		TimeZone:   city.TimeZoneID,
+		TimeZone:   rest.ExpandableID[TimeZone](city.TimeZoneID),
 		Population: city.Population,
 		Latitude:   city.Latitude,
 		Longitude:  city.Longitude,
@@ -40,10 +42,11 @@ func (City) from(city domain.City) City {
 const (
 	expandCountry     = "country"
 	expandSubdivision = "subdivision"
+	expandTimeZone    = "time_zone"
 )
 
 // cityExpansions is the expand[] allowlist of every city operation.
-var cityExpansions = rest.NewExpansions(expandCountry, expandSubdivision)
+var cityExpansions = rest.NewExpansions(expandCountry, expandSubdivision, expandTimeZone)
 
 // CityFilters are the filters of listing (and searching) cities.
 type CityFilters struct {

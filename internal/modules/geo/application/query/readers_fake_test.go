@@ -23,6 +23,8 @@ const (
 
 // fakeReaders implements every geo port on in-memory data and records how
 // it was called.
+//
+//nolint:govet // fieldalignment: fields are grouped by resource for readability.
 type fakeReaders struct {
 	countries         map[string]domain.Country
 	subdivisions      map[int64]domain.Subdivision
@@ -37,6 +39,8 @@ type fakeReaders struct {
 	lastIDs           []int64
 	subdivisionFilter application.SubdivisionFilter
 	cityFilter        application.CityFilter
+	timeZoneFilter    application.TimeZoneFilter
+	lastTimeZoneIDs   []string
 }
 
 func newFakeReaders() *fakeReaders {
@@ -121,6 +125,27 @@ func (readers *fakeReaders) CitiesByID(_ context.Context, locale i18n.Locale, id
 	for _, id := range ids {
 		if city, found := readers.cities[id]; found {
 			result = append(result, city)
+		}
+	}
+	return result, nil
+}
+
+func (readers *fakeReaders) TimeZones(_ context.Context, filter application.TimeZoneFilter) ([]domain.TimeZone, error) {
+	readers.calls["TimeZones"]++
+	readers.timeZoneFilter = filter
+	return []domain.TimeZone{{ID: "America/Argentina/Cordoba", CountryCode: &argentinaCode}}, readers.err
+}
+
+func (readers *fakeReaders) TimeZonesByID(_ context.Context, ids []string) ([]domain.TimeZone, error) {
+	readers.calls["TimeZonesByID"]++
+	readers.lastTimeZoneIDs = ids
+	if readers.err != nil {
+		return nil, readers.err
+	}
+	var result []domain.TimeZone
+	for _, id := range ids {
+		if id == "America/Argentina/Cordoba" {
+			result = append(result, domain.TimeZone{ID: id, CountryCode: &argentinaCode})
 		}
 	}
 	return result, nil

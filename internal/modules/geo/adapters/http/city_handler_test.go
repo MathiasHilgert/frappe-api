@@ -15,6 +15,7 @@ type cityQueries struct {
 	get              *fakeQuery[query.GetCity, domain.City]
 	findCountries    *fakeQuery[query.FindCountries, map[string]domain.Country]
 	findSubdivisions *fakeQuery[query.FindSubdivisions, map[int64]domain.Subdivision]
+	findTimeZones    *fakeQuery[query.FindTimeZones, map[string]domain.TimeZone]
 }
 
 func newCityQueries() cityQueries {
@@ -32,12 +33,13 @@ func newCityQueries() cityQueries {
 		findSubdivisions: &fakeQuery[query.FindSubdivisions, map[int64]domain.Subdivision]{result: map[int64]domain.Subdivision{
 			province: {ID: province, Name: "Córdova", CountryCode: "AR"},
 		}},
+		findTimeZones: &fakeQuery[query.FindTimeZones, map[string]domain.TimeZone]{},
 	}
 }
 
 func (queries cityQueries) register(api testAPI) {
 	httpadapter.NewCityHandler(api.shared, httpadapter.CityQueries{
-		List: queries.list, Get: queries.get, FindCountries: queries.findCountries, FindSubdivisions: queries.findSubdivisions,
+		List: queries.list, Get: queries.get, FindCountries: queries.findCountries, FindSubdivisions: queries.findSubdivisions, FindTimeZones: queries.findTimeZones,
 	}).Register(api.api)
 }
 

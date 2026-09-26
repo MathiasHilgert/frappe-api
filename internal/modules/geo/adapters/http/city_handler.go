@@ -19,6 +19,7 @@ type CityQueries struct {
 	Get              usecase.QueryHandler[query.GetCity, domain.City]
 	FindCountries    usecase.QueryHandler[query.FindCountries, map[string]domain.Country]
 	FindSubdivisions usecase.QueryHandler[query.FindSubdivisions, map[int64]domain.Subdivision]
+	FindTimeZones    usecase.QueryHandler[query.FindTimeZones, map[string]domain.TimeZone]
 }
 
 // CityHandler serves /geo/cities.
@@ -35,10 +36,10 @@ func NewCityHandler(shared Shared, queries CityQueries) *CityHandler {
 // Register adds the city operations onto api.
 func (cities *CityHandler) Register(api huma.API) {
 	huma.Register(api, cities.operation("list-cities", "/geo/cities", "List cities",
-		"Cities ordered by id. Filter by country and subdivision. Expandable: country, subdivision."),
+		"Cities ordered by id. Filter by country and subdivision. Expandable: country, subdivision, time_zone."),
 		cities.list)
 	huma.Register(api, cities.operation("get-city", "/geo/cities/{id}", "Get a city",
-		"A city by GeoNames id. Expandable: country, subdivision."),
+		"A city by GeoNames id. Expandable: country, subdivision, time_zone."),
 		cities.get)
 }
 
@@ -100,32 +101,54 @@ func (cities *CityHandler) get(ctx context.Context, input *GetCityInput) (*CityO
 type cityRelations struct {
 	countries    map[string]domain.Country
 	subdivisions map[int64]domain.Subdivision
+	timeZones    map[string]domain.TimeZone
 }
 
 func (cities *CityHandler) relations(ctx context.Context, locale i18n.Locale, rows []domain.City, expand rest.Expand) (cityRelations, error) {
 	var relations cityRelations
 	var err error
 	if expand.Has(expandCountry) {
-		codes := make([]string, 0, len(rows))
-		for _, row := range rows {
-			codes = append(codes, row.CountryCode)
-		}
-		if relations.countries, err = cities.queries.FindCountries.Handle(ctx, query.FindCountries{Locale: locale, Codes: codes}); err != nil {
+		if relations.countries, err = cities.countries(ctx, locale, rows); err != nil {
 			return cityRelations{}, err
 		}
 	}
 	if expand.Has(expandSubdivision) {
-		ids := make([]int64, 0, len(rows))
-		for _, row := range rows {
-			if row.SubdivisionID != nil {
-				ids = append(ids, *row.SubdivisionID)
-			}
+		if relations.subdivisions, err = cities.subdivisions(ctx, locale, rows); err != nil {
+			return cityRelations{}, err
 		}
-		if relations.subdivisions, err = cities.queries.FindSubdivisions.Handle(ctx, query.FindSubdivisions{Locale: locale, IDs: ids}); err != nil {
+	}
+	if expand.Has(expandTimeZone) {
+		if relations.timeZones, err = cities.timeZones(ctx, rows); err != nil {
 			return cityRelations{}, err
 		}
 	}
 	return relations, nil
+}
+
+func (cities *CityHandler) countries(ctx context.Context, locale i18n.Locale, rows []domain.City) (map[string]domain.Country, error) {
+	codes := make([]string, 0, len(rows))
+	for _, row := range rows {
+		codes = append(codes, row.CountryCode)
+	}
+	return cities.queries.FindCountries.Handle(ctx, query.FindCountries{Locale: locale, Codes: codes})
+}
+
+func (cities *CityHandler) subdivisions(ctx context.Context, locale i18n.Locale, rows []domain.City) (map[int64]domain.Subdivision, error) {
+	ids := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		if row.SubdivisionID != nil {
+			ids = append(ids, *row.SubdivisionID)
+		}
+	}
+	return cities.queries.FindSubdivisions.Handle(ctx, query.FindSubdivisions{Locale: locale, IDs: ids})
+}
+
+func (cities *CityHandler) timeZones(ctx context.Context, rows []domain.City) (map[string]domain.TimeZone, error) {
+	ids := make([]string, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.TimeZoneID)
+	}
+	return cities.queries.FindTimeZones.Handle(ctx, query.FindTimeZones{IDs: ids})
 }
 
 // resources presents rows with the expanded relations inlined.
@@ -144,6 +167,9 @@ func (cities *CityHandler) resources(ctx context.Context, locale i18n.Locale, ro
 			if subdivision, found := relations.subdivisions[*row.SubdivisionID]; found {
 				resource.Subdivision = rest.NullableExpandedResource(cities.placeIDText(subdivision.ID), Subdivision{}.from(subdivision))
 			}
+		}
+		if timeZone, found := relations.timeZones[row.TimeZoneID]; found {
+			resource.TimeZone = rest.ExpandedResource(timeZone.ID, TimeZone{}.from(timeZone))
 		}
 		resources = append(resources, resource)
 	}
