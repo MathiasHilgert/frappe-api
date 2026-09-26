@@ -7,5 +7,14 @@
     "few": "{{.Count}} минуты",
     "many": "{{.Count}} минут",
     "other": "{{.Count}} минуты"
-  }
+  },
+  "problem.cursor.invalid.detail": "Курсор пагинации недействителен или относится к другому списку. Начните с первой страницы.",
+  "problem.cursor.invalid.message": "недействительный курсор",
+  "problem.expand.invalid.detail": "Одно или несколько значений expand[] недействительны.",
+  "problem.expand.too_many.detail": "Допускается не более {{.Maximum}} значений expand[].",
+  "problem.expand.too_many.message": "слишком много расширений",
+  "problem.expand.not_expandable.message": "нельзя развернуть в этой операции",
+  "problem.expand.malformed.message": "должны быть именами полей в snake_case, соединёнными точками",
+  "problem.expand.too_deep.message": "глубина не должна превышать {{.Maximum}} уровней",
+  "problem.internal.detail": "Произошла непредвиденная ошибка."
 }

@@ -266,7 +266,7 @@ deps:
   # migrations intentionally has no deps entry: it is a leaf and may not
   # depend on any other component, including foundation.
 
-  # foundation, foundation_configuration, foundation_events and
+  # foundation_configuration, foundation_events and
   # module_domain intentionally have no deps entry: they are leaves and may
   # not depend on any other component. Modules and foundation must never
   # import the composition root: dependencies wires modules in, never the
@@ -278,6 +278,13 @@ deps:
   foundation_configuration_environment:
     mayDependOn:
       - foundation_configuration
+
+  # The general foundation component may use foundation_i18n (a leaf
+  # without first-party imports) so shared HTTP helpers such as
+  # internal/foundation/rest render problem details in the request locale.
+  foundation:
+    mayDependOn:
+      - foundation_i18n
 
   foundation_events_outbox:
     mayDependOn:

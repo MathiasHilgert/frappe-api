@@ -1,12 +1,16 @@
 package rest
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 	"regexp"
 	"slices"
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
+
+	"github.com/MathiasHilgert/frappe-api/internal/foundation/i18n"
 )
 
 const (
@@ -43,8 +47,8 @@ type Expansions struct {
 func NewExpansions(paths ...string) Expansions {
 	allowed := make(map[string]struct{}, len(paths))
 	for _, path := range paths {
-		if err := validateExpansionPath(path); err != nil {
-			panic(fmt.Sprintf("rest: invalid expansion %q: %v", path, err))
+		if message, invalid := validateExpansionPath(path); invalid {
+			panic(fmt.Sprintf("rest: invalid expansion %q: %s", path, message.Default))
 		}
 		allowed[path] = struct{}{}
 	}
@@ -74,38 +78,52 @@ func (expand Expand) Paths() []string {
 
 // Parse validates values against the allowlist. An invalid or unknown
 // path, or more than MaximumExpansions values, is a 422 problem (well
-// formed but unacceptable values) with one
-// detail per offending value.
-func (expansions Expansions) Parse(values []string) (Expand, error) {
+// formed but unacceptable values) with one detail per offending value,
+// rendered in ctx's locale.
+func (expansions Expansions) Parse(ctx context.Context, values []string) (Expand, error) {
 	if len(values) > MaximumExpansions {
-		return Expand{}, huma.Error422UnprocessableEntity(fmt.Sprintf("At most %d expand[] values are allowed.", MaximumExpansions),
-			&huma.ErrorDetail{Location: "query.expand[]", Message: "too many expansions"})
+		return Expand{}, Problem(ctx, http.StatusUnprocessableEntity,
+			Text{
+				Key: "problem.expand.too_many.detail", Data: i18n.Data{"Maximum": MaximumExpansions},
+				Default: fmt.Sprintf("At most %d expand[] values are allowed.", MaximumExpansions),
+			},
+			Detail(ctx, expandLocation, Text{Key: "problem.expand.too_many.message", Default: "too many expansions"}, nil))
 	}
 	expand := Expand{paths: make(map[string]struct{}, len(values))}
-	var details []error
+	var details []*huma.ErrorDetail
 	for _, value := range values {
-		if err := validateExpansionPath(value); err != nil {
-			details = append(details, &huma.ErrorDetail{Location: "query.expand[]", Message: err.Error(), Value: value})
+		if message, invalid := validateExpansionPath(value); invalid {
+			details = append(details, Detail(ctx, expandLocation, message, value))
 			continue
 		}
 		if _, allowed := expansions.allowed[value]; !allowed {
-			details = append(details, &huma.ErrorDetail{Location: "query.expand[]", Message: "not expandable on this operation", Value: value})
+			details = append(details, Detail(ctx, expandLocation,
+				Text{Key: "problem.expand.not_expandable.message", Default: "not expandable on this operation"}, value))
 			continue
 		}
 		expand.paths[value] = struct{}{}
 	}
 	if len(details) > 0 {
-		return Expand{}, huma.Error422UnprocessableEntity("One or more expand[] values are invalid.", details...)
+		return Expand{}, Problem(ctx, http.StatusUnprocessableEntity,
+			Text{Key: "problem.expand.invalid.detail", Default: "One or more expand[] values are invalid."}, details...)
 	}
 	return expand, nil
 }
 
-func validateExpansionPath(path string) error {
+// expandLocation is the errors[] location of expand[] problems.
+const expandLocation = "query.expand[]"
+
+// validateExpansionPath returns the problem message of an invalid path,
+// and whether it is invalid.
+func validateExpansionPath(path string) (Text, bool) {
 	if !expansionPathPattern.MatchString(path) {
-		return fmt.Errorf("must be dot-joined snake_case field names")
+		return Text{Key: "problem.expand.malformed.message", Default: "must be dot-joined snake_case field names"}, true
 	}
 	if strings.Count(path, ".")+1 > MaximumExpansionDepth {
-		return fmt.Errorf("must be at most %d levels deep", MaximumExpansionDepth)
+		return Text{
+			Key: "problem.expand.too_deep.message", Data: i18n.Data{"Maximum": MaximumExpansionDepth},
+			Default: fmt.Sprintf("must be at most %d levels deep", MaximumExpansionDepth),
+		}, true
 	}
-	return nil
+	return Text{}, false
 }

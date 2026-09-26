@@ -41,12 +41,12 @@
 //	var cityExpansions = rest.NewExpansions("country", "subdivision")
 //
 //	huma.Get(api, "/geo/cities", func(ctx context.Context, input *ListCitiesInput) (*rest.ListOutput[City], error) {
-//		expand, err := cityExpansions.Parse(input.Expand)
+//		expand, err := cityExpansions.Parse(ctx, input.Expand)
 //		if err != nil {
 //			return nil, err
 //		}
 //		var after CityPosition
-//		if _, err := input.Position(codec, &after); err != nil {
+//		if _, err := input.Position(ctx, codec, &after); err != nil {
 //			return nil, err
 //		}
 //		rows, err := service.Cities(ctx, input.Country, after, input.Limit+1, expand)

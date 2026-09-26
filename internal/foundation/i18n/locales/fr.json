@@ -6,5 +6,14 @@
     "one": "{{.Count}} minute",
     "many": "{{.Count}} de minutes",
     "other": "{{.Count}} minutes"
-  }
+  },
+  "problem.cursor.invalid.detail": "Le curseur de pagination est invalide ou appartient à une autre liste. Recommencez à la première page.",
+  "problem.cursor.invalid.message": "curseur invalide",
+  "problem.expand.invalid.detail": "Une ou plusieurs valeurs de expand[] sont invalides.",
+  "problem.expand.too_many.detail": "Au plus {{.Maximum}} valeurs de expand[] sont autorisées.",
+  "problem.expand.too_many.message": "trop d'expansions",
+  "problem.expand.not_expandable.message": "non extensible pour cette opération",
+  "problem.expand.malformed.message": "doivent être des noms de champs en snake_case séparés par des points",
+  "problem.expand.too_deep.message": "doit avoir au plus {{.Maximum}} niveaux",
+  "problem.internal.detail": "Une erreur inattendue s'est produite."
 }

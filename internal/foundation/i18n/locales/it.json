@@ -6,5 +6,14 @@
     "one": "{{.Count}} minuto",
     "many": "{{.Count}} di minuti",
     "other": "{{.Count}} minuti"
-  }
+  },
+  "problem.cursor.invalid.detail": "Il cursore di paginazione non è valido o appartiene a un altro elenco. Ricomincia dalla prima pagina.",
+  "problem.cursor.invalid.message": "cursore non valido",
+  "problem.expand.invalid.detail": "Uno o più valori di expand[] non sono validi.",
+  "problem.expand.too_many.detail": "Sono consentiti al massimo {{.Maximum}} valori di expand[].",
+  "problem.expand.too_many.message": "troppe espansioni",
+  "problem.expand.not_expandable.message": "non espandibile in questa operazione",
+  "problem.expand.malformed.message": "devono essere nomi di campo in snake_case uniti da punti",
+  "problem.expand.too_deep.message": "deve avere al massimo {{.Maximum}} livelli",
+  "problem.internal.detail": "Si è verificato un errore imprevisto."
 }

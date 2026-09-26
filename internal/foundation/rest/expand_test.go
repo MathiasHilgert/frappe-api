@@ -1,6 +1,7 @@
 package rest_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/rest"
@@ -8,7 +9,7 @@ import (
 
 func TestExpansionsParseAcceptsAllowedPaths(t *testing.T) {
 	expansions := rest.NewExpansions("country", "region.country")
-	expand, err := expansions.Parse([]string{"country", "region.country", "country"})
+	expand, err := expansions.Parse(context.Background(), []string{"country", "region.country", "country"})
 	if err != nil {
 		t.Fatalf("Parse error = %v", err)
 	}
@@ -32,7 +33,7 @@ func TestExpansionsParseRejectsInvalidPaths(t *testing.T) {
 	}
 	for name, values := range cases {
 		t.Run(name, func(t *testing.T) {
-			if _, err := expansions.Parse(values); err == nil {
+			if _, err := expansions.Parse(context.Background(), values); err == nil {
 				t.Fatalf("Parse(%v) accepted invalid input", values)
 			}
 		})

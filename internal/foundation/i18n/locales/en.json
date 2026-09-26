@@ -5,5 +5,14 @@
   "time.minutes": {
     "one": "{{.Count}} minute",
     "other": "{{.Count}} minutes"
-  }
+  },
+  "problem.cursor.invalid.detail": "The pagination cursor is invalid or belongs to another listing. Restart from the first page.",
+  "problem.cursor.invalid.message": "invalid cursor",
+  "problem.expand.invalid.detail": "One or more expand[] values are invalid.",
+  "problem.expand.too_many.detail": "At most {{.Maximum}} expand[] values are allowed.",
+  "problem.expand.too_many.message": "too many expansions",
+  "problem.expand.not_expandable.message": "not expandable on this operation",
+  "problem.expand.malformed.message": "must be dot-joined snake_case field names",
+  "problem.expand.too_deep.message": "must be at most {{.Maximum}} levels deep",
+  "problem.internal.detail": "An unexpected error occurred."
 }
