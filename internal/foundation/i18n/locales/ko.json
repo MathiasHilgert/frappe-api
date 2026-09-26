@@ -13,5 +13,11 @@
   "problem.expand.not_expandable.message": "이 작업에서는 확장할 수 없습니다",
   "problem.expand.malformed.message": "점으로 연결된 snake_case 필드 이름이어야 합니다",
   "problem.expand.too_deep.message": "최대 {{.Maximum}}단계까지만 가능합니다",
-  "problem.internal.detail": "예기치 않은 오류가 발생했습니다."
+  "problem.internal.detail": "예기치 않은 오류가 발생했습니다.",
+  "geo.country.not_found": "id가 {{.ID}}인 국가가 없습니다.",
+  "geo.subdivision.not_found": "id가 {{.ID}}인 행정 구역이 없습니다.",
+  "geo.city.not_found": "id가 {{.ID}}인 도시가 없습니다.",
+  "geo.time_zone.not_found": "id가 {{.ID}}인 시간대가 없습니다.",
+  "geo.search.query_too_short.detail": "검색어가 너무 짧습니다.",
+  "geo.search.query_too_short.message": "공백을 제외하고 최소 {{.Minimum}}자 이상이어야 합니다"
 }

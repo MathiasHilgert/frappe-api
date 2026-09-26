@@ -13,5 +13,11 @@
   "problem.expand.not_expandable.message": "この操作では展開できません",
   "problem.expand.malformed.message": "ドットで区切った snake_case のフィールド名である必要があります",
   "problem.expand.too_deep.message": "階層は最大 {{.Maximum}} までです",
-  "problem.internal.detail": "予期しないエラーが発生しました。"
+  "problem.internal.detail": "予期しないエラーが発生しました。",
+  "geo.country.not_found": "id が {{.ID}} の国はありません。",
+  "geo.subdivision.not_found": "id が {{.ID}} の行政区画はありません。",
+  "geo.city.not_found": "id が {{.ID}} の都市はありません。",
+  "geo.time_zone.not_found": "id が {{.ID}} のタイムゾーンはありません。",
+  "geo.search.query_too_short.detail": "検索語が短すぎます。",
+  "geo.search.query_too_short.message": "空白を除いて {{.Minimum}} 文字以上必要です"
 }

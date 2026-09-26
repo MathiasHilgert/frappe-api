@@ -15,5 +15,11 @@
   "problem.expand.not_expandable.message": "non espandibile in questa operazione",
   "problem.expand.malformed.message": "devono essere nomi di campo in snake_case uniti da punti",
   "problem.expand.too_deep.message": "deve avere al massimo {{.Maximum}} livelli",
-  "problem.internal.detail": "Si è verificato un errore imprevisto."
+  "problem.internal.detail": "Si è verificato un errore imprevisto.",
+  "geo.country.not_found": "Nessun paese con id {{.ID}}.",
+  "geo.subdivision.not_found": "Nessuna suddivisione con id {{.ID}}.",
+  "geo.city.not_found": "Nessuna città con id {{.ID}}.",
+  "geo.time_zone.not_found": "Nessun fuso orario con id {{.ID}}.",
+  "geo.search.query_too_short.detail": "La ricerca è troppo breve.",
+  "geo.search.query_too_short.message": "deve avere almeno {{.Minimum}} caratteri oltre agli spazi"
 }

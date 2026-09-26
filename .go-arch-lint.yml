@@ -215,6 +215,14 @@ components:
   module_tracing:
     in: internal/modules/*/tracing/**
 
+  # module_use_cases are a module's use case handlers, one package per
+  # kind (internal/modules/<module>/application/{query,command,job}). They
+  # are split out of module_application, and matched before it, because
+  # they depend on the ports module_application declares and go-arch-lint
+  # does not allow a component to import itself.
+  module_use_cases:
+    in: internal/modules/*/application/*/**
+
   module_application:
     in: internal/modules/*/application/**
 
@@ -251,6 +259,7 @@ deps:
       - module_root
       - module_adapters
       - module_application
+      - module_use_cases
       - module_domain
       - module_events
 
@@ -381,6 +390,7 @@ deps:
       - module_root
       - module_adapters
       - module_application
+      - module_use_cases
       - module_domain
       - module_events
 
@@ -413,6 +423,17 @@ deps:
       - foundation_i18n
       - foundation_i18n_localizedtext
 
+  module_use_cases:
+    mayDependOn:
+      - foundation_identifier
+      - foundation_jobs
+      - module_domain
+      - module_events
+      - module_application
+      - foundation_events
+      - foundation_i18n
+      - foundation_i18n_localizedtext
+
   module_adapters:
     mayDependOn:
       - foundation_identifier
@@ -423,6 +444,7 @@ deps:
       - foundation_cache_eventinvalidation
       - module_domain
       - module_application
+      - module_use_cases
       - module_events
       - module_metrics
       - module_tracing
@@ -439,6 +461,7 @@ deps:
       - foundation_cache_eventinvalidation
       - module_domain
       - module_application
+      - module_use_cases
       - module_adapters
       - module_events
       - module_metrics

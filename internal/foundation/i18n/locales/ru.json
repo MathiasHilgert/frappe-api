@@ -16,5 +16,11 @@
   "problem.expand.not_expandable.message": "нельзя развернуть в этой операции",
   "problem.expand.malformed.message": "должны быть именами полей в snake_case, соединёнными точками",
   "problem.expand.too_deep.message": "глубина не должна превышать {{.Maximum}} уровней",
-  "problem.internal.detail": "Произошла непредвиденная ошибка."
+  "problem.internal.detail": "Произошла непредвиденная ошибка.",
+  "geo.country.not_found": "Страна с id {{.ID}} не найдена.",
+  "geo.subdivision.not_found": "Административная единица с id {{.ID}} не найдена.",
+  "geo.city.not_found": "Город с id {{.ID}} не найден.",
+  "geo.time_zone.not_found": "Часовой пояс с id {{.ID}} не найден.",
+  "geo.search.query_too_short.detail": "Поисковый запрос слишком короткий.",
+  "geo.search.query_too_short.message": "должен содержать не менее {{.Minimum}} символов, не считая пробелов"
 }

@@ -14,5 +14,11 @@
   "problem.expand.not_expandable.message": "not expandable on this operation",
   "problem.expand.malformed.message": "must be dot-joined snake_case field names",
   "problem.expand.too_deep.message": "must be at most {{.Maximum}} levels deep",
-  "problem.internal.detail": "An unexpected error occurred."
+  "problem.internal.detail": "An unexpected error occurred.",
+  "geo.country.not_found": "No country with id {{.ID}}.",
+  "geo.subdivision.not_found": "No subdivision with id {{.ID}}.",
+  "geo.city.not_found": "No city with id {{.ID}}.",
+  "geo.time_zone.not_found": "No time zone with id {{.ID}}.",
+  "geo.search.query_too_short.detail": "The search query is too short.",
+  "geo.search.query_too_short.message": "must have at least {{.Minimum}} characters besides spaces"
 }

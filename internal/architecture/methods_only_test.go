@@ -17,6 +17,7 @@ import (
 // where every function must be a method. The rule is being adopted package
 // by package: add a directory here once it complies.
 var methodsOnlyRoots = []string{
+	"internal/modules/geo",
 	"internal/foundation/usecase",
 }
 
