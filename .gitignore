@@ -39,5 +39,3 @@ odd/
 # Hot reload build output (air)
 /tmp/
 
-# GeoNames dump files downloaded by cmd/geosnapshot
-/.geonames/

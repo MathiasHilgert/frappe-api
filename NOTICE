@@ -1,8 +1,8 @@
 Frappe API
 Copyright (c) 2026 Nulled Software. All rights reserved.
 
-This product includes third-party data in migrations/data/geo, built by
-cmd/geosnapshot. Its manifest.json records the GeoNames dump date, the CLDR
+This product includes third-party data in migrations/data/geo, a digested
+snapshot of the sources below. Its manifest.json records the GeoNames dump date, the CLDR
 version, the Wikidata query date and the SHA-256 of every source file.
 Changes to all sources: filtered (all countries and first-level
 subdivisions; cities above 500 inhabitants in Latin America and the
@@ -53,7 +53,6 @@ Unicode CLDR (Common Locale Data Repository), release 48.2
 
 Wikidata
   Source:  https://www.wikidata.org (ISO 3166-2 code, P300, by GeoNames
-           id, P1566), committed as
-           cmd/geosnapshot/data/wikidata_subdivision_codes.tsv
+           id, P1566), queried on the date recorded in manifest.json
   License: Creative Commons CC0 1.0 (public domain dedication); no
            attribution required, credited here for provenance.

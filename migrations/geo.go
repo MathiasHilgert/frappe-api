@@ -13,9 +13,9 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 )
 
-// Data embeds the data files Go migrations load: the GeoNames snapshot
-// written by cmd/geosnapshot (data/geo/*.tsv.gz, COPY text format, plus
-// its manifest.json).
+// Data embeds the data files Go migrations load: the digested geo
+// snapshot (data/geo/*.tsv.gz, COPY text format) and its manifest.json,
+// which records the provenance of every file (see NOTICE).
 //
 //go:embed data
 var Data embed.FS
@@ -48,7 +48,7 @@ func GoMigrations() []GoMigration {
 const geoSeedVersion = 20260928000001
 
 // geoTable is one snapshot file and the table and columns it loads into,
-// in the column order cmd/geosnapshot writes.
+// in the column order of the snapshot files.
 type geoTable struct {
 	name    string
 	columns string

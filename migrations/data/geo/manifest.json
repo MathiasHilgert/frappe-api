@@ -136,12 +136,12 @@
     },
     {
       "file": "wikidata_subdivision_codes.tsv",
-      "origin": "https://query.wikidata.org/sparql",
+      "origin": "https://query.wikidata.org/sparql (SELECT ?geonames ?iso WHERE { ?item wdt:P300 ?iso ; wdt:P1566 ?geonames . })",
       "sha256": "f74fed16685c13baceac1804474b33deaedb420946c0cea0f25c629cad0dd546"
     },
     {
       "file": "subdivision_overrides.tsv",
-      "origin": "cmd/geosnapshot/data",
+      "origin": "reviewed ISO 3166-2 overrides for GeoNames admin1 units without a Wikidata match (405 entries; 359 declared without a code)",
       "sha256": "73027c54e3ddc48e3980455a8e2a31abeecf8fa906e58a024805944bcf114bd2"
     }
   ],

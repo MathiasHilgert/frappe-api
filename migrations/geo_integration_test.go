@@ -254,3 +254,27 @@ func TestIntegrationGeoPlaceNamesCarryNoDisambiguation(t *testing.T) {
 		t.Fatalf("query parenthesized names: %v", err)
 	}
 }
+
+func TestIntegrationGeoSubdivisionISOCodesAreWellFormed(t *testing.T) {
+	t.Parallel()
+	pool := databasetest.New(t)
+
+	var malformed, withCode, withoutCode int
+	if err := pool.QueryRow(context.Background(), `
+		SELECT
+			count(*) FILTER (WHERE iso_code !~ '^[A-Z]{2}-[A-Z0-9]{1,3}$' OR left(iso_code, 2) <> country_code),
+			count(iso_code),
+			count(*) FILTER (WHERE iso_code IS NULL)
+		FROM subdivisions`,
+	).Scan(&malformed, &withCode, &withoutCode); err != nil {
+		t.Fatalf("check ISO codes: %v", err)
+	}
+	if malformed != 0 {
+		t.Errorf("%d malformed ISO codes", malformed)
+	}
+	// Units without a code are reviewed exceptions (dependent territory
+	// parishes and the like), a small minority.
+	if withCode == 0 || withoutCode*10 > withCode+withoutCode {
+		t.Errorf("%d subdivisions with an ISO code, %d without", withCode, withoutCode)
+	}
+}

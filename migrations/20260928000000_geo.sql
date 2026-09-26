@@ -3,8 +3,8 @@
 -- Geographic reference data for the geo module: places (countries, their
 -- first-level subdivisions and cities), IANA time zones and localized
 -- names, seeded by the Go migration in migrations/geo.go from a snapshot
--- built by cmd/geosnapshot (GeoNames, Unicode CLDR and Wikidata; see
--- NOTICE). It is global reference data: no tenant, no Row Level Security,
+-- digested from GeoNames, Unicode CLDR and Wikidata (provenance in
+-- migrations/data/geo/manifest.json; see NOTICE). It is global reference data: no tenant, no Row Level Security,
 -- read-only for the application role.
 --
 -- pg_trgm and unaccent are trusted extensions, so the migration role,
@@ -103,8 +103,7 @@ CREATE INDEX time_zones_country_code ON time_zones (country_code);
 -- subdivisions: first-level administrative divisions, addressed by
 -- place_id (the GeoNames id) like every place. iso_code is the optional
 -- ISO 3166-2 code, an attribute and a lookup filter, never the key (from Wikidata, validated against CLDR); it is NULL
--- only for the GeoNames units the reviewed override file of
--- cmd/geosnapshot declares without one (subdivisions of dependent
+-- only for the GeoNames units that were reviewed and found without one (subdivisions of dependent
 -- territories, units outside ISO 3166-2). geonames_admin1_code is the
 -- GeoNames admin1 code, unique within the country.
 CREATE TABLE subdivisions (
