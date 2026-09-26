@@ -98,7 +98,7 @@ func (subdivisions *SubdivisionHandler) get(ctx context.Context, input *GetSubdi
 // one batch.
 func (subdivisions *SubdivisionHandler) resources(ctx context.Context, locale i18n.Locale, rows []domain.Subdivision, expand rest.Expand) ([]Subdivision, error) {
 	var countries map[string]domain.Country
-	if expand.Has("country") {
+	if expand.Has(expandCountry) {
 		codes := make([]string, 0, len(rows))
 		for _, row := range rows {
 			codes = append(codes, row.CountryCode)

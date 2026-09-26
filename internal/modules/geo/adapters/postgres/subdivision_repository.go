@@ -26,9 +26,9 @@ func NewSubdivisionRepository(pool PoolSource) *SubdivisionRepository {
 
 // Subdivisions returns a page of subdivisions ordered by id.
 func (repository *SubdivisionRepository) Subdivisions(ctx context.Context, locale i18n.Locale, filter application.SubdivisionFilter) ([]domain.Subdivision, error) {
-	connection := repository.connection
-	return repository.collect(connection.query(ctx, listSubdivisionsQuery, connection.locale(locale), filter.After,
-		connection.optional(filter.CountryCode), connection.optional(filter.ISOCode), filter.Limit))
+	statements := repository.connection
+	return repository.collect(statements.query(ctx, listSubdivisionsQuery, statements.locale(locale), filter.After,
+		statements.optional(filter.CountryCode), statements.optional(filter.ISOCode), filter.Limit))
 }
 
 // SubdivisionsByID returns the subdivisions with ids.

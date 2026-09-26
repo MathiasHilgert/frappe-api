@@ -29,7 +29,7 @@ func (Subdivision) from(subdivision domain.Subdivision) Subdivision {
 
 // subdivisionExpansions is the expand[] allowlist of every subdivision
 // operation.
-var subdivisionExpansions = rest.NewExpansions("country")
+var subdivisionExpansions = rest.NewExpansions(expandCountry)
 
 // ListSubdivisionsInput is the input of GET /geo/subdivisions.
 type ListSubdivisionsInput struct {

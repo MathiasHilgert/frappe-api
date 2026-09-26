@@ -26,6 +26,7 @@ const (
 type fakeReaders struct {
 	countries         map[string]domain.Country
 	subdivisions      map[int64]domain.Subdivision
+	cities            map[int64]domain.City
 	calls             map[string]int
 	err               error
 	revisionError     error
@@ -35,11 +36,15 @@ type fakeReaders struct {
 	countryFilter     application.CountryFilter
 	lastIDs           []int64
 	subdivisionFilter application.SubdivisionFilter
+	cityFilter        application.CityFilter
 }
 
 func newFakeReaders() *fakeReaders {
 	currency, isoCode := "ARS", "AR-X"
 	return &fakeReaders{
+		cities: map[int64]domain.City{
+			cordobaCity: {ID: cordobaCity, Name: "Córdoba", CountryCode: "AR", TimeZoneID: "America/Argentina/Cordoba", Population: 1428214},
+		},
 		subdivisions: map[int64]domain.Subdivision{
 			cordobaProvince: {ID: cordobaProvince, Name: "Córdoba", ISOCode: &isoCode, CountryCode: "AR"},
 		},
@@ -95,6 +100,27 @@ func (readers *fakeReaders) SubdivisionsByID(_ context.Context, locale i18n.Loca
 	for _, id := range ids {
 		if subdivision, found := readers.subdivisions[id]; found {
 			result = append(result, subdivision)
+		}
+	}
+	return result, nil
+}
+
+func (readers *fakeReaders) Cities(_ context.Context, locale i18n.Locale, filter application.CityFilter) ([]domain.City, error) {
+	readers.calls["Cities"]++
+	readers.locale, readers.cityFilter = locale, filter
+	return []domain.City{readers.cities[cordobaCity]}, readers.err
+}
+
+func (readers *fakeReaders) CitiesByID(_ context.Context, locale i18n.Locale, ids []int64) ([]domain.City, error) {
+	readers.calls["CitiesByID"]++
+	readers.locale, readers.lastIDs = locale, ids
+	if readers.err != nil {
+		return nil, readers.err
+	}
+	var result []domain.City
+	for _, id := range ids {
+		if city, found := readers.cities[id]; found {
+			result = append(result, city)
 		}
 	}
 	return result, nil

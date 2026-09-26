@@ -52,20 +52,30 @@ func New(dependencies Dependencies) *Module {
 	var (
 		countries    application.CountryReader      = postgres.NewCountryRepository(dependencies.Pool)
 		subdivisions application.SubdivisionReader  = postgres.NewSubdivisionRepository(dependencies.Pool)
+		cities       application.CityReader         = postgres.NewCityRepository(dependencies.Pool)
 		revisions    application.DataRevisionReader = postgres.NewDataRevisionRepository(dependencies.Pool)
 	)
 	revision := usecase.NewObserved[query.GetDataRevision, string](query.NewGetDataRevisionHandler(revisions))
 	shared := httpadapter.Shared{Revision: revision, Cursors: dependencies.Cursors}
 	findCountries := usecase.NewObserved[query.FindCountries, map[string]domain.Country](query.NewFindCountriesHandler(countries))
+	findSubdivisions := usecase.NewObserved[query.FindSubdivisions, map[int64]domain.Subdivision](query.NewFindSubdivisionsHandler(subdivisions))
+	findCities := usecase.NewObserved[query.FindCities, map[int64]domain.City](query.NewFindCitiesHandler(cities))
 
 	httpadapter.NewCountryHandler(shared, httpadapter.CountryQueries{
-		List: usecase.NewObserved[query.ListCountries, []domain.Country](query.NewListCountriesHandler(countries)),
-		Get:  usecase.NewObserved[query.GetCountry, domain.Country](query.NewGetCountryHandler(countries), domain.ErrNotFound),
+		List:       usecase.NewObserved[query.ListCountries, []domain.Country](query.NewListCountriesHandler(countries)),
+		Get:        usecase.NewObserved[query.GetCountry, domain.Country](query.NewGetCountryHandler(countries), domain.ErrNotFound),
+		FindCities: findCities,
 	}).Register(dependencies.API)
 	httpadapter.NewSubdivisionHandler(shared, httpadapter.SubdivisionQueries{
 		List:          usecase.NewObserved[query.ListSubdivisions, []domain.Subdivision](query.NewListSubdivisionsHandler(subdivisions)),
 		Get:           usecase.NewObserved[query.GetSubdivision, domain.Subdivision](query.NewGetSubdivisionHandler(subdivisions), domain.ErrNotFound),
 		FindCountries: findCountries,
+	}).Register(dependencies.API)
+	httpadapter.NewCityHandler(shared, httpadapter.CityQueries{
+		List:             usecase.NewObserved[query.ListCities, []domain.City](query.NewListCitiesHandler(cities)),
+		Get:              usecase.NewObserved[query.GetCity, domain.City](query.NewGetCityHandler(cities), domain.ErrNotFound),
+		FindCountries:    findCountries,
+		FindSubdivisions: findSubdivisions,
 	}).Register(dependencies.API)
 
 	return &Module{revision: revision}

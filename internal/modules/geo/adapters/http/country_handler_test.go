@@ -13,8 +13,9 @@ import (
 
 // countryQueries are fakes for every query a CountryHandler uses.
 type countryQueries struct {
-	list *fakeQuery[query.ListCountries, []domain.Country]
-	get  *fakeQuery[query.GetCountry, domain.Country]
+	list       *fakeQuery[query.ListCountries, []domain.Country]
+	get        *fakeQuery[query.GetCountry, domain.Country]
+	findCities *fakeQuery[query.FindCities, map[int64]domain.City]
 }
 
 func newCountryQueries() countryQueries {
@@ -22,13 +23,14 @@ func newCountryQueries() countryQueries {
 	argentina := domain.Country{Code: "AR", Name: "Argentina", Alpha3Code: "ARG", NumericCode: 32, ContinentCode: "SA", CurrencyCode: &currency}
 	andorra := domain.Country{Code: "AD", Name: "Andorra", Alpha3Code: "AND", NumericCode: 20, ContinentCode: "EU"}
 	return countryQueries{
-		list: &fakeQuery[query.ListCountries, []domain.Country]{result: []domain.Country{andorra, argentina}},
-		get:  &fakeQuery[query.GetCountry, domain.Country]{result: argentina},
+		list:       &fakeQuery[query.ListCountries, []domain.Country]{result: []domain.Country{andorra, argentina}},
+		get:        &fakeQuery[query.GetCountry, domain.Country]{result: argentina},
+		findCities: &fakeQuery[query.FindCities, map[int64]domain.City]{},
 	}
 }
 
 func (queries countryQueries) register(api testAPI) {
-	httpadapter.NewCountryHandler(api.shared, httpadapter.CountryQueries{List: queries.list, Get: queries.get}).Register(api.api)
+	httpadapter.NewCountryHandler(api.shared, httpadapter.CountryQueries{List: queries.list, Get: queries.get, FindCities: queries.findCities}).Register(api.api)
 }
 
 func TestCountryHandlerGetsACountryByAlpha2Code(t *testing.T) {
