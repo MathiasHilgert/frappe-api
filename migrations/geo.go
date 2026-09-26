@@ -27,15 +27,19 @@ var Data embed.FS
 // Up and Down receive a database/sql handle opened with the pgx driver
 // and manage their own transaction.
 type GoMigration struct {
-	Up      func(ctx context.Context, database *sql.DB) error
-	Down    func(ctx context.Context, database *sql.DB) error
-	Version int64
+	Up   func(ctx context.Context, database *sql.DB) error
+	Down func(ctx context.Context, database *sql.DB) error
+	// Revision identifies the migration's code: bump it whenever Up or
+	// Down changes, so the integration test template (keyed by a hash of
+	// every migration) is rebuilt.
+	Revision string
+	Version  int64
 }
 
 // GoMigrations returns every Go migration, in version order.
 func GoMigrations() []GoMigration {
 	return []GoMigration{
-		{Version: geoSeedVersion, Up: seedGeo, Down: unseedGeo},
+		{Version: geoSeedVersion, Revision: "geo-seed-2", Up: seedGeo, Down: unseedGeo},
 	}
 }
 
@@ -50,18 +54,19 @@ type geoTable struct {
 	columns string
 }
 
-// geoTables lists the snapshot tables in load order: referenced first.
+// geoTables lists the snapshot tables in load order: referenced first
+// (the countries -> cities and countries -> time_zones foreign keys are
+// deferred to the end of the seed transaction).
 var geoTables = []geoTable{ //nolint:gochecknoglobals // constant load plan.
-	{name: "countries", columns: "code, alpha3_code, numeric_code, geonames_id, name, continent_code, currency_code"},
+	{name: "places", columns: "id, kind, name"},
+	{name: "countries", columns: "code, place_id, alpha3_code, numeric_code, continent_code, currency_code, capital_city_id, default_time_zone_id"},
 	{name: "time_zones", columns: "id, country_code, january_offset_hours, july_offset_hours, raw_offset_hours"},
-	{name: "subdivisions", columns: "id, country_code, code, name, ascii_name"},
-	{name: "cities", columns: "id, country_code, subdivision_id, name, ascii_name, latitude, longitude, population, feature_code, time_zone_id"},
-	{name: "country_names", columns: "country_code, locale, name"},
-	{name: "subdivision_names", columns: "subdivision_id, locale, name"},
-	{name: "city_names", columns: "city_id, locale, name"},
+	{name: "subdivisions", columns: "place_id, country_code, iso_code, geonames_admin1_code"},
+	{name: "cities", columns: "place_id, country_code, subdivision_id, ascii_name, latitude, longitude, population, feature_code, time_zone_id"},
+	{name: "place_names", columns: "place_id, locale, name"},
 }
 
-// seedGeo loads the GeoNames snapshot in one transaction: each file is
+// seedGeo loads the geo snapshot in one transaction: each file is
 // streamed, still gzip-compressed in the binary, through COPY into a
 // temporary staging table, then inserted with ON CONFLICT DO NOTHING, so
 // running it again (for example when the transaction committed but the
@@ -90,7 +95,7 @@ func loadGeoTable(ctx context.Context, transaction pgx.Tx, entry geoTable) error
 
 	staging := pgx.Identifier{"geo_seed_" + entry.name}.Sanitize()
 	target := pgx.Identifier{entry.name}.Sanitize()
-	createStaging := fmt.Sprintf("CREATE TEMPORARY TABLE %s (LIKE %s) ON COMMIT DROP", staging, target)
+	createStaging := fmt.Sprintf("CREATE TEMPORARY TABLE %s ON COMMIT DROP AS SELECT %s FROM %s WITH NO DATA", staging, entry.columns, target)
 	if _, err := transaction.Exec(ctx, createStaging); err != nil {
 		return fmt.Errorf("stage %s: %w", entry.name, err)
 	}

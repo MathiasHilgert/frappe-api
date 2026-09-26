@@ -26,7 +26,7 @@ type templateMigrator struct{}
 var _ pgtestdb.Migrator = templateMigrator{}
 
 // Hash digests every file of migrations.FS and migrations.Data, path and
-// content, plus the Go migration versions.
+// content, plus every Go migration version and revision.
 func (templateMigrator) Hash() (string, error) {
 	hash := sha256.New()
 	for _, fileSystem := range []fs.FS{migrations.FS, migrations.Data} {
@@ -47,7 +47,7 @@ func (templateMigrator) Hash() (string, error) {
 		}
 	}
 	for _, migration := range migrations.GoMigrations() {
-		_, _ = fmt.Fprintf(hash, "go\x00%d\x00", migration.Version)
+		_, _ = fmt.Fprintf(hash, "go\x00%d\x00%s\x00", migration.Version, migration.Revision)
 	}
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }

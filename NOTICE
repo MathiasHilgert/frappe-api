@@ -1,20 +1,59 @@
 Frappe API
 Copyright (c) 2026 Nulled Software. All rights reserved.
 
-This product includes third-party data:
+This product includes third-party data in migrations/data/geo, built by
+cmd/geosnapshot. Its manifest.json records the GeoNames dump date, the CLDR
+version, the Wikidata query date and the SHA-256 of every source file.
+Changes to all sources: filtered (all countries and first-level
+subdivisions; cities above 500 inhabitants in Latin America and the
+Caribbean, above 15000 elsewhere, plus national capitals), joined and
+normalized into tables, one name per supported locale.
 
 GeoNames geographical data
-  Source: GeoNames, https://www.geonames.org
-  Files:  https://download.geonames.org/export/dump/ (countryInfo.txt,
-          admin1CodesASCII.txt, timeZones.txt, cities500.zip,
-          alternateNamesV2.zip)
+  Source:  GeoNames, https://www.geonames.org
+  Files:   https://download.geonames.org/export/dump/ (countryInfo.txt,
+           admin1CodesASCII.txt, timeZones.txt, cities500.zip,
+           alternateNamesV2.zip)
   License: Creative Commons Attribution 4.0 International (CC BY 4.0),
            https://creativecommons.org/licenses/by/4.0/
-  Changes: filtered (all countries and first-level subdivisions; cities
-           above 500 inhabitants in Latin America and the Caribbean, above
-           15000 elsewhere, plus national capitals), normalized into
-           tables, and reduced to one name per supported locale. The
-           snapshot lives in migrations/data/geo; its manifest.json records
-           the dump date and the SHA-256 of every source file.
-  No warranty: GeoNames provides the data "as is", without warranty of any
-  kind.
+  GeoNames provides the data "as is", without warranty of any kind.
+
+Unicode CLDR (Common Locale Data Repository), release 48.2
+  Source:  https://cldr.unicode.org (cldr-localenames-full territories,
+           common/subdivisions and common/validity/subdivision.xml)
+  License: Unicode License v3, https://www.unicode.org/license.txt
+
+  Copyright (c) 1991-2026 Unicode, Inc. All rights reserved.
+
+  Permission is hereby granted, free of charge, to any person obtaining a
+  copy of data files and any associated documentation (the "Data Files") or
+  software and any associated documentation (the "Software") to deal in the
+  Data Files or Software without restriction, including without limitation
+  the rights to use, copy, modify, merge, publish, distribute, and/or sell
+  copies of the Data Files or Software, and to permit persons to whom the
+  Data Files or Software are furnished to do so, provided that either (a)
+  this copyright and permission notice appear with all copies of the Data
+  Files or Software, or (b) this copyright and permission notice appear in
+  associated Documentation.
+
+  THE DATA FILES AND SOFTWARE ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+  KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF
+  THIRD PARTY RIGHTS. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS
+  INCLUDED IN THIS NOTICE BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT
+  OR CONSEQUENTIAL DAMAGES, OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+  USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+  OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+  PERFORMANCE OF THE DATA FILES OR SOFTWARE.
+
+  Except as contained in this notice, the name of a copyright holder shall
+  not be used in advertising or otherwise to promote the sale, use or other
+  dealings in these Data Files or Software without prior written
+  authorization of the copyright holder.
+
+Wikidata
+  Source:  https://www.wikidata.org (ISO 3166-2 code, P300, by GeoNames
+           id, P1566), committed as
+           cmd/geosnapshot/data/wikidata_subdivision_codes.tsv
+  License: Creative Commons CC0 1.0 (public domain dedication); no
+           attribution required, credited here for provenance.

@@ -296,21 +296,22 @@ Metrics: `frappe.deepl.characters.sent` (by `target`, `outcome`: only `success` 
 | `LOCALIZED_TEXTS_PENDING_TIMEOUT` | `15m` | How long an unleased pending translation waits before it is requested again. |
 | `LOCALIZED_TEXTS_MAX_REQUEST_ATTEMPTS` | `5` | Requests before a translation is marked `failed`. |
 
-### Geographic data (GeoNames)
+### Geographic data
 
-Countries, first-level subdivisions, cities, IANA time zones and their localized names are global reference data (no tenant, read-only for `frappe_application`), seeded by migration from a compressed snapshot in `migrations/data/geo` (about 2.3 MB).
+Countries, first-level subdivisions, cities, IANA time zones and their localized names are global reference data (no tenant, read-only for `frappe_application`), seeded by migration from a compressed snapshot in `migrations/data/geo` (about 2.6 MB).
 
 | Item | Detail |
 |------|--------|
-| Tables | `countries` (ISO alpha-2 key), `time_zones` (IANA id), `subdivisions`, `cities` (GeoNames ids), and `country_names`, `subdivision_names`, `city_names` keyed by entity and locale |
+| Tables | `places` (supertype: GeoNames id, kind, official UTF-8 name, search key); `countries` (ISO alpha-2, capital, default time zone), `subdivisions` (ISO 3166-2 code, GeoNames admin1 code), `cities` (coordinates, population, time zone) each reference one place; `place_names` holds names per locale; `time_zones` (IANA id) |
+| Sources | GeoNames (cities, coordinates, population, time zones, city names), Unicode CLDR 48.2 (country and subdivision names, valid subdivision codes), Wikidata (ISO 3166-2 codes by GeoNames id) |
 | Coverage | Every country and subdivision; cities above 500 inhabitants in Latin America and the Caribbean, above 15000 elsewhere, plus national capitals |
-| Localized names | Best GeoNames alternate name per supported locale (preferred, not historic or colloquial); no row means use the entity's own name |
-| Search | `pg_trgm` + `unaccent` GIN indexes on `geo_search_key(name)`; query with `geo_search_key(name) % geo_search_key($1)` |
-| Update | `go run ./cmd/geosnapshot -download -sources .geonames -dump-date <YYYY-MM-DD>`, then add a new seed migration; never edit an applied one |
+| ISO 3166-2 | Wikidata code validated against CLDR, else a unique CLDR English name match, else the reviewed `cmd/geosnapshot/data/subdivision_overrides.tsv`; the generator fails on any unmatched subdivision. Units without an ISO code (for example parishes of dependent territories) have a NULL `iso_code` |
+| Search | `pg_trgm` + `unaccent`: one GIN index on `places.search_key`, one on `place_names.search_key`; query with `search_key % geo_search_key($1)` |
+| Update | `go run ./cmd/geosnapshot -download -refresh-wikidata -sources .geonames -dump-date <YYYY-MM-DD>`, then add a new seed migration; never edit an applied one |
 
 The seed is a Go migration (`migrations/geo.go`) that streams each file through `COPY`; `cmd/migrate` and the integration test template register it next to the SQL files.
 
-Data from [GeoNames](https://www.geonames.org), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). See [NOTICE](NOTICE).
+Data from [GeoNames](https://www.geonames.org) ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)), [Unicode CLDR](https://cldr.unicode.org) ([Unicode License v3](https://www.unicode.org/license.txt)) and [Wikidata](https://www.wikidata.org) (CC0). See [NOTICE](NOTICE).
 
 ## Testing
 
