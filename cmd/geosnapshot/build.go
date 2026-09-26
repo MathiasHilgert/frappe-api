@@ -247,8 +247,10 @@ func (registry *placeRegistry) table() table {
 }
 
 // placeNames builds place_names: CLDR names for countries and
-// subdivisions, the best GeoNames alternate name for cities. A name equal
-// to the place's own name is left out; readers fall back to it.
+// subdivisions, the best GeoNames alternate name for cities. Trailing
+// parenthesized qualifiers are stripped (see stripDisambiguation); a name
+// that is then empty or equal to the place's own name is left out,
+// readers fall back to the own name.
 func placeNames(alternateNames io.Reader, parsed parsedSources, subdivisions []subdivision, cities []city,
 	isoCodes map[int64]string, places *placeRegistry,
 ) (table, error) {
@@ -261,10 +263,11 @@ func placeNames(alternateNames io.Reader, parsed parsedSources, subdivisions []s
 
 	rows := make([][]string, 0, len(names))
 	for _, entry := range names {
-		if entry.name == "" || entry.name == places.names[entry.geonamesID] {
+		name := stripDisambiguation(entry.name)
+		if name == "" || name == places.names[entry.geonamesID] {
 			continue
 		}
-		rows = append(rows, []string{formatIdentifier(entry.geonamesID), entry.locale, entry.name})
+		rows = append(rows, []string{formatIdentifier(entry.geonamesID), entry.locale, name})
 	}
 	slices.SortFunc(rows, func(left, right []string) int {
 		if order := compareNumericFirstColumn(left, right); order != 0 {

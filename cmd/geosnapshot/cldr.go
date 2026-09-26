@@ -69,22 +69,31 @@ func parseTerritoryNames(reader io.Reader) (map[string]string, error) {
 
 // parseSubdivisionNames reads a CLDR common/subdivisions/<locale>.xml and
 // returns names by CLDR subdivision code (lower case ISO 3166-2 without
-// the hyphen, "arx" for AR-X). Provisional entries are kept: outside
+// the hyphen, "arx" for AR-X). An approved entry (no draft attribute) wins
+// over a provisional one. Provisional entries are kept: outside
 // English almost every subdivision name is still provisional in CLDR.
 func parseSubdivisionNames(reader io.Reader) (map[string]string, error) {
 	var document struct {
 		Subdivisions []struct {
-			Type string `xml:"type,attr"`
-			Name string `xml:",chardata"`
+			Type  string `xml:"type,attr"`
+			Draft string `xml:"draft,attr"`
+			Name  string `xml:",chardata"`
 		} `xml:"localeDisplayNames>subdivisions>subdivision"`
 	}
 	if err := xml.NewDecoder(reader).Decode(&document); err != nil {
 		return nil, fmt.Errorf("decode CLDR subdivisions: %w", err)
 	}
 	names := map[string]string{}
+	approved := map[string]bool{}
 	for _, entry := range document.Subdivisions {
-		if name := strings.TrimSpace(entry.Name); name != "" {
+		name := strings.TrimSpace(entry.Name)
+		if name == "" || approved[entry.Type] {
+			continue
+		}
+		isApproved := entry.Draft == ""
+		if _, found := names[entry.Type]; !found || isApproved {
 			names[entry.Type] = name
+			approved[entry.Type] = isApproved
 		}
 	}
 	return names, nil

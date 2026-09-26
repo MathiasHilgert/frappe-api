@@ -10,7 +10,7 @@
 # Test binaries and coverage
 *.test
 *.out
-coverage.*
+/coverage.*
 *.coverprofile
 profile.cov
 

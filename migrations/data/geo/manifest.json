@@ -173,8 +173,8 @@
     },
     {
       "file": "place_names.tsv.gz",
-      "sha256": "4989c39f18329e1c12a2c9bb679cd2ca517a2471fa35c98344acfbc32c6575ad",
-      "rows": 79852
+      "sha256": "88ae99d475f398768bbfa79292311524a18cc21355bd8817e4db649559236a88",
+      "rows": 79657
     }
   ]
 }

@@ -372,11 +372,11 @@ func TestBuildSnapshotLocalizesNames(t *testing.T) {
 		"3860255 ja":      "コルドバ州",
 		"3433955 es-419":  "Ciudad Autónoma de Buenos Aires",
 		// Cities: the best GeoNames alternate name. pt-BR prefers the
-		// Brazilian variant; preferred beats plain; historic, colloquial
+		// Brazilian variant, "Córdoba (Argentina)", which equals the own
+		// name once its qualifier is stripped, so it is not stored; preferred beats plain; historic, colloquial
 		// and ended names are never picked (it has none left); zh-Hans
 		// takes zh-CN, never plain zh or zh-Hant.
 		"3832734 ja":      "ヴィラ・ヘネラル・ベルグラーノ",
-		"3860259 pt-BR":   "Córdoba (Argentina)",
 		"3860259 en":      "Cordoba",
 		"3860259 fr":      "Cordoue",
 		"2950159 zh-Hans": "柏林市",
