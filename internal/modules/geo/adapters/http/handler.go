@@ -16,6 +16,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -110,4 +111,16 @@ func (handler) failure(ctx context.Context, err error) error {
 		return err
 	}
 	return rest.Problem(ctx, http.StatusInternalServerError, rest.Text{Key: "problem.internal.detail", Default: "An unexpected error occurred."})
+}
+
+// placeID parses a GeoNames id; ok is false for anything that is not a
+// positive 64-bit integer in canonical form (no sign, no leading zeros).
+func (handler) placeID(value string) (int64, bool) {
+	id, err := strconv.ParseInt(value, 10, 64)
+	return id, err == nil && id > 0 && strconv.FormatInt(id, 10) == value
+}
+
+// placeIDText formats a GeoNames id as its public id.
+func (handler) placeIDText(id int64) string {
+	return strconv.FormatInt(id, 10)
 }

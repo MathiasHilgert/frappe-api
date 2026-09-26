@@ -54,3 +54,12 @@ func (connection) locale(locale i18n.Locale) string {
 	}
 	return locale.String()
 }
+
+// optional is value as a nullable statement argument: nil (no filter)
+// when empty.
+func (connection) optional(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
+}

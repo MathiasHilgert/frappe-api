@@ -50,15 +50,22 @@ func New(dependencies Dependencies) *Module {
 	// Repositories are typed as their ports: the use cases only ever see
 	// the application interfaces (go-arch-lint checks the injection).
 	var (
-		countries application.CountryReader      = postgres.NewCountryRepository(dependencies.Pool)
-		revisions application.DataRevisionReader = postgres.NewDataRevisionRepository(dependencies.Pool)
+		countries    application.CountryReader      = postgres.NewCountryRepository(dependencies.Pool)
+		subdivisions application.SubdivisionReader  = postgres.NewSubdivisionRepository(dependencies.Pool)
+		revisions    application.DataRevisionReader = postgres.NewDataRevisionRepository(dependencies.Pool)
 	)
 	revision := usecase.NewObserved[query.GetDataRevision, string](query.NewGetDataRevisionHandler(revisions))
 	shared := httpadapter.Shared{Revision: revision, Cursors: dependencies.Cursors}
+	findCountries := usecase.NewObserved[query.FindCountries, map[string]domain.Country](query.NewFindCountriesHandler(countries))
 
 	httpadapter.NewCountryHandler(shared, httpadapter.CountryQueries{
 		List: usecase.NewObserved[query.ListCountries, []domain.Country](query.NewListCountriesHandler(countries)),
 		Get:  usecase.NewObserved[query.GetCountry, domain.Country](query.NewGetCountryHandler(countries), domain.ErrNotFound),
+	}).Register(dependencies.API)
+	httpadapter.NewSubdivisionHandler(shared, httpadapter.SubdivisionQueries{
+		List:          usecase.NewObserved[query.ListSubdivisions, []domain.Subdivision](query.NewListSubdivisionsHandler(subdivisions)),
+		Get:           usecase.NewObserved[query.GetSubdivision, domain.Subdivision](query.NewGetSubdivisionHandler(subdivisions), domain.ErrNotFound),
+		FindCountries: findCountries,
 	}).Register(dependencies.API)
 
 	return &Module{revision: revision}
