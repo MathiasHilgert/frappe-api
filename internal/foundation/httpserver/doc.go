@@ -95,6 +95,15 @@
 // transport-agnostic. net/http itself is denied from domain and
 // application for the same reason.
 //
+// # API conventions
+//
+// Resource shapes, naming, pagination, expansion and errors use the
+// helpers in internal/foundation/rest and
+// internal/foundation/identifier. New disables Huma's schema link
+// transformer, so responses carry no "$schema" property and no
+// describedby Link header: resources identify themselves with "object",
+// and Link is reserved for RFC 8288 pagination links.
+//
 // # Middleware order
 //
 // Outermost first: otelhttp, span route, request id, access log, panic

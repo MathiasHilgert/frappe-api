@@ -183,6 +183,14 @@ components:
   foundation_jobs_support:
     in: internal/foundation/jobs/**
 
+  # foundation_identifier creates and validates prefixed public ids
+  # ("dish_<uuidv7 base32>", internal/foundation/identifier). It is a leaf
+  # split out of foundation because a module's application layer creates
+  # entity ids in its use cases. Domain stays free of foundation and holds
+  # ids as plain values. Matched before the general foundation component.
+  foundation_identifier:
+    in: internal/foundation/identifier/**
+
   foundation:
     in: internal/foundation/**
 
@@ -219,6 +227,7 @@ components:
 deps:
   cmd:
     mayDependOn:
+      - foundation_identifier
       - foundation_jobs
       - foundation_jobs_river
       - foundation_jobs_support
@@ -340,6 +349,7 @@ deps:
 
   dependencies:
     mayDependOn:
+      - foundation_identifier
       - foundation_jobs
       - foundation_jobs_river
       - foundation_jobs_support
@@ -386,6 +396,7 @@ deps:
   # localized text API (foundation_i18n_localizedtext, with i18n.Locale).
   module_application:
     mayDependOn:
+      - foundation_identifier
       - foundation_jobs
       - module_domain
       - module_events
@@ -397,6 +408,7 @@ deps:
 
   module_adapters:
     mayDependOn:
+      - foundation_identifier
       - foundation_i18n
       - foundation_i18n_localizedtext
       - foundation_jobs
@@ -412,6 +424,7 @@ deps:
 
   module_root:
     mayDependOn:
+      - foundation_identifier
       - foundation_i18n
       - foundation_i18n_localizedtext
       - foundation_jobs
