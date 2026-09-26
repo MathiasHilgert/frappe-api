@@ -1,0 +1,180 @@
+{
+  "license": "GeoNames (https://www.geonames.org), CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/); Unicode CLDR (https://cldr.unicode.org), Unicode License v3 (https://www.unicode.org/license.txt); Wikidata (https://www.wikidata.org), CC0 1.0",
+  "geonamesDumpDate": "2026-09-25",
+  "cldrVersion": "48.2.0",
+  "wikidataQueryDate": "2026-09-26",
+  "sources": [
+    {
+      "file": "countryInfo.txt",
+      "origin": "https://download.geonames.org/export/dump/countryInfo.txt",
+      "sha256": "93bafc525813f22e4711ff9ed6d626343094ce48c26388dc7c49189b3d7d5512"
+    },
+    {
+      "file": "admin1CodesASCII.txt",
+      "origin": "https://download.geonames.org/export/dump/admin1CodesASCII.txt",
+      "sha256": "1da92a6323a5fec3176f3f743bf4cf4040fd56a876da55e46fbca23c863aa60a"
+    },
+    {
+      "file": "timeZones.txt",
+      "origin": "https://download.geonames.org/export/dump/timeZones.txt",
+      "sha256": "ea6f8bdcc259c21c562e8f7e7e0b0457cb89403bed60c76aac49ccee9a9ed18c"
+    },
+    {
+      "file": "cities500.zip",
+      "origin": "https://download.geonames.org/export/dump/cities500.zip",
+      "sha256": "8d07609da318268df79d96c163ff1b6a81f14318c0cb77c3e5799119463ed713"
+    },
+    {
+      "file": "alternateNamesV2.zip",
+      "origin": "https://download.geonames.org/export/dump/alternateNamesV2.zip",
+      "sha256": "c19d676ecdcbf279c4b3e5124094609feb81280b361d32247d0c5be9a00042d9"
+    },
+    {
+      "file": "cldr-territories-es-419.json",
+      "origin": "https://cdn.jsdelivr.net/npm/cldr-localenames-full@48.2.0/main/es-419/territories.json",
+      "sha256": "b7d8a293d149834b558104b7bb442733e6930617af41ca1c7b9d096c2121dd3a"
+    },
+    {
+      "file": "cldr-territories-en.json",
+      "origin": "https://cdn.jsdelivr.net/npm/cldr-localenames-full@48.2.0/main/en/territories.json",
+      "sha256": "158c1d575308f7e46912edbeda435c8fe2ef5dad280798231f3a432e406b1807"
+    },
+    {
+      "file": "cldr-territories-pt.json",
+      "origin": "https://cdn.jsdelivr.net/npm/cldr-localenames-full@48.2.0/main/pt/territories.json",
+      "sha256": "89604c7cd2eecc83c7a7f65129e7e6fe70a04f2d52263345530d714146f99ee8"
+    },
+    {
+      "file": "cldr-territories-fr.json",
+      "origin": "https://cdn.jsdelivr.net/npm/cldr-localenames-full@48.2.0/main/fr/territories.json",
+      "sha256": "42d67b78cb74ffe87380db1d702d06be995c3082d7f711ffd6e75a721133c5e0"
+    },
+    {
+      "file": "cldr-territories-it.json",
+      "origin": "https://cdn.jsdelivr.net/npm/cldr-localenames-full@48.2.0/main/it/territories.json",
+      "sha256": "d41462485baabf9b0b70de0092a173a45a7af8c415ace686e6cbe1909baf390f"
+    },
+    {
+      "file": "cldr-territories-de.json",
+      "origin": "https://cdn.jsdelivr.net/npm/cldr-localenames-full@48.2.0/main/de/territories.json",
+      "sha256": "e5b7a831cd70afeaad10a56360c08e2d970e9fe79f254ee8d937a7dfa13686b7"
+    },
+    {
+      "file": "cldr-territories-ru.json",
+      "origin": "https://cdn.jsdelivr.net/npm/cldr-localenames-full@48.2.0/main/ru/territories.json",
+      "sha256": "305ba1f9eecb1b0151ab081a111aaa8a5898d38c9d57bfbfa125734e508a2389"
+    },
+    {
+      "file": "cldr-territories-zh-Hans.json",
+      "origin": "https://cdn.jsdelivr.net/npm/cldr-localenames-full@48.2.0/main/zh-Hans/territories.json",
+      "sha256": "de255a878dc85dbf801353e13e7d6685eccebe238b485818f129a6ad82212d43"
+    },
+    {
+      "file": "cldr-territories-ko.json",
+      "origin": "https://cdn.jsdelivr.net/npm/cldr-localenames-full@48.2.0/main/ko/territories.json",
+      "sha256": "47b2f98d9cbf823068b0594074fe5db7fde80f9baf6a8038bd24ed81aefe7829"
+    },
+    {
+      "file": "cldr-territories-ja.json",
+      "origin": "https://cdn.jsdelivr.net/npm/cldr-localenames-full@48.2.0/main/ja/territories.json",
+      "sha256": "2e9976a1d5e6a02e48b5a5c18987bd6246b0a21369513386bb5874a6887056d2"
+    },
+    {
+      "file": "cldr-subdivisions-es.xml",
+      "origin": "https://raw.githubusercontent.com/unicode-org/cldr/release-48-2/common/subdivisions/es.xml",
+      "sha256": "287bde26d858e1564090f4fce680844fa7ef8644ae62030022fe165be9315ddf"
+    },
+    {
+      "file": "cldr-subdivisions-en.xml",
+      "origin": "https://raw.githubusercontent.com/unicode-org/cldr/release-48-2/common/subdivisions/en.xml",
+      "sha256": "997a14da1144bb66f36a829db1783afe41f7529e33070afbe964bdd8e387b1d2"
+    },
+    {
+      "file": "cldr-subdivisions-pt.xml",
+      "origin": "https://raw.githubusercontent.com/unicode-org/cldr/release-48-2/common/subdivisions/pt.xml",
+      "sha256": "90184154e43949ea9e4d61a4570726addcad6f1cf0b12ef638f6ddb1fd7e422b"
+    },
+    {
+      "file": "cldr-subdivisions-fr.xml",
+      "origin": "https://raw.githubusercontent.com/unicode-org/cldr/release-48-2/common/subdivisions/fr.xml",
+      "sha256": "6b8127e03bff045e95517b77b2f74b5c9484761e4389693afe41eb477c45e765"
+    },
+    {
+      "file": "cldr-subdivisions-it.xml",
+      "origin": "https://raw.githubusercontent.com/unicode-org/cldr/release-48-2/common/subdivisions/it.xml",
+      "sha256": "d2b6245c56479ee8cbf74eb723120457051eadcd7c27b9a23db88a7660eec666"
+    },
+    {
+      "file": "cldr-subdivisions-de.xml",
+      "origin": "https://raw.githubusercontent.com/unicode-org/cldr/release-48-2/common/subdivisions/de.xml",
+      "sha256": "7cb92c1ba2bcc2a8f14210c4adc4534260637aacdeeeb7a821fe5a989842b178"
+    },
+    {
+      "file": "cldr-subdivisions-ru.xml",
+      "origin": "https://raw.githubusercontent.com/unicode-org/cldr/release-48-2/common/subdivisions/ru.xml",
+      "sha256": "9ea401cea67c2a7b506340453a978569aa955457d108c3673a0776fe4d48329c"
+    },
+    {
+      "file": "cldr-subdivisions-zh.xml",
+      "origin": "https://raw.githubusercontent.com/unicode-org/cldr/release-48-2/common/subdivisions/zh.xml",
+      "sha256": "4f875ffc235cba7c97092c95e4ccebb9805457bec159e37e0ef4b64abeda4cb8"
+    },
+    {
+      "file": "cldr-subdivisions-ko.xml",
+      "origin": "https://raw.githubusercontent.com/unicode-org/cldr/release-48-2/common/subdivisions/ko.xml",
+      "sha256": "4f11aca12342e7678520502a1871b366407f00c777cb5e51f14ae33b6310eb7a"
+    },
+    {
+      "file": "cldr-subdivisions-ja.xml",
+      "origin": "https://raw.githubusercontent.com/unicode-org/cldr/release-48-2/common/subdivisions/ja.xml",
+      "sha256": "3e220ad56170802ec067d4d2836e1f98e62479293c19ee6dcbb451852eda4fe0"
+    },
+    {
+      "file": "cldr-subdivision-validity.xml",
+      "origin": "https://raw.githubusercontent.com/unicode-org/cldr/release-48-2/common/validity/subdivision.xml",
+      "sha256": "93b12c9d55938266c96d44a7ccbb66800afeef4f9dd48b0dc16edfab89833d95"
+    },
+    {
+      "file": "wikidata_subdivision_codes.tsv",
+      "origin": "https://query.wikidata.org/sparql (SELECT ?geonames ?iso WHERE { ?item wdt:P300 ?iso ; wdt:P1566 ?geonames . })",
+      "sha256": "f74fed16685c13baceac1804474b33deaedb420946c0cea0f25c629cad0dd546"
+    },
+    {
+      "file": "subdivision_overrides.tsv",
+      "origin": "reviewed ISO 3166-2 overrides for GeoNames admin1 units without a Wikidata match (405 entries; 359 declared without a code)",
+      "sha256": "73027c54e3ddc48e3980455a8e2a31abeecf8fa906e58a024805944bcf114bd2"
+    }
+  ],
+  "tables": [
+    {
+      "file": "places.tsv.gz",
+      "sha256": "9c119a927c53d891b4c7678ad41d6998ad70d70cd76d50e78a5f57a003087c68",
+      "rows": 60970
+    },
+    {
+      "file": "countries.tsv.gz",
+      "sha256": "dacee81a90f32fdd0b11596af101b20d7b7f85004ec4e0a1d7296c427cc81703",
+      "rows": 252
+    },
+    {
+      "file": "time_zones.tsv.gz",
+      "sha256": "b4c27c925baffe700fd1287f37d8b042699904b4924f6daa79b141d18f47d18e",
+      "rows": 418
+    },
+    {
+      "file": "subdivisions.tsv.gz",
+      "sha256": "a7677dd04d49c7a466efd65a229f29bc57165a785a9b86f7b3f380d8325ba822",
+      "rows": 3865
+    },
+    {
+      "file": "cities.tsv.gz",
+      "sha256": "eb2d743ea58065b3f5bbb6f7770e8c2d74461f5b3c852fe9d9d3fc2363e462e7",
+      "rows": 56853
+    },
+    {
+      "file": "place_names.tsv.gz",
+      "sha256": "88ae99d475f398768bbfa79292311524a18cc21355bd8817e4db649559236a88",
+      "rows": 79657
+    }
+  ]
+}

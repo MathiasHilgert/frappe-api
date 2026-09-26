@@ -10,10 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/peterldowns/pgtestdb"
-	"github.com/peterldowns/pgtestdb/migrators/goosemigrator"
 
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/database"
-	"github.com/MathiasHilgert/frappe-api/migrations"
 )
 
 // databaseUpTimeout bounds how long building the pgxpool.Pool for a
@@ -145,7 +143,7 @@ func newClonedDatabase(t *testing.T) *pgtestdb.Config {
 		TestRole:   &role,
 	}
 
-	migrator := goosemigrator.New(".", goosemigrator.WithFS(migrations.FS))
+	migrator := templateMigrator{}
 
 	// pgtestdb.Custom migrates the template (once per process, cached by
 	// migrator.Hash), clones it into a fresh database, closes its own

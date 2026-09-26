@@ -10,7 +10,7 @@
 # Test binaries and coverage
 *.test
 *.out
-coverage.*
+/coverage.*
 *.coverprofile
 profile.cov
 
@@ -38,3 +38,4 @@ odd/
 
 # Hot reload build output (air)
 /tmp/
+

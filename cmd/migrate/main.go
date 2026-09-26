@@ -90,6 +90,9 @@ func run(ctx context.Context, args []string) error {
 		// one that has not merged yet, instead of goose refusing to
 		// proceed.
 		goose.WithAllowOutofOrder(true),
+		// Go migrations (data seeds streamed through COPY) run in version
+		// order with the SQL files; see go_migrations.go.
+		goMigrations(),
 	)
 	if err != nil {
 		return fmt.Errorf("create migration provider: %w", err)

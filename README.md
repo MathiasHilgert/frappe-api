@@ -88,7 +88,7 @@ internal/
       tracing/          module spans
       module.go         module wiring
   dependencies/         composition root: builds dependencies, injects modules
-migrations/             SQL migrations (goose, timestamp-versioned, embedded)
+migrations/             SQL migrations (goose, timestamp-versioned, embedded), Go data seeds, data/geo snapshot
 deployments/            local infrastructure (database init script)
 ```
 
@@ -294,6 +294,24 @@ Metrics: `frappe.deepl.characters.sent` (by `target`, `outcome`: only `success` 
 | `LOCALIZED_TEXTS_SWEEP_LIMIT` | `500` | Rows one sweep handles per tenant. |
 | `LOCALIZED_TEXTS_PENDING_TIMEOUT` | `15m` | How long an unleased pending translation waits before it is requested again. |
 | `LOCALIZED_TEXTS_MAX_REQUEST_ATTEMPTS` | `5` | Requests before a translation is marked `failed`. |
+
+### Geographic data
+
+Countries, first-level subdivisions, cities, IANA time zones and their localized names are global reference data (no tenant, read-only for `frappe_application`), seeded by migration from a digested, compressed snapshot in `migrations/data/geo` (about 2.6 MB).
+
+| Item | Detail |
+|------|--------|
+| Tables | `places` (supertype: GeoNames id, kind, official UTF-8 name, search key); `countries` (ISO alpha-2, capital, default time zone), `subdivisions` (ISO 3166-2 code, GeoNames admin1 code), `cities` (coordinates, population, time zone) each reference one place; `place_names` holds names per locale; `time_zones` (IANA id) |
+| Sources | GeoNames (cities, coordinates, population, time zones, city names), Unicode CLDR 48.2 (country and subdivision names, valid subdivision codes), Wikidata (ISO 3166-2 codes by GeoNames id) |
+| Coverage | Every country and subdivision; cities above 500 inhabitants in Latin America and the Caribbean, above 15000 elsewhere, plus national capitals |
+| ISO 3166-2 | Wikidata code validated against CLDR, else a unique CLDR English name match, else a reviewed override. Units without an ISO code (for example parishes of dependent territories) have a NULL `iso_code` |
+| Identifiers | Every place (country, subdivision, city) is addressed by its stable GeoNames id; ISO codes (alpha-2 for countries, optional ISO 3166-2 for subdivisions) are attributes and filters, not keys |
+| Search | `pg_trgm` + `unaccent`: one GIN index on `places.search_key`, one on `place_names (locale, search_key)` (`btree_gin`) for locale-filtered search; query with `search_key % geo_search_key($1)` |
+| Provenance | The repository keeps only the digested snapshot. `migrations/data/geo/manifest.json` records every source file with its origin and SHA-256, the GeoNames dump date, the CLDR version and the Wikidata query date, plus each table's row count and SHA-256. A data update is a new snapshot loaded by a new seed migration; an applied migration is never edited |
+
+The seed is a Go migration (`migrations/geo.go`) that streams each file through `COPY`; `cmd/migrate` and the integration test template register it next to the SQL files.
+
+Data from [GeoNames](https://www.geonames.org) ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)), [Unicode CLDR](https://cldr.unicode.org) ([Unicode License v3](https://www.unicode.org/license.txt)) and [Wikidata](https://www.wikidata.org) (CC0). See [NOTICE](NOTICE).
 
 ## Testing
 
