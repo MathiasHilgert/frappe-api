@@ -97,8 +97,8 @@
 //
 // # API conventions
 //
-// Resource shapes, naming, pagination, expansion and errors follow
-// docs/api-conventions.md, with helpers in internal/foundation/rest and
+// Resource shapes, naming, pagination, expansion and errors use the
+// helpers in internal/foundation/rest and
 // internal/foundation/identifier. New disables Huma's schema link
 // transformer, so responses carry no "$schema" property and no
 // describedby Link header: resources identify themselves with "object",

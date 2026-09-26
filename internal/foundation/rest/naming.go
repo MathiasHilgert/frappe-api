@@ -35,7 +35,7 @@ func CheckNaming(openAPI *huma.OpenAPI) error {
 		return nil
 	}
 	slices.Sort(violations)
-	return errors.New("API names must be snake_case (docs/api-conventions.md):\n  " + strings.Join(violations, "\n  "))
+	return errors.New("API names must be snake_case:\n  " + strings.Join(violations, "\n  "))
 }
 
 // schemaViolations lists the non snake_case properties of every

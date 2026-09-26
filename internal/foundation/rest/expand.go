@@ -74,7 +74,7 @@ func (expand Expand) Paths() []string {
 
 // Parse validates values against the allowlist. An invalid or unknown
 // path, or more than MaximumExpansions values, is a 422 problem (well
-// formed but unacceptable values, docs/api-conventions.md) with one
+// formed but unacceptable values) with one
 // detail per offending value.
 func (expansions Expansions) Parse(values []string) (Expand, error) {
 	if len(values) > MaximumExpansions {

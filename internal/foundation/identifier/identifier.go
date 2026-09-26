@@ -29,8 +29,8 @@
 // and random bits (74) keep it unguessable.
 //
 // Reference data keyed by a natural, public standard (ISO 3166 codes,
-// GeoNames ids, IANA time zones) does not use this package; see
-// docs/api-conventions.md.
+// GeoNames ids, IANA time zones) does not use this package: it keeps the
+// standard code, unchanged, as its id.
 package identifier
 
 import (
@@ -46,8 +46,7 @@ import (
 // ErrInvalid reports an identifier that is malformed or has the wrong
 // prefix. Adapters translate it into a 404 problem when it is a path
 // parameter (no such resource can exist), and into a 422 problem with an
-// errors[] entry when it is a body or query value
-// (docs/api-conventions.md, "Errors").
+// errors[] entry when it is a body or query value.
 var ErrInvalid = errors.New("invalid identifier")
 
 // suffixLength is the length of a 16 byte UUID in unpadded base32.

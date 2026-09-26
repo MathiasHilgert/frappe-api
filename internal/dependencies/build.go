@@ -207,8 +207,7 @@ func NewApplication(ctx context.Context, provider configuration.Provider, option
 	_ = localizedTexts
 
 	// cursorCodec is the *rest.CursorCodec every module with paginated
-	// collections receives through its Dependencies (see
-	// docs/api-conventions.md). configuration.Validate already guarantees
+	// collections receives through its Dependencies. configuration.Validate already guarantees
 	// a usable secret, so cursorError is only reported together with the
 	// naming check below, keeping one failure exit for the API surface.
 	cursorCodec, cursorError := provideCursorCodec(loadedConfiguration.HTTP)

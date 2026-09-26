@@ -119,7 +119,7 @@ func New(settings Settings) *Server {
 	// DefaultConfig's only create hook installs the schema link
 	// transformer, which adds a "$schema" property to every response body
 	// and a describedby Link header. Resources identify themselves with
-	// the snake_case "object" field instead (docs/api-conventions.md), and
+	// the snake_case "object" field instead, and
 	// the Link header is reserved for RFC 8288 pagination links.
 	config.CreateHooks = nil
 	if !settings.DocumentationEnabled {

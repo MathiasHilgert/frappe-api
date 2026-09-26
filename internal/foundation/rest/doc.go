@@ -1,5 +1,5 @@
 // Package rest holds the reusable building blocks of the project-wide API
-// conventions (docs/api-conventions.md) for module HTTP adapters:
+// conventions for module HTTP adapters:
 //
 //   - List, NewList and ListOutput: the {"object":"list"} collection
 //     envelope, with an RFC 8288 Link rel="next" header.
