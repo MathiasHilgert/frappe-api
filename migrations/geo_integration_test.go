@@ -39,7 +39,7 @@ func TestIntegrationGeoSeedResolvesSubdivisionByISOCode(t *testing.T) {
 	query := `SELECT coalesce(place_names.name, places.name)
 		FROM places LEFT JOIN place_names ON place_names.place_id = places.id AND place_names.locale = $1
 		WHERE places.id = 3860255`
-	for locale, want := range map[string]string{"en": "Córdoba", "pt-BR": "Córdova (província da Argentina)", "ja": "コルドバ州"} {
+	for locale, want := range map[string]string{"en": "Córdoba", "pt-BR": "Córdova", "ja": "コルドバ州"} {
 		var got string
 		if err := pool.QueryRow(ctx, query, locale).Scan(&got); err != nil {
 			t.Fatalf("query AR-X in %s: %v", locale, err)
@@ -150,11 +150,15 @@ func TestIntegrationGeoSearchUsesTheTrigramIndexes(t *testing.T) {
 	if _, err := pool.Exec(ctx, "SET enable_seqscan = off"); err != nil {
 		t.Fatalf("disable sequential scans: %v", err)
 	}
-	for table, index := range map[string]string{"places": "places_search_key", "place_names": "place_names_search_key"} {
+	for query, index := range map[string]string{
+		"SELECT 1 FROM places WHERE search_key % geo_search_key('cordoba')":                     "places_search_key",
+		"SELECT 1 FROM place_names WHERE search_key % geo_search_key('cordoba')":                "place_names_locale_search_key",
+		"SELECT 1 FROM place_names WHERE locale = 'ja' AND search_key % geo_search_key('コルドバ')": "place_names_locale_search_key",
+	} {
 		var plan strings.Builder
-		rows, err := pool.Query(ctx, "EXPLAIN SELECT 1 FROM "+table+" WHERE search_key % geo_search_key('cordoba')")
+		rows, err := pool.Query(ctx, "EXPLAIN "+query)
 		if err != nil {
-			t.Fatalf("explain %s: %v", table, err)
+			t.Fatalf("explain %s: %v", query, err)
 		}
 		for rows.Next() {
 			var line string
@@ -165,7 +169,10 @@ func TestIntegrationGeoSearchUsesTheTrigramIndexes(t *testing.T) {
 		}
 		rows.Close()
 		if !strings.Contains(plan.String(), index) {
-			t.Errorf("%s search does not use %s:\n%s", table, index, plan.String())
+			t.Errorf("%s does not use %s:\n%s", query, index, plan.String())
+		}
+		if strings.Contains(query, "locale =") && !strings.Contains(plan.String(), "Index Cond: ((locale =") {
+			t.Errorf("%s filters the locale outside the index:\n%s", query, plan.String())
 		}
 	}
 }
@@ -193,5 +200,57 @@ func TestIntegrationGeoTablesAreReadOnlyForTheApplication(t *testing.T) {
 		if !errors.As(err, &postgresError) || postgresError.Code != insufficientPrivilege {
 			t.Errorf("%s: got %v, want insufficient privilege", statement, err)
 		}
+	}
+}
+
+func TestIntegrationGeoEveryPlaceHasExactlyOneSubtypeRowOfItsKind(t *testing.T) {
+	t.Parallel()
+	pool := databasetest.New(t)
+
+	var mismatched int
+	if err := pool.QueryRow(context.Background(), `
+		SELECT count(*) FROM places
+		WHERE (SELECT count(*) FROM countries WHERE countries.place_id = places.id)
+		    + (SELECT count(*) FROM subdivisions WHERE subdivisions.place_id = places.id)
+		    + (SELECT count(*) FROM cities WHERE cities.place_id = places.id) <> 1
+		   OR (kind = 'country' AND NOT EXISTS (SELECT 1 FROM countries WHERE countries.place_id = places.id))
+		   OR (kind = 'subdivision' AND NOT EXISTS (SELECT 1 FROM subdivisions WHERE subdivisions.place_id = places.id))
+		   OR (kind = 'city' AND NOT EXISTS (SELECT 1 FROM cities WHERE cities.place_id = places.id))`,
+	).Scan(&mismatched); err != nil {
+		t.Fatalf("count mismatched places: %v", err)
+	}
+	if mismatched != 0 {
+		t.Errorf("%d places lack exactly one subtype row of their kind", mismatched)
+	}
+}
+
+// officialParenthesizedNames are the only place names allowed to keep a
+// parenthesis: official names where it is part of the name itself.
+var officialParenthesizedNames = map[int64]bool{ //nolint:gochecknoglobals // test fixture.
+	1547376: true, // Cocos (Keeling) Islands
+}
+
+func TestIntegrationGeoPlaceNamesCarryNoDisambiguation(t *testing.T) {
+	t.Parallel()
+	pool := databasetest.New(t)
+
+	rows, err := pool.Query(context.Background(),
+		"SELECT place_id, locale, name FROM place_names WHERE name ~ '[(（\\[]' ORDER BY place_id, locale")
+	if err != nil {
+		t.Fatalf("query parenthesized names: %v", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var placeID int64
+		var locale, name string
+		if err := rows.Scan(&placeID, &locale, &name); err != nil {
+			t.Fatalf("read name: %v", err)
+		}
+		if !officialParenthesizedNames[placeID] {
+			t.Errorf("place %d %s name %q keeps a disambiguation", placeID, locale, name)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("query parenthesized names: %v", err)
 	}
 }

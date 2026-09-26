@@ -18,20 +18,36 @@ CREATE EXTENSION IF NOT EXISTS unaccent WITH SCHEMA public;
 -- +goose StatementEnd
 
 -- +goose StatementBegin
+-- btree_gin (trusted too) lets one GIN index combine an equality column
+-- (locale) with the trigram search key, for locale-filtered search.
+CREATE EXTENSION IF NOT EXISTS btree_gin WITH SCHEMA public;
+-- +goose StatementEnd
+
+-- +goose StatementBegin
 -- geo_search_key is the normalized form every place name is indexed and
 -- searched by: lower case, accents removed ("Córdoba" -> "cordoba").
 -- unaccent() is only STABLE (its dictionary could change), so it cannot be
 -- used in an index expression or a generated column directly; this
 -- wrapper pins the dictionary and schema and is declared IMMUTABLE, the
--- documented approach. Searches compare against geo_search_key($1).
+-- documented approach. Lower-casing uses the builtin pg_c_utf8 collation
+-- (Unicode simple case mapping, part of Postgres itself, independent of
+-- the operating system's libc or ICU), so an OS or library upgrade cannot
+-- change it. The unaccent rules file and a Postgres major upgrade (new
+-- Unicode version) still can: after either, rewrite the stored keys with
+-- "UPDATE places SET name = name" and "UPDATE place_names SET name = name"
+-- (regenerating search_key) and REINDEX the search indexes. Searches
+-- compare against geo_search_key($1).
 CREATE FUNCTION geo_search_key(value text) RETURNS text
     LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE
-    RETURN lower(public.unaccent('public.unaccent'::regdictionary, value));
+    RETURN lower(public.unaccent('public.unaccent'::regdictionary, value) COLLATE pg_c_utf8);
 -- +goose StatementEnd
 
 -- +goose StatementBegin
 -- places is the supertype of countries, subdivisions and cities
--- (class-table inheritance): one row per place, keyed by its GeoNames id,
+-- (class-table inheritance): one row per place, keyed by its GeoNames id.
+-- That id is every place's stable public identifier (API routes address
+-- countries, subdivisions and cities by it; ISO codes are attributes and
+-- filters, since not every subdivision has one). Each row has
 -- with its kind, its own name (UTF-8, official: the CLDR English name for
 -- countries and subdivisions, the GeoNames name for cities) and the
 -- search key of that name. Every subtype row references exactly one place
@@ -84,8 +100,9 @@ CREATE INDEX time_zones_country_code ON time_zones (country_code);
 -- +goose StatementEnd
 
 -- +goose StatementBegin
--- subdivisions: first-level administrative divisions. iso_code is the
--- ISO 3166-2 code (from Wikidata, validated against CLDR); it is NULL
+-- subdivisions: first-level administrative divisions, addressed by
+-- place_id (the GeoNames id) like every place. iso_code is the optional
+-- ISO 3166-2 code, an attribute and a lookup filter, never the key (from Wikidata, validated against CLDR); it is NULL
 -- only for the GeoNames units the reviewed override file of
 -- cmd/geosnapshot declares without one (subdivisions of dependent
 -- territories, units outside ISO 3166-2). geonames_admin1_code is the
@@ -158,13 +175,16 @@ CREATE TABLE place_names (
 -- +goose StatementEnd
 
 -- +goose StatementBegin
--- Unified search: one trigram index over every place's own name, one over
--- every localized name. Query with search_key % geo_search_key($1).
+-- Unified search: one trigram index over every place's own name, one
+-- (below) over every localized name. Query with search_key % geo_search_key($1).
 CREATE INDEX places_search_key ON places USING gin (search_key gin_trgm_ops);
 -- +goose StatementEnd
 
 -- +goose StatementBegin
-CREATE INDEX place_names_search_key ON place_names USING gin (search_key gin_trgm_ops);
+-- Localized names are searched within one locale (the request's), so the
+-- index leads with locale (btree_gin) and serves both
+-- "locale = $2 AND search_key % ..." and search_key alone.
+CREATE INDEX place_names_locale_search_key ON place_names USING gin (locale, search_key gin_trgm_ops);
 -- +goose StatementEnd
 
 -- +goose StatementBegin

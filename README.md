@@ -306,7 +306,8 @@ Countries, first-level subdivisions, cities, IANA time zones and their localized
 | Sources | GeoNames (cities, coordinates, population, time zones, city names), Unicode CLDR 48.2 (country and subdivision names, valid subdivision codes), Wikidata (ISO 3166-2 codes by GeoNames id) |
 | Coverage | Every country and subdivision; cities above 500 inhabitants in Latin America and the Caribbean, above 15000 elsewhere, plus national capitals |
 | ISO 3166-2 | Wikidata code validated against CLDR, else a unique CLDR English name match, else the reviewed `cmd/geosnapshot/data/subdivision_overrides.tsv`; the generator fails on any unmatched subdivision. Units without an ISO code (for example parishes of dependent territories) have a NULL `iso_code` |
-| Search | `pg_trgm` + `unaccent`: one GIN index on `places.search_key`, one on `place_names.search_key`; query with `search_key % geo_search_key($1)` |
+| Identifiers | Every place (country, subdivision, city) is addressed by its stable GeoNames id; ISO codes (alpha-2 for countries, optional ISO 3166-2 for subdivisions) are attributes and filters, not keys |
+| Search | `pg_trgm` + `unaccent`: one GIN index on `places.search_key`, one on `place_names (locale, search_key)` (`btree_gin`) for locale-filtered search; query with `search_key % geo_search_key($1)` |
 | Update | `go run ./cmd/geosnapshot -download -refresh-wikidata -sources .geonames -dump-date <YYYY-MM-DD>`, then add a new seed migration; never edit an applied one |
 
 The seed is a Go migration (`migrations/geo.go`) that streams each file through `COPY`; `cmd/migrate` and the integration test template register it next to the SQL files.

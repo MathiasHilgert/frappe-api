@@ -39,7 +39,7 @@ type GoMigration struct {
 // GoMigrations returns every Go migration, in version order.
 func GoMigrations() []GoMigration {
 	return []GoMigration{
-		{Version: geoSeedVersion, Revision: "geo-seed-2", Up: seedGeo, Down: unseedGeo},
+		{Version: geoSeedVersion, Revision: "geo-seed-3", Up: seedGeo, Down: unseedGeo},
 	}
 }
 
