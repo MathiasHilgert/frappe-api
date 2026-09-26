@@ -1,6 +1,8 @@
 package rest
 
 import (
+	"context"
+	"net/http"
 	"net/url"
 	"slices"
 	"strings"
@@ -80,13 +82,16 @@ func (parameters PageParameters) scope() string {
 // first page request (no cursor). A malformed cursor, or one issued for
 // another listing (principal, path, filters or order), becomes a 400
 // problem naming query.cursor, never echoing its value.
-func (parameters PageParameters) Position(codec *CursorCodec, target any) (found bool, err error) {
+//
+// The problem texts are rendered in ctx's locale.
+func (parameters PageParameters) Position(ctx context.Context, codec *CursorCodec, target any) (found bool, err error) {
 	if parameters.Cursor == "" {
 		return false, nil
 	}
 	if err := codec.Decode(parameters.Cursor, parameters.scope(), target); err != nil {
-		return false, huma.Error400BadRequest("The pagination cursor is invalid or belongs to another listing. Restart from the first page.",
-			&huma.ErrorDetail{Location: "query.cursor", Message: "invalid cursor"})
+		return false, Problem(ctx, http.StatusBadRequest,
+			Text{Key: "problem.cursor.invalid.detail", Default: "The pagination cursor is invalid or belongs to another listing. Restart from the first page."},
+			Detail(ctx, "query.cursor", Text{Key: "problem.cursor.invalid.message", Default: "invalid cursor"}, nil))
 	}
 	return true, nil
 }
@@ -102,18 +107,30 @@ func NewPage[T any](codec *CursorCodec, parameters PageParameters, rows []T, pos
 		// applies the default and rejects anything below 1.
 		parameters.Limit = DefaultLimit
 	}
-	output := &ListOutput[T]{}
 	if len(rows) <= parameters.Limit {
-		output.Body = NewList(parameters.path, rows, "")
+		return NewCursorPage(codec, parameters, rows, nil)
+	}
+	rows = rows[:parameters.Limit]
+	return NewCursorPage(codec, parameters, rows, positionOf(rows[len(rows)-1]))
+}
+
+// NewCursorPage builds the output of a paginated operation whose handler
+// already knows whether a next page exists: data is the page, and next is
+// the keyset position the next page starts after, or nil on the last
+// page. Use it when the page's items are not one-to-one with the rows
+// that decide pagination (for example search matches, some of which may
+// be dropped), else prefer NewPage.
+func NewCursorPage[T any](codec *CursorCodec, parameters PageParameters, data []T, next any) (*ListOutput[T], error) {
+	output := &ListOutput[T]{}
+	if next == nil {
+		output.Body = NewList(parameters.path, data, "")
 		return output, nil
 	}
-
-	rows = rows[:parameters.Limit]
-	cursor, err := codec.Encode(parameters.scope(), positionOf(rows[len(rows)-1]))
+	cursor, err := codec.Encode(parameters.scope(), next)
 	if err != nil {
 		return nil, err
 	}
-	output.Body = NewList(parameters.path, rows, cursor)
+	output.Body = NewList(parameters.path, data, cursor)
 	output.Link = nextLink(parameters, cursor)
 	return output, nil
 }

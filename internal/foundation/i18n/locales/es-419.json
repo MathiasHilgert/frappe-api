@@ -6,5 +6,20 @@
     "one": "{{.Count}} minuto",
     "many": "{{.Count}} de minutos",
     "other": "{{.Count}} minutos"
-  }
+  },
+  "problem.cursor.invalid.detail": "El cursor de paginación no es válido o pertenece a otro listado. Vuelve a empezar desde la primera página.",
+  "problem.cursor.invalid.message": "cursor no válido",
+  "problem.expand.invalid.detail": "Uno o más valores de expand[] no son válidos.",
+  "problem.expand.too_many.detail": "Se permiten como máximo {{.Maximum}} valores de expand[].",
+  "problem.expand.too_many.message": "demasiadas expansiones",
+  "problem.expand.not_expandable.message": "no se puede expandir en esta operación",
+  "problem.expand.malformed.message": "deben ser nombres de campo en snake_case unidos por puntos",
+  "problem.expand.too_deep.message": "debe tener como máximo {{.Maximum}} niveles",
+  "problem.internal.detail": "Ocurrió un error inesperado.",
+  "geo.country.not_found": "No existe un país con id {{.ID}}.",
+  "geo.subdivision.not_found": "No existe una subdivisión con id {{.ID}}.",
+  "geo.city.not_found": "No existe una ciudad con id {{.ID}}.",
+  "geo.time_zone.not_found": "No existe una zona horaria con id {{.ID}}.",
+  "geo.search.query_too_short.detail": "La búsqueda es demasiado corta.",
+  "geo.search.query_too_short.message": "debe tener al menos {{.Minimum}} caracteres además de los espacios"
 }

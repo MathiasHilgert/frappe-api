@@ -15,8 +15,9 @@ const DependencyName = "database"
 
 // Up builds a connection pool from settings, ready to be wired as an
 // application.Dependency[*pgxpool.Pool]'s Up function. Every connection is
-// instrumented with otelpgx: queries are traced (without logging SQL
-// argument values, so no query parameter ever reaches a span or a log
+// instrumented with otelpgx: queries are traced, one span per query named
+// after the statement's "-- name:" line (see statementName), (without
+// logging SQL argument values, so no query parameter ever reaches a span or a log
 // record) and pool statistics are exported as metrics. Up pings the pool
 // once before returning, so a misconfigured or unreachable database fails
 // fast at startup instead of on the first query.
@@ -66,6 +67,7 @@ func poolConfiguration(settings Settings) (*pgxpool.Config, error) {
 	poolConfig.ConnConfig.ConnectTimeout = settings.ConnectTimeout
 	poolConfig.ConnConfig.Tracer = otelpgx.NewTracer(
 		otelpgx.WithDisableSQLStatementInAttributes(),
+		otelpgx.WithSpanNameFunc(statementName{}.of),
 	)
 	return poolConfig, nil
 }

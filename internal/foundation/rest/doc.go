@@ -11,6 +11,9 @@
 //     path, every filter and order_by), never built by hand.
 //   - ExpandParameters, Expansions and Expand: expand[] parsing against a
 //     per-operation allowlist, at most 4 levels deep and 20 values.
+//   - Expandable and NullableExpandable: a related resource property that
+//     is the related id, or the resource itself when expanded, declared
+//     in OpenAPI as oneOf the id string and the resource (plus null).
 //   - CheckNaming: fails when a registered schema property or path segment
 //     or query/path parameter is not snake_case (expand[] excepted); the
 //     composition root runs it at startup.
@@ -38,12 +41,12 @@
 //	var cityExpansions = rest.NewExpansions("country", "subdivision")
 //
 //	huma.Get(api, "/geo/cities", func(ctx context.Context, input *ListCitiesInput) (*rest.ListOutput[City], error) {
-//		expand, err := cityExpansions.Parse(input.Expand)
+//		expand, err := cityExpansions.Parse(ctx, input.Expand)
 //		if err != nil {
 //			return nil, err
 //		}
 //		var after CityPosition
-//		if _, err := input.Position(codec, &after); err != nil {
+//		if _, err := input.Position(ctx, codec, &after); err != nil {
 //			return nil, err
 //		}
 //		rows, err := service.Cities(ctx, input.Country, after, input.Limit+1, expand)

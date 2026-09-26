@@ -77,16 +77,19 @@ internal/
     nats/               NATS JetStream event broker adapter
     ratelimit/          GCRA rate limiter on Valkey
     telemetry/          OpenTelemetry traces, metrics, logs
+    usecase/            use case handler interface and its observing decorator (span, RED metrics, logs)
     valkey/             Valkey client
   modules/              business modules (one folder per module)
+    geo/                read-only geographic reference data API (countries, subdivisions, cities, time zones)
     <module>/
-      domain/           entities and rules, no infrastructure
-      application/      use cases and the ports they need
-      adapters/         http, postgres, ...
+      module.go         wiring: repositories, observed use cases, route registration
       events/           published events: the only package other modules may import
-      metrics/          module metrics
-      tracing/          module spans
-      module.go         module wiring
+      domain/           one file per value object, aggregate or view; no infrastructure
+      application/      one file per port
+        query/          one file per query handler (command/, job/ likewise, only when needed)
+      adapters/
+        http/           <resource>_handler.go, <resource>_handler_models.go, colocated tests
+        postgres/       <resource>_repository.go, _queries.go (SQL constants), _rows.go (row structs)
   dependencies/         composition root: builds dependencies, injects modules
 migrations/             SQL migrations (goose, timestamp-versioned, embedded), Go data seeds, data/geo snapshot
 deployments/            local infrastructure (database init script)
@@ -108,7 +111,8 @@ flowchart LR
 Rules enforced in CI by `go-arch-lint` and `depguard`:
 
 - `domain` imports nothing from infrastructure (no HTTP, database, JSON or OpenTelemetry).
-- `application` depends only on its own `domain`; it never touches the database or `pgx`.
+- `application` depends only on its own `domain`; it never touches the database or `pgx`. Its use case packages (`application/query`, `command`, `job`) depend on the ports in `application`.
+- Every function is a method, except `New...` constructors, `Test`/`Benchmark`/`Fuzz`/`Example` functions, `main` and `init`. `internal/architecture` checks it (AST scan) for the packages that adopted the rule: `internal/modules/geo` and `internal/foundation/usecase`.
 - `foundation` never imports `modules` or `dependencies`.
 - A module never imports another module's internals; `modules/<module>/events` is the only package other modules' application, adapters and module root may import, and it depends on `foundation/events` only. `domain` never imports events.
 - Only `foundation/nats` and `dependencies` may import the NATS client; everything else uses the broker-agnostic ports.
@@ -133,7 +137,8 @@ Rules enforced in CI by `go-arch-lint` and `depguard`:
 | API conventions | Stripe style resources on IETF standards: flat snake_case paths under `/v1/<module>/`, snake_case JSON with an `object` field, prefixed UUIDv7 IDs (`internal/foundation/identifier`) for business entities and natural keys for reference data, the `{object: "list", url, data, has_more, next_cursor}` envelope with signed opaque cursors (`HTTP_CURSOR_SECRET`, `limit` 1 to 100, default 10) and `Link: rel="next"`, `expand[]`, RFC 3339 timestamps, money in minor units with ISO 4217. Helpers in `internal/foundation/rest`; `rest.CheckNaming` fails startup on non snake_case names. |
 | Events | CloudEvents 1.0 JSON, type `frappe.<module>.<event>.v<version>`, defined with `events.Define`. Use cases `Record` into a transactional outbox (storage-agnostic `outbox.Store`); a relay publishes to any broker behind `events.Publisher`. Delivery is at-least-once; the consumer runtime deduplicates every handler registered with `events.On` through the inbox, so handlers are exactly-once in effect. Failures retry with backoff, then dead letter. `partitionkey` and `sequence` extensions order events per entity. See `internal/foundation/events/doc.go`. |
 | Jobs | Background and periodic jobs on Postgres (River) behind `foundation/jobs`; modules never import River. The composition root creates one `jobs.Catalog` and hands `catalog.Module("<module>")` to each module (like `registry.Module` for events). A module defines private jobs on it with `jobs.Define[Args]`, named `<module>.<action_snake_case>` (validated and unique at startup), handles them with `jobs.Handle(module, definition, handler)` and enqueues with `Definition.Enqueue(ctx, args, jobs.After, jobs.Queue, jobs.Unique)`. Enqueue joins the transaction in ctx, so a rolled back unit of work drops its jobs. `jobs.Unique(0)` deduplicates against unfinished jobs only. `jobs.Every` and `jobs.Cron` run once per tick across replicas (elected leader). Handlers are idempotent, take IDs as arguments and may return `jobs.Cancel` or `jobs.Snooze`. The tenant and trace context of the enqueuer are restored for the handler. See `internal/foundation/jobs/doc.go`. |
-| Telemetry | OTLP to any collector (local otel-lgtm or Grafana Cloud). Parent-based trace sampling: 100% in development, 10% in production. |
+| Telemetry | OTLP to any collector (local otel-lgtm or Grafana Cloud). Parent-based trace sampling: 100% in development, 10% in production. HTTP requests are traced by `otelhttp` and every SQL query by `otelpgx`, one span per query named after its `-- name:` line. |
+| Use cases | Each use case is one handler implementing `usecase.QueryHandler[Query, Result]` (or `CommandHandler`). The module root wraps it with `usecase.NewObserved`, which adds a span, RED metrics (`frappe.usecase.calls` and `frappe.usecase.duration` by `handler` and `outcome`) and a structured log, named from the handler type (`geo.query.get_country`); expected errors such as not found count as `rejected`. Only business metrics are written by hand, in the application layer. Adapters depend on the handler interfaces and are unit tested with fakes. |
 
 ## Configuration
 
@@ -305,11 +310,31 @@ Countries, first-level subdivisions, cities, IANA time zones and their localized
 | Sources | GeoNames (cities, coordinates, population, time zones, city names), Unicode CLDR 48.2 (country and subdivision names, valid subdivision codes), Wikidata (ISO 3166-2 codes by GeoNames id) |
 | Coverage | Every country and subdivision; cities above 500 inhabitants in Latin America and the Caribbean, above 15000 elsewhere, plus national capitals |
 | ISO 3166-2 | Wikidata code validated against CLDR, else a unique CLDR English name match, else a reviewed override. Units without an ISO code (for example parishes of dependent territories) have a NULL `iso_code` |
-| Identifiers | Every place (country, subdivision, city) is addressed by its stable GeoNames id; ISO codes (alpha-2 for countries, optional ISO 3166-2 for subdivisions) are attributes and filters, not keys |
-| Search | `pg_trgm` + `unaccent`: one GIN index on `places.search_key`, one on `place_names (locale, search_key)` (`btree_gin`) for locale-filtered search; query with `search_key % geo_search_key($1)` |
+| Identifiers | Every place (country, subdivision, city) has a stable GeoNames id. The API addresses countries by ISO 3166-1 alpha-2 and subdivisions and cities by GeoNames id, since about 9% of subdivisions have no ISO 3166-2 code; `iso_code` is an attribute and a filter |
+| Search | `pg_trgm` + `unaccent`: one GIN index on `places.search_key`, one on `place_names (locale, search_key)` (`btree_gin`) for locale-filtered search; query with word similarity, `geo_search_key($1) <% search_key` |
+| Revision | `geo_data_versions` holds the loaded snapshot's revision (`geo-seed-3`); a seed migration that changes geo data updates it. The API loads it once at startup and derives its ETags from it |
+| Population | `subdivisions.population` and `countries.population` are the sum of their cities in the snapshot, a search ranking signal rather than a census figure |
 | Provenance | The repository keeps only the digested snapshot. `migrations/data/geo/manifest.json` records every source file with its origin and SHA-256, the GeoNames dump date, the CLDR version and the Wikidata query date, plus each table's row count and SHA-256. A data update is a new snapshot loaded by a new seed migration; an applied migration is never edited |
 
 The seed is a Go migration (`migrations/geo.go`) that streams each file through `COPY`; `cmd/migrate` and the integration test template register it next to the SQL files.
+
+#### Geo API
+
+The `geo` module (`internal/modules/geo`) serves this data read-only under `/v1/geo`:
+
+| Route | Id | Filters | `expand[]` |
+|-------|----|---------|------------|
+| `GET /v1/geo/countries`, `/countries/{id}`, `/countries/search?query=` | ISO 3166-1 alpha-2 (`AR`) | | `capital_city`, `default_time_zone` |
+| `GET /v1/geo/subdivisions`, `/subdivisions/{id}`, `/subdivisions/search?query=` | GeoNames id (`3860255`) | `country`, `iso_code` (list); `country` (search) | `country` |
+| `GET /v1/geo/cities`, `/cities/{id}`, `/cities/search?query=` | GeoNames id (`3860259`) | `country`, `subdivision` | `country`, `subdivision`, `time_zone` |
+| `GET /v1/geo/time_zones`, `/time_zones/{id...}` | IANA id, slashes kept (`America/Argentina/Cordoba`) | | |
+| `GET /v1/geo/places/search?query=` | | `country` | |
+
+- `name` is in the negotiated language (`Accept-Language`), falling back to the place's own name. Problem details are localized too.
+- Lists are ordered by id and keyset paginated with signed cursors (`limit` 1 to 100, default 10, `Link: rel="next"`). Expansions load each relation with one batched query per page.
+- Search ignores case and accents and tolerates small typos (`pg_trgm` word similarity on the own name and the request locale's name). Filters apply inside each name branch before a candidate pre-limit of 1000 per branch. Results rank by similarity, then kind (countries, subdivisions, cities), then population, then id, and paginate on the raw matches. `query` needs at least 2 characters besides spaces (422 otherwise). `places/search` items are a `country`, `subdivision` or `city` resource, a `oneOf` discriminated by `object`.
+- Responses are `Cache-Control: public, max-age=3600, stale-while-revalidate=86400` with an ETag built from the data revision and the response language; `If-None-Match` answers 304. Unknown or malformed path ids are 404.
+- Telemetry: use case spans `geo.query.<use case>`, query spans `geo.<query>`, business metrics `frappe.geo.searches{scope,outcome}` and `frappe.geo.search.results{scope}`.
 
 Data from [GeoNames](https://www.geonames.org) ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)), [Unicode CLDR](https://cldr.unicode.org) ([Unicode License v3](https://www.unicode.org/license.txt)) and [Wikidata](https://www.wikidata.org) (CC0). See [NOTICE](NOTICE).
 

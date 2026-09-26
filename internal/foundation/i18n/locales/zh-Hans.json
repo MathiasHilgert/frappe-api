@@ -4,5 +4,20 @@
   "error.not_found.title": "未找到",
   "time.minutes": {
     "other": "{{.Count}} 分钟"
-  }
+  },
+  "problem.cursor.invalid.detail": "分页游标无效或属于其他列表。请从第一页重新开始。",
+  "problem.cursor.invalid.message": "游标无效",
+  "problem.expand.invalid.detail": "一个或多个 expand[] 值无效。",
+  "problem.expand.too_many.detail": "最多允许 {{.Maximum}} 个 expand[] 值。",
+  "problem.expand.too_many.message": "展开项过多",
+  "problem.expand.not_expandable.message": "此操作不支持展开",
+  "problem.expand.malformed.message": "必须是用点连接的 snake_case 字段名",
+  "problem.expand.too_deep.message": "最多只能有 {{.Maximum}} 层",
+  "problem.internal.detail": "发生了意外错误。",
+  "geo.country.not_found": "不存在 id 为 {{.ID}} 的国家。",
+  "geo.subdivision.not_found": "不存在 id 为 {{.ID}} 的行政区划。",
+  "geo.city.not_found": "不存在 id 为 {{.ID}} 的城市。",
+  "geo.time_zone.not_found": "不存在 id 为 {{.ID}} 的时区。",
+  "geo.search.query_too_short.detail": "搜索内容太短。",
+  "geo.search.query_too_short.message": "除空格外至少需要 {{.Minimum}} 个字符"
 }

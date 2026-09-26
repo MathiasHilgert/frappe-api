@@ -18,6 +18,7 @@ import (
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/logging"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/rest"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/telemetry"
+	"github.com/MathiasHilgert/frappe-api/internal/modules/geo"
 )
 
 // NewApplication loads the application-wide configuration through
@@ -211,13 +212,19 @@ func NewApplication(ctx context.Context, provider configuration.Provider, option
 	// a usable secret, so cursorError is only reported together with the
 	// naming check below, keeping one failure exit for the API surface.
 	cursorCodec, cursorError := provideCursorCodec(loadedConfiguration.HTTP)
-	_ = cursorCodec
 
-	// No concrete module exists yet; each one, as it is added, gets
-	// wired here with its own constructor call passing server.V1() and
-	// instance.Use(...), following foundation/httpserver's doc.go
-	// convention, its Subscriptions(registry) call and its jobs wiring on
+	// Modules are wired here, each with its own constructor call passing
+	// server.V1(), following foundation/httpserver's doc.go convention,
+	// plus, when it has them, instance.Use(...), its
+	// Subscriptions(registry) call and its jobs wiring on
 	// jobCatalog.Module("<module>").
+	//
+	// geo serves read-only reference data (countries, subdivisions,
+	// cities, time zones) from the application pool; its hook loads the
+	// geo data revision after the pool is up and before the server listens.
+	if err := instance.Use(geo.New(geo.Dependencies{API: server.V1(), Pool: databasePool, Cursors: cursorCodec})); err != nil {
+		return nil, fmt.Errorf("geo module: %w", err)
+	}
 
 	// Every module registered its operations above: enforce snake_case
 	// JSON properties and path segments on the resulting OpenAPI document,

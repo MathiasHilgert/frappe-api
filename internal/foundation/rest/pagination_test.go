@@ -48,12 +48,12 @@ func paginatedAPI(t *testing.T) humatest.TestAPI {
 	_, api := humatest.New(t)
 	codec := newCodec(t)
 	expansions := rest.NewExpansions("country")
-	handler := func(_ context.Context, input *listInput) (*rest.ListOutput[dish], error) {
-		if _, err := expansions.Parse(input.Expand); err != nil {
+	handler := func(ctx context.Context, input *listInput) (*rest.ListOutput[dish], error) {
+		if _, err := expansions.Parse(ctx, input.Expand); err != nil {
 			return nil, err
 		}
 		var after position
-		found, err := input.Position(codec, &after)
+		found, err := input.Position(ctx, codec, &after)
 		if err != nil {
 			return nil, err
 		}
