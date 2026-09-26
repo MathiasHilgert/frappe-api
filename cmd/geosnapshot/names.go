@@ -6,7 +6,11 @@ import "slices"
 // the locales table) to the GeoNames alternate name languages that may
 // supply its name, most specific first. GeoNames tags names with ISO 639
 // codes, optionally followed by a country or script variant ("pt-BR",
-// "zh-Hans"); generic Spanish serves es-419, for instance.
+// "zh-Hans"); generic Spanish serves es-419, for instance. Plain "zh" is
+// deliberately not a zh-Hans source: GeoNames tags both Simplified and
+// Traditional names with it, so only explicitly Simplified variants count.
+// City names come from here; country and subdivision names come from CLDR
+// (see cldr.go).
 var localeLanguages = []localeMapping{ //nolint:gochecknoglobals // constant lookup table.
 	{locale: "es-419", languages: []string{"es-419", "es"}},
 	{locale: "en", languages: []string{"en"}},
@@ -15,7 +19,7 @@ var localeLanguages = []localeMapping{ //nolint:gochecknoglobals // constant loo
 	{locale: "it", languages: []string{"it"}},
 	{locale: "de", languages: []string{"de"}},
 	{locale: "ru", languages: []string{"ru"}},
-	{locale: "zh-Hans", languages: []string{"zh-Hans", "zh-CN", "zh"}},
+	{locale: "zh-Hans", languages: []string{"zh-Hans", "zh-CN", "zh-SG"}},
 	{locale: "ko", languages: []string{"ko"}},
 	{locale: "ja", languages: []string{"ja"}},
 }

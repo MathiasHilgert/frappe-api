@@ -21,6 +21,7 @@ type country struct {
 	code         string
 	alpha3Code   string
 	name         string
+	capital      string
 	continent    string
 	currencyCode string
 	numericCode  int
@@ -119,6 +120,7 @@ func parseCountries(reader io.Reader) ([]country, error) {
 			numericCode:  numericCode,
 			geonamesID:   geonamesID,
 			name:         fields[4],
+			capital:      fields[5],
 			continent:    fields[8],
 			currencyCode: fields[10],
 		})
