@@ -45,6 +45,14 @@ type GetSubdivisionInput struct {
 	rest.ExpandParameters
 }
 
+// SearchSubdivisionsInput is the input of GET /geo/subdivisions/search.
+type SearchSubdivisionsInput struct {
+	Country string `query:"country" pattern:"^[A-Z]{2}$" doc:"Only subdivisions of this country (ISO 3166-1 alpha-2)." example:"AR"`
+	SearchParameters
+	rest.ExpandParameters
+	rest.PageParameters
+}
+
 // SubdivisionOutput is a single subdivision.
 type SubdivisionOutput struct {
 	Body Subdivision

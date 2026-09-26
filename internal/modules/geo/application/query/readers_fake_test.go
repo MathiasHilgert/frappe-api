@@ -6,6 +6,7 @@ import (
 
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/i18n"
 	"github.com/MathiasHilgert/frappe-api/internal/modules/geo/application"
+	"github.com/MathiasHilgert/frappe-api/internal/modules/geo/application/query"
 	"github.com/MathiasHilgert/frappe-api/internal/modules/geo/domain"
 )
 
@@ -23,8 +24,6 @@ const (
 
 // fakeReaders implements every geo port on in-memory data and records how
 // it was called.
-//
-//nolint:govet // fieldalignment: fields are grouped by resource for readability.
 type fakeReaders struct {
 	countries         map[string]domain.Country
 	subdivisions      map[int64]domain.Subdivision
@@ -41,6 +40,8 @@ type fakeReaders struct {
 	cityFilter        application.CityFilter
 	timeZoneFilter    application.TimeZoneFilter
 	lastTimeZoneIDs   []string
+	matches           []application.Match
+	lastSearch        application.SearchQuery
 }
 
 func newFakeReaders() *fakeReaders {
@@ -149,4 +150,19 @@ func (readers *fakeReaders) TimeZonesByID(_ context.Context, ids []string) ([]do
 		}
 	}
 	return result, nil
+}
+
+func (readers *fakeReaders) Search(_ context.Context, query application.SearchQuery) ([]application.Match, error) {
+	readers.calls["Search"]++
+	readers.lastSearch = query
+	matches := readers.matches
+	if len(matches) > query.Limit {
+		matches = matches[:query.Limit]
+	}
+	return matches, readers.err
+}
+
+// searchReaders are readers as every port a search needs.
+func (readers *fakeReaders) searchReaders() query.SearchReaders {
+	return query.SearchReaders{Places: readers, Countries: readers, Subdivisions: readers, Cities: readers}
 }

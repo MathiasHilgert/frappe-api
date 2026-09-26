@@ -15,6 +15,7 @@ import (
 
 // CityQueries are the use cases the city operations run.
 type CityQueries struct {
+	Search           usecase.QueryHandler[query.SearchCities, query.SearchPage]
 	List             usecase.QueryHandler[query.ListCities, []domain.City]
 	Get              usecase.QueryHandler[query.GetCity, domain.City]
 	FindCountries    usecase.QueryHandler[query.FindCountries, map[string]domain.Country]
@@ -38,6 +39,10 @@ func (cities *CityHandler) Register(api huma.API) {
 	huma.Register(api, cities.operation("list-cities", "/geo/cities", "List cities",
 		"Cities ordered by id. Filter by country and subdivision. Expandable: country, subdivision, time_zone."),
 		cities.list)
+	huma.Register(api, cities.operation("search-cities", "/geo/cities/search", "Search cities",
+		"Cities whose name (own or in the response language) matches query, best match first, then the most populous. "+
+			"Filter by country and subdivision. Expandable: country, subdivision, time_zone."),
+		cities.search)
 	huma.Register(api, cities.operation("get-city", "/geo/cities/{id}", "Get a city",
 		"A city by GeoNames id. Expandable: country, subdivision, time_zone."),
 		cities.get)
@@ -94,6 +99,36 @@ func (cities *CityHandler) get(ctx context.Context, input *GetCityInput) (*CityO
 		return nil, err
 	}
 	return &CityOutput{Body: resources[0]}, nil
+}
+
+func (cities *CityHandler) search(ctx context.Context, input *SearchCitiesInput) (*rest.ListOutput[City], error) {
+	expand, err := cityExpansions.Parse(ctx, input.Expand)
+	if err != nil {
+		return nil, err
+	}
+	after, err := cities.searchAfter(ctx, input.PageParameters)
+	if err != nil {
+		return nil, err
+	}
+	locale := cities.locale(ctx)
+	if err = cities.revalidate(ctx, locale); err != nil {
+		return nil, err
+	}
+	page, err := cities.queries.Search.Handle(ctx, query.SearchCities{
+		Locale: locale, After: after, Text: input.Query, CountryCode: input.Country, SubdivisionID: input.subdivisionID(), Limit: input.Limit,
+	})
+	if err != nil {
+		return nil, cities.failure(ctx, err)
+	}
+	rows := make([]domain.City, 0, len(page.Results))
+	for _, result := range page.Results {
+		rows = append(rows, *result.Place.City)
+	}
+	resources, err := cities.resources(ctx, locale, rows, expand)
+	if err != nil {
+		return nil, err
+	}
+	return rest.NewCursorPage(cities.shared.Cursors, input.PageParameters, resources, cities.next(page))
 }
 
 // cityRelations are the expanded relations of one page of cities, loaded

@@ -17,6 +17,7 @@ type countryQueries struct {
 	get           *fakeQuery[query.GetCountry, domain.Country]
 	findCities    *fakeQuery[query.FindCities, map[int64]domain.City]
 	findTimeZones *fakeQuery[query.FindTimeZones, map[string]domain.TimeZone]
+	search        *fakeQuery[query.SearchCountries, query.SearchPage]
 }
 
 func newCountryQueries() countryQueries {
@@ -28,11 +29,12 @@ func newCountryQueries() countryQueries {
 		get:           &fakeQuery[query.GetCountry, domain.Country]{result: argentina},
 		findCities:    &fakeQuery[query.FindCities, map[int64]domain.City]{},
 		findTimeZones: &fakeQuery[query.FindTimeZones, map[string]domain.TimeZone]{},
+		search:        &fakeQuery[query.SearchCountries, query.SearchPage]{},
 	}
 }
 
 func (queries countryQueries) register(api testAPI) {
-	httpadapter.NewCountryHandler(api.shared, httpadapter.CountryQueries{List: queries.list, Get: queries.get, FindCities: queries.findCities, FindTimeZones: queries.findTimeZones}).Register(api.api)
+	httpadapter.NewCountryHandler(api.shared, httpadapter.CountryQueries{Search: queries.search, List: queries.list, Get: queries.get, FindCities: queries.findCities, FindTimeZones: queries.findTimeZones}).Register(api.api)
 }
 
 func TestCountryHandlerGetsACountryByAlpha2Code(t *testing.T) {

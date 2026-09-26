@@ -54,27 +54,32 @@ func New(dependencies Dependencies) *Module {
 		subdivisions application.SubdivisionReader  = postgres.NewSubdivisionRepository(dependencies.Pool)
 		cities       application.CityReader         = postgres.NewCityRepository(dependencies.Pool)
 		timeZones    application.TimeZoneReader     = postgres.NewTimeZoneRepository(dependencies.Pool)
+		places       application.PlaceSearcher      = postgres.NewPlaceSearchRepository(dependencies.Pool)
 		revisions    application.DataRevisionReader = postgres.NewDataRevisionRepository(dependencies.Pool)
 	)
 	revision := usecase.NewObserved[query.GetDataRevision, string](query.NewGetDataRevisionHandler(revisions))
 	shared := httpadapter.Shared{Revision: revision, Cursors: dependencies.Cursors}
+	search := query.SearchReaders{Places: places, Countries: countries, Subdivisions: subdivisions, Cities: cities}
 	findCountries := usecase.NewObserved[query.FindCountries, map[string]domain.Country](query.NewFindCountriesHandler(countries))
 	findSubdivisions := usecase.NewObserved[query.FindSubdivisions, map[int64]domain.Subdivision](query.NewFindSubdivisionsHandler(subdivisions))
 	findCities := usecase.NewObserved[query.FindCities, map[int64]domain.City](query.NewFindCitiesHandler(cities))
 	findTimeZones := usecase.NewObserved[query.FindTimeZones, map[string]domain.TimeZone](query.NewFindTimeZonesHandler(timeZones))
 
 	httpadapter.NewCountryHandler(shared, httpadapter.CountryQueries{
+		Search:        usecase.NewObserved[query.SearchCountries, query.SearchPage](query.NewSearchCountriesHandler(search), query.ErrQueryTooShort),
 		List:          usecase.NewObserved[query.ListCountries, []domain.Country](query.NewListCountriesHandler(countries)),
 		Get:           usecase.NewObserved[query.GetCountry, domain.Country](query.NewGetCountryHandler(countries), domain.ErrNotFound),
 		FindCities:    findCities,
 		FindTimeZones: findTimeZones,
 	}).Register(dependencies.API)
 	httpadapter.NewSubdivisionHandler(shared, httpadapter.SubdivisionQueries{
+		Search:        usecase.NewObserved[query.SearchSubdivisions, query.SearchPage](query.NewSearchSubdivisionsHandler(search), query.ErrQueryTooShort),
 		List:          usecase.NewObserved[query.ListSubdivisions, []domain.Subdivision](query.NewListSubdivisionsHandler(subdivisions)),
 		Get:           usecase.NewObserved[query.GetSubdivision, domain.Subdivision](query.NewGetSubdivisionHandler(subdivisions), domain.ErrNotFound),
 		FindCountries: findCountries,
 	}).Register(dependencies.API)
 	httpadapter.NewCityHandler(shared, httpadapter.CityQueries{
+		Search:           usecase.NewObserved[query.SearchCities, query.SearchPage](query.NewSearchCitiesHandler(search), query.ErrQueryTooShort),
 		List:             usecase.NewObserved[query.ListCities, []domain.City](query.NewListCitiesHandler(cities)),
 		Get:              usecase.NewObserved[query.GetCity, domain.City](query.NewGetCityHandler(cities), domain.ErrNotFound),
 		FindCountries:    findCountries,
@@ -84,6 +89,10 @@ func New(dependencies Dependencies) *Module {
 	httpadapter.NewTimeZoneHandler(shared, httpadapter.TimeZoneQueries{
 		List: usecase.NewObserved[query.ListTimeZones, []domain.TimeZone](query.NewListTimeZonesHandler(timeZones)),
 		Get:  usecase.NewObserved[query.GetTimeZone, domain.TimeZone](query.NewGetTimeZoneHandler(timeZones), domain.ErrNotFound),
+	}).Register(dependencies.API)
+
+	httpadapter.NewPlaceHandler(shared, httpadapter.PlaceQueries{
+		Search: usecase.NewObserved[query.SearchPlaces, query.SearchPage](query.NewSearchPlacesHandler(search), query.ErrQueryTooShort),
 	}).Register(dependencies.API)
 
 	return &Module{revision: revision}

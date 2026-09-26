@@ -61,6 +61,13 @@ type GetCountryInput struct {
 	rest.ExpandParameters
 }
 
+// SearchCountriesInput is the input of GET /geo/countries/search.
+type SearchCountriesInput struct {
+	SearchParameters
+	rest.ExpandParameters
+	rest.PageParameters
+}
+
 // CountryOutput is a single country.
 type CountryOutput struct {
 	Body Country

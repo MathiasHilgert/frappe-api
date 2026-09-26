@@ -19,6 +19,7 @@ var countryCodePattern = regexp.MustCompile(`^[A-Z]{2}$`)
 
 // CountryQueries are the use cases the country operations run.
 type CountryQueries struct {
+	Search        usecase.QueryHandler[query.SearchCountries, query.SearchPage]
 	List          usecase.QueryHandler[query.ListCountries, []domain.Country]
 	Get           usecase.QueryHandler[query.GetCountry, domain.Country]
 	FindCities    usecase.QueryHandler[query.FindCities, map[int64]domain.City]
@@ -41,6 +42,9 @@ func (countries *CountryHandler) Register(api huma.API) {
 	huma.Register(api, countries.operation("list-countries", "/geo/countries", "List countries",
 		"Every ISO 3166-1 country and territory, ordered by id (alpha-2 code). Expandable: capital_city, default_time_zone."),
 		countries.list)
+	huma.Register(api, countries.operation("search-countries", "/geo/countries/search", "Search countries",
+		"Countries whose name (own or in the response language) matches query, best match first. Expandable: capital_city, default_time_zone."),
+		countries.search)
 	huma.Register(api, countries.operation("get-country", "/geo/countries/{id}", "Get a country",
 		"A country by ISO 3166-1 alpha-2 code. Expandable: capital_city, default_time_zone."),
 		countries.get)
@@ -93,6 +97,34 @@ func (countries *CountryHandler) get(ctx context.Context, input *GetCountryInput
 		return nil, err
 	}
 	return &CountryOutput{Body: resources[0]}, nil
+}
+
+func (countries *CountryHandler) search(ctx context.Context, input *SearchCountriesInput) (*rest.ListOutput[Country], error) {
+	expand, err := countryExpansions.Parse(ctx, input.Expand)
+	if err != nil {
+		return nil, err
+	}
+	after, err := countries.searchAfter(ctx, input.PageParameters)
+	if err != nil {
+		return nil, err
+	}
+	locale := countries.locale(ctx)
+	if err = countries.revalidate(ctx, locale); err != nil {
+		return nil, err
+	}
+	page, err := countries.queries.Search.Handle(ctx, query.SearchCountries{Locale: locale, After: after, Text: input.Query, Limit: input.Limit})
+	if err != nil {
+		return nil, countries.failure(ctx, err)
+	}
+	rows := make([]domain.Country, 0, len(page.Results))
+	for _, result := range page.Results {
+		rows = append(rows, *result.Place.Country)
+	}
+	resources, err := countries.resources(ctx, locale, rows, expand)
+	if err != nil {
+		return nil, err
+	}
+	return rest.NewCursorPage(countries.shared.Cursors, input.PageParameters, resources, countries.next(page))
 }
 
 // countryRelations are the expanded relations of one page of countries,

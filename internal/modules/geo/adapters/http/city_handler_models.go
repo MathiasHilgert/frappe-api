@@ -78,6 +78,14 @@ type GetCityInput struct {
 	rest.ExpandParameters
 }
 
+// SearchCitiesInput is the input of GET /geo/cities/search.
+type SearchCitiesInput struct {
+	CityFilters
+	SearchParameters
+	rest.ExpandParameters
+	rest.PageParameters
+}
+
 // CityOutput is a single city.
 type CityOutput struct {
 	Body City

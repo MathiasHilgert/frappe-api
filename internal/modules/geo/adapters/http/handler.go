@@ -25,6 +25,7 @@ import (
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/i18n"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/rest"
 	"github.com/MathiasHilgert/frappe-api/internal/foundation/usecase"
+	"github.com/MathiasHilgert/frappe-api/internal/modules/geo/application"
 	"github.com/MathiasHilgert/frappe-api/internal/modules/geo/application/query"
 	"github.com/MathiasHilgert/frappe-api/internal/modules/geo/domain"
 )
@@ -102,13 +103,23 @@ func (handler handler) lookupFailure(ctx context.Context, err error, key i18n.Ke
 	return handler.failure(ctx, err)
 }
 
-// failure maps a use case error to a problem. Anything unexpected becomes
+// failure maps a use case error to a problem: a too short search query
+// is 422 on query.query. Anything unexpected becomes
 // a 500 without its cause (Huma would otherwise echo the error text); the
 // observed use case already logged and traced it.
 func (handler) failure(ctx context.Context, err error) error {
 	var statusError huma.StatusError
 	if errors.As(err, &statusError) {
 		return err
+	}
+	if errors.Is(err, query.ErrQueryTooShort) {
+		minimum := i18n.Data{"Minimum": query.MinimumQueryLength}
+		return rest.Problem(ctx, http.StatusUnprocessableEntity,
+			rest.Text{Key: "geo.search.query_too_short.detail", Default: "The search query is too short."},
+			rest.Detail(ctx, "query.query", rest.Text{
+				Key: "geo.search.query_too_short.message", Data: minimum,
+				Default: "must have at least " + strconv.Itoa(query.MinimumQueryLength) + " characters besides spaces",
+			}, nil))
 	}
 	return rest.Problem(ctx, http.StatusInternalServerError, rest.Text{Key: "problem.internal.detail", Default: "An unexpected error occurred."})
 }
@@ -123,4 +134,24 @@ func (handler) placeID(value string) (int64, bool) {
 // placeIDText formats a GeoNames id as its public id.
 func (handler) placeIDText(id int64) string {
 	return strconv.FormatInt(id, 10)
+}
+
+// searchAfter decodes the page cursor of a search into its position, nil
+// for the first page.
+func (handler handler) searchAfter(ctx context.Context, page rest.PageParameters) (*application.SearchPosition, error) {
+	var after application.SearchPosition
+	found, err := page.Position(ctx, handler.shared.Cursors, &after)
+	if err != nil || !found {
+		return nil, err
+	}
+	return &after, nil
+}
+
+// next is the cursor position of the page after page, or an untyped nil
+// on the last page (rest.NewCursorPage tells them apart by nil).
+func (handler) next(page query.SearchPage) any {
+	if page.Next == nil {
+		return nil
+	}
+	return *page.Next
 }

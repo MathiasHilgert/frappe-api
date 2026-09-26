@@ -14,6 +14,7 @@ type subdivisionQueries struct {
 	list          *fakeQuery[query.ListSubdivisions, []domain.Subdivision]
 	get           *fakeQuery[query.GetSubdivision, domain.Subdivision]
 	findCountries *fakeQuery[query.FindCountries, map[string]domain.Country]
+	search        *fakeQuery[query.SearchSubdivisions, query.SearchPage]
 }
 
 func newSubdivisionQueries() subdivisionQueries {
@@ -25,12 +26,14 @@ func newSubdivisionQueries() subdivisionQueries {
 		findCountries: &fakeQuery[query.FindCountries, map[string]domain.Country]{result: map[string]domain.Country{
 			"AR": {Code: "AR", Name: "Argentina", NumericCode: 32},
 		}},
+		search: &fakeQuery[query.SearchSubdivisions, query.SearchPage]{},
 	}
 }
 
 func (queries subdivisionQueries) register(api testAPI) {
 	httpadapter.NewSubdivisionHandler(api.shared, httpadapter.SubdivisionQueries{
-		List: queries.list, Get: queries.get, FindCountries: queries.findCountries,
+		Search: queries.search,
+		List:   queries.list, Get: queries.get, FindCountries: queries.findCountries,
 	}).Register(api.api)
 }
 
