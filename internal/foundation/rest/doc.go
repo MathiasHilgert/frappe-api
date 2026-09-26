@@ -11,6 +11,9 @@
 //     path, every filter and order_by), never built by hand.
 //   - ExpandParameters, Expansions and Expand: expand[] parsing against a
 //     per-operation allowlist, at most 4 levels deep and 20 values.
+//   - Expandable and NullableExpandable: a related resource property that
+//     is the related id, or the resource itself when expanded, declared
+//     in OpenAPI as oneOf the id string and the resource (plus null).
 //   - CheckNaming: fails when a registered schema property or path segment
 //     or query/path parameter is not snake_case (expand[] excepted); the
 //     composition root runs it at startup.
