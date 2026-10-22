@@ -1,0 +1,127 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
+# Every job calls a `just` recipe, so `just ci` reproduces this pipeline locally.
+# Lint, build and security start in parallel; tests need the build; coverage needs
+# green tests.
+# Test jobs rebuild incrementally instead of reusing the build artifact: Microsoft.Testing.Platform
+# test apps need each project's obj/ restore graph, which makes artifact reuse brittle.
+jobs:
+  lint:
+    name: 1. Lint — format, workflows, Dockerfile, secrets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v5
+      - name: Set up .NET toolchain
+        uses: ./.github/actions/setup-dotnet
+      - name: Check formatting, workflows, Dockerfile and secrets
+        run: just lint
+      - name: Test the git hygiene scripts
+        run: just test-git
+
+  build:
+    name: 2. Build — Release, warnings as errors
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v5
+      - name: Set up .NET toolchain
+        uses: ./.github/actions/setup-dotnet
+      - name: Build the solution in Release
+        run: just build
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-release
+          path: src/**/bin/Release/
+          retention-days: 7
+
+  test-fast:
+    name: 3. Test — unit & architecture
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v5
+      - name: Set up .NET toolchain
+        uses: ./.github/actions/setup-dotnet
+      - name: Run unit and architecture tests
+        run: just test fast
+
+  test-integration:
+    name: 4. Test — integration (Postgres, NATS, Valkey)
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v5
+      - name: Set up .NET toolchain
+        uses: ./.github/actions/setup-dotnet
+      - name: Run integration tests against real containers
+        run: just test integration
+
+  coverage:
+    name: 5. Coverage — line coverage ≥ 70%
+    needs: [test-fast, test-integration]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v5
+      - name: Set up .NET toolchain
+        uses: ./.github/actions/setup-dotnet
+      - name: Measure coverage and enforce the threshold
+        run: just cover
+      - name: Publish coverage summary to the job page
+        if: always()
+        run: |
+          if [ -f artifacts/coverage/SummaryGithub.md ]; then
+            cat artifacts/coverage/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Publish coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: artifacts/coverage/
+          retention-days: 14
+
+  security:
+    name: 6. Security — vulnerable packages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v5
+      - name: Set up .NET toolchain
+        uses: ./.github/actions/setup-dotnet
+      - name: Check for vulnerable packages and leaked secrets
+        run: just audit
+

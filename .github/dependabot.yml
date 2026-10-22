@@ -1,0 +1,21 @@
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      wolverine:
+        patterns: ["WolverineFx*"]
+      opentelemetry:
+        patterns: ["OpenTelemetry*"]
+      test:
+        patterns: ["xunit*", "Microsoft.Testing.*", "Microsoft.NET.Test.Sdk", "Testcontainers*", "Alba", "NetArchTest*", "ArchUnitNET*", "Shouldly", "FluentAssertions", "NSubstitute*", "coverlet*"]
+  - package-ecosystem: github-actions
+    directories: ["/", "/.github/actions/*"]
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

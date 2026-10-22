@@ -1,0 +1,20 @@
+name: Set up .NET toolchain
+description: .NET SDK from global.json, NuGet cache, just and the local dotnet tools.
+runs:
+  using: composite
+  steps:
+    - name: Install .NET SDK from global.json
+      uses: actions/setup-dotnet@v5
+      with:
+        global-json-file: global.json
+    - name: Restore NuGet cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ github.workspace }}/.nuget/packages
+        key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj', '.config/dotnet-tools.json') }}
+        restore-keys: nuget-${{ runner.os }}-
+    - name: Install just
+      uses: extractions/setup-just@v3
+    - name: Restore local dotnet tools
+      shell: bash
+      run: dotnet tool restore
