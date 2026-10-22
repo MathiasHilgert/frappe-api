@@ -95,6 +95,9 @@ if [[ "${SKIP_DOCKER:-0}" != 1 ]]; then
   expect fail "commitlint range with a bad commit" bash -c 'cd "$1" && "$2" HEAD~2 HEAD' _ "$lint" "$dir/lint-commits.sh"
   repo="$lint"; commit "Feat: Upper type"
   expect fail "commitlint uppercase type" bash -c 'cd "$1" && "$2" HEAD~1 HEAD' _ "$lint" "$dir/lint-commits.sh"
+  # In a worktree .git is a file pointing outside the checkout; linting must not depend on it.
+  git -C "$lint" worktree add -q -b wt "$tmp/lint-wt" "$good"
+  expect pass "commitlint inside a git worktree" bash -c 'cd "$1" && "$2" HEAD~1 HEAD' _ "$tmp/lint-wt" "$dir/lint-commits.sh"
 fi
 
 if [[ $failures -gt 0 ]]; then echo "$failures failure(s)"; exit 1; fi
