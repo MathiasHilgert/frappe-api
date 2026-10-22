@@ -95,6 +95,12 @@ if [[ "${SKIP_DOCKER:-0}" != 1 ]]; then
   expect fail "commitlint range with a bad commit" bash -c 'cd "$1" && "$2" HEAD~2 HEAD' _ "$lint" "$dir/lint-commits.sh"
   repo="$lint"; commit "Feat: Upper type"
   expect fail "commitlint uppercase type" bash -c 'cd "$1" && "$2" HEAD~1 HEAD' _ "$lint" "$dir/lint-commits.sh"
+  # Dependabot pastes release notes into the body; its commits are generated, so only humans are linted.
+  long_line="$(printf 'x%.0s' {1..120})"
+  repo="$lint"; commit "$(printf 'build(deps): bump foo from 1.0 to 2.0\n\n%s\n\nSigned-off-by: dependabot[bot] <support@github.com>' "$long_line")"
+  expect pass "commitlint skips dependabot commits" bash -c 'cd "$1" && "$2" HEAD~1 HEAD' _ "$lint" "$dir/lint-commits.sh"
+  repo="$lint"; commit "$(printf 'build: bump foo\n\n%s' "$long_line")"
+  expect fail "commitlint still checks human body lines" bash -c 'cd "$1" && "$2" HEAD~1 HEAD' _ "$lint" "$dir/lint-commits.sh"
   # In a worktree .git is a file pointing outside the checkout; linting must not depend on it.
   git -C "$lint" worktree add -q -b wt "$tmp/lint-wt" "$good"
   expect pass "commitlint inside a git worktree" bash -c 'cd "$1" && "$2" HEAD~1 HEAD' _ "$tmp/lint-wt" "$dir/lint-commits.sh"
