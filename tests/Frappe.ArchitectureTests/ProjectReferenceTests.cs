@@ -45,7 +45,7 @@ public sealed class ProjectReferenceTests
 
     private static bool CanLoad(Project project)
     {
-        if (!File.Exists(Path.Combine(AppContext.BaseDirectory, $"{project.Name}.dll")))
+        if (!File.Exists(Path.Join(AppContext.BaseDirectory, $"{project.Name}.dll")))
             return false;
 
         try

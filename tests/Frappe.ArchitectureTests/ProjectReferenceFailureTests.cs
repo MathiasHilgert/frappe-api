@@ -19,7 +19,7 @@ public sealed class ProjectReferenceFailureTests
     public void UnloadableProjects_IncludesAnAssemblyThatExistsButCannotBeLoaded()
     {
         var name = $"Frappe.Corrupt{Guid.NewGuid():N}.Domain";
-        var path = Path.Combine(AppContext.BaseDirectory, $"{name}.dll");
+        var path = Path.Join(AppContext.BaseDirectory, $"{name}.dll");
         File.WriteAllText(path, "not an assembly");
 
         try

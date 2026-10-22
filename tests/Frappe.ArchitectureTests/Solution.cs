@@ -34,11 +34,11 @@ internal static class Solution
     public static IEnumerable<string> ModuleNames => Projects.Select(p => p.Module).OfType<string>().Distinct(StringComparer.Ordinal);
 
     public static Assembly LoadAssembly(Project project) =>
-        Assembly.LoadFrom(Path.Combine(AppContext.BaseDirectory, $"{project.Name}.dll"));
+        Assembly.LoadFrom(Path.Join(AppContext.BaseDirectory, $"{project.Name}.dll"));
 
     private static List<Project> LoadProjects()
     {
-        var src = Path.Combine(FindRoot(), "src");
+        var src = Path.Join(FindRoot(), "src");
         return Directory.EnumerateFiles(src, "*.csproj", SearchOption.AllDirectories)
             .Select(path =>
             {
@@ -90,7 +90,7 @@ internal static class Solution
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
         {
-            if (File.Exists(Path.Combine(dir.FullName, "Frappe.slnx")))
+            if (File.Exists(Path.Join(dir.FullName, "Frappe.slnx")))
                 return dir.FullName;
         }
 
