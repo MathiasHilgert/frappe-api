@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NetArchTest.Rules" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Referencing the outermost project copies every production assembly next to the tests.
+         Until the host exists that is the shared kernel; switch to the host when it lands. -->
+    <ProjectReference Include="..\..\src\BuildingBlocks\Frappe.SharedKernel\Frappe.SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>
