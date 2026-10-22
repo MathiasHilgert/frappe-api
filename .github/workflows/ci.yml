@@ -15,16 +15,16 @@ concurrency:
 env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
-  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 # Every job calls a `just` recipe, so `just ci` reproduces this pipeline locally.
 # Lint, build and security start in parallel; tests need the build; coverage needs
 # green tests.
-# Test jobs rebuild incrementally instead of reusing the build artifact: Microsoft.Testing.Platform
-# test apps need each project's obj/ restore graph, which makes artifact reuse brittle.
+# The build job is a fast gate; test jobs rebuild incrementally instead of reusing its output,
+# because Microsoft.Testing.Platform test apps need each project's obj/ restore graph.
 jobs:
   lint:
     name: 1. Lint — format, workflows, Dockerfile, secrets
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -40,6 +40,7 @@ jobs:
 
   build:
     name: 2. Build — Release, warnings as errors
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -50,15 +51,10 @@ jobs:
         uses: ./.github/actions/setup-dotnet
       - name: Build the solution in Release
         run: just build
-      - name: Upload build output
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-release
-          path: src/**/bin/Release/
-          retention-days: 7
 
   test-fast:
     name: 3. Test — unit & architecture
+    timeout-minutes: 15
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -73,6 +69,7 @@ jobs:
 
   test-integration:
     name: 4. Test — integration (Postgres, NATS, Valkey)
+    timeout-minutes: 20
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -86,7 +83,8 @@ jobs:
         run: just test integration
 
   coverage:
-    name: 5. Coverage — line coverage ≥ 70%
+    name: 5. Coverage — line coverage threshold
+    timeout-minutes: 25
     needs: [test-fast, test-integration]
     runs-on: ubuntu-latest
     permissions:
@@ -114,6 +112,7 @@ jobs:
 
   security:
     name: 6. Security — vulnerable packages
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -122,6 +121,6 @@ jobs:
         uses: actions/checkout@v5
       - name: Set up .NET toolchain
         uses: ./.github/actions/setup-dotnet
-      - name: Check for vulnerable packages and leaked secrets
+      - name: Check for vulnerable packages
         run: just audit
 
