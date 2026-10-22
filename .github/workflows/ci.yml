@@ -30,7 +30,7 @@ jobs:
       contents: read
     steps:
       - name: Check out code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Set up .NET toolchain
         uses: ./.github/actions/setup-dotnet
       - name: Check formatting, workflows, Dockerfile and secrets
@@ -46,7 +46,7 @@ jobs:
       contents: read
     steps:
       - name: Check out code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Set up .NET toolchain
         uses: ./.github/actions/setup-dotnet
       - name: Build the solution in Release
@@ -61,7 +61,7 @@ jobs:
       contents: read
     steps:
       - name: Check out code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Set up .NET toolchain
         uses: ./.github/actions/setup-dotnet
       - name: Run unit and architecture tests
@@ -76,7 +76,7 @@ jobs:
       contents: read
     steps:
       - name: Check out code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Set up .NET toolchain
         uses: ./.github/actions/setup-dotnet
       - name: Run integration tests against real containers
@@ -91,7 +91,7 @@ jobs:
       contents: read
     steps:
       - name: Check out code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Set up .NET toolchain
         uses: ./.github/actions/setup-dotnet
       - name: Measure coverage and enforce the threshold
@@ -104,7 +104,7 @@ jobs:
           fi
       - name: Publish coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: artifacts/coverage/
@@ -118,7 +118,7 @@ jobs:
       contents: read
     steps:
       - name: Check out code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
       - name: Set up .NET toolchain
         uses: ./.github/actions/setup-dotnet
       - name: Check for vulnerable packages
