@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Optional local commit-msg hook: fast checks without Docker.
+# Install: `just hooks` (sets core.hooksPath to scripts/git/hooks).
+# CI remains authoritative via commitlint (scripts/git/lint-commits.sh).
+set -euo pipefail
+
+msg_file="$1"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Ignore comment lines git strips anyway.
+clean="$(grep -v '^#' "$msg_file" || true)"
+header="$(printf '%s\n' "$clean" | sed -n '/[^[:space:]]/{p;q;}')"
+
+# Let git-generated merge/revert/fixup headers through.
+if [[ ! "$header" =~ ^(Merge |Revert \"|fixup! |squash! |amend! ) ]]; then
+  re='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9._/-]+\))?!?: [^[:space:]].*$'
+  if [[ ! "$header" =~ $re ]]; then
+    echo "error: commit header must follow Conventional Commits: <type>(<scope>)?: <subject>" >&2
+    echo "  got: $header" >&2
+    exit 1
+  fi
+  if (( ${#header} > 100 )); then
+    echo "error: commit header exceeds 100 characters (${#header})." >&2
+    exit 1
+  fi
+fi
+
+printf '%s\n' "$clean" | "$script_dir/check-ai-attribution.sh" text - >/dev/null
