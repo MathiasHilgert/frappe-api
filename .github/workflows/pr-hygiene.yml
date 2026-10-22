@@ -1,0 +1,82 @@
+name: PR hygiene
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: pr-hygiene-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr-title:
+    name: PR title follows Conventional Commits
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title format (semantic-pull-request)
+        uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          requireScope: false
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            The subject "{subject}" of PR title "{title}" must not start with an uppercase letter.
+
+  pr-attribution:
+    name: PR has no AI attribution
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Check PR title and body for AI attribution
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: printf '%s\n%s\n' "$PR_TITLE" "$PR_BODY" | scripts/git/check-ai-attribution.sh text -
+
+  branch:
+    name: Branch name follows convention
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Check branch name
+        run: scripts/git/check-branch.sh "$GITHUB_HEAD_REF"
+
+  commits:
+    name: Commits follow Conventional Commits, no AI attribution
+    runs-on: ubuntu-latest
+    env:
+      BASE_REF: origin/${{ github.base_ref }}
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Check commit messages (commitlint)
+        run: scripts/git/lint-commits.sh "$BASE_REF" HEAD
+      - name: Check commits for AI attribution
+        run: scripts/git/check-ai-attribution.sh commits "$BASE_REF" HEAD
