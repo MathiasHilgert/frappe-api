@@ -1,4 +1,5 @@
 using Frappe.Modularity;
+using Frappe.Platform.Caching;
 using Frappe.Platform.Health;
 using Frappe.Platform.Messaging;
 using Frappe.Platform.Persistence;
@@ -17,6 +18,7 @@ internal static class PlatformComposition
         services.AddSingleton(TimeProvider.System);
         services.AddPlatformHealth();
         services.AddPostgres(configuration);
+        services.AddCaching(configuration);
         services.AddJobs();
 
         foreach (var module in modules)
