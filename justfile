@@ -82,11 +82,11 @@ test suite="all":
 [group('test')]
 cover: setup
     rm -rf {{coverage_dir}}
-    find tests -path '*TestResults*' -name 'coverage.cobertura.xml' -delete
     for p in {{fast_tests}} {{integration_tests}}; do \
-      dotnet test --project "$p" -c {{configuration}} --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml; \
+      dotnet test --project "$p" -c {{configuration}} --coverage --coverage-output-format cobertura \
+        --coverage-output coverage.cobertura.xml --results-directory "{{coverage_dir}}/raw/$(basename "$p")"; \
     done
-    dotnet reportgenerator '-reports:tests/**/TestResults/coverage.cobertura.xml' '-targetdir:{{coverage_dir}}' \
+    dotnet reportgenerator '-reports:{{coverage_dir}}/raw/*/coverage.cobertura.xml' '-targetdir:{{coverage_dir}}' \
       '-reporttypes:Html;MarkdownSummaryGithub;Cobertura;TextSummary' '-assemblyfilters:-*Tests' '-filefilters:-*.g.cs;-*/obj/*'
     cat {{coverage_dir}}/Summary.txt
     rate="$(grep -m1 -o 'line-rate="[0-9.]*"' {{coverage_dir}}/Cobertura.xml | grep -o '[0-9.]*')"; \
