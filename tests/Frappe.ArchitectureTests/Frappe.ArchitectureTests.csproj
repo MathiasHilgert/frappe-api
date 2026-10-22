@@ -17,8 +17,8 @@
 
   <ItemGroup>
     <!-- Referencing the outermost project copies every production assembly next to the tests.
-         Until the host exists that is the shared kernel; switch to the host when it lands. -->
-    <ProjectReference Include="..\..\src\BuildingBlocks\Frappe.SharedKernel\Frappe.SharedKernel.csproj" />
+         Until the host exists that is the Identity infrastructure; switch to the host when it lands. -->
+    <ProjectReference Include="..\..\src\Modules\Identity\Frappe.Identity.Infrastructure\Frappe.Identity.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

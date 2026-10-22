@@ -1,12 +1,25 @@
 <Solution>
   <Folder Name="/src/" />
   <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/Frappe.Modularity/Frappe.Modularity.csproj" />
+    <Project Path="src/BuildingBlocks/Frappe.Platform.Messaging/Frappe.Platform.Messaging.csproj" />
+    <Project Path="src/BuildingBlocks/Frappe.Platform.Persistence/Frappe.Platform.Persistence.csproj" />
     <Project Path="src/BuildingBlocks/Frappe.SharedKernel/Frappe.SharedKernel.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Identity/">
+    <Project Path="src/Modules/Identity/Frappe.Identity.Application/Frappe.Identity.Application.csproj" />
+    <Project Path="src/Modules/Identity/Frappe.Identity.Contracts/Frappe.Identity.Contracts.csproj" />
+    <Project Path="src/Modules/Identity/Frappe.Identity.Domain/Frappe.Identity.Domain.csproj" />
+    <Project Path="src/Modules/Identity/Frappe.Identity.Infrastructure/Frappe.Identity.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Frappe.ArchitectureTests/Frappe.ArchitectureTests.csproj" />
   </Folder>
   <Folder Name="/tests/BuildingBlocks/">
     <Project Path="tests/BuildingBlocks/Frappe.SharedKernel.Tests/Frappe.SharedKernel.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/">
+    <Project Path="tests/Modules/Frappe.Identity.Tests/Frappe.Identity.Tests.csproj" />
   </Folder>
 </Solution>
