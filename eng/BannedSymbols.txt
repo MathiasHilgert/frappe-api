@@ -1,0 +1,6 @@
+P:System.DateTime.Now;Inject TimeProvider instead
+P:System.DateTime.UtcNow;Inject TimeProvider instead
+P:System.DateTime.Today;Inject TimeProvider instead
+P:System.DateTimeOffset.Now;Inject TimeProvider instead
+P:System.DateTimeOffset.UtcNow;Inject TimeProvider instead
+M:System.Guid.NewGuid;Ids are UUIDv7: use Guid.CreateVersion7(TimeProvider.GetUtcNow())
