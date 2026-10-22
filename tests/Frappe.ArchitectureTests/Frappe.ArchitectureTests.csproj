@@ -16,9 +16,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Referencing the outermost project copies every production assembly next to the tests.
-         Until the host exists that is the Identity infrastructure; switch to the host when it lands. -->
-    <ProjectReference Include="..\..\src\Modules\Identity\Frappe.Identity.Infrastructure\Frappe.Identity.Infrastructure.csproj" />
+    <!-- Referencing the outermost project, the host, copies every production assembly next to the tests. -->
+    <ProjectReference Include="..\..\src\Host\Frappe.Api\Frappe.Api.csproj" />
   </ItemGroup>
 
 </Project>

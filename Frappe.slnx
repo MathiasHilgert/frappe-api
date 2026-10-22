@@ -6,6 +6,9 @@
     <Project Path="src/BuildingBlocks/Frappe.Platform.Persistence/Frappe.Platform.Persistence.csproj" />
     <Project Path="src/BuildingBlocks/Frappe.SharedKernel/Frappe.SharedKernel.csproj" />
   </Folder>
+  <Folder Name="/src/Host/">
+    <Project Path="src/Host/Frappe.Api/Frappe.Api.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/" />
   <Folder Name="/src/Modules/Identity/">
     <Project Path="src/Modules/Identity/Frappe.Identity.Application/Frappe.Identity.Application.csproj" />
@@ -15,6 +18,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Frappe.ArchitectureTests/Frappe.ArchitectureTests.csproj" />
+    <Project Path="tests/Frappe.IntegrationTests/Frappe.IntegrationTests.csproj" />
   </Folder>
   <Folder Name="/tests/BuildingBlocks/">
     <Project Path="tests/BuildingBlocks/Frappe.SharedKernel.Tests/Frappe.SharedKernel.Tests.csproj" />
