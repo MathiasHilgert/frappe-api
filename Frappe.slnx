@@ -1,6 +1,8 @@
 <Solution>
   <Folder Name="/src/" />
   <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/Frappe.Modularity/Frappe.Modularity.csproj" />
+    <Project Path="src/BuildingBlocks/Frappe.Platform.Persistence/Frappe.Platform.Persistence.csproj" />
     <Project Path="src/BuildingBlocks/Frappe.SharedKernel/Frappe.SharedKernel.csproj" />
   </Folder>
   <Folder Name="/tests/">
