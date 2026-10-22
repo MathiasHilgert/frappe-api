@@ -15,7 +15,7 @@ gitleaks_image   := "zricethezav/gitleaks:v8.24.3"
 fast_tests        := `find tests -name '*.csproj' ! -name '*IntegrationTests.csproj' -printf '%h\n' 2>/dev/null | sort | tr '\n' ' '`
 integration_tests := `find tests -name '*IntegrationTests.csproj' -printf '%h\n' 2>/dev/null | sort | tr '\n' ' '`
 # Stryker pairs: <test project dir>:<source csproj name>.
-mutation_targets  := "tests/BuildingBlocks/Frappe.SharedKernel.Tests:Frappe.SharedKernel.csproj"
+mutation_targets  := "tests/BuildingBlocks/Frappe.SharedKernel.Tests:Frappe.SharedKernel.csproj tests/Modules/Frappe.Identity.Tests:Frappe.Identity.Domain.csproj"
 
 root       := justfile_directory()
 dockerfile := "deploy/Dockerfile"
@@ -30,6 +30,11 @@ default:
 setup:
     dotnet tool restore
     dotnet restore
+
+# Run the API with the http launch profile
+[group('dev')]
+run:
+    dotnet run --project src/Host/Frappe.Api --launch-profile http
 
 
 
