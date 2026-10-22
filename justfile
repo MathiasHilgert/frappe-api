@@ -59,7 +59,7 @@ _hadolint:
     if [[ -f {{dockerfile}} ]]; then {{docker_run}} {{hadolint_image}} hadolint {{dockerfile}}; else echo "No {{dockerfile}} yet; skipping hadolint."; fi
 
 _gitleaks:
-    {{docker_run}} {{gitleaks_image}} dir /repo --no-banner --redact --exit-code 1
+    {{docker_run}} {{gitleaks_image}} dir /repo --config /repo/.config/gitleaks.toml --no-banner --redact --exit-code 1
 
 # Release build of the whole solution
 [group('test')]
@@ -104,9 +104,9 @@ mutate: setup
         --test-project "{{root}}/$dir" --project "$proj" --output "{{root}}/{{mutation_dir}}/$name"; \
     done
 
-# Vulnerable NuGet packages (incl. transitive), then secrets
+# Vulnerable NuGet packages, including transitive ones (secrets are scanned by lint)
 [group('security')]
-audit: _vuln _gitleaks
+audit: _vuln
 
 _vuln: setup
     out="$(dotnet list package --vulnerable --include-transitive)"; echo "$out"; \

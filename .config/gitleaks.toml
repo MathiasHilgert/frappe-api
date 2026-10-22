@@ -1,0 +1,7 @@
+# Default gitleaks rules, minus build output and caches: they hold third-party files, not ours.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Build output and package caches"
+paths = ['''(^|/)(bin|obj|artifacts|TestResults|StrykerOutput|\.nuget|\.codegraph)/''']

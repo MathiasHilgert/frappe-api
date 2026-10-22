@@ -3,6 +3,10 @@ description: .NET SDK from global.json, NuGet cache, just and the local dotnet t
 runs:
   using: composite
   steps:
+    - name: Keep the NuGet cache outside the workspace
+      shell: bash
+      # Outside the checkout so secret scanning and other workspace globs never see third-party packages.
+      run: echo "NUGET_PACKAGES=$RUNNER_TEMP/nuget-packages" >> "$GITHUB_ENV"
     - name: Install .NET SDK from global.json
       uses: actions/setup-dotnet@v5
       with:
@@ -10,7 +14,7 @@ runs:
     - name: Restore NuGet cache
       uses: actions/cache@v4
       with:
-        path: ${{ github.workspace }}/.nuget/packages
+        path: ${{ runner.temp }}/nuget-packages
         key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj', '.config/dotnet-tools.json') }}
         restore-keys: nuget-${{ runner.os }}-
     - name: Install just
