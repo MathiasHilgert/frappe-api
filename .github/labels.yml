@@ -1,0 +1,22 @@
+# Single source of truth for repository labels. Synced by workflows/labels-sync.yml.
+# New module: add `module:<name>` here and a matching entry in labeler.yml.
+- { name: "type:feat", color: "1d76db", description: "A new feature" }
+- { name: "type:fix", color: "d73a4a", description: "A bug fix" }
+- { name: "type:docs", color: "0075ca", description: "Documentation only" }
+- { name: "type:style", color: "c5def5", description: "Formatting, no behavior change" }
+- { name: "type:refactor", color: "fbca04", description: "Code change that neither fixes nor adds" }
+- { name: "type:perf", color: "f9d0c4", description: "Performance improvement" }
+- { name: "type:test", color: "bfd4f2", description: "Tests only" }
+- { name: "type:build", color: "5319e7", description: "Build system or dependencies" }
+- { name: "type:ci", color: "006b75", description: "CI configuration" }
+- { name: "type:chore", color: "ededed", description: "Maintenance" }
+- { name: "type:revert", color: "b60205", description: "Reverts a previous change" }
+- { name: "module:identity", color: "0e8a16", description: "Identity module" }
+- { name: "area:platform", color: "7057ff", description: "Building blocks / shared kernel" }
+- { name: "area:host", color: "8a63d2", description: "API host and composition root" }
+- { name: "area:tests", color: "c2e0c6", description: "Test projects" }
+- { name: "area:ci", color: "1f6feb", description: "CI, build and container tooling" }
+- { name: "area:docs", color: "0052cc", description: "Markdown documentation" }
+- { name: "area:config", color: "d4c5f9", description: "Repo-root tooling and editor config" }
+- { name: "area:deps", color: "0366d6", description: "Dependency and tool versions" }
+- { name: "breaking", color: "b60205", description: "Breaking change" }

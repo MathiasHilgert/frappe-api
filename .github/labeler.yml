@@ -1,0 +1,36 @@
+# Path-based labels for actions/labeler@v5 (workflows/pr-triage.yml).
+# New module: add `module:<name>` to labels.yml and an entry like:
+# module:<name>:
+#   - changed-files:
+#       - any-glob-to-any-file: src/Modules/<Name>/**
+module:identity:
+  - changed-files:
+      - any-glob-to-any-file: src/Modules/Identity/**
+area:platform:
+  - changed-files:
+      - any-glob-to-any-file: src/BuildingBlocks/**
+area:host:
+  - changed-files:
+      - any-glob-to-any-file: src/Host/**
+area:tests:
+  - changed-files:
+      - any-glob-to-any-file: tests/**
+area:ci:
+  - changed-files:
+      - any-glob-to-any-file: [".github/**", "scripts/**", justfile, "deploy/**"]
+area:docs:
+  - changed-files:
+      - any-glob-to-any-file: ["**/*.md", LICENSE]
+area:config:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .editorconfig
+          - ".config/**"
+          - "eng/**"
+          - global.json
+          - Directory.Build.props
+          - .gitignore
+          - Frappe.slnx
+area:deps:
+  - changed-files:
+      - any-glob-to-any-file: [Directory.Packages.props, .config/dotnet-tools.json]
