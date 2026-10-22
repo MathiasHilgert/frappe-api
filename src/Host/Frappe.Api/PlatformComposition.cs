@@ -1,4 +1,5 @@
 using Frappe.Modularity;
+using Frappe.Platform.Health;
 using Frappe.Platform.Messaging;
 using Frappe.Platform.Persistence;
 
@@ -14,6 +15,7 @@ internal static class PlatformComposition
 
         services.AddProblemDetails();
         services.AddSingleton(TimeProvider.System);
+        services.AddPlatformHealth();
         services.AddPostgres(configuration);
         services.AddJobs();
 
@@ -27,6 +29,8 @@ internal static class PlatformComposition
 
     public static WebApplication MapFrappePlatform(this WebApplication app, IReadOnlyList<IModule> modules)
     {
+        app.MapPlatformHealth();
+
         foreach (var module in modules)
             module.MapEndpoints(app.MapGroup($"/v1/{module.Name}").WithTags(module.Name));
 

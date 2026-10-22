@@ -5,6 +5,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Frappe.Platform.Health\Frappe.Platform.Health.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="EFCore.NamingConventions" />
     <PackageReference Include="Npgsql.DependencyInjection" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />

@@ -4,6 +4,7 @@
     <ProjectReference Include="..\..\Modules\Identity\Frappe.Identity.Infrastructure\Frappe.Identity.Infrastructure.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Frappe.Modularity\Frappe.Modularity.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Frappe.Platform.Persistence\Frappe.Platform.Persistence.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\Frappe.Platform.Health\Frappe.Platform.Health.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Frappe.Platform.Messaging\Frappe.Platform.Messaging.csproj" />
   </ItemGroup>
 

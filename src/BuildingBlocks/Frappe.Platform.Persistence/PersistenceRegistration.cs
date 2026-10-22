@@ -1,3 +1,4 @@
+using Frappe.Platform.Health;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,7 +23,11 @@ public static class PersistenceRegistration
     {
         services.AddNpgsqlDataSource(configuration.GetPostgresConnectionString());
 
-        // The postgres readiness check is registered with the health building block.
+        services.AddHealthChecks().AddDependency("postgres", DependencyCriticality.Critical, async (sp, ct) =>
+        {
+            await using var command = sp.GetRequiredService<NpgsqlDataSource>().CreateCommand("SELECT 1");
+            await command.ExecuteScalarAsync(ct);
+        });
 
         return services;
     }
