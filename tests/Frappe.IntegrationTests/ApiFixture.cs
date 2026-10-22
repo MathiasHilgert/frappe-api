@@ -55,7 +55,10 @@ public sealed class ApiFixture : IAsyncLifetime
 
     public async ValueTask DisposeAsync()
     {
-        await Host.DisposeAsync();
+        // Host stays unset when startup failed; disposing must not mask that error.
+        if (Host is not null)
+            await Host.DisposeAsync();
+
         await Task.WhenAll(_postgres.DisposeAsync().AsTask(), _valkey.DisposeAsync().AsTask());
     }
 }
