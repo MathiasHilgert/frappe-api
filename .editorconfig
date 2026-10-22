@@ -1,0 +1,41 @@
+root = true
+
+[*]
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+charset = utf-8
+
+[*.{json,yaml,yml,props,csproj,slnx}]
+indent_size = 2
+
+[*.cs]
+# VB/F# interop naming concerns do not apply to this codebase.
+dotnet_diagnostic.CA1716.severity = none
+# ASP.NET Core has no SynchronizationContext.
+dotnet_diagnostic.CA2007.severity = none
+# Banned APIs are errors, not warnings.
+dotnet_diagnostic.RS0030.severity = error
+
+[tests/**/*.cs]
+# Test names read as sentences: Method_Scenario_Expectation.
+dotnet_diagnostic.CA1707.severity = none
+
+[*.cs]
+# Complexity gates are build errors (thresholds in eng/CodeMetricsConfig.txt and eng/SonarLint.xml).
+dotnet_diagnostic.CA1502.severity = error
+dotnet_diagnostic.CA1505.severity = error
+dotnet_diagnostic.CA1506.severity = error
+dotnet_diagnostic.S3776.severity = error
+# Assembly marker types (e.g. IdentityContractsMarker) are intentionally empty classes.
+dotnet_diagnostic.S2094.severity = none
+# ASP.NET Core has no SynchronizationContext; mirrors CA2007 being off.
+dotnet_diagnostic.MA0004.severity = none
+# Duplicate of Sonar S1006 (override default values); Sonar owns it.
+dotnet_diagnostic.MA0061.severity = none
+# C# string == is already ordinal; the repo uses == for exact string matches.
+dotnet_diagnostic.MA0006.severity = none
+
+[tests/**/*.cs]
+# Tests co-locate small test-only types (probe messages, fixture records) with the tests that use them.
+dotnet_diagnostic.MA0048.severity = none
