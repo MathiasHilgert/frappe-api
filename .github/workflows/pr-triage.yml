@@ -1,0 +1,83 @@
+name: PR triage
+
+# SECURITY: pull_request_target runs with a write token in the base repo context.
+# This workflow must NEVER check out or execute PR code. It only reads PR metadata
+# through the API; actions/labeler reads .github/labeler.yml from the base branch.
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pr-triage-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  assign-author:
+    name: Assign PR to its author
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assign author when unassigned
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (pr.user.type === 'Bot' || pr.assignees.length > 0) return;
+            await github.rest.issues.addAssignees({
+              ...context.repo, issue_number: pr.number, assignees: [pr.user.login],
+            });
+
+  label:
+    name: Label PR by type and module
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply module and area labels from changed paths (labeler)
+        uses: actions/labeler@v5
+        with:
+          sync-labels: true
+      - name: Derive type label from PR title
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const m = /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]*\))?(!)?: /.exec(pr.title);
+            // The title is the single source of truth: drop type:*/breaking it no longer implies.
+            const wanted = new Set();
+            if (m) wanted.add(`type:${m[1]}`);
+            if (m && m[3]) wanted.add('breaking');
+            const { data: current } = await github.rest.issues.listLabelsOnIssue({
+              ...context.repo, issue_number: pr.number, per_page: 100,
+            });
+            for (const { name } of current) {
+              if ((name.startsWith('type:') || name === 'breaking') && !wanted.has(name)) {
+                await github.rest.issues.removeLabel({ ...context.repo, issue_number: pr.number, name });
+              }
+            }
+            const toAdd = [...wanted].filter(n => !current.some(l => l.name === n));
+            if (toAdd.length) {
+              await github.rest.issues.addLabels({ ...context.repo, issue_number: pr.number, labels: toAdd });
+            }
+
+  require-labels:
+    name: PR has type and module labels
+    needs: label
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required labels are present
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data } = await github.rest.issues.listLabelsOnIssue({
+              ...context.repo, issue_number: context.payload.pull_request.number, per_page: 100,
+            });
+            const names = data.map(l => l.name);
+            const types = names.filter(n => n.startsWith('type:'));
+            const scopes = names.filter(n => n.startsWith('module:') || n.startsWith('area:'));
+            const missing = [];
+            if (types.length !== 1) missing.push(`exactly one type:* label (found ${types.length}: ${types.join(', ') || 'none'})`);
+            if (scopes.length === 0) missing.push('at least one module:* or area:* label');
+            if (missing.length) core.setFailed(`PR labels missing: ${missing.join('; ')}`);
+            else core.info(`labels ok: ${names.join(', ')}`);
