@@ -1,0 +1,40 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "27 4 * * 1"
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Static analysis — C# security & quality
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v5
+      - name: Set up .NET toolchain
+        uses: ./.github/actions/setup-dotnet
+      - name: Start CodeQL for C#
+        uses: github/codeql-action/init@v3
+        with:
+          languages: csharp
+          build-mode: manual
+          queries: security-and-quality
+      - name: Build the solution for analysis
+        run: just build
+      - name: Analyze and upload findings
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:csharp
