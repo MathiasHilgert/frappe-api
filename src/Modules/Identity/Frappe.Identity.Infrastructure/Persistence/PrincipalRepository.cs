@@ -7,7 +7,8 @@ using Npgsql;
 
 namespace Frappe.Identity.Infrastructure.Persistence;
 
-internal sealed class PrincipalRepository(IdentityDbContext context) : IPrincipalRepository
+// Public so Wolverine builds it inline and sees the DbContext behind it, which turns on the EF transaction and outbox.
+public sealed class PrincipalRepository(IdentityDbContext context) : IPrincipalRepository
 {
     public Task<Principal?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         context.Principals.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
@@ -44,6 +45,9 @@ internal sealed class PrincipalRepository(IdentityDbContext context) : IPrincipa
             ConstraintName: PrincipalConfiguration.EmailUniqueIndex,
         })
         {
+            // Stop tracking the rejected rows, so a later save of this unit of work does not retry them.
+            foreach (var entry in exception.Entries)
+                entry.State = EntityState.Detached;
             return Result.Failure(IdentityErrors.EmailTaken);
         }
     }
