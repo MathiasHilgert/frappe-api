@@ -44,6 +44,8 @@ public sealed class ApiFixture : IAsyncLifetime
             builder.UseSetting("Identity:SecretHashing:Key", "integration-tests-secret-hashing-key-0123456789");
             builder.UseSetting("Identity:SessionCookie:Name", SessionCookieName);
             builder.UseSetting("Identity:SessionCookie:Path", "/");
+            // No test reaches the real HaveIBeenPwned: a closed local port makes the check fail open at once.
+            builder.UseSetting("Identity:BreachedPasswords:BaseAddress", "http://127.0.0.1:9/");
             builder.ConfigureServices(services =>
             {
                 services.RunWolverineInSoloMode();
