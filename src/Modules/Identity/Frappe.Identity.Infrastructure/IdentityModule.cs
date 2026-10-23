@@ -3,6 +3,7 @@ using Frappe.Identity.Application;
 using Frappe.Identity.Application.Owners;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
+using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Contracts;
 using Frappe.Identity.Infrastructure.Endpoints;
 using Frappe.Identity.Infrastructure.Owners;
@@ -60,6 +61,7 @@ public sealed class IdentityModule : IModule
         services.AddSingleton<IAttemptLimiter, ValkeyAttemptLimiter>();
         services.AddScoped<VerificationCodeIssuer>();
         services.AddScoped<VerifyOwnerEmail>();
+        services.AddScoped<OwnerSessions>();
     }
 
     public void ConfigureMessaging(WolverineOptions options) =>
@@ -71,6 +73,7 @@ public sealed class IdentityModule : IModule
         group.MapOwnerRegistration();
         group.MapOwnerVerification();
         group.MapSessionEndpoints();
+        group.MapSessionManagement();
     }
 
     private static void AddPasswordPolicy(IServiceCollection services, IConfiguration configuration)
