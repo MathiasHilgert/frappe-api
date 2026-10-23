@@ -23,7 +23,7 @@ internal static class PlatformComposition
         services.AddPlatformHealth();
         services.AddPostgres(configuration);
         services.AddRealtime(configuration);
-        services.AddCaching(configuration);
+        services.AddCaching(configuration, builder.Environment);
         services.AddJobs();
 
         foreach (var module in modules)
