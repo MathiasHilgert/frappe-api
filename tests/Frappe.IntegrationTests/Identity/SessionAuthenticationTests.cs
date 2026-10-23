@@ -1,3 +1,4 @@
+using System.Globalization;
 using Alba;
 using Frappe.Identity.Domain.Principals;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,6 +48,17 @@ public sealed class SessionAuthenticationTests(ApiFixture fixture)
         await SessionSeeder.RevokeAsync(fixture.Host, principal.Id, session.Id);
 
         await GetAsync(fixture.Host, Bearer(token), 401);
+    }
+
+    [Theory]
+    [InlineData("Cookie", CookieName + "={0}")]
+    [InlineData("Authorization", "Bearer {0}")]
+    public async Task SuspendedOwnersSession_IsUnauthorized(string header, string format)
+    {
+        var (principal, _, token) = await SessionSeeder.SeedAsync(fixture.Host);
+        await SessionSeeder.SuspendAsync(fixture.Host, principal.Id);
+
+        await GetAsync(fixture.Host, s => s.WithRequestHeader(header, string.Format(CultureInfo.InvariantCulture, format, token)), 401);
     }
 
     [Fact]

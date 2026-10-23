@@ -48,4 +48,13 @@ internal static class SessionSeeder
         principal.RevokeSession(sessionId).IsSuccess.ShouldBeTrue();
         (await repository.SaveChangesAsync(CancellationToken.None)).IsSuccess.ShouldBeTrue();
     }
+
+    public static async Task SuspendAsync(IAlbaHost host, Guid principalId)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IPrincipalRepository>();
+        var principal = (await repository.GetByIdAsync(principalId, CancellationToken.None)).ShouldNotBeNull();
+        principal.Suspend();
+        (await repository.SaveChangesAsync(CancellationToken.None)).IsSuccess.ShouldBeTrue();
+    }
 }

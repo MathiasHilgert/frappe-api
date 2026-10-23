@@ -1,9 +1,13 @@
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
+using Frappe.Identity.Domain.Principals;
 
 namespace Frappe.Identity.Application.Sessions;
 
-/// <summary>Resolves an opaque session token to its live session, checking expiry against the clock on every call.</summary>
+/// <summary>
+/// Resolves an opaque session token to its live session, checking expiry against the clock on every call and
+/// rejecting sessions of suspended owners.
+/// </summary>
 public sealed class SessionAuthenticator(IPrincipalRepository principals, ISecretHasher hasher, TimeProvider clock)
 {
     /// <summary>
@@ -20,7 +24,8 @@ public sealed class SessionAuthenticator(IPrincipalRepository principals, ISecre
         var tokenHash = hasher.Hash(token);
         var principal = await principals.GetBySessionTokenHashAsync(tokenHash, cancellationToken);
         var session = principal?.Sessions.FirstOrDefault(s => string.Equals(s.TokenHash, tokenHash, StringComparison.Ordinal));
-        if (principal is null || session is null || !session.IsLive(clock))
+        // A suspended owner is shut out at once, even through sessions opened before the suspension.
+        if (principal is null || session is null || !session.IsLive(clock) || principal.Owner.Status == OwnerStatus.Suspended)
             return null;
 
         if (clock.GetUtcNow() - session.LastSeenAt >= TouchInterval
