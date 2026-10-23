@@ -105,6 +105,28 @@ public sealed class Principal : AggregateRoot<Guid>
         return Result.Success();
     }
 
+    /// <summary>
+    /// Records that the person behind a live session just re-proved their password (the caller verified it). Sensitive
+    /// operations then accept that session until <see cref="Session.StepUpValidity"/> has passed.
+    /// </summary>
+    public Result<DateTimeOffset> CompleteStepUp(Guid sessionId, TimeProvider clock)
+    {
+        var session = _sessions.Find(s => s.Id == sessionId);
+        if (session is null)
+        {
+            return Result.Failure<DateTimeOffset>(IdentityErrors.SessionNotFound);
+        }
+        if (!session.IsLive(clock))
+        {
+            return Result.Failure<DateTimeOffset>(IdentityErrors.SessionExpired);
+        }
+
+        return Result.Success(session.StepUp(clock.GetUtcNow()));
+    }
+
+    public bool HasFreshStepUp(Guid sessionId, TimeProvider clock) =>
+        _sessions.Find(s => s.Id == sessionId)?.HasFreshStepUp(clock) ?? false;
+
     public Result RevokeSession(Guid sessionId)
     {
         var session = _sessions.Find(s => s.Id == sessionId);

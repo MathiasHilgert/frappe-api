@@ -206,6 +206,10 @@ namespace Frappe.Identity.Infrastructure.Persistence.Migrations
                                 .HasColumnType("uuid")
                                 .HasColumnName("principal_id");
 
+                            b1.Property<DateTimeOffset?>("StepUpExpiresAt")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("step_up_expires_at");
+
                             b1.Property<string>("Surface")
                                 .IsRequired()
                                 .HasColumnType("text")

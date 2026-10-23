@@ -1,0 +1,227 @@
+using System.Net.Http.Json;
+using System.Text.Json;
+using Alba;
+using Frappe.Identity.Application.Security;
+using Frappe.Identity.Domain.Principals;
+using Frappe.Identity.Infrastructure.Endpoints;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Routing.Patterns;
+using Microsoft.Extensions.DependencyInjection;
+using Shouldly;
+
+namespace Frappe.IntegrationTests.Identity;
+
+/// <summary>Step-up and change password: re-proving the password inside a signed-in session.</summary>
+public sealed class AccountSecurityTests(ApiFixture fixture)
+{
+    private const string StepUps = "/v1/identity/sessions/current/step-ups";
+    private const string MyPassword = "/v1/identity/me/password";
+    private const string Password = "correct horse battery";
+    private const string NewPassword = "a brand new passphrase";
+
+    [Fact]
+    public async Task StepUp_WithTheRightPassword_Answers201AndMarksTheSessionForFiveMinutes()
+    {
+        var clock = new TestClock();
+        await using var host = await fixture.CreateHostAsync(services => services.AddSingleton<TimeProvider>(clock));
+        var (principal, session, token) = await SessionSeeder.SeedAsync(host, Password);
+
+        var result = await host.Scenario(s =>
+        {
+            s.Post.Json(new { password = Password }).ToUrl(StepUps);
+            Bearer(s, token);
+            s.StatusCodeShouldBe(201);
+        });
+
+        var expected = clock.Now + Session.StepUpValidity;
+        (await result.ReadAsJsonAsync<StepUpResponse>()).ShouldNotBeNull().ExpiresAt.ShouldBe(expected, TimeSpan.FromMilliseconds(1));
+        var stored = (await SessionSeeder.LoadAsync(host, principal.Id)).Sessions.Single(x => x.Id == session.Id);
+        stored.StepUpExpiresAt.ShouldNotBeNull().ShouldBe(expected, TimeSpan.FromMilliseconds(1));
+    }
+
+    [Fact]
+    public async Task StepUp_ByCookie_WithTheCsrfHeader_Answers201()
+    {
+        var (_, _, token) = await SessionSeeder.SeedAsync(fixture.Host, Password);
+
+        await fixture.Host.Scenario(s =>
+        {
+            s.Post.Json(new { password = Password }).ToUrl(StepUps);
+            s.WithRequestHeader("Cookie", $"{ApiFixture.SessionCookieName}={token}");
+            s.WithRequestHeader("X-Requested-With", "frappe");
+            s.StatusCodeShouldBe(201);
+        });
+    }
+
+    [Fact]
+    public async Task StepUp_WithAWrongPassword_Answers422AndLeavesTheSessionUnmarked()
+    {
+        var (principal, _, token) = await SessionSeeder.SeedAsync(fixture.Host, Password);
+
+        var result = await fixture.Host.Scenario(s =>
+        {
+            s.Post.Json(new { password = "not my password" }).ToUrl(StepUps);
+            Bearer(s, token);
+            s.StatusCodeShouldBe(422);
+        });
+
+        (await ErrorCodesAsync(result)).ShouldBe(["identity.step_up.password_incorrect"]);
+        (await SessionSeeder.LoadAsync(fixture.Host, principal.Id)).Sessions.Single().StepUpExpiresAt.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task StepUp_Anonymous_Answers401() =>
+        await fixture.Host.Scenario(s =>
+        {
+            s.Post.Json(new { password = Password }).ToUrl(StepUps);
+            s.StatusCodeShouldBe(401);
+        });
+
+    [Fact]
+    public async Task StepUp_AfterFiveWrongPasswords_Answers429WithRetryAfter_EvenForTheRightOne()
+    {
+        var (principal, _, token) = await SessionSeeder.SeedAsync(fixture.Host, Password);
+        for (var i = 0; i < AttemptPolicies.ReverifyFailuresPerPrincipal.Limit; i++)
+            await StepUpAsync(token, "not my password", 422);
+
+        var result = await StepUpAsync(token, Password, 429);
+
+        int.Parse(result.Context.Response.Headers.RetryAfter.ToString(), System.Globalization.CultureInfo.InvariantCulture)
+            .ShouldBeInRange(1, (int)AttemptPolicies.ReverifyFailuresPerPrincipal.Window.TotalSeconds);
+        (await ErrorCodesAsync(result)).ShouldBe(["identity.attempts.too_many"]);
+        (await SessionSeeder.LoadAsync(fixture.Host, principal.Id)).Sessions.Single().StepUpExpiresAt.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task ChangePassword_WithTheCurrentOne_Answers204_SwapsTheHash_AndRevokesOnlyTheOtherSessions()
+    {
+        var (principal, current, token) = await SessionSeeder.SeedAsync(fixture.Host, Password);
+        var (_, otherToken) = await SessionSeeder.OpenSessionAsync(fixture.Host, principal.Id);
+
+        await ChangePasswordAsync(token, Password, NewPassword, 204);
+
+        var stored = await SessionSeeder.LoadAsync(fixture.Host, principal.Id);
+        stored.Sessions.Select(x => x.Id).ShouldBe([current.Id]);
+        var hasher = fixture.Host.Services.GetRequiredService<IPasswordHasher>();
+        hasher.Verify(NewPassword, stored.Owner.PasswordHash).ShouldBeTrue();
+        hasher.Verify(Password, stored.Owner.PasswordHash).ShouldBeFalse();
+        await StepUpAsync(otherToken, NewPassword, 401);
+        await StepUpAsync(token, NewPassword, 201);
+    }
+
+    [Fact]
+    public async Task ChangePassword_WithAWrongCurrentPassword_Answers422AndChangesNothing()
+    {
+        var (principal, _, token) = await SessionSeeder.SeedAsync(fixture.Host, Password);
+        await SessionSeeder.OpenSessionAsync(fixture.Host, principal.Id);
+
+        var result = await ChangePasswordAsync(token, "not my password", NewPassword, 422);
+
+        (await ErrorCodesAsync(result)).ShouldBe(["identity.password.current_incorrect"]);
+        var stored = await SessionSeeder.LoadAsync(fixture.Host, principal.Id);
+        stored.Sessions.Count.ShouldBe(2);
+        fixture.Host.Services.GetRequiredService<IPasswordHasher>().Verify(Password, stored.Owner.PasswordHash).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task ChangePassword_ToAShortPassword_Answers422OnNewPassword()
+    {
+        var (principal, _, token) = await SessionSeeder.SeedAsync(fixture.Host, Password);
+        await SessionSeeder.OpenSessionAsync(fixture.Host, principal.Id);
+
+        var result = await ChangePasswordAsync(token, Password, "short", 422);
+
+        using var body = JsonDocument.Parse(await result.ReadAsTextAsync());
+        var error = body.RootElement.GetProperty("errors").EnumerateArray().Single();
+        error.GetProperty("code").GetString().ShouldBe("identity.password.too_short");
+        error.GetProperty("field").GetString().ShouldBe("newPassword");
+        (await SessionSeeder.LoadAsync(fixture.Host, principal.Id)).Sessions.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task ChangePassword_SharesTheWrongPasswordBudgetWithStepUp()
+    {
+        var (_, _, token) = await SessionSeeder.SeedAsync(fixture.Host, Password);
+        for (var i = 0; i < AttemptPolicies.ReverifyFailuresPerPrincipal.Limit; i++)
+            await StepUpAsync(token, "not my password", 422);
+
+        var result = await ChangePasswordAsync(token, Password, NewPassword, 429);
+
+        result.Context.Response.Headers.RetryAfter.ToString().ShouldNotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task RequireStepUp_RejectsAStaleSessionWith403_AndLetsAFreshOneThrough()
+    {
+        var clock = new TestClock();
+        await using var host = await fixture.CreateHostAsync(services => services.AddSingleton<TimeProvider>(clock));
+        var (_, _, token) = await SessionSeeder.SeedAsync(host, Password);
+        var guarded = GuardedEndpoint(host.Services);
+
+        (await InvokeAsync(host, guarded, token)).StatusCode.ShouldBe(403);
+        await StepUpAsync(host, token, Password, 201);
+        (await InvokeAsync(host, guarded, token)).StatusCode.ShouldBe(200);
+        clock.Advance(Session.StepUpValidity);
+        (await InvokeAsync(host, guarded, token)).StatusCode.ShouldBe(403);
+    }
+
+    // Builds a real endpoint with RequireStepUp(), exactly as a module would map one.
+    private static RequestDelegate GuardedEndpoint(IServiceProvider services)
+    {
+        var conventions = new Conventions();
+        conventions.RequireStepUp();
+        var endpoint = new RouteEndpointBuilder(null, RoutePatternFactory.Parse("/guarded"), 0) { ApplicationServices = services };
+        foreach (var convention in conventions.Items)
+            convention(endpoint);
+        return RequestDelegateFactory.Create(() => "ok",
+            new RequestDelegateFactoryOptions { EndpointBuilder = endpoint, ServiceProvider = services }).RequestDelegate;
+    }
+
+    private static async Task<HttpResponse> InvokeAsync(IAlbaHost host, RequestDelegate endpoint, string token)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var context = new DefaultHttpContext { RequestServices = scope.ServiceProvider };
+        context.Request.Headers.Authorization = $"Bearer {token}";
+        scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>().HttpContext = context;
+        context.User = (await context.AuthenticateAsync()).Principal.ShouldNotBeNull();
+        await endpoint(context);
+        return context.Response;
+    }
+
+    private Task<IScenarioResult> StepUpAsync(string token, string password, int status) =>
+        StepUpAsync(fixture.Host, token, password, status);
+
+    private static Task<IScenarioResult> StepUpAsync(IAlbaHost host, string token, string password, int status) =>
+        host.Scenario(s =>
+        {
+            s.Post.Json(new { password }).ToUrl(StepUps);
+            Bearer(s, token);
+            s.StatusCodeShouldBe(status);
+        });
+
+    private Task<IScenarioResult> ChangePasswordAsync(string token, string current, string next, int status) =>
+        fixture.Host.Scenario(s =>
+        {
+            s.Put.Json(new { currentPassword = current, newPassword = next }).ToUrl(MyPassword);
+            Bearer(s, token);
+            s.StatusCodeShouldBe(status);
+        });
+
+    private static void Bearer(Scenario s, string token) => s.WithRequestHeader("Authorization", $"Bearer {token}");
+
+    private static async Task<string?[]> ErrorCodesAsync(IScenarioResult result)
+    {
+        using var body = JsonDocument.Parse(await result.ReadAsTextAsync());
+        return [.. body.RootElement.GetProperty("errors").EnumerateArray().Select(e => e.GetProperty("code").GetString())];
+    }
+
+    private sealed class Conventions : IEndpointConventionBuilder
+    {
+        public List<Action<EndpointBuilder>> Items { get; } = [];
+
+        public void Add(Action<EndpointBuilder> convention) => Items.Add(convention);
+    }
+}

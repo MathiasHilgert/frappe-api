@@ -207,6 +207,49 @@ public sealed class PrincipalTests
     }
 
     [Fact]
+    public void CompleteStepUp_MakesTheSessionFreshForFiveMinutesOnly()
+    {
+        var principal = ActiveOwner();
+        var session = principal.OpenSession("t1", SessionSurface.Console, _clock).Value;
+        principal.HasFreshStepUp(session.Id, _clock).ShouldBeFalse();
+
+        var expiresAt = principal.CompleteStepUp(session.Id, _clock);
+
+        expiresAt.Value.ShouldBe(_clock.Now + Session.StepUpValidity);
+        principal.HasFreshStepUp(session.Id, _clock).ShouldBeTrue();
+        _clock.Advance(Session.StepUpValidity - TimeSpan.FromSeconds(1));
+        principal.TouchSession(session.Id, _clock);
+        principal.HasFreshStepUp(session.Id, _clock).ShouldBeTrue();
+        _clock.Advance(TimeSpan.FromSeconds(1));
+        principal.HasFreshStepUp(session.Id, _clock).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void CompleteStepUp_IsBoundToItsSession()
+    {
+        var principal = ActiveOwner();
+        var stepped = principal.OpenSession("t1", SessionSurface.Console, _clock).Value;
+        var other = principal.OpenSession("t2", SessionSurface.Console, _clock).Value;
+
+        principal.CompleteStepUp(stepped.Id, _clock);
+
+        principal.HasFreshStepUp(other.Id, _clock).ShouldBeFalse();
+        principal.HasFreshStepUp(Guid.NewGuid(), _clock).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void CompleteStepUp_UnknownOrExpiredSession_Fails()
+    {
+        var principal = ActiveOwner();
+        var session = principal.OpenSession("t1", SessionSurface.Console, _clock).Value;
+
+        principal.CompleteStepUp(Guid.NewGuid(), _clock).Errors.ShouldBe([IdentityErrors.SessionNotFound]);
+        _clock.Advance(Session.IdleTimeout);
+        principal.CompleteStepUp(session.Id, _clock).Errors.ShouldBe([IdentityErrors.SessionExpired]);
+        principal.HasFreshStepUp(session.Id, _clock).ShouldBeFalse();
+    }
+
+    [Fact]
     public void ResetPassword_WithCode_ChangesHashAndRevokesEverySession()
     {
         var principal = ActiveOwner();

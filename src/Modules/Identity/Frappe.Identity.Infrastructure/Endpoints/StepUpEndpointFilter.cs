@@ -1,0 +1,33 @@
+using Frappe.Identity.Application.Account;
+using Frappe.Identity.Application.Sessions;
+using Frappe.Identity.Domain;
+using Frappe.Platform.Web.Problems;
+using Frappe.SharedKernel.Validation;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Frappe.Identity.Infrastructure.Endpoints;
+
+public static class StepUpEndpointFilter
+{
+    /// <summary>
+    /// Demands a step-up completed on the caller's session within the last five minutes, answering 403
+    /// <c>identity.step_up.required</c> otherwise. Put it after <c>RequireAuthorization</c>; the client then calls
+    /// <c>POST /v1/identity/sessions/current/step-ups</c> and retries.
+    /// </summary>
+    public static TBuilder RequireStepUp<TBuilder>(this TBuilder builder) where TBuilder : IEndpointConventionBuilder =>
+        builder.AddEndpointFilter(InvokeAsync);
+
+    internal static async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
+    {
+        var services = context.HttpContext.RequestServices;
+        if (services.GetRequiredService<ICurrentPrincipal>().Session is not { } caller)
+            return TypedResults.Unauthorized();
+
+        var requirement = services.GetRequiredService<StepUpRequirement>();
+        return await requirement.IsSatisfiedAsync(caller, context.HttpContext.RequestAborted)
+            ? await next(context)
+            : Result.Failure(IdentityErrors.StepUpRequired).ToProblem();
+    }
+}

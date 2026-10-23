@@ -1,5 +1,6 @@
 using System.Reflection;
 using Frappe.Identity.Application;
+using Frappe.Identity.Application.Account;
 using Frappe.Identity.Application.Owners;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
@@ -62,6 +63,10 @@ public sealed class IdentityModule : IModule
         services.AddScoped<VerificationCodeIssuer>();
         services.AddScoped<VerifyOwnerEmail>();
         services.AddScoped<OwnerSessions>();
+        services.AddScoped<PasswordReverifier>();
+        services.AddScoped<StepUpRequirement>();
+        services.AddScoped<CompleteStepUp>();
+        services.AddScoped<ChangePassword>();
     }
 
     public void ConfigureMessaging(WolverineOptions options) =>
@@ -74,6 +79,7 @@ public sealed class IdentityModule : IModule
         group.MapOwnerVerification();
         group.MapSessionEndpoints();
         group.MapSessionManagement();
+        group.MapAccountSecurityEndpoints();
     }
 
     private static void AddPasswordPolicy(IServiceCollection services, IConfiguration configuration)

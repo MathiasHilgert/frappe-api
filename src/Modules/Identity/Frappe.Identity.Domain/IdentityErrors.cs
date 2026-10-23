@@ -51,6 +51,15 @@ public static class IdentityErrors
     public static readonly Error ResendLimitReached =
         new("identity.code.resend_limit_reached", "Too many codes were sent. Try again later.");
 
+    public static readonly Error StepUpPasswordIncorrect =
+        new("identity.step_up.password_incorrect", "The password is not correct.", "password");
+
+    public static readonly Error CurrentPasswordIncorrect =
+        new("identity.password.current_incorrect", "The current password is not correct.", "currentPassword");
+
+    public static readonly Error StepUpRequired =
+        new("identity.step_up.required", "Confirm your password again to continue.", Kind: ErrorKind.Forbidden);
+
     public static readonly Error SessionNotFound = new("identity.session.not_found", "The session does not exist.");
 
     public static readonly Error SessionExpired = new("identity.session.expired", "The session has expired.");

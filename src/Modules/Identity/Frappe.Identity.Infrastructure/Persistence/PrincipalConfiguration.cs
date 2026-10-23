@@ -61,6 +61,7 @@ internal sealed class PrincipalConfiguration : IEntityTypeConfiguration<Principa
         session.Property(s => s.Surface).HasConversion<SnakeCaseEnumConverter<SessionSurface>>();
         session.Property(s => s.CreatedAt);
         session.Property(s => s.LastSeenAt);
+        session.Property(s => s.StepUpExpiresAt);
         session.Ignore(s => s.AbsoluteExpiresAt);
         session.HasIndex(s => s.TokenHash).IsUnique();
     }
