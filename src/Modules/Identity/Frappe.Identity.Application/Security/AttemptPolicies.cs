@@ -6,6 +6,8 @@ public static class AttemptPolicies
     public static readonly AttemptPolicy LoginFailuresPerEmail = new("login-email", 10, TimeSpan.FromMinutes(15));
     public static readonly AttemptPolicy LoginFailuresPerIp = new("login-ip", 100, TimeSpan.FromMinutes(15));
     public static readonly AttemptPolicy RegisterPerEmail = new("register-email", 5, TimeSpan.FromHours(1));
+    /// <summary>Wrong passwords typed inside a session (step-up, change password), shared so neither doubles the budget.</summary>
+    public static readonly AttemptPolicy ReverifyFailuresPerPrincipal = new("reverify-principal", 5, TimeSpan.FromMinutes(15));
     public static readonly AttemptPolicy RegisterPerIp = new("register-ip", 20, TimeSpan.FromHours(1));
 
     /// <summary>Wrong email codes per owner: six digits must not be guessable, yet a typo costs only a few minutes.</summary>

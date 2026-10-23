@@ -13,7 +13,7 @@ namespace Frappe.IntegrationTests.Identity;
 /// <summary>Stores an active owner with one open session straight through the repository, as login will later.</summary>
 internal static class SessionSeeder
 {
-    public static async Task<(Principal Principal, Session Session, string Token)> SeedAsync(IAlbaHost host)
+    public static async Task<(Principal Principal, Session Session, string Token)> SeedAsync(IAlbaHost host, string? password = null)
     {
         await using var scope = host.Services.CreateAsyncScope();
         var services = scope.ServiceProvider;
@@ -22,7 +22,8 @@ internal static class SessionSeeder
         var token = services.GetRequiredService<ISecretGenerator>().NewSessionToken();
 
         var email = Email.Create($"owner-{Guid.NewGuid():N}@example.com").Value;
-        var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, email, "password-hash", clock);
+        var passwordHash = password is null ? "password-hash" : services.GetRequiredService<IPasswordHasher>().Hash(password);
+        var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, email, passwordHash, clock);
         principal.IssueCode(CodePurpose.EmailVerify, "code-hash", clock);
         principal.VerifyEmail("code-hash", clock).IsSuccess.ShouldBeTrue();
         var session = principal.OpenSession(services.GetRequiredService<ISecretHasher>().Hash(token), SessionSurface.Console, clock).Value;
@@ -31,6 +32,20 @@ internal static class SessionSeeder
         repository.Add(principal);
         (await repository.SaveChangesAsync(CancellationToken.None)).IsSuccess.ShouldBeTrue();
         return (principal, session, token);
+    }
+
+    /// <summary>Opens another session for the same owner, as a second device would.</summary>
+    public static async Task<(Session Session, string Token)> OpenSessionAsync(IAlbaHost host, Guid principalId)
+    {
+        await using var scope = host.Services.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var token = services.GetRequiredService<ISecretGenerator>().NewSessionToken();
+        var repository = services.GetRequiredService<IPrincipalRepository>();
+        var principal = (await repository.GetByIdAsync(principalId, CancellationToken.None)).ShouldNotBeNull();
+        var session = principal.OpenSession(services.GetRequiredService<ISecretHasher>().Hash(token), SessionSurface.Api,
+            services.GetRequiredService<TimeProvider>()).Value;
+        (await repository.SaveChangesAsync(CancellationToken.None)).IsSuccess.ShouldBeTrue();
+        return (session, token);
     }
 
     public static async Task<Principal> LoadAsync(IAlbaHost host, Guid principalId)
