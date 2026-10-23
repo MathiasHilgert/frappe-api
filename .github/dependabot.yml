@@ -27,3 +27,11 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+  - package-ecosystem: docker
+    directory: /deploy
+    schedule:
+      interval: weekly
+    # Conventional Commit titles, so Dependabot PRs pass the PR hygiene checks.
+    commit-message:
+      prefix: build
+      include: scope

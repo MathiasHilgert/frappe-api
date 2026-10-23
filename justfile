@@ -5,11 +5,13 @@ configuration := env("CONFIGURATION", "Release")
 coverage_min  := env("COVERAGE_MIN", "70")
 coverage_dir  := "artifacts/coverage"
 mutation_dir  := "artifacts/mutation"
+image_tag     := env("IMAGE", "frappe-api:local")
 
 # Pinned tool images.
 actionlint_image := "rhysd/actionlint:1.7.7"
 hadolint_image   := "hadolint/hadolint:v2.12.0"
 gitleaks_image   := "zricethezav/gitleaks:v8.24.3"
+trivy_image      := "aquasec/trivy:0.62.1"
 
 # Test projects are discovered: *IntegrationTests need Docker, every other test project is fast.
 fast_tests        := `find tests -name '*.csproj' ! -name '*IntegrationTests.csproj' -printf '%h\n' 2>/dev/null | sort | tr '\n' ' '`
@@ -19,6 +21,7 @@ mutation_targets  := "tests/BuildingBlocks/Frappe.SharedKernel.Tests:Frappe.Shar
 
 root       := justfile_directory()
 dockerfile := "deploy/Dockerfile"
+compose    := "docker compose -f deploy/compose.yaml"
 docker_run := "docker run --rm -v " + quote(root) + ":/repo -w /repo"
 
 # List recipes
@@ -35,6 +38,16 @@ setup:
 [group('dev')]
 run:
     dotnet run --project src/Host/Frappe.Api --launch-profile http
+
+# Start the local stack (docker compose)
+[group('dev')]
+up:
+    {{compose}} up -d
+
+# Stop the local stack
+[group('dev')]
+down:
+    {{compose}} down
 
 
 
@@ -136,6 +149,19 @@ hooks:
     git config core.hooksPath scripts/git/hooks
     @echo "commit-msg hook installed from scripts/git/hooks"
 
+# Build the container image
+[group('container')]
+image:
+    docker build -f {{dockerfile}} -t {{image_tag}} \
+      --build-arg REVISION="$(git rev-parse HEAD)" \
+      --build-arg CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)" .
+
+# Scan the image with trivy; fails on HIGH/CRITICAL
+[group('container')]
+image-scan:
+    docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache:/root/.cache {{trivy_image}} \
+      image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed --no-progress {{image_tag}}
+
 # Test the git hygiene scripts
 [group('git')]
 test-git:
@@ -150,3 +176,5 @@ ci:
     just test all
     just cover
     just audit
+    just image
+    just image-scan
