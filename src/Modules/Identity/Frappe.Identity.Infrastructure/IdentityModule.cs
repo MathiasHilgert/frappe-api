@@ -4,6 +4,7 @@ using Frappe.Identity.Application.Owners;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
 using Frappe.Identity.Contracts;
+using Frappe.Identity.Infrastructure.Endpoints;
 using Frappe.Identity.Infrastructure.Owners;
 using Frappe.Identity.Infrastructure.Persistence;
 using Frappe.Identity.Infrastructure.Security;
@@ -58,13 +59,18 @@ public sealed class IdentityModule : IModule
             .ValidateOnStart();
         services.AddSingleton<IAttemptLimiter, ValkeyAttemptLimiter>();
         services.AddScoped<VerificationCodeIssuer>();
+        services.AddScoped<VerifyOwnerEmail>();
     }
 
     public void ConfigureMessaging(WolverineOptions options) =>
         // A typed HttpClient is an opaque factory registration, which Wolverine cannot build inline.
         options.CodeGeneration.AlwaysUseServiceLocationFor<IBreachedPasswordChecker>();
 
-    public void MapEndpoints(RouteGroupBuilder group) => group.MapOwnerRegistration();
+    public void MapEndpoints(RouteGroupBuilder group)
+    {
+        group.MapOwnerRegistration();
+        group.MapOwnerVerification();
+    }
 
     private static void AddPasswordPolicy(IServiceCollection services, IConfiguration configuration)
     {
