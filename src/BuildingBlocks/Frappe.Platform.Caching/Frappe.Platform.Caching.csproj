@@ -14,6 +14,10 @@
     <PackageReference Include="StackExchange.Redis" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Platform.Caching.Tests" />
+  </ItemGroup>
+
   <PropertyGroup>
   </PropertyGroup>
 

@@ -27,6 +27,7 @@
     <Project Path="tests/Frappe.IntegrationTests/Frappe.IntegrationTests.csproj" />
   </Folder>
   <Folder Name="/tests/BuildingBlocks/">
+    <Project Path="tests/BuildingBlocks/Frappe.Platform.Caching.Tests/Frappe.Platform.Caching.Tests.csproj" />
     <Project Path="tests/BuildingBlocks/Frappe.SharedKernel.Tests/Frappe.SharedKernel.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/Modules/">
