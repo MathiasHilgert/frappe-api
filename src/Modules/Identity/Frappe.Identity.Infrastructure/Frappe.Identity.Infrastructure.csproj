@@ -9,6 +9,7 @@
     <ProjectReference Include="..\..\..\BuildingBlocks\Frappe.Modularity\Frappe.Modularity.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\Frappe.Platform.Persistence\Frappe.Platform.Persistence.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\Frappe.Platform.Caching\Frappe.Platform.Caching.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\Frappe.Platform.Web\Frappe.Platform.Web.csproj" />
     <ProjectReference Include="..\Frappe.Identity.Contracts\Frappe.Identity.Contracts.csproj" />
   </ItemGroup>
 

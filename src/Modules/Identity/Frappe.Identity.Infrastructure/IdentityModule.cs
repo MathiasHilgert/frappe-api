@@ -1,16 +1,20 @@
 using System.Reflection;
 using Frappe.Identity.Application;
+using Frappe.Identity.Application.Owners;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
 using Frappe.Identity.Contracts;
+using Frappe.Identity.Infrastructure.Owners;
 using Frappe.Identity.Infrastructure.Persistence;
 using Frappe.Identity.Infrastructure.Security;
 using Frappe.Identity.Infrastructure.Sessions;
 using Frappe.Modularity;
 using Frappe.Platform.Persistence;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Wolverine;
 
 namespace Frappe.Identity.Infrastructure;
 
@@ -53,7 +57,14 @@ public sealed class IdentityModule : IModule
                 $"'{AttemptLimiterOptions.Section}:TimeoutMilliseconds' must be {AttemptLimiterOptions.MinimumTimeoutMilliseconds}..{AttemptLimiterOptions.MaximumTimeoutMilliseconds}.")
             .ValidateOnStart();
         services.AddSingleton<IAttemptLimiter, ValkeyAttemptLimiter>();
+        services.AddScoped<VerificationCodeIssuer>();
     }
+
+    public void ConfigureMessaging(WolverineOptions options) =>
+        // A typed HttpClient is an opaque factory registration, which Wolverine cannot build inline.
+        options.CodeGeneration.AlwaysUseServiceLocationFor<IBreachedPasswordChecker>();
+
+    public void MapEndpoints(RouteGroupBuilder group) => group.MapOwnerRegistration();
 
     private static void AddPasswordPolicy(IServiceCollection services, IConfiguration configuration)
     {
