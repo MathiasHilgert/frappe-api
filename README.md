@@ -200,6 +200,8 @@ docker run -d -p 8080:8080 \
 | --- | --- | --- |
 | `ConnectionStrings__frappe` | Yes | Postgres; Critical for readiness |
 | `ConnectionStrings__valkey` | Yes | Startup fails without it; NonCritical for readiness |
+| `Identity__SecretHashing__Key` | Yes | HMAC key for session tokens and codes, 32+ characters; startup fails without it. Rotating it signs everyone out |
+| `Identity__PasswordHashing__*` | No | Argon2id cost (`MemorySizeKib`, `Iterations`, `Parallelism`); startup fails below the OWASP minimum |
 | `ConnectionStrings__nats` | No | Defaults to a local URL; NonCritical, realtime degrades when down |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | Traces, metrics and logs over OTLP |
 

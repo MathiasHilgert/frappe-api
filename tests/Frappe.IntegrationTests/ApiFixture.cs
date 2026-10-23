@@ -39,6 +39,7 @@ public sealed class ApiFixture : IAsyncLifetime
             builder.UseSetting("ConnectionStrings:frappe", connectionString ?? _postgres.GetConnectionString());
             builder.UseSetting("ConnectionStrings:nats", _nats.GetConnectionString());
             builder.UseSetting("ConnectionStrings:valkey", _valkey.GetConnectionString());
+            builder.UseSetting("Identity:SecretHashing:Key", "integration-tests-secret-hashing-key-0123456789");
             builder.ConfigureServices(services =>
             {
                 services.RunWolverineInSoloMode();

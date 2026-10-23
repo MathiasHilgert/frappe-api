@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Modules\Identity\Frappe.Identity.Domain\Frappe.Identity.Domain.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Identity\Frappe.Identity.Infrastructure\Frappe.Identity.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

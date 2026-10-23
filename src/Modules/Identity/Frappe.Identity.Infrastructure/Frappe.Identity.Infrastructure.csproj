@@ -11,7 +11,12 @@
     <ProjectReference Include="..\Frappe.Identity.Contracts\Frappe.Identity.Contracts.csproj" />
   </ItemGroup>
 
-  <PropertyGroup>
-  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Konscious.Security.Cryptography.Argon2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Identity.Tests" />
+  </ItemGroup>
 
 </Project>

@@ -6,6 +6,8 @@ public sealed class Session
     public static readonly TimeSpan IdleTimeout = TimeSpan.FromHours(12);
     public static readonly TimeSpan AbsoluteLifetime = TimeSpan.FromDays(30);
 
+    private Session() => TokenHash = null!;
+
     internal Session(string tokenHash, SessionSurface surface, DateTimeOffset now)
     {
         Id = Guid.CreateVersion7(now);
