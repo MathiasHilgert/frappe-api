@@ -5,6 +5,14 @@ namespace Frappe.Identity.Domain.Principals;
 /// <summary>The owner credential of a principal. Changed only through <see cref="Principal"/>.</summary>
 public sealed class OwnerAccount
 {
+    // For EF Core: rehydration sets every member through its backing field.
+    private OwnerAccount()
+    {
+        Name = null!;
+        Email = null!;
+        PasswordHash = null!;
+    }
+
     internal OwnerAccount(PersonName name, Email email, string passwordHash)
     {
         Name = name;

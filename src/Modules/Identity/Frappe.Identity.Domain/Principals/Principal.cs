@@ -13,6 +13,9 @@ public sealed class Principal : AggregateRoot<Guid>
     private readonly List<Session> _sessions = [];
     private readonly List<VerificationCode> _codes = [];
 
+    // For EF Core: rehydration sets every member through its backing field.
+    private Principal() => Owner = null!;
+
     private Principal(OwnerAccount owner, DateTimeOffset now)
     {
         Id = Guid.CreateVersion7(now);
