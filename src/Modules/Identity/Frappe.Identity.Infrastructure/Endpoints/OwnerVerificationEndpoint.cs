@@ -27,7 +27,7 @@ internal static class OwnerVerificationEndpoint
     }
 
     private static async Task<IResult> HandleAsync(
-        Guid id, Request request, VerifyOwnerEmail handler, HttpContext http, CancellationToken cancellationToken)
+        Guid id, Request request, VerifyOwnerEmail handler, CancellationToken cancellationToken)
     {
         var outcome = await handler.HandleAsync(id, request.Code ?? string.Empty, cancellationToken);
         if (outcome.Result.IsSuccess)
