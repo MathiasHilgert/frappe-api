@@ -9,7 +9,6 @@ public sealed class VerificationCode
     public static readonly TimeSpan ResendWindow = TimeSpan.FromHours(1);
     public const int MaxResendsPerHour = 5;
 
-    // For EF Core: rehydration sets every member through its backing field.
     private VerificationCode() => CodeHash = null!;
 
     private VerificationCode(CodePurpose purpose, string codeHash, DateTimeOffset now, DateTimeOffset windowStartedAt, int resendCount)
