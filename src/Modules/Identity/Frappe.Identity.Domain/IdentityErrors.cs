@@ -17,7 +17,7 @@ public static class IdentityErrors
         new("identity.email.invalid", $"Email must look like name@domain and be at most {Email.MaxLength} characters.", "email");
 
     public static readonly Error EmailTaken =
-        new("identity.email.taken", "An account with this email already exists.", "email");
+        new("identity.email.taken", "An account with this email already exists.", "email", ErrorKind.Conflict);
 
     public static readonly Error PasswordTooShort =
         new("identity.password.too_short", $"Password must be at least {Password.MinLength} characters.", "password");
@@ -65,5 +65,8 @@ public static class IdentityErrors
     public static readonly Error SessionExpired = new("identity.session.expired", "The session has expired.");
 
     public static readonly Error NoPendingEmailChange =
-        new("identity.email_change.none_pending", "There is no email change to confirm.");
+        new("identity.email_change.none_pending", "There is no email change to confirm.", Kind: ErrorKind.NotFound);
+
+    public static readonly Error EmailChangeNotFound =
+        new("identity.email_change.not_found", "This email change does not exist or was replaced by a newer one.", Kind: ErrorKind.NotFound);
 }

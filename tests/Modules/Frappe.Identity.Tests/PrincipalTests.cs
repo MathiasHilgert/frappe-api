@@ -283,10 +283,10 @@ public sealed class PrincipalTests
     {
         var principal = ActiveOwner();
         var newEmail = Email.Create("new@example.com").Value;
-        principal.RequestEmailChange(newEmail, "e1", _clock);
+        var code = principal.RequestEmailChange(newEmail, "e1", _clock).Value;
         Events(principal);
 
-        principal.ConfirmEmailChange("e1", _clock).IsSuccess.ShouldBeTrue();
+        principal.ConfirmEmailChange(code.Id, "e1", _clock).IsSuccess.ShouldBeTrue();
 
         principal.Owner.Email.ShouldBe(newEmail);
         principal.Owner.PendingEmail.ShouldBeNull();
@@ -297,9 +297,20 @@ public sealed class PrincipalTests
     public void ConfirmEmailChange_WithoutRequest_ReportsNoPendingEmailChange()
     {
         var principal = ActiveOwner();
-        principal.IssueCode(CodePurpose.EmailChange, "e1", _clock);
+        var code = principal.IssueCode(CodePurpose.EmailChange, "e1", _clock).Value;
 
-        principal.ConfirmEmailChange("e1", _clock).Errors.ShouldBe([IdentityErrors.NoPendingEmailChange]);
+        principal.ConfirmEmailChange(code.Id, "e1", _clock).Errors.ShouldBe([IdentityErrors.NoPendingEmailChange]);
+    }
+
+    [Fact]
+    public void ConfirmEmailChange_ForAReplacedRequest_ReportsNotFoundAndKeepsTheEmail()
+    {
+        var principal = ActiveOwner();
+        var first = principal.RequestEmailChange(Email.Create("one@example.com").Value, "e1", _clock).Value;
+        principal.RequestEmailChange(Email.Create("two@example.com").Value, "e2", _clock);
+
+        principal.ConfirmEmailChange(first.Id, "e2", _clock).Errors.ShouldBe([IdentityErrors.EmailChangeNotFound]);
+        principal.Owner.Email.Value.ShouldBe("ana@example.com");
     }
 
     private Principal Register() =>
