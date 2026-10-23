@@ -56,6 +56,7 @@ migrate: setup
     for dir in $(find src/Modules -type d -path '*.Infrastructure/Persistence/Migrations' | sort); do \
       proj="${dir%/Persistence/Migrations}"; \
       contexts="$(dotnet ef dbcontext list -p "$proj" -s src/Host/Frappe.Api --prefix-output | sed -n 's/^data: *//p')"; \
+      [ -n "$contexts" ] || { echo "No DbContext found in $proj" >&2; exit 1; }; \
       for ctx in $contexts; do \
         echo "Migrating $ctx ($proj)"; \
         dotnet ef database update --no-build -p "$proj" -s src/Host/Frappe.Api -c "$ctx"; \
