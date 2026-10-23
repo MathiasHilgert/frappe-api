@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using Frappe.Identity.Application.Sessions;
@@ -69,9 +70,8 @@ internal sealed class SessionAuthenticationHandler(
         var count = 0;
         foreach (var header in Request.Headers.Cookie)
         {
-            foreach (var pair in (header ?? string.Empty).Split(';'))
+            foreach (var trimmed in (header ?? string.Empty).Split(';').Select(pair => pair.AsSpan().TrimStart()))
             {
-                var trimmed = pair.AsSpan().TrimStart();
                 if (trimmed.StartsWith(name, StringComparison.Ordinal) && trimmed[name.Length..].TrimStart().StartsWith("="))
                     count++;
             }
