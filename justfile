@@ -49,6 +49,26 @@ up:
 down:
     {{compose}} down
 
+# Apply every module's EF migrations to the local database (Development only; needs `just up`)
+[group('dev')]
+migrate: setup
+    export ASPNETCORE_ENVIRONMENT=Development; \
+    for dir in $(find src/Modules -type d -path '*.Infrastructure/Persistence/Migrations' | sort); do \
+      proj="${dir%/Persistence/Migrations}"; \
+      contexts="$(dotnet ef dbcontext list -p "$proj" -s src/Host/Frappe.Api --prefix-output | sed -n 's/^data: *//p')"; \
+      for ctx in $contexts; do \
+        echo "Migrating $ctx ($proj)"; \
+        dotnet ef database update --no-build -p "$proj" -s src/Host/Frappe.Api -c "$ctx"; \
+      done; \
+    done
+
+# Add an EF migration to a module, e.g. `just migration Identity AddOwnerPhone`
+[group('dev')]
+migration module name: setup
+    export ASPNETCORE_ENVIRONMENT=Development; \
+    proj="src/Modules/{{module}}/Frappe.{{module}}.Infrastructure"; \
+    ctx="$(dotnet ef dbcontext list -p "$proj" -s src/Host/Frappe.Api --prefix-output | sed -n 's/^data: *//p' | head -n1)"; \
+    dotnet ef migrations add {{name}} -p "$proj" -s src/Host/Frappe.Api -c "$ctx" -o Persistence/Migrations
 
 
 
