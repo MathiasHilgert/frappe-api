@@ -29,6 +29,8 @@
   </ItemGroup>
 
   <PropertyGroup>
+    <!-- Local secrets (e.g. Notification:Resend:ApiKey) load from dotnet user-secrets in Development. -->
+    <UserSecretsId>frappe-api</UserSecretsId>
   </PropertyGroup>
 
 </Project>

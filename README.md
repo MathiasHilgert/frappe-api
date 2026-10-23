@@ -246,7 +246,7 @@ docker run -d -p 8080:8080 \
 | `Identity__SessionCookie__Path` | No | Session cookie path, default `/`; must start with `/` |
 | `Identity__SessionCookie__Domain` | No | Unset by default (host-only cookie); not allowed with a `__Host-` name |
 | `Identity__PasswordHashing__*` | No | Argon2id cost (`MemorySizeKib`, `Iterations`, `Parallelism`); startup fails below the OWASP minimum |
-| `Notification__Resend__ApiKey` | Outside Development | Resend API key (secret, never committed). Without it, Development logs mail instead of sending it; elsewhere sending fails and is retried |
+| `Notification__Resend__ApiKey` | Outside Development | Resend API key (secret, never committed). Locally: `dotnet user-secrets set "Notification:Resend:ApiKey" "<key>" --project src/Host/Frappe.Api`. Without it, Development logs mail instead of sending it; elsewhere sending fails and is retried |
 | `Notification__Resend__From` | No | Sender address, default `Frappé <onboarding@resend.dev>`; must be a domain verified in Resend |
 | `ConnectionStrings__nats` | No | Defaults to a local URL; NonCritical, realtime degrades when down |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | Traces, metrics and logs over OTLP |
