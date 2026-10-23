@@ -12,10 +12,19 @@ namespace Frappe.Api;
 /// <summary>Composition root: the only place that knows every platform adapter and every module.</summary>
 internal static class PlatformComposition
 {
-    public static WebApplicationBuilder AddFrappePlatform(this WebApplicationBuilder builder, IReadOnlyList<IModule> modules)
+    public static WebApplicationBuilder AddFrappe(this WebApplicationBuilder builder, IReadOnlyList<IModule> modules)
     {
         var services = builder.Services;
         var configuration = builder.Configuration;
+
+        // Fail at startup, in every environment, on missing registrations or captive dependencies.
+        builder.Host.UseDefaultServiceProvider(options =>
+        {
+            options.ValidateOnBuild = true;
+            options.ValidateScopes = true;
+        });
+
+        builder.AddObservability();
 
         services.AddRequestCorrelation();
         services.AddDenyByDefaultSecurity();
@@ -25,6 +34,7 @@ internal static class PlatformComposition
         services.AddRealtime(configuration);
         services.AddCaching(configuration, builder.Environment);
         services.AddJobs();
+        services.AddOpenApiDocs();
 
         foreach (var module in modules)
             module.AddServices(services, configuration);
@@ -37,10 +47,26 @@ internal static class PlatformComposition
         return builder;
     }
 
-    public static WebApplication MapFrappePlatform(this WebApplication app, IReadOnlyList<IModule> modules)
+    /// <summary>
+    /// The request pipeline. Order matters: correlation runs first so every response and error carries the
+    /// request id; error handling wraps everything after it; authentication must precede authorization.
+    /// </summary>
+    public static WebApplication UseFrappe(this WebApplication app)
+    {
+        app.UseRequestCorrelation();
+        app.UseExceptionHandler();
+        app.UseStatusCodePages();
+        app.UseAuthentication();
+        app.UseAuthorization();
+
+        return app;
+    }
+
+    public static WebApplication MapFrappe(this WebApplication app, IReadOnlyList<IModule> modules)
     {
         app.MapPlatformHealth();
         app.MapRealtime();
+        app.MapOpenApiDocs();
 
         foreach (var module in modules)
             module.MapEndpoints(app.MapGroup($"/v1/{module.Name}").WithTags(module.Name));
