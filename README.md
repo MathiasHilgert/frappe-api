@@ -151,7 +151,8 @@ services.AddHealthChecks()
 
 - **Critical** down: `/health/ready` returns 503 and the instance leaves rotation (Postgres).
 - **NonCritical** down: `/health/ready` stays 200 with status `Degraded` (NATS, Valkey).
-  Valkey is still configuration-required: outside Development a missing `ConnectionStrings__valkey` fails startup.
+  Valkey is still configuration-required: outside Development a missing `ConnectionStrings__valkey` fails startup
+  (checked when the app starts, so `resources setup` does not need it).
 - `/health/live` never checks dependencies, so a database outage does not restart every instance.
 - Each check times out after 2 s. Results are also exported as the `frappe.health.dependency.status` gauge.
 
@@ -187,9 +188,7 @@ once with `resources setup` before starting the new version:
 
 ```sh
 just image
-# Wolverine storage schema. The host is composed in full, so it needs the same required settings as the app.
-docker run --rm -e ConnectionStrings__frappe="Host=…" -e ConnectionStrings__valkey="host:6379" \
-  frappe-api:local resources setup
+docker run --rm -e ConnectionStrings__frappe="Host=…" frappe-api:local resources setup   # Wolverine storage schema
 docker run -d -p 8080:8080 \
   -e ConnectionStrings__frappe="Host=…" \
   -e ConnectionStrings__valkey="host:6379" \
