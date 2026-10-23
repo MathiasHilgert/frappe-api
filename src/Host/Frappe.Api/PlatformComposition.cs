@@ -1,6 +1,7 @@
 using Frappe.Modularity;
 using Frappe.Platform.Caching;
 using Frappe.Platform.Health;
+using Frappe.Platform.Localization;
 using Frappe.Platform.Messaging;
 using Frappe.Platform.Persistence;
 using Frappe.Platform.Realtime;
@@ -26,6 +27,7 @@ internal static class PlatformComposition
 
         builder.AddObservability();
 
+        services.AddPlatformLocalization(configuration);
         services.AddRequestCorrelation();
         services.AddDenyByDefaultSecurity();
         services.AddSingleton(TimeProvider.System);
@@ -49,7 +51,8 @@ internal static class PlatformComposition
 
     /// <summary>
     /// The request pipeline. Order matters: correlation runs first so every response and error carries the
-    /// request id; error handling wraps everything after it; authentication must precede authorization.
+    /// request id; error handling wraps everything after it; localization follows authentication so a stored
+    /// preference can be read, and precedes authorization so 401/403 problems are translated too.
     /// </summary>
     public static WebApplication UseFrappe(this WebApplication app)
     {
@@ -57,6 +60,7 @@ internal static class PlatformComposition
         app.UseExceptionHandler();
         app.UseStatusCodePages();
         app.UseAuthentication();
+        app.UsePlatformLocalization();
         app.UseAuthorization();
 
         return app;

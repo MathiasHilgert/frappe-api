@@ -1,0 +1,5 @@
+{
+  "sample.greeting": "¡Hola, {name}!",
+  "sample.codes": "{count, plural, one {Tenés # código} other {Tenés # códigos}}",
+  "sample.only-in-en": "Solo en inglés"
+}

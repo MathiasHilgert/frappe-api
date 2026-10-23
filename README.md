@@ -126,7 +126,7 @@ Only files tools must find at the root live there: `global.json`, `Directory.*.p
 
 | Topic | Rule |
 | --- | --- |
-| Validation | Domain invariants return `Result<T>` built from a `Notification` (Fowler): all broken rules at once, 422. The HTTP layer checks only request shape, 400. |
+| Validation | Domain invariants return `Result<T>` built from a `Notification` (Fowler): all broken rules at once. The HTTP layer checks only request shape, 400. Endpoints answer failures with `result.ToProblem()` (see [Errors and localization](#errors-and-localization)). |
 | Events / outbox | Aggregates raise domain events; Wolverine scrapes them from EF Core into the outbox in the same transaction. Reactions run from durable local queues. |
 | Realtime | A handler returns `RealtimePush.From(notification)` as a cascading message (Wolverine routes only concrete types). It is pushed to NATS JetStream after commit and streamed over SSE; the stream sequence is the SSE id, so `Last-Event-ID` resumes. |
 | Jobs | One-off work is a (scheduled) Wolverine message. Recurring work is a Quartz trigger running `PublishCommandJob<T>`, which only publishes a command. |
@@ -159,6 +159,43 @@ services.AddHealthChecks()
   (checked when the app starts, so `resources setup` does not need it).
 - `/health/live` never checks dependencies, so a database outage does not restart every instance.
 - Each check times out after 2 s. Results are also exported as the `frappe.health.dependency.status` gauge.
+
+### Errors and localization
+
+Every response says which language it speaks: `Content-Language` is always set and `Vary: Accept-Language` appended.
+Platform locales are `es-AR`, `en`, `es-MX`, `pt-BR` (default `en`; override with `Localization:SupportedLocales`
+and `Localization:DefaultLocale`). The request locale (`IRequestLocale`) is negotiated by RFC 4647 lookup:
+
+1. Each `Accept-Language` tag in quality order: exact tag, its truncations, then the first configured locale of the
+   same language (`es-CL` → `es-AR`). The first servable tag wins, even over a stored preference.
+2. Otherwise the principal's stored preference, read through `IPreferredLocaleSource` (the owning module implements it).
+3. Otherwise `en`.
+
+Failures are RFC 9457 problems. `result.ToProblem()` picks the status from `Error.Kind` (422 validation, 404, 409,
+429 with `Retry-After` via `ToProblem(retryAfter)`, 401, 403; mixed kinds answer 422), sets `type` to
+`urn:frappe:problem:<code>` (one error) or `urn:frappe:problem:validation` (several), and translates `title` and each
+`errors[].message` by error code. A code with no catalogue entry falls back to `Error.Message`, in English.
+
+A module adds strings as flat ICU MessageFormat catalogues, one file per locale, keyed by error code or a
+module-prefixed key:
+
+```xml
+<EmbeddedResource Include="i18n/*.json" />   <!-- i18n/en.json, i18n/es-AR.json, i18n/es-MX.json, i18n/pt-BR.json -->
+```
+
+```json
+{ "identity.email.taken": "That email is already registered.",
+  "identity.codes.left": "{count, plural, one {# attempt left} other {# attempts left}}" }
+```
+
+Register them with `services.AddMessageCatalog(typeof(SomeModuleType).Assembly)` and format with
+`IMessageCatalog.Format(locale, key, args)`. A key missing in a locale falls back to another region of the same
+language, then to `en`; a key missing in `en` throws. In the module's tests:
+
+```csharp
+MessageCatalogConformance.Check(assembly).ShouldBeEmpty();                 // every en key in every locale, every message formats
+MessageCatalogConformance.CodesWithoutEntries(assembly, codes).ShouldBeEmpty(); // every error code translated
+```
 
 ## Quality gates
 
