@@ -16,4 +16,14 @@ public static class AttemptPolicies
 
     /// <summary>Wrong email codes per owner: six digits must not be guessable, yet a typo costs only a few minutes.</summary>
     public static readonly AttemptPolicy VerifyEmailPerOwner = new("verify-email-owner", 5, TimeSpan.FromMinutes(15));
+
+    public static readonly AttemptPolicy PasswordResetPerEmail = new("password-reset-email", 5, TimeSpan.FromHours(1));
+    public static readonly AttemptPolicy PasswordResetPerIp = new("password-reset-ip", 20, TimeSpan.FromHours(1));
+
+    /// <summary>Wrong codes per reset: five guesses of a six-digit code, then the owner must request a new one.</summary>
+    public static readonly AttemptPolicy PasswordResetConfirmFailuresPerReset =
+        new("password-reset-confirm-reset", 5, TimeSpan.FromMinutes(15));
+
+    public static readonly AttemptPolicy PasswordResetConfirmFailuresPerIp =
+        new("password-reset-confirm-ip", 100, TimeSpan.FromMinutes(15));
 }
