@@ -35,3 +35,11 @@ updates:
     commit-message:
       prefix: build
       include: scope
+  - package-ecosystem: docker-compose
+    directory: /deploy
+    schedule:
+      interval: weekly
+    # Conventional Commit titles, so Dependabot PRs pass the PR hygiene checks.
+    commit-message:
+      prefix: build
+      include: scope
