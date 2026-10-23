@@ -2,6 +2,8 @@
   <Folder Name="/src/" />
   <Folder Name="/src/BuildingBlocks/">
     <Project Path="src/BuildingBlocks/Frappe.Modularity/Frappe.Modularity.csproj" />
+    <Project Path="src/BuildingBlocks/Frappe.Platform.Caching/Frappe.Platform.Caching.csproj" />
+    <Project Path="src/BuildingBlocks/Frappe.Platform.Health/Frappe.Platform.Health.csproj" />
     <Project Path="src/BuildingBlocks/Frappe.Platform.Messaging/Frappe.Platform.Messaging.csproj" />
     <Project Path="src/BuildingBlocks/Frappe.Platform.Persistence/Frappe.Platform.Persistence.csproj" />
     <Project Path="src/BuildingBlocks/Frappe.SharedKernel/Frappe.SharedKernel.csproj" />

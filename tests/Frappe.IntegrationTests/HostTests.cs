@@ -1,3 +1,4 @@
+using Alba;
 using Frappe.Platform.Messaging;
 using Npgsql;
 using Shouldly;
@@ -39,9 +40,16 @@ public sealed class HostTests(ApiFixture fixture)
             // Development provisions the schema, standing in for the deploy's setup step.
         }
 
+        (await SchemaExistsAsync(connectionString)).ShouldBeTrue();
+
         await using var host = await fixture.CreateHostAsync(environment: "Production", connectionString: connectionString);
 
-        (await SchemaExistsAsync(connectionString)).ShouldBeTrue();
+        // Starting is not enough: the host must actually serve requests.
+        await host.Scenario(s =>
+        {
+            s.Get.Url("/health/live");
+            s.StatusCodeShouldBe(200);
+        });
     }
 
     private static async Task<bool> SchemaExistsAsync(string connectionString)
