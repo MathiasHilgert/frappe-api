@@ -48,7 +48,8 @@ public static class RequestPasswordResetHandler
             throw new InvalidOperationException($"Saving a reset code failed: {saved.Errors[0].Code}.");
 
         messages.Add(new PasswordResetCodeIssued(
-            issued.Value.Id, principal.Id, principal.Owner.Email.Value, principal.Owner.Name.Value, code, issued.Value.ExpiresAt));
+            issued.Value.Id, principal.Id, principal.Owner.Email.Value, principal.Owner.Name.Value, code, issued.Value.ExpiresAt,
+            principal.Owner.Locale.Value));
         return (PasswordResetRequested.Accepted(issued.Value.Id), messages);
     }
 }

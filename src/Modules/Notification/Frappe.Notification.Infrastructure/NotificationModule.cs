@@ -2,6 +2,8 @@ using System.Reflection;
 using Frappe.Modularity;
 using Frappe.Notification.Application;
 using Frappe.Notification.Contracts;
+using Frappe.Notification.Infrastructure.Mails;
+using Frappe.Platform.Localization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -19,6 +21,9 @@ public sealed class NotificationModule : IModule
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+        services.AddMessageCatalog(typeof(NotificationModule).Assembly);
+        services.AddSingleton<IOwnerCodeMails, CatalogOwnerCodeMails>();
+
         services.AddOptions<ResendOptions>()
             .Bind(configuration.GetSection(ResendOptions.Section))
             .Validate(options => options.BaseAddress.IsAbsoluteUri, $"'{ResendOptions.Section}:BaseAddress' must be absolute.")
@@ -40,7 +45,11 @@ public sealed class NotificationModule : IModule
             http.BaseAddress = sp.GetRequiredService<IOptions<ResendOptions>>().Value.BaseAddress);
     }
 
-    public void ConfigureMessaging(WolverineOptions options) =>
-        // The Resend mailer is a typed HttpClient, an opaque factory registration Wolverine cannot build inline.
+    public void ConfigureMessaging(WolverineOptions options)
+    {
+        // The Resend mailer is a typed HttpClient, an opaque factory registration Wolverine cannot build inline,
+        // and the mail composer depends on the platform's internal catalogue.
         options.CodeGeneration.AlwaysUseServiceLocationFor<IMailer>();
+        options.CodeGeneration.AlwaysUseServiceLocationFor<IOwnerCodeMails>();
+    }
 }

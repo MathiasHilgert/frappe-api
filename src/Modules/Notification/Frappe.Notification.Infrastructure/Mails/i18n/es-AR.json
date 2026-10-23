@@ -1,0 +1,17 @@
+{
+  "notification.mail.verification.subject": "Tu código de Frappé: {code}",
+  "notification.mail.verification.title": "Activá tu cuenta",
+  "notification.mail.verification.body": "Hola {name}. Escribí este código en la pantalla donde te registraste.",
+  "notification.mail.verification.footer": "Si no creaste una cuenta en Frappé, ignorá este mail: sin el código nadie puede usarla.",
+  "notification.mail.password_reset.subject": "Código para cambiar tu contraseña: {code}",
+  "notification.mail.password_reset.title": "Cambiá tu contraseña",
+  "notification.mail.password_reset.body": "Usá este código para elegir una contraseña nueva. Al cambiarla se cierran todas tus sesiones.",
+  "notification.mail.password_reset.footer": "¿No lo pediste? Tu contraseña sigue igual y podés ignorar este mail.",
+  "notification.mail.email_change.subject": "Código para confirmar tu email nuevo: {code}",
+  "notification.mail.email_change.title": "Confirmá tu email nuevo",
+  "notification.mail.email_change.body": "Hasta que lo confirmes, seguís entrando con tu email anterior.",
+  "notification.mail.email_change.footer": "Si no pediste este cambio, ignorá este mail y no pasa nada.",
+  "notification.mail.code": "Tu código",
+  "notification.mail.expiry": "Vence en 15 minutos",
+  "notification.mail.single_use": "Un solo uso"
+}

@@ -27,6 +27,26 @@ public sealed class ResendMailerTests
         body.RootElement.GetProperty("to")[0].GetString().ShouldBe("owner@example.test");
         body.RootElement.GetProperty("subject").GetString().ShouldBe("123456 is your code");
         body.RootElement.GetProperty("text").GetString().ShouldBe("Your code is 123456.");
+        body.RootElement.TryGetProperty("html", out _).ShouldBeFalse();
+        body.RootElement.TryGetProperty("attachments", out _).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task SendAsync_SendsTheHtmlPart_WithInlineImagesAsContentIdAttachments()
+    {
+        var handler = new RecordingHandler(HttpStatusCode.OK);
+        var mail = new Mail("owner@example.test", "123456 is your code", "Your code is 123456.", "<img src=\"cid:logo\">",
+            [new InlineImage("logo", "logo.png", "image/png", new byte[] { 1, 2, 3 })]);
+
+        await Create(handler).SendAsync(mail, TestContext.Current.CancellationToken);
+
+        using var body = JsonDocument.Parse(handler.Body!);
+        body.RootElement.GetProperty("html").GetString().ShouldBe("<img src=\"cid:logo\">");
+        var attachment = body.RootElement.GetProperty("attachments").EnumerateArray().ShouldHaveSingleItem();
+        attachment.GetProperty("filename").GetString().ShouldBe("logo.png");
+        attachment.GetProperty("content").GetString().ShouldBe("AQID");
+        attachment.GetProperty("content_type").GetString().ShouldBe("image/png");
+        attachment.GetProperty("content_id").GetString().ShouldBe("logo");
     }
 
     [Theory]

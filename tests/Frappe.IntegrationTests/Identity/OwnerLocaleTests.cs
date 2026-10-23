@@ -1,10 +1,13 @@
 using System.Net;
 using System.Text.Json;
 using Alba;
+using Frappe.Identity.Contracts;
+using Frappe.Identity.Contracts.PasswordResets;
 using Frappe.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
+using Wolverine.Tracking;
 
 namespace Frappe.IntegrationTests.Identity;
 
@@ -29,17 +32,19 @@ public sealed class OwnerLocaleTests(ApiFixture fixture) : IAsyncLifetime
     [InlineData(null, "en")]
     public async Task Register_StoresTheLocaleNegotiatedFromAcceptLanguage(string? acceptLanguage, string expected)
     {
-        var result = await fixture.Host.Scenario(s =>
+        IScenarioResult result = null!;
+        var tracked = await fixture.Host.ExecuteAndWaitAsync(async () => result = await fixture.Host.Scenario(s =>
         {
             s.ConfigureHttpContext(c => c.Connection.RemoteIpAddress = NewIp());
             s.Post.Json(new { name = "Ana", email = OwnerSeeder.NewEmail(), password = "a long enough passphrase" }).ToUrl("/v1/identity/owners");
             if (acceptLanguage is not null)
                 s.WithRequestHeader("Accept-Language", acceptLanguage);
             s.StatusCodeShouldBe(201);
-        });
+        }));
 
         var id = (await result.ReadAsJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
         (await SessionSeeder.LoadAsync(fixture.Host, id)).Owner.Locale.Value.ShouldBe(expected);
+        tracked.Sent.MessagesOf<OwnerVerificationCodeIssued>().ShouldHaveSingleItem().Locale.ShouldBe(expected);
     }
 
     [Fact]
@@ -102,6 +107,22 @@ public sealed class OwnerLocaleTests(ApiFixture fixture) : IAsyncLifetime
         body.GetProperty("errors")[0].GetProperty("code").GetString().ShouldBe(code);
         body.GetProperty("errors")[0].GetProperty("field").GetString().ShouldBe("locale");
         (await SessionSeeder.LoadAsync(fixture.Host, owner.Id)).Owner.Locale.Value.ShouldBe("en");
+    }
+
+    [Fact]
+    public async Task PasswordResetCode_CarriesTheOwnersLocale()
+    {
+        var (owner, _, token) = await SessionSeeder.SeedAsync(fixture.Host);
+        await PatchAsync(token, new { locale = "es-MX" }, 200);
+
+        var tracked = await fixture.Host.ExecuteAndWaitAsync(() => fixture.Host.Scenario(s =>
+        {
+            s.ConfigureHttpContext(c => c.Connection.RemoteIpAddress = NewIp());
+            s.Post.Json(new { email = owner.Owner.Email.Value }).ToUrl("/v1/identity/password-resets");
+            s.StatusCodeShouldBe(202);
+        }));
+
+        tracked.Sent.MessagesOf<PasswordResetCodeIssued>().ShouldHaveSingleItem().Locale.ShouldBe("es-MX");
     }
 
     [Fact]
