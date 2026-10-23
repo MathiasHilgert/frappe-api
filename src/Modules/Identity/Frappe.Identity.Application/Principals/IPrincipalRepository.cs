@@ -13,6 +13,9 @@ public interface IPrincipalRepository
 
     Task<Principal?> GetBySessionTokenHashAsync(string tokenHash, CancellationToken cancellationToken);
 
+    /// <summary>The owner of the live code <paramref name="codeId"/> issued for <paramref name="purpose"/>.</summary>
+    Task<Principal?> GetByCodeIdAsync(Guid codeId, CodePurpose purpose, CancellationToken cancellationToken);
+
     void Add(Principal principal);
 
     /// <summary>Commits tracked changes. An address already taken fails with <c>IdentityErrors.EmailTaken</c>.</summary>

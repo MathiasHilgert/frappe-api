@@ -70,9 +70,13 @@ public sealed class IdentityModule : IModule
         services.AddScoped<ConfirmEmailChange>();
     }
 
-    public void ConfigureMessaging(WolverineOptions options) =>
-        // A typed HttpClient is an opaque factory registration, which Wolverine cannot build inline.
+    public void ConfigureMessaging(WolverineOptions options)
+    {
+        // The breach checker is a typed HttpClient, an opaque factory registration Wolverine cannot build inline,
+        // and so is the password policy that depends on it.
         options.CodeGeneration.AlwaysUseServiceLocationFor<IBreachedPasswordChecker>();
+        options.CodeGeneration.AlwaysUseServiceLocationFor<PasswordPolicy>();
+    }
 
     public void MapEndpoints(RouteGroupBuilder group)
     {
@@ -82,6 +86,7 @@ public sealed class IdentityModule : IModule
         group.MapSessionManagement();
         group.MapAccountSecurityEndpoints();
         group.MapEmailChangeEndpoints();
+        group.MapPasswordResets();
     }
 
     private static void AddPasswordPolicy(IServiceCollection services, IConfiguration configuration)
