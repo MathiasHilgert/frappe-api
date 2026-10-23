@@ -12,6 +12,7 @@
     <PackageReference Include="EFCore.NamingConventions" />
     <PackageReference Include="Npgsql.DependencyInjection" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="WolverineFx" />
     <PackageReference Include="WolverineFx.EntityFrameworkCore" />
   </ItemGroup>
 
