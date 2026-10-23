@@ -15,6 +15,7 @@ builder.Host.UseDefaultServiceProvider(options =>
 
 IModule[] modules = [new IdentityModule()];
 
+builder.AddObservability();
 builder.AddFrappePlatform(modules);
 builder.Services.AddOpenApiDocs();
 
