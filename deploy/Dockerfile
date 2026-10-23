@@ -19,9 +19,11 @@ FROM restore AS publish
 ARG TARGETARCH
 COPY src/ src/
 # Framework-dependent, untrimmed: Wolverine compiles handlers at runtime and EF Core relies on reflection.
+# No --no-restore: the cache mount is not part of any layer, so a cached restore layer on a fresh builder
+# (e.g. the GitHub Actions cache) arrives with no packages. With a warm mount this restore is a no-op.
 RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
     dotnet publish src/Host/Frappe.Api/Frappe.Api.csproj \
-      -c Release -a "$TARGETARCH" --no-restore --self-contained false \
+      -c Release -a "$TARGETARCH" --self-contained false \
       -p:UseAppHost=false -o /app
 
 # ---- final: chiseled (distroless, non-root); -extra ships ICU + tzdata for real cultures ----
