@@ -1,3 +1,4 @@
+using Frappe.Identity.Infrastructure.Security;
 using Frappe.Platform.Health;
 using Npgsql;
 using OpenTelemetry;
@@ -37,7 +38,8 @@ internal static class Observability
                 .AddNpgsqlInstrumentation()
                 .AddMeter("Microsoft.EntityFrameworkCore")
                 .AddMeter("Wolverine")
-                .AddMeter(HealthMetricsPublisher.MeterName))
+                .AddMeter(HealthMetricsPublisher.MeterName)
+                .AddMeter(IdentityMetrics.MeterName))
             .UseOtlpExporter();
 
         return builder;
