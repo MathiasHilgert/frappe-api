@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\Frappe.Notification.Application\Frappe.Notification.Application.csproj" />
+    <ProjectReference Include="..\Frappe.Notification.Contracts\Frappe.Notification.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\Frappe.Modularity\Frappe.Modularity.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Notification.Tests" />
+  </ItemGroup>
+
+</Project>
