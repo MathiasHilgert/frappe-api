@@ -1,3 +1,4 @@
+using Frappe.SharedKernel.Localization;
 using Alba;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
@@ -25,7 +26,7 @@ internal static class OwnerSeeder
         var clock = services.GetRequiredService<TimeProvider>();
         var hash = services.GetRequiredService<IPasswordHasher>().Hash(Password);
 
-        var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, Email.Create(email).Value, hash, clock);
+        var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, Email.Create(email).Value, hash, Locale.Parse("en"), clock);
         if (status != OwnerStatus.Pending)
         {
             principal.IssueCode(CodePurpose.EmailVerify, "code-hash", clock);

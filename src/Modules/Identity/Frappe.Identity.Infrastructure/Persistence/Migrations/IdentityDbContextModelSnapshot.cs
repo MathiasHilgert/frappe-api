@@ -153,6 +153,12 @@ namespace Frappe.Identity.Infrastructure.Persistence.Migrations
                                 .HasColumnType("character varying(254)")
                                 .HasColumnName("email");
 
+                            b1.Property<string>("Locale")
+                                .IsRequired()
+                                .HasMaxLength(35)
+                                .HasColumnType("character varying(35)")
+                                .HasColumnName("locale");
+
                             b1.Property<string>("Name")
                                 .IsRequired()
                                 .HasMaxLength(80)

@@ -1,4 +1,5 @@
 using Frappe.Identity.Domain.Users;
+using Frappe.SharedKernel.Localization;
 
 namespace Frappe.Identity.Domain.Principals;
 
@@ -10,10 +11,12 @@ public sealed class OwnerAccount
         Name = null!;
         Email = null!;
         PasswordHash = null!;
+        Locale = null!;
     }
 
-    internal OwnerAccount(PersonName name, Email email, string passwordHash)
+    internal OwnerAccount(PersonName name, Email email, string passwordHash, Locale locale)
     {
+        Locale = locale;
         Name = name;
         Email = email;
         PasswordHash = passwordHash;
@@ -26,4 +29,7 @@ public sealed class OwnerAccount
 
     /// <summary>The requested new address. The current one keeps working until the change is confirmed.</summary>
     public Email? PendingEmail { get; internal set; }
+
+    /// <summary>The language the owner reads: mails and responses without an explicit <c>Accept-Language</c>.</summary>
+    public Locale Locale { get; internal set; }
 }

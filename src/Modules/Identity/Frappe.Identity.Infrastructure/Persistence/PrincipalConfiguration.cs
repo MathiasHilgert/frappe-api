@@ -1,5 +1,6 @@
 using Frappe.Identity.Domain.Principals;
 using Frappe.Identity.Domain.Users;
+using Frappe.SharedKernel.Localization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -14,6 +15,9 @@ internal sealed class PrincipalConfiguration : IEntityTypeConfiguration<Principa
 {
     public const string EmailUniqueIndex = "owner_accounts_email_key";
     private const string PrincipalIdColumn = "PrincipalId";
+
+    /// <summary>Generous for any canonical BCP-47 tag the platform could ever serve (RFC 5646 suggests 35).</summary>
+    private const int LocaleMaxLength = 35;
 
     public void Configure(EntityTypeBuilder<Principal> builder)
     {
@@ -45,6 +49,9 @@ internal sealed class PrincipalConfiguration : IEntityTypeConfiguration<Principa
             .HasConversion(email => email!.Value, value => Email.Create(value).Value)
             .HasMaxLength(Email.MaxLength);
         owner.Property(o => o.PasswordHash);
+        owner.Property(o => o.Locale)
+            .HasConversion(locale => locale.Value, value => Locale.Parse(value))
+            .HasMaxLength(LocaleMaxLength);
         owner.Property(o => o.Status).HasConversion<SnakeCaseEnumConverter<OwnerStatus>>();
 
         // The abandoned-registration purge scans only pending owners.

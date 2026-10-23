@@ -1,3 +1,4 @@
+using Frappe.SharedKernel.Localization;
 using Alba;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Domain;
@@ -131,7 +132,7 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
     }
 
     private static Principal NewOwner(string email) =>
-        Principal.RegisterOwner(PersonName.Create("Ana").Value, Email(email), "password-hash", Clock);
+        Principal.RegisterOwner(PersonName.Create("Ana").Value, Email(email), "password-hash", Locale.Parse("en"), Clock);
 
     private static Email Email(string value) => Frappe.Identity.Domain.Principals.Email.Create(value).Value;
 

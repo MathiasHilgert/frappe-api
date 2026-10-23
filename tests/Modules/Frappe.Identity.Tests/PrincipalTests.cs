@@ -1,3 +1,4 @@
+using Frappe.SharedKernel.Localization;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Principals;
 using Frappe.Identity.Domain.Users;
@@ -351,7 +352,7 @@ public sealed class PrincipalTests
     }
 
     private Principal Register() =>
-        Principal.RegisterOwner(PersonName.Create("Ana").Value, Email.Create("ana@example.com").Value, "pw-hash", _clock);
+        Principal.RegisterOwner(PersonName.Create("Ana").Value, Email.Create("ana@example.com").Value, "pw-hash", Locale.Parse("en"), _clock);
 
     private Principal RegisterWithCode(CodePurpose purpose, string codeHash)
     {
