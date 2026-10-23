@@ -12,7 +12,7 @@ public static class SecurityRegistration
 
     /// <summary>
     /// Deny by default: every endpoint requires an authenticated user unless it opts out with AllowAnonymous.
-    /// Until sessions exist, the only scheme authenticates nobody, so protected endpoints answer 401.
+    /// The scheme registered here authenticates nobody; a module that issues sessions replaces it as the default.
     /// </summary>
     public static IServiceCollection AddDenyByDefaultSecurity(this IServiceCollection services)
     {

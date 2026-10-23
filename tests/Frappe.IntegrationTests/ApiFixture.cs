@@ -14,6 +14,8 @@ namespace Frappe.IntegrationTests;
 /// <summary>Boots the real API against throwaway Postgres, NATS (JetStream) and Valkey containers.</summary>
 public sealed class ApiFixture : IAsyncLifetime
 {
+    public const string SessionCookieName = "__Host-frappe_session";
+
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:16-alpine").Build();
     private readonly NatsContainer _nats = new NatsBuilder("nats:2-alpine").WithCommand("--jetstream").Build();
     private readonly RedisContainer _valkey = new RedisBuilder("valkey/valkey:8-alpine").Build();
@@ -40,6 +42,8 @@ public sealed class ApiFixture : IAsyncLifetime
             builder.UseSetting("ConnectionStrings:nats", _nats.GetConnectionString());
             builder.UseSetting("ConnectionStrings:valkey", _valkey.GetConnectionString());
             builder.UseSetting("Identity:SecretHashing:Key", "integration-tests-secret-hashing-key-0123456789");
+            builder.UseSetting("Identity:SessionCookie:Name", SessionCookieName);
+            builder.UseSetting("Identity:SessionCookie:Path", "/");
             builder.ConfigureServices(services =>
             {
                 services.RunWolverineInSoloMode();
