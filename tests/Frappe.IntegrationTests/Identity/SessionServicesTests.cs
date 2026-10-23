@@ -46,7 +46,7 @@ public sealed class SessionServicesTests(ApiFixture fixture)
     {
         var header = await SetCookieAsync(c => c.Issue("opaque-token", new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero)));
 
-        header.ShouldStartWith($"{ApiFixture.SessionCookieName}=opaque-token");
+        header.ShouldStartWith("__host-frappe_session=opaque-token");
         header.ShouldContain("expires=sun, 01 feb 2026 00:00:00 gmt");
         ShouldBeLockedDown(header);
     }
@@ -62,16 +62,19 @@ public sealed class SessionServicesTests(ApiFixture fixture)
     }
 
     [Theory]
-    [InlineData("", "/")]
-    [InlineData("bad name;", "/")]
-    [InlineData("frappe_session", "relative")]
-    public async Task InvalidCookieOptions_StopTheHostFromStarting(string name, string path)
+    [InlineData("", "/", null)]
+    [InlineData("bad name;", "/", null)]
+    [InlineData("frappe_session", "relative", null)]
+    [InlineData("__Host-frappe_session", "/app", null)]
+    [InlineData("__Host-frappe_session", "/", "example.com")]
+    public async Task InvalidCookieOptions_StopTheHostFromStarting(string name, string path, string? domain)
     {
         var exception = await Should.ThrowAsync<OptionsValidationException>(() =>
             fixture.CreateHostAsync(services => services.Configure<SessionCookieOptions>(o =>
             {
                 o.Name = name;
                 o.Path = path;
+                o.Domain = domain;
             })));
 
         exception.Message.ShouldContain(SessionCookieOptions.Section);
@@ -94,6 +97,7 @@ public sealed class SessionServicesTests(ApiFixture fixture)
         header.ShouldContain("secure");
         header.ShouldContain("samesite=lax");
         header.ShouldContain("httponly");
+        header.ShouldNotContain("domain=");
     }
 
     // The accessor is backed by an AsyncLocal, so it must be set by the caller, not inside an awaited helper.

@@ -38,6 +38,10 @@ internal sealed class SessionAuthenticationHandler(
         }
         else if (Request.Cookies.TryGetValue(cookie.Value.Name, out token))
         {
+            // ASP.NET keeps only one value per name; a second copy may be a planted cookie shadowing the real one.
+            if (CountCookies(cookie.Value.Name) > 1)
+                return AuthenticateResult.Fail("The session cookie was sent more than once.");
+
             if (!IsSafe(Request.Method) && !Request.Headers.ContainsKey(CsrfHeader))
                 return AuthenticateResult.Fail($"Cookie sessions need the {CsrfHeader} header on unsafe methods.");
         }
@@ -58,6 +62,22 @@ internal sealed class SessionAuthenticationHandler(
             ],
             SchemeName);
         return AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName));
+    }
+
+    private int CountCookies(string name)
+    {
+        var count = 0;
+        foreach (var header in Request.Headers.Cookie)
+        {
+            foreach (var pair in (header ?? string.Empty).Split(';'))
+            {
+                var trimmed = pair.AsSpan().TrimStart();
+                if (trimmed.StartsWith(name, StringComparison.Ordinal) && trimmed[name.Length..].TrimStart().StartsWith("="))
+                    count++;
+            }
+        }
+
+        return count;
     }
 
     private static bool IsSafe(string method) =>

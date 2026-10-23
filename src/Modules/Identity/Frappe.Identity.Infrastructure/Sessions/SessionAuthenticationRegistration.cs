@@ -13,7 +13,7 @@ internal static class SessionAuthenticationRegistration
         services.AddOptions<SessionCookieOptions>()
             .Bind(configuration.GetSection(SessionCookieOptions.Section))
             .Validate(options => options.IsValid(),
-                $"'{SessionCookieOptions.Section}' needs a cookie-safe Name and a Path starting with '/'.")
+                $"'{SessionCookieOptions.Section}' needs a cookie-safe Name and a Path starting with '/'; a __Host- Name needs Path '/' and no Domain.")
             .ValidateOnStart();
 
         services.AddHttpContextAccessor();

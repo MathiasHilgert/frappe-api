@@ -42,6 +42,18 @@ public sealed class SessionAuthenticationTests(ApiFixture fixture)
         await GetAsync(fixture.Host, s => s.WithRequestHeader(header, value), 401);
 
     [Fact]
+    public async Task SessionCookieSentTwice_IsUnauthorized_SoAShadowingCookieCannotWin()
+    {
+        var (_, _, token) = await SessionSeeder.SeedAsync(fixture.Host);
+
+        await GetAsync(fixture.Host, s => s.WithRequestHeader("Cookie", $"{CookieName}=planted; {CookieName}={token}"), 401);
+    }
+
+    [Fact]
+    public void DefaultCookieName_UsesTheHostPrefix() =>
+        new Frappe.Identity.Infrastructure.Sessions.SessionCookieOptions().Name.ShouldBe("__Host-frappe_session");
+
+    [Fact]
     public async Task RevokedSession_IsUnauthorized()
     {
         var (principal, session, token) = await SessionSeeder.SeedAsync(fixture.Host);

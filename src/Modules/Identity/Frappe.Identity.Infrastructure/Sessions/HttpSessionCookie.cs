@@ -20,6 +20,7 @@ internal sealed class HttpSessionCookie(IHttpContextAccessor accessor, IOptions<
         Secure = true,
         SameSite = SameSiteMode.Lax,
         Path = options.Value.Path,
+        Domain = options.Value.Domain,
         Expires = expiresAt,
         IsEssential = true,
     };

@@ -14,7 +14,7 @@ namespace Frappe.IntegrationTests;
 /// <summary>Boots the real API against throwaway Postgres, NATS (JetStream) and Valkey containers.</summary>
 public sealed class ApiFixture : IAsyncLifetime
 {
-    public const string SessionCookieName = "frappe_session";
+    public const string SessionCookieName = "__Host-frappe_session";
 
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:16-alpine").Build();
     private readonly NatsContainer _nats = new NatsBuilder("nats:2-alpine").WithCommand("--jetstream").Build();
