@@ -175,11 +175,16 @@ public sealed class Principal : AggregateRoot<Guid>
         return issued;
     }
 
-    public Result ConfirmEmailChange(string codeHash, TimeProvider clock)
+    /// <summary>Swaps the email once the code sent to the new address comes back. <paramref name="changeId"/> is the live code's id.</summary>
+    public Result ConfirmEmailChange(Guid changeId, string codeHash, TimeProvider clock)
     {
         if (Owner.PendingEmail is not { } newEmail)
         {
             return Result.Failure(IdentityErrors.NoPendingEmailChange);
+        }
+        if (CodeFor(CodePurpose.EmailChange)?.Id != changeId)
+        {
+            return Result.Failure(IdentityErrors.EmailChangeNotFound);
         }
 
         var consumed = ConsumeCode(CodePurpose.EmailChange, codeHash, clock);

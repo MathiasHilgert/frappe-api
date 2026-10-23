@@ -67,6 +67,7 @@ public sealed class IdentityModule : IModule
         services.AddScoped<StepUpRequirement>();
         services.AddScoped<CompleteStepUp>();
         services.AddScoped<ChangePassword>();
+        services.AddScoped<ConfirmEmailChange>();
     }
 
     public void ConfigureMessaging(WolverineOptions options) =>
@@ -80,6 +81,7 @@ public sealed class IdentityModule : IModule
         group.MapSessionEndpoints();
         group.MapSessionManagement();
         group.MapAccountSecurityEndpoints();
+        group.MapEmailChangeEndpoints();
     }
 
     private static void AddPasswordPolicy(IServiceCollection services, IConfiguration configuration)

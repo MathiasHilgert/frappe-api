@@ -8,6 +8,10 @@ public static class AttemptPolicies
     public static readonly AttemptPolicy RegisterPerEmail = new("register-email", 5, TimeSpan.FromHours(1));
     /// <summary>Wrong passwords typed inside a session (step-up, change password), shared so neither doubles the budget.</summary>
     public static readonly AttemptPolicy ReverifyFailuresPerPrincipal = new("reverify-principal", 5, TimeSpan.FromMinutes(15));
+    /// <summary>Every email change request counts: each one sends a mail to an address the owner chose.</summary>
+    public static readonly AttemptPolicy EmailChangeRequestsPerPrincipal = new("email-change-principal", 5, TimeSpan.FromHours(1));
+    /// <summary>Wrong email change codes; six digits must not be guessable inside a code's 15-minute life.</summary>
+    public static readonly AttemptPolicy EmailChangeConfirmFailuresPerPrincipal = new("email-change-confirm-principal", 5, TimeSpan.FromMinutes(15));
     public static readonly AttemptPolicy RegisterPerIp = new("register-ip", 20, TimeSpan.FromHours(1));
 
     /// <summary>Wrong email codes per owner: six digits must not be guessable, yet a typo costs only a few minutes.</summary>
