@@ -6,6 +6,7 @@
     <Project Path="src/BuildingBlocks/Frappe.Platform.Health/Frappe.Platform.Health.csproj" />
     <Project Path="src/BuildingBlocks/Frappe.Platform.Messaging/Frappe.Platform.Messaging.csproj" />
     <Project Path="src/BuildingBlocks/Frappe.Platform.Persistence/Frappe.Platform.Persistence.csproj" />
+    <Project Path="src/BuildingBlocks/Frappe.Platform.Web/Frappe.Platform.Web.csproj" />
     <Project Path="src/BuildingBlocks/Frappe.SharedKernel/Frappe.SharedKernel.csproj" />
   </Folder>
   <Folder Name="/src/Host/">

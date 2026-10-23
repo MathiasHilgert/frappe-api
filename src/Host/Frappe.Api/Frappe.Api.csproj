@@ -7,6 +7,7 @@
     <ProjectReference Include="..\..\BuildingBlocks\Frappe.Platform.Health\Frappe.Platform.Health.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Frappe.Platform.Messaging\Frappe.Platform.Messaging.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Frappe.Platform.Caching\Frappe.Platform.Caching.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\Frappe.Platform.Web\Frappe.Platform.Web.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -14,6 +15,8 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Scalar.AspNetCore" />
   </ItemGroup>
 
   <PropertyGroup>

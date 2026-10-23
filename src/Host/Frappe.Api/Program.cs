@@ -1,6 +1,7 @@
 using Frappe.Api;
 using Frappe.Identity.Infrastructure;
 using Frappe.Modularity;
+using Frappe.Platform.Web.Correlation;
 using JasperFx;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,13 +16,18 @@ builder.Host.UseDefaultServiceProvider(options =>
 IModule[] modules = [new IdentityModule()];
 
 builder.AddFrappePlatform(modules);
+builder.Services.AddOpenApiDocs();
 
 var app = builder.Build();
 
+app.UseRequestCorrelation();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapFrappePlatform(modules);
+app.MapOpenApiDocs();
 
 // No arguments runs the API. Outside Development nothing is created at startup: the deploy runs
 // `dotnet Frappe.Api.dll resources setup` first to create the Wolverine message storage schema.
