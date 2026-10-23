@@ -3,6 +3,7 @@ using Frappe.Identity.Application;
 using Frappe.Identity.Application.Account;
 using Frappe.Identity.Application.Owners;
 using Frappe.Identity.Application.Principals;
+using Frappe.Identity.Application.Principals.Purge;
 using Frappe.Identity.Application.Security;
 using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Contracts;
@@ -12,12 +13,14 @@ using Frappe.Identity.Infrastructure.Persistence;
 using Frappe.Identity.Infrastructure.Security;
 using Frappe.Identity.Infrastructure.Sessions;
 using Frappe.Modularity;
+using Frappe.Platform.Messaging.Jobs;
 using Frappe.Platform.Persistence;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Wolverine;
+using Quartz;
 
 namespace Frappe.Identity.Infrastructure;
 
@@ -68,6 +71,7 @@ public sealed class IdentityModule : IModule
         services.AddScoped<CompleteStepUp>();
         services.AddScoped<ChangePassword>();
         services.AddScoped<ConfirmEmailChange>();
+        AddRecurringJobs(services);
     }
 
     public void ConfigureMessaging(WolverineOptions options)
@@ -88,6 +92,13 @@ public sealed class IdentityModule : IModule
         group.MapEmailChangeEndpoints();
         group.MapPasswordResets();
     }
+
+    // Global UTC: the purge has no local meaning. 03:00 keeps it away from the midnight rush of other sweeps.
+    private static void AddRecurringJobs(IServiceCollection services) =>
+        services.AddQuartz(quartz =>
+            quartz.ScheduleJob<PublishCommandJob<PurgePendingOwners>>(trigger => trigger
+                .WithIdentity(nameof(PurgePendingOwners))
+                .WithCronSchedule("0 0 3 * * ?", cron => cron.InTimeZone(TimeZoneInfo.Utc))));
 
     private static void AddPasswordPolicy(IServiceCollection services, IConfiguration configuration)
     {

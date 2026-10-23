@@ -16,7 +16,13 @@ public interface IPrincipalRepository
     /// <summary>The owner of the live code <paramref name="codeId"/> issued for <paramref name="purpose"/>.</summary>
     Task<Principal?> GetByCodeIdAsync(Guid codeId, CodePurpose purpose, CancellationToken cancellationToken);
 
+    /// <summary>Pending owners registered before <paramref name="cutoff"/>, oldest first, at most <paramref name="limit"/>.</summary>
+    Task<IReadOnlyList<Principal>> ListPendingRegisteredBeforeAsync(
+        DateTimeOffset cutoff, int limit, CancellationToken cancellationToken);
+
     void Add(Principal principal);
+
+    void Remove(Principal principal);
 
     /// <summary>Commits tracked changes. An address already taken fails with <c>IdentityErrors.EmailTaken</c>.</summary>
     Task<Result> SaveChangesAsync(CancellationToken cancellationToken);

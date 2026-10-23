@@ -42,6 +42,9 @@ public static class IdentityErrors
 
     public static readonly Error AccountNotPending = new("identity.account.not_pending", "The email is already verified.", Kind: ErrorKind.Conflict);
 
+    public static readonly Error RegistrationInGrace =
+        new("identity.account.registration_in_grace", "The registration is still within its verification grace period.");
+
     public static readonly Error CodeInvalid = new("identity.code.invalid", "The code is not valid.", "code");
 
     public static readonly Error CodeExpired = new("identity.code.expired", "The code has expired.", "code");
