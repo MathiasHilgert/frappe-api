@@ -47,6 +47,11 @@ public sealed class IdentityModule : IModule
         services.AddSessionAuthentication(configuration);
         AddPasswordPolicy(services, configuration);
         services.AddSingleton<IdentityMetrics>();
+        services.AddOptions<AttemptLimiterOptions>()
+            .Bind(configuration.GetSection(AttemptLimiterOptions.Section))
+            .Validate(options => options.IsValid(),
+                $"'{AttemptLimiterOptions.Section}:TimeoutMilliseconds' must be {AttemptLimiterOptions.MinimumTimeoutMilliseconds}..{AttemptLimiterOptions.MaximumTimeoutMilliseconds}.")
+            .ValidateOnStart();
         services.AddSingleton<IAttemptLimiter, ValkeyAttemptLimiter>();
     }
 

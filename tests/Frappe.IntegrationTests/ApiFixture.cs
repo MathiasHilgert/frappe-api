@@ -46,6 +46,8 @@ public sealed class ApiFixture : IAsyncLifetime
             builder.UseSetting("Identity:SessionCookie:Path", "/");
             // No test reaches the real HaveIBeenPwned: a closed local port makes the check fail open at once.
             builder.UseSetting("Identity:BreachedPasswords:BaseAddress", "http://127.0.0.1:9/");
+            // A generous limiter budget so a busy CI container never makes the real-Valkey tests fail open.
+            builder.UseSetting("Identity:AttemptLimiter:TimeoutMilliseconds", "2000");
             builder.ConfigureServices(services =>
             {
                 services.RunWolverineInSoloMode();

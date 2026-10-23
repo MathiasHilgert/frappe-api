@@ -3,6 +3,7 @@ using Frappe.Identity.Infrastructure.Security;
 using Frappe.Platform.Caching;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Shouldly;
 using StackExchange.Redis;
 
@@ -29,13 +30,38 @@ public sealed class ValkeyAttemptLimiterTests : IAsyncDisposable
         counted.Total.ShouldBe(3);
     }
 
+    [Fact]
+    public async Task ValkeyUnreachableWithDefaultClientTimeouts_FailsOpenWithinTheLimiterBudget()
+    {
+        // Default client settings would wait about five seconds per call; the limiter's own budget must win.
+        await using var unreachable = new ValkeyConnection(ConfigurationOptions.Parse("127.0.0.1:1,abortConnect=false"));
+        using var counted = new CounterListener(IdentityMetrics.AttemptLimiterUnavailable);
+        var limiter = Limiter(unreachable);
+
+        var started = TimeProvider.System.GetTimestamp();
+        var decision = await limiter.CheckAsync(Policy, "a@example.com", CancellationToken.None);
+
+        TimeProvider.System.GetElapsedTime(started).ShouldBeLessThan(TimeSpan.FromSeconds(1));
+        decision.IsAllowed.ShouldBeTrue();
+        counted.Total.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task CallerCancels_Throws()
+    {
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+
+        await Should.ThrowAsync<OperationCanceledException>(Limiter().CheckAsync(Policy, "a@example.com", cancelled.Token));
+    }
+
     public async ValueTask DisposeAsync()
     {
         await _down.DisposeAsync();
         await _metrics.DisposeAsync();
     }
 
-    private ValkeyAttemptLimiter Limiter() =>
-        new(_down, new IdentityMetrics(_metrics.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>()),
+    private ValkeyAttemptLimiter Limiter(ValkeyConnection? valkey = null) =>
+        new(valkey ?? _down, Options.Create(new AttemptLimiterOptions { TimeoutMilliseconds = 250 }), new IdentityMetrics(_metrics.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>()),
             NullLogger<ValkeyAttemptLimiter>.Instance);
 }
