@@ -1,0 +1,11 @@
+{
+  "platform.problem.validation": "Se incumplieron una o más reglas.",
+  "platform.problem.400": "La solicitud está mal formada.",
+  "platform.problem.404": "No encontramos el recurso.",
+  "platform.problem.409": "La solicitud choca con el estado actual.",
+  "platform.problem.429": "Demasiados intentos. Probá de nuevo más tarde.",
+  "platform.problem.401": "Tenés que iniciar sesión.",
+  "platform.problem.403": "No tenés permiso para hacer esto.",
+  "platform.problem.500": "Algo salió mal de nuestro lado.",
+  "platform.problem.503": "El servicio no está disponible por el momento."
+}

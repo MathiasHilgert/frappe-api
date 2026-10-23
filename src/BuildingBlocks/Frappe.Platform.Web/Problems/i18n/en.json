@@ -1,0 +1,11 @@
+{
+  "platform.problem.validation": "One or more rules were violated.",
+  "platform.problem.400": "The request is malformed.",
+  "platform.problem.404": "The resource was not found.",
+  "platform.problem.409": "The request conflicts with the current state.",
+  "platform.problem.429": "Too many attempts. Try again later.",
+  "platform.problem.401": "Authentication is required.",
+  "platform.problem.403": "You are not allowed to do this.",
+  "platform.problem.500": "Something went wrong on our side.",
+  "platform.problem.503": "The service is temporarily unavailable."
+}

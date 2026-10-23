@@ -1,0 +1,11 @@
+{
+  "platform.problem.validation": "Uma ou mais regras foram violadas.",
+  "platform.problem.400": "A requisição está malformada.",
+  "platform.problem.404": "O recurso não foi encontrado.",
+  "platform.problem.409": "A requisição conflita com o estado atual.",
+  "platform.problem.429": "Muitas tentativas. Tente novamente mais tarde.",
+  "platform.problem.401": "É preciso entrar na sua conta.",
+  "platform.problem.403": "Você não tem permissão para fazer isso.",
+  "platform.problem.500": "Algo deu errado do nosso lado.",
+  "platform.problem.503": "O serviço está temporariamente indisponível."
+}
