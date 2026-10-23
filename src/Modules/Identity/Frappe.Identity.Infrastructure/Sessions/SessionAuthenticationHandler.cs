@@ -70,8 +70,9 @@ internal sealed class SessionAuthenticationHandler(
         var count = 0;
         foreach (var header in Request.Headers.Cookie)
         {
-            foreach (var trimmed in (header ?? string.Empty).Split(';').Select(pair => pair.AsSpan().TrimStart()))
+            foreach (var pair in (header ?? string.Empty).Split(';'))
             {
+                var trimmed = pair.AsSpan().TrimStart();
                 if (trimmed.StartsWith(name, StringComparison.Ordinal) && trimmed[name.Length..].TrimStart().StartsWith("="))
                     count++;
             }
