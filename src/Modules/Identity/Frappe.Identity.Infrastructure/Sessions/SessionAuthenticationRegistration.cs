@@ -20,6 +20,9 @@ internal static class SessionAuthenticationRegistration
         services.AddScoped<SessionAuthenticator>();
         services.AddScoped<ICurrentPrincipal, HttpCurrentPrincipal>();
         services.AddScoped<ISessionCookie, HttpSessionCookie>();
+        services.AddScoped<LogIn>();
+        services.AddScoped<LogOut>();
+        services.AddScoped<GetMe>();
 
         services.AddAuthentication(SessionAuthenticationHandler.SchemeName)
             .AddScheme<AuthenticationSchemeOptions, SessionAuthenticationHandler>(SessionAuthenticationHandler.SchemeName, null);

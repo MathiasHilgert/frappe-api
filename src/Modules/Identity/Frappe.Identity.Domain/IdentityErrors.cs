@@ -28,6 +28,9 @@ public static class IdentityErrors
     public static readonly Error PasswordBreached = new("identity.password.breached",
         "This password has appeared in a data breach. Choose a different one.", "password");
 
+    public static readonly Error InvalidCredentials =
+        new("identity.credentials.invalid", "The email or password is not correct.");
+
     public static readonly Error TooManyAttempts =
         new("identity.attempts.too_many", "Too many attempts. Try again later.", Kind: ErrorKind.TooManyRequests);
 

@@ -72,6 +72,8 @@ public sealed class IdentityModule : IModule
         group.MapOwnerVerification();
     }
 
+    public void MapEndpoints(RouteGroupBuilder group) => group.MapSessionEndpoints();
+
     private static void AddPasswordPolicy(IServiceCollection services, IConfiguration configuration)
     {
         services.AddOptions<BreachedPasswordOptions>()
