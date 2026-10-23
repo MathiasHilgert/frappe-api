@@ -42,7 +42,7 @@ public sealed class OwnerRegistrationTests(ApiFixture fixture) : IAsyncLifetime
         principal.Owner.Email.Value.ShouldBe(email);
         principal.Owner.PasswordHash.ShouldNotContain(ValidPassword);
 
-        var issued = tracked.AllRecordsInOrder().Select(r => r.Message).OfType<OwnerVerificationCodeIssued>().ShouldHaveSingleItem();
+        var issued = tracked.Sent.MessagesOf<OwnerVerificationCodeIssued>().ShouldHaveSingleItem();
         issued.PrincipalId.ShouldBe(id);
         issued.Email.ShouldBe(email);
         var code = principal.Codes.ShouldHaveSingleItem();
@@ -139,7 +139,7 @@ public sealed class OwnerRegistrationTests(ApiFixture fixture) : IAsyncLifetime
 
         var tracked = await fixture.Host.ExecuteAndWaitAsync(() => PostResend(id, 202));
 
-        var issued = tracked.AllRecordsInOrder().Select(r => r.Message).OfType<OwnerVerificationCodeIssued>().ShouldHaveSingleItem();
+        var issued = tracked.Sent.MessagesOf<OwnerVerificationCodeIssued>().ShouldHaveSingleItem();
         var code = (await SessionSeeder.LoadAsync(fixture.Host, id)).Codes.ShouldHaveSingleItem();
         code.CodeHash.ShouldBe(Hash(issued.Code));
         code.CodeHash.ShouldNotBe(before, StringComparer.Ordinal);

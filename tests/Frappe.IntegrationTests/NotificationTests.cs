@@ -1,4 +1,5 @@
-using Frappe.Identity.Contracts.Owners;
+using Frappe.Identity.Contracts;
+using Frappe.Identity.Contracts.PasswordResets;
 using Frappe.Notification.Application;
 using Frappe.Notification.Domain;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,11 +12,13 @@ namespace Frappe.IntegrationTests;
 
 public sealed class NotificationTests(ApiFixture fixture)
 {
+    private static readonly DateTimeOffset Expires = DateTimeOffset.UtcNow.AddMinutes(15);
+
     public static TheoryData<object, string, string> CodeEvents => new()
     {
-        { new OwnerVerificationCodeIssued(Guid.NewGuid(), "verify@example.test", "111111"), "verify@example.test", "111111 is your Frappé verification code" },
-        { new OwnerPasswordResetCodeIssued(Guid.NewGuid(), "reset@example.test", "222222"), "reset@example.test", "222222 is your Frappé password reset code" },
-        { new OwnerEmailChangeCodeIssued(Guid.NewGuid(), "new@example.test", "333333"), "new@example.test", "333333 confirms your new Frappé email" },
+        { new OwnerVerificationCodeIssued(Guid.NewGuid(), "Ana", "verify@example.test", "111111", Expires), "verify@example.test", "111111 is your Frappé verification code" },
+        { new PasswordResetCodeIssued(Guid.NewGuid(), Guid.NewGuid(), "reset@example.test", "Ana", "222222", Expires), "reset@example.test", "222222 is your Frappé password reset code" },
+        { new EmailChangeCodeIssued(Guid.NewGuid(), Guid.NewGuid(), "Ana", "new@example.test", "333333", Expires), "new@example.test", "333333 confirms your new Frappé email" },
     };
 
     [Theory]
@@ -49,7 +52,7 @@ public sealed class NotificationTests(ApiFixture fixture)
         await using var host = await fixture.CreateHostAsync(services => services.AddSingleton<ILoggerProvider>(logs));
 
         await host.TrackActivity().Timeout(TimeSpan.FromSeconds(30))
-            .PublishMessageAndWaitAsync(new OwnerVerificationCodeIssued(Guid.NewGuid(), "log@example.test", "444444"));
+            .PublishMessageAndWaitAsync(new OwnerVerificationCodeIssued(Guid.NewGuid(), "Ana", "log@example.test", "444444", Expires));
 
         var line = logs.Messages.Where(m => m.StartsWith("Mail to log@example.test", StringComparison.Ordinal)).ShouldHaveSingleItem();
         line.ShouldContain("444444 is your Frappé verification code");

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Wolverine;
 
 namespace Frappe.Notification.Infrastructure;
 
@@ -38,4 +39,8 @@ public sealed class NotificationModule : IModule
         services.AddHttpClient<IMailer, ResendMailer>((sp, http) =>
             http.BaseAddress = sp.GetRequiredService<IOptions<ResendOptions>>().Value.BaseAddress);
     }
+
+    public void ConfigureMessaging(WolverineOptions options) =>
+        // The Resend mailer is a typed HttpClient, an opaque factory registration Wolverine cannot build inline.
+        options.CodeGeneration.AlwaysUseServiceLocationFor<IMailer>();
 }
