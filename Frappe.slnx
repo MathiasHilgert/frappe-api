@@ -6,6 +6,7 @@
     <Project Path="src/BuildingBlocks/Frappe.Modularity/Frappe.Modularity.csproj" />
     <Project Path="src/BuildingBlocks/Frappe.Platform.Caching/Frappe.Platform.Caching.csproj" />
     <Project Path="src/BuildingBlocks/Frappe.Platform.Health/Frappe.Platform.Health.csproj" />
+    <Project Path="src/BuildingBlocks/Frappe.Platform.Localization/Frappe.Platform.Localization.csproj" />
     <Project Path="src/BuildingBlocks/Frappe.Platform.Messaging/Frappe.Platform.Messaging.csproj" />
     <Project Path="src/BuildingBlocks/Frappe.Platform.Persistence/Frappe.Platform.Persistence.csproj" />
     <Project Path="src/BuildingBlocks/Frappe.Platform.Realtime/Frappe.Platform.Realtime.csproj" />
@@ -28,6 +29,8 @@
   </Folder>
   <Folder Name="/tests/BuildingBlocks/">
     <Project Path="tests/BuildingBlocks/Frappe.Platform.Caching.Tests/Frappe.Platform.Caching.Tests.csproj" />
+    <Project Path="tests/BuildingBlocks/Frappe.Platform.Localization.Tests/Frappe.Platform.Localization.Tests.csproj" />
+    <Project Path="tests/BuildingBlocks/Frappe.Platform.Web.Tests/Frappe.Platform.Web.Tests.csproj" />
     <Project Path="tests/BuildingBlocks/Frappe.SharedKernel.Tests/Frappe.SharedKernel.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/Modules/">

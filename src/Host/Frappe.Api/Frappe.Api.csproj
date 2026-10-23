@@ -5,6 +5,7 @@
     <ProjectReference Include="..\..\BuildingBlocks\Frappe.Modularity\Frappe.Modularity.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Frappe.Platform.Persistence\Frappe.Platform.Persistence.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Frappe.Platform.Realtime\Frappe.Platform.Realtime.csproj" />
+    <ProjectReference Include="..\..\BuildingBlocks\Frappe.Platform.Localization\Frappe.Platform.Localization.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Frappe.Platform.Health\Frappe.Platform.Health.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Frappe.Platform.Messaging\Frappe.Platform.Messaging.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Frappe.Platform.Caching\Frappe.Platform.Caching.csproj" />
