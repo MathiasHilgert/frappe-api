@@ -16,8 +16,7 @@ public sealed class OpenApiTests(ApiFixture api)
 
         var body = await result.ReadAsJsonAsync<JsonElement>();
         body.GetProperty("info").GetProperty("title").GetString().ShouldBe("Frappé API");
-        // Endpoints arrive with modules; until then the document only has to carry a paths object.
-        body.GetProperty("paths").ValueKind.ShouldBe(JsonValueKind.Object);
+        body.GetProperty("paths").TryGetProperty("/v1/stream", out _).ShouldBeTrue();
     }
 
     [Fact]

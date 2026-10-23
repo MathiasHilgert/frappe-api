@@ -53,7 +53,7 @@ public sealed class RequestCorrelationTests(ApiFixture api)
     {
         var result = await api.Host.Scenario(s =>
         {
-            s.Get.Url("/v1/does-not-exist");
+            s.Get.Url($"/v1/stream?businessId={Guid.CreateVersion7()}");
             s.WithRequestHeader(Header, "corr-401");
             s.StatusCodeShouldBe(401);
         });

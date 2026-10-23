@@ -8,6 +8,7 @@
   <ItemGroup>
     <PackageReference Include="Alba" />
     <PackageReference Include="Shouldly" />
+    <PackageReference Include="Testcontainers.Nats" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Testcontainers.Redis" />
     <PackageReference Include="xunit.v3" />
