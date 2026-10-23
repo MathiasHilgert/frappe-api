@@ -29,13 +29,15 @@ public static class IdentityErrors
         "This password has appeared in a data breach. Choose a different one.", "password");
 
     public static readonly Error TooManyAttempts =
-        new("identity.attempts.too_many", "Too many attempts. Try again later.");
+        new("identity.attempts.too_many", "Too many attempts. Try again later.", Kind: ErrorKind.TooManyRequests);
+
+    public static readonly Error OwnerNotFound = new("identity.owner.not_found", "The owner does not exist.", Kind: ErrorKind.NotFound);
 
     public static readonly Error AccountPending = new("identity.account.pending", "The email has not been verified yet.");
 
     public static readonly Error AccountSuspended = new("identity.account.suspended", "The account is suspended.");
 
-    public static readonly Error AccountNotPending = new("identity.account.not_pending", "The email is already verified.");
+    public static readonly Error AccountNotPending = new("identity.account.not_pending", "The email is already verified.", Kind: ErrorKind.Conflict);
 
     public static readonly Error CodeInvalid = new("identity.code.invalid", "The code is not valid.", "code");
 
