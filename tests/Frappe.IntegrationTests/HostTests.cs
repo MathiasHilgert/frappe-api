@@ -40,6 +40,8 @@ public sealed class HostTests(ApiFixture fixture)
             // Development provisions the schema, standing in for the deploy's setup step.
         }
 
+        (await SchemaExistsAsync(connectionString)).ShouldBeTrue();
+
         await using var host = await fixture.CreateHostAsync(environment: "Production", connectionString: connectionString);
 
         // Starting is not enough: the host must actually serve requests.
