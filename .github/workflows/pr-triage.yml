@@ -30,6 +30,25 @@ jobs:
               ...context.repo, issue_number: pr.number, assignees: [pr.user.login],
             });
 
+  normalize-dependabot-title:
+    name: Normalize Dependabot PR title
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Lowercase the subject and add the deps scope
+        uses: actions/github-script@v9
+        with:
+          script: |
+            // Dependabot writes "build: Bump X"; history keeps the PR title on squash, so fix it at the source.
+            const pr = context.payload.pull_request;
+            const match = /^(\w+)(\([^)]*\))?(!)?: (.+)$/.exec(pr.title);
+            if (!match) return;
+            const [, type, scope, bang, subject] = match;
+            const title = `${type}${scope ?? '(deps)'}${bang ?? ''}: ${subject.charAt(0).toLowerCase()}${subject.slice(1)}`;
+            if (title === pr.title) return;
+            await github.rest.pulls.update({ ...context.repo, pull_number: pr.number, title });
+            core.info(`Title: "${pr.title}" -> "${title}"`);
+
   label:
     name: Label PR by type and module
     runs-on: ubuntu-latest
