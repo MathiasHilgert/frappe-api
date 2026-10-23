@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Modules\Identity\Frappe.Identity.Infrastructure\Frappe.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\Notification\Frappe.Notification.Infrastructure\Frappe.Notification.Infrastructure.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Frappe.Modularity\Frappe.Modularity.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Frappe.Platform.Persistence\Frappe.Platform.Persistence.csproj" />
     <ProjectReference Include="..\..\BuildingBlocks\Frappe.Platform.Realtime\Frappe.Platform.Realtime.csproj" />
@@ -28,6 +29,8 @@
   </ItemGroup>
 
   <PropertyGroup>
+    <!-- Local secrets (e.g. Notification:Resend:ApiKey) load from dotnet user-secrets in Development. -->
+    <UserSecretsId>frappe-api</UserSecretsId>
   </PropertyGroup>
 
 </Project>

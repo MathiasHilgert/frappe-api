@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Modules\Notification\Frappe.Notification.Domain\Frappe.Notification.Domain.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Notification\Frappe.Notification.Infrastructure\Frappe.Notification.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

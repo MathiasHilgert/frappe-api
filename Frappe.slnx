@@ -23,6 +23,12 @@
     <Project Path="src/Modules/Identity/Frappe.Identity.Domain/Frappe.Identity.Domain.csproj" />
     <Project Path="src/Modules/Identity/Frappe.Identity.Infrastructure/Frappe.Identity.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Notification/">
+    <Project Path="src/Modules/Notification/Frappe.Notification.Application/Frappe.Notification.Application.csproj" />
+    <Project Path="src/Modules/Notification/Frappe.Notification.Contracts/Frappe.Notification.Contracts.csproj" />
+    <Project Path="src/Modules/Notification/Frappe.Notification.Domain/Frappe.Notification.Domain.csproj" />
+    <Project Path="src/Modules/Notification/Frappe.Notification.Infrastructure/Frappe.Notification.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Frappe.ArchitectureTests/Frappe.ArchitectureTests.csproj" />
     <Project Path="tests/Frappe.IntegrationTests/Frappe.IntegrationTests.csproj" />
@@ -35,5 +41,6 @@
   </Folder>
   <Folder Name="/tests/Modules/">
     <Project Path="tests/Modules/Frappe.Identity.Tests/Frappe.Identity.Tests.csproj" />
+    <Project Path="tests/Modules/Frappe.Notification.Tests/Frappe.Notification.Tests.csproj" />
   </Folder>
 </Solution>

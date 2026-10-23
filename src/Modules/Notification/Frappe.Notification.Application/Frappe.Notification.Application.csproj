@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Frappe.Notification.Domain\Frappe.Notification.Domain.csproj" />
+    <ProjectReference Include="..\Frappe.Notification.Contracts\Frappe.Notification.Contracts.csproj" />
+    <ProjectReference Include="..\..\Identity\Frappe.Identity.Contracts\Frappe.Identity.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

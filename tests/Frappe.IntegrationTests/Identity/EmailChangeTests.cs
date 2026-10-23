@@ -78,7 +78,7 @@ public sealed class EmailChangeTests(ApiFixture fixture) : IAsyncLifetime
 
         var tracked = await _host.ExecuteAndWaitAsync(async () => result = await RequestAsync(token, newEmail, 201));
 
-        var issued = tracked.AllRecordsInOrder().Select(r => r.Message).OfType<EmailChangeCodeIssued>().ShouldHaveSingleItem();
+        var issued = tracked.Sent.MessagesOf<EmailChangeCodeIssued>().ShouldHaveSingleItem();
         issued.ChangeId.ShouldBe(await IdAsync(result));
         issued.PrincipalId.ShouldBe(principal.Id);
         issued.Name.ShouldBe(principal.Owner.Name.Value);
@@ -96,7 +96,7 @@ public sealed class EmailChangeTests(ApiFixture fixture) : IAsyncLifetime
         var tracked = await _host.ExecuteAndWaitAsync(async () =>
             await RequestAsync(token, other.Owner.Email.Value, 409));
 
-        tracked.AllRecordsInOrder().Select(r => r.Message).OfType<EmailChangeCodeIssued>().ShouldBeEmpty();
+        tracked.Sent.MessagesOf<EmailChangeCodeIssued>().ShouldBeEmpty();
     }
 
     [Fact]
