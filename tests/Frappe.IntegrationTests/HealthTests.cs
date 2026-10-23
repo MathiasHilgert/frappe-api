@@ -37,6 +37,7 @@ public sealed class HealthTests(ApiFixture api)
         checks.ShouldBe(new Dictionary<string, string?>(StringComparer.Ordinal)
         {
             ["postgres"] = "critical",
+            ["nats"] = "non-critical",
             ["valkey"] = "non-critical",
         }, ignoreOrder: true);
     }

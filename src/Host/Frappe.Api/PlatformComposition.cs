@@ -3,6 +3,7 @@ using Frappe.Platform.Caching;
 using Frappe.Platform.Health;
 using Frappe.Platform.Messaging;
 using Frappe.Platform.Persistence;
+using Frappe.Platform.Realtime;
 using Frappe.Platform.Web.Correlation;
 using Frappe.Platform.Web.Security;
 
@@ -21,13 +22,17 @@ internal static class PlatformComposition
         services.AddSingleton(TimeProvider.System);
         services.AddPlatformHealth();
         services.AddPostgres(configuration);
+        services.AddRealtime(configuration);
         services.AddCaching(configuration);
         services.AddJobs();
 
         foreach (var module in modules)
             module.AddServices(services, configuration);
 
-        builder.AddMessaging(configuration.GetPostgresConnectionString(), modules);
+        builder.AddMessaging(
+            configuration.GetPostgresConnectionString(),
+            modules,
+            typeof(RealtimePushHandler).Assembly);
 
         return builder;
     }
@@ -35,6 +40,7 @@ internal static class PlatformComposition
     public static WebApplication MapFrappePlatform(this WebApplication app, IReadOnlyList<IModule> modules)
     {
         app.MapPlatformHealth();
+        app.MapRealtime();
 
         foreach (var module in modules)
             module.MapEndpoints(app.MapGroup($"/v1/{module.Name}").WithTags(module.Name));

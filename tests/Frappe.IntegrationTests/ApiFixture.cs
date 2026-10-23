@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using Wolverine;
+using Testcontainers.Nats;
 using Testcontainers.PostgreSql;
 using Testcontainers.Redis;
 
@@ -10,10 +11,11 @@ using Testcontainers.Redis;
 
 namespace Frappe.IntegrationTests;
 
-/// <summary>Boots the real API against a throwaway Postgres and Valkey containers.</summary>
+/// <summary>Boots the real API against throwaway Postgres, NATS (JetStream) and Valkey containers.</summary>
 public sealed class ApiFixture : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:16-alpine").Build();
+    private readonly NatsContainer _nats = new NatsBuilder("nats:2-alpine").WithCommand("--jetstream").Build();
     private readonly RedisContainer _valkey = new RedisBuilder("valkey/valkey:8-alpine").Build();
 
     public IAlbaHost Host { get; private set; } = null!;
@@ -22,11 +24,11 @@ public sealed class ApiFixture : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        await Task.WhenAll(_postgres.StartAsync(), _valkey.StartAsync());
+        await Task.WhenAll(_postgres.StartAsync(), _nats.StartAsync(), _valkey.StartAsync());
         Host = await CreateHostAsync();
     }
 
-    /// <summary>Boots an extra host on the same container, e.g. with test-only services or another database.</summary>
+    /// <summary>Boots an extra host on the same containers, e.g. with test-only services or another database.</summary>
     public Task<IAlbaHost> CreateHostAsync(
         Action<IServiceCollection>? configureServices = null,
         string environment = "Development",
@@ -35,6 +37,7 @@ public sealed class ApiFixture : IAsyncLifetime
         {
             builder.UseEnvironment(environment);
             builder.UseSetting("ConnectionStrings:frappe", connectionString ?? _postgres.GetConnectionString());
+            builder.UseSetting("ConnectionStrings:nats", _nats.GetConnectionString());
             builder.UseSetting("ConnectionStrings:valkey", _valkey.GetConnectionString());
             builder.ConfigureServices(services =>
             {
@@ -59,6 +62,6 @@ public sealed class ApiFixture : IAsyncLifetime
         if (Host is not null)
             await Host.DisposeAsync();
 
-        await Task.WhenAll(_postgres.DisposeAsync().AsTask(), _valkey.DisposeAsync().AsTask());
+        await Task.WhenAll(_postgres.DisposeAsync().AsTask(), _nats.DisposeAsync().AsTask(), _valkey.DisposeAsync().AsTask());
     }
 }
