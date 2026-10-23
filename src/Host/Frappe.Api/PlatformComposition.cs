@@ -3,6 +3,7 @@ using Frappe.Platform.Caching;
 using Frappe.Platform.Health;
 using Frappe.Platform.Messaging;
 using Frappe.Platform.Persistence;
+using Frappe.Platform.Web.Security;
 
 namespace Frappe.Api;
 
@@ -15,6 +16,7 @@ internal static class PlatformComposition
         var configuration = builder.Configuration;
 
         services.AddProblemDetails();
+        services.AddDenyByDefaultSecurity();
         services.AddSingleton(TimeProvider.System);
         services.AddPlatformHealth();
         services.AddPostgres(configuration);
