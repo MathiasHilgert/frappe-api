@@ -21,8 +21,11 @@ Prerequisites: the .NET SDK pinned in `global.json` (10.0.x), Docker, and [just]
 ```sh
 just setup   # dotnet tool restore + restore
 just up      # Postgres, NATS JetStream, Valkey, Grafana LGTM (deploy/compose.yaml)
+just migrate # apply every module's EF migrations to the local database
 just run     # API with the http launch profile
 ```
+
+Run `just migrate` again whenever a pull brings new migrations; it is a no-op when the database is current.
 
 | What | Where |
 | --- | --- |
@@ -136,7 +139,8 @@ Only files tools must find at the root live there: `global.json`, `Directory.*.p
 Migrations:
 
 ```sh
-dotnet ef migrations add <Name> -p src/Modules/Identity/Frappe.Identity.Infrastructure -s src/Host/Frappe.Api -c IdentityDbContext
+just migration Identity <Name>   # add a migration to a module's Persistence/Migrations
+just migrate                     # apply every module's migrations locally (Development)
 dotnet ef migrations bundle -p … -s src/Host/Frappe.Api -c IdentityDbContext   # run before the app starts
 ```
 
