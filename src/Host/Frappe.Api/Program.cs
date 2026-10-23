@@ -1,6 +1,7 @@
 using Frappe.Api;
 using Frappe.Identity.Infrastructure;
 using Frappe.Modularity;
+using Frappe.Platform.Web.Correlation;
 using JasperFx;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,6 +19,7 @@ builder.AddFrappePlatform(modules);
 
 var app = builder.Build();
 
+app.UseRequestCorrelation();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseAuthentication();
