@@ -16,6 +16,7 @@ builder.Host.UseDefaultServiceProvider(options =>
 IModule[] modules = [new IdentityModule()];
 
 builder.AddFrappePlatform(modules);
+builder.Services.AddOpenApiDocs();
 
 var app = builder.Build();
 
@@ -26,6 +27,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapFrappePlatform(modules);
+app.MapOpenApiDocs();
 
 // No arguments runs the API. Outside Development nothing is created at startup: the deploy runs
 // `dotnet Frappe.Api.dll resources setup` first to create the Wolverine message storage schema.
