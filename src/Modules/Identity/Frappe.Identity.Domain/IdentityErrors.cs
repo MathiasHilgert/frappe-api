@@ -19,6 +19,18 @@ public static class IdentityErrors
     public static readonly Error EmailTaken =
         new("identity.email.taken", "An account with this email already exists.", "email");
 
+    public static readonly Error PasswordTooShort =
+        new("identity.password.too_short", $"Password must be at least {Password.MinLength} characters.", "password");
+
+    public static readonly Error PasswordTooLong =
+        new("identity.password.too_long", $"Password must be at most {Password.MaxLength} characters.", "password");
+
+    public static readonly Error PasswordBreached = new("identity.password.breached",
+        "This password has appeared in a data breach. Choose a different one.", "password");
+
+    public static readonly Error TooManyAttempts =
+        new("identity.attempts.too_many", "Too many attempts. Try again later.");
+
     public static readonly Error AccountPending = new("identity.account.pending", "The email has not been verified yet.");
 
     public static readonly Error AccountSuspended = new("identity.account.suspended", "The account is suspended.");

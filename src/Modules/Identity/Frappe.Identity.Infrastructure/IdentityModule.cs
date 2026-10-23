@@ -10,6 +10,7 @@ using Frappe.Modularity;
 using Frappe.Platform.Persistence;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Frappe.Identity.Infrastructure;
 
@@ -44,5 +45,30 @@ public sealed class IdentityModule : IModule
         services.AddSingleton<ISecretGenerator, RandomSecretGenerator>();
 
         services.AddSessionAuthentication(configuration);
+        AddPasswordPolicy(services, configuration);
+        services.AddSingleton<IdentityMetrics>();
+        services.AddOptions<AttemptLimiterOptions>()
+            .Bind(configuration.GetSection(AttemptLimiterOptions.Section))
+            .Validate(options => options.IsValid(),
+                $"'{AttemptLimiterOptions.Section}:TimeoutMilliseconds' must be {AttemptLimiterOptions.MinimumTimeoutMilliseconds}..{AttemptLimiterOptions.MaximumTimeoutMilliseconds}.")
+            .ValidateOnStart();
+        services.AddSingleton<IAttemptLimiter, ValkeyAttemptLimiter>();
+    }
+
+    private static void AddPasswordPolicy(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<BreachedPasswordOptions>()
+            .Bind(configuration.GetSection(BreachedPasswordOptions.Section))
+            .Validate(options => options.IsValid(),
+                $"'{BreachedPasswordOptions.Section}' needs an absolute BaseAddress and a TimeoutMilliseconds of {BreachedPasswordOptions.MinimumTimeoutMilliseconds}..{BreachedPasswordOptions.MaximumTimeoutMilliseconds}.")
+            .ValidateOnStart();
+        services.AddHttpClient<IBreachedPasswordChecker, HibpBreachedPasswordChecker>((sp, http) =>
+            {
+                var options = sp.GetRequiredService<IOptions<BreachedPasswordOptions>>().Value;
+                http.BaseAddress = options.BaseAddress;
+                // Backstop only: the checker's own per-call timeout fails open well before this.
+                http.Timeout = TimeSpan.FromMilliseconds(options.TimeoutMilliseconds * 2);
+            });
+        services.AddScoped<PasswordPolicy>();
     }
 }
