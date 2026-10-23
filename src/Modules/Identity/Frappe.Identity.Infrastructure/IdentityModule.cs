@@ -70,6 +70,7 @@ public sealed class IdentityModule : IModule
     {
         group.MapOwnerRegistration();
         group.MapOwnerVerification();
+        group.MapSessionEndpoints();
     }
 
     private static void AddPasswordPolicy(IServiceCollection services, IConfiguration configuration)
