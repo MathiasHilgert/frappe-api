@@ -5,6 +5,7 @@ using Frappe.Identity.Application.Security;
 using Frappe.Identity.Contracts;
 using Frappe.Identity.Infrastructure.Persistence;
 using Frappe.Identity.Infrastructure.Security;
+using Frappe.Identity.Infrastructure.Sessions;
 using Frappe.Modularity;
 using Frappe.Platform.Persistence;
 using Microsoft.Extensions.Configuration;
@@ -41,5 +42,7 @@ public sealed class IdentityModule : IModule
         services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
         services.AddSingleton<ISecretHasher, HmacSecretHasher>();
         services.AddSingleton<ISecretGenerator, RandomSecretGenerator>();
+
+        services.AddSessionAuthentication(configuration);
     }
 }
