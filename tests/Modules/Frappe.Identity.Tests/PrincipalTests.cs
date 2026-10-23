@@ -313,6 +313,43 @@ public sealed class PrincipalTests
         principal.Owner.Email.Value.ShouldBe("ana@example.com");
     }
 
+    [Fact]
+    public void PurgeAbandonedRegistration_PendingPastGrace_RaisesPendingPurged()
+    {
+        var principal = Register();
+        Events(principal);
+        _clock.Advance(Principal.PendingGracePeriod + TimeSpan.FromSeconds(1));
+
+        principal.PurgeAbandonedRegistration(_clock).IsSuccess.ShouldBeTrue();
+
+        Events(principal).ShouldBe([new OwnerPendingPurged(principal.Id)]);
+    }
+
+    [Fact]
+    public void PurgeAbandonedRegistration_PendingWithinGrace_FailsAndRaisesNothing()
+    {
+        var principal = Register();
+        Events(principal);
+        _clock.Advance(Principal.PendingGracePeriod);
+
+        principal.PurgeAbandonedRegistration(_clock).Errors.ShouldBe([IdentityErrors.RegistrationInGrace]);
+        Events(principal).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void PurgeAbandonedRegistration_ActiveOrSuspended_FailsAsNotPending()
+    {
+        var active = ActiveOwner();
+        var suspended = ActiveOwner();
+        suspended.Suspend();
+        _clock.Advance(TimeSpan.FromDays(30));
+
+        active.PurgeAbandonedRegistration(_clock).Errors.ShouldBe([IdentityErrors.AccountNotPending]);
+        suspended.PurgeAbandonedRegistration(_clock).Errors.ShouldBe([IdentityErrors.AccountNotPending]);
+        Events(active).ShouldBeEmpty();
+        Events(suspended).ShouldBeEmpty();
+    }
+
     private Principal Register() =>
         Principal.RegisterOwner(PersonName.Create("Ana").Value, Email.Create("ana@example.com").Value, "pw-hash", _clock);
 

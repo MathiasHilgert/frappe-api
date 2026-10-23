@@ -33,7 +33,17 @@ public sealed class PrincipalRepository(IdentityDbContext context) : IPrincipalR
     public Task<Principal?> GetByCodeIdAsync(Guid codeId, CodePurpose purpose, CancellationToken cancellationToken) =>
         context.Principals.FirstOrDefaultAsync(p => p.Codes.Any(c => c.Id == codeId && c.Purpose == purpose), cancellationToken);
 
+    public async Task<IReadOnlyList<Principal>> ListPendingRegisteredBeforeAsync(
+        DateTimeOffset cutoff, int limit, CancellationToken cancellationToken) =>
+        await context.Principals
+            .Where(p => p.Owner.Status == OwnerStatus.Pending && p.RegisteredAt < cutoff)
+            .OrderBy(p => p.RegisteredAt)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
     public void Add(Principal principal) => context.Principals.Add(principal);
+
+    public void Remove(Principal principal) => context.Principals.Remove(principal);
 
     public async Task<Result> SaveChangesAsync(CancellationToken cancellationToken)
     {

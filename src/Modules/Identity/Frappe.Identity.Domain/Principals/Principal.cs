@@ -10,6 +10,9 @@ namespace Frappe.Identity.Domain.Principals;
 /// </summary>
 public sealed class Principal : AggregateRoot<Guid>
 {
+    /// <summary>How long an unverified registration may wait for its code before it is purged.</summary>
+    public static readonly TimeSpan PendingGracePeriod = TimeSpan.FromDays(7);
+
     private readonly List<Session> _sessions = [];
     private readonly List<VerificationCode> _codes = [];
 
@@ -67,6 +70,25 @@ public sealed class Principal : AggregateRoot<Guid>
             Raise(new OwnerEmailVerified(Id));
         }
         return consumed;
+    }
+
+    /// <summary>
+    /// Agrees to delete an unverified registration past its grace. Verified or suspended owners, and pending
+    /// ones still inside the grace, are never purged.
+    /// </summary>
+    public Result PurgeAbandonedRegistration(TimeProvider clock)
+    {
+        if (Owner.Status != OwnerStatus.Pending)
+        {
+            return Result.Failure(IdentityErrors.AccountNotPending);
+        }
+        if (clock.GetUtcNow() - RegisteredAt <= PendingGracePeriod)
+        {
+            return Result.Failure(IdentityErrors.RegistrationInGrace);
+        }
+
+        Raise(new OwnerPendingPurged(Id));
+        return Result.Success();
     }
 
     public void Suspend() => Owner.Status = OwnerStatus.Suspended;
