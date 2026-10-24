@@ -46,13 +46,14 @@ internal static class EmailChangeEndpoints
     }
 
     private static async Task<IResult> ConfirmAsync(
-        Guid id, EmailChangeConfirmationRequest request, ICurrentPrincipal current, ConfirmEmailChange handler,
+        Guid id, EmailChangeConfirmationRequest request, ICurrentPrincipal current, IMessageBus bus,
         CancellationToken cancellationToken)
     {
         if (current.Session is not { } caller)
             return TypedResults.Unauthorized();
 
-        var outcome = await handler.HandleAsync(caller, id, request.Code, cancellationToken);
+        var outcome = await bus.InvokeAsync<Throttled<bool>>(
+            new ConfirmEmailChange(caller.PrincipalId, id, request.Code), cancellationToken);
         if (outcome.Result is not { } result)
             return TooManyAttempts(outcome.RetryAfter);
 
