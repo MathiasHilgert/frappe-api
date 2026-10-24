@@ -44,4 +44,11 @@ public sealed class MessageSealOptions
     [Required]
     [MinLength(32)]
     public string? Key { get; set; }
+
+    /// <summary>
+    /// The key being rotated out, set while messages it sealed may still sit in the outbox or a queue: seals are opened
+    /// with it but never made. Drop it once those messages are gone (a code expires in minutes; a day is generous).
+    /// </summary>
+    [MinLength(32)]
+    public string? PreviousKey { get; set; }
 }
