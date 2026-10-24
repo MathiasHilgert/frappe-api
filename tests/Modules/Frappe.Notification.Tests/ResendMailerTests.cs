@@ -1,6 +1,6 @@
 using System.Net;
 using System.Text.Json;
-using Frappe.Notification.Application;
+using Frappe.Notification.Application.Mails;
 using Frappe.Notification.Domain;
 using Frappe.Notification.Infrastructure.Resend;
 using Microsoft.Extensions.Options;
@@ -18,7 +18,7 @@ public sealed class ResendMailerTests
         var handler = new RecordingHandler(HttpStatusCode.OK);
         var mailer = Create(handler);
 
-        await mailer.SendAsync(Mail, TestContext.Current.CancellationToken);
+        await mailer.SendAsync(Mail, "mail-key", TestContext.Current.CancellationToken);
 
         handler.Request!.Method.ShouldBe(HttpMethod.Post);
         handler.Request.RequestUri.ShouldBe(new Uri("https://api.resend.test/emails"));
@@ -39,7 +39,7 @@ public sealed class ResendMailerTests
         var mail = new Mail("owner@example.test", "123456 is your code", "Your code is 123456.", "<img src=\"cid:logo\">",
             [new InlineImage("logo", "logo.png", "image/png", new byte[] { 1, 2, 3 })]);
 
-        await Create(handler).SendAsync(mail, TestContext.Current.CancellationToken);
+        await Create(handler).SendAsync(mail, "mail-key", TestContext.Current.CancellationToken);
 
         using var body = JsonDocument.Parse(handler.Body!);
         body.RootElement.GetProperty("html").GetString().ShouldBe("<img src=\"cid:logo\">");
@@ -51,21 +51,24 @@ public sealed class ResendMailerTests
     }
 
     [Fact]
-    public async Task SendAsync_SendsAStableIdempotencyKey_SoARetryAfterATimeoutDoesNotSendTwice()
+    public async Task SendAsync_SendsTheDeliverysIdempotencyKey_SoARetryAfterATimeoutDoesNotSendTwice()
     {
-        var first = new RecordingHandler(HttpStatusCode.OK);
-        var retry = new RecordingHandler(HttpStatusCode.OK);
-        var other = new RecordingHandler(HttpStatusCode.OK);
+        var handler = new RecordingHandler(HttpStatusCode.OK);
+        var key = MailDelivery.KeyFor(Guid.CreateVersion7());
 
-        await Create(first).SendAsync(Mail, TestContext.Current.CancellationToken);
-        await Create(retry).SendAsync(Mail with { }, TestContext.Current.CancellationToken);
-        await Create(other).SendAsync(new Mail("owner@example.test", "654321 is your code", "Your code is 654321."),
-            TestContext.Current.CancellationToken);
+        await Create(handler).SendAsync(Mail, key, TestContext.Current.CancellationToken);
 
-        var key = first.Request!.Headers.GetValues("Idempotency-Key").ShouldHaveSingleItem();
-        key.Length.ShouldBeInRange(1, 256);
-        retry.Request!.Headers.GetValues("Idempotency-Key").ShouldHaveSingleItem().ShouldBe(key);
-        string.Equals(other.Request!.Headers.GetValues("Idempotency-Key").ShouldHaveSingleItem(), key, StringComparison.Ordinal).ShouldBeFalse();
+        handler.Request!.Headers.GetValues("Idempotency-Key").ShouldHaveSingleItem().ShouldBe(key);
+    }
+
+    [Fact]
+    public void DeliveryKeys_DependOnTheMessage_NotOnTheContent()
+    {
+        var id = Guid.CreateVersion7();
+
+        MailDelivery.KeyFor(id).ShouldBe(MailDelivery.KeyFor(id));
+        MailDelivery.KeyFor(id).ShouldNotBe(MailDelivery.KeyFor(Guid.CreateVersion7()), StringComparer.Ordinal);
+        MailDelivery.KeyFor(id).Length.ShouldBeInRange(1, 256);
     }
 
     [Theory]
@@ -77,7 +80,7 @@ public sealed class ResendMailerTests
     {
         var mailer = Create(new RecordingHandler(status));
 
-        var error = await Should.ThrowAsync<MailRejectedException>(() => mailer.SendAsync(Mail, TestContext.Current.CancellationToken));
+        var error = await Should.ThrowAsync<MailRejectedException>(() => mailer.SendAsync(Mail, "mail-key", TestContext.Current.CancellationToken));
 
         error.StatusCode.ShouldBe(status);
     }
@@ -91,7 +94,7 @@ public sealed class ResendMailerTests
     {
         var mailer = Create(new RecordingHandler(status));
 
-        var error = await Should.ThrowAsync<MailDeliveryFailedException>(() => mailer.SendAsync(Mail, TestContext.Current.CancellationToken));
+        var error = await Should.ThrowAsync<MailDeliveryFailedException>(() => mailer.SendAsync(Mail, "mail-key", TestContext.Current.CancellationToken));
 
         error.StatusCode.ShouldBe(status);
     }
@@ -101,7 +104,7 @@ public sealed class ResendMailerTests
     {
         var mailer = Create(new RecordingHandler(HttpStatusCode.OK, new TaskCanceledException("timeout", new TimeoutException())));
 
-        await Should.ThrowAsync<MailDeliveryFailedException>(() => mailer.SendAsync(Mail, TestContext.Current.CancellationToken));
+        await Should.ThrowAsync<MailDeliveryFailedException>(() => mailer.SendAsync(Mail, "mail-key", TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -109,7 +112,7 @@ public sealed class ResendMailerTests
     {
         var mailer = Create(new RecordingHandler(HttpStatusCode.OK, new HttpRequestException("connection refused")));
 
-        await Should.ThrowAsync<MailDeliveryFailedException>(() => mailer.SendAsync(Mail, TestContext.Current.CancellationToken));
+        await Should.ThrowAsync<MailDeliveryFailedException>(() => mailer.SendAsync(Mail, "mail-key", TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -119,7 +122,7 @@ public sealed class ResendMailerTests
         await cancellation.CancelAsync();
         var mailer = Create(new RecordingHandler(HttpStatusCode.OK, new TaskCanceledException()));
 
-        await Should.ThrowAsync<OperationCanceledException>(() => mailer.SendAsync(Mail, cancellation.Token));
+        await Should.ThrowAsync<OperationCanceledException>(() => mailer.SendAsync(Mail, "mail-key", cancellation.Token));
     }
 
     private static ResendMailer Create(RecordingHandler handler) =>

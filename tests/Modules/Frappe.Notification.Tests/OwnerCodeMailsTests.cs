@@ -1,5 +1,5 @@
 using System.Text.RegularExpressions;
-using Frappe.Notification.Application;
+using Frappe.Notification.Application.OwnerCodeMails;
 using Frappe.Notification.Infrastructure.Mails;
 using Frappe.Platform.Localization;
 using Microsoft.Extensions.Configuration;
@@ -11,7 +11,7 @@ namespace Frappe.Notification.Tests;
 public sealed partial class OwnerCodeMailsTests
 {
     private static readonly IOwnerCodeMails Mails = new ServiceCollection()
-        .AddPlatformLocalization(new ConfigurationBuilder().Build())
+        .AddSingleton<IConfiguration>(new ConfigurationBuilder().Build()).AddPlatformLocalization()
         .AddMessageCatalog(typeof(CatalogOwnerCodeMails).Assembly)
         .AddSingleton<IOwnerCodeMails, CatalogOwnerCodeMails>()
         .BuildServiceProvider()

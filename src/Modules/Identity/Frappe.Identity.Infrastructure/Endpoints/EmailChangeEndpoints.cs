@@ -19,15 +19,14 @@ internal static class EmailChangeEndpoints
     public static RouteGroupBuilder MapEmailChangeEndpoints(this RouteGroupBuilder group)
     {
         group.MapPost(Path, RequestAsync)
-            .RequireAuthorization(IdentityPolicies.OwnerSelf)
+            .RequireOwner()
             .RequireStepUp()
             .WithName("RequestEmailChange")
             .WithSummary("Starts an email change, emailing a code to the new address. Needs a fresh step-up.")
-            .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         group.MapPost($"{Path}/{{id:guid}}/confirmation", ConfirmAsync)
-            .RequireAuthorization(IdentityPolicies.OwnerSelf)
+            .RequireOwner()
             .WithName("ConfirmEmailChange")
             .WithSummary("Confirms an email change with the code sent to the new address.")
             .ProducesProblem(StatusCodes.Status404NotFound)

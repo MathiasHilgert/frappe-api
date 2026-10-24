@@ -10,5 +10,6 @@
   "platform.problem.503": "The service is temporarily unavailable.",
   "locale.invalid": "The locale must be a valid BCP-47 language tag, e.g. es-AR.",
   "platform.auth.required": "Authentication is required.",
-  "platform.auth.forbidden": "You are not allowed to do this."
+  "platform.auth.forbidden": "You are not allowed to do this.",
+  "platform.rate_limited": "Too many requests. Try again later."
 }

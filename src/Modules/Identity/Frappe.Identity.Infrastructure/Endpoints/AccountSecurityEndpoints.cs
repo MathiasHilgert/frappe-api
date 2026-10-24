@@ -17,13 +17,13 @@ internal static class AccountSecurityEndpoints
     public static RouteGroupBuilder MapAccountSecurityEndpoints(this RouteGroupBuilder group)
     {
         group.MapPost("/sessions/current/step-ups", CompleteStepUpAsync)
-            .RequireAuthorization(IdentityPolicies.OwnerSelf)
+            .RequireOwner()
             .WithName("CompleteStepUp")
             .WithSummary("Re-proves the password, unlocking sensitive actions on this session for five minutes.")
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
             .ProducesProblem(StatusCodes.Status429TooManyRequests);
         group.MapPut("/me/password", ChangePasswordAsync)
-            .RequireAuthorization(IdentityPolicies.OwnerSelf)
+            .RequireOwner()
             .WithName("ChangePassword")
             .WithSummary("Changes the password, signing every other session out.")
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity)

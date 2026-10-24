@@ -96,7 +96,38 @@ public sealed class LoginTests(ApiFixture fixture)
     }
 
     [Fact]
-    public async Task TenFailuresPerEmail_ThrottleEvenTheRightPassword_WithRetryAfter()
+    public async Task TenFailuresFromOneIp_ThrottleThatEmailFromThatIp_EvenForTheRightPassword_WithRetryAfter()
+    {
+        var email = OwnerSeeder.NewEmail();
+        await OwnerSeeder.SeedAsync(fixture.Host, email);
+        var ip = NewIp();
+
+        for (var i = 0; i < AttemptPolicies.LoginFailuresPerEmailAndIp.Limit; i++)
+            await LogInAsync(email, "wrong password!!", ip, 401);
+
+        var result = await LogInAsync(email, OwnerSeeder.Password, ip, 429);
+        int.Parse(result.Context.Response.Headers[HeaderNames.RetryAfter].ToString(), System.Globalization.CultureInfo.InvariantCulture)
+            .ShouldBeInRange(1, (int)AttemptPolicies.LoginFailuresPerEmailAndIp.Window.TotalSeconds);
+        await result.ShouldBeProblemAsync(429, "identity.attempts.too_many");
+    }
+
+    [Fact]
+    public async Task AnAttackerFromOneIp_CannotLockTheOwnerOut()
+    {
+        var email = OwnerSeeder.NewEmail();
+        await OwnerSeeder.SeedAsync(fixture.Host, email);
+        var attacker = NewIp();
+        using var throttled = new MeterCounter("Frappe.Identity", "frappe.identity.login.throttled");
+
+        for (var i = 0; i < AttemptPolicies.LoginFailuresPerEmailAndIp.Limit + 5; i++)
+            await LogInAsync(email, "wrong password!!", attacker, i < AttemptPolicies.LoginFailuresPerEmailAndIp.Limit ? 401 : 429);
+
+        await LogInAsync(email, OwnerSeeder.Password, NewIp(), 201);
+        throttled.Total.ShouldBeGreaterThanOrEqualTo(5);
+    }
+
+    [Fact]
+    public async Task FailuresSpreadAcrossManyIps_HitTheEmailCeiling()
     {
         var email = OwnerSeeder.NewEmail();
         await OwnerSeeder.SeedAsync(fixture.Host, email);
@@ -104,27 +135,29 @@ public sealed class LoginTests(ApiFixture fixture)
         for (var i = 0; i < AttemptPolicies.LoginFailuresPerEmail.Limit; i++)
             await LogInAsync(email, "wrong password!!", NewIp(), 401);
 
-        var result = await LogInAsync(email, OwnerSeeder.Password, NewIp(), 429);
-        int.Parse(result.Context.Response.Headers[HeaderNames.RetryAfter].ToString(), System.Globalization.CultureInfo.InvariantCulture)
-            .ShouldBeInRange(1, (int)AttemptPolicies.LoginFailuresPerEmail.Window.TotalSeconds);
-        await result.ShouldBeProblemAsync(429, "identity.attempts.too_many");
+        await LogInAsync(email, OwnerSeeder.Password, NewIp(), 429);
     }
+
+    [Fact]
+    public void TheEmailCeiling_IsFarAboveThePerIpBudget() =>
+        AttemptPolicies.LoginFailuresPerEmail.Limit.ShouldBeGreaterThanOrEqualTo(5 * AttemptPolicies.LoginFailuresPerEmailAndIp.Limit);
 
     [Fact]
     public async Task AParallelBurstOfWrongPasswords_GetsOnlyTheLimitOfTries()
     {
         var email = OwnerSeeder.NewEmail();
         await OwnerSeeder.SeedAsync(fixture.Host, email);
+        var ip = NewIp();
 
         var statuses = await Burst.StatusesAsync(fixture.Host, s =>
         {
             s.Post.Json(new { email, password = "wrong password!!" }).ToUrl(Sessions);
-            s.ConfigureHttpContext(c => c.Connection.RemoteIpAddress = NewIp());
+            s.ConfigureHttpContext(c => c.Connection.RemoteIpAddress = ip);
         });
 
-        statuses.Count(s => s == 401).ShouldBe(AttemptPolicies.LoginFailuresPerEmail.Limit);
-        statuses.Count(s => s == 429).ShouldBe(Burst.Size - AttemptPolicies.LoginFailuresPerEmail.Limit);
-        await LogInAsync(email, OwnerSeeder.Password, NewIp(), 429);
+        statuses.Count(s => s == 401).ShouldBe(AttemptPolicies.LoginFailuresPerEmailAndIp.Limit);
+        statuses.Count(s => s == 429).ShouldBe(Burst.Size - AttemptPolicies.LoginFailuresPerEmailAndIp.Limit);
+        await LogInAsync(email, OwnerSeeder.Password, ip, 429);
     }
 
     [Fact]
@@ -150,18 +183,32 @@ public sealed class LoginTests(ApiFixture fixture)
     }
 
     [Fact]
-    public async Task ASuccessfulLogin_ClearsTheEmailFailures()
+    public async Task ASuccessfulLogin_ClearsThatIpsFailuresForTheEmail()
     {
         var email = OwnerSeeder.NewEmail();
         await OwnerSeeder.SeedAsync(fixture.Host, email);
+        var ip = NewIp();
 
-        for (var i = 0; i < AttemptPolicies.LoginFailuresPerEmail.Limit - 1; i++)
-            await LogInAsync(email, "wrong password!!", NewIp(), 401);
-        await LogInAsync(email, OwnerSeeder.Password, NewIp(), 201);
-        for (var i = 0; i < AttemptPolicies.LoginFailuresPerEmail.Limit - 1; i++)
-            await LogInAsync(email, "wrong password!!", NewIp(), 401);
+        for (var i = 0; i < AttemptPolicies.LoginFailuresPerEmailAndIp.Limit - 1; i++)
+            await LogInAsync(email, "wrong password!!", ip, 401);
+        await LogInAsync(email, OwnerSeeder.Password, ip, 201);
+        for (var i = 0; i < AttemptPolicies.LoginFailuresPerEmailAndIp.Limit - 1; i++)
+            await LogInAsync(email, "wrong password!!", ip, 401);
 
-        await LogInAsync(email, OwnerSeeder.Password, NewIp(), 201);
+        await LogInAsync(email, OwnerSeeder.Password, ip, 201);
+    }
+
+    [Fact]
+    public async Task EmailCase_DoesNotGiveAnotherBudget()
+    {
+        var email = OwnerSeeder.NewEmail();
+        await OwnerSeeder.SeedAsync(fixture.Host, email);
+        var ip = NewIp();
+
+        for (var i = 0; i < AttemptPolicies.LoginFailuresPerEmailAndIp.Limit; i++)
+            await LogInAsync(i % 2 == 0 ? email : email.ToUpperInvariant(), "wrong password!!", ip, 401);
+
+        await LogInAsync($"  {email.ToUpperInvariant()} ", OwnerSeeder.Password, ip, 429);
     }
 
     [Fact]

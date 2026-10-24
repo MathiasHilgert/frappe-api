@@ -8,7 +8,7 @@ namespace Frappe.Identity.Infrastructure.Security;
 /// </summary>
 internal sealed class AttemptLimiterOptions
 {
-    public const string Section = "Identity:AttemptLimiter";
+    public const string SectionName = "Identity:AttemptLimiter";
     public const int MinimumTimeoutMilliseconds = 10;
     public const int MaximumTimeoutMilliseconds = 5_000;
 

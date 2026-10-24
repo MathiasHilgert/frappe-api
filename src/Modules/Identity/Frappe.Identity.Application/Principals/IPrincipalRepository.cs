@@ -12,7 +12,7 @@ public interface IPrincipalRepository
 {
     Task<Principal?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
-    /// <summary>Matches the current address ignoring case, the same rule the unique index enforces.</summary>
+    /// <summary>Matches the current address; <see cref="Email"/> is already normalized, as the unique index sees it.</summary>
     Task<Principal?> GetByEmailAsync(Email email, CancellationToken cancellationToken);
 
     Task<Principal?> GetBySessionTokenHashAsync(string tokenHash, CancellationToken cancellationToken);
@@ -26,29 +26,22 @@ public interface IPrincipalRepository
     /// <summary>The owner of the live code <paramref name="codeId"/> issued for <paramref name="purpose"/>.</summary>
     Task<Principal?> GetByCodeIdAsync(Guid codeId, CodePurpose purpose, CancellationToken cancellationToken);
 
-    /// <summary>Pending owners registered before <paramref name="cutoff"/>, oldest first, at most <paramref name="limit"/>.</summary>
-    Task<IReadOnlyList<Principal>> ListPendingRegisteredBeforeAsync(
-        DateTimeOffset cutoff, int limit, CancellationToken cancellationToken);
+    /// <summary>
+    /// Pending owners registered before <paramref name="cutoff"/>, ordered by (registered at, id) and starting after
+    /// <paramref name="after"/> (keyset paging), at most <paramref name="limit"/>.
+    /// </summary>
+    Task<IReadOnlyList<PurgeCandidate>> ListPurgeCandidatesAsync(
+        DateTimeOffset cutoff, PurgeCandidate? after, int limit, CancellationToken cancellationToken);
 
     void Add(Principal principal);
 
     void Remove(Principal principal);
 
     /// <summary>
-    /// Commits tracked changes. Fails with <c>IdentityErrors.ConcurrentChange</c> when someone else changed the
-    /// principal since it was loaded; nothing is saved then and the stale state is no longer tracked.
+    /// Commits tracked changes, the one save every caller uses. It fails, with nothing saved and the rejected state no
+    /// longer tracked, with <c>IdentityErrors.ConcurrentChange</c> when someone else changed the principal since it was
+    /// loaded, or <c>IdentityErrors.EmailTaken</c> when another owner holds an address this save claims (a
+    /// registration, a confirmed email change). Best-effort writers (a session touch) just ignore the failure.
     /// </summary>
     Task<Result> SaveAsync(CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Like <see cref="SaveAsync"/>, for changes that claim an email address (a registration, a confirmed email
-    /// change): another owner holding the address also fails, with <c>IdentityErrors.EmailTaken</c>.
-    /// </summary>
-    Task<Result> SaveClaimingEmailAsync(CancellationToken cancellationToken);
-
-    /// <summary>
-    /// <see cref="SaveAsync"/> as a yes/no for best-effort writes such as a session touch: false when the principal
-    /// changed meanwhile (a session revoked, a password reset), and nothing was saved.
-    /// </summary>
-    Task<bool> SaveUnlessChangedAsync(CancellationToken cancellationToken);
 }

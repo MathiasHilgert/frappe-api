@@ -1,9 +1,16 @@
 namespace Frappe.Identity.Application.Security;
 
-/// <summary>The identity limits (S5, S6). Wider per-IP limits tolerate shared networks such as a restaurant's Wi-Fi.</summary>
+/// <summary>The identity limits. Wider per-IP limits tolerate shared networks such as a restaurant's Wi-Fi.</summary>
 public static class AttemptPolicies
 {
-    public static readonly AttemptPolicy LoginFailuresPerEmail = new("login-email", 10, TimeSpan.FromMinutes(15));
+    /// <summary>
+    /// Wrong passwords for one email from one IP: the tight budget. Keyed on both, so an attacker hammering an email
+    /// from their own address throttles only themselves and never locks the owner out.
+    /// </summary>
+    public static readonly AttemptPolicy LoginFailuresPerEmailAndIp = new("login-email-ip", 10, TimeSpan.FromMinutes(15));
+
+    /// <summary>Wrong passwords for one email from anywhere: a much higher ceiling that only a distributed attack reaches.</summary>
+    public static readonly AttemptPolicy LoginFailuresPerEmail = new("login-email", 100, TimeSpan.FromMinutes(15));
     public static readonly AttemptPolicy LoginFailuresPerIp = new("login-ip", 100, TimeSpan.FromMinutes(15));
     public static readonly AttemptPolicy RegisterPerEmail = new("register-email", 5, TimeSpan.FromHours(1));
     /// <summary>Wrong passwords typed inside a session (step-up, change password), shared so neither doubles the budget.</summary>

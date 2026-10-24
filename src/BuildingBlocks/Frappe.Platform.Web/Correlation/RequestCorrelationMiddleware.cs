@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -10,6 +11,13 @@ internal sealed class RequestCorrelationMiddleware(RequestDelegate next, TimePro
     public const string HeaderName = "X-Request-Id";
     private const int MaxLength = 128;
 
+    private static readonly SearchValues<char> Allowed =
+        SearchValues.Create("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-");
+
+    // A cached scope template: RequestId flows into every log line as a structured property, with no dictionary per request.
+    private static readonly Func<ILogger, string, IDisposable?> BeginRequestScope =
+        LoggerMessage.DefineScope<string>("RequestId:{RequestId}");
+
     public async Task InvokeAsync(HttpContext context)
     {
         var requestId = ResolveId(context.Request.Headers[HeaderName].ToString());
@@ -21,22 +29,13 @@ internal sealed class RequestCorrelationMiddleware(RequestDelegate next, TimePro
         });
         Activity.Current?.SetTag("http.request.id", requestId);
 
-        using (logger.BeginScope(new Dictionary<string, object>(StringComparer.Ordinal) { ["RequestId"] = requestId }))
+        using (BeginRequestScope(logger, requestId))
             await next(context);
     }
 
     private string ResolveId(string incoming) =>
         IsValid(incoming) ? incoming : Guid.CreateVersion7(timeProvider.GetUtcNow()).ToString();
 
-    private static bool IsValid(string value)
-    {
-        if (value.Length is 0 or > MaxLength)
-            return false;
-        foreach (var c in value)
-        {
-            if (!(char.IsAsciiLetterOrDigit(c) || c is '.' or '_' or '-'))
-                return false;
-        }
-        return true;
-    }
+    private static bool IsValid(string value) =>
+        value.Length is > 0 and <= MaxLength && !value.AsSpan().ContainsAnyExcept(Allowed);
 }

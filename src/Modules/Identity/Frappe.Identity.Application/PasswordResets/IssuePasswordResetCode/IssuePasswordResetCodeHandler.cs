@@ -1,6 +1,6 @@
+using Frappe.Application.Abstractions.Messaging;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
-using Frappe.Identity.Contracts;
 using Frappe.Identity.Contracts.PasswordResets;
 using Frappe.Identity.Domain.Principals;
 using Wolverine;
@@ -18,7 +18,7 @@ public static class IssuePasswordResetCodeHandler
         IPrincipalRepository principals,
         ISecretGenerator secrets,
         ISecretHasher hasher,
-        IOwnerCodeSeal seal,
+        IMessageSeal seal,
         TimeProvider clock,
         CancellationToken cancellationToken)
     {
@@ -29,7 +29,7 @@ public static class IssuePasswordResetCodeHandler
             return messages;
 
         var code = secrets.NewVerificationCode();
-        var issued = principal.IssueCode(command.ResetId, CodePurpose.PasswordReset, hasher.Hash(code), clock);
+        var issued = principal.IssueCode(command.ResetId, CodePurpose.PasswordReset, hasher.Hash(code), clock.GetUtcNow());
         if (issued.IsFailure)
             return messages;
 

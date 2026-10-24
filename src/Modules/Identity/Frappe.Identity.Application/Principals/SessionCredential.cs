@@ -11,7 +11,7 @@ public sealed record SessionCredential(
     DateTimeOffset CreatedAt,
     DateTimeOffset LastSeenAt)
 {
-    /// <summary>Live by <see cref="Session.IsLive(DateTimeOffset, DateTimeOffset, TimeProvider)"/>, and not suspended.</summary>
+    /// <summary>Live by <see cref="Session.IsLive(DateTimeOffset, DateTimeOffset, DateTimeOffset)"/>, and not suspended.</summary>
     public bool Admits(TimeProvider clock) =>
-        OwnerStatus != OwnerStatus.Suspended && Session.IsLive(CreatedAt, LastSeenAt, clock);
+        OwnerStatus != OwnerStatus.Suspended && Session.IsLive(CreatedAt, LastSeenAt, clock.GetUtcNow());
 }

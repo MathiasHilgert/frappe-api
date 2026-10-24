@@ -10,5 +10,6 @@
   "platform.problem.503": "El servicio no está disponible por el momento.",
   "locale.invalid": "El idioma tiene que ser una etiqueta BCP-47 válida, por ejemplo es-AR.",
   "platform.auth.required": "Tenés que iniciar sesión.",
-  "platform.auth.forbidden": "No tenés permiso para hacer esto."
+  "platform.auth.forbidden": "No tenés permiso para hacer esto.",
+  "platform.rate_limited": "Demasiadas solicitudes. Probá de nuevo más tarde."
 }

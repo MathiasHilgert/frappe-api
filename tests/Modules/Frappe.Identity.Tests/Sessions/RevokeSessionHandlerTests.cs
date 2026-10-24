@@ -52,10 +52,10 @@ public sealed class RevokeSessionHandlerTests
         {
             Loads++;
             var principal = Principal.RegisterOwner(
-                PersonName.Create("Ana").Value, Email.Create("ana@example.com").Value, "pw", Locale.Parse("en"), _clock);
-            principal.IssueCode(CodePurpose.EmailVerify, "c", _clock);
-            principal.VerifyEmail("c", _clock);
-            var session = principal.OpenSession("h", SessionSurface.Api, _clock).Value;
+                PersonName.Create("Ana").Value, Email.Create("ana@example.com").Value, "pw", Locale.Parse("en"), _clock.GetUtcNow());
+            principal.IssueCode(CodePurpose.EmailVerify, "c", _clock.GetUtcNow());
+            principal.VerifyEmail("c", _clock.GetUtcNow());
+            var session = principal.OpenSession("h", SessionSurface.Api, _clock.GetUtcNow()).Value;
             // Every load is fresh state holding the same session, as a reload from the database would.
             typeof(Session).GetField("<Id>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .SetValue(session, SessionId);
@@ -72,11 +72,9 @@ public sealed class RevokeSessionHandlerTests
         public Task<Principal?> GetBySessionTokenHashAsync(string tokenHash, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<SessionCredential?> FindSessionCredentialAsync(string tokenHash, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<Principal?> GetByCodeIdAsync(Guid codeId, CodePurpose purpose, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<IReadOnlyList<Principal>> ListPendingRegisteredBeforeAsync(DateTimeOffset cutoff, int limit, CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
+        public Task<IReadOnlyList<PurgeCandidate>> ListPurgeCandidatesAsync(
+            DateTimeOffset cutoff, PurgeCandidate? after, int limit, CancellationToken cancellationToken) => throw new NotSupportedException();
         public void Add(Principal principal) => throw new NotSupportedException();
         public void Remove(Principal principal) => throw new NotSupportedException();
-        public Task<Result> SaveClaimingEmailAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<bool> SaveUnlessChangedAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

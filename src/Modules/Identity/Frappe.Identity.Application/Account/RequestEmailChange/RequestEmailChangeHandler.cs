@@ -1,3 +1,4 @@
+using Frappe.Application.Abstractions.Messaging;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
 using Frappe.Identity.Contracts;
@@ -22,7 +23,7 @@ public static class RequestEmailChangeHandler
         IPrincipalRepository principals,
         ISecretGenerator generator,
         ISecretHasher hasher,
-        IOwnerCodeSeal seal,
+        IMessageSeal seal,
         IAttemptLimiter limiter,
         TimeProvider clock,
         IMessageContext messages,
@@ -34,7 +35,7 @@ public static class RequestEmailChangeHandler
 
         var email = Email.Create(command.NewEmail);
         if (email.IsFailure)
-            return Result.Failure<Guid>(email.Errors[0] with { Field = "newEmail" });
+            return Result.Failure<Guid>(email.Errors.Select(e => e with { Field = "newEmail" }));
 
         var principal = await principals.GetByIdAsync(command.PrincipalId, cancellationToken);
         if (principal is null)
@@ -44,13 +45,13 @@ public static class RequestEmailChangeHandler
             return Result.Failure<Guid>(IdentityErrors.EmailTaken with { Field = "newEmail" });
 
         var code = generator.NewVerificationCode();
-        var issued = principal.RequestEmailChange(email.Value, hasher.Hash(code), clock);
+        var issued = principal.RequestEmailChange(email.Value, hasher.Hash(code), clock.GetUtcNow());
         if (issued.IsFailure)
-            return Result.Failure<Guid>(issued.Errors[0]);
+            return Result.Failure<Guid>(issued.Errors);
 
         var saved = await principals.SaveAsync(cancellationToken);
         if (saved.IsFailure)
-            return Result.Failure<Guid>(saved.Errors[0]);
+            return Result.Failure<Guid>(saved.Errors);
 
         await messages.PublishAsync(new EmailChangeCodeIssued(
             issued.Value.Id, principal.Id, principal.Owner.Name.Value, email.Value.Value, seal.Seal(code), issued.Value.ExpiresAt,

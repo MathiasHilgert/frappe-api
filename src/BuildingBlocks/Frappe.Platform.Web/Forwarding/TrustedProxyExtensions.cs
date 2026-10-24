@@ -14,11 +14,11 @@ namespace Frappe.Platform.Web.Forwarding;
 /// </summary>
 public static class TrustedProxyExtensions
 {
-    public const string Section = "ForwardedHeaders";
+    public const string SectionName = "ForwardedHeaders";
 
     public static IServiceCollection AddTrustedForwardedHeaders(this IServiceCollection services, IConfiguration configuration)
     {
-        var section = configuration.GetSection(Section);
+        var section = configuration.GetSection(SectionName);
         var proxies = section.GetSection("KnownProxies").Get<string[]>() ?? [];
         var networks = section.GetSection("KnownNetworks").Get<string[]>() ?? [];
 

@@ -1,5 +1,5 @@
 using Alba;
-using Frappe.Identity.Contracts;
+using Frappe.Application.Abstractions.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Frappe.IntegrationTests.Identity;
@@ -8,5 +8,5 @@ namespace Frappe.IntegrationTests.Identity;
 internal static class CodeSeal
 {
     public static string Open(IAlbaHost host, string sealedCode) =>
-        host.Services.GetRequiredService<IOwnerCodeSeal>().Open(sealedCode);
+        host.Services.GetRequiredService<IMessageSeal>().Open(sealedCode);
 }

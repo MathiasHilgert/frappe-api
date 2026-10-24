@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Frappe.Identity.Application.Security;
+using Frappe.Identity.Domain;
+using Frappe.SharedKernel.Validation;
 using Konscious.Security.Cryptography;
 using Microsoft.Extensions.Options;
 
@@ -10,7 +12,8 @@ namespace Frappe.Identity.Infrastructure.Security;
 /// <summary>
 /// Argon2id in the PHC string format (<c>$argon2id$v=19$m=…,t=…,p=…$salt$hash</c>), so a hash keeps the cost it
 /// was made with and raising the options never breaks existing passwords. At most
-/// <see cref="Argon2Options.MaxConcurrentHashes"/> derivations run at once; callers beyond that wait asynchronously.
+/// <see cref="Argon2Options.MaxConcurrentHashes"/> derivations run at once; callers beyond that wait asynchronously
+/// for at most <see cref="Argon2Options.SlotWaitMilliseconds"/>, then get an <see cref="UnavailableException"/> (503).
 /// </summary>
 internal sealed class Argon2PasswordHasher : IPasswordHasher, IDisposable
 {
@@ -43,9 +46,7 @@ internal sealed class Argon2PasswordHasher : IPasswordHasher, IDisposable
         ArgumentNullException.ThrowIfNull(password);
 
         if (!TryParse(passwordHash, out var parsed))
-        {
             return false;
-        }
 
         var actual = await DeriveAsync(
             password, parsed.Salt, parsed.Memory, parsed.Iterations, parsed.Parallelism, parsed.Hash.Length, cancellationToken);
@@ -63,7 +64,8 @@ internal sealed class Argon2PasswordHasher : IPasswordHasher, IDisposable
     private async Task<byte[]> DeriveAsync(
         string password, byte[] salt, int memoryKib, int iterations, int parallelism, int size, CancellationToken cancellationToken)
     {
-        await _slots.WaitAsync(cancellationToken);
+        if (!await _slots.WaitAsync(TimeSpan.FromMilliseconds(_cost.SlotWaitMilliseconds), cancellationToken))
+            throw new UnavailableException(IdentityErrors.PasswordHashingBusy.WithRetryAfter(TimeSpan.FromSeconds(1)));
         try
         {
             return Derive(password, salt, memoryKib, iterations, parallelism, size);
@@ -88,15 +90,11 @@ internal sealed class Argon2PasswordHasher : IPasswordHasher, IDisposable
     {
         parsed = default;
         if (phc is null || !phc.StartsWith(Prefix, StringComparison.Ordinal))
-        {
             return false;
-        }
 
         var parts = phc[Prefix.Length..].Split('$');
         if (parts.Length != 3)
-        {
             return false;
-        }
 
         if (!TryParseCost(parts[0], out var memory, out var iterations, out var parallelism)
             || !TryDecode(parts[1], out var salt)
@@ -136,9 +134,7 @@ internal sealed class Argon2PasswordHasher : IPasswordHasher, IDisposable
         var padded = value.PadRight(value.Length + ((4 - (value.Length % 4)) % 4), '=');
         bytes = new byte[padded.Length];
         if (!Convert.TryFromBase64String(padded, bytes, out var written))
-        {
             return false;
-        }
 
         bytes = bytes[..written];
         return true;

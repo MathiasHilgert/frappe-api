@@ -15,6 +15,10 @@ public sealed class EmailTests
     }
 
     [Fact]
+    public void Create_NormalizesToLowerInvariant_SoEveryLayerComparesTheSameValue() =>
+        Email.Create("  Ana.Pérez@Example.COM ").Value.Value.ShouldBe("ana.pérez@example.com");
+
+    [Fact]
     public void Create_DiffersOnlyInCase_IsEqual() =>
         Email.Create("Ana@Example.com").Value.ShouldBe(Email.Create("ana@example.com").Value);
 

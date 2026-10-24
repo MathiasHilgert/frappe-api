@@ -83,14 +83,14 @@ public sealed class OwnerLocaleTests(ApiFixture fixture) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task PatchMe_CanonicalisesTheTag_AndReturnsTheProfile()
+    public async Task PatchMe_CanonicalisesTheTag_AndReturnsTheStoredLocale()
     {
         var (owner, _, token) = await SessionSeeder.SeedAsync(fixture.Host);
 
         var body = await (await PatchAsync(token, new { locale = "es_mx" }, 200)).ReadAsJsonAsync<JsonElement>();
 
         body.GetProperty("locale").GetString().ShouldBe("es-MX");
-        body.GetProperty("id").GetGuid().ShouldBe(owner.Id);
+        body.EnumerateObject().Select(p => p.Name).ShouldBe(["locale"]);
         (await SessionSeeder.LoadAsync(fixture.Host, owner.Id)).Owner.Locale.Value.ShouldBe("es-MX");
     }
 

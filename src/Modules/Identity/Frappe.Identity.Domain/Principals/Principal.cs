@@ -32,29 +32,28 @@ public sealed class Principal : AggregateRoot<Guid>
     public IReadOnlyList<Session> Sessions => _sessions;
     public IReadOnlyList<VerificationCode> Codes => _codes;
 
-    public static Principal RegisterOwner(PersonName name, Email email, string passwordHash, Locale locale, TimeProvider clock)
+    public static Principal RegisterOwner(PersonName name, Email email, string passwordHash, Locale locale, DateTimeOffset now)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(passwordHash);
         ArgumentNullException.ThrowIfNull(locale);
 
-        var principal = new Principal(new OwnerAccount(name, email, passwordHash, locale), clock.GetUtcNow());
+        var principal = new Principal(new OwnerAccount(name, email, passwordHash, locale), now);
         principal.Raise(new OwnerRegistrationSubmitted(principal.Id, email.Value));
         return principal;
     }
 
     /// <summary>Issues a code for <paramref name="purpose"/>, replacing the previous one so only one is live.</summary>
-    public Result<VerificationCode> IssueCode(CodePurpose purpose, string codeHash, TimeProvider clock) =>
-        IssueCode(Guid.CreateVersion7(clock.GetUtcNow()), purpose, codeHash, clock);
+    public Result<VerificationCode> IssueCode(CodePurpose purpose, string codeHash, DateTimeOffset now) =>
+        IssueCode(Guid.CreateVersion7(now), purpose, codeHash, now);
 
     /// <summary>
     /// Issues a code whose id the caller chose, for flows that hand the id out before the code exists (a password
     /// reset answers at once and issues in the background, so its timing reveals nothing).
     /// </summary>
-    public Result<VerificationCode> IssueCode(Guid codeId, CodePurpose purpose, string codeHash, TimeProvider clock)
+    public Result<VerificationCode> IssueCode(Guid codeId, CodePurpose purpose, string codeHash, DateTimeOffset now)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(codeHash);
 
-        var now = clock.GetUtcNow();
         var issued = VerificationCode.Replacing(CodeFor(purpose), codeId, purpose, codeHash, now);
         if (issued.IsSuccess)
         {
@@ -64,17 +63,15 @@ public sealed class Principal : AggregateRoot<Guid>
         return issued;
     }
 
-    public Result VerifyEmail(string codeHash, TimeProvider clock)
+    public Result VerifyEmail(string codeHash, DateTimeOffset now)
     {
         if (Owner.Status != OwnerStatus.Pending)
-        {
             return Result.Failure(IdentityErrors.AccountNotPending);
-        }
 
-        var consumed = ConsumeCode(CodePurpose.EmailVerify, codeHash, clock);
+        var consumed = ConsumeCode(CodePurpose.EmailVerify, codeHash, now);
         if (consumed.IsSuccess)
         {
-            Owner.Status = OwnerStatus.Active;
+            Owner.Activate();
             Raise(new OwnerEmailVerified(Id));
         }
         return consumed;
@@ -84,16 +81,12 @@ public sealed class Principal : AggregateRoot<Guid>
     /// Agrees to delete an unverified registration past its grace. Verified or suspended owners, and pending
     /// ones still inside the grace, are never purged.
     /// </summary>
-    public Result PurgeAbandonedRegistration(TimeProvider clock)
+    public Result PurgeAbandonedRegistration(DateTimeOffset now)
     {
         if (Owner.Status != OwnerStatus.Pending)
-        {
             return Result.Failure(IdentityErrors.AccountNotPending);
-        }
-        if (clock.GetUtcNow() - RegisteredAt <= PendingGracePeriod)
-        {
+        if (now - RegisteredAt <= PendingGracePeriod)
             return Result.Failure(IdentityErrors.RegistrationInGrace);
-        }
 
         Raise(new OwnerPendingPurged(Id));
         return Result.Success();
@@ -103,23 +96,21 @@ public sealed class Principal : AggregateRoot<Guid>
     public void ChangeLocale(Locale locale)
     {
         ArgumentNullException.ThrowIfNull(locale);
-        Owner.Locale = locale;
+        Owner.ChangeLocale(locale);
     }
 
     /// <summary>Shuts the owner out at once; their sessions stop authenticating. Suspending twice is refused.</summary>
     public Result Suspend()
     {
         if (Owner.Status == OwnerStatus.Suspended)
-        {
             return Result.Failure(IdentityErrors.AccountSuspended);
-        }
 
-        Owner.Status = OwnerStatus.Suspended;
+        Owner.Suspend();
         Raise(new OwnerSuspended(Id));
         return Result.Success();
     }
 
-    public Result<Session> OpenSession(string tokenHash, SessionSurface surface, TimeProvider clock)
+    public Result<Session> OpenSession(string tokenHash, SessionSurface surface, DateTimeOffset now)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tokenHash);
 
@@ -129,7 +120,7 @@ public sealed class Principal : AggregateRoot<Guid>
 
         return Result.From(notification, () =>
         {
-            var session = new Session(tokenHash, surface, clock.GetUtcNow());
+            var session = new Session(tokenHash, surface, now);
             _sessions.Add(session);
             Raise(new SessionOpened(Id, session.Id, surface));
             return session;
@@ -137,19 +128,15 @@ public sealed class Principal : AggregateRoot<Guid>
     }
 
     /// <summary>Records use of a live session. An expired one is reported, never revived.</summary>
-    public Result TouchSession(Guid sessionId, TimeProvider clock)
+    public Result TouchSession(Guid sessionId, DateTimeOffset now)
     {
         var session = _sessions.Find(s => s.Id == sessionId);
         if (session is null)
-        {
             return Result.Failure(IdentityErrors.SessionNotFound);
-        }
-        if (!session.IsLive(clock))
-        {
+        if (!session.IsLive(now))
             return Result.Failure(IdentityErrors.SessionExpired);
-        }
 
-        session.Touch(clock.GetUtcNow());
+        session.Touch(now);
         return Result.Success();
     }
 
@@ -157,31 +144,25 @@ public sealed class Principal : AggregateRoot<Guid>
     /// Records that the person behind a live session just re-proved their password (the caller verified it). Sensitive
     /// operations then accept that session until <see cref="Session.StepUpValidity"/> has passed.
     /// </summary>
-    public Result<DateTimeOffset> CompleteStepUp(Guid sessionId, TimeProvider clock)
+    public Result<DateTimeOffset> CompleteStepUp(Guid sessionId, DateTimeOffset now)
     {
         var session = _sessions.Find(s => s.Id == sessionId);
         if (session is null)
-        {
             return Result.Failure<DateTimeOffset>(IdentityErrors.SessionNotFound);
-        }
-        if (!session.IsLive(clock))
-        {
+        if (!session.IsLive(now))
             return Result.Failure<DateTimeOffset>(IdentityErrors.SessionExpired);
-        }
 
-        return Result.Success(session.StepUp(clock.GetUtcNow()));
+        return Result.Success(session.StepUp(now));
     }
 
-    public bool HasFreshStepUp(Guid sessionId, TimeProvider clock) =>
-        _sessions.Exists(s => s.Id == sessionId && s.HasFreshStepUp(clock));
+    public bool HasFreshStepUp(Guid sessionId, DateTimeOffset now) =>
+        _sessions.Exists(s => s.Id == sessionId && s.HasFreshStepUp(now));
 
     public Result RevokeSession(Guid sessionId)
     {
         var session = _sessions.Find(s => s.Id == sessionId);
         if (session is null)
-        {
             return Result.Failure(IdentityErrors.SessionNotFound);
-        }
 
         Revoke(session);
         return Result.Success();
@@ -193,7 +174,7 @@ public sealed class Principal : AggregateRoot<Guid>
         ArgumentException.ThrowIfNullOrWhiteSpace(newPasswordHash);
 
         RevokeSessionsExcept(currentSessionId);
-        Owner.PasswordHash = newPasswordHash;
+        Owner.ReplacePasswordHash(newPasswordHash);
         Raise(new OwnerPasswordChanged(Id));
     }
 
@@ -204,53 +185,48 @@ public sealed class Principal : AggregateRoot<Guid>
     public void RehashPassword(string passwordHash)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(passwordHash);
-        Owner.PasswordHash = passwordHash;
+        Owner.ReplacePasswordHash(passwordHash);
     }
 
     /// <summary>A signed-out change proven by a reset code: no session survives it.</summary>
-    public Result ResetPassword(string codeHash, string newPasswordHash, TimeProvider clock)
+    public Result ResetPassword(string codeHash, string newPasswordHash, DateTimeOffset now)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(newPasswordHash);
 
-        var consumed = ConsumeCode(CodePurpose.PasswordReset, codeHash, clock);
+        var consumed = ConsumeCode(CodePurpose.PasswordReset, codeHash, now);
         if (consumed.IsSuccess)
         {
             RevokeSessionsExcept(currentSessionId: null);
-            Owner.PasswordHash = newPasswordHash;
+            Owner.ReplacePasswordHash(newPasswordHash);
             Raise(new OwnerPasswordChanged(Id));
         }
         return consumed;
     }
 
-    public Result<VerificationCode> RequestEmailChange(Email newEmail, string codeHash, TimeProvider clock)
+    public Result<VerificationCode> RequestEmailChange(Email newEmail, string codeHash, DateTimeOffset now)
     {
-        var issued = IssueCode(CodePurpose.EmailChange, codeHash, clock);
+        var issued = IssueCode(CodePurpose.EmailChange, codeHash, now);
         if (issued.IsSuccess)
         {
-            Owner.PendingEmail = newEmail;
+            Owner.ParkPendingEmail(newEmail);
             Raise(new OwnerEmailChangeRequested(Id, newEmail.Value));
         }
         return issued;
     }
 
     /// <summary>Swaps the email once the code sent to the new address comes back. <paramref name="changeId"/> is the live code's id.</summary>
-    public Result ConfirmEmailChange(Guid changeId, string codeHash, TimeProvider clock)
+    public Result ConfirmEmailChange(Guid changeId, string codeHash, DateTimeOffset now)
     {
         if (Owner.PendingEmail is not { } newEmail)
-        {
             return Result.Failure(IdentityErrors.NoPendingEmailChange);
-        }
         if (CodeFor(CodePurpose.EmailChange)?.Id != changeId)
-        {
             return Result.Failure(IdentityErrors.EmailChangeNotFound);
-        }
 
-        var consumed = ConsumeCode(CodePurpose.EmailChange, codeHash, clock);
+        var consumed = ConsumeCode(CodePurpose.EmailChange, codeHash, now);
         if (consumed.IsSuccess)
         {
             var oldEmail = Owner.Email;
-            Owner.Email = newEmail;
-            Owner.PendingEmail = null;
+            Owner.ConfirmPendingEmail();
             Raise(new OwnerEmailChangeConfirmed(Id, oldEmail.Value, newEmail.Value));
         }
         return consumed;
@@ -260,20 +236,18 @@ public sealed class Principal : AggregateRoot<Guid>
     /// Whether <paramref name="codeHash"/> matches the live, unused code for <paramref name="purpose"/>, without using
     /// it up. Lets a caller prove the code before paying for anything expensive.
     /// </summary>
-    public Result CheckCode(CodePurpose purpose, string codeHash, TimeProvider clock) =>
-        VerificationCode.Check(CodeFor(purpose), codeHash, clock.GetUtcNow());
+    public Result CheckCode(CodePurpose purpose, string codeHash, DateTimeOffset now) =>
+        VerificationCode.Check(CodeFor(purpose), codeHash, now);
 
     private VerificationCode? CodeFor(CodePurpose purpose) => _codes.Find(c => c.Purpose == purpose);
 
-    private Result ConsumeCode(CodePurpose purpose, string codeHash, TimeProvider clock) =>
-        VerificationCode.Consume(CodeFor(purpose), codeHash, clock.GetUtcNow());
+    private Result ConsumeCode(CodePurpose purpose, string codeHash, DateTimeOffset now) =>
+        VerificationCode.Consume(CodeFor(purpose), codeHash, now);
 
     private void RevokeSessionsExcept(Guid? currentSessionId)
     {
         foreach (var session in _sessions.Where(s => s.Id != currentSessionId).ToList())
-        {
             Revoke(session);
-        }
     }
 
     private void Revoke(Session session)

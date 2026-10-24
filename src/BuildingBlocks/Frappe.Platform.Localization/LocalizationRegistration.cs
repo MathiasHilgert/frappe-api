@@ -1,6 +1,5 @@
 using System.Reflection;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -13,15 +12,14 @@ public static class LocalizationRegistration
     /// Supported locales, negotiation, the request locale and the message catalogue. Named apart from ASP.NET Core's
     /// <c>AddLocalization</c>, which this replaces for system strings.
     /// </summary>
-    public static IServiceCollection AddPlatformLocalization(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddPlatformLocalization(this IServiceCollection services)
     {
-        services.AddOptions<LocalizationOptions>().Bind(configuration.GetSection(LocalizationOptions.SectionName));
+        services.AddSingleton<IValidateOptions<LocalizationOptions>, LocalizationOptionsValidator>();
+        services.AddOptions<LocalizationOptions>().BindConfiguration(LocalizationOptions.SectionName).ValidateOnStart();
         services.AddSingleton(sp =>
         {
             var options = sp.GetRequiredService<IOptions<LocalizationOptions>>().Value;
-            return new SupportedLocales(
-                options.SupportedLocales.Count > 0 ? options.SupportedLocales : LocalizationOptions.DefaultSupportedLocales,
-                options.DefaultLocale ?? LocalizationOptions.DefaultLocaleTag);
+            return new SupportedLocales(options.SupportedLocales, options.DefaultLocale);
         });
         services.AddSingleton<LocaleNegotiator>();
         services.AddSingleton<IMessageCatalog, MessageCatalog>();

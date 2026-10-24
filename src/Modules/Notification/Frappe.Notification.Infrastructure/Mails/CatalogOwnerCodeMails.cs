@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Text;
-using Frappe.Notification.Application;
+using Frappe.Notification.Application.OwnerCodeMails;
 using Frappe.Notification.Domain;
 using Frappe.Platform.Localization;
 using Frappe.SharedKernel.Localization;

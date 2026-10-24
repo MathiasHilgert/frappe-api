@@ -8,8 +8,8 @@ namespace Frappe.Identity.Infrastructure.Persistence;
 
 /// <summary>
 /// One aggregate over four tables: principals, owner_accounts, sessions and verification_codes. Children are owned,
-/// so they load and save only through their principal. The unique index on lower(email) is raw SQL in the
-/// migration (<see cref="EmailUniqueIndex"/>): EF cannot model expression indexes.
+/// so they load and save only through their principal. <see cref="Email"/> arrives normalized, so the unique index
+/// (<see cref="EmailUniqueIndex"/>) is a plain one on the column.
 /// </summary>
 internal sealed class PrincipalConfiguration : IEntityTypeConfiguration<Principal>
 {
@@ -57,6 +57,8 @@ internal sealed class PrincipalConfiguration : IEntityTypeConfiguration<Principa
             .HasConversion(locale => locale.Value, value => Locale.Parse(value))
             .HasMaxLength(LocaleMaxLength);
         owner.Property(o => o.Status).HasConversion<SnakeCaseEnumConverter<OwnerStatus>>();
+
+        owner.HasIndex(o => o.Email).IsUnique().HasDatabaseName(EmailUniqueIndex);
 
         // The abandoned-registration purge scans only pending owners.
         owner.HasIndex(o => o.Status).HasDatabaseName("owner_accounts_pending_idx").HasFilter("status = 'pending'");

@@ -1,6 +1,7 @@
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
 using Frappe.Identity.Application.Sessions;
+using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Principals;
 using Frappe.Identity.Domain.Users;
 using Frappe.SharedKernel.Localization;
@@ -90,10 +91,10 @@ public sealed class SessionAuthenticatorTests
         public (Principal Principal, Session Session) Seed(TimeProvider clock)
         {
             var principal = Principal.RegisterOwner(
-                PersonName.Create("Ana").Value, Email.Create("ana@example.com").Value, "pw", Locale.Parse("en"), clock);
-            principal.IssueCode(CodePurpose.EmailVerify, "c", clock);
-            principal.VerifyEmail("c", clock);
-            var session = principal.OpenSession("h:token", SessionSurface.Api, clock).Value;
+                PersonName.Create("Ana").Value, Email.Create("ana@example.com").Value, "pw", Locale.Parse("en"), clock.GetUtcNow());
+            principal.IssueCode(CodePurpose.EmailVerify, "c", clock.GetUtcNow());
+            principal.VerifyEmail("c", clock.GetUtcNow());
+            var session = principal.OpenSession("h:token", SessionSurface.Api, clock.GetUtcNow()).Value;
             _principal = principal;
             return (principal, session);
         }
@@ -112,21 +113,19 @@ public sealed class SessionAuthenticatorTests
             return Task.FromResult(_principal?.Id == id ? _principal : null);
         }
 
-        public Task<bool> SaveUnlessChangedAsync(CancellationToken cancellationToken)
+        public Task<Result> SaveAsync(CancellationToken cancellationToken)
         {
             Saves++;
             _revoked = RevokeOnSave;
-            return Task.FromResult(!RevokeOnSave && !ConflictOnSave);
+            return Task.FromResult(RevokeOnSave || ConflictOnSave ? Result.Failure(IdentityErrors.ConcurrentChange) : Result.Success());
         }
 
         public Task<Principal?> GetByEmailAsync(Email email, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<Principal?> GetBySessionTokenHashAsync(string tokenHash, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<Principal?> GetByCodeIdAsync(Guid codeId, CodePurpose purpose, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<IReadOnlyList<Principal>> ListPendingRegisteredBeforeAsync(DateTimeOffset cutoff, int limit, CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
+        public Task<IReadOnlyList<PurgeCandidate>> ListPurgeCandidatesAsync(
+            DateTimeOffset cutoff, PurgeCandidate? after, int limit, CancellationToken cancellationToken) => throw new NotSupportedException();
         public void Add(Principal principal) => throw new NotSupportedException();
         public void Remove(Principal principal) => throw new NotSupportedException();
-        public Task<Result> SaveAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<Result> SaveClaimingEmailAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

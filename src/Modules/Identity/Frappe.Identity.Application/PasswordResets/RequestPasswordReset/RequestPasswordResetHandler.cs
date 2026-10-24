@@ -23,7 +23,7 @@ public static class RequestPasswordResetHandler
         var messages = new OutgoingMessages();
         var email = Email.Create(command.Email);
         if (email.IsFailure)
-            return (Result.Failure<Guid>(email.Errors[0]), messages);
+            return (Result.Failure<Guid>(email.Errors), messages);
 
         var perEmail = await limiter.RecordAsync(AttemptPolicies.PasswordResetPerEmail, email.Value.Value, cancellationToken);
         var perIp = await limiter.RecordAsync(AttemptPolicies.PasswordResetPerIp, command.ClientIp, cancellationToken);

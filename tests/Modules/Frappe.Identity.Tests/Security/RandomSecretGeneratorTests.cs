@@ -11,9 +11,7 @@ public sealed class RandomSecretGeneratorTests
     public void NewVerificationCode_IsSixDigits()
     {
         for (var i = 0; i < 200; i++)
-        {
             _generator.NewVerificationCode().ShouldMatch("^[0-9]{6}$");
-        }
     }
 
     [Fact]

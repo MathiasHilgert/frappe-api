@@ -1,4 +1,4 @@
-using Frappe.Identity.Infrastructure.Security;
+using Frappe.Modularity;
 using Frappe.Platform.Health;
 using Npgsql;
 using OpenTelemetry;
@@ -14,7 +14,7 @@ internal static class Observability
     /// Traces, metrics and logs over OTLP. The endpoint comes from the standard
     /// OTEL_EXPORTER_OTLP_ENDPOINT variable, so the binary is the same in every environment.
     /// </summary>
-    public static WebApplicationBuilder AddObservability(this WebApplicationBuilder builder)
+    public static WebApplicationBuilder AddObservability(this WebApplicationBuilder builder, IReadOnlyList<IModule> modules)
     {
         builder.Logging.AddOpenTelemetry(logging =>
         {
@@ -37,9 +37,10 @@ internal static class Observability
                 .AddRuntimeInstrumentation()
                 .AddNpgsqlInstrumentation()
                 .AddMeter("Microsoft.EntityFrameworkCore")
-                .AddMeter("Wolverine")
+                // Wolverine names its meter "Wolverine:<application assembly>"; its dead-letter counters live there.
+                .AddMeter("Wolverine*")
                 .AddMeter(HealthMetricsPublisher.MeterName)
-                .AddMeter(IdentityMetrics.MeterName))
+                .AddMeter([.. modules.SelectMany(m => m.Meters)]))
             .UseOtlpExporter();
 
         return builder;

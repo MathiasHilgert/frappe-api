@@ -18,41 +18,44 @@ public static class VerifyOwnerEmailHandler
         ISecretHasher hasher,
         ISecretGenerator secrets,
         IAttemptLimiter limiter,
+        IIdentityTelemetry telemetry,
         TimeProvider clock,
         CancellationToken cancellationToken)
     {
         var policy = AttemptPolicies.VerifyEmailPerOwner;
-        var reservation = await AttemptReservation.TakeAsync(limiter, cancellationToken, (policy, command.OwnerId.ToString()));
+        var reservation = await AttemptReservation.TakeAsync(limiter, [(policy, command.OwnerId.ToString())], cancellationToken);
         if (!reservation.IsAllowed)
             return Failed(IdentityErrors.TooManyAttempts.WithRetryAfter(reservation.Decision.RetryAfter));
 
         var principal = await principals.GetByIdAsync(command.OwnerId, cancellationToken);
         if (principal is null)
         {
-            await reservation.ReleaseAsync(cancellationToken);
+            await reservation.ReleaseAsync();
             return Failed(IdentityErrors.OwnerNotFound);
         }
 
-        var verified = principal.VerifyEmail(hasher.Hash(command.Code), clock);
+        var verified = principal.VerifyEmail(hasher.Hash(command.Code ?? string.Empty), clock.GetUtcNow());
         if (verified.IsFailure)
         {
             // Only a wrong code is a guess; an owner who is no longer pending gives the slot back.
-            if (verified.Errors.Any(e => e.Is(IdentityErrors.AccountNotPending)))
-                await reservation.ReleaseAsync(cancellationToken);
-            return Failed(verified.Errors[0]);
+            if (verified.Has(IdentityErrors.AccountNotPending))
+                await reservation.ReleaseAsync();
+            else
+                telemetry.CodeRejected(CodePurpose.EmailVerify);
+            return Result.Failure<OpenedSession>(verified.Errors);
         }
 
         var token = secrets.NewSessionToken();
-        var session = principal.OpenSession(hasher.Hash(token), SessionSurface.Console, clock).Value;
+        var session = principal.OpenSession(hasher.Hash(token), SessionSurface.Console, clock.GetUtcNow()).Value;
         var saved = await principals.SaveAsync(cancellationToken);
         if (saved.IsFailure)
         {
             // The code was right but nothing was saved: not a guess, and the owner can simply retry.
-            await reservation.ReleaseAsync(cancellationToken);
-            return Failed(saved.Errors[0]);
+            await reservation.ReleaseAsync();
+            return Result.Failure<OpenedSession>(saved.Errors);
         }
 
-        await reservation.SucceededAsync(policy, cancellationToken);
+        await reservation.SucceededAsync(policy);
         return Result.Success(new OpenedSession(session.Id, token, session.AbsoluteExpiresAt));
     }
 

@@ -40,10 +40,32 @@ namespace Frappe.ArchitectureTests.Fixtures.Edge.Infrastructure.Endpoints
         public static IResult Handle() => Results.Problem("hand-built");
     }
 
+    public static class BareStatusEndpoints
+    {
+        public static IResult Handle() => TypedResults.Unauthorized();
+    }
+
+    public static class RawCallerEndpoints
+    {
+        public static string Handle(HttpContext http) =>
+            $"{http.User.Identity?.Name}@{http.Connection.RemoteIpAddress}";
+    }
+
+    public static class DtoPayloadEndpoints
+    {
+        public static Microsoft.AspNetCore.Http.HttpResults.Ok<FixtureProfile> Handle() => TypedResults.Ok(new FixtureProfile("x"));
+    }
+
     public static class GoodEndpoints
     {
         public static IResult Handle() => TypedResults.NoContent();
+
+        public static Microsoft.AspNetCore.Http.HttpResults.Ok<FixtureResponse> Read() => TypedResults.Ok(new FixtureResponse("x"));
     }
+
+    public sealed record FixtureResponse(string Value);
+
+    public sealed record FixtureProfile(string Value);
 }
 
 namespace Frappe.ArchitectureTests.Fixtures.Edge.Infrastructure.Owners

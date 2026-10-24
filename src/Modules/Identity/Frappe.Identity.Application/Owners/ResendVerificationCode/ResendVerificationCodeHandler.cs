@@ -26,7 +26,8 @@ public static class ResendVerificationCodeHandler
         if (issued.IsFailure)
         {
             var window = principal.Codes.First(c => c.Purpose == CodePurpose.EmailVerify).WindowStartedAt;
-            return Result.Failure(issued.Errors[0].WithRetryAfter(window + VerificationCode.ResendWindow - clock.GetUtcNow()));
+            var wait = window + VerificationCode.ResendWindow - clock.GetUtcNow();
+            return Result.Failure(issued.Errors.Select(e => e.WithRetryAfter(wait)));
         }
 
         var saved = await principals.SaveAsync(cancellationToken);

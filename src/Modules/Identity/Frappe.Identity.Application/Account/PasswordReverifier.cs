@@ -19,14 +19,14 @@ public sealed class PasswordReverifier(IPrincipalRepository principals, IPasswor
     public async Task<Result<Principal>> VerifyAsync(
         Guid principalId, string? password, Error wrong, CancellationToken cancellationToken)
     {
-        var reservation = await AttemptReservation.TakeAsync(limiter, cancellationToken, (Policy, principalId.ToString()));
+        var reservation = await AttemptReservation.TakeAsync(limiter, [(Policy, principalId.ToString())], cancellationToken);
         if (!reservation.IsAllowed)
             return Result.Failure<Principal>(IdentityErrors.TooManyAttempts.WithRetryAfter(reservation.Decision.RetryAfter));
 
         var principal = await principals.GetByIdAsync(principalId, cancellationToken);
         if (principal is null)
         {
-            await reservation.ReleaseAsync(cancellationToken);
+            await reservation.ReleaseAsync();
             return Result.Failure<Principal>(IdentityErrors.SessionNotFound);
         }
 
@@ -37,7 +37,7 @@ public sealed class PasswordReverifier(IPrincipalRepository principals, IPasswor
             return Result.Failure<Principal>(wrong);
         }
 
-        await reservation.SucceededAsync(Policy, cancellationToken);
+        await reservation.SucceededAsync(Policy);
         return Result.Success(principal);
     }
 }

@@ -2,6 +2,7 @@ using Frappe.Identity.Application.Owners;
 using Frappe.Platform.Localization;
 using Frappe.Platform.Web.Forwarding;
 using Frappe.Platform.Web.Problems;
+using Frappe.Platform.Web.Security;
 using Frappe.SharedKernel.Validation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -17,19 +18,17 @@ internal static class OwnerRegistrationEndpoints
     public static RouteGroupBuilder MapOwnerRegistrationEndpoints(this RouteGroupBuilder group)
     {
         group.MapPost("/owners", RegisterAsync)
-            .AllowAnonymous()
+            .AllowAnonymousAuth()
             .WithName("RegisterOwner")
             .WithSummary("Signs up a pending owner and emails them a verification code.")
             .ProducesProblem(StatusCodes.Status409Conflict)
-            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
-            .ProducesProblem(StatusCodes.Status429TooManyRequests);
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         group.MapPost("/owners/{id:guid}/verification-codes", ResendAsync)
-            .AllowAnonymous()
+            .AllowAnonymousAuth()
             .WithName("ResendVerificationCode")
             .WithSummary("Emails a pending owner a fresh verification code.")
             .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict)
-            .ProducesProblem(StatusCodes.Status429TooManyRequests);
+            .ProducesProblem(StatusCodes.Status409Conflict);
         return group;
     }
 

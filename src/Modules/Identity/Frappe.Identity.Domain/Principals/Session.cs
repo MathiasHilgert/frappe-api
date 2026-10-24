@@ -30,15 +30,11 @@ public sealed class Session
     /// <summary>Null until the person re-proves their password inside this session.</summary>
     public DateTimeOffset? StepUpExpiresAt { get; private set; }
 
-    public bool IsLive(TimeProvider clock) => IsLive(CreatedAt, LastSeenAt, clock);
+    public bool IsLive(DateTimeOffset now) => IsLive(CreatedAt, LastSeenAt, now);
 
     /// <summary>The liveness rule on its own, for readers that check a session without loading its aggregate.</summary>
-    public static bool IsLive(DateTimeOffset createdAt, DateTimeOffset lastSeenAt, TimeProvider clock)
-    {
-        ArgumentNullException.ThrowIfNull(clock);
-        var now = clock.GetUtcNow();
-        return now < lastSeenAt + IdleTimeout && now < createdAt + AbsoluteLifetime;
-    }
+    public static bool IsLive(DateTimeOffset createdAt, DateTimeOffset lastSeenAt, DateTimeOffset now) =>
+        now < lastSeenAt + IdleTimeout && now < createdAt + AbsoluteLifetime;
 
     /// <summary>Use pushes the idle expiry forward; nothing pushes the absolute one.</summary>
     internal void Touch(DateTimeOffset now) => LastSeenAt = now;
@@ -50,5 +46,5 @@ public sealed class Session
         return expiresAt;
     }
 
-    internal bool HasFreshStepUp(TimeProvider clock) => IsLive(clock) && clock.GetUtcNow() < StepUpExpiresAt;
+    internal bool HasFreshStepUp(DateTimeOffset now) => IsLive(now) && now < StepUpExpiresAt;
 }

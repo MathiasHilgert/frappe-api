@@ -1,6 +1,5 @@
 using Alba;
 using Frappe.Identity.Application.Principals;
-using Frappe.Identity.Application.Principals.Purge;
 using Frappe.Identity.Domain.Principals;
 using Frappe.Identity.Domain.Users;
 using Frappe.Identity.Infrastructure.Persistence;
@@ -65,10 +64,10 @@ public sealed class PurgePendingOwnersTests(ApiFixture fixture)
         await services.GetRequiredService<IdentityDbContext>().Database.MigrateAsync();
 
         var email = Email.Create($"purge-{Guid.NewGuid():N}@example.com").Value;
-        var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, email, "password-hash", Locale.Parse("en"), clock);
-        principal.IssueCode(CodePurpose.EmailVerify, "code-hash", clock);
+        var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, email, "password-hash", Locale.Parse("en"), clock.GetUtcNow());
+        principal.IssueCode(CodePurpose.EmailVerify, "code-hash", clock.GetUtcNow());
         if (activate)
-            principal.VerifyEmail("code-hash", clock).IsSuccess.ShouldBeTrue();
+            principal.VerifyEmail("code-hash", clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
 
         var repository = services.GetRequiredService<IPrincipalRepository>();
         repository.Add(principal);

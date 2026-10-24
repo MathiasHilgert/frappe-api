@@ -53,18 +53,21 @@ public sealed class AttemptLimiterTests(ApiFixture fixture)
     }
 
     [Fact]
-    public async Task Reserve_AfterWindowExpires_AllowsAgain()
+    public async Task TheFirstAttempt_StartsAWindowThatValkeyExpires()
     {
-        // Valkey owns the expiry (PEXPIRE), so no fake clock reaches it: a short window, polled until it lapses.
-        var shortWindow = new AttemptPolicy("test-short", 1, TimeSpan.FromMilliseconds(100));
-        var key = UniqueKey();
-        await Limiter.RecordAsync(shortWindow, key, TestContext.Current.CancellationToken);
-        (await Limiter.ReserveAsync(shortWindow, key, TestContext.Current.CancellationToken)).IsAllowed.ShouldBeFalse();
+        // Valkey owns the expiry (PEXPIRE) and no fake clock reaches it, so instead of waiting the window out the
+        // test reads the expiry the first attempt set on the counter.
+        var policy = new AttemptPolicy($"test-window-{Guid.NewGuid():N}", 3, TimeSpan.FromMinutes(1));
+        await Limiter.RecordAsync(policy, UniqueKey(), TestContext.Current.CancellationToken);
+        var valkey = await fixture.Host.Services.GetRequiredService<Frappe.Platform.Caching.ValkeyConnection>().GetAsync();
+        var server = valkey.GetServer(valkey.GetEndPoints()[0]);
+        var database = valkey.GetDatabase();
 
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(10));
-        while (!(await Limiter.ReserveAsync(shortWindow, key, TestContext.Current.CancellationToken)).IsAllowed)
-            await Task.Delay(TimeSpan.FromMilliseconds(20), timeout.Token);
+        var counter = server.Keys(database.Database, $"*{policy.Name}*").ShouldHaveSingleItem();
+        var ttl = (await database.KeyTimeToLiveAsync(counter)).ShouldNotBeNull();
+
+        ttl.ShouldBeGreaterThan(TimeSpan.Zero);
+        ttl.ShouldBeLessThanOrEqualTo(policy.Window);
     }
 
     [Fact]

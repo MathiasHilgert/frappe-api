@@ -15,6 +15,7 @@ public static class RequestCorrelationExtensions
     public static IServiceCollection AddRequestCorrelation(this IServiceCollection services)
     {
         services.AddExceptionHandler<BadRequestExceptionHandler>();
+        services.AddExceptionHandler<UnavailableExceptionHandler>();
         services.AddMessageCatalog(typeof(RequestCorrelationExtensions).Assembly);
         return services.AddProblemDetails(options => options.CustomizeProblemDetails = ctx =>
         {

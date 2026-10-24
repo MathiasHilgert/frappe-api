@@ -128,11 +128,12 @@ public sealed class ApiFixture : IAsyncLifetime
         Action<IServiceCollection>? configureServices = null,
         string environment = "Development",
         string? connectionString = null,
-        bool realPasswordHasher = false)
+        bool realPasswordHasher = false,
+        Action<IDictionary<string, string?>>? configureSettings = null)
     {
         var stack = await StackAsync();
         return await CreateHostAsync(configureServices, environment, connectionString ?? stack.ConnectionString,
-            stack.ValkeyConnectionString, realPasswordHasher);
+            stack.ValkeyConnectionString, realPasswordHasher, configureSettings);
     }
 
     private Task<IAlbaHost> CreateHostAsync(
@@ -140,7 +141,8 @@ public sealed class ApiFixture : IAsyncLifetime
         string environment = "Development",
         string? connectionString = null,
         string? valkeyConnectionString = null,
-        bool realPasswordHasher = false) =>
+        bool realPasswordHasher = false,
+        Action<IDictionary<string, string?>>? configureSettings = null) =>
         AlbaHost.For<Program>(builder =>
         {
             builder.UseEnvironment(environment);
@@ -148,16 +150,25 @@ public sealed class ApiFixture : IAsyncLifetime
             builder.UseSetting("ConnectionStrings:nats", _nats.GetConnectionString());
             builder.UseSetting("ConnectionStrings:valkey", valkeyConnectionString);
             builder.UseSetting("Identity:SecretHashing:Key", "integration-tests-secret-hashing-key-0123456789");
+            builder.UseSetting("Messaging:Seal:Key", "integration-tests-message-seal-key-0123456789");
             builder.UseSetting("Identity:SessionCookie:Name", SessionCookieName);
             builder.UseSetting("Identity:SessionCookie:Path", "/");
             // No test reaches the real HaveIBeenPwned: a closed local port makes the check fail open at once.
             builder.UseSetting("Identity:BreachedPasswords:BaseAddress", "http://127.0.0.1:9/");
-            // A developer's user-secrets may hold a real Resend key; tests never send mail.
-            builder.UseSetting("Notification:Resend:ApiKey", string.Empty);
+            // A developer's user-secrets may hold a real Resend key; tests never send mail. Outside Development a key
+            // is required to start, so those hosts get a dummy one and a closed local port: nothing reaches Resend.
+            var development = environment == "Development";
+            builder.UseSetting("Notification:Resend:ApiKey", development ? string.Empty : "re_dummy_not_a_real_key");
+            if (!development)
+                builder.UseSetting("Notification:Resend:BaseAddress", "http://127.0.0.1:9/");
             // A generous limiter budget so a busy CI container never makes the real-Valkey tests fail open.
             builder.UseSetting("Identity:AttemptLimiter:TimeoutMilliseconds", "2000");
             // Load the committed handler code like production does: a stale `just codegen` fails here, not in prod.
             builder.UseSetting("Wolverine:TypeLoadMode", "Static");
+            var settings = new Dictionary<string, string?>(StringComparer.Ordinal);
+            configureSettings?.Invoke(settings);
+            foreach (var (key, value) in settings)
+                builder.UseSetting(key, value);
             builder.ConfigureServices(services =>
             {
                 services.RunWolverineInSoloMode();

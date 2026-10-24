@@ -6,7 +6,6 @@ using Frappe.Platform.Web.Security;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -71,7 +70,7 @@ public sealed class AuthProblemTests(ApiFixture fixture)
     {
         var builder = WebApplication.CreateSlimBuilder();
         builder.WebHost.UseTestServer();
-        builder.Services.AddPlatformLocalization(new ConfigurationBuilder().Build());
+        builder.Services.AddPlatformLocalization();
         builder.Services.AddRequestCorrelation();
         builder.Services.AddDenyByDefaultSecurity();
         builder.Services.AddAuthentication("everyone")

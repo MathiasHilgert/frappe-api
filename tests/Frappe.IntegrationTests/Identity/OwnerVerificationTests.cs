@@ -55,10 +55,12 @@ public sealed class OwnerVerificationTests(ApiFixture fixture)
     public async Task WrongCode_Is422_AndTheOwnerStaysPending()
     {
         var ownerId = await SeedPendingOwnerAsync(fixture.Host);
+        using var rejected = new MeterCounter("Frappe.Identity", "frappe.identity.code.invalid");
 
         var result = await VerifyAsync(fixture.Host, ownerId, "000000", 422);
 
         (await ErrorCodesAsync(result)).ShouldBe(["identity.code.invalid"]);
+        rejected.Total.ShouldBeGreaterThanOrEqualTo(1);
         var principal = await SessionSeeder.LoadAsync(fixture.Host, ownerId);
         principal.Owner.Status.ShouldBe(OwnerStatus.Pending);
         principal.Sessions.ShouldBeEmpty();
@@ -158,8 +160,8 @@ public sealed class OwnerVerificationTests(ApiFixture fixture)
         var clock = services.GetRequiredService<TimeProvider>();
 
         var email = Email.Create($"owner-{Guid.NewGuid():N}@example.com").Value;
-        var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, email, "password-hash", Locale.Parse("en"), clock);
-        principal.IssueCode(CodePurpose.EmailVerify, HashOf(host, Code), clock).IsSuccess.ShouldBeTrue();
+        var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, email, "password-hash", Locale.Parse("en"), clock.GetUtcNow());
+        principal.IssueCode(CodePurpose.EmailVerify, HashOf(host, Code), clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
 
         var repository = services.GetRequiredService<IPrincipalRepository>();
         repository.Add(principal);

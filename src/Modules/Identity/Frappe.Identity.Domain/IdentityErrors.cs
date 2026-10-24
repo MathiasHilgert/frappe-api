@@ -41,6 +41,10 @@ public static class IdentityErrors
     public static readonly Error TooManyAttempts =
         new("identity.attempts.too_many", "Too many attempts. Try again later.", Kind: ErrorKind.TooManyRequests);
 
+    /// <summary>No password-hashing slot freed in time: the server is saturated, so the caller backs off and retries.</summary>
+    public static readonly Error PasswordHashingBusy =
+        new("identity.password_hashing.busy", "The server is busy. Try again in a moment.", Kind: ErrorKind.Unavailable);
+
     public static readonly Error OwnerNotFound = new("identity.owner.not_found", "The owner does not exist.", Kind: ErrorKind.NotFound);
 
     public static readonly Error AccountPending = new("identity.account.pending", "The email has not been verified yet.", Kind: ErrorKind.Forbidden);
@@ -71,6 +75,10 @@ public static class IdentityErrors
         new("identity.step_up.required", "Confirm your password again to continue.", Kind: ErrorKind.Forbidden);
 
     public static readonly Error SessionNotFound = new("identity.session.not_found", "The session does not exist.", Kind: ErrorKind.NotFound);
+
+    /// <summary>The session authenticated, but the account behind it is gone (deleted meanwhile).</summary>
+    public static readonly Error PrincipalGone =
+        new("identity.session.principal_gone", "The account behind this session no longer exists.", Kind: ErrorKind.Unauthorized);
 
     public static readonly Error SessionExpired = new("identity.session.expired", "The session has expired.", Kind: ErrorKind.Unauthorized);
 

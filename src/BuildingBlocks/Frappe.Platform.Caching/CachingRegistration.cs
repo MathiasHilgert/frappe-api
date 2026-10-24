@@ -25,11 +25,10 @@ public static class CachingRegistration
     {
         ArgumentNullException.ThrowIfNull(environment);
 
+        services.AddSingleton<IValidateOptions<ValkeyOptions>, ValkeyOptionsValidator>();
         services.AddOptions<ValkeyOptions>()
             .Configure(options => options.ConnectionString = configuration.GetConnectionString(ConnectionStringName)
                 ?? (environment.IsDevelopment() ? DevelopmentConnectionString : null))
-            .Validate(options => !string.IsNullOrWhiteSpace(options.ConnectionString),
-                $"Connection string '{ConnectionStringName}' is missing.")
             .ValidateOnStart();
 
         services.AddSingleton(sp =>

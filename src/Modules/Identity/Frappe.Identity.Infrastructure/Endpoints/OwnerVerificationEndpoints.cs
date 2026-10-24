@@ -1,6 +1,7 @@
 using Frappe.Identity.Application.Owners;
 using Frappe.Identity.Infrastructure.Sessions;
 using Frappe.Platform.Web.Problems;
+using Frappe.Platform.Web.Security;
 using Frappe.SharedKernel.Validation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -15,13 +16,12 @@ internal static class OwnerVerificationEndpoints
     public static RouteGroupBuilder MapOwnerVerificationEndpoints(this RouteGroupBuilder group)
     {
         group.MapPost("/owners/{id:guid}/verification", VerifyAsync)
-            .AllowAnonymous()
+            .AllowAnonymousAuth()
             .WithName("VerifyOwnerEmail")
             .WithSummary("Verifies a pending owner's email with the emailed code and signs them in.")
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
-            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
-            .ProducesProblem(StatusCodes.Status429TooManyRequests);
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         return group;
     }
 
@@ -29,7 +29,7 @@ internal static class OwnerVerificationEndpoints
         Guid id, OwnerVerificationRequest request, IMessageBus bus, ISessionCookie cookie, CancellationToken cancellationToken)
     {
         var verified = await bus.InvokeAsync<Result<OpenedSession>>(
-            new VerifyOwnerEmail(id, request.Code ?? string.Empty), cancellationToken);
+            new VerifyOwnerEmail(id, request.Code), cancellationToken);
         if (!verified.TryGetValue(out var session))
             return verified.ToProblem();
 

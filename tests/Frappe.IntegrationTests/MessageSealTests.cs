@@ -1,13 +1,13 @@
 using System.Security.Cryptography;
-using Frappe.Identity.Infrastructure.Security;
+using Frappe.Platform.Messaging.Sealing;
 using Microsoft.Extensions.Options;
 using Shouldly;
 
-namespace Frappe.Identity.Tests.Security;
+namespace Frappe.IntegrationTests;
 
-public sealed class AesGcmOwnerCodeSealTests
+public sealed class MessageSealTests
 {
-    private static readonly AesGcmOwnerCodeSeal Seal = Create(new string('k', 32));
+    private static readonly AesGcmMessageSeal Seal = Create(new string('k', 32));
 
     [Fact]
     public void Seal_HidesTheCode_AndOpenGivesItBack()
@@ -35,5 +35,5 @@ public sealed class AesGcmOwnerCodeSealTests
     public void Open_ASealFromAnotherKey_Throws() =>
         Should.Throw<CryptographicException>(() => Create(new string('x', 32)).Open(Seal.Seal("123456")));
 
-    private static AesGcmOwnerCodeSeal Create(string key) => new(Options.Create(new SecretHashingOptions { Key = key }));
+    private static AesGcmMessageSeal Create(string key) => new(Options.Create(new MessageSealOptions { Key = key }));
 }
