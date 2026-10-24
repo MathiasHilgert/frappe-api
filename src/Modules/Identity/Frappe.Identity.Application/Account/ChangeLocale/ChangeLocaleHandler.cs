@@ -29,7 +29,7 @@ public static class ChangeLocaleHandler
             return Result.Failure<Locale>(IdentityErrors.OwnerNotFound);
 
         principal.ChangeLocale(locale);
-        var saved = await principals.SaveChangesAsync(cancellationToken);
+        var saved = await principals.SaveAsync(cancellationToken);
         return saved.IsSuccess ? Result.Success(locale) : Result.Failure<Locale>(saved.Errors[0]);
     }
 }

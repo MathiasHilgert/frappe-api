@@ -18,13 +18,13 @@ public sealed class ValkeyAttemptLimiterTests : IAsyncDisposable
         "127.0.0.1:1,abortConnect=false,connectTimeout=200,asyncTimeout=200,syncTimeout=200,connectRetry=0"));
 
     [Fact]
-    public async Task ValkeyDown_CheckAndRecord_FailOpenAndCount()
+    public async Task ValkeyDown_ReserveAndRecord_FailOpenAndCount()
     {
         using var counted = new CounterListener(IdentityMetrics.AttemptLimiterUnavailable);
         var limiter = Limiter();
 
         (await limiter.RecordAsync(Policy, "a@example.com", TestContext.Current.CancellationToken)).IsAllowed.ShouldBeTrue();
-        (await limiter.CheckAsync(Policy, "a@example.com", TestContext.Current.CancellationToken)).IsAllowed.ShouldBeTrue();
+        (await limiter.ReserveAsync(Policy, "a@example.com", TestContext.Current.CancellationToken)).IsAllowed.ShouldBeTrue();
         await Should.NotThrowAsync(limiter.ResetAsync(Policy, "a@example.com", TestContext.Current.CancellationToken));
 
         counted.Total.ShouldBe(3);
@@ -39,7 +39,7 @@ public sealed class ValkeyAttemptLimiterTests : IAsyncDisposable
         var limiter = Limiter(unreachable);
 
         var started = TimeProvider.System.GetTimestamp();
-        var decision = await limiter.CheckAsync(Policy, "a@example.com", TestContext.Current.CancellationToken);
+        var decision = await limiter.ReserveAsync(Policy, "a@example.com", TestContext.Current.CancellationToken);
 
         TimeProvider.System.GetElapsedTime(started).ShouldBeLessThan(TimeSpan.FromSeconds(1));
         decision.IsAllowed.ShouldBeTrue();
@@ -52,7 +52,7 @@ public sealed class ValkeyAttemptLimiterTests : IAsyncDisposable
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
 
-        await Should.ThrowAsync<OperationCanceledException>(Limiter().CheckAsync(Policy, "a@example.com", cancelled.Token));
+        await Should.ThrowAsync<OperationCanceledException>(Limiter().ReserveAsync(Policy, "a@example.com", cancelled.Token));
     }
 
     public async ValueTask DisposeAsync()

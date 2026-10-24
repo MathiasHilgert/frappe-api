@@ -50,7 +50,6 @@ public static class ConfirmPasswordResetHandler
         if (reset.IsFailure)
             return reset;
 
-        await principals.SaveAsync(cancellationToken);
-        return Result.Success();
+        return await principals.SaveAsync(cancellationToken);
     }
 }

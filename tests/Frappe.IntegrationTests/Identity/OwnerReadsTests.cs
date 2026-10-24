@@ -55,7 +55,7 @@ public sealed class OwnerReadsTests(ApiFixture fixture)
             var repository = write.ServiceProvider.GetRequiredService<IPrincipalRepository>();
             var loaded = (await repository.GetByIdAsync(principal.Id, TestContext.Current.CancellationToken)).ShouldNotBeNull();
             expiresAt = loaded.CompleteStepUp(session.Id, write.ServiceProvider.GetRequiredService<TimeProvider>()).Value;
-            (await repository.SaveChangesAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
+            (await repository.SaveAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
         }
 
         await using var scope = fixture.Host.Services.CreateAsyncScope();

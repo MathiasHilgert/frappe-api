@@ -22,6 +22,10 @@ public static class IdentityErrors
     public static readonly Error EmailTaken =
         new("identity.email.taken", "An account with this email already exists.", "email", ErrorKind.Conflict);
 
+    /// <summary>Someone else changed the account between this request's read and its write; retrying is safe.</summary>
+    public static readonly Error ConcurrentChange =
+        new("identity.account.changed", "The account changed while this request was running. Try again.", Kind: ErrorKind.Conflict);
+
     public static readonly Error PasswordTooShort =
         new("identity.password.too_short", $"Password must be at least {Password.MinLength} characters.", "password");
 

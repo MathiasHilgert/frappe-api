@@ -62,9 +62,8 @@ public sealed class PrincipalRepository(IdentityDbContext context) : IPrincipalR
 
     public void Remove(Principal principal) => context.Principals.Remove(principal);
 
-    public Task SaveAsync(CancellationToken cancellationToken) => context.SaveChangesAsync(cancellationToken);
-
-    public Task<Result> SaveChangesAsync(CancellationToken cancellationToken) => SaveClaimingEmailAsync(cancellationToken);
+    public async Task<Result> SaveAsync(CancellationToken cancellationToken) =>
+        await SaveUnlessChangedAsync(cancellationToken) ? Result.Success() : Result.Failure(IdentityErrors.ConcurrentChange);
 
     public async Task<bool> SaveUnlessChangedAsync(CancellationToken cancellationToken)
     {
@@ -75,7 +74,8 @@ public sealed class PrincipalRepository(IdentityDbContext context) : IPrincipalR
         }
         catch (DbUpdateConcurrencyException)
         {
-            // Nothing was written; forget the stale state so this unit of work cannot retry it by accident.
+            // Nothing was written; forget the stale state so no later save of this unit of work (the transactional
+            // middleware's included) retries it.
             context.ChangeTracker.Clear();
             return false;
         }
@@ -85,8 +85,7 @@ public sealed class PrincipalRepository(IdentityDbContext context) : IPrincipalR
     {
         try
         {
-            await context.SaveChangesAsync(cancellationToken);
-            return Result.Success();
+            return await SaveAsync(cancellationToken);
         }
         catch (DbUpdateException exception) when (exception.InnerException is PostgresException
         {

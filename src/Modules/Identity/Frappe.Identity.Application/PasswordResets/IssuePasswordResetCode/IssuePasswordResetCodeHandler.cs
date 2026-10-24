@@ -33,7 +33,9 @@ public static class IssuePasswordResetCodeHandler
         if (issued.IsFailure)
             return messages;
 
-        await principals.SaveAsync(cancellationToken);
+        // A concurrent change wins; the owner can ask again, and nothing half-issued is mailed.
+        if ((await principals.SaveAsync(cancellationToken)).IsFailure)
+            return messages;
         messages.Add(new PasswordResetCodeIssued(
             issued.Value.Id, principal.Id, principal.Owner.Email.Value, principal.Owner.Name.Value, seal.Seal(code),
             issued.Value.ExpiresAt, principal.Owner.Locale.Value));

@@ -44,7 +44,13 @@ public static class VerifyOwnerEmailHandler
 
         var token = secrets.NewSessionToken();
         var session = principal.OpenSession(hasher.Hash(token), SessionSurface.Console, clock).Value;
-        await principals.SaveAsync(cancellationToken);
+        var saved = await principals.SaveAsync(cancellationToken);
+        if (saved.IsFailure)
+        {
+            // The code was right but nothing was saved: not a guess, and the owner can simply retry.
+            await reservation.ReleaseAsync(cancellationToken);
+            return Failed(saved.Errors[0]);
+        }
 
         await reservation.SucceededAsync(policy, cancellationToken);
         return Result.Success(new OpenedSession(session.Id, token, session.AbsoluteExpiresAt));

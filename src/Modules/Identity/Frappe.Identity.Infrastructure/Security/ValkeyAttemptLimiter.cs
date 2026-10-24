@@ -48,24 +48,6 @@ public sealed partial class ValkeyAttemptLimiter(
         return 0
         """);
 
-    public async Task<AttemptDecision> CheckAsync(AttemptPolicy policy, string key, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(policy);
-        using var budget = Budget(cancellationToken);
-        try
-        {
-            var database = await DatabaseAsync(budget.Token);
-            var redisKey = KeyFor(policy, key);
-            var count = await database.StringGetAsync(redisKey).WaitAsync(budget.Token);
-            var ttl = await database.KeyTimeToLiveAsync(redisKey).WaitAsync(budget.Token);
-            return Decide(policy, count.TryParse(out long value) ? value : 0, value < policy.Limit, ttl);
-        }
-        catch (Exception exception) when (IsOutage(exception, cancellationToken))
-        {
-            return Skip(policy, exception);
-        }
-    }
-
     public async Task<AttemptDecision> RecordAsync(AttemptPolicy policy, string key, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(policy);

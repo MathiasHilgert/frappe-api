@@ -32,7 +32,7 @@ public static class PurgePendingOwnersHandler
             }
         }
 
-        await repository.SaveAsync(cancellationToken);
-        return events;
+        // Someone touched a candidate meanwhile: purge nothing this run, the next one retries with fresh state.
+        return (await repository.SaveAsync(cancellationToken)).IsSuccess ? events : new OutgoingMessages();
     }
 }

@@ -137,7 +137,7 @@ public sealed class LoginTests(ApiFixture fixture)
             var repository = scope.ServiceProvider.GetRequiredService<IPrincipalRepository>();
             var principal = (await repository.GetByIdAsync(owner.Id, CancellationToken.None)).ShouldNotBeNull();
             principal.RehashPassword(FastPasswordHasher.LegacyHash(OwnerSeeder.Password));
-            await repository.SaveAsync(CancellationToken.None);
+            (await repository.SaveAsync(CancellationToken.None)).IsSuccess.ShouldBeTrue();
         }
 
         await LogInAsync(email, OwnerSeeder.Password, NewIp(), 201);

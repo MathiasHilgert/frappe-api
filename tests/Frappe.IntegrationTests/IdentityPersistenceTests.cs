@@ -85,7 +85,7 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
         var result = await WithRepositoryAsync(async r =>
         {
             r.Add(NewOwner(email.ToUpperInvariant()));
-            return await r.SaveChangesAsync(TestContext.Current.CancellationToken);
+            return await r.SaveClaimingEmailAsync(TestContext.Current.CancellationToken);
         });
 
         result.IsFailure.ShouldBeTrue();
@@ -123,7 +123,7 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
             loaded.IssueCode(CodePurpose.EmailVerify, "resent-hash", Clock).IsSuccess.ShouldBeTrue();
             loaded.VerifyEmail("resent-hash", Clock).IsSuccess.ShouldBeTrue();
             loaded.OpenSession(UniqueToken(), SessionSurface.Api, Clock).IsSuccess.ShouldBeTrue();
-            return await r.SaveChangesAsync(TestContext.Current.CancellationToken);
+            return await r.SaveAsync(TestContext.Current.CancellationToken);
         });
 
         var reloaded = await WithRepositoryAsync(r => r.GetByIdAsync(principal.Id, TestContext.Current.CancellationToken));
@@ -132,7 +132,7 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
     }
 
     [Fact]
-    public async Task Save_OfAPrincipalChangedMeanwhile_FailsWithAConcurrencyConflict_AndKeepsTheFirstWrite()
+    public async Task Save_OfAPrincipalChangedMeanwhile_FailsWithConcurrentChange_AndKeepsTheFirstWrite()
     {
         var (principal, sessionId) = await SeedActiveWithSessionAsync();
         await using var first = fixture.Host.Services.CreateAsyncScope();
@@ -143,11 +143,11 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
         var loadedB = (await b.GetByIdAsync(principal.Id, CancellationToken.None)).ShouldNotBeNull();
 
         loadedA.RevokeSession(sessionId).IsSuccess.ShouldBeTrue();
-        await a.SaveAsync(CancellationToken.None);
+        (await a.SaveAsync(CancellationToken.None)).IsSuccess.ShouldBeTrue();
         // Only a child row changes here, yet the aggregate's version still guards it.
         loadedB.CompleteStepUp(sessionId, Clock).IsSuccess.ShouldBeTrue();
 
-        await Should.ThrowAsync<DbUpdateConcurrencyException>(b.SaveAsync(CancellationToken.None));
+        (await b.SaveAsync(CancellationToken.None)).Errors.ShouldBe([IdentityErrors.ConcurrentChange]);
         (await WithRepositoryAsync(r => r.GetByIdAsync(principal.Id, CancellationToken.None)))
             .ShouldNotBeNull().Sessions.ShouldBeEmpty();
     }
@@ -163,7 +163,7 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
         {
             var revoking = (await r.GetByIdAsync(principal.Id, CancellationToken.None)).ShouldNotBeNull();
             revoking.ResetPassword("reset-hash", "new-password-hash", Clock).IsSuccess.ShouldBeTrue();
-            await r.SaveAsync(CancellationToken.None);
+            (await r.SaveAsync(CancellationToken.None)).IsSuccess.ShouldBeTrue();
             return true;
         });
 
@@ -225,7 +225,7 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
         var result = await WithRepositoryAsync(r =>
         {
             r.Add(principal);
-            return r.SaveChangesAsync(TestContext.Current.CancellationToken);
+            return r.SaveAsync(TestContext.Current.CancellationToken);
         });
         result.IsSuccess.ShouldBeTrue();
     }

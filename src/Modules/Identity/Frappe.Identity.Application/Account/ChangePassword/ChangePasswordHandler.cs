@@ -31,7 +31,6 @@ public static class ChangePasswordHandler
         }
 
         principal.ChangePassword(await hasher.HashAsync(password.Value.Value, cancellationToken), command.SessionId);
-        await principals.SaveAsync(cancellationToken);
-        return Result.Success();
+        return await principals.SaveAsync(cancellationToken);
     }
 }

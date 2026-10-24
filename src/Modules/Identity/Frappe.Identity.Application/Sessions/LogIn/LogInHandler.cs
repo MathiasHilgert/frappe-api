@@ -50,7 +50,9 @@ public static class LogInHandler
         if (passwordHasher.NeedsRehash(principal.Owner.PasswordHash))
             principal.RehashPassword(await passwordHasher.HashAsync(command.Password, cancellationToken));
 
-        await principals.SaveAsync(cancellationToken);
+        var saved = await principals.SaveAsync(cancellationToken);
+        if (saved.IsFailure)
+            return Result.Failure<SignedIn>(saved.Errors[0]);
         var session = opened.Value;
         return Result.Success(new SignedIn(principal.Id, session.Id, token, session.AbsoluteExpiresAt));
     }

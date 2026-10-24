@@ -126,8 +126,7 @@ public sealed class SessionAuthenticatorTests
             throw new NotSupportedException();
         public void Add(Principal principal) => throw new NotSupportedException();
         public void Remove(Principal principal) => throw new NotSupportedException();
-        public Task SaveAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<Result> SaveAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<Result> SaveClaimingEmailAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<Result> SaveChangesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

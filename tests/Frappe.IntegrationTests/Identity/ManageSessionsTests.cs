@@ -160,7 +160,40 @@ public sealed class ManageSessionsTests(ApiFixture fixture)
         var principal = (await repository.GetByIdAsync(principalId, TestContext.Current.CancellationToken)).ShouldNotBeNull();
         var hash = services.GetRequiredService<ISecretHasher>().Hash(services.GetRequiredService<ISecretGenerator>().NewSessionToken());
         var session = principal.OpenSession(hash, SessionSurface.Console, services.GetRequiredService<TimeProvider>()).Value;
-        (await repository.SaveChangesAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
+        (await repository.SaveAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
         return session.Id;
+    }
+
+    [Fact]
+    public async Task RevokesRacingWritesToTheSameAccount_NeverAnswer500()
+    {
+        const string password = "correct horse battery";
+        var (principal, _, token) = await SessionSeeder.SeedAsync(fixture.Host, password);
+        var others = new List<Guid>();
+        for (var i = 0; i < 4; i++)
+            others.Add((await SessionSeeder.OpenSessionAsync(fixture.Host, principal.Id)).Session.Id);
+
+        // Step-ups write the same aggregate, so revokes lose optimistic-concurrency races and must retry or answer 409.
+        var revokes = others.Select(id => fixture.Host.Scenario(s =>
+        {
+            s.Delete.Url($"{Sessions}/{id}");
+            s.WithRequestHeader("Authorization", $"Bearer {token}");
+            s.IgnoreStatusCode();
+        }));
+        var stepUps = others.Select(_ => fixture.Host.Scenario(s =>
+        {
+            s.Post.Json(new { password }).ToUrl($"{Sessions}/current/step-ups");
+            s.WithRequestHeader("Authorization", $"Bearer {token}");
+            s.IgnoreStatusCode();
+        }));
+        var results = await Task.WhenAll(revokes.Concat(stepUps));
+
+        results.Select(r => r.Context.Response.StatusCode).ShouldAllBe(code => code == 204 || code == 201 || code == 409);
+        var conflicts = results.Where(r => r.Context.Response.StatusCode == 409).ToList();
+        foreach (var conflict in conflicts)
+            (await conflict.ReadAsTextAsync()).ShouldContain("identity.account.changed");
+        var stored = await SessionSeeder.LoadAsync(fixture.Host, principal.Id);
+        var revoked = results.Take(others.Count).Count(r => r.Context.Response.StatusCode == 204);
+        stored.Sessions.Count.ShouldBe(1 + others.Count - revoked);
     }
 }
