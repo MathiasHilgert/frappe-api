@@ -52,6 +52,11 @@ dotnet_diagnostic.xUnit1051.severity = error
 # Code style: the repo's dominant idioms, enforced in the build (EnforceCodeStyleInBuild) and by `dotnet format`.
 csharp_style_namespace_declarations = file_scoped:error
 dotnet_diagnostic.IDE0161.severity = error
+# Namespace = project + feature folder, not every folder: Owners/RegisterOwner/*.cs is Frappe.Identity.Application.Owners.
+# IDE0130 (namespace must match the full folder path) contradicts that, so it is off; the rule is enforced by
+# ModuleConventionTests.SourceFile_NamespaceIsTheProjectPlusItsFeatureFolder. See docs/conventions.md.
+dotnet_style_namespace_match_folder = false
+dotnet_diagnostic.IDE0130.severity = none
 # Braces only when the statement spans several lines: IDE0011 adds them there, RCS1002 removes them elsewhere.
 csharp_prefer_braces = when_multiline:warning
 dotnet_diagnostic.IDE0011.severity = warning
