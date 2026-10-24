@@ -19,7 +19,7 @@ Branches: fix/limiter-security, refactor/http-edge, fix/mail-resilience, refacto
 - T3 S3 delegated (parallel unit) — PR open #62 (fix/mail-resilience, commit 7c49b56); just test all green; QA 422->dead-letter, 503->backoff same key
 - T4 S4 delegated (parallel unit) — done, PR #60 (refactor/kernel-idioms: 2ae0987, 4bd8996, f8bf671, 20956a4); just test green
 - T5 S5 delegated (after T1-T4) — PR open (style/repo-sweep); just test all, lint, codegen-check green; QA done
-- T6 S6 inline (one PR, user-accepted size exception) — done on fix/review-round-2 (f2c5ba8..a4e0d71, 10 commits); just test all, lint, codegen-check green; QA done; PR open
+- T6 S6 inline (one PR, user-accepted size exception) — done on fix/review-round-2 (f2c5ba8..a4e0d71, 10 commits); just test all, lint, codegen-check green; QA done; PR #65 open, CI green, not merged
 
 ## Log
 
