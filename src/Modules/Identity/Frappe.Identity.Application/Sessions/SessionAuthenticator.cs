@@ -45,7 +45,7 @@ public sealed class SessionAuthenticator(IPrincipalRepository principals, ISecre
         var principal = await principals.GetByIdAsync(credential.PrincipalId, cancellationToken);
         if (principal is null || principal.TouchSession(credential.SessionId, clock.GetUtcNow()).IsFailure)
             return false;
-        if (await principals.SaveUnlessChangedAsync(cancellationToken))
+        if ((await principals.SaveAsync(cancellationToken)).IsSuccess)
             return true;
 
         var fresh = await principals.FindSessionCredentialAsync(tokenHash, cancellationToken);

@@ -189,6 +189,10 @@ namespace Frappe.Identity.Infrastructure.Persistence.Migrations
                             b1.HasKey("PrincipalId")
                                 .HasName("pk_owner_accounts");
 
+                            b1.HasIndex("Email")
+                                .IsUnique()
+                                .HasDatabaseName("owner_accounts_email_key");
+
                             b1.HasIndex("Status")
                                 .HasDatabaseName("owner_accounts_pending_idx")
                                 .HasFilter("status = 'pending'");

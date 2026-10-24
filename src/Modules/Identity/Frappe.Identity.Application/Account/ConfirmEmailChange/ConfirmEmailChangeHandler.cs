@@ -50,6 +50,6 @@ public static class ConfirmEmailChangeHandler
         await reservation.SucceededAsync(Policy, cancellationToken);
 
         // Another owner may have claimed the address meanwhile: the unique index answers EmailTaken.
-        return await principals.SaveClaimingEmailAsync(cancellationToken);
+        return await principals.SaveAsync(cancellationToken);
     }
 }

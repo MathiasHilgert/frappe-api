@@ -1,6 +1,7 @@
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
 using Frappe.Identity.Application.Sessions;
+using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Principals;
 using Frappe.Identity.Domain.Users;
 using Frappe.SharedKernel.Localization;
@@ -112,11 +113,11 @@ public sealed class SessionAuthenticatorTests
             return Task.FromResult(_principal?.Id == id ? _principal : null);
         }
 
-        public Task<bool> SaveUnlessChangedAsync(CancellationToken cancellationToken)
+        public Task<Result> SaveAsync(CancellationToken cancellationToken)
         {
             Saves++;
             _revoked = RevokeOnSave;
-            return Task.FromResult(!RevokeOnSave && !ConflictOnSave);
+            return Task.FromResult(RevokeOnSave || ConflictOnSave ? Result.Failure(IdentityErrors.ConcurrentChange) : Result.Success());
         }
 
         public Task<Principal?> GetByEmailAsync(Email email, CancellationToken cancellationToken) => throw new NotSupportedException();
@@ -126,7 +127,5 @@ public sealed class SessionAuthenticatorTests
             throw new NotSupportedException();
         public void Add(Principal principal) => throw new NotSupportedException();
         public void Remove(Principal principal) => throw new NotSupportedException();
-        public Task<Result> SaveAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<Result> SaveClaimingEmailAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

@@ -76,7 +76,5 @@ public sealed class RevokeSessionHandlerTests
             throw new NotSupportedException();
         public void Add(Principal principal) => throw new NotSupportedException();
         public void Remove(Principal principal) => throw new NotSupportedException();
-        public Task<Result> SaveClaimingEmailAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<bool> SaveUnlessChangedAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

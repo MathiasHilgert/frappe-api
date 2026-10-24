@@ -47,8 +47,8 @@ public static class RegisterOwnerHandler
         var issued = codes.Issue(principal).Value; // A new principal has no previous code, so the resend cap cannot apply.
         principals.Add(principal);
 
-        // The unique index on lower(email) is the authority on "taken", so a concurrent sign-up cannot slip through.
-        var saved = await principals.SaveClaimingEmailAsync(cancellationToken);
+        // The unique index on the normalized email is the authority on "taken", so a concurrent sign-up cannot slip through.
+        var saved = await principals.SaveAsync(cancellationToken);
         if (saved.IsFailure)
             return Result.Failure<Guid>(saved.Errors);
 

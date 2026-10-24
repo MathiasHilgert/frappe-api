@@ -3,7 +3,6 @@ using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Principals;
 using Frappe.SharedKernel.Validation;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Npgsql;
 
 namespace Frappe.Identity.Infrastructure.Persistence;
@@ -14,42 +13,12 @@ public sealed class PrincipalRepository(IdentityDbContext context) : IPrincipalR
     public Task<Principal?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         context.Principals.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 
-    // Raw SQL so the lookup uses lower(email), the expression the unique index is built on. Table and column names come
-    // from the EF mapping, so a schema, table or column rename cannot leave this query behind.
+    // Email is normalized when created, so a plain equality hits the unique index with no SQL lower().
     public Task<Principal?> GetByEmailAsync(Email email, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(email);
-
-        var sql = EmailLookupSql(context.Model);
-        return context.Principals
-            .FromSqlRaw(sql, new NpgsqlParameter("email", email.Value))
-            .FirstOrDefaultAsync(cancellationToken);
+        return context.Principals.FirstOrDefaultAsync(p => p.Owner.Email == email, cancellationToken);
     }
-
-    // Only mapped identifiers are inlined; the email stays a parameter.
-    private static string EmailLookupSql(IModel model)
-    {
-        var principals = model.FindEntityType(typeof(Principal))!;
-        var owners = principals.FindNavigation(nameof(Principal.Owner))!.TargetEntityType;
-        var principalsTable = StoreObjectIdentifier.Table(principals.GetTableName()!, principals.GetSchema());
-        var ownersTable = StoreObjectIdentifier.Table(owners.GetTableName()!, owners.GetSchema());
-
-        var principalId = Column(principals, nameof(Principal.Id), principalsTable);
-        var ownerPrincipalId = Column(owners, PrincipalConfiguration.PrincipalIdColumn, ownersTable);
-        var ownerEmail = Column(owners, nameof(OwnerAccount.Email), ownersTable);
-
-        return string.Join(
-            '\n',
-            $"SELECT p.*, p.xmin FROM {QualifiedTable(principals)} p",
-            $"JOIN {QualifiedTable(owners)} o ON o.{ownerPrincipalId} = p.{principalId}",
-            $"WHERE lower(o.{ownerEmail}) = lower(@email)");
-    }
-
-    private static string Column(IEntityType entity, string property, StoreObjectIdentifier table) =>
-        $"\"{entity.FindProperty(property)!.GetColumnName(table)}\"";
-
-    private static string QualifiedTable(IEntityType entity) =>
-        $"\"{entity.GetSchema() ?? IdentityModule.Schema}\".\"{entity.GetTableName()}\"";
 
     public Task<Principal?> GetBySessionTokenHashAsync(string tokenHash, CancellationToken cancellationToken) =>
         context.Principals.FirstOrDefaultAsync(p => p.Sessions.Any(s => s.TokenHash == tokenHash), cancellationToken);
@@ -77,30 +46,19 @@ public sealed class PrincipalRepository(IdentityDbContext context) : IPrincipalR
 
     public void Remove(Principal principal) => context.Principals.Remove(principal);
 
-    public async Task<Result> SaveAsync(CancellationToken cancellationToken) =>
-        await SaveUnlessChangedAsync(cancellationToken) ? Result.Success() : Result.Failure(IdentityErrors.ConcurrentChange);
-
-    public async Task<bool> SaveUnlessChangedAsync(CancellationToken cancellationToken)
+    public async Task<Result> SaveAsync(CancellationToken cancellationToken)
     {
         try
         {
             await context.SaveChangesAsync(cancellationToken);
-            return true;
+            return Result.Success();
         }
         catch (DbUpdateConcurrencyException)
         {
             // Nothing was written; forget the stale state so no later save of this unit of work (the transactional
             // middleware's included) retries it.
             context.ChangeTracker.Clear();
-            return false;
-        }
-    }
-
-    public async Task<Result> SaveClaimingEmailAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await SaveAsync(cancellationToken);
+            return Result.Failure(IdentityErrors.ConcurrentChange);
         }
         catch (DbUpdateException exception) when (exception.InnerException is PostgresException
         {

@@ -68,6 +68,18 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
     }
 
     [Fact]
+    public async Task Save_StoresTheNormalizedAddress_SoTheUniqueIndexAndLookupsAgree()
+    {
+        var email = UniqueEmail();
+        var principal = NewOwner(email.ToUpperInvariant());
+        await SaveAsync(principal);
+
+        var stored = await ScalarAsync($"SELECT email FROM identity.owner_accounts WHERE principal_id = '{principal.Id}'");
+
+        stored.ShouldBe(email.ToLowerInvariant());
+    }
+
+    [Fact]
     public async Task GetByEmail_ReturnsNullForAnUnknownAddress()
     {
         var loaded = await WithRepositoryAsync(r => r.GetByEmailAsync(Email(UniqueEmail()), TestContext.Current.CancellationToken));
@@ -84,7 +96,7 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
         var result = await WithRepositoryAsync(async r =>
         {
             r.Add(NewOwner(email.ToUpperInvariant()));
-            return await r.SaveClaimingEmailAsync(TestContext.Current.CancellationToken);
+            return await r.SaveAsync(TestContext.Current.CancellationToken);
         });
 
         result.IsFailure.ShouldBeTrue();
@@ -152,7 +164,7 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
     }
 
     [Fact]
-    public async Task SaveUnlessChanged_ATouchRacingARevocation_ReturnsFalseAndWritesNothing()
+    public async Task Save_ATouchRacingARevocation_FailsWithConcurrentChangeAndWritesNothing()
     {
         var (principal, sessionId) = await SeedActiveWithSessionAsync();
         await using var toucher = fixture.Host.Services.CreateAsyncScope();
@@ -167,9 +179,9 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
         });
 
         loaded.TouchSession(sessionId, Clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
-        var saved = await touching.SaveUnlessChangedAsync(CancellationToken.None);
+        var saved = await touching.SaveAsync(CancellationToken.None);
 
-        saved.ShouldBeFalse();
+        saved.Errors.ShouldBe([IdentityErrors.ConcurrentChange]);
         var reloaded = (await WithRepositoryAsync(r => r.GetByIdAsync(principal.Id, CancellationToken.None))).ShouldNotBeNull();
         reloaded.Sessions.ShouldBeEmpty();
         reloaded.Owner.PasswordHash.ShouldBe("new-password-hash");

@@ -12,7 +12,7 @@ public interface IPrincipalRepository
 {
     Task<Principal?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
-    /// <summary>Matches the current address ignoring case, the same rule the unique index enforces.</summary>
+    /// <summary>Matches the current address; <see cref="Email"/> is already normalized, as the unique index sees it.</summary>
     Task<Principal?> GetByEmailAsync(Email email, CancellationToken cancellationToken);
 
     Task<Principal?> GetBySessionTokenHashAsync(string tokenHash, CancellationToken cancellationToken);
@@ -35,20 +35,10 @@ public interface IPrincipalRepository
     void Remove(Principal principal);
 
     /// <summary>
-    /// Commits tracked changes. Fails with <c>IdentityErrors.ConcurrentChange</c> when someone else changed the
-    /// principal since it was loaded; nothing is saved then and the stale state is no longer tracked.
+    /// Commits tracked changes, the one save every caller uses. It fails, with nothing saved and the rejected state no
+    /// longer tracked, with <c>IdentityErrors.ConcurrentChange</c> when someone else changed the principal since it was
+    /// loaded, or <c>IdentityErrors.EmailTaken</c> when another owner holds an address this save claims (a
+    /// registration, a confirmed email change). Best-effort writers (a session touch) just ignore the failure.
     /// </summary>
     Task<Result> SaveAsync(CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Like <see cref="SaveAsync"/>, for changes that claim an email address (a registration, a confirmed email
-    /// change): another owner holding the address also fails, with <c>IdentityErrors.EmailTaken</c>.
-    /// </summary>
-    Task<Result> SaveClaimingEmailAsync(CancellationToken cancellationToken);
-
-    /// <summary>
-    /// <see cref="SaveAsync"/> as a yes/no for best-effort writes such as a session touch: false when the principal
-    /// changed meanwhile (a session revoked, a password reset), and nothing was saved.
-    /// </summary>
-    Task<bool> SaveUnlessChangedAsync(CancellationToken cancellationToken);
 }

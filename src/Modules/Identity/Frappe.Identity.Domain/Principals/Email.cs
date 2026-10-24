@@ -3,8 +3,8 @@ using Frappe.SharedKernel.Validation;
 namespace Frappe.Identity.Domain.Principals;
 
 /// <summary>
-/// Where an owner signs in and receives codes. Kept as typed; two spellings that differ only in case
-/// are the same address, which is also what the unique index on lower(email) enforces.
+/// Where an owner signs in and receives codes. Normalized once, here (trimmed, lower-cased with the invariant culture),
+/// so the stored value, the unique index, every lookup and the attempt limiter all compare the same string.
 /// </summary>
 public sealed record Email
 {
@@ -16,7 +16,7 @@ public sealed record Email
 
     public static Result<Email> Create(string? value)
     {
-        var trimmed = value?.Trim() ?? string.Empty;
+        var trimmed = value?.Trim().ToLowerInvariant() ?? string.Empty;
 
         var notification = new ValidationNotification()
             .AddIf(trimmed.Length == 0, IdentityErrors.EmailRequired)
@@ -24,11 +24,6 @@ public sealed record Email
 
         return Result.From(notification, () => new Email(trimmed));
     }
-
-    public bool Equals(Email? other) =>
-        other is not null && string.Equals(Value, other.Value, StringComparison.OrdinalIgnoreCase);
-
-    public override int GetHashCode() => StringComparer.OrdinalIgnoreCase.GetHashCode(Value);
 
     public override string ToString() => Value;
 
