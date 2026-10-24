@@ -14,24 +14,39 @@ public sealed class PrincipalRepository(IdentityDbContext context) : IPrincipalR
     public Task<Principal?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         context.Principals.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 
-    // Raw SQL so the lookup uses lower(email), the expression the unique index is built on. Table names come from
-    // the EF mapping, so a schema or table rename cannot leave this query behind.
+    // Raw SQL so the lookup uses lower(email), the expression the unique index is built on. Table and column names come
+    // from the EF mapping, so a schema, table or column rename cannot leave this query behind.
     public Task<Principal?> GetByEmailAsync(Email email, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(email);
 
-        var principals = context.Model.FindEntityType(typeof(Principal))!;
-        var owners = principals.FindNavigation(nameof(Principal.Owner))!.TargetEntityType;
-#pragma warning disable EF1002, S2077 // Only mapped identifiers are inlined; the email stays a parameter.
+        var sql = EmailLookupSql(context.Model);
         return context.Principals
-            .FromSqlRaw($"""
-                SELECT p.*, p.xmin FROM {QualifiedTable(principals)} p
-                JOIN {QualifiedTable(owners)} o ON o.principal_id = p.id
-                WHERE lower(o.email) = lower(@email)
-                """, new NpgsqlParameter("email", email.Value))
+            .FromSqlRaw(sql, new NpgsqlParameter("email", email.Value))
             .FirstOrDefaultAsync(cancellationToken);
-#pragma warning restore EF1002, S2077
     }
+
+    // Only mapped identifiers are inlined; the email stays a parameter.
+    private static string EmailLookupSql(IModel model)
+    {
+        var principals = model.FindEntityType(typeof(Principal))!;
+        var owners = principals.FindNavigation(nameof(Principal.Owner))!.TargetEntityType;
+        var principalsTable = StoreObjectIdentifier.Table(principals.GetTableName()!, principals.GetSchema());
+        var ownersTable = StoreObjectIdentifier.Table(owners.GetTableName()!, owners.GetSchema());
+
+        var principalId = Column(principals, nameof(Principal.Id), principalsTable);
+        var ownerPrincipalId = Column(owners, PrincipalConfiguration.PrincipalIdColumn, ownersTable);
+        var ownerEmail = Column(owners, nameof(OwnerAccount.Email), ownersTable);
+
+        return string.Join(
+            '\n',
+            $"SELECT p.*, p.xmin FROM {QualifiedTable(principals)} p",
+            $"JOIN {QualifiedTable(owners)} o ON o.{ownerPrincipalId} = p.{principalId}",
+            $"WHERE lower(o.{ownerEmail}) = lower(@email)");
+    }
+
+    private static string Column(IEntityType entity, string property, StoreObjectIdentifier table) =>
+        $"\"{entity.FindProperty(property)!.GetColumnName(table)}\"";
 
     private static string QualifiedTable(IEntityType entity) =>
         $"\"{entity.GetSchema() ?? IdentityModule.Schema}\".\"{entity.GetTableName()}\"";
