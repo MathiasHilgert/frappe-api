@@ -30,10 +30,10 @@ internal static class SessionManagementEndpoints
         ICurrentPrincipal current, IMessageBus bus, CancellationToken cancellationToken)
     {
         var caller = current.RequiredSession();
-        var list = await bus.InvokeAsync<IReadOnlyList<SessionSummary>>(
+        var list = await bus.InvokeAsync<Result<IReadOnlyList<SessionSummary>>>(
             new ListOwnerSessions(caller.PrincipalId, caller.SessionId), cancellationToken);
         return TypedResults.Ok<IReadOnlyList<SessionSummaryResponse>>(
-            [.. list.Select(s => new SessionSummaryResponse(s.Id, s.CreatedAt, s.LastSeenAt, s.Current))]);
+            [.. list.Value.Select(s => new SessionSummaryResponse(s.Id, s.CreatedAt, s.LastSeenAt, s.Current))]);
     }
 
     private static async Task<Results<NoContent, LocalizedProblemResult>> RevokeAsync(

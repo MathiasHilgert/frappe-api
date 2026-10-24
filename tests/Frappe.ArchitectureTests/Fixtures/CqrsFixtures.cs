@@ -39,7 +39,7 @@ namespace Frappe.ArchitectureTests.Fixtures.Application
         public static Task<ArchiveOutcome> Handle(ArchiveWidget command) => Task.FromResult(new ArchiveOutcome(true, TimeSpan.Zero));
     }
 
-    public sealed record PublishWidget(Guid Id) : ICommand;
+    public sealed record PublishWidget(Guid Id) : ICommand<Guid>;
 
     public static class PublishWidgetHandler
     {
@@ -52,6 +52,22 @@ namespace Frappe.ArchitectureTests.Fixtures.Application
     public static class ForgetWidgetHandler
     {
         public static ValueTask<Result> Handle(ForgetWidget command) => ValueTask.FromResult(Result.Success());
+    }
+
+    public sealed record CountWidgets : ICommand<int>;
+
+    public static class CountWidgetsHandler
+    {
+        public static Result<Guid> Handle(CountWidgets command) => Result.Success(Guid.Empty);
+    }
+
+    public sealed record FindWidget(Guid Id) : IQuery<WidgetView>;
+
+    [Wolverine.Attributes.NonTransactional]
+    public static class FindWidgetHandler
+    {
+        public static Task<Result<WidgetView>> Handle(FindWidget query) =>
+            Task.FromResult(Result.Success(new WidgetView(query.Id, string.Empty)));
     }
 
     public sealed record SweepWidgets : IBackgroundCommand;

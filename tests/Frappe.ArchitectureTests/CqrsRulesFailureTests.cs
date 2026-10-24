@@ -32,11 +32,13 @@ public sealed class CqrsRulesFailureTests
             .ShouldBe([$"{typeof(RenameWidgetHandler).FullName}.Handle({nameof(RenameWidget)})"]);
 
     [Fact]
-    public void CommandHandlersNotReturningResult_NamesEveryCommandAnsweringWithAnythingElse() =>
-        CqrsRules.CommandHandlersNotReturningResult(Application).ShouldBe(
+    public void HandlersNotMatchingMarker_NamesEveryHandlerAnsweringOtherThanItsMarkerDeclares() =>
+        HandlerAnswerRules.HandlersNotMatchingMarker(Application).ShouldBe(
         [
+            $"{typeof(GetWidgetHandler).FullName}.Handle({nameof(GetWidget)})",
             $"{typeof(RenameWidgetHandler).FullName}.Handle({nameof(RenameWidget)})",
             $"{typeof(ArchiveWidgetHandler).FullName}.Handle({nameof(ArchiveWidget)})",
+            $"{typeof(CountWidgetsHandler).FullName}.Handle({nameof(CountWidgets)})",
             $"{typeof(ReindexWidgetsHandler).FullName}.Handle({nameof(ReindexWidgets)})",
         ], ignoreOrder: true);
 }

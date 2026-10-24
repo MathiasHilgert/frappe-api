@@ -1,7 +1,6 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Frappe.Application.Abstractions.Messaging;
-using Frappe.SharedKernel.Validation;
 using NetArchTest.Rules;
 
 namespace Frappe.ArchitectureTests;
@@ -100,18 +99,6 @@ internal static class CqrsRules
     }
 
     /// <summary>
-    /// Command handlers that answer with anything but <c>Result</c> or <c>Result&lt;T&gt;</c>: awaited through
-    /// <c>Task</c>/<c>ValueTask</c>, and first in a tuple when the rest cascades. A background command is the
-    /// reverse: nobody reads its answer, so a <c>Result</c> there would cascade as an unrouted message.
-    /// </summary>
-    public static List<string> CommandHandlersNotReturningResult(Layer application) =>
-        Handlers(application)
-            .Where(h => IsCommand(h.Message))
-            .Where(h => IsResult(Answer(h.Method.ReturnType)) == IsBackgroundCommand(h.Message))
-            .Select(h => $"{h.Handler.FullName}.{h.Method.Name}({h.Message.Name})")
-            .ToList();
-
-    /// <summary>
     /// Classes holding use-case logic that a caller would have to invoke directly: concrete, instantiable, not records
     /// and not handlers. Ports (interfaces) and messages are not services.
     /// </summary>
@@ -123,7 +110,7 @@ internal static class CqrsRules
             && !t.Name.EndsWith("Handler", StringComparison.Ordinal)
             && !t.Name.EndsWith("Marker", StringComparison.Ordinal));
 
-    private static IEnumerable<(Type Handler, MethodInfo Method, Type Message)> Handlers(Layer application) =>
+    internal static IEnumerable<(Type Handler, MethodInfo Method, Type Message)> Handlers(Layer application) =>
         from type in application.Types
         where type.Name.EndsWith("Handler", StringComparison.Ordinal) && !type.IsNested
         from method in type.GetMethods(AnyMethod)
@@ -138,26 +125,11 @@ internal static class CqrsRules
             .And().HaveDependencyOnAny(dependencies)
             .GetTypes();
 
-    private static Type Answer(Type returnType)
-    {
-        if (returnType.IsGenericType && returnType.GetGenericTypeDefinition() is var awaited
-            && (awaited == typeof(Task<>) || awaited == typeof(ValueTask<>)))
-        {
-            returnType = returnType.GetGenericArguments()[0];
-        }
+    internal static bool IsCommand(Type message) => typeof(ICommand).IsAssignableFrom(message);
 
-        return returnType.IsGenericType && returnType.FullName?.StartsWith("System.ValueTuple`", StringComparison.Ordinal) == true
-            ? returnType.GetGenericArguments()[0]
-            : returnType;
-    }
+    internal static bool IsBackgroundCommand(Type message) => typeof(IBackgroundCommand).IsAssignableFrom(message);
 
-    private static bool IsResult(Type type) => type == typeof(Result) || (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Result<>));
-
-    private static bool IsCommand(Type message) => typeof(ICommand).IsAssignableFrom(message);
-
-    private static bool IsBackgroundCommand(Type message) => typeof(IBackgroundCommand).IsAssignableFrom(message);
-
-    private static Type? QueryResult(Type message) =>
+    internal static Type? QueryResult(Type message) =>
         message.GetInterfaces()
             .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IQuery<>))
             ?.GetGenericArguments()[0];

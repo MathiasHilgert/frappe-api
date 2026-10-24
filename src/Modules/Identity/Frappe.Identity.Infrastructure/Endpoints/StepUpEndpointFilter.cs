@@ -25,7 +25,9 @@ internal static class StepUpEndpointFilter
         var services = context.HttpContext.RequestServices;
         var caller = services.GetRequiredService<ICurrentPrincipal>().RequiredSession();
         var bus = services.GetRequiredService<IMessageBus>();
-        return await bus.InvokeAsync<bool>(new HasFreshStepUp(caller.PrincipalId, caller.SessionId), context.HttpContext.RequestAborted)
+        var fresh = await bus.InvokeAsync<Result<bool>>(
+            new HasFreshStepUp(caller.PrincipalId, caller.SessionId), context.HttpContext.RequestAborted);
+        return fresh is { IsSuccess: true, Value: true }
             ? await next(context)
             : Result.Failure(IdentityErrors.StepUpRequired).ToProblem();
     }
