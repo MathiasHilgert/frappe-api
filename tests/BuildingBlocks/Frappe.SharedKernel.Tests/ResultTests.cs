@@ -99,4 +99,8 @@ public sealed class ResultTests
     [Fact]
     public void Errors_WithDifferentCodes_AreNotEqual_EvenWithTheSameMessage() =>
         new Error("sample.one", "Same.").ShouldNotBe(new Error("sample.two", "Same."));
+
+    [Fact]
+    public void Errors_WithTheSameCode_OnDifferentFields_AreNotEqual() =>
+        new Error("sample.required", "Required.", "name").ShouldNotBe(new Error("sample.required", "Required.", "email"));
 }

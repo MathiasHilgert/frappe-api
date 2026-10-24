@@ -179,8 +179,8 @@ limits included, lives in the handler: a throttled command fails with a `TooMany
 concerns (cookies through `ISessionCookie`, `Content-Language`) stay in Infrastructure.
 A command that only a recurring job publishes (`PurgePendingOwners`) implements `IBackgroundCommand`: nobody reads
 its answer and a published handler's return value is cascaded, so it returns only its `OutgoingMessages`.
-Errors compare by `Code`: `Kind`, `Field` and the occurrence details (`RetryAfter`, `Metadata`) never make two errors
-different, so `error == IdentityErrors.EmailTaken` holds for a throttled or annotated copy too.
+Errors compare by `Code` and `Field`: `Kind`, `Message` and the occurrence details (`RetryAfter`, `Metadata`) never make
+two errors different, so `error == IdentityErrors.EmailTaken` holds for a throttled or annotated copy too.
 `tests/Frappe.ArchitectureTests/CqrsConventionTests.cs` fails when an endpoint calls an Application service, a message
 is not a marked record, a query handler touches a repository, a command handler answers with a type some query
 returns, a command handler returns anything but `Result`/`Result<T>`, or a background command handler returns a

@@ -3,8 +3,9 @@ namespace Frappe.SharedKernel.Validation;
 /// <summary>
 /// A broken rule. <see cref="Code"/> is stable and machine-readable and doubles as the message catalogue key;
 /// <see cref="Message"/> is the English fallback; <see cref="Field"/> points at the offending input when there is one.
-/// Two errors are equal when their <see cref="Code"/> is: the code names the rule, while the message, field, kind and the
-/// occurrence details (<see cref="RetryAfter"/>, <see cref="Metadata"/>) describe one breach of it.
+/// Two errors are equal when their <see cref="Code"/> and <see cref="Field"/> are: together they name the rule and where it
+/// was broken, while the message, kind and the occurrence details (<see cref="RetryAfter"/>, <see cref="Metadata"/>)
+/// describe one breach of it.
 /// </summary>
 public sealed record Error(string Code, string Message, string? Field = null, ErrorKind Kind = ErrorKind.Validation)
 {
@@ -27,7 +28,11 @@ public sealed record Error(string Code, string Message, string? Field = null, Er
             },
         };
 
-    public bool Equals(Error? other) => other is not null && string.Equals(Code, other.Code, StringComparison.Ordinal);
+    public bool Equals(Error? other) =>
+        other is not null
+        && string.Equals(Code, other.Code, StringComparison.Ordinal)
+        && string.Equals(Field, other.Field, StringComparison.Ordinal);
 
-    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Code);
+    public override int GetHashCode() =>
+        HashCode.Combine(StringComparer.Ordinal.GetHashCode(Code), Field is null ? 0 : StringComparer.Ordinal.GetHashCode(Field));
 }
