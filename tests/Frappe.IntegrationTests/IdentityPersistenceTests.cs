@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Time.Testing;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Principals;
@@ -13,7 +14,7 @@ namespace Frappe.IntegrationTests;
 /// <summary>The Principal aggregate round-trips through the identity schema created by its migrations.</summary>
 public sealed class IdentityPersistenceTests(ApiFixture fixture)
 {
-    private static readonly TimeProvider Clock = TimeProvider.System;
+    private static readonly FakeTimeProvider Clock = TestTime.NewClock();
 
     [Fact]
     public async Task Principal_RoundTrips_WithItsOwnerSessionsAndCodes()
@@ -84,10 +85,10 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
     {
         for (var i = 0; i < 3; i++)
             await SaveAsync(NewOwner(UniqueEmail()));
-        var cutoff = DateTimeOffset.UtcNow.AddYears(1);
+        var cutoff = Clock.GetUtcNow().AddYears(1);
 
-        var all = await WithRepositoryAsync(r => r.ListPurgeCandidatesAsync(cutoff, null, 10_000, CancellationToken.None));
-        var rest = await WithRepositoryAsync(r => r.ListPurgeCandidatesAsync(cutoff, all[1], 10_000, CancellationToken.None));
+        var all = await WithRepositoryAsync(r => r.ListPurgeCandidatesAsync(cutoff, null, 10_000, TestContext.Current.CancellationToken));
+        var rest = await WithRepositoryAsync(r => r.ListPurgeCandidatesAsync(cutoff, all[1], 10_000, TestContext.Current.CancellationToken));
 
         all.Count.ShouldBeGreaterThanOrEqualTo(3);
         all.Select(c => c.RegisteredAt).ShouldBe([.. all.Select(c => c.RegisteredAt).Order()]);
@@ -165,16 +166,16 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
         await using var second = fixture.Host.Services.CreateAsyncScope();
         var a = Repository(first);
         var b = Repository(second);
-        var loadedA = (await a.GetByIdAsync(principal.Id, CancellationToken.None)).ShouldNotBeNull();
-        var loadedB = (await b.GetByIdAsync(principal.Id, CancellationToken.None)).ShouldNotBeNull();
+        var loadedA = (await a.GetByIdAsync(principal.Id, TestContext.Current.CancellationToken)).ShouldNotBeNull();
+        var loadedB = (await b.GetByIdAsync(principal.Id, TestContext.Current.CancellationToken)).ShouldNotBeNull();
 
         loadedA.RevokeSession(sessionId).IsSuccess.ShouldBeTrue();
-        (await a.SaveAsync(CancellationToken.None)).IsSuccess.ShouldBeTrue();
+        (await a.SaveAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
         // Only a child row changes here, yet the aggregate's version still guards it.
         loadedB.CompleteStepUp(sessionId, Clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
 
-        (await b.SaveAsync(CancellationToken.None)).Errors.ShouldBe([IdentityErrors.ConcurrentChange]);
-        (await WithRepositoryAsync(r => r.GetByIdAsync(principal.Id, CancellationToken.None)))
+        (await b.SaveAsync(TestContext.Current.CancellationToken)).Errors.ShouldBe([IdentityErrors.ConcurrentChange]);
+        (await WithRepositoryAsync(r => r.GetByIdAsync(principal.Id, TestContext.Current.CancellationToken)))
             .ShouldNotBeNull().Sessions.ShouldBeEmpty();
     }
 
@@ -184,20 +185,21 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
         var (principal, sessionId) = await SeedActiveWithSessionAsync();
         await using var toucher = fixture.Host.Services.CreateAsyncScope();
         var touching = Repository(toucher);
-        var loaded = (await touching.GetByIdAsync(principal.Id, CancellationToken.None)).ShouldNotBeNull();
+        var loaded = (await touching.GetByIdAsync(principal.Id, TestContext.Current.CancellationToken)).ShouldNotBeNull();
         await WithRepositoryAsync(async r =>
         {
-            var revoking = (await r.GetByIdAsync(principal.Id, CancellationToken.None)).ShouldNotBeNull();
+            var revoking = (await r.GetByIdAsync(principal.Id, TestContext.Current.CancellationToken)).ShouldNotBeNull();
             revoking.ResetPassword("reset-hash", "new-password-hash", Clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
-            (await r.SaveAsync(CancellationToken.None)).IsSuccess.ShouldBeTrue();
+            (await r.SaveAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
             return true;
         });
 
+        Clock.Advance(TimeSpan.FromMinutes(5));
         loaded.TouchSession(sessionId, Clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
-        var saved = await touching.SaveAsync(CancellationToken.None);
+        var saved = await touching.SaveAsync(TestContext.Current.CancellationToken);
 
         saved.Errors.ShouldBe([IdentityErrors.ConcurrentChange]);
-        var reloaded = (await WithRepositoryAsync(r => r.GetByIdAsync(principal.Id, CancellationToken.None))).ShouldNotBeNull();
+        var reloaded = (await WithRepositoryAsync(r => r.GetByIdAsync(principal.Id, TestContext.Current.CancellationToken))).ShouldNotBeNull();
         reloaded.Sessions.ShouldBeEmpty();
         reloaded.Owner.PasswordHash.ShouldBe("new-password-hash");
     }
@@ -207,11 +209,11 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
     {
         var (principal, sessionId) = await SeedActiveWithSessionAsync();
         await using var scope = fixture.Host.Services.CreateAsyncScope();
-        var tokenHash = (await Repository(scope).GetByIdAsync(principal.Id, CancellationToken.None))!.Sessions.Single().TokenHash;
+        var tokenHash = (await Repository(scope).GetByIdAsync(principal.Id, TestContext.Current.CancellationToken))!.Sessions.Single().TokenHash;
         scope.ServiceProvider.GetRequiredService<IdentityDbContext>().ChangeTracker.Clear();
 
-        var credential = await Repository(scope).FindSessionCredentialAsync(tokenHash, CancellationToken.None);
-        var missing = await Repository(scope).FindSessionCredentialAsync(UniqueToken(), CancellationToken.None);
+        var credential = await Repository(scope).FindSessionCredentialAsync(tokenHash, TestContext.Current.CancellationToken);
+        var missing = await Repository(scope).FindSessionCredentialAsync(UniqueToken(), TestContext.Current.CancellationToken);
 
         credential.ShouldNotBeNull();
         credential.PrincipalId.ShouldBe(principal.Id);

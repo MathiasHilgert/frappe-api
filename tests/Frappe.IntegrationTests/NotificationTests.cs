@@ -15,7 +15,7 @@ namespace Frappe.IntegrationTests;
 public sealed class NotificationTests(ApiFixture fixture, NotificationTests.MailerHostFixture mailerHost)
     : IClassFixture<NotificationTests.MailerHostFixture>
 {
-    private static readonly DateTimeOffset Expires = DateTimeOffset.UtcNow.AddMinutes(15);
+    private static readonly DateTimeOffset Expires = TestTime.NewClock().GetUtcNow().AddMinutes(15);
 
     /// <summary>One host with a capturing mailer for the whole class: booting a host per case cost about a second each.</summary>
     public sealed class MailerHostFixture(ApiFixture fixture) : IAsyncLifetime
