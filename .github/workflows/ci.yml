@@ -17,10 +17,9 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
 
 # Every job calls a `just` recipe, so `just ci` reproduces this pipeline locally.
-# Lint, build and security start in parallel; tests need the build; coverage needs
-# green tests.
-# The build job is a fast gate; test jobs rebuild incrementally instead of reusing its output,
-# because Microsoft.Testing.Platform test apps need each project's obj/ restore graph.
+# Lint, build-and-test, security and container start in parallel. Build-and-test compiles the
+# solution once, runs every suite in parallel from that build while collecting coverage, then
+# merges coverage and enforces the threshold: no job rebuilds and no suite runs twice.
 jobs:
   lint:
     name: 1. Lint — format, workflows, Dockerfile, secrets
@@ -38,54 +37,9 @@ jobs:
       - name: Test the git hygiene scripts
         run: just test-git
 
-  build:
-    name: 2. Build — Release, warnings as errors
-    timeout-minutes: 15
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v7
-      - name: Set up .NET toolchain
-        uses: ./.github/actions/setup-dotnet
-      - name: Build the solution in Release
-        run: just build
-
-  test-fast:
-    name: 3. Test — unit & architecture
-    timeout-minutes: 15
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v7
-      - name: Set up .NET toolchain
-        uses: ./.github/actions/setup-dotnet
-      - name: Run unit and architecture tests
-        run: just test fast
-
-  test-integration:
-    name: 4. Test — integration (Postgres, NATS, Valkey)
-    timeout-minutes: 20
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v7
-      - name: Set up .NET toolchain
-        uses: ./.github/actions/setup-dotnet
-      - name: Run integration tests against real containers
-        run: just test integration
-
-  coverage:
-    name: 5. Coverage — line coverage threshold
+  build-test:
+    name: 2. Build & test — Release, warnings as errors, unit, architecture, integration, coverage
     timeout-minutes: 25
-    needs: [test-fast, test-integration]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -94,7 +48,7 @@ jobs:
         uses: actions/checkout@v7
       - name: Set up .NET toolchain
         uses: ./.github/actions/setup-dotnet
-      - name: Measure coverage and enforce the threshold
+      - name: Build once, run every suite with coverage and enforce the threshold
         run: just cover
       - name: Publish coverage summary to the job page
         if: always()
@@ -111,7 +65,7 @@ jobs:
           retention-days: 14
 
   security:
-    name: 6. Security — vulnerable packages
+    name: 3. Security — vulnerable packages
     timeout-minutes: 10
     runs-on: ubuntu-latest
     permissions:
@@ -126,9 +80,8 @@ jobs:
 
 
   container:
-    name: 7. Container — build & vulnerability scan
+    name: 4. Container — build & vulnerability scan
     timeout-minutes: 20
-    needs: [lint, test-fast]
     runs-on: ubuntu-latest
     permissions:
       contents: read

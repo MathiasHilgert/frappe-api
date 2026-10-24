@@ -18,7 +18,11 @@
     <AdditionalFiles Include="$(MSBuildThisFileDirectory)eng/SonarLint.xml" />
   </ItemGroup>
 
-  <!-- Test projects collect code coverage through Microsoft.Testing.Platform. -->
+  <!-- Test projects are Microsoft.Testing.Platform apps: the built executable is the runner, so
+       `just test` launches them directly in parallel after a single build. They collect coverage too. -->
+  <PropertyGroup Condition="$(MSBuildProjectDirectory.Replace('\','/').Contains('/tests/'))">
+    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+  </PropertyGroup>
   <ItemGroup Condition="$(MSBuildProjectDirectory.Replace('\','/').Contains('/tests/'))">
     <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
   </ItemGroup>

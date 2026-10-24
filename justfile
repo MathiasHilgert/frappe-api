@@ -100,31 +100,22 @@ _hadolint:
 _gitleaks:
     {{docker_run}} {{gitleaks_image}} dir /repo --config /repo/.config/gitleaks.toml --no-banner --redact --exit-code 1
 
-# Release build of the whole solution
+# Release build of the whole solution (implicit restore: one evaluation pass, near no-op when unchanged)
 [group('test')]
-build: setup
-    dotnet build --no-restore -c {{configuration}}
+build:
+    dotnet tool restore
+    dotnet build -c {{configuration}}
 
-# Run tests; suite is fast | integration | all
+# Build once, then run every test app of the suite (fast | integration | all) in parallel
 [group('test')]
-test suite="all":
-    case "{{suite}}" in \
-      fast) projects="{{fast_tests}}" ;; \
-      integration) projects="{{integration_tests}}" ;; \
-      all) projects="{{fast_tests}} {{integration_tests}}" ;; \
-      *) echo "Unknown suite '{{suite}}'. Use one of: fast | integration | all" >&2; exit 2 ;; \
-    esac; \
-    if [[ -z "${projects// }" ]]; then echo "No {{suite}} test projects yet; nothing to run."; exit 0; fi; \
-    for p in $projects; do dotnet test --project "$p" -c {{configuration}}; done
+test suite="all": build
+    just _run-tests {{suite}}
 
-# Tests with coverage, merged report; fails under COVERAGE_MIN% line coverage
+# Build once, run every suite in parallel collecting coverage, merge it; fails under COVERAGE_MIN% line coverage
 [group('test')]
-cover: setup
+cover: build
     rm -rf {{coverage_dir}}
-    for p in {{fast_tests}} {{integration_tests}}; do \
-      dotnet test --project "$p" -c {{configuration}} --coverage --coverage-output-format cobertura \
-        --coverage-output coverage.cobertura.xml --results-directory "{{coverage_dir}}/raw/$(basename "$p")"; \
-    done
+    just _run-tests all coverage
     dotnet reportgenerator '-reports:{{coverage_dir}}/raw/*/coverage.cobertura.xml' '-targetdir:{{coverage_dir}}' \
       '-reporttypes:Html;MarkdownSummaryGithub;Cobertura;TextSummary' '-assemblyfilters:-*Tests' '-filefilters:-*.g.cs;-*/obj/*'
     cat {{coverage_dir}}/Summary.txt
@@ -133,6 +124,38 @@ cover: setup
     if awk -v p="$pct" -v m={{coverage_min}} 'BEGIN { exit !(p < m) }'; then \
       echo "Line coverage $pct% is below the {{coverage_min}}% threshold" >&2; exit 1; \
     fi; echo "Line coverage $pct% meets the {{coverage_min}}% threshold"
+
+# Runs the already-built Microsoft.Testing.Platform test apps concurrently (no rebuild, no dotnet test host per project).
+# Each app's output is buffered and printed whole, so parallel runs never interleave.
+_run-tests suite mode="plain":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{suite}}" in
+      fast) projects="{{fast_tests}}" ;;
+      integration) projects="{{integration_tests}}" ;;
+      all) projects="{{fast_tests}} {{integration_tests}}" ;;
+      *) echo "Unknown suite '{{suite}}'. Use one of: fast | integration | all" >&2; exit 2 ;;
+    esac
+    if [[ -z "${projects// }" ]]; then echo "No {{suite}} test projects yet; nothing to run."; exit 0; fi
+    logs="$(mktemp -d)"; trap 'rm -rf "$logs"' EXIT
+    pids=()
+    for p in $projects; do
+      name="$(basename "$p")"
+      args=(--no-progress)
+      if [[ "{{mode}}" == coverage ]]; then
+        args+=(--coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml
+               --results-directory "{{root}}/{{coverage_dir}}/raw/$name")
+      fi
+      ( cd "$p" && "./bin/{{configuration}}/net10.0/$name" "${args[@]}" ) >"$logs/$name.log" 2>&1 &
+      pids+=("$!:$name")
+    done
+    failed=0
+    for entry in "${pids[@]}"; do
+      pid="${entry%%:*}"; name="${entry#*:}"
+      if wait "$pid"; then status=passed; else status=FAILED; failed=1; fi
+      echo "::group::$name ($status)"; cat "$logs/$name.log"; echo "::endgroup::"
+    done
+    exit "$failed"
 
 # Mutation testing with Stryker.NET (slow)
 [group('test')]
@@ -188,13 +211,11 @@ image-scan:
 test-git:
     bash scripts/git/test.sh
 
-# Exactly what the pipeline runs, in pipeline order
+# Exactly what the pipeline runs (build once; cover runs every suite)
 [group('ci')]
 ci:
     just lint
     just test-git
-    just build
-    just test all
     just cover
     just audit
     just image

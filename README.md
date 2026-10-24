@@ -251,6 +251,10 @@ MessageCatalogConformance.CodesWithoutEntries(assembly, codes).ShouldBeEmpty(); 
 CI calls the same `justfile` recipes, so `just ci` reproduces the pipeline locally. Run `just` to list recipes.
 Linters and scanners run from pinned Docker images. Reports land in `artifacts/`.
 
+Tests build once and never rebuild: `just test` and `just cover` run `just build`, then launch every test
+project's Microsoft.Testing.Platform executable in parallel and print each one's output whole. `just cover`
+collects coverage during that single run and merges it, so CI runs each suite exactly once.
+
 | Group | Recipes | Workflow |
 | --- | --- | --- |
 | dev | `setup`, `up` / `down`, `run`, `clean` | — |
@@ -259,7 +263,7 @@ Linters and scanners run from pinned Docker images. Reports land in `artifacts/`
 | security | `audit` (vulnerable NuGet packages, transitive included; secrets are scanned by `lint`); CodeQL weekly | `ci.yml`, `codeql.yml` |
 | container | `image`, `image-scan` (trivy, HIGH/CRITICAL) | `ci.yml` |
 | git | `commits [base] [head]`, `branch [name]`, `hooks`, `test-git` (tests the hygiene scripts) | `pr-hygiene.yml` |
-| ci | `ci` (lint, test-git, build, test all, cover, audit, image, image-scan) | — |
+| ci | `ci` (lint, test-git, cover (build + every suite), audit, image, image-scan) | — |
 
 Dependabot updates NuGet, Actions and Docker base images weekly, with Conventional Commit titles.
 
