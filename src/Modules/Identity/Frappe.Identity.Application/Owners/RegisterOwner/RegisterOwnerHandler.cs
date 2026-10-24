@@ -1,6 +1,5 @@
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
-using Frappe.Identity.Contracts;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Principals;
 using Frappe.Identity.Domain.Users;
@@ -26,13 +25,15 @@ public static class RegisterOwnerHandler
         var perIp = await limiter.RecordAsync(AttemptPolicies.RegisterPerIp, command.ClientIp, cancellationToken);
         var perEmail = await limiter.RecordAsync(AttemptPolicies.RegisterPerEmail, command.Email?.Trim() ?? string.Empty, cancellationToken);
         if (!perIp.IsAllowed || !perEmail.IsAllowed)
+        {
             return Result.Failure<Guid>(IdentityErrors.TooManyAttempts.WithRetryAfter(
                 perIp.RetryAfter > perEmail.RetryAfter ? perIp.RetryAfter : perEmail.RetryAfter));
+        }
 
         var name = PersonName.Create(command.Name);
         var email = Email.Create(command.Email);
         var password = await passwordPolicy.ValidateAsync(command.Password, cancellationToken);
-        var invalid = new Notification();
+        var invalid = new ValidationNotification();
         foreach (var error in name.Errors.Concat(email.Errors).Concat(password.Errors))
             invalid.Add(error);
         if (invalid.HasErrors)

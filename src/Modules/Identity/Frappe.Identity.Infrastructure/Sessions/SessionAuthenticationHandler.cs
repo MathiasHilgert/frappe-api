@@ -1,4 +1,3 @@
-using System.Linq;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using Frappe.Identity.Application.Sessions;
@@ -29,7 +28,7 @@ internal sealed class SessionAuthenticationHandler(
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         string? token;
-        string authorization = Request.Headers.Authorization.ToString();
+        var authorization = Request.Headers.Authorization.ToString();
         if (authorization.Length > 0)
         {
             if (!authorization.StartsWith(BearerPrefix, StringComparison.OrdinalIgnoreCase))

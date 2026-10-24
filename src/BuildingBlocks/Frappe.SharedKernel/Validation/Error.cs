@@ -3,9 +3,9 @@ namespace Frappe.SharedKernel.Validation;
 /// <summary>
 /// A broken rule. <see cref="Code"/> is stable and machine-readable and doubles as the message catalogue key;
 /// <see cref="Message"/> is the English fallback; <see cref="Field"/> points at the offending input when there is one.
-/// Two errors are equal when their <see cref="Code"/> and <see cref="Field"/> are: together they name the rule and where it
-/// was broken, while the message, kind and the occurrence details (<see cref="RetryAfter"/>, <see cref="Metadata"/>)
-/// describe one breach of it.
+/// Equality is the default record equality over every member. To ask "is this the same broken rule?" use
+/// <see cref="ByRule"/>, which compares only <see cref="Code"/> and <see cref="Field"/>: together they name the rule and
+/// where it was broken, while the message, kind and occurrence details describe one breach of it.
 /// </summary>
 public sealed record Error(string Code, string Message, string? Field = null, ErrorKind Kind = ErrorKind.Validation)
 {
@@ -28,11 +28,27 @@ public sealed record Error(string Code, string Message, string? Field = null, Er
             },
         };
 
-    public bool Equals(Error? other) =>
-        other is not null
-        && string.Equals(Code, other.Code, StringComparison.Ordinal)
-        && string.Equals(Field, other.Field, StringComparison.Ordinal);
+    /// <summary>Compares errors by the rule they break: <see cref="Code"/> and <see cref="Field"/>, ordinal.</summary>
+    public static IEqualityComparer<Error> ByRule { get; } = new RuleComparer();
 
-    public override int GetHashCode() =>
-        HashCode.Combine(StringComparer.Ordinal.GetHashCode(Code), Field is null ? 0 : StringComparer.Ordinal.GetHashCode(Field));
+    /// <summary>Whether this error breaks the same rule as <paramref name="other"/> (see <see cref="ByRule"/>).</summary>
+    public bool Is(Error other) => ByRule.Equals(this, other);
+
+    private sealed class RuleComparer : IEqualityComparer<Error>
+    {
+        public bool Equals(Error? x, Error? y) =>
+            ReferenceEquals(x, y)
+            || (x is not null
+                && y is not null
+                && string.Equals(x.Code, y.Code, StringComparison.Ordinal)
+                && string.Equals(x.Field, y.Field, StringComparison.Ordinal));
+
+        public int GetHashCode(Error obj)
+        {
+            ArgumentNullException.ThrowIfNull(obj);
+            return HashCode.Combine(
+                StringComparer.Ordinal.GetHashCode(obj.Code),
+                obj.Field is null ? 0 : StringComparer.Ordinal.GetHashCode(obj.Field));
+        }
+    }
 }

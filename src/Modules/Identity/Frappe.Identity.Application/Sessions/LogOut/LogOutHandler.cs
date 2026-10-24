@@ -10,6 +10,6 @@ public static class LogOutHandler
     {
         var revoked = await SessionRevocation.RevokeAsync(principals, command.PrincipalId, command.SessionId, cancellationToken);
         // Already gone (revoked concurrently) is the outcome logout wants anyway.
-        return revoked.IsFailure && revoked.Errors[0] == IdentityErrors.SessionNotFound ? Result.Success() : revoked;
+        return revoked.IsFailure && revoked.Errors[0].Is(IdentityErrors.SessionNotFound) ? Result.Success() : revoked;
     }
 }

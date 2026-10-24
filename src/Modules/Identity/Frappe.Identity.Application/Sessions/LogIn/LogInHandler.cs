@@ -63,7 +63,7 @@ public static class LogInHandler
         CancellationToken cancellationToken)
     {
         var parsed = Email.Create(command.Email);
-        var principal = parsed.IsSuccess ? await principals.GetByEmailAsync(parsed.Value, cancellationToken) : null;
+        var principal = parsed.TryGetValue(out var email) ? await principals.GetByEmailAsync(email, cancellationToken) : null;
         // Argon2 cannot derive from an empty secret; an empty password is simply wrong.
         if (command.Password.Length == 0)
             return null;

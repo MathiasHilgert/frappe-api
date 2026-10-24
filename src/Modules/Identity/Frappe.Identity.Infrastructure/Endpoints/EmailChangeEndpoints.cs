@@ -44,8 +44,8 @@ internal static class EmailChangeEndpoints
         var result = await bus.InvokeAsync<Result<Guid>>(
             new RequestEmailChange(current.RequiredSession().PrincipalId, request.NewEmail), cancellationToken);
 
-        return result.IsSuccess
-            ? TypedResults.Created($"{http.PathBase}{http.Path}/{result.Value}", new EmailChangeResponse(result.Value))
+        return result.TryGetValue(out var id)
+            ? TypedResults.Created($"{http.PathBase}{http.Path}/{id}", new EmailChangeResponse(id))
             : result.ToProblem();
     }
 

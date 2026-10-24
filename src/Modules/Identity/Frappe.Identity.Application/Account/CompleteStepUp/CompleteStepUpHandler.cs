@@ -14,9 +14,8 @@ public static class CompleteStepUpHandler
     {
         var verified = await reverifier.VerifyAsync(
             command.PrincipalId, command.Password, IdentityErrors.StepUpPasswordIncorrect, cancellationToken);
-        if (verified.IsFailure)
+        if (!verified.TryGetValue(out var principal))
             return Result.Failure<DateTimeOffset>(verified.Errors[0]);
-        var principal = verified.Value;
 
         var expiresAt = principal.CompleteStepUp(command.SessionId, clock);
         if (expiresAt.IsFailure)

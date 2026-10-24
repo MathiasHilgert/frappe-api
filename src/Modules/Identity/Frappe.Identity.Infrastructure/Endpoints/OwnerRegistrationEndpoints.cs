@@ -42,8 +42,8 @@ internal static class OwnerRegistrationEndpoints
             new RegisterOwner(request.Name, request.Email, request.Password, requestLocale.Current, http.ClientIp()),
             cancellationToken);
 
-        return registered.IsSuccess
-            ? TypedResults.Created((string?)null, new RegisteredOwnerResponse(registered.Value))
+        return registered.TryGetValue(out var ownerId)
+            ? TypedResults.Created((string?)null, new RegisteredOwnerResponse(ownerId))
             : registered.ToProblem();
     }
 

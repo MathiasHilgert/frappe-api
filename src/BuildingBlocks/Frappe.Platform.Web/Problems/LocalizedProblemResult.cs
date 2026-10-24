@@ -57,8 +57,10 @@ public sealed class LocalizedProblemResult : IResult, IStatusCodeHttpResult
             problem.Extensions[key] = value;
 
         if (StatusCode == StatusCodes.Status429TooManyRequests && _errors.Max(e => e.RetryAfter) is { } wait)
+        {
             httpContext.Response.Headers[HeaderNames.RetryAfter] =
                 Math.Max(1L, (long)Math.Ceiling(wait.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
+        }
 
         return TypedResults.Problem(problem).ExecuteAsync(httpContext);
     }

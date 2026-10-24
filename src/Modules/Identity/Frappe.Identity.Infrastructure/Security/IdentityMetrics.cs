@@ -3,7 +3,7 @@ using System.Diagnostics.Metrics;
 namespace Frappe.Identity.Infrastructure.Security;
 
 /// <summary>Counters for identity safeguards that degraded (failed open), so an outage shows on dashboards.</summary>
-public sealed class IdentityMetrics
+internal sealed class IdentityMetrics
 {
     public const string MeterName = "Frappe.Identity";
     public const string BreachCheckUnavailable = "frappe.identity.breach_check.unavailable";

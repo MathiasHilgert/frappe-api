@@ -2,7 +2,6 @@ using Frappe.Notification.Application;
 using Frappe.Notification.Infrastructure;
 using Shouldly;
 using Wolverine;
-using Wolverine.ErrorHandling;
 
 namespace Frappe.Notification.Tests;
 

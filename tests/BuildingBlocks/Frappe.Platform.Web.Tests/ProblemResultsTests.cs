@@ -50,7 +50,7 @@ public sealed class ProblemResultsTests
     [Fact]
     public async Task SeveralErrors_AreOneValidationProblem_TranslatedPerLocale()
     {
-        var notification = new Notification()
+        var notification = new ValidationNotification()
             .Add(new Error("a.one", "One.", "name"))
             .Add(new Error("a.two", "Two.", Kind: ErrorKind.Conflict));
 

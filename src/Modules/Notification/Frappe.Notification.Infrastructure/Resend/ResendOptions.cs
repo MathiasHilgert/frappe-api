@@ -1,7 +1,7 @@
 namespace Frappe.Notification.Infrastructure.Resend;
 
 /// <summary>Resend API settings. The key is a secret: set it through the environment, never in a committed file.</summary>
-public sealed class ResendOptions
+internal sealed class ResendOptions
 {
     public const string Section = "Notification:Resend";
 

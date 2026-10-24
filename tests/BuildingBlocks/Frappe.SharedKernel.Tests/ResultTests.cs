@@ -11,7 +11,7 @@ public sealed class ResultTests
     [Fact]
     public void Failure_NotificationChangedAfterwards_KeepsItsErrors()
     {
-        var notification = new Notification().Add(First);
+        var notification = new ValidationNotification().Add(First);
 
         var result = Result.Failure<int>(notification);
         notification.Add(Second).Nest("owner");
@@ -22,15 +22,15 @@ public sealed class ResultTests
     [Fact]
     public void Failure_EmptyNotification_Throws()
     {
-        Should.Throw<ArgumentException>(() => Result.Failure<int>(new Notification()));
-        Should.Throw<ArgumentException>(() => Result.Failure(new Notification()));
+        Should.Throw<ArgumentException>(() => Result.Failure<int>(new ValidationNotification()));
+        Should.Throw<ArgumentException>(() => Result.Failure(new ValidationNotification()));
     }
 
     [Fact]
     public void From_RulesBroken_ReturnsEveryErrorWithoutCreatingTheValue()
     {
         var created = false;
-        var notification = new Notification().Add(First).Add(Second);
+        var notification = new ValidationNotification().Add(First).Add(Second);
 
         var result = Result.From(notification, () => created = true);
 
@@ -42,7 +42,7 @@ public sealed class ResultTests
     [Fact]
     public void From_NoRulesBroken_ReturnsTheValue()
     {
-        var result = Result.From(new Notification(), () => 42);
+        var result = Result.From(new ValidationNotification(), () => 42);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ShouldBe(42);
@@ -83,17 +83,32 @@ public sealed class ResultTests
     }
 
     [Fact]
-    public void Errors_WithTheSameCode_AreEqual_WhateverTheOccurrenceDetails()
+    public void Errors_ByRule_AreEqual_WhateverTheOccurrenceDetails()
     {
         var rule = new Error("sample.slow", "Slow down.", Kind: ErrorKind.TooManyRequests);
 
         var occurrence = rule.WithRetryAfter(TimeSpan.FromSeconds(5)).WithMetadata("ownerId", Guid.CreateVersion7());
         var annotated = rule.WithMetadata("ownerId", Guid.CreateVersion7());
 
-        occurrence.ShouldBe(rule);
-        (occurrence == rule).ShouldBeTrue();
-        annotated.ShouldBe(occurrence);
-        occurrence.GetHashCode().ShouldBe(rule.GetHashCode());
+        Error.ByRule.Equals(occurrence, rule).ShouldBeTrue();
+        occurrence.Is(rule).ShouldBeTrue();
+        Error.ByRule.Equals(annotated, occurrence).ShouldBeTrue();
+        Error.ByRule.GetHashCode(occurrence).ShouldBe(Error.ByRule.GetHashCode(rule));
+        new[] { occurrence }.ShouldContain(rule, Error.ByRule);
+    }
+
+    [Fact]
+    public void Errors_ByRule_Differ_WhenTheFieldDiffers() =>
+        Error.ByRule.Equals(new Error("sample.one", "Same.", "a"), new Error("sample.one", "Same.", "b")).ShouldBeFalse();
+
+    [Fact]
+    public void Errors_UseDefaultRecordEquality()
+    {
+        var rule = new Error("sample.slow", "Slow down.", Kind: ErrorKind.TooManyRequests);
+
+        rule.ShouldBe(new Error("sample.slow", "Slow down.", Kind: ErrorKind.TooManyRequests));
+        (rule.WithRetryAfter(TimeSpan.FromSeconds(5)) == rule).ShouldBeFalse();
+        (rule with { Message = "Other." }).ShouldNotBe(rule);
     }
 
     [Fact]
@@ -134,7 +149,7 @@ public sealed class ResultTests
     [Fact]
     public void IsSuccess_LetsTheCompilerTrustValue()
     {
-        Result<string?> result = Result.Success<string?>("value");
+        var result = Result.Success<string?>("value");
 
         // MemberNotNullWhen(true, Value): no null-forgiving operator needed inside the branch.
         if (result.IsSuccess)

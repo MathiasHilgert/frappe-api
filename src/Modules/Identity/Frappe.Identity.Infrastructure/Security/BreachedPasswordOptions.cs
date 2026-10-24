@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace Frappe.Identity.Infrastructure.Security;
 
 /// <summary>Where the HaveIBeenPwned range API lives and how long a sign-up waits for it before failing open.</summary>
-public sealed class BreachedPasswordOptions : IValidatableObject
+internal sealed class BreachedPasswordOptions : IValidatableObject
 {
     public const string Section = "Identity:BreachedPasswords";
     public const int MinimumTimeoutMilliseconds = 100;

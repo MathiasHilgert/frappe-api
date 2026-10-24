@@ -15,7 +15,7 @@ namespace Frappe.Identity.Infrastructure.Security;
 /// (<see cref="AttemptLimiterOptions"/>), every operation fails open (logged and counted), because
 /// locking every owner out during a cache outage is worse than briefly losing the throttle.
 /// </summary>
-public sealed partial class ValkeyAttemptLimiter(
+internal sealed partial class ValkeyAttemptLimiter(
     ValkeyConnection valkey,
     IOptions<AttemptLimiterOptions> options,
     IdentityMetrics metrics,

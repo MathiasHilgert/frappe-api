@@ -17,14 +17,13 @@ public static class ChangePasswordHandler
     {
         var verified = await reverifier.VerifyAsync(
             command.PrincipalId, command.CurrentPassword, IdentityErrors.CurrentPasswordIncorrect, cancellationToken);
-        if (verified.IsFailure)
+        if (!verified.TryGetValue(out var principal))
             return Result.Failure(verified.Errors[0]);
-        var principal = verified.Value;
 
         var password = await policy.ValidateAsync(command.NewPassword, cancellationToken);
         if (password.IsFailure)
         {
-            var notification = new Notification();
+            var notification = new ValidationNotification();
             foreach (var error in password.Errors)
                 notification.Add(error with { Field = "newPassword" });
             return Result.Failure(notification);

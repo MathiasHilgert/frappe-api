@@ -1,3 +1,3 @@
 namespace Frappe.Identity.Infrastructure.Endpoints;
 
-public sealed record EmailChangeRequest(string? NewEmail);
+internal sealed record EmailChangeRequest(string? NewEmail);

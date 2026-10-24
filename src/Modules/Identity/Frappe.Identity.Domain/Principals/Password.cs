@@ -21,7 +21,7 @@ public sealed class Password
         var candidate = value ?? string.Empty;
         var length = candidate.EnumerateRunes().Count();
 
-        var notification = new Notification()
+        var notification = new ValidationNotification()
             .AddIf(length < MinLength, IdentityErrors.PasswordTooShort)
             .AddIf(length > MaxLength, IdentityErrors.PasswordTooLong);
 

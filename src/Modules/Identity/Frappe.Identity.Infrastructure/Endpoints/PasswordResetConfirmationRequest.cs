@@ -1,3 +1,3 @@
 namespace Frappe.Identity.Infrastructure.Endpoints;
 
-public sealed record PasswordResetConfirmationRequest(string? Code, string? NewPassword);
+internal sealed record PasswordResetConfirmationRequest(string? Code, string? NewPassword);

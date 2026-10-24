@@ -33,7 +33,9 @@ public sealed class PasswordReverifier(IPrincipalRepository principals, IPasswor
         // Argon2 cannot derive from an empty secret; an empty password is simply wrong (and keeps its slot).
         if (string.IsNullOrEmpty(password)
             || !await hasher.VerifyAsync(password, principal.Owner.PasswordHash, cancellationToken))
+        {
             return Result.Failure<Principal>(wrong);
+        }
 
         await reservation.SucceededAsync(Policy, cancellationToken);
         return Result.Success(principal);

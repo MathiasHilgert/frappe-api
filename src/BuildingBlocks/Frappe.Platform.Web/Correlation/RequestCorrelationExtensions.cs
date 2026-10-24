@@ -1,7 +1,6 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Frappe.Platform.Localization;
 using Frappe.Platform.Web.Problems;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Frappe.Platform.Web.Correlation;
@@ -22,8 +21,10 @@ public static class RequestCorrelationExtensions
             ctx.ProblemDetails.Extensions["requestId"] = ctx.HttpContext.TraceIdentifier;
             var ours = ctx.ProblemDetails.Type?.StartsWith("urn:frappe:", StringComparison.Ordinal) == true;
             if (!ours && ctx.ProblemDetails.Status is { } status)
+            {
                 ctx.ProblemDetails.Title = ProblemText.For(ctx.HttpContext)
                     .Translate($"platform.problem.{status}", ctx.ProblemDetails.Title ?? "");
+            }
         });
     }
 

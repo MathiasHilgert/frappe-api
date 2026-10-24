@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text.Json;
-using Alba;
 using Frappe.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

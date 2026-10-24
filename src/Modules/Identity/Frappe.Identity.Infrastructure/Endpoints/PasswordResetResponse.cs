@@ -1,3 +1,3 @@
 namespace Frappe.Identity.Infrastructure.Endpoints;
 
-public sealed record PasswordResetResponse(Guid Id);
+internal sealed record PasswordResetResponse(Guid Id);

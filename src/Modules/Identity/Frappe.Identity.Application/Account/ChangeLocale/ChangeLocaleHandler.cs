@@ -19,9 +19,9 @@ public static class ChangeLocaleHandler
         ChangeLocale command, IPrincipalRepository principals, IPlatformLocales platform, CancellationToken cancellationToken)
     {
         var parsed = Locale.Create(command.Locale);
-        if (parsed.IsFailure)
+        if (!parsed.TryGetValue(out var requested))
             return Result.Failure<Locale>(parsed.Errors[0]);
-        if (platform.Lookup(parsed.Value) is not { } locale)
+        if (platform.Lookup(requested) is not { } locale)
             return Result.Failure<Locale>(IdentityErrors.LocaleUnsupported);
 
         var principal = await principals.GetByIdAsync(command.PrincipalId, cancellationToken);

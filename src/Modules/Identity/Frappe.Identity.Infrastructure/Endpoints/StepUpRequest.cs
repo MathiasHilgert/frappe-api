@@ -1,3 +1,3 @@
 namespace Frappe.Identity.Infrastructure.Endpoints;
 
-public sealed record StepUpRequest(string? Password);
+internal sealed record StepUpRequest(string? Password);

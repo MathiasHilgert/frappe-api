@@ -25,6 +25,9 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Frappe.Identity.Tests" />
+    <!-- The host compiles the Wolverine generated handlers and wires observability. -->
+    <InternalsVisibleTo Include="Frappe.Api" />
+    <InternalsVisibleTo Include="Frappe.IntegrationTests" />
   </ItemGroup>
 
 </Project>

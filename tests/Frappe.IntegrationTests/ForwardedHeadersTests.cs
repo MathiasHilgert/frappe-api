@@ -1,7 +1,6 @@
 using System.Net;
 using Frappe.Platform.Web.Forwarding;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;

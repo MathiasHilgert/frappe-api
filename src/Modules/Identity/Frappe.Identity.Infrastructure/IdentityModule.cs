@@ -5,7 +5,6 @@ using Frappe.Identity.Application.Owners;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Principals.Purge;
 using Frappe.Identity.Application.Security;
-using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Contracts;
 using Frappe.Identity.Infrastructure.Endpoints;
 using Frappe.Identity.Infrastructure.Localization;
@@ -20,8 +19,8 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Wolverine;
 using Quartz;
+using Wolverine;
 
 namespace Frappe.Identity.Infrastructure;
 

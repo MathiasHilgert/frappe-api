@@ -1,9 +1,4 @@
 using Frappe.Application.Abstractions.Messaging;
-using Frappe.Identity.Application.Principals;
-using Frappe.Identity.Domain;
-using Frappe.Identity.Domain.Principals;
-using Frappe.SharedKernel.Validation;
-using Wolverine;
 
 namespace Frappe.Identity.Application.Owners;
 

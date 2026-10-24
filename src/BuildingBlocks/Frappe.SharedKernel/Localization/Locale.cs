@@ -26,7 +26,7 @@ public sealed record Locale
     public static Result<Locale> Create(string? tag)
     {
         var canonical = Canonicalise(tag);
-        var notification = new Notification().AddIf(canonical is null,
+        var notification = new ValidationNotification().AddIf(canonical is null,
             new Error(InvalidCode, "The locale must be a valid BCP-47 language tag, e.g. es-AR.", "locale"));
         return Result.From(notification, () => new Locale(canonical!, canonical!.Split('-')[0]));
     }
@@ -35,7 +35,7 @@ public sealed record Locale
     public static Locale Parse(string tag)
     {
         var result = Create(tag);
-        return result.IsSuccess ? result.Value : throw new FormatException($"'{tag}' is not a valid BCP-47 language tag.");
+        return result.TryGetValue(out var locale) ? locale : throw new FormatException($"'{tag}' is not a valid BCP-47 language tag.");
     }
 
     public override string ToString() => Value;

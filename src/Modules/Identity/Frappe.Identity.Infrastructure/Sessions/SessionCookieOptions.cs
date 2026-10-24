@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace Frappe.Identity.Infrastructure.Sessions;
 
 /// <summary>Where the web console keeps its session token. Always HttpOnly, Secure and SameSite=Lax.</summary>
-public sealed class SessionCookieOptions : IValidatableObject
+internal sealed class SessionCookieOptions : IValidatableObject
 {
     public const string Section = "Identity:SessionCookie";
 
@@ -28,7 +28,9 @@ public sealed class SessionCookieOptions : IValidatableObject
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if (Name?.StartsWith(HostPrefix, StringComparison.Ordinal) == true && (Path != "/" || !string.IsNullOrEmpty(Domain)))
+        {
             yield return new ValidationResult(
                 $"'{Section}': a {HostPrefix} Name needs Path '/' and no Domain.", [nameof(Path), nameof(Domain)]);
+        }
     }
 }

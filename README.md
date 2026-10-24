@@ -189,14 +189,17 @@ limits included, lives in the handler: a throttled command fails with a `TooMany
 concerns (cookies through `ISessionCookie`, `Content-Language`) stay in Infrastructure.
 A command that only a recurring job publishes (`PurgePendingOwners`) implements `IBackgroundCommand`: nobody reads
 its answer and a published handler's return value is cascaded, so it returns only its `OutgoingMessages`.
-Errors compare by `Code` and `Field`: `Kind`, `Message` and the occurrence details (`RetryAfter`, `Metadata`) never make
-two errors different, so `error == IdentityErrors.EmailTaken` holds for a throttled or annotated copy too.
+`Error` keeps default record equality. To ask whether an error breaks a given rule, compare by `Code` and `Field` with
+`error.Is(IdentityErrors.EmailTaken)` or the `Error.ByRule` comparer (e.g. `ShouldContain(x, Error.ByRule)`): that
+holds for a throttled or annotated copy too, where `==` does not.
 `tests/Frappe.ArchitectureTests/CqrsConventionTests.cs` fails when an endpoint calls an Application service, a message
 is not a marked record, a query handler touches a repository, a command handler answers with a type some query
 returns, a command handler returns anything but `Result`/`Result<T>`, a background command handler returns a
 `Result`, or a query handler is not `[NonTransactional]`. `EdgeConventionTests.cs` fails when an endpoint builds a
 problem itself (`TypedResults.Problem`, `Results.Problem`, `new ProblemDetails`), an endpoint lives outside
 `Endpoints/` or is not named `*Endpoints`, or an `Error` is declared outside a `*Errors` catalogue.
+`VisibilityTests.cs` fails when a module's Infrastructure exposes a public type other than its `IModule`, except the
+adapters Wolverine constructs inline in the generated handlers (`IdentityDbContext`, `PrincipalRepository`, `OwnerReads`).
 
 Migrations:
 
@@ -316,7 +319,7 @@ docker run -d -p 8080:8080 \
 | `Identity__SessionCookie__Path` | No | Session cookie path, default `/`; must start with `/` |
 | `Identity__SessionCookie__Domain` | No | Unset by default (host-only cookie); not allowed with a `__Host-` name |
 | `Identity__PasswordHashing__*` | No | Argon2id cost (`MemorySizeKib`, `Iterations`, `Parallelism`); startup fails below the OWASP minimum. `MaxConcurrentHashes` (default: CPU count, 1..1024) caps hashes running at once; extra sign-ins wait for a slot instead of exhausting memory |
-| `Notification__Resend__ApiKey` | Outside Development | Resend API key (secret, never committed). Locally: `dotnet user-secrets set "Notification:Resend:ApiKey" "<key>" --project src/Host/Frappe.Api`. Without it, Development logs mail instead of sending it; elsewhere sending fails and is retried |
+| `Notification__Resend__ApiKey` | Outside Development | Resend API key (secret, never committed). Locally: `dotnet user-secrets set "Notification:Resend:ApiKey" "<key>" --project src/Host/Frappe.Api`. Without it, Development only logs that a mail was sent (recipient domain, kind, subject with digits masked; never the body or code) instead of sending it; elsewhere sending fails and is retried |
 | `Notification__Resend__From` | No | Sender address, default `Frappé <no-reply@frappe.la>`; must be a domain verified in Resend |
 | `ConnectionStrings__nats` | No | Defaults to a local URL; NonCritical, realtime degrades when down |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | Traces, metrics and logs over OTLP |
