@@ -30,10 +30,9 @@ internal static class OwnerVerificationEndpoints
     {
         var verified = await bus.InvokeAsync<Result<OpenedSession>>(
             new VerifyOwnerEmail(id, request.Code ?? string.Empty), cancellationToken);
-        if (verified.IsFailure)
+        if (!verified.TryGetValue(out var session))
             return verified.ToProblem();
 
-        var session = verified.Value;
         cookie.Issue(session.Token, session.ExpiresAt);
         return TypedResults.Created(
             $"/v1/identity/sessions/{session.SessionId}",

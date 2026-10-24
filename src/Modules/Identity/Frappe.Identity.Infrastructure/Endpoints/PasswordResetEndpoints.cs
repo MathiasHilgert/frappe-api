@@ -35,8 +35,8 @@ internal static class PasswordResetEndpoints
         var requested = await bus.InvokeAsync<Result<Guid>>(
             new RequestPasswordReset(body.Email, http.ClientIp()), cancellationToken);
 
-        return requested.IsSuccess
-            ? TypedResults.Accepted((string?)null, new PasswordResetResponse(requested.Value))
+        return requested.TryGetValue(out var resetId)
+            ? TypedResults.Accepted((string?)null, new PasswordResetResponse(resetId))
             : requested.ToProblem();
     }
 

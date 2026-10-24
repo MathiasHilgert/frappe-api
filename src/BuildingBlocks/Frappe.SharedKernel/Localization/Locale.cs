@@ -35,7 +35,7 @@ public sealed record Locale
     public static Locale Parse(string tag)
     {
         var result = Create(tag);
-        return result.IsSuccess ? result.Value : throw new FormatException($"'{tag}' is not a valid BCP-47 language tag.");
+        return result.TryGetValue(out var locale) ? locale : throw new FormatException($"'{tag}' is not a valid BCP-47 language tag.");
     }
 
     public override string ToString() => Value;

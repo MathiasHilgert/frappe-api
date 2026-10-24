@@ -24,7 +24,7 @@ public static class IssuePasswordResetCodeHandler
     {
         var messages = new OutgoingMessages();
         var email = Email.Create(command.Email);
-        var principal = email.IsSuccess ? await principals.GetByEmailAsync(email.Value, cancellationToken) : null;
+        var principal = email.TryGetValue(out var address) ? await principals.GetByEmailAsync(address, cancellationToken) : null;
         if (principal is null || principal.Owner.Status == OwnerStatus.Suspended)
             return messages;
 

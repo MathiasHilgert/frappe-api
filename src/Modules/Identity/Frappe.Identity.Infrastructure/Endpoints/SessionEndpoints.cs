@@ -54,10 +54,9 @@ internal static class SessionEndpoints
             new LogIn(request.Email ?? string.Empty, request.Password ?? string.Empty, http.ClientIp(), surface),
             cancellationToken);
         // 401 bad credentials, 429 (Retry-After) throttled, 403 pending/suspended with the owner id disclosed.
-        if (signedIn.IsFailure)
+        if (!signedIn.TryGetValue(out var opened))
             return signedIn.ToProblem();
 
-        var opened = signedIn.Value;
         cookie.Issue(opened.Token, opened.ExpiresAt);
         return TypedResults.Created("/v1/identity/sessions/current",
             new OpenedSessionResponse(opened.SessionId, opened.PrincipalId, opened.Token, opened.ExpiresAt));
@@ -87,12 +86,12 @@ internal static class SessionEndpoints
     {
         var principalId = current.RequiredSession().PrincipalId;
         var changed = await bus.InvokeAsync<Result<Locale>>(new ChangeLocale(principalId, request.Locale), cancellationToken);
-        if (changed.IsFailure)
+        if (!changed.TryGetValue(out var locale))
             return changed.ToProblem();
         if (await bus.InvokeAsync<OwnerProfile?>(new GetMe(principalId), cancellationToken) is not { } profile)
             return TypedResults.Unauthorized();
 
-        requestLocale.AdoptPreferred(changed.Value);
+        requestLocale.AdoptPreferred(locale);
         return TypedResults.Ok(profile);
     }
 }

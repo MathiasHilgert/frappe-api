@@ -38,8 +38,8 @@ internal static class AccountSecurityEndpoints
         var result = await bus.InvokeAsync<Result<DateTimeOffset>>(
             new CompleteStepUp(caller.PrincipalId, caller.SessionId, request.Password), cancellationToken);
 
-        return result.IsSuccess
-            ? TypedResults.Created((string?)null, new StepUpResponse(result.Value))
+        return result.TryGetValue(out var expiresAt)
+            ? TypedResults.Created((string?)null, new StepUpResponse(expiresAt))
             : result.ToProblem();
     }
 
