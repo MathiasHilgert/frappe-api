@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Frappe.Application.Abstractions.Messaging;
+using Frappe.SharedKernel.Validation;
 using NetArchTest.Rules;
 
 namespace Frappe.ArchitectureTests;
@@ -86,6 +87,17 @@ internal static class CqrsRules
     }
 
     /// <summary>
+    /// Command handlers that answer with anything but <c>Result</c> or <c>Result&lt;T&gt;</c>: awaited through
+    /// <c>Task</c>/<c>ValueTask</c>, and first in a tuple when the rest cascades.
+    /// </summary>
+    public static List<string> CommandHandlersNotReturningResult(Layer application) =>
+        Handlers(application)
+            .Where(h => IsCommand(h.Message))
+            .Where(h => !IsResult(Answer(h.Method.ReturnType)))
+            .Select(h => $"{h.Handler.FullName}.{h.Method.Name}({h.Message.Name})")
+            .ToList();
+
+    /// <summary>
     /// Classes holding use-case logic that a caller would have to invoke directly: concrete, instantiable, not records
     /// and not handlers. Ports (interfaces) and messages are not services.
     /// </summary>
@@ -111,6 +123,18 @@ internal static class CqrsRules
             .That().ResideInNamespaceStartingWith(layer.Namespace)
             .And().HaveDependencyOnAny(dependencies)
             .GetTypes();
+
+    private static Type Answer(Type returnType)
+    {
+        if (returnType.IsGenericType && returnType.GetGenericTypeDefinition() is var awaited
+            && (awaited == typeof(Task<>) || awaited == typeof(ValueTask<>)))
+            returnType = returnType.GetGenericArguments()[0];
+        return returnType.IsGenericType && returnType.FullName?.StartsWith("System.ValueTuple`", StringComparison.Ordinal) == true
+            ? returnType.GetGenericArguments()[0]
+            : returnType;
+    }
+
+    private static bool IsResult(Type type) => type == typeof(Result) || (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Result<>));
 
     private static bool IsCommand(Type message) => typeof(ICommand).IsAssignableFrom(message);
 

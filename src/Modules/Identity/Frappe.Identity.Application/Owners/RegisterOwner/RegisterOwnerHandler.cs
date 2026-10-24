@@ -17,10 +17,18 @@ public static class RegisterOwnerHandler
         PasswordPolicy passwordPolicy,
         IPasswordHasher passwordHasher,
         VerificationCodeIssuer codes,
+        IAttemptLimiter limiter,
         TimeProvider clock,
         IMessageContext messages,
         CancellationToken cancellationToken)
     {
+        // Every attempt counts, successful or not: the limit is what keeps "email taken" from being a free oracle.
+        var perIp = await limiter.RecordAsync(AttemptPolicies.RegisterPerIp, command.ClientIp, cancellationToken);
+        var perEmail = await limiter.RecordAsync(AttemptPolicies.RegisterPerEmail, command.Email?.Trim() ?? string.Empty, cancellationToken);
+        if (!perIp.IsAllowed || !perEmail.IsAllowed)
+            return Result.Failure<Guid>(IdentityErrors.TooManyAttempts.WithRetryAfter(
+                perIp.RetryAfter > perEmail.RetryAfter ? perIp.RetryAfter : perEmail.RetryAfter));
+
         var name = PersonName.Create(command.Name);
         var email = Email.Create(command.Email);
         var password = await passwordPolicy.ValidateAsync(command.Password, cancellationToken);

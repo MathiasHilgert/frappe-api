@@ -9,7 +9,7 @@ namespace Frappe.Identity.Application.Owners;
 /// <summary>Wrong codes are metered per owner; a right one clears the count.</summary>
 public static class VerifyOwnerEmailHandler
 {
-    public static async Task<VerifyOwnerEmailOutcome> Handle(
+    public static async Task<Result<OpenedSession>> Handle(
         VerifyOwnerEmail command,
         IPrincipalRepository principals,
         ISecretHasher hasher,
@@ -22,7 +22,7 @@ public static class VerifyOwnerEmailHandler
         var key = command.OwnerId.ToString();
         var decision = await limiter.CheckAsync(policy, key, cancellationToken);
         if (!decision.IsAllowed)
-            return Failed(IdentityErrors.TooManyAttempts, decision.RetryAfter);
+            return Failed(IdentityErrors.TooManyAttempts.WithRetryAfter(decision.RetryAfter));
 
         var principal = await principals.GetByIdAsync(command.OwnerId, cancellationToken);
         if (principal is null)
@@ -43,10 +43,8 @@ public static class VerifyOwnerEmailHandler
             return Failed(saved.Errors[0]);
 
         await limiter.ResetAsync(policy, key, cancellationToken);
-        return new VerifyOwnerEmailOutcome(
-            Result.Success(new OpenedSession(session.Id, token, session.AbsoluteExpiresAt)), TimeSpan.Zero);
+        return Result.Success(new OpenedSession(session.Id, token, session.AbsoluteExpiresAt));
     }
 
-    private static VerifyOwnerEmailOutcome Failed(Error error, TimeSpan retryAfter = default) =>
-        new(Result.Failure<OpenedSession>(error), retryAfter);
+    private static Result<OpenedSession> Failed(Error error) => Result.Failure<OpenedSession>(error);
 }

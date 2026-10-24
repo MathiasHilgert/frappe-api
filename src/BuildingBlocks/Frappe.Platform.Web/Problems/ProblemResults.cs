@@ -11,18 +11,14 @@ public static class ProblemResults
     /// <c>urn:frappe:problem:validation</c> for several; <c>title</c> and every <c>errors[].message</c> are
     /// translated into the request locale by error code, falling back to the error's own message.
     /// </summary>
-    public static IResult ToProblem(this Result result) => result.ToProblem(retryAfter: null);
-
-    /// <summary>As <see cref="ToProblem(Result)"/>, with a wait for 429 answers.</summary>
-    /// <param name="result">The failed result.</param>
-    /// <param name="retryAfter">Sent as <c>Retry-After</c> (whole seconds, rounded up) on a 429.</param>
-    public static IResult ToProblem(this Result result, TimeSpan? retryAfter)
+    /// <remarks>A 429 sends <c>Retry-After</c> (whole seconds, rounded up) from the longest <see cref="Error.RetryAfter"/>.</remarks>
+    public static IResult ToProblem(this Result result)
     {
         ArgumentNullException.ThrowIfNull(result);
         if (result.IsSuccess)
             throw new InvalidOperationException("A successful result is not a problem.");
 
-        return new LocalizedProblemResult(result.Errors, retryAfter);
+        return new LocalizedProblemResult(result.Errors);
     }
 
     /// <summary>

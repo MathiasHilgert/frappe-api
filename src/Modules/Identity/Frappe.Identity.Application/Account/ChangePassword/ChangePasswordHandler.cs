@@ -7,7 +7,7 @@ namespace Frappe.Identity.Application.Account;
 
 public static class ChangePasswordHandler
 {
-    public static async Task<Throttled<bool>> Handle(
+    public static async Task<Result> Handle(
         ChangePassword command,
         PasswordReverifier reverifier,
         PasswordPolicy policy,
@@ -17,10 +17,9 @@ public static class ChangePasswordHandler
     {
         var verified = await reverifier.VerifyAsync(
             command.PrincipalId, command.CurrentPassword, IdentityErrors.CurrentPasswordIncorrect, cancellationToken);
-        if (verified.Result is not { } principal)
-            return new Throttled<bool>(null, verified.RetryAfter);
-        if (principal.IsFailure)
-            return new Throttled<bool>(Result.Failure<bool>(principal.Errors[0]));
+        if (verified.IsFailure)
+            return Result.Failure(verified.Errors[0]);
+        var principal = verified.Value;
 
         var password = await policy.ValidateAsync(command.NewPassword, cancellationToken);
         if (password.IsFailure)
@@ -28,11 +27,11 @@ public static class ChangePasswordHandler
             var notification = new Notification();
             foreach (var error in password.Errors)
                 notification.Add(error with { Field = "newPassword" });
-            return new Throttled<bool>(Result.Failure<bool>(notification));
+            return Result.Failure(notification);
         }
 
-        principal.Value.ChangePassword(hasher.Hash(password.Value.Value), command.SessionId);
+        principal.ChangePassword(hasher.Hash(password.Value.Value), command.SessionId);
         var saved = await principals.SaveChangesAsync(cancellationToken);
-        return new Throttled<bool>(saved.IsSuccess ? Result.Success(true) : Result.Failure<bool>(saved.Errors[0]));
+        return saved.IsSuccess ? Result.Success() : Result.Failure(saved.Errors[0]);
     }
 }

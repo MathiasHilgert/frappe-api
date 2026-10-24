@@ -1,6 +1,7 @@
 using Frappe.Identity.Application.Owners;
-using Frappe.Identity.Application.Sessions;
+using Frappe.Identity.Infrastructure.Sessions;
 using Frappe.Platform.Web.Problems;
+using Frappe.SharedKernel.Validation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -31,11 +32,11 @@ internal static class OwnerVerificationEndpoint
     private static async Task<IResult> HandleAsync(
         Guid id, Request request, IMessageBus bus, ISessionCookie cookie, CancellationToken cancellationToken)
     {
-        var outcome = await bus.InvokeAsync<VerifyOwnerEmailOutcome>(
+        var verified = await bus.InvokeAsync<Result<OpenedSession>>(
             new VerifyOwnerEmail(id, request.Code ?? string.Empty), cancellationToken);
-        if (outcome.Result.IsSuccess)
+        if (verified.IsSuccess)
         {
-            var session = outcome.Result.Value;
+            var session = verified.Value;
             cookie.Issue(session.Token, session.ExpiresAt);
             return TypedResults.Created(
                 $"/v1/identity/sessions/{session.SessionId}",
@@ -43,6 +44,6 @@ internal static class OwnerVerificationEndpoint
         }
 
         // Each error's Kind picks the status: 404 unknown owner, 409 already verified, 429 slow down, 422 otherwise.
-        return outcome.Result.ToProblem(outcome.RetryAfter);
+        return verified.ToProblem();
     }
 }

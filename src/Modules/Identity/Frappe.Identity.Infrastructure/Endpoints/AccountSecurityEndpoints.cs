@@ -1,6 +1,5 @@
 using Frappe.Identity.Application.Account;
 using Frappe.Identity.Application.Sessions;
-using Frappe.Identity.Domain;
 using Frappe.Identity.Infrastructure.Sessions;
 using Frappe.Platform.Web.Problems;
 using Frappe.SharedKernel.Validation;
@@ -32,10 +31,8 @@ internal static class AccountSecurityEndpoints
         if (current.Session is not { } caller)
             return TypedResults.Unauthorized();
 
-        var outcome = await bus.InvokeAsync<Throttled<DateTimeOffset>>(
+        var result = await bus.InvokeAsync<Result<DateTimeOffset>>(
             new CompleteStepUp(caller.PrincipalId, caller.SessionId, request.Password), cancellationToken);
-        if (outcome.Result is not { } result)
-            return Result.Failure(IdentityErrors.TooManyAttempts).ToProblem(outcome.RetryAfter);
 
         return result.IsSuccess
             ? TypedResults.Created((string?)null, new StepUpResponse(result.Value))
@@ -49,11 +46,9 @@ internal static class AccountSecurityEndpoints
         if (current.Session is not { } caller)
             return TypedResults.Unauthorized();
 
-        var outcome = await bus.InvokeAsync<Throttled<bool>>(
+        var result = await bus.InvokeAsync<Result>(
             new ChangePassword(caller.PrincipalId, caller.SessionId, request.CurrentPassword, request.NewPassword),
             cancellationToken);
-        if (outcome.Result is not { } result)
-            return Result.Failure(IdentityErrors.TooManyAttempts).ToProblem(outcome.RetryAfter);
 
         return result.IsSuccess ? TypedResults.NoContent() : result.ToProblem();
     }

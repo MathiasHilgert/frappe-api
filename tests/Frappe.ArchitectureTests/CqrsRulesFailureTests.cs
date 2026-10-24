@@ -26,4 +26,12 @@ public sealed class CqrsRulesFailureTests
     public void CommandHandlersReturningReadModels_NamesACommandAnsweringWithAReadModel() =>
         CqrsRules.CommandHandlersReturningReadModels(Application)
             .ShouldBe([$"{typeof(RenameWidgetHandler).FullName}.Handle({nameof(RenameWidget)})"]);
+
+    [Fact]
+    public void CommandHandlersNotReturningResult_NamesEveryCommandAnsweringWithAnythingElse() =>
+        CqrsRules.CommandHandlersNotReturningResult(Application).ShouldBe(
+        [
+            $"{typeof(RenameWidgetHandler).FullName}.Handle({nameof(RenameWidget)})",
+            $"{typeof(ArchiveWidgetHandler).FullName}.Handle({nameof(ArchiveWidget)})",
+        ], ignoreOrder: true);
 }

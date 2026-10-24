@@ -10,7 +10,7 @@ public static class ResendVerificationCodeHandler
 {
     public static readonly Error OwnerNotFound = new("identity.owner.not_found", "The owner does not exist.");
 
-    public static async Task<ResendVerificationCodeResult> Handle(
+    public static async Task<Result> Handle(
         ResendVerificationCode command,
         IPrincipalRepository principals,
         VerificationCodeIssuer codes,
@@ -20,24 +20,22 @@ public static class ResendVerificationCodeHandler
     {
         var principal = await principals.GetByIdAsync(command.PrincipalId, cancellationToken);
         if (principal is null)
-            return Failed(OwnerNotFound);
+            return Result.Failure(OwnerNotFound);
         if (principal.Owner.Status != OwnerStatus.Pending)
-            return Failed(IdentityErrors.AccountNotPending);
+            return Result.Failure(IdentityErrors.AccountNotPending);
 
         var issued = codes.Issue(principal);
         if (issued.IsFailure)
         {
             var window = principal.Codes.First(c => c.Purpose == CodePurpose.EmailVerify).WindowStartedAt;
-            return new(Result.Failure(issued.Errors[0]), window + VerificationCode.ResendWindow - clock.GetUtcNow());
+            return Result.Failure(issued.Errors[0].WithRetryAfter(window + VerificationCode.ResendWindow - clock.GetUtcNow()));
         }
 
         var saved = await principals.SaveChangesAsync(cancellationToken);
         if (saved.IsFailure)
-            return Failed(saved.Errors[0]);
+            return Result.Failure(saved.Errors[0]);
 
         await messages.PublishAsync(issued.Value);
-        return new(Result.Success(), TimeSpan.Zero);
+        return Result.Success();
     }
-
-    private static ResendVerificationCodeResult Failed(Error error) => new(Result.Failure(error), TimeSpan.Zero);
 }
