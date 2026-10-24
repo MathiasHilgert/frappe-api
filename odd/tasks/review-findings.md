@@ -19,7 +19,7 @@ Branches: fix/limiter-security, refactor/http-edge, fix/mail-resilience, refacto
 - T3 S3 delegated (parallel unit) — PR open #62 (fix/mail-resilience, commit 7c49b56); just test all green; QA 422->dead-letter, 503->backoff same key
 - T4 S4 delegated (parallel unit) — done, PR #60 (refactor/kernel-idioms: 2ae0987, 4bd8996, f8bf671, 20956a4); just test green
 - T5 S5 delegated (after T1-T4) — PR open (style/repo-sweep); just test all, lint, codegen-check green; QA done
-- T6 S6 inline (one PR, user-accepted size exception) — in progress on fix/review-round-2
+- T6 S6 inline (one PR, user-accepted size exception) — done on fix/review-round-2 (f2c5ba8..a4e0d71, 10 commits); just test all, lint, codegen-check green; QA done; PR open
 
 ## Log
 
@@ -28,3 +28,4 @@ Branches: fix/limiter-security, refactor/http-edge, fix/mail-resilience, refacto
 - 2026-10-24 T4: PR #60 opened. Generated Range validator ignores ErrorMessage (.NET 10), so Range failures name Type.Member; QA proved fail-fast on 5 bad options and normal boot.
 - 2026-10-24 T5: Wolverine refuses non-public concrete types it must build inline (ServiceLocationPolicy.NotAllowed), so IdentityDbContext, PrincipalRepository and OwnerReads stay public; every other Infrastructure type is internal (public 180 -> 151, internal 49 -> 78). LoggingMailer now masks codes, so local dev can no longer read codes from the log.
 - L-R2 (2026-10-24): second blind review round on 13eab3f (C# 8.5, arch 7.5, quality 7.5). User: "Quiero que cubras absolutamente todo de nuevo en un solo PR." New task T6 (S6): every round-2 finding in one PR, branch fix/review-round-2. Reviewer claim "mail retries give up after ~6s" is false (1s,5s then 30s,2m,10m scheduled) — excluded.
+- 2026-10-24 T6: all 29 findings covered in 10 commits. Decisions: Result<T> is a separate type (no shadowing), implicit T/Error conversions kept; Email normalized once (trim + ToLowerInvariant) with a migration that lower-cases stored addresses and swaps the lower(email) index for a plain unique one; Quartz on its clustered Postgres store, DDL as a JasperFx resource (`resources setup`, Development applies it); seal moved to Application.Abstractions IMessageSeal + Platform.Messaging AES-GCM with a new Messaging:Seal:Key; DTOs/commands stay nullable (domain validates missing fields) instead of required members, so no endpoint coerces. QA on the real stack: email+IP lockout (attacker 401x10 then 429, owner from another IP 201), /me problem shapes, PATCH /me 200 {"locale"}, purge fired through Quartz (Purged 1), in-process limiter 429 platform.rate_limited, Production start fails without the Resend key.
