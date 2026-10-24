@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using Frappe.Application.Abstractions.Realtime;
 using Frappe.Contracts.Abstractions.Realtime;
+using Frappe.IntegrationTests.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using Wolverine;
@@ -26,9 +27,29 @@ public sealed class RealtimeTests(ApiFixture api)
     }
 
     [Fact]
+    public async Task Stream_SignedInOwnerOfAnotherBusiness_Returns403Problem()
+    {
+        var (_, _, token) = await SessionSeeder.SeedAsync(api.Host);
+
+        var result = await api.Host.Scenario(s =>
+        {
+            s.Get.Url($"/v1/stream?businessId={Guid.CreateVersion7()}");
+            s.WithRequestHeader("Authorization", $"Bearer {token}");
+            s.StatusCodeShouldBe(HttpStatusCode.Forbidden);
+        });
+
+        var body = await result.ReadAsJsonAsync<JsonElement>();
+        body.GetProperty("status").GetInt32().ShouldBe(403);
+    }
+
+    [Fact]
     public async Task Stream_PushPublishedThroughTheBus_ReachesTheBusinessStreamWithResumableId()
     {
-        await using var host = await api.CreateHostAsync(services => services.AuthenticateEveryone());
+        await using var host = await api.CreateHostAsync(services =>
+        {
+            services.AuthenticateEveryone();
+            services.AddSingleton<IBusinessMembership>(new EveryoneIsAMember());
+        });
         var businessId = Guid.CreateVersion7();
         var notification = new ProbePublished(Guid.CreateVersion7(), businessId, "hello");
 
@@ -89,5 +110,11 @@ public sealed class RealtimeTests(ApiFixture api)
 
             return lines;
         }
+    }
+
+    private sealed class EveryoneIsAMember : IBusinessMembership
+    {
+        public Task<bool> IsMemberAsync(System.Security.Claims.ClaimsPrincipal user, Guid businessId, CancellationToken cancellationToken) =>
+            Task.FromResult(true);
     }
 }
