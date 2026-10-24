@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Frappe.SharedKernel.Validation;
 
 public class Result
@@ -34,7 +36,28 @@ public sealed class Result<T> : Result
 
     internal Result(T? value, IReadOnlyList<Error> errors) : base(errors) => _value = value;
 
+    /// <summary>Same as the base flag, restated so the compiler knows <see cref="Value"/> is set when it is true.</summary>
+    [MemberNotNullWhen(true, nameof(Value))]
+    public new bool IsSuccess => base.IsSuccess;
+
     public T Value => IsSuccess
         ? _value!
         : throw new InvalidOperationException("Cannot read the value of a failed result.");
+
+    public bool TryGetValue([NotNullWhen(true)] out T? value)
+    {
+        value = IsSuccess ? _value : default;
+        return IsSuccess;
+    }
+
+    public TOut Match<TOut>(Func<T, TOut> onSuccess, Func<IReadOnlyList<Error>, TOut> onFailure)
+    {
+        ArgumentNullException.ThrowIfNull(onSuccess);
+        ArgumentNullException.ThrowIfNull(onFailure);
+        return IsSuccess ? onSuccess(_value!) : onFailure(Errors);
+    }
+
+    public static implicit operator Result<T>(T value) => Success(value);
+
+    public static implicit operator Result<T>(Error error) => Failure<T>(error);
 }
