@@ -14,7 +14,7 @@ internal static class SessionAuthenticationRegistration
     {
         services.AddSingleton<IValidateOptions<SessionCookieOptions>, SessionCookieOptionsValidator>();
         services.AddOptions<SessionCookieOptions>()
-            .Bind(configuration.GetSection(SessionCookieOptions.Section))
+            .BindConfiguration(SessionCookieOptions.SectionName)
             .ValidateOnStart();
 
         services.AddHttpContextAccessor();

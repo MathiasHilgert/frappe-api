@@ -15,7 +15,7 @@ public sealed class ProblemResultsTests
     private static async Task<(HttpResponse Response, JsonElement Body)> Execute(Result result, string? acceptLanguage = null)
     {
         var services = new ServiceCollection().AddLogging()
-            .AddPlatformLocalization(new ConfigurationBuilder().Build())
+            .AddSingleton<IConfiguration>(new ConfigurationBuilder().Build()).AddPlatformLocalization()
             .AddRequestCorrelation()
             .BuildServiceProvider();
         var context = new DefaultHttpContext { RequestServices = services.CreateScope().ServiceProvider };

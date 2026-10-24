@@ -28,7 +28,7 @@ internal static class PlatformComposition
 
         builder.AddObservability(modules);
 
-        services.AddPlatformLocalization(configuration);
+        services.AddPlatformLocalization();
         services.AddTrustedForwardedHeaders(configuration);
         services.AddRequestCorrelation();
         services.AddDenyByDefaultSecurity();

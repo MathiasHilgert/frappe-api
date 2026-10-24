@@ -1,6 +1,7 @@
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Principals;
+using Frappe.Modularity;
 using Frappe.SharedKernel.Validation;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -8,6 +9,7 @@ using Npgsql;
 namespace Frappe.Identity.Infrastructure.Persistence;
 
 // Public so Wolverine builds it inline and sees the DbContext behind it, which turns on the EF transaction and outbox.
+[InlinedByWolverine]
 public sealed class PrincipalRepository(IdentityDbContext context) : IPrincipalRepository
 {
     public Task<Principal?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>

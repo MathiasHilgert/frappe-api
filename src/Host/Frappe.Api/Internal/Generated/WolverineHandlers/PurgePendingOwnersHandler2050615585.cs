@@ -8,17 +8,17 @@ using System.Collections.Generic;
 
 namespace Internal.Generated.WolverineHandlers
 {
-    // START: PurgePendingOwnersHandler1256229924
+    // START: PurgePendingOwnersHandler2050615585
     [global::System.CodeDom.Compiler.GeneratedCode("JasperFx", "1.0.0")]
-    public sealed class PurgePendingOwnersHandler1256229924 : Wolverine.Runtime.Handlers.MessageHandler
+    public sealed class PurgePendingOwnersHandler2050615585 : Wolverine.Runtime.Handlers.MessageHandler
     {
         private readonly Frappe.Identity.Application.Security.IIdentityTelemetry _identityTelemetry;
         private readonly Microsoft.Extensions.DependencyInjection.IServiceScopeFactory _serviceScopeFactory;
-        private readonly Microsoft.Extensions.Logging.ILogger<Frappe.Identity.Application.Principals.Purge.PurgePendingOwners> _loggerForMessage;
+        private readonly Microsoft.Extensions.Logging.ILogger<Frappe.Identity.Application.Principals.PurgePendingOwners> _loggerForMessage;
         private readonly System.Collections.Generic.IEnumerable<Wolverine.EntityFrameworkCore.IDomainEventScraper> _domainEventScraperIEnumerable;
         private readonly System.TimeProvider _timeProvider;
 
-        public PurgePendingOwnersHandler1256229924(Frappe.Identity.Application.Security.IIdentityTelemetry identityTelemetry, Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory, Microsoft.Extensions.Logging.ILogger<Frappe.Identity.Application.Principals.Purge.PurgePendingOwners> loggerForMessage, System.Collections.Generic.IEnumerable<Wolverine.EntityFrameworkCore.IDomainEventScraper> domainEventScraperIEnumerable, System.TimeProvider timeProvider)
+        public PurgePendingOwnersHandler2050615585(Frappe.Identity.Application.Security.IIdentityTelemetry identityTelemetry, Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory, Microsoft.Extensions.Logging.ILogger<Frappe.Identity.Application.Principals.PurgePendingOwners> loggerForMessage, System.Collections.Generic.IEnumerable<Wolverine.EntityFrameworkCore.IDomainEventScraper> domainEventScraperIEnumerable, System.TimeProvider timeProvider)
         {
             _identityTelemetry = identityTelemetry;
             _serviceScopeFactory = serviceScopeFactory;
@@ -35,7 +35,7 @@ namespace Internal.Generated.WolverineHandlers
             var identityDbContext = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Frappe.Identity.Infrastructure.Persistence.IdentityDbContext>(serviceScope.ServiceProvider);
             var principalRepository = new Frappe.Identity.Infrastructure.Persistence.PrincipalRepository(identityDbContext);
             // The actual message body
-            var purgePendingOwners = (Frappe.Identity.Application.Principals.Purge.PurgePendingOwners)context.Envelope.Message;
+            var purgePendingOwners = (Frappe.Identity.Application.Principals.PurgePendingOwners)context.Envelope.Message;
 
             
             // Enroll the DbContext & IMessagingContext in the outgoing Wolverine outbox transaction
@@ -49,11 +49,11 @@ namespace Internal.Generated.WolverineHandlers
 
             try
             {
-                System.Diagnostics.Activity.Current?.SetTag("message.handler", "Frappe.Identity.Application.Principals.Purge.PurgePendingOwnersHandler");
-                System.Diagnostics.Activity.Current?.SetTag("handler.type", "Frappe.Identity.Application.Principals.Purge.PurgePendingOwnersHandler");
+                System.Diagnostics.Activity.Current?.SetTag("message.handler", "Frappe.Identity.Application.Principals.PurgePendingOwnersHandler");
+                System.Diagnostics.Activity.Current?.SetTag("handler.type", "Frappe.Identity.Application.Principals.PurgePendingOwnersHandler");
                 
                 // The actual message execution
-                var outgoing1 = await Frappe.Identity.Application.Principals.Purge.PurgePendingOwnersHandler.Handle(purgePendingOwners, principalRepository, _identityTelemetry, _timeProvider, _loggerForMessage, cancellation).ConfigureAwait(false);
+                var outgoing1 = await Frappe.Identity.Application.Principals.PurgePendingOwnersHandler.Handle(purgePendingOwners, principalRepository, _identityTelemetry, _timeProvider, _loggerForMessage, cancellation).ConfigureAwait(false);
 
                 
                 // Outgoing, cascaded message
@@ -76,7 +76,7 @@ namespace Internal.Generated.WolverineHandlers
         }
     }
 
-    // END: PurgePendingOwnersHandler1256229924
+    // END: PurgePendingOwnersHandler2050615585
     
     
 }

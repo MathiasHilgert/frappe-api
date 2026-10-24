@@ -1,4 +1,5 @@
 using Frappe.Identity.Domain.Principals;
+using Frappe.Modularity;
 using Frappe.Platform.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -11,6 +12,7 @@ namespace Frappe.Identity.Infrastructure.Persistence;
 /// marked modified too: the aggregate is then saved as one unit, and a concurrent writer of the same aggregate fails
 /// with <see cref="DbUpdateConcurrencyException"/> instead of being silently overwritten.
 /// </summary>
+[InlinedByWolverine]
 public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> options)
     : ModuleDbContext(options, IdentityModule.Schema)
 {

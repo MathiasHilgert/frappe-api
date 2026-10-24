@@ -51,7 +51,7 @@ public sealed class ForwardedHeadersTests
         builder.WebHost.UseTestServer();
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(settings.Select(s =>
-                new KeyValuePair<string, string?>($"{TrustedProxyExtensions.Section}:{s.Key}", s.Value)))
+                new KeyValuePair<string, string?>($"{TrustedProxyExtensions.SectionName}:{s.Key}", s.Value)))
             .Build();
         builder.Services.AddTrustedForwardedHeaders(configuration);
 

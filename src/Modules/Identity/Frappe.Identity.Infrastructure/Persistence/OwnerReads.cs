@@ -1,11 +1,13 @@
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Domain.Principals;
+using Frappe.Modularity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Frappe.Identity.Infrastructure.Persistence;
 
 // Public so Wolverine builds it inline. Sessions are filtered in SQL with the aggregate's own windows (Session.IsLive).
+[InlinedByWolverine]
 public sealed class OwnerReads(IdentityDbContext context) : IOwnerReads
 {
     public async Task<OwnerProfile?> GetProfileAsync(Guid principalId, CancellationToken cancellationToken)

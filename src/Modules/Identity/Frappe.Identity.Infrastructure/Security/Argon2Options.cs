@@ -7,7 +7,7 @@ namespace Frappe.Identity.Infrastructure.Security;
 /// </summary>
 internal sealed class Argon2Options
 {
-    public const string Section = "Identity:PasswordHashing";
+    public const string SectionName = "Identity:PasswordHashing";
     public const int MinimumMemorySizeKib = 19_456;
     public const int MinimumIterations = 2;
 

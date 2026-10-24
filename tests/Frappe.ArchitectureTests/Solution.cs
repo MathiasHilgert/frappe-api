@@ -29,6 +29,9 @@ internal static class Solution
 
     public static IReadOnlyList<Project> Projects => LazyProjects.Value;
 
+    /// <summary>The repository root (where Frappe.slnx lives).</summary>
+    public static string Root { get; } = FindRoot();
+
     public static IEnumerable<Project> OfKind(params ProjectKind[] kinds) => Projects.Where(p => kinds.Contains(p.Kind));
 
     public static IEnumerable<string> ModuleNames => Projects.Select(p => p.Module).OfType<string>().Distinct(StringComparer.Ordinal);
@@ -38,7 +41,7 @@ internal static class Solution
 
     private static List<Project> LoadProjects()
     {
-        var src = Path.Join(FindRoot(), "src");
+        var src = Path.Join(Root, "src");
         return Directory.EnumerateFiles(src, "*.csproj", SearchOption.AllDirectories)
             .Select(path =>
             {

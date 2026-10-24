@@ -6,7 +6,7 @@ namespace Frappe.Platform.Localization.Tests;
 public sealed class LocaleNegotiatorTests
 {
     private static readonly SupportedLocales Supported =
-        new(LocalizationOptions.DefaultSupportedLocales, LocalizationOptions.DefaultLocaleTag);
+        LocalizationOptions.Defaults;
 
     private readonly LocaleNegotiator _negotiator = new(Supported);
 

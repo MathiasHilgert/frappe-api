@@ -5,7 +5,7 @@ using Frappe.SharedKernel.Domain;
 using Microsoft.Extensions.Logging;
 using Wolverine;
 
-namespace Frappe.Identity.Application.Principals.Purge;
+namespace Frappe.Identity.Application.Principals;
 
 public static partial class PurgePendingOwnersHandler
 {

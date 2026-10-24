@@ -5,7 +5,7 @@ namespace Frappe.Identity.Infrastructure.Security;
 /// <summary>Where the HaveIBeenPwned range API lives and how long a sign-up waits for it before failing open.</summary>
 internal sealed class BreachedPasswordOptions : IValidatableObject
 {
-    public const string Section = "Identity:BreachedPasswords";
+    public const string SectionName = "Identity:BreachedPasswords";
     public const int MinimumTimeoutMilliseconds = 100;
     public const int MaximumTimeoutMilliseconds = 10_000;
 
@@ -17,6 +17,6 @@ internal sealed class BreachedPasswordOptions : IValidatableObject
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if (BaseAddress is not { IsAbsoluteUri: true })
-            yield return new ValidationResult($"'{Section}:BaseAddress' must be an absolute URI.", [nameof(BaseAddress)]);
+            yield return new ValidationResult($"'{SectionName}:BaseAddress' must be an absolute URI.", [nameof(BaseAddress)]);
     }
 }

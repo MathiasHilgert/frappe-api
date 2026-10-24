@@ -18,14 +18,14 @@ public static class MessageCatalogConformance
     /// </summary>
     public static IReadOnlyList<string> CodesWithoutEntries(Assembly catalogue, IEnumerable<string> codes)
     {
-        var supported = new SupportedLocales(LocalizationOptions.DefaultSupportedLocales, LocalizationOptions.DefaultLocaleTag);
+        var supported = LocalizationOptions.Defaults;
         var english = new MessageCatalogSource(catalogue).Load().GetValueOrDefault(supported.Default);
         return codes.Distinct(StringComparer.Ordinal).Where(c => english?.ContainsKey(c) != true).ToList();
     }
 
     public static IReadOnlyList<string> Check(Assembly assembly, SupportedLocales? supported = null) =>
         Check(new MessageCatalogSource(assembly).Load(),
-            supported ?? new SupportedLocales(LocalizationOptions.DefaultSupportedLocales, LocalizationOptions.DefaultLocaleTag));
+            supported ?? LocalizationOptions.Defaults);
 
     internal static IReadOnlyList<string> Check(
         IReadOnlyDictionary<Locale, IReadOnlyDictionary<string, string>> catalogues, SupportedLocales supported)

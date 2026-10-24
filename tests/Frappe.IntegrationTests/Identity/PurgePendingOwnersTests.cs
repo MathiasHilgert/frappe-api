@@ -1,6 +1,5 @@
 using Alba;
 using Frappe.Identity.Application.Principals;
-using Frappe.Identity.Application.Principals.Purge;
 using Frappe.Identity.Domain.Principals;
 using Frappe.Identity.Domain.Users;
 using Frappe.Identity.Infrastructure.Persistence;

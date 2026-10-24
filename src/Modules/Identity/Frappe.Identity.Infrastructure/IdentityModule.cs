@@ -3,7 +3,6 @@ using Frappe.Identity.Application;
 using Frappe.Identity.Application.Account;
 using Frappe.Identity.Application.Owners;
 using Frappe.Identity.Application.Principals;
-using Frappe.Identity.Application.Principals.Purge;
 using Frappe.Identity.Application.Security;
 using Frappe.Identity.Contracts;
 using Frappe.Identity.Infrastructure.Endpoints;
@@ -48,10 +47,10 @@ public sealed class IdentityModule : IModule
         services.AddSingleton<IValidateOptions<AttemptLimiterOptions>, AttemptLimiterOptionsValidator>();
         services.AddSingleton<IValidateOptions<BreachedPasswordOptions>, BreachedPasswordOptionsValidator>();
         services.AddOptions<Argon2Options>()
-            .Bind(configuration.GetSection(Argon2Options.Section))
+            .BindConfiguration(Argon2Options.SectionName)
             .ValidateOnStart();
         services.AddOptions<SecretHashingOptions>()
-            .Bind(configuration.GetSection(SecretHashingOptions.Section))
+            .BindConfiguration(SecretHashingOptions.SectionName)
             .ValidateOnStart();
 
         services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
@@ -60,11 +59,11 @@ public sealed class IdentityModule : IModule
         services.AddSingleton<DecoyPassword>();
 
         services.AddSessionAuthentication(configuration);
-        AddPasswordPolicy(services, configuration);
+        AddPasswordPolicy(services);
         services.AddSingleton<IdentityMetrics>();
         services.AddSingleton<IIdentityTelemetry>(sp => sp.GetRequiredService<IdentityMetrics>());
         services.AddOptions<AttemptLimiterOptions>()
-            .Bind(configuration.GetSection(AttemptLimiterOptions.Section))
+            .BindConfiguration(AttemptLimiterOptions.SectionName)
             .ValidateOnStart();
         services.AddSingleton<IAttemptLimiter, ValkeyAttemptLimiter>();
         services.AddScoped<VerificationCodeIssuer>();
@@ -99,10 +98,10 @@ public sealed class IdentityModule : IModule
                 .WithIdentity(nameof(PurgePendingOwners))
                 .WithCronSchedule("0 0 3 * * ?", cron => cron.InTimeZone(TimeZoneInfo.Utc))));
 
-    private static void AddPasswordPolicy(IServiceCollection services, IConfiguration configuration)
+    private static void AddPasswordPolicy(IServiceCollection services)
     {
         services.AddOptions<BreachedPasswordOptions>()
-            .Bind(configuration.GetSection(BreachedPasswordOptions.Section))
+            .BindConfiguration(BreachedPasswordOptions.SectionName)
             .ValidateOnStart();
         services.AddHttpClient<IBreachedPasswordChecker, HibpBreachedPasswordChecker>((sp, http) =>
             {

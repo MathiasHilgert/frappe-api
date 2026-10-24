@@ -51,6 +51,16 @@ public sealed class HostTests(ApiFixture fixture)
         });
     }
 
+    [Theory]
+    [InlineData("Localization:DefaultLocale", "de", "DefaultLocale")]
+    [InlineData("Platform:RateLimiting:PermitLimit", "0", "PermitLimit")]
+    public async Task Host_RefusesToStart_WithAnInvalidPlatformOption(string key, string value, string member)
+    {
+        var error = await Should.ThrowAsync<Exception>(() => fixture.CreateHostAsync(configureSettings: s => s[key] = value));
+
+        error.ToString().ShouldContain(member);
+    }
+
     private static async Task<bool> SchemaExistsAsync(string connectionString)
     {
         await using var dataSource = NpgsqlDataSource.Create(connectionString);

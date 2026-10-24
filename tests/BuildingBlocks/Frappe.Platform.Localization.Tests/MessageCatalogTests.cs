@@ -13,7 +13,7 @@ public sealed class MessageCatalogTests
             .AddInMemoryCollection(settings.Select(s => new KeyValuePair<string, string?>(s.Key, s.Value)))
             .Build();
         return new ServiceCollection()
-            .AddPlatformLocalization(configuration)
+            .AddSingleton<IConfiguration>(configuration).AddPlatformLocalization()
             .AddMessageCatalog(typeof(MessageCatalogTests).Assembly)
             .BuildServiceProvider()
             .GetRequiredService<IMessageCatalog>();
@@ -51,7 +51,7 @@ public sealed class MessageCatalogTests
     [Fact]
     public void DuplicateKeysAcrossCatalogues_FailAtStartup() =>
         Should.Throw<InvalidOperationException>(() => new ServiceCollection()
-            .AddPlatformLocalization(new ConfigurationBuilder().Build())
+            .AddSingleton<IConfiguration>(new ConfigurationBuilder().Build()).AddPlatformLocalization()
             .AddMessageCatalog(typeof(MessageCatalogTests).Assembly)
             .AddMessageCatalog(typeof(MessageCatalogTests).Assembly)
             .BuildServiceProvider()
