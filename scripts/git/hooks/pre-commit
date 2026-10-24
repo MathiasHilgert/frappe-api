@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Local pre-commit hook: `dotnet format --verify-no-changes` on the staged C# files only, so a commit never carries
+# formatting drift `just lint` would reject. Install: `just setup` (or `just hooks`). Fix drift with `just fix`.
+set -euo pipefail
+
+mapfile -t staged < <(git diff --cached --name-only --diff-filter=ACMR -- '*.cs')
+(( ${#staged[@]} == 0 )) && exit 0
+
+dotnet="${FRAPPE_DOTNET:-dotnet}"
+if ! "$dotnet" format --verify-no-changes --no-restore --include "${staged[@]}"; then
+  echo "error: staged C# files are not formatted; run 'just fix' and stage the result." >&2
+  exit 1
+fi

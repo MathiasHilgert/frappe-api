@@ -17,7 +17,7 @@ trivy_image      := "aquasec/trivy:0.62.1"
 fast_tests        := `find tests -name '*.csproj' ! -name '*IntegrationTests.csproj' -printf '%h\n' 2>/dev/null | sort | tr '\n' ' '`
 integration_tests := `find tests -name '*IntegrationTests.csproj' -printf '%h\n' 2>/dev/null | sort | tr '\n' ' '`
 # Stryker pairs: <test project dir>:<source csproj name>.
-mutation_targets  := "tests/BuildingBlocks/Frappe.SharedKernel.Tests:Frappe.SharedKernel.csproj tests/Modules/Frappe.Identity.Tests:Frappe.Identity.Domain.csproj"
+mutation_targets  := "tests/BuildingBlocks/Frappe.SharedKernel.Tests:Frappe.SharedKernel.csproj tests/Modules/Frappe.Identity.Tests:Frappe.Identity.Domain.csproj tests/Modules/Frappe.Identity.Tests:Frappe.Identity.Application.csproj"
 
 root       := justfile_directory()
 dockerfile := "deploy/Dockerfile"
@@ -28,11 +28,31 @@ docker_run := "docker run --rm -v " + quote(root) + ":/repo -w /repo"
 default:
     @just --list --unsorted
 
-# Restore packages and local dotnet tools
+# One-step setup: restore local dotnet tools and packages, install the git hooks (format + commit message)
 [group('dev')]
 setup:
     dotnet tool restore
     dotnet restore
+    git config core.hooksPath scripts/git/hooks
+    @echo "Git hooks installed from scripts/git/hooks (pre-commit: dotnet format on staged C#; commit-msg)."
+
+# Report missing or outdated prerequisites (dotnet SDK, Docker, compose, git, curl, jq)
+[group('dev')]
+doctor:
+    scripts/dev/doctor.sh
+
+# Dependencies up, migrations applied, API with hot reload. Idempotent and non-destructive; Ctrl+C stops the API only
+[group('dev')]
+dev:
+    {{compose}} up -d --wait postgres nats valkey mailpit lgtm
+    just migrate
+    @echo "API http://localhost:5131 | Scalar http://localhost:5131/scalar/v1 | Mailpit http://localhost:8025 | Grafana http://localhost:3000"
+    dotnet watch --project src/Host/Frappe.Api run --launch-profile http
+
+# Create (or reuse) the verified dev owner from scripts/dev/seed-owner.env through the running API (`just dev`)
+[group('dev')]
+seed:
+    scripts/dev/seed.sh
 
 # Run the API with the http launch profile
 [group('dev')]
@@ -51,15 +71,15 @@ down:
 
 # Apply every module's EF migrations to the local database (Development only; needs `just up`)
 [group('dev')]
-migrate: setup
+migrate: build
     export ASPNETCORE_ENVIRONMENT=Development; \
     for dir in $(find src/Modules -type d -path '*.Infrastructure/Persistence/Migrations' | sort); do \
       proj="${dir%/Persistence/Migrations}"; \
-      contexts="$(dotnet ef dbcontext list -p "$proj" -s src/Host/Frappe.Api --prefix-output | sed -n 's/^data: *//p')"; \
+      contexts="$(dotnet ef dbcontext list --no-build --configuration {{configuration}} -p "$proj" -s src/Host/Frappe.Api --prefix-output | sed -n 's/^data: *//p')"; \
       [ -n "$contexts" ] || { echo "No DbContext found in $proj" >&2; exit 1; }; \
       for ctx in $contexts; do \
         echo "Migrating $ctx ($proj)"; \
-        dotnet ef database update --no-build -p "$proj" -s src/Host/Frappe.Api -c "$ctx"; \
+        dotnet ef database update --no-build --configuration {{configuration}} -p "$proj" -s src/Host/Frappe.Api -c "$ctx"; \
       done; \
     done
 
@@ -72,8 +92,8 @@ migration module name: setup
     dotnet ef migrations add {{name}} -p "$proj" -s src/Host/Frappe.Api -c "$ctx" -o Persistence/Migrations
 
 
-# Regenerate Wolverine handler code into src/Host/Frappe.Api/Internal/Generated (commit the result).
 # The old files are removed first: stale generated code may no longer compile against the changed handlers.
+# Regenerate the committed Wolverine handler code (Release builds and CI use it; `just dev` does not need it)
 [group('dev')]
 codegen:
     rm -rf src/Host/Frappe.Api/Internal/Generated
@@ -125,6 +145,21 @@ build:
 test suite="all": build
     just _run-tests {{suite}}
 
+# Unit tests only (no Docker, no architecture tests); `just test-unit Password` runs tests whose name contains it
+[group('test')]
+test-unit filter="": build
+    just _run-tests unit plain "{{filter}}"
+
+# Architecture tests only; optional name filter
+[group('test')]
+test-arch filter="": build
+    just _run-tests arch plain "{{filter}}"
+
+# Integration tests only (Docker, Testcontainers); optional name filter, e.g. `just test-int Login`
+[group('test')]
+test-int filter="": build
+    just _run-tests integration plain "{{filter}}"
+
 # Build once, run every suite in parallel collecting coverage, merge it; fails under COVERAGE_MIN% line coverage
 [group('test')]
 cover: build
@@ -141,14 +176,17 @@ cover: build
 
 # Runs the already-built Microsoft.Testing.Platform test apps concurrently (no rebuild, no dotnet test host per project).
 # Each app's output is buffered and printed whole, so parallel runs never interleave.
-_run-tests suite mode="plain":
+_run-tests suite mode="plain" filter="":
     #!/usr/bin/env bash
     set -euo pipefail
+    arch="tests/Frappe.ArchitectureTests"
     case "{{suite}}" in
       fast) projects="{{fast_tests}}" ;;
+      unit) projects="$(tr ' ' '\n' <<<"{{fast_tests}}" | grep -vx "$arch" | tr '\n' ' ')" ;;
+      arch) projects="$arch" ;;
       integration) projects="{{integration_tests}}" ;;
       all) projects="{{fast_tests}} {{integration_tests}}" ;;
-      *) echo "Unknown suite '{{suite}}'. Use one of: fast | integration | all" >&2; exit 2 ;;
+      *) echo "Unknown suite '{{suite}}'. Use one of: fast | unit | arch | integration | all" >&2; exit 2 ;;
     esac
     if [[ -z "${projects// }" ]]; then echo "No {{suite}} test projects yet; nothing to run."; exit 0; fi
     logs="$(mktemp -d)"; trap 'rm -rf "$logs"' EXIT
@@ -156,6 +194,8 @@ _run-tests suite mode="plain":
     for p in $projects; do
       name="$(basename "$p")"
       args=(--no-progress)
+      # A name filter matches nothing in most projects; "zero tests ran" (exit 8) is not a failure then.
+      if [[ -n "{{filter}}" ]]; then args+=(--filter-method "*{{filter}}*" --ignore-exit-code 8); fi
       if [[ "{{mode}}" == coverage ]]; then
         args+=(--coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml
                --results-directory "{{root}}/{{coverage_dir}}/raw/$name")
@@ -201,11 +241,11 @@ commits base="origin/main" head="HEAD":
 branch name="":
     scripts/git/check-branch.sh {{name}}
 
-# Install the local commit-msg hook (header format and AI attribution, no Docker)
+# Install the local git hooks only (`just setup` does this too): pre-commit format check, commit-msg rules
 [group('git')]
 hooks:
     git config core.hooksPath scripts/git/hooks
-    @echo "commit-msg hook installed from scripts/git/hooks"
+    @echo "pre-commit and commit-msg hooks installed from scripts/git/hooks"
 
 # Build the container image
 [group('container')]

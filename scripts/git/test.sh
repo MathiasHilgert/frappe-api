@@ -84,6 +84,14 @@ hook_case fail "unknown type" "feature: add tables"
 hook_case fail "too long" "feat: $(printf 'a%.0s' {1..100})"
 hook_case fail "AI trailer" $'feat: add tables\n\nCo-authored-by: Claude <noreply@anthropic.com>'
 
+# --- hooks/pre-commit ---
+pre="$tmp/pre"; git init -q -b main "$pre"
+printf 'x\n' >"$pre/notes.md"; git -C "$pre" add notes.md
+expect pass "pre-commit: nothing staged in C# skips dotnet format" bash -c 'cd "$1" && "$2"' _ "$pre" "$dir/hooks/pre-commit"
+printf 'class A{}\n' >"$pre/A.cs"; git -C "$pre" add A.cs
+expect fail "pre-commit: staged C# outside a solution fails loudly" \
+  bash -c 'cd "$1" && PATH=/usr/bin:/bin FRAPPE_DOTNET=false "$2"' _ "$pre" "$dir/hooks/pre-commit"
+
 # --- lint-commits.sh (Docker) ---
 if [[ "${SKIP_DOCKER:-0}" != 1 ]]; then
   lint="$tmp/lint"; git init -q -b main "$lint"; repo="$lint"

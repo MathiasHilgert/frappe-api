@@ -1,0 +1,31 @@
+# Sign in, read the profile, manage sessions, sign out. Run `just seed` first.
+
+### Sign in (201, a Bearer token)
+# @name login
+POST {{host}}/v1/identity/sessions
+Content-Type: application/json
+
+{ "email": "{{email}}", "password": "{{password}}" }
+
+### Who am I (200)
+GET {{host}}/v1/identity/me
+Authorization: Bearer {{login.response.body.token}}
+
+### Change language (200)
+PATCH {{host}}/v1/identity/me
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{ "locale": "es-AR" }
+
+### Open sessions (200)
+GET {{host}}/v1/identity/sessions
+Authorization: Bearer {{login.response.body.token}}
+
+### Revoke one session (204)
+DELETE {{host}}/v1/identity/sessions/{{login.response.body.id}}
+Authorization: Bearer {{login.response.body.token}}
+
+### Sign out (204)
+DELETE {{host}}/v1/identity/sessions/current
+Authorization: Bearer {{login.response.body.token}}

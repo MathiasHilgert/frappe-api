@@ -1,0 +1,21 @@
+{
+  "name": "frappe-api",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:1-10.0",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/guiyomh/features/just:0": {},
+    "ghcr.io/devcontainers-extra/features/jq-likes:2": {}
+  },
+  "forwardPorts": [5131, 8025, 3000],
+  "portsAttributes": {
+    "5131": { "label": "API (Scalar at /scalar/v1)" },
+    "8025": { "label": "Mailpit" },
+    "3000": { "label": "Grafana" }
+  },
+  "postCreateCommand": "just setup && just doctor",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-dotnettools.csdevkit", "humao.rest-client", "editorconfig.editorconfig"]
+    }
+  }
+}

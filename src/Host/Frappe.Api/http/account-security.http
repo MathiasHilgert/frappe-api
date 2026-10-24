@@ -1,0 +1,37 @@
+# Step-up, password change and email change. Run `just seed` first; codes arrive in Mailpit.
+
+### Sign in (201)
+# @name login
+POST {{host}}/v1/identity/sessions
+Content-Type: application/json
+
+{ "email": "{{email}}", "password": "{{password}}" }
+
+### Step up: re-enter the password (201, fresh for five minutes)
+POST {{host}}/v1/identity/sessions/current/step-ups
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{ "password": "{{password}}" }
+
+### Request an email change (201; needs the step-up above)
+# @name change
+POST {{host}}/v1/identity/me/email-changes
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{ "newEmail": "owner-new@frappe.local" }
+
+### Confirm it with the code sent to the new address (204)
+POST {{host}}/v1/identity/me/email-changes/{{change.response.body.id}}/confirmation
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{ "code": "123456" }
+
+### Change the password (204; the current one is re-verified inline)
+PUT {{host}}/v1/identity/me/password
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{ "currentPassword": "{{password}}", "newPassword": "another long local password" }

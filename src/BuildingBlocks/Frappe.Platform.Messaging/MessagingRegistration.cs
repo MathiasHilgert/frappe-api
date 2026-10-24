@@ -54,13 +54,14 @@ public static class MessagingRegistration
 
         builder.UseWolverine(opts =>
         {
-            // Handler code is generated ahead of time (`just codegen`) and compiled into the host. Development
-            // regenerates it when stale; everywhere else a missing or stale handler fails startup instead of
-            // compiling with Roslyn on the first message.
+            // Handler code is generated ahead of time (`just codegen`), committed and compiled into Release builds;
+            // everywhere but Development a missing or stale handler fails startup instead of compiling with Roslyn on
+            // the first message. Development generates it in memory at startup (Dynamic), so editing a handler needs
+            // no codegen step; Debug builds leave the committed code out for the same reason (Frappe.Api.csproj).
             opts.ApplicationAssembly = applicationAssembly;
             opts.CodeGeneration.TypeLoadMode = builder.Configuration.GetValue(
                 TypeLoadModeSetting,
-                builder.Environment.IsDevelopment() ? TypeLoadMode.Auto : TypeLoadMode.Static);
+                builder.Environment.IsDevelopment() ? TypeLoadMode.Dynamic : TypeLoadMode.Static);
 
             // Wolverine keeps its own pool: its envelope storage is configured before the container exists.
             opts.PersistMessagesWithPostgresql(postgresConnectionString, Schema);
