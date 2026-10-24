@@ -1,5 +1,4 @@
 {
   "$schema": "https://xunit.net/schema/current/xunit.runner.schema.json",
-  "$comment": "Every host is a Wolverine node on the same database: run them one at a time so schema creation and durability agents never race.",
-  "parallelizeTestCollections": false
+  "$comment": "Collections run in parallel: ApiFixture gives each one its own database and Valkey database on the shared containers."
 }

@@ -1,3 +1,4 @@
+using Alba;
 using Frappe.Identity.Contracts;
 using Frappe.Identity.Contracts.PasswordResets;
 using Frappe.Notification.Application;
@@ -10,9 +11,28 @@ using Wolverine.Tracking;
 
 namespace Frappe.IntegrationTests;
 
-public sealed class NotificationTests(ApiFixture fixture)
+public sealed class NotificationTests(ApiFixture fixture, NotificationTests.MailerHostFixture mailerHost)
+    : IClassFixture<NotificationTests.MailerHostFixture>
 {
     private static readonly DateTimeOffset Expires = DateTimeOffset.UtcNow.AddMinutes(15);
+
+    /// <summary>One host with a capturing mailer for the whole class: booting a host per case cost about a second each.</summary>
+    public sealed class MailerHostFixture(ApiFixture fixture) : IAsyncLifetime
+    {
+        internal CapturingMailer Mailer { get; } = new();
+
+        public IAlbaHost Host { get; private set; } = null!;
+
+        public async ValueTask InitializeAsync() =>
+            Host = await fixture.CreateHostAsync(services => services.Replace(ServiceDescriptor.Singleton<IMailer>(Mailer)));
+
+        // A failed start leaves no host: disposing must not hide that error behind a null reference.
+        public async ValueTask DisposeAsync()
+        {
+            if (Host is not null)
+                await Host.DisposeAsync();
+        }
+    }
 
     public static TheoryData<object, string, string> CodeEvents => new()
     {
@@ -27,9 +47,8 @@ public sealed class NotificationTests(ApiFixture fixture)
     [MemberData(nameof(CodeEvents))]
     public async Task PublishedCodeEvent_IsMailedToItsRecipient(object issued, string to, string subject)
     {
-        var mailer = new CapturingMailer();
-        await using var host = await fixture.CreateHostAsync(services =>
-            services.Replace(ServiceDescriptor.Singleton<IMailer>(mailer)));
+        var (host, mailer) = (mailerHost.Host, mailerHost.Mailer);
+        mailer.Clear();
 
         await host.TrackActivity().Timeout(TimeSpan.FromSeconds(30)).PublishMessageAndWaitAsync(issued);
 
@@ -72,9 +91,15 @@ public sealed class NotificationTests(ApiFixture fixture)
         scope.ServiceProvider.GetRequiredService<IMailer>().GetType().Name.ShouldBe("ResendMailer");
     }
 
-    private sealed class CapturingMailer : IMailer
+    internal sealed class CapturingMailer : IMailer
     {
         private readonly List<Mail> _sent = [];
+
+        public void Clear()
+        {
+            lock (_sent)
+                _sent.Clear();
+        }
 
         public IReadOnlyList<Mail> Sent
         {

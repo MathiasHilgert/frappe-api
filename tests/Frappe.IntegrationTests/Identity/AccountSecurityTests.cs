@@ -15,18 +15,38 @@ using Shouldly;
 namespace Frappe.IntegrationTests.Identity;
 
 /// <summary>Step-up and change password: re-proving the password inside a signed-in session.</summary>
-public sealed class AccountSecurityTests(ApiFixture fixture)
+public sealed class AccountSecurityTests(ApiFixture fixture, AccountSecurityTests.ClockHostFixture clockHost)
+    : IClassFixture<AccountSecurityTests.ClockHostFixture>
 {
     private const string StepUps = "/v1/identity/sessions/current/step-ups";
     private const string MyPassword = "/v1/identity/me/password";
     private const string Password = "correct horse battery";
     private const string NewPassword = "a brand new passphrase";
 
+    private readonly TestClock _clock = clockHost.Clock.Reset();
+
+    /// <summary>One host on a test clock for the whole class: booting a host per test cost about a second each.</summary>
+    public sealed class ClockHostFixture(ApiFixture fixture) : IAsyncLifetime
+    {
+        internal TestClock Clock { get; } = new();
+
+        public IAlbaHost Host { get; private set; } = null!;
+
+        public async ValueTask InitializeAsync() =>
+            Host = await fixture.CreateHostAsync(services => services.AddSingleton<TimeProvider>(Clock));
+
+        // A failed start leaves no host: disposing must not hide that error behind a null reference.
+        public async ValueTask DisposeAsync()
+        {
+            if (Host is not null)
+                await Host.DisposeAsync();
+        }
+    }
+
     [Fact]
     public async Task StepUp_WithTheRightPassword_Answers201AndMarksTheSessionForFiveMinutes()
     {
-        var clock = new TestClock();
-        await using var host = await fixture.CreateHostAsync(services => services.AddSingleton<TimeProvider>(clock));
+        var (host, clock) = (clockHost.Host, _clock);
         var (principal, session, token) = await SessionSeeder.SeedAsync(host, Password);
 
         var result = await host.Scenario(s =>
@@ -156,8 +176,7 @@ public sealed class AccountSecurityTests(ApiFixture fixture)
     [Fact]
     public async Task RequireStepUp_RejectsAStaleSessionWith403_AndLetsAFreshOneThrough()
     {
-        var clock = new TestClock();
-        await using var host = await fixture.CreateHostAsync(services => services.AddSingleton<TimeProvider>(clock));
+        var (host, clock) = (clockHost.Host, _clock);
         var (_, _, token) = await SessionSeeder.SeedAsync(host, Password);
         var guarded = GuardedEndpoint(host.Services);
 
