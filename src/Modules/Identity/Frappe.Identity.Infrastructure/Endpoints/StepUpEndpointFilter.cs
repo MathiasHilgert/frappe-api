@@ -18,7 +18,7 @@ internal static class StepUpEndpointFilter
     /// <c>POST /v1/identity/sessions/current/step-ups</c> and retries.
     /// </summary>
     public static TBuilder RequireStepUp<TBuilder>(this TBuilder builder) where TBuilder : IEndpointConventionBuilder =>
-        builder.AddEndpointFilter(InvokeAsync);
+        builder.AddEndpointFilter(InvokeAsync).WithMetadata(new StepUpRequiredMetadata());
 
     internal static async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {

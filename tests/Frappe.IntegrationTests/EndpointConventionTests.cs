@@ -68,4 +68,19 @@ public sealed class EndpointConventionTests(ApiFixture fixture)
             }
         }
     }
+
+    /// <summary>
+    /// The step-up policy: a fresh step-up guards what changes how the owner signs in or where account mail goes. The
+    /// password change re-verifies the current password inline instead; revoking sessions and signing out stay
+    /// one-tap, because an owner who suspects a stolen session must be able to cut it off at once.
+    /// </summary>
+    [Fact]
+    public void StepUp_GuardsExactlyTheEndpointsThatChangeHowTheOwnerSignsIn()
+    {
+        var guarded = ModuleEndpoints
+            .Where(e => e.Metadata.GetMetadata<Frappe.Identity.Infrastructure.Endpoints.StepUpRequiredMetadata>() is not null)
+            .Select(e => e.Metadata.GetMetadata<IEndpointNameMetadata>()!.EndpointName);
+
+        guarded.ShouldBe(["RequestEmailChange"], ignoreOrder: true);
+    }
 }
