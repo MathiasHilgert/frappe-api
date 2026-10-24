@@ -3,6 +3,7 @@ using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Principals;
 using Frappe.SharedKernel.Validation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Npgsql;
 
 namespace Frappe.Identity.Infrastructure.Persistence;
@@ -13,19 +14,27 @@ public sealed class PrincipalRepository(IdentityDbContext context) : IPrincipalR
     public Task<Principal?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         context.Principals.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 
-    // Raw SQL so the lookup uses lower(email), the expression the unique index is built on.
+    // Raw SQL so the lookup uses lower(email), the expression the unique index is built on. Table names come from
+    // the EF mapping, so a schema or table rename cannot leave this query behind.
     public Task<Principal?> GetByEmailAsync(Email email, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(email);
 
+        var principals = context.Model.FindEntityType(typeof(Principal))!;
+        var owners = principals.FindNavigation(nameof(Principal.Owner))!.TargetEntityType;
+#pragma warning disable EF1002, S2077 // Only mapped identifiers are inlined; the email stays a parameter.
         return context.Principals
-            .FromSql($"""
-                SELECT p.* FROM identity.principals p
-                JOIN identity.owner_accounts o ON o.principal_id = p.id
-                WHERE lower(o.email) = lower({email.Value})
-                """)
+            .FromSqlRaw($"""
+                SELECT p.* FROM {QualifiedTable(principals)} p
+                JOIN {QualifiedTable(owners)} o ON o.principal_id = p.id
+                WHERE lower(o.email) = lower(@email)
+                """, new NpgsqlParameter("email", email.Value))
             .FirstOrDefaultAsync(cancellationToken);
+#pragma warning restore EF1002, S2077
     }
+
+    private static string QualifiedTable(IEntityType entity) =>
+        $"\"{entity.GetSchema() ?? IdentityModule.Schema}\".\"{entity.GetTableName()}\"";
 
     public Task<Principal?> GetBySessionTokenHashAsync(string tokenHash, CancellationToken cancellationToken) =>
         context.Principals.FirstOrDefaultAsync(p => p.Sessions.Any(s => s.TokenHash == tokenHash), cancellationToken);

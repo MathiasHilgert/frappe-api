@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Time.Testing;
 using Frappe.SharedKernel.Localization;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -28,7 +29,6 @@ public sealed class OwnerVerificationTests(ApiFixture fixture)
         var body = await result.ReadAsJsonAsync<JsonElement>();
         var token = body.GetProperty("token").GetString().ShouldNotBeNull();
         var sessionId = body.GetProperty("sessionId").GetGuid();
-        body.GetProperty("expiresAt").GetDateTimeOffset().ShouldBeGreaterThan(DateTimeOffset.UtcNow);
         result.Context.Response.Headers.Location.ToString().ShouldBe($"/v1/identity/sessions/{sessionId}");
 
         var setCookie = result.Context.Response.Headers.SetCookie.ToString();
@@ -40,6 +40,7 @@ public sealed class OwnerVerificationTests(ApiFixture fixture)
         principal.Owner.Status.ShouldBe(OwnerStatus.Active);
         var session = principal.Sessions.ShouldHaveSingleItem();
         session.Id.ShouldBe(sessionId);
+        body.GetProperty("expiresAt").GetDateTimeOffset().ShouldBe(session.AbsoluteExpiresAt, TimeSpan.FromMilliseconds(1));
         session.TokenHash.ShouldBe(HashOf(fixture.Host, token));
         principal.Codes.Single(c => c.Purpose == CodePurpose.EmailVerify).UsedAt.ShouldNotBeNull();
 
@@ -69,7 +70,7 @@ public sealed class OwnerVerificationTests(ApiFixture fixture)
     [Fact]
     public async Task ExpiredCode_Is422()
     {
-        var clock = new TestClock();
+        var clock = TestTime.NewClock();
         await using var host = await fixture.CreateHostAsync(services => services.AddSingleton<TimeProvider>(clock));
         var ownerId = await SeedPendingOwnerAsync(host);
 
@@ -150,7 +151,7 @@ public sealed class OwnerVerificationTests(ApiFixture fixture)
 
         var repository = services.GetRequiredService<IPrincipalRepository>();
         repository.Add(principal);
-        (await repository.SaveChangesAsync(CancellationToken.None)).IsSuccess.ShouldBeTrue();
+        (await repository.SaveChangesAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
         return principal.Id;
     }
 }

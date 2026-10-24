@@ -11,7 +11,7 @@ public sealed class PasswordPolicyTests
     {
         var policy = new PasswordPolicy(new FixedChecker(breached: true));
 
-        var result = await policy.ValidateAsync("password1234", CancellationToken.None);
+        var result = await policy.ValidateAsync("password1234", TestContext.Current.CancellationToken);
 
         result.Errors.ShouldBe([IdentityErrors.PasswordBreached]);
     }
@@ -21,7 +21,7 @@ public sealed class PasswordPolicyTests
     {
         var policy = new PasswordPolicy(new FixedChecker(breached: false));
 
-        var result = await policy.ValidateAsync("a long and unseen phrase", CancellationToken.None);
+        var result = await policy.ValidateAsync("a long and unseen phrase", TestContext.Current.CancellationToken);
 
         result.IsSuccess.ShouldBeTrue();
     }
@@ -31,7 +31,7 @@ public sealed class PasswordPolicyTests
     {
         var checker = new FixedChecker(breached: true);
 
-        var result = await new PasswordPolicy(checker).ValidateAsync("short", CancellationToken.None);
+        var result = await new PasswordPolicy(checker).ValidateAsync("short", TestContext.Current.CancellationToken);
 
         result.Errors.ShouldBe([IdentityErrors.PasswordTooShort]);
         checker.Calls.ShouldBe(0);

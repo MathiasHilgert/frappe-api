@@ -34,7 +34,7 @@ public sealed class ValkeyConnectionTests
 
         // StartNew, unlike Task.Run, does not unwrap: each call hands back the connect task it got.
         var calls = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Factory.StartNew(
-            connection.GetAsync, CancellationToken.None, TaskCreationOptions.None, TaskScheduler.Default)));
+            connection.GetAsync, TestContext.Current.CancellationToken, TaskCreationOptions.None, TaskScheduler.Default)));
         pending.SetResult(Substitute.For<IConnectionMultiplexer>());
 
         calls.Distinct().Count().ShouldBe(1);

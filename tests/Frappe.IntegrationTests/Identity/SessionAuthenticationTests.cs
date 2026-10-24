@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Time.Testing;
 using System.Globalization;
 using Alba;
 using Frappe.Identity.Domain.Principals;
@@ -76,7 +77,7 @@ public sealed class SessionAuthenticationTests(ApiFixture fixture)
     [Fact]
     public async Task IdleExpiredSession_IsUnauthorized()
     {
-        var clock = new TestClock();
+        var clock = TestTime.NewClock();
         await using var host = await ClockedHostAsync(clock);
         var (_, _, token) = await SessionSeeder.SeedAsync(host);
 
@@ -88,13 +89,13 @@ public sealed class SessionAuthenticationTests(ApiFixture fixture)
     [Fact]
     public async Task Use_MovesTheIdleExpiry()
     {
-        var clock = new TestClock();
+        var clock = TestTime.NewClock();
         await using var host = await ClockedHostAsync(clock);
         var (principal, _, token) = await SessionSeeder.SeedAsync(host);
 
         clock.Advance(Session.IdleTimeout - TimeSpan.FromHours(1));
         await GetAsync(host, Bearer(token), 404);
-        (await SessionSeeder.LoadAsync(host, principal.Id)).Sessions[0].LastSeenAt.ShouldBe(clock.Now, TimeSpan.FromMilliseconds(1));
+        (await SessionSeeder.LoadAsync(host, principal.Id)).Sessions[0].LastSeenAt.ShouldBe(clock.GetUtcNow(), TimeSpan.FromMilliseconds(1));
 
         clock.Advance(Session.IdleTimeout - TimeSpan.FromHours(1));
         await GetAsync(host, Bearer(token), 404);
@@ -103,7 +104,7 @@ public sealed class SessionAuthenticationTests(ApiFixture fixture)
     [Fact]
     public async Task UseWithinTheTouchInterval_DoesNotWrite()
     {
-        var clock = new TestClock();
+        var clock = TestTime.NewClock();
         await using var host = await ClockedHostAsync(clock);
         var (principal, session, token) = await SessionSeeder.SeedAsync(host);
 
@@ -117,13 +118,13 @@ public sealed class SessionAuthenticationTests(ApiFixture fixture)
     [Fact]
     public async Task AbsoluteExpiredSession_IsUnauthorizedEvenWhileInUse()
     {
-        var clock = new TestClock();
+        var clock = TestTime.NewClock();
         await using var host = await ClockedHostAsync(clock);
         var (_, _, token) = await SessionSeeder.SeedAsync(host);
 
         // Keep it busy every 10 hours until just short of 30 days, so only the absolute lifetime can end it.
         var step = TimeSpan.FromHours(10);
-        while (clock.Now + step < new TestClock().Now + Session.AbsoluteLifetime)
+        while (clock.GetUtcNow() + step < TestTime.Start + Session.AbsoluteLifetime)
         {
             clock.Advance(step);
             await GetAsync(host, Bearer(token), 404);
@@ -168,7 +169,7 @@ public sealed class SessionAuthenticationTests(ApiFixture fixture)
 
     private static Action<Scenario> Bearer(string token) => s => s.WithRequestHeader("Authorization", $"Bearer {token}");
 
-    private Task<IAlbaHost> ClockedHostAsync(TestClock clock) =>
+    private Task<IAlbaHost> ClockedHostAsync(FakeTimeProvider clock) =>
         fixture.CreateHostAsync(services => services.AddSingleton<TimeProvider>(clock));
 
     private static Task GetAsync(IAlbaHost host, Action<Scenario> configure, int status) =>

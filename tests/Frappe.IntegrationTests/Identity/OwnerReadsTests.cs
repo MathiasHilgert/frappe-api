@@ -17,10 +17,10 @@ public sealed class OwnerReadsTests(ApiFixture fixture)
         await using var scope = fixture.Host.Services.CreateAsyncScope();
         var reads = scope.ServiceProvider.GetRequiredService<IOwnerReads>();
 
-        var profile = await reads.GetProfileAsync(principal.Id, CancellationToken.None);
+        var profile = await reads.GetProfileAsync(principal.Id, TestContext.Current.CancellationToken);
 
         profile.ShouldBe(new OwnerProfile(principal.Id, "Ana", principal.Owner.Email.Value, "active", "en"));
-        (await reads.GetProfileAsync(Guid.CreateVersion7(), CancellationToken.None)).ShouldBeNull();
+        (await reads.GetProfileAsync(Guid.CreateVersion7(), TestContext.Current.CancellationToken)).ShouldBeNull();
     }
 
     [Fact]
@@ -30,10 +30,10 @@ public sealed class OwnerReadsTests(ApiFixture fixture)
         await using var scope = fixture.Host.Services.CreateAsyncScope();
         var reads = scope.ServiceProvider.GetRequiredService<IOwnerReads>();
 
-        var live = await reads.ListLiveSessionsAsync(principal.Id, session.Id, session.LastSeenAt, CancellationToken.None);
+        var live = await reads.ListLiveSessionsAsync(principal.Id, session.Id, session.LastSeenAt, TestContext.Current.CancellationToken);
         var idle = await reads.ListLiveSessionsAsync(
-            principal.Id, session.Id, session.LastSeenAt + Session.IdleTimeout, CancellationToken.None);
-        var foreign = await reads.ListLiveSessionsAsync(Guid.CreateVersion7(), session.Id, session.LastSeenAt, CancellationToken.None);
+            principal.Id, session.Id, session.LastSeenAt + Session.IdleTimeout, TestContext.Current.CancellationToken);
+        var foreign = await reads.ListLiveSessionsAsync(Guid.CreateVersion7(), session.Id, session.LastSeenAt, TestContext.Current.CancellationToken);
 
         // Postgres keeps microseconds, so the stored instants are compared at that precision.
         var only = live.ShouldHaveSingleItem();
@@ -53,17 +53,17 @@ public sealed class OwnerReadsTests(ApiFixture fixture)
         await using (var write = fixture.Host.Services.CreateAsyncScope())
         {
             var repository = write.ServiceProvider.GetRequiredService<IPrincipalRepository>();
-            var loaded = (await repository.GetByIdAsync(principal.Id, CancellationToken.None)).ShouldNotBeNull();
+            var loaded = (await repository.GetByIdAsync(principal.Id, TestContext.Current.CancellationToken)).ShouldNotBeNull();
             expiresAt = loaded.CompleteStepUp(session.Id, write.ServiceProvider.GetRequiredService<TimeProvider>()).Value;
-            (await repository.SaveChangesAsync(CancellationToken.None)).IsSuccess.ShouldBeTrue();
+            (await repository.SaveChangesAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
         }
 
         await using var scope = fixture.Host.Services.CreateAsyncScope();
         var reads = scope.ServiceProvider.GetRequiredService<IOwnerReads>();
 
-        (await reads.HasFreshStepUpAsync(principal.Id, session.Id, expiresAt.AddSeconds(-1), CancellationToken.None)).ShouldBeTrue();
-        (await reads.HasFreshStepUpAsync(principal.Id, session.Id, expiresAt, CancellationToken.None)).ShouldBeFalse();
-        (await reads.HasFreshStepUpAsync(Guid.CreateVersion7(), session.Id, expiresAt.AddSeconds(-1), CancellationToken.None)).ShouldBeFalse();
+        (await reads.HasFreshStepUpAsync(principal.Id, session.Id, expiresAt.AddSeconds(-1), TestContext.Current.CancellationToken)).ShouldBeTrue();
+        (await reads.HasFreshStepUpAsync(principal.Id, session.Id, expiresAt, TestContext.Current.CancellationToken)).ShouldBeFalse();
+        (await reads.HasFreshStepUpAsync(Guid.CreateVersion7(), session.Id, expiresAt.AddSeconds(-1), TestContext.Current.CancellationToken)).ShouldBeFalse();
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public sealed class OwnerReadsTests(ApiFixture fixture)
         await using var scope = fixture.Host.Services.CreateAsyncScope();
         var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
 
-        var profile = await bus.InvokeAsync<OwnerProfile?>(new GetMe(Guid.CreateVersion7()), CancellationToken.None);
+        var profile = await bus.InvokeAsync<OwnerProfile?>(new GetMe(Guid.CreateVersion7()), TestContext.Current.CancellationToken);
 
         profile.ShouldBeNull();
     }

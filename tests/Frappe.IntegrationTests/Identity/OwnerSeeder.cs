@@ -37,7 +37,7 @@ internal static class OwnerSeeder
 
         var repository = services.GetRequiredService<IPrincipalRepository>();
         repository.Add(principal);
-        (await repository.SaveChangesAsync(CancellationToken.None)).IsSuccess.ShouldBeTrue();
+        (await repository.SaveChangesAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
         return principal;
     }
 }

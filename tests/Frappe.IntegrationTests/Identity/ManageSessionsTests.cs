@@ -155,10 +155,10 @@ public sealed class ManageSessionsTests(ApiFixture fixture)
         await using var scope = fixture.Host.Services.CreateAsyncScope();
         var services = scope.ServiceProvider;
         var repository = services.GetRequiredService<IPrincipalRepository>();
-        var principal = (await repository.GetByIdAsync(principalId, CancellationToken.None)).ShouldNotBeNull();
+        var principal = (await repository.GetByIdAsync(principalId, TestContext.Current.CancellationToken)).ShouldNotBeNull();
         var hash = services.GetRequiredService<ISecretHasher>().Hash(services.GetRequiredService<ISecretGenerator>().NewSessionToken());
         var session = principal.OpenSession(hash, SessionSurface.Console, services.GetRequiredService<TimeProvider>()).Value;
-        (await repository.SaveChangesAsync(CancellationToken.None)).IsSuccess.ShouldBeTrue();
+        (await repository.SaveChangesAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
         return session.Id;
     }
 }

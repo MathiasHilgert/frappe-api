@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Frappe.Identity.Infrastructure.Security;
 
 /// <summary>
@@ -10,7 +12,6 @@ public sealed class AttemptLimiterOptions
     public const int MinimumTimeoutMilliseconds = 10;
     public const int MaximumTimeoutMilliseconds = 5_000;
 
+    [Range(MinimumTimeoutMilliseconds, MaximumTimeoutMilliseconds)]
     public int TimeoutMilliseconds { get; set; } = 250;
-
-    public bool IsValid() => TimeoutMilliseconds is >= MinimumTimeoutMilliseconds and <= MaximumTimeoutMilliseconds;
 }

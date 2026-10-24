@@ -103,4 +103,51 @@ public sealed class ResultTests
     [Fact]
     public void Errors_WithTheSameCode_OnDifferentFields_AreNotEqual() =>
         new Error("sample.required", "Required.", "name").ShouldNotBe(new Error("sample.required", "Required.", "email"));
+
+    [Fact]
+    public void TryGetValue_OnSuccess_ReturnsTheValue()
+    {
+        Result<string> result = "built";
+
+        result.TryGetValue(out var value).ShouldBeTrue();
+        value.ShouldBe("built");
+    }
+
+    [Fact]
+    public void TryGetValue_OnFailure_ReturnsFalse()
+    {
+        Result<string> result = First;
+
+        result.TryGetValue(out var value).ShouldBeFalse();
+        value.ShouldBeNull();
+    }
+
+    [Fact]
+    public void ImplicitConversion_FromError_IsAFailureWithThatError()
+    {
+        Result<int> result = First;
+
+        result.IsFailure.ShouldBeTrue();
+        result.Errors.ShouldBe([First]);
+    }
+
+    [Fact]
+    public void IsSuccess_LetsTheCompilerTrustValue()
+    {
+        Result<string?> result = Result.Success<string?>("value");
+
+        // MemberNotNullWhen(true, Value): no null-forgiving operator needed inside the branch.
+        if (result.IsSuccess)
+            result.Value.Length.ShouldBe(5);
+    }
+
+    [Fact]
+    public void Match_PicksTheBranchForTheOutcome()
+    {
+        Result<int> success = 21;
+        Result<int> failure = Second;
+
+        success.Match(v => v * 2, _ => -1).ShouldBe(42);
+        failure.Match(v => v * 2, errors => errors.Count).ShouldBe(1);
+    }
 }

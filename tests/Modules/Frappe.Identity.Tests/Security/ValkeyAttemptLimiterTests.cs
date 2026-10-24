@@ -23,9 +23,9 @@ public sealed class ValkeyAttemptLimiterTests : IAsyncDisposable
         using var counted = new CounterListener(IdentityMetrics.AttemptLimiterUnavailable);
         var limiter = Limiter();
 
-        (await limiter.RecordAsync(Policy, "a@example.com", CancellationToken.None)).IsAllowed.ShouldBeTrue();
-        (await limiter.CheckAsync(Policy, "a@example.com", CancellationToken.None)).IsAllowed.ShouldBeTrue();
-        await Should.NotThrowAsync(limiter.ResetAsync(Policy, "a@example.com", CancellationToken.None));
+        (await limiter.RecordAsync(Policy, "a@example.com", TestContext.Current.CancellationToken)).IsAllowed.ShouldBeTrue();
+        (await limiter.CheckAsync(Policy, "a@example.com", TestContext.Current.CancellationToken)).IsAllowed.ShouldBeTrue();
+        await Should.NotThrowAsync(limiter.ResetAsync(Policy, "a@example.com", TestContext.Current.CancellationToken));
 
         counted.Total.ShouldBe(3);
     }
@@ -39,7 +39,7 @@ public sealed class ValkeyAttemptLimiterTests : IAsyncDisposable
         var limiter = Limiter(unreachable);
 
         var started = TimeProvider.System.GetTimestamp();
-        var decision = await limiter.CheckAsync(Policy, "a@example.com", CancellationToken.None);
+        var decision = await limiter.CheckAsync(Policy, "a@example.com", TestContext.Current.CancellationToken);
 
         TimeProvider.System.GetElapsedTime(started).ShouldBeLessThan(TimeSpan.FromSeconds(1));
         decision.IsAllowed.ShouldBeTrue();

@@ -59,15 +59,17 @@ public sealed class Argon2PasswordHasherTests
     [InlineData(1024, 2, 1)]
     [InlineData(19456, 1, 1)]
     [InlineData(19456, 2, 0)]
+    [InlineData(19456, 2, 17)]
     public void Options_BelowTheMinimumCost_AreInvalid(int memory, int iterations, int parallelism)
     {
-        new Argon2Options { MemorySizeKib = memory, Iterations = iterations, Parallelism = parallelism }
-            .IsValid().ShouldBeFalse();
+        var options = new Argon2Options { MemorySizeKib = memory, Iterations = iterations, Parallelism = parallelism };
+
+        new Argon2OptionsValidator().Validate(null, options).Failed.ShouldBeTrue();
     }
 
     [Fact]
     public void Options_Defaults_AreValid()
     {
-        new Argon2Options().IsValid().ShouldBeTrue();
+        new Argon2OptionsValidator().Validate(null, new Argon2Options()).Succeeded.ShouldBeTrue();
     }
 }
