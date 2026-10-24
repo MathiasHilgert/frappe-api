@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Frappe.Identity.Infrastructure.Security;
 
 /// <summary>
@@ -9,10 +11,13 @@ public sealed class Argon2Options
     public const int MinimumMemorySizeKib = 19_456;
     public const int MinimumIterations = 2;
 
+    // The generated Range validator ignores ErrorMessage, so failures name the member: Argon2Options.MemorySizeKib.
+    [Range(MinimumMemorySizeKib, int.MaxValue)]
     public int MemorySizeKib { get; set; } = MinimumMemorySizeKib;
-    public int Iterations { get; set; } = MinimumIterations;
-    public int Parallelism { get; set; } = 1;
 
-    public bool IsValid() =>
-        MemorySizeKib >= MinimumMemorySizeKib && Iterations >= MinimumIterations && Parallelism is >= 1 and <= 16;
+    [Range(MinimumIterations, int.MaxValue)]
+    public int Iterations { get; set; } = MinimumIterations;
+
+    [Range(1, 16)]
+    public int Parallelism { get; set; } = 1;
 }

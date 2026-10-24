@@ -77,7 +77,7 @@ public sealed class SessionServicesTests(ApiFixture fixture)
                 o.Domain = domain;
             })));
 
-        exception.Message.ShouldContain(SessionCookieOptions.Section);
+        exception.Message.ShouldContain($"'{SessionCookieOptions.Section}");
     }
 
     private async Task<string> SetCookieAsync(Action<ISessionCookie> act)

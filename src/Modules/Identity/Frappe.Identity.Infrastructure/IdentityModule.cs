@@ -42,15 +42,15 @@ public sealed class IdentityModule : IModule
         services.AddMessageCatalog(typeof(IdentityModule).Assembly);
 
         // Both checks run when the host starts, so commands that only compose it (resources setup) need no secrets.
+        services.AddSingleton<IValidateOptions<Argon2Options>, Argon2OptionsValidator>();
+        services.AddSingleton<IValidateOptions<SecretHashingOptions>, SecretHashingOptionsValidator>();
+        services.AddSingleton<IValidateOptions<AttemptLimiterOptions>, AttemptLimiterOptionsValidator>();
+        services.AddSingleton<IValidateOptions<BreachedPasswordOptions>, BreachedPasswordOptionsValidator>();
         services.AddOptions<Argon2Options>()
             .Bind(configuration.GetSection(Argon2Options.Section))
-            .Validate(options => options.IsValid(),
-                $"'{Argon2Options.Section}' is below the Argon2id minimum (m={Argon2Options.MinimumMemorySizeKib}, t={Argon2Options.MinimumIterations}, p=1..16).")
             .ValidateOnStart();
         services.AddOptions<SecretHashingOptions>()
             .Bind(configuration.GetSection(SecretHashingOptions.Section))
-            .Validate(options => options.IsValid(),
-                $"'{SecretHashingOptions.Section}:Key' is missing or shorter than {SecretHashingOptions.MinimumKeyLength} characters.")
             .ValidateOnStart();
 
         services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
@@ -62,8 +62,6 @@ public sealed class IdentityModule : IModule
         services.AddSingleton<IdentityMetrics>();
         services.AddOptions<AttemptLimiterOptions>()
             .Bind(configuration.GetSection(AttemptLimiterOptions.Section))
-            .Validate(options => options.IsValid(),
-                $"'{AttemptLimiterOptions.Section}:TimeoutMilliseconds' must be {AttemptLimiterOptions.MinimumTimeoutMilliseconds}..{AttemptLimiterOptions.MaximumTimeoutMilliseconds}.")
             .ValidateOnStart();
         services.AddSingleton<IAttemptLimiter, ValkeyAttemptLimiter>();
         services.AddScoped<VerificationCodeIssuer>();
@@ -101,8 +99,6 @@ public sealed class IdentityModule : IModule
     {
         services.AddOptions<BreachedPasswordOptions>()
             .Bind(configuration.GetSection(BreachedPasswordOptions.Section))
-            .Validate(options => options.IsValid(),
-                $"'{BreachedPasswordOptions.Section}' needs an absolute BaseAddress and a TimeoutMilliseconds of {BreachedPasswordOptions.MinimumTimeoutMilliseconds}..{BreachedPasswordOptions.MaximumTimeoutMilliseconds}.")
             .ValidateOnStart();
         services.AddHttpClient<IBreachedPasswordChecker, HibpBreachedPasswordChecker>((sp, http) =>
             {

@@ -1,7 +1,9 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Frappe.Identity.Infrastructure.Sessions;
 
 /// <summary>Where the web console keeps its session token. Always HttpOnly, Secure and SameSite=Lax.</summary>
-public sealed class SessionCookieOptions
+public sealed class SessionCookieOptions : IValidatableObject
 {
     public const string Section = "Identity:SessionCookie";
 
@@ -11,17 +13,22 @@ public sealed class SessionCookieOptions
     /// </summary>
     public const string HostPrefix = "__Host-";
 
+    // A cookie name is an RFC 6265 token: no separators, spaces or control characters.
+    [Required(ErrorMessage = $"'{Section}:Name' is missing.")]
+    [RegularExpression(@"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$", ErrorMessage = $"'{Section}:Name' must be a cookie-safe token.")]
     public string Name { get; set; } = HostPrefix + "frappe_session";
 
+    [Required(ErrorMessage = $"'{Section}:Path' is missing.")]
+    [RegularExpression("^/.*$", ErrorMessage = $"'{Section}:Path' must start with '/'.")]
     public string Path { get; set; } = "/";
 
     /// <summary>Only for names without the <see cref="HostPrefix"/>; left unset, the cookie is host-only.</summary>
     public string? Domain { get; set; }
 
-    // A cookie name is an RFC 6265 token: no separators, spaces or control characters.
-    public bool IsValid() =>
-        !string.IsNullOrEmpty(Name)
-        && Name.All(c => c > ' ' && c < 127 && !"()<>@,;:\\\"/[]?={}".Contains(c, StringComparison.Ordinal))
-        && Path.StartsWith('/')
-        && (!Name.StartsWith(HostPrefix, StringComparison.Ordinal) || (Path == "/" && string.IsNullOrEmpty(Domain)));
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (Name?.StartsWith(HostPrefix, StringComparison.Ordinal) == true && (Path != "/" || !string.IsNullOrEmpty(Domain)))
+            yield return new ValidationResult(
+                $"'{Section}': a {HostPrefix} Name needs Path '/' and no Domain.", [nameof(Path), nameof(Domain)]);
+    }
 }

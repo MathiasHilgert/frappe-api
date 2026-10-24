@@ -42,14 +42,15 @@ public sealed class HmacSecretHasherTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData("too-short-key")]
+    [InlineData("                                        ")]
     public void Options_WithoutALongEnoughKey_AreInvalid(string? key)
     {
-        new SecretHashingOptions { Key = key }.IsValid().ShouldBeFalse();
+        new SecretHashingOptionsValidator().Validate(null, new SecretHashingOptions { Key = key }).Failed.ShouldBeTrue();
     }
 
     [Fact]
     public void Options_WithALongKey_AreValid()
     {
-        new SecretHashingOptions { Key = Key }.IsValid().ShouldBeTrue();
+        new SecretHashingOptionsValidator().Validate(null, new SecretHashingOptions { Key = Key }).Succeeded.ShouldBeTrue();
     }
 }
