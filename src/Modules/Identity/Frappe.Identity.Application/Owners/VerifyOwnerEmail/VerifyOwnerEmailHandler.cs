@@ -23,11 +23,11 @@ public static class VerifyOwnerEmailHandler
         CancellationToken cancellationToken)
     {
         var policy = AttemptPolicies.VerifyEmailPerOwner;
-        var reservation = await AttemptReservation.TakeAsync(limiter, [(policy, command.OwnerId.ToString())], cancellationToken);
+        var reservation = await AttemptReservation.TakeAsync(limiter, [(policy, command.PrincipalId.ToString())], cancellationToken);
         if (!reservation.IsAllowed)
             return Failed(IdentityErrors.TooManyAttempts.WithRetryAfter(reservation.Decision.RetryAfter));
 
-        var principal = await principals.GetByIdAsync(command.OwnerId, cancellationToken);
+        var principal = await principals.GetByIdAsync(command.PrincipalId, cancellationToken);
         if (principal is null)
         {
             await reservation.ReleaseAsync();

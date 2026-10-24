@@ -6,4 +6,4 @@ namespace Frappe.Identity.Application.Owners;
 /// Activates a pending owner with the code emailed at registration and signs them in at once: the session comes
 /// back for Bearer clients, and the endpoint hands it to the web console as a cookie.
 /// </summary>
-public sealed record VerifyOwnerEmail(Guid OwnerId, string? Code) : ICommand<OpenedSession>;
+public sealed record VerifyOwnerEmail(Guid PrincipalId, string? Code) : ICommand<OpenedSession>;
