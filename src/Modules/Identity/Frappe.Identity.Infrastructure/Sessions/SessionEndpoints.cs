@@ -76,7 +76,7 @@ internal static class SessionEndpoints
     // negotiation would, while a language it does not speak at all is refused rather than silently stored as English.
     private static async Task<IResult> UpdateMeAsync(
         UpdateMeRequest request, ICurrentPrincipal current, SupportedLocales supported, ChangeLocale changeLocale,
-        CancellationToken cancellationToken)
+        IRequestLocale requestLocale, CancellationToken cancellationToken)
     {
         var parsed = Locale.Create(request.Locale);
         if (parsed.IsFailure)
@@ -84,9 +84,11 @@ internal static class SessionEndpoints
         if (supported.Lookup(parsed.Value) is not { } locale)
             return Result.Failure(IdentityErrors.LocaleUnsupported).ToProblem();
 
-        return await changeLocale.HandleAsync(current.Session!, locale, cancellationToken) is { } profile
-            ? TypedResults.Ok(profile)
-            : TypedResults.Unauthorized();
+        if (await changeLocale.HandleAsync(current.Session!, locale, cancellationToken) is not { } profile)
+            return TypedResults.Unauthorized();
+
+        requestLocale.AdoptPreferred(locale);
+        return TypedResults.Ok(profile);
     }
 
     // The owner id is only disclosed after the password was proven, so the console can route a pending owner to verify.

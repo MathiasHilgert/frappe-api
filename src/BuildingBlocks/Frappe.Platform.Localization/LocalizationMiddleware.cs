@@ -10,13 +10,15 @@ internal sealed class LocalizationMiddleware(RequestDelegate next, LocaleNegotia
     {
         // The preference is only read when the header cannot decide, so most requests never touch storage.
         var locale = negotiator.FromHeader(context.Request.Headers.AcceptLanguage.ToString());
+        requestLocale.FromHeader = locale is not null;
         locale ??= negotiator.Negotiate(null, await preferences.GetPreferredLocaleAsync(context.RequestAborted));
         requestLocale.Current = locale;
 
         context.Response.OnStarting(() =>
         {
             var headers = context.Response.Headers;
-            headers.ContentLanguage = locale.Value;
+            // Read at send time: a handler may adopt a new preference (PATCH /me).
+            headers.ContentLanguage = requestLocale.Current.Value;
             if (!headers.Vary.Any(v => v is not null && v.Contains(HeaderNames.AcceptLanguage, StringComparison.OrdinalIgnoreCase)))
                 headers.Append(HeaderNames.Vary, HeaderNames.AcceptLanguage);
             return Task.CompletedTask;
