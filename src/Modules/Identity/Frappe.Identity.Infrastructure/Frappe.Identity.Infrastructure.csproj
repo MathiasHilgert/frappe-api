@@ -6,6 +6,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="i18n/*.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\..\BuildingBlocks\Frappe.Modularity\Frappe.Modularity.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\Frappe.Platform.Persistence\Frappe.Platform.Persistence.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\Frappe.Platform.Caching\Frappe.Platform.Caching.csproj" />

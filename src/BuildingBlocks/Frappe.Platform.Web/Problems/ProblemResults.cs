@@ -25,6 +25,17 @@ public static class ProblemResults
         return new LocalizedProblemResult(result.Errors, retryAfter);
     }
 
+    /// <summary>
+    /// <paramref name="error"/>'s message in the request locale, looked up by its code and falling back to
+    /// <c>Error.Message</c>; for endpoints that shape their own problem body instead of calling <c>ToProblem</c>.
+    /// </summary>
+    public static string LocalizedMessage(this HttpContext context, Error error)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(error);
+        return ProblemText.For(context).Translate(error.Code, error.Message);
+    }
+
     internal static int StatusOf(ErrorKind kind) => kind switch
     {
         ErrorKind.NotFound => StatusCodes.Status404NotFound,

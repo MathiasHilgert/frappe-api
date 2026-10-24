@@ -51,11 +51,11 @@ internal static class SessionEndpoints
             case LogInOutcome.Throttled throttled:
                 http.Response.Headers[HeaderNames.RetryAfter] =
                     Math.Max(1, (int)Math.Ceiling(throttled.RetryAfter.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
-                return Problem(StatusCodes.Status429TooManyRequests, IdentityErrors.TooManyAttempts);
+                return Problem(http, StatusCodes.Status429TooManyRequests, IdentityErrors.TooManyAttempts);
             case LogInOutcome.Refused refused:
-                return Problem(StatusCodes.Status403Forbidden, refused.Error, refused.PrincipalId);
+                return Problem(http, StatusCodes.Status403Forbidden, refused.Error, refused.PrincipalId);
             default:
-                return Problem(StatusCodes.Status401Unauthorized, IdentityErrors.InvalidCredentials);
+                return Problem(http, StatusCodes.Status401Unauthorized, IdentityErrors.InvalidCredentials);
         }
     }
 
@@ -92,12 +92,12 @@ internal static class SessionEndpoints
     }
 
     // The owner id is only disclosed after the password was proven, so the console can route a pending owner to verify.
-    private static ProblemHttpResult Problem(int status, Error error, Guid? ownerId = null)
+    private static ProblemHttpResult Problem(HttpContext http, int status, Error error, Guid? ownerId = null)
     {
         var extensions = new Dictionary<string, object?>(StringComparer.Ordinal) { ["code"] = error.Code };
         if (ownerId is { } id)
             extensions["ownerId"] = id;
 
-        return TypedResults.Problem(detail: error.Message, statusCode: status, type: $"urn:frappe:problem:{error.Code}", extensions: extensions);
+        return TypedResults.Problem(detail: http.LocalizedMessage(error), statusCode: status, type: $"urn:frappe:problem:{error.Code}", extensions: extensions);
     }
 }
