@@ -10,22 +10,30 @@ using Wolverine.Tracking;
 namespace Frappe.IntegrationTests.Identity;
 
 /// <summary>Changing the sign-in email: requested after a step-up, swapped only once the new address proves itself.</summary>
-public sealed class EmailChangeTests(ApiFixture fixture) : IAsyncLifetime
+public sealed class EmailChangeTests(EmailChangeTests.HostFixture hostFixture) : IClassFixture<EmailChangeTests.HostFixture>
 {
     private const string EmailChanges = "/v1/identity/me/email-changes";
     private const string Password = "correct horse battery";
 
-    private readonly TestClock _clock = new();
-    private IAlbaHost _host = null!;
+    private readonly TestClock _clock = hostFixture.Clock;
+    private readonly IAlbaHost _host = hostFixture.Host;
 
-    public async ValueTask InitializeAsync() =>
-        _host = await fixture.CreateHostAsync(services =>
-        {
-            services.AddSingleton<TimeProvider>(_clock);
-            services.AddSingleton<ISecretGenerator>(new FixedCodeGenerator());
-        });
+    /// <summary>One host for the whole class: booting a host per test cost about a second each.</summary>
+    public sealed class HostFixture(ApiFixture fixture) : IAsyncLifetime
+    {
+        internal TestClock Clock { get; } = new();
 
-    public async ValueTask DisposeAsync() => await _host.DisposeAsync();
+        public IAlbaHost Host { get; private set; } = null!;
+
+        public async ValueTask InitializeAsync() =>
+            Host = await fixture.CreateHostAsync(services =>
+            {
+                services.AddSingleton<TimeProvider>(Clock);
+                services.AddSingleton<ISecretGenerator>(new FixedCodeGenerator());
+            });
+
+        public async ValueTask DisposeAsync() => await Host.DisposeAsync();
+    }
 
     [Fact]
     public async Task Request_WithoutAStepUp_Answers403AndLeavesNothingPending()
