@@ -62,6 +62,6 @@ public sealed class ValkeyAttemptLimiterTests : IAsyncDisposable
     }
 
     private ValkeyAttemptLimiter Limiter(ValkeyConnection? valkey = null) =>
-        new(valkey ?? _down, Options.Create(new AttemptLimiterOptions { TimeoutMilliseconds = 250 }), new IdentityMetrics(_metrics.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>()),
+        new(valkey ?? _down, Options.Create(new AttemptLimiterOptions { Timeout = TimeSpan.FromMilliseconds(250) }), new IdentityMetrics(_metrics.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>()),
             NullLogger<ValkeyAttemptLimiter>.Instance);
 }

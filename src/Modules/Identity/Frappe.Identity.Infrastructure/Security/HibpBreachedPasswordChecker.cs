@@ -24,7 +24,7 @@ internal sealed partial class HibpBreachedPasswordChecker(
     public async Task<bool> IsBreachedAsync(string password, CancellationToken cancellationToken)
     {
         var hash = Sha1Hex(password);
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMilliseconds(options.Value.TimeoutMilliseconds), clock);
+        using var deadline = new CancellationTokenSource(options.Value.Timeout, clock);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
 
         try

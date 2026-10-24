@@ -64,7 +64,7 @@ internal sealed partial class ValkeyKnownSignInOrigins(
     private CancellationTokenSource Budget(CancellationToken cancellationToken)
     {
         var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        budget.CancelAfter(TimeSpan.FromMilliseconds(options.Value.TimeoutMilliseconds));
+        budget.CancelAfter(options.Value.Timeout);
         return budget;
     }
 

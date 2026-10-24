@@ -105,7 +105,7 @@ public sealed class IdentityModule : IModule
                 var options = sp.GetRequiredService<IOptions<BreachedPasswordOptions>>().Value;
                 http.BaseAddress = options.BaseAddress;
                 // Backstop only: the checker's own per-call timeout fails open well before this.
-                http.Timeout = TimeSpan.FromMilliseconds(options.TimeoutMilliseconds * 2);
+                http.Timeout = options.Timeout * 2;
             });
         services.AddScoped<PasswordPolicy>();
     }
