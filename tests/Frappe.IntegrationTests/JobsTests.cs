@@ -81,6 +81,23 @@ public sealed class JobsTests(ApiFixture fixture)
             .ShouldBe("0 0 3 * * ?");
     }
 
+    [Fact]
+    public async Task ARestart_DeletesRecurringJobsNoModuleDeclaresAnyMore_AndKeepsTheDeclaredOnes()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var scheduler = await fixture.Host.Services.GetRequiredService<ISchedulerFactory>().GetScheduler(ct);
+        var stale = new JobKey($"Stale-{Guid.NewGuid():N}");
+        await scheduler.AddJob(JobBuilder.Create<Frappe.Platform.Messaging.Jobs.PublishCommandJob<StaleCommand>>()
+            .WithIdentity(stale).StoreDurably().Build(), AddJobOptions.Replacing, ct);
+
+        await (await fixture.CreateHostAsync()).DisposeAsync(); // a restart
+
+        (await scheduler.GetJobDetail(stale, ct)).ShouldBeNull();
+        (await scheduler.GetJobDetail(new JobKey("PurgePendingOwners"), ct)).ShouldNotBeNull();
+    }
+
+    public sealed record StaleCommand;
+
     private static async Task<T> ScalarAsync<T>(NpgsqlDataSource dataSource, string sql)
     {
         await using var command = dataSource.CreateCommand(sql);

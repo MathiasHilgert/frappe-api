@@ -9,15 +9,35 @@ namespace Frappe.Platform.Messaging.Jobs;
 /// fire time or misfire state; a changed schedule replaces it in one store operation; a missing one is added, and of
 /// two instances starting together exactly one stores it. Every trigger fires once on recovery after a misfire (all
 /// instances were down at the scheduled time): recurring jobs publish idempotent commands, so one catch-up is right
-/// and replaying each missed firing is not.
+/// and replaying each missed firing is not. A <see cref="PublishCommandJob{TCommand}"/> no module declares any more
+/// (renamed or removed, or stored under another key by an older registration) is deleted with its triggers, so it
+/// can never fire a command nobody expects; deleting is idempotent, and jobs of any other type are never touched.
 /// </summary>
 internal sealed class RecurringJobScheduler(ISchedulerFactory schedulers, IEnumerable<RecurringJob> jobs) : IHostedService
 {
+    private static readonly string PublishCommandJobName = typeof(PublishCommandJob<>).FullName!;
+
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         var scheduler = await schedulers.GetScheduler(cancellationToken);
-        foreach (var job in jobs)
+        var declared = jobs.ToList();
+        foreach (var job in declared)
             await StoreAsync(scheduler, job, cancellationToken);
+        await DeleteUndeclaredAsync(scheduler, [.. declared.Select(j => j.Job.Key)], cancellationToken);
+    }
+
+    private static async Task DeleteUndeclaredAsync(
+        IScheduler scheduler, HashSet<JobKey> declared, CancellationToken cancellationToken)
+    {
+        foreach (var key in await scheduler.GetJobKeys(GroupMatcher<JobKey>.AnyGroup(), cancellationToken))
+        {
+            if (declared.Contains(key))
+                continue;
+            var detail = await scheduler.GetJobDetail(key, cancellationToken);
+            // By the stored name, so a job whose command type no longer exists (the usual stale case) still matches.
+            if (detail?.JobType.FullName?.StartsWith(PublishCommandJobName, StringComparison.Ordinal) == true)
+                await scheduler.DeleteJob(key, cancellationToken);
+        }
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
