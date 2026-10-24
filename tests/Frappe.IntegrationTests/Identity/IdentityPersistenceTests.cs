@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Time.Testing;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Principals;
@@ -7,6 +6,7 @@ using Frappe.Identity.Infrastructure.Persistence;
 using Frappe.SharedKernel.Localization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 using Shouldly;
 
 namespace Frappe.IntegrationTests.Identity;

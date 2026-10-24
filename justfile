@@ -30,11 +30,13 @@ default:
 
 # One-step setup: restore local dotnet tools and packages, install the git hooks (format + commit message)
 [group('dev')]
-setup:
-    dotnet tool restore
-    dotnet restore
+setup: _restore
     git config core.hooksPath scripts/git/hooks
     @echo "Git hooks installed from scripts/git/hooks (pre-commit: dotnet format on staged C#; commit-msg)."
+
+_restore:
+    dotnet tool restore
+    dotnet restore
 
 # Report missing or outdated prerequisites (dotnet SDK, Docker, compose, git, curl, jq)
 [group('dev')]
@@ -85,7 +87,7 @@ migrate: build
 
 # Add an EF migration to a module, e.g. `just migration Identity AddOwnerPhone`
 [group('dev')]
-migration module name: setup
+migration module name: _restore
     export ASPNETCORE_ENVIRONMENT=Development; \
     proj="src/Modules/{{module}}/Frappe.{{module}}.Infrastructure"; \
     ctx="$(dotnet ef dbcontext list -p "$proj" -s src/Host/Frappe.Api --prefix-output | sed -n 's/^data: *//p' | head -n1)"; \
@@ -115,14 +117,14 @@ clean:
 
 # Apply every autofix (dotnet format)
 [group('quality')]
-fix: setup
+fix: _restore
     dotnet format --no-restore
 
 # Every static check: formatting, actionlint, hadolint, gitleaks
 [group('quality')]
 lint: _format-check _actionlint _hadolint _gitleaks
 
-_format-check: setup
+_format-check: _restore
     dotnet format --verify-no-changes --no-restore
 
 _actionlint:
@@ -213,7 +215,7 @@ _run-tests suite mode="plain" filter="":
 
 # Mutation testing with Stryker.NET (slow)
 [group('test')]
-mutate: setup
+mutate: _restore
     for t in {{mutation_targets}}; do \
       dir="${t%%:*}"; proj="${t##*:}"; name="$(basename "$dir")"; \
       dotnet stryker --config-file {{quote(root / ".config" / "stryker-config.json")}} \
@@ -224,7 +226,7 @@ mutate: setup
 [group('security')]
 audit: _vuln
 
-_vuln: setup
+_vuln: _restore
     out="$(dotnet list package --vulnerable --include-transitive)"; echo "$out"; \
     if grep -q 'has the following vulnerable packages' <<<"$out"; then echo 'Vulnerable packages found' >&2; exit 1; fi
 
