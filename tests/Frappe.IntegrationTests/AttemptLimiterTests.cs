@@ -15,9 +15,9 @@ public sealed class AttemptLimiterTests(ApiFixture fixture)
     public async Task Check_UnderLimit_AllowsWithRemaining()
     {
         var key = UniqueKey();
-        await Limiter.RecordAsync(ThreePerMinute, key, CancellationToken.None);
+        await Limiter.RecordAsync(ThreePerMinute, key, TestContext.Current.CancellationToken);
 
-        var decision = await Limiter.CheckAsync(ThreePerMinute, key, CancellationToken.None);
+        var decision = await Limiter.CheckAsync(ThreePerMinute, key, TestContext.Current.CancellationToken);
 
         decision.IsAllowed.ShouldBeTrue();
         decision.Remaining.ShouldBe(2);
@@ -29,9 +29,9 @@ public sealed class AttemptLimiterTests(ApiFixture fixture)
     {
         var key = UniqueKey();
         for (var i = 0; i < 3; i++)
-            (await Limiter.RecordAsync(ThreePerMinute, key, CancellationToken.None)).IsAllowed.ShouldBeTrue();
+            (await Limiter.RecordAsync(ThreePerMinute, key, TestContext.Current.CancellationToken)).IsAllowed.ShouldBeTrue();
 
-        var decision = await Limiter.CheckAsync(ThreePerMinute, key, CancellationToken.None);
+        var decision = await Limiter.CheckAsync(ThreePerMinute, key, TestContext.Current.CancellationToken);
 
         decision.IsAllowed.ShouldBeFalse();
         decision.Remaining.ShouldBe(0);
@@ -44,9 +44,9 @@ public sealed class AttemptLimiterTests(ApiFixture fixture)
     {
         var key = UniqueKey();
         for (var i = 0; i < 3; i++)
-            await Limiter.RecordAsync(ThreePerMinute, key, CancellationToken.None);
+            await Limiter.RecordAsync(ThreePerMinute, key, TestContext.Current.CancellationToken);
 
-        var fourth = await Limiter.RecordAsync(ThreePerMinute, key, CancellationToken.None);
+        var fourth = await Limiter.RecordAsync(ThreePerMinute, key, TestContext.Current.CancellationToken);
 
         fourth.IsAllowed.ShouldBeFalse();
         fourth.RetryAfter.ShouldBeGreaterThan(TimeSpan.Zero);
@@ -55,14 +55,16 @@ public sealed class AttemptLimiterTests(ApiFixture fixture)
     [Fact]
     public async Task Check_AfterWindowExpires_AllowsAgain()
     {
-        var shortWindow = new AttemptPolicy("test-short", 1, TimeSpan.FromMilliseconds(500));
+        // Valkey owns the expiry (PEXPIRE), so no fake clock reaches it: a short window, polled until it lapses.
+        var shortWindow = new AttemptPolicy("test-short", 1, TimeSpan.FromMilliseconds(100));
         var key = UniqueKey();
-        await Limiter.RecordAsync(shortWindow, key, CancellationToken.None);
-        (await Limiter.CheckAsync(shortWindow, key, CancellationToken.None)).IsAllowed.ShouldBeFalse();
+        await Limiter.RecordAsync(shortWindow, key, TestContext.Current.CancellationToken);
+        (await Limiter.CheckAsync(shortWindow, key, TestContext.Current.CancellationToken)).IsAllowed.ShouldBeFalse();
 
-        await Task.Delay(TimeSpan.FromMilliseconds(800), TestContext.Current.CancellationToken);
-
-        (await Limiter.CheckAsync(shortWindow, key, CancellationToken.None)).IsAllowed.ShouldBeTrue();
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(10));
+        while (!(await Limiter.CheckAsync(shortWindow, key, TestContext.Current.CancellationToken)).IsAllowed)
+            await Task.Delay(TimeSpan.FromMilliseconds(20), timeout.Token);
     }
 
     [Fact]
@@ -70,11 +72,11 @@ public sealed class AttemptLimiterTests(ApiFixture fixture)
     {
         var key = UniqueKey();
         for (var i = 0; i < 3; i++)
-            await Limiter.RecordAsync(ThreePerMinute, key, CancellationToken.None);
+            await Limiter.RecordAsync(ThreePerMinute, key, TestContext.Current.CancellationToken);
 
-        await Limiter.ResetAsync(ThreePerMinute, key, CancellationToken.None);
+        await Limiter.ResetAsync(ThreePerMinute, key, TestContext.Current.CancellationToken);
 
-        (await Limiter.CheckAsync(ThreePerMinute, key, CancellationToken.None)).Remaining.ShouldBe(3);
+        (await Limiter.CheckAsync(ThreePerMinute, key, TestContext.Current.CancellationToken)).Remaining.ShouldBe(3);
     }
 
     [Fact]
@@ -82,11 +84,11 @@ public sealed class AttemptLimiterTests(ApiFixture fixture)
     {
         var key = UniqueKey();
         for (var i = 0; i < 3; i++)
-            await Limiter.RecordAsync(ThreePerMinute, key, CancellationToken.None);
+            await Limiter.RecordAsync(ThreePerMinute, key, TestContext.Current.CancellationToken);
 
-        (await Limiter.CheckAsync(ThreePerMinute, key.ToUpperInvariant(), CancellationToken.None)).IsAllowed.ShouldBeFalse();
-        (await Limiter.CheckAsync(ThreePerMinute, UniqueKey(), CancellationToken.None)).IsAllowed.ShouldBeTrue();
-        (await Limiter.CheckAsync(ThreePerMinute with { Name = "test-other" }, key, CancellationToken.None))
+        (await Limiter.CheckAsync(ThreePerMinute, key.ToUpperInvariant(), TestContext.Current.CancellationToken)).IsAllowed.ShouldBeFalse();
+        (await Limiter.CheckAsync(ThreePerMinute, UniqueKey(), TestContext.Current.CancellationToken)).IsAllowed.ShouldBeTrue();
+        (await Limiter.CheckAsync(ThreePerMinute with { Name = "test-other" }, key, TestContext.Current.CancellationToken))
             .IsAllowed.ShouldBeTrue();
     }
 

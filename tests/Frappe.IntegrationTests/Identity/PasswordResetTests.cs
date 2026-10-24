@@ -189,9 +189,9 @@ public sealed class PasswordResetTests(ApiFixture fixture)
     {
         await using var scope = fixture.Host.Services.CreateAsyncScope();
         var repository = scope.ServiceProvider.GetRequiredService<IPrincipalRepository>();
-        var principal = (await repository.GetByIdAsync(principalId, CancellationToken.None)).ShouldNotBeNull();
+        var principal = (await repository.GetByIdAsync(principalId, TestContext.Current.CancellationToken)).ShouldNotBeNull();
         principal.OpenSession($"other-{Guid.NewGuid():N}", SessionSurface.Console, TimeProvider.System).IsSuccess.ShouldBeTrue();
-        (await repository.SaveChangesAsync(CancellationToken.None)).IsSuccess.ShouldBeTrue();
+        (await repository.SaveChangesAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
     }
 
     private async Task MigrateAsync()

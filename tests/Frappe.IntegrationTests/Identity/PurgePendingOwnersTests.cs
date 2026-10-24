@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Time.Testing;
 using Frappe.SharedKernel.Localization;
 using Alba;
 using Frappe.Identity.Application.Principals;
@@ -19,7 +20,7 @@ public sealed class PurgePendingOwnersTests(ApiFixture fixture)
     public async Task Purge_DeletesOnlyPendingOwnersPastGrace_AndPublishesPendingPurged()
     {
         var host = fixture.Host;
-        var longAgo = new TestClock(); // 2026-01-01, far past the 7-day grace for the real clock.
+        var longAgo = TestTime.NewClock(); // 2026-01-01, far past the 7-day grace for the real clock.
         var oldPending = await SeedAsync(host, longAgo, activate: false);
         var freshPending = await SeedAsync(host, TimeProvider.System, activate: false);
         var oldActive = await SeedAsync(host, longAgo, activate: true);
@@ -72,7 +73,7 @@ public sealed class PurgePendingOwnersTests(ApiFixture fixture)
 
         var repository = services.GetRequiredService<IPrincipalRepository>();
         repository.Add(principal);
-        (await repository.SaveChangesAsync(CancellationToken.None)).IsSuccess.ShouldBeTrue();
+        (await repository.SaveChangesAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
         return principal.Id;
     }
 

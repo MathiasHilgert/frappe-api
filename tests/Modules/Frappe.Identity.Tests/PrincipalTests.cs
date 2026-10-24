@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Time.Testing;
 using Frappe.SharedKernel.Localization;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Principals;
@@ -9,7 +10,7 @@ namespace Frappe.Identity.Tests;
 
 public sealed class PrincipalTests
 {
-    private readonly TestClock _clock = new();
+    private readonly FakeTimeProvider _clock = new(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
 
     [Fact]
     public void RegisterOwner_StartsPendingAndRaisesRegistrationSubmitted()
@@ -23,7 +24,7 @@ public sealed class PrincipalTests
         principal.Owner.PasswordHash.ShouldBe("pw-hash");
         principal.Owner.Status.ShouldBe(OwnerStatus.Pending);
         principal.Owner.PendingEmail.ShouldBeNull();
-        principal.RegisteredAt.ShouldBe(_clock.Now);
+        principal.RegisteredAt.ShouldBe(_clock.GetUtcNow());
         Events(principal).ShouldBe([new OwnerRegistrationSubmitted(principal.Id, "ana@example.com")]);
     }
 
@@ -36,7 +37,7 @@ public sealed class PrincipalTests
 
         result.IsSuccess.ShouldBeTrue();
         principal.Owner.Status.ShouldBe(OwnerStatus.Active);
-        principal.Codes.Single().UsedAt.ShouldBe(_clock.Now);
+        principal.Codes.Single().UsedAt.ShouldBe(_clock.GetUtcNow());
         Events(principal).ShouldBe([new OwnerEmailVerified(principal.Id)]);
     }
 
@@ -127,7 +128,7 @@ public sealed class PrincipalTests
         session.Id.Version.ShouldBe(7);
         session.TokenHash.ShouldBe("t1");
         session.Surface.ShouldBe(SessionSurface.Console);
-        session.LastSeenAt.ShouldBe(_clock.Now);
+        session.LastSeenAt.ShouldBe(_clock.GetUtcNow());
         session.IsLive(_clock).ShouldBeTrue();
         principal.Sessions.ShouldBe([session]);
         Events(principal).ShouldBe([new SessionOpened(principal.Id, session.Id, SessionSurface.Console)]);
@@ -166,7 +167,7 @@ public sealed class PrincipalTests
         for (var elapsed = TimeSpan.Zero; elapsed < Session.AbsoluteLifetime; elapsed += TimeSpan.FromHours(11))
         {
             principal.TouchSession(session.Id, _clock).IsSuccess.ShouldBeTrue();
-            session.LastSeenAt.ShouldBe(_clock.Now);
+            session.LastSeenAt.ShouldBe(_clock.GetUtcNow());
             _clock.Advance(TimeSpan.FromHours(11));
         }
 
@@ -216,7 +217,7 @@ public sealed class PrincipalTests
 
         var expiresAt = principal.CompleteStepUp(session.Id, _clock);
 
-        expiresAt.Value.ShouldBe(_clock.Now + Session.StepUpValidity);
+        expiresAt.Value.ShouldBe(_clock.GetUtcNow() + Session.StepUpValidity);
         principal.HasFreshStepUp(session.Id, _clock).ShouldBeTrue();
         _clock.Advance(Session.StepUpValidity - TimeSpan.FromSeconds(1));
         principal.TouchSession(session.Id, _clock);

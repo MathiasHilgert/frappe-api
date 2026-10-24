@@ -26,7 +26,7 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
         var session = principal.OpenSession(UniqueToken(), SessionSurface.Console, Clock).Value;
         await SaveAsync(principal);
 
-        var loaded = await WithRepositoryAsync(r => r.GetByIdAsync(principal.Id, CancellationToken.None));
+        var loaded = await WithRepositoryAsync(r => r.GetByIdAsync(principal.Id, TestContext.Current.CancellationToken));
 
         loaded.ShouldNotBeNull();
         loaded.Type.ShouldBe(PrincipalType.Owner);
@@ -63,7 +63,7 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
         var principal = NewOwner(email);
         await SaveAsync(principal);
 
-        var loaded = await WithRepositoryAsync(r => r.GetByEmailAsync(Email(email.ToUpperInvariant()), CancellationToken.None));
+        var loaded = await WithRepositoryAsync(r => r.GetByEmailAsync(Email(email.ToUpperInvariant()), TestContext.Current.CancellationToken));
 
         loaded.ShouldNotBeNull().Id.ShouldBe(principal.Id);
     }
@@ -71,7 +71,7 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
     [Fact]
     public async Task GetByEmail_ReturnsNullForAnUnknownAddress()
     {
-        var loaded = await WithRepositoryAsync(r => r.GetByEmailAsync(Email(UniqueEmail()), CancellationToken.None));
+        var loaded = await WithRepositoryAsync(r => r.GetByEmailAsync(Email(UniqueEmail()), TestContext.Current.CancellationToken));
 
         loaded.ShouldBeNull();
     }
@@ -85,7 +85,7 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
         var result = await WithRepositoryAsync(async r =>
         {
             r.Add(NewOwner(email.ToUpperInvariant()));
-            return await r.SaveChangesAsync(CancellationToken.None);
+            return await r.SaveChangesAsync(TestContext.Current.CancellationToken);
         });
 
         result.IsFailure.ShouldBeTrue();
@@ -102,8 +102,8 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
         principal.OpenSession(token, SessionSurface.Api, Clock);
         await SaveAsync(principal);
 
-        var loaded = await WithRepositoryAsync(r => r.GetBySessionTokenHashAsync(token, CancellationToken.None));
-        var missing = await WithRepositoryAsync(r => r.GetBySessionTokenHashAsync(UniqueToken(), CancellationToken.None));
+        var loaded = await WithRepositoryAsync(r => r.GetBySessionTokenHashAsync(token, TestContext.Current.CancellationToken));
+        var missing = await WithRepositoryAsync(r => r.GetBySessionTokenHashAsync(UniqueToken(), TestContext.Current.CancellationToken));
 
         loaded.ShouldNotBeNull().Id.ShouldBe(principal.Id);
         missing.ShouldBeNull();
@@ -118,15 +118,15 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
 
         await WithRepositoryAsync(async r =>
         {
-            var loaded = (await r.GetByIdAsync(principal.Id, CancellationToken.None)).ShouldNotBeNull();
+            var loaded = (await r.GetByIdAsync(principal.Id, TestContext.Current.CancellationToken)).ShouldNotBeNull();
             // A resend replaces the live code of the same purpose within one save.
             loaded.IssueCode(CodePurpose.EmailVerify, "resent-hash", Clock).IsSuccess.ShouldBeTrue();
             loaded.VerifyEmail("resent-hash", Clock).IsSuccess.ShouldBeTrue();
             loaded.OpenSession(UniqueToken(), SessionSurface.Api, Clock).IsSuccess.ShouldBeTrue();
-            return await r.SaveChangesAsync(CancellationToken.None);
+            return await r.SaveChangesAsync(TestContext.Current.CancellationToken);
         });
 
-        var reloaded = await WithRepositoryAsync(r => r.GetByIdAsync(principal.Id, CancellationToken.None));
+        var reloaded = await WithRepositoryAsync(r => r.GetByIdAsync(principal.Id, TestContext.Current.CancellationToken));
         reloaded.ShouldNotBeNull().Owner.Status.ShouldBe(OwnerStatus.Active);
         reloaded.Sessions.ShouldHaveSingleItem();
     }
@@ -145,7 +145,7 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
         var result = await WithRepositoryAsync(r =>
         {
             r.Add(principal);
-            return r.SaveChangesAsync(CancellationToken.None);
+            return r.SaveChangesAsync(TestContext.Current.CancellationToken);
         });
         result.IsSuccess.ShouldBeTrue();
     }

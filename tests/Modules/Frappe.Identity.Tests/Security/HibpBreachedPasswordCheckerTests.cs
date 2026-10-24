@@ -20,7 +20,7 @@ public sealed class HibpBreachedPasswordCheckerTests : IDisposable
     {
         var handler = new FakeHandler(_ => Ok($"0000000000000000000000000000000000A:3\r\n{Suffix(Password)}:42\r\n"));
 
-        (await Checker(handler).IsBreachedAsync(Password, CancellationToken.None)).ShouldBeTrue();
+        (await Checker(handler).IsBreachedAsync(Password, TestContext.Current.CancellationToken)).ShouldBeTrue();
     }
 
     [Fact]
@@ -28,7 +28,7 @@ public sealed class HibpBreachedPasswordCheckerTests : IDisposable
     {
         var handler = new FakeHandler(_ => Ok(""));
 
-        await Checker(handler).IsBreachedAsync(Password, CancellationToken.None);
+        await Checker(handler).IsBreachedAsync(Password, TestContext.Current.CancellationToken);
 
         handler.Request!.RequestUri!.AbsolutePath.ShouldBe($"/range/{Hash(Password)[..5]}");
         handler.Request.Headers.GetValues("Add-Padding").ShouldBe(["true"]);
@@ -39,7 +39,7 @@ public sealed class HibpBreachedPasswordCheckerTests : IDisposable
     {
         var handler = new FakeHandler(_ => Ok("0000000000000000000000000000000000A:3\r\n"));
 
-        (await Checker(handler).IsBreachedAsync(Password, CancellationToken.None)).ShouldBeFalse();
+        (await Checker(handler).IsBreachedAsync(Password, TestContext.Current.CancellationToken)).ShouldBeFalse();
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public sealed class HibpBreachedPasswordCheckerTests : IDisposable
     {
         var handler = new FakeHandler(_ => Ok($"{Suffix(Password)}:0\r\n"));
 
-        (await Checker(handler).IsBreachedAsync(Password, CancellationToken.None)).ShouldBeFalse();
+        (await Checker(handler).IsBreachedAsync(Password, TestContext.Current.CancellationToken)).ShouldBeFalse();
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public sealed class HibpBreachedPasswordCheckerTests : IDisposable
         using var counted = new CounterListener(IdentityMetrics.BreachCheckUnavailable);
         var handler = new FakeHandler(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
 
-        (await Checker(handler).IsBreachedAsync(Password, CancellationToken.None)).ShouldBeFalse();
+        (await Checker(handler).IsBreachedAsync(Password, TestContext.Current.CancellationToken)).ShouldBeFalse();
         counted.Total.ShouldBe(1);
     }
 
@@ -70,7 +70,7 @@ public sealed class HibpBreachedPasswordCheckerTests : IDisposable
         });
 
         var started = TimeProvider.System.GetTimestamp();
-        (await Checker(handler).IsBreachedAsync(Password, CancellationToken.None)).ShouldBeFalse();
+        (await Checker(handler).IsBreachedAsync(Password, TestContext.Current.CancellationToken)).ShouldBeFalse();
 
         TimeProvider.System.GetElapsedTime(started).ShouldBeLessThan(TimeSpan.FromSeconds(5));
     }

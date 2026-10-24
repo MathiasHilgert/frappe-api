@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Time.Testing;
 using System.Text.Json;
 using Alba;
 using Frappe.Identity.Application.Security;
@@ -15,13 +16,13 @@ public sealed class EmailChangeTests(EmailChangeTests.HostFixture hostFixture) :
     private const string EmailChanges = "/v1/identity/me/email-changes";
     private const string Password = "correct horse battery";
 
-    private readonly TestClock _clock = hostFixture.Clock.Reset();
+    private readonly FakeTimeProvider _clock = hostFixture.Clock.Reset();
     private readonly IAlbaHost _host = hostFixture.Host;
 
     /// <summary>One host for the whole class: booting a host per test cost about a second each.</summary>
     public sealed class HostFixture(ApiFixture fixture) : IAsyncLifetime
     {
-        internal TestClock Clock { get; } = new();
+        internal FakeTimeProvider Clock { get; } = TestTime.NewClock();
 
         public IAlbaHost Host { get; private set; } = null!;
 

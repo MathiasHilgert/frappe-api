@@ -3,6 +3,7 @@ using System.Text.Json;
 using Alba;
 using Frappe.Identity.Application.Security;
 using Frappe.Identity.Domain.Principals;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Net.Http.Headers;
 using Shouldly;
 
@@ -17,23 +18,25 @@ public sealed class LoginTests(ApiFixture fixture)
     [Fact]
     public async Task ValidCredentials_OpenASession_WithCookieAndToken()
     {
+        var clock = TestTime.NewClock();
+        await using var host = await fixture.CreateHostAsync(services => services.AddSingleton<TimeProvider>(clock));
         var email = OwnerSeeder.NewEmail();
-        var owner = await OwnerSeeder.SeedAsync(fixture.Host, email);
+        var owner = await OwnerSeeder.SeedAsync(host, email);
 
-        var result = await LogInAsync(email.ToUpperInvariant(), OwnerSeeder.Password, NewIp(), 201);
+        var result = await LogInAsync(email.ToUpperInvariant(), OwnerSeeder.Password, NewIp(), 201, host);
 
         var body = await result.ReadAsJsonAsync<JsonElement>();
         var token = body.GetProperty("token").GetString().ShouldNotBeNull();
         body.GetProperty("id").GetGuid().ShouldNotBe(Guid.Empty);
-        body.GetProperty("expiresAt").GetDateTimeOffset().ShouldBeGreaterThan(DateTimeOffset.UtcNow);
+        body.GetProperty("expiresAt").GetDateTimeOffset().ShouldBe(clock.GetUtcNow() + Session.AbsoluteLifetime);
         var cookie = result.Context.Response.Headers[HeaderNames.SetCookie].ToString();
         cookie.ShouldStartWith($"{CookieName}={token}");
         cookie.ShouldContain("httponly", Case.Insensitive);
         cookie.ShouldContain("secure", Case.Insensitive);
 
-        (await SessionSeeder.LoadAsync(fixture.Host, owner.Id)).Sessions.Count.ShouldBe(1);
-        await MeAsync(s => s.WithRequestHeader("Authorization", $"Bearer {token}"), 200);
-        await MeAsync(s => s.WithRequestHeader("Cookie", $"{CookieName}={token}"), 200);
+        (await SessionSeeder.LoadAsync(host, owner.Id)).Sessions.Count.ShouldBe(1);
+        await MeAsync(s => s.WithRequestHeader("Authorization", $"Bearer {token}"), 200, host);
+        await MeAsync(s => s.WithRequestHeader("Cookie", $"{CookieName}={token}"), 200, host);
     }
 
     [Theory]
@@ -212,16 +215,17 @@ public sealed class LoginTests(ApiFixture fixture)
             s.StatusCodeShouldBe(401);
         });
 
-    private Task<IScenarioResult> LogInAsync(string email, string password, IPAddress ip, int status) =>
-        fixture.Host.Scenario(s =>
+    private Task<IScenarioResult> LogInAsync(
+        string email, string password, IPAddress ip, int status, IAlbaHost? host = null) =>
+        (host ?? fixture.Host).Scenario(s =>
         {
             s.Post.Json(new { email, password }).ToUrl(Sessions);
             s.ConfigureHttpContext(c => c.Connection.RemoteIpAddress = ip);
             s.StatusCodeShouldBe(status);
         });
 
-    private Task<IScenarioResult> MeAsync(Action<Scenario> configure, int status) =>
-        fixture.Host.Scenario(s =>
+    private Task<IScenarioResult> MeAsync(Action<Scenario> configure, int status, IAlbaHost? host = null) =>
+        (host ?? fixture.Host).Scenario(s =>
         {
             s.Get.Url("/v1/identity/me");
             configure(s);

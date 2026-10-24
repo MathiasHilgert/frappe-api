@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Time.Testing;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Alba;
@@ -23,12 +24,12 @@ public sealed class AccountSecurityTests(ApiFixture fixture, AccountSecurityTest
     private const string Password = "correct horse battery";
     private const string NewPassword = "a brand new passphrase";
 
-    private readonly TestClock _clock = clockHost.Clock.Reset();
+    private readonly FakeTimeProvider _clock = clockHost.Clock.Reset();
 
     /// <summary>One host on a test clock for the whole class: booting a host per test cost about a second each.</summary>
     public sealed class ClockHostFixture(ApiFixture fixture) : IAsyncLifetime
     {
-        internal TestClock Clock { get; } = new();
+        internal FakeTimeProvider Clock { get; } = TestTime.NewClock();
 
         public IAlbaHost Host { get; private set; } = null!;
 
@@ -56,7 +57,7 @@ public sealed class AccountSecurityTests(ApiFixture fixture, AccountSecurityTest
             s.StatusCodeShouldBe(201);
         });
 
-        var expected = clock.Now + Session.StepUpValidity;
+        var expected = clock.GetUtcNow() + Session.StepUpValidity;
         (await result.ReadAsJsonAsync<StepUpResponse>()).ShouldNotBeNull().ExpiresAt.ShouldBe(expected, TimeSpan.FromMilliseconds(1));
         var stored = (await SessionSeeder.LoadAsync(host, principal.Id)).Sessions.Single(x => x.Id == session.Id);
         stored.StepUpExpiresAt.ShouldNotBeNull().ShouldBe(expected, TimeSpan.FromMilliseconds(1));

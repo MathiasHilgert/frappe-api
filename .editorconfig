@@ -43,3 +43,7 @@ dotnet_diagnostic.MA0048.severity = none
 [src/Host/Frappe.Api/Internal/Generated/**.cs]
 # Wolverine handler code written by `just codegen`: analyzers and `dotnet format` skip it.
 generated_code = true
+
+[tests/**/*.cs]
+# Every async call in a test honours the test cancellation token (TestContext.Current.CancellationToken).
+dotnet_diagnostic.xUnit1051.severity = error
