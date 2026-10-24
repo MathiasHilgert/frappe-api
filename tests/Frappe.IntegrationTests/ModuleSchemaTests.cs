@@ -30,5 +30,11 @@ public sealed class ModuleSchemaTests(ApiFixture fixture)
         context.Model.GetEntityTypes()
             .Where(e => e.ClrType.Namespace?.StartsWith("Frappe.", StringComparison.Ordinal) == true)
             .Select(e => e.GetSchema()).Distinct(StringComparer.Ordinal).ShouldBe([module.Name]);
+        // No mapping reaches into another module: every Frappe entity (owned types included) is the module's own type.
+        var ownNamespace = $"Frappe.{module.GetType().Assembly.GetName().Name!.Split('.')[1]}.";
+        context.Model.GetEntityTypes()
+            .Select(e => e.ClrType.Namespace)
+            .Where(ns => ns?.StartsWith("Frappe.", StringComparison.Ordinal) == true)
+            .ShouldAllBe(ns => ns!.StartsWith(ownNamespace, StringComparison.Ordinal));
     }
 }

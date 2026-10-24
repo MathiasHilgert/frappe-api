@@ -14,12 +14,15 @@ using Quartz;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.Postgresql;
+using Wolverine.Util;
 
 namespace Frappe.Platform.Messaging;
 
 public static class MessagingRegistration
 {
     public const string Schema = "wolverine";
+
+    private static int s_contractNamingInserted;
 
     /// <summary>Overrides how handler code is loaded (Dynamic | Auto | Static); integration tests force Static.</summary>
     public const string TypeLoadModeSetting = "Wolverine:TypeLoadMode";
@@ -44,6 +47,10 @@ public static class MessagingRegistration
                 $"'{MessageSealOptions.SectionName}:Key' is the committed development key; set a real one outside Development.")
             .ValidateOnStart();
         builder.Services.AddSingleton<IMessageSeal, AesGcmMessageSeal>();
+
+        // Process-wide in Wolverine, so inserted once even when one process builds several hosts (the tests do).
+        if (Interlocked.Exchange(ref s_contractNamingInserted, 1) == 0)
+            WolverineMessageNaming.InsertFirst<ContractMessageNaming>();
 
         builder.UseWolverine(opts =>
         {
