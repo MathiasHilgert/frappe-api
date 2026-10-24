@@ -47,15 +47,11 @@ namespace Internal.Generated.WolverineHandlers
                 System.Diagnostics.Activity.Current?.SetTag("handler.type", "Frappe.Identity.Application.Principals.Purge.PurgePendingOwnersHandler");
                 
                 // The actual message execution
-                (var outgoing1, var outgoing2) = await Frappe.Identity.Application.Principals.Purge.PurgePendingOwnersHandler.Handle(purgePendingOwners, principalRepository, _timeProvider, cancellation).ConfigureAwait(false);
+                var outgoing1 = await Frappe.Identity.Application.Principals.Purge.PurgePendingOwnersHandler.Handle(purgePendingOwners, principalRepository, _timeProvider, cancellation).ConfigureAwait(false);
 
                 
                 // Outgoing, cascaded message
                 await context.EnqueueCascadingAsync(outgoing1).ConfigureAwait(false);
-
-                
-                // Outgoing, cascaded message
-                await context.EnqueueCascadingAsync(outgoing2).ConfigureAwait(false);
 
                 
                 // Added by EF Core Transaction Middleware
