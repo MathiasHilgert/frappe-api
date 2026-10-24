@@ -5,39 +5,40 @@ using Frappe.Identity.Domain.Principals;
 namespace Frappe.Identity.Application.Sessions;
 
 /// <summary>
-/// Signs an owner in with email and password (S5). Failures are counted per email and per IP and slow the caller
-/// down with a retry-after; nothing is ever locked, and a success clears the email's count.
+/// Failures are counted per email and per IP and slow the caller down with a retry-after; nothing is ever locked, and
+/// a success clears the email's count.
 /// </summary>
-public sealed class LogIn(
-    IPrincipalRepository principals,
-    IPasswordHasher passwordHasher,
-    ISecretHasher secretHasher,
-    ISecretGenerator secrets,
-    IAttemptLimiter limiter,
-    TimeProvider clock)
+public static class LogInHandler
 {
     // Hash of a random secret, verified against when the email is unknown so response time does not reveal it.
     private static string? s_decoyHash;
 
-    public async Task<LogInOutcome> ExecuteAsync(
-        string email, string password, string clientIp, SessionSurface surface, CancellationToken cancellationToken)
+    public static async Task<LogInOutcome> Handle(
+        LogIn command,
+        IPrincipalRepository principals,
+        IPasswordHasher passwordHasher,
+        ISecretHasher secretHasher,
+        ISecretGenerator secrets,
+        IAttemptLimiter limiter,
+        TimeProvider clock,
+        CancellationToken cancellationToken)
     {
-        var emailKey = email.Trim();
+        var emailKey = command.Email.Trim();
         var perEmail = await limiter.CheckAsync(AttemptPolicies.LoginFailuresPerEmail, emailKey, cancellationToken);
-        var perIp = await limiter.CheckAsync(AttemptPolicies.LoginFailuresPerIp, clientIp, cancellationToken);
+        var perIp = await limiter.CheckAsync(AttemptPolicies.LoginFailuresPerIp, command.ClientIp, cancellationToken);
         if (!perEmail.IsAllowed || !perIp.IsAllowed)
             return new LogInOutcome.Throttled(Max(perEmail.RetryAfter, perIp.RetryAfter));
 
-        var principal = await ProveAsync(email, password, cancellationToken);
+        var principal = await ProveAsync(command, principals, passwordHasher, secrets, cancellationToken);
         if (principal is null)
         {
             await limiter.RecordAsync(AttemptPolicies.LoginFailuresPerEmail, emailKey, cancellationToken);
-            await limiter.RecordAsync(AttemptPolicies.LoginFailuresPerIp, clientIp, cancellationToken);
+            await limiter.RecordAsync(AttemptPolicies.LoginFailuresPerIp, command.ClientIp, cancellationToken);
             return new LogInOutcome.InvalidCredentials();
         }
 
         var token = secrets.NewSessionToken();
-        var opened = principal.OpenSession(secretHasher.Hash(token), surface, clock);
+        var opened = principal.OpenSession(secretHasher.Hash(token), command.Surface, clock);
         if (opened.IsFailure)
             return new LogInOutcome.Refused(principal.Id, opened.Errors[0]);
 
@@ -51,13 +52,15 @@ public sealed class LogIn(
     }
 
     /// <summary>The principal whose password this is, or null; an unknown email still pays for one hash check.</summary>
-    private async Task<Principal?> ProveAsync(string email, string password, CancellationToken cancellationToken)
+    private static async Task<Principal?> ProveAsync(
+        LogIn command, IPrincipalRepository principals, IPasswordHasher hasher, ISecretGenerator secrets,
+        CancellationToken cancellationToken)
     {
-        var parsed = Email.Create(email);
+        var parsed = Email.Create(command.Email);
         var principal = parsed.IsSuccess ? await principals.GetByEmailAsync(parsed.Value, cancellationToken) : null;
-        var hash = principal?.Owner.PasswordHash ?? DecoyHash(passwordHasher, secrets);
+        var hash = principal?.Owner.PasswordHash ?? DecoyHash(hasher, secrets);
         // Argon2 cannot derive from an empty secret; an empty password is simply wrong.
-        return password.Length > 0 && passwordHasher.Verify(password, hash) ? principal : null;
+        return command.Password.Length > 0 && hasher.Verify(command.Password, hash) ? principal : null;
     }
 
     private static string DecoyHash(IPasswordHasher hasher, ISecretGenerator generator) =>

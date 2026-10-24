@@ -1,6 +1,5 @@
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
-using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Principals;
 using Frappe.SharedKernel.Validation;
@@ -17,14 +16,14 @@ public sealed class PasswordReverifier(IPrincipalRepository principals, IPasswor
 
     /// <summary>Loads the caller's principal when <paramref name="password"/> is theirs; <paramref name="wrong"/> otherwise.</summary>
     public async Task<Throttled<Principal>> VerifyAsync(
-        AuthenticatedSession caller, string? password, Error wrong, CancellationToken cancellationToken)
+        Guid principalId, string? password, Error wrong, CancellationToken cancellationToken)
     {
-        var key = caller.PrincipalId.ToString();
+        var key = principalId.ToString();
         var gate = await limiter.CheckAsync(Policy, key, cancellationToken);
         if (!gate.IsAllowed)
             return new Throttled<Principal>(null, gate.RetryAfter);
 
-        var principal = await principals.GetByIdAsync(caller.PrincipalId, cancellationToken);
+        var principal = await principals.GetByIdAsync(principalId, cancellationToken);
         if (principal is null)
             return new Throttled<Principal>(Result.Failure<Principal>(IdentityErrors.SessionNotFound));
 

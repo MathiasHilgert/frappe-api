@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Net.Http.Headers;
+using Wolverine;
 
 namespace Frappe.Identity.Infrastructure.Sessions;
 
@@ -35,13 +36,14 @@ internal static class SessionEndpoints
     public sealed record SessionResponse(Guid Id, Guid PrincipalId, string Token, DateTimeOffset ExpiresAt);
 
     private static async Task<IResult> LogInAsync(
-        LogInRequest request, HttpContext http, LogIn logIn, ISessionCookie cookie, CancellationToken cancellationToken)
+        LogInRequest request, HttpContext http, IMessageBus bus, ISessionCookie cookie, CancellationToken cancellationToken)
     {
         var clientIp = http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         // The web console marks its requests with the CSRF header; any other client is an API surface.
         var surface = http.Request.Headers.ContainsKey(SessionAuthenticationHandler.CsrfHeader) ? SessionSurface.Console : SessionSurface.Api;
 
-        var outcome = await logIn.ExecuteAsync(request.Email ?? string.Empty, request.Password ?? string.Empty, clientIp, surface, cancellationToken);
+        var outcome = await bus.InvokeAsync<LogInOutcome>(
+            new LogIn(request.Email ?? string.Empty, request.Password ?? string.Empty, clientIp, surface), cancellationToken);
         switch (outcome)
         {
             case LogInOutcome.Opened opened:
@@ -60,22 +62,23 @@ internal static class SessionEndpoints
     }
 
     private static async Task<IResult> LogOutAsync(
-        ICurrentPrincipal current, LogOut logOut, ISessionCookie cookie, CancellationToken cancellationToken)
+        ICurrentPrincipal current, IMessageBus bus, ISessionCookie cookie, CancellationToken cancellationToken)
     {
-        await logOut.ExecuteAsync(current.Session!, cancellationToken);
+        var caller = current.Session!;
+        await bus.InvokeAsync(new LogOut(caller.PrincipalId, caller.SessionId), cancellationToken);
         cookie.Clear();
         return TypedResults.NoContent();
     }
 
-    private static async Task<IResult> GetMeAsync(ICurrentPrincipal current, GetMe getMe, CancellationToken cancellationToken) =>
-        await getMe.ExecuteAsync(current.Session!, cancellationToken) is { } profile
+    private static async Task<IResult> GetMeAsync(ICurrentPrincipal current, IMessageBus bus, CancellationToken cancellationToken) =>
+        await bus.InvokeAsync<OwnerProfile?>(new GetMe(current.Session!.PrincipalId), cancellationToken) is { } profile
             ? TypedResults.Ok(profile)
             : TypedResults.Unauthorized();
 
     // Only a locale the platform serves is stored; a regional variant it lacks maps to a sibling (es-CL to es-AR), as
     // negotiation would, while a language it does not speak at all is refused rather than silently stored as English.
     private static async Task<IResult> UpdateMeAsync(
-        UpdateMeRequest request, ICurrentPrincipal current, SupportedLocales supported, ChangeLocale changeLocale,
+        UpdateMeRequest request, ICurrentPrincipal current, SupportedLocales supported, IMessageBus bus,
         IRequestLocale requestLocale, CancellationToken cancellationToken)
     {
         var parsed = Locale.Create(request.Locale);
@@ -84,7 +87,9 @@ internal static class SessionEndpoints
         if (supported.Lookup(parsed.Value) is not { } locale)
             return Result.Failure(IdentityErrors.LocaleUnsupported).ToProblem();
 
-        if (await changeLocale.HandleAsync(current.Session!, locale, cancellationToken) is not { } profile)
+        var principalId = current.Session!.PrincipalId;
+        var changed = await bus.InvokeAsync<Result>(new ChangeLocale(principalId, locale), cancellationToken);
+        if (changed.IsFailure || await bus.InvokeAsync<OwnerProfile?>(new GetMe(principalId), cancellationToken) is not { } profile)
             return TypedResults.Unauthorized();
 
         requestLocale.AdoptPreferred(locale);

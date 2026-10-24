@@ -170,7 +170,9 @@ gets the same tracing, and every command the same EF Core transaction and outbox
 | Data access | Repository, change tracking, `SaveChangesAsync` | Read port in Infrastructure: `AsNoTracking` projections straight to DTOs |
 | Side effects | Cascading messages (`OutgoingMessages`) or `IMessageContext.PublishAsync`, written to the outbox in the same transaction | None |
 
-Layout: Application holds one folder per use case (message, handler and result types together); endpoints stay in
+Layout: Application holds one folder per use case (message, handler and result types together, e.g.
+`Sessions/LogIn/`), while the namespace stays the feature area (`...Application.Sessions`) so a type never shares a
+name with its namespace. Endpoints stay in
 Infrastructure and only map HTTP to a message and a result to a status or `ToProblem()`. Transport concerns (cookies,
 `Retry-After`, `Content-Language`) stay in the endpoint. `tests/Frappe.ArchitectureTests/CqrsConventionTests.cs`
 fails when an endpoint calls an Application service, a message is not a marked record, a query handler touches a

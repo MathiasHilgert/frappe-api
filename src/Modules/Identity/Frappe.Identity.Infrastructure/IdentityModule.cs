@@ -38,6 +38,7 @@ public sealed class IdentityModule : IModule
     {
         services.AddModuleDbContext<IdentityDbContext>(Schema);
         services.AddScoped<IPrincipalRepository, PrincipalRepository>();
+        services.AddScoped<IOwnerReads, OwnerReads>();
         services.AddMessageCatalog(typeof(IdentityModule).Assembly);
 
         // Both checks run when the host starts, so commands that only compose it (resources setup) need no secrets.
@@ -67,12 +68,7 @@ public sealed class IdentityModule : IModule
         services.AddSingleton<IAttemptLimiter, ValkeyAttemptLimiter>();
         services.AddScoped<VerificationCodeIssuer>();
         services.AddScoped<VerifyOwnerEmail>();
-        services.AddScoped<OwnerSessions>();
         services.AddScoped<PasswordReverifier>();
-        services.AddScoped<StepUpRequirement>();
-        services.AddScoped<CompleteStepUp>();
-        services.AddScoped<ChangePassword>();
-        services.AddScoped<ConfirmEmailChange>();
         AddRecurringJobs(services);
     }
 
