@@ -46,10 +46,12 @@ public sealed partial class ModuleConventionTests
             // Coverage instrumentation injects tracker types into every assembly; only the project's own types count.
             .Where(t => !t.IsNested && !t.IsDefined(typeof(CompilerGeneratedAttribute))
                         && t.Namespace?.StartsWith("Frappe.", StringComparison.Ordinal) == true)
+            // Cross-module queries: an interface and the records it answers with, in the Contracts Queries folder.
+            .Where(t => !t.Namespace!.EndsWith(".Queries", StringComparison.Ordinal))
             .Where(t => !IsMessage(t) && !t.IsEnum && !IsConstantsHolder(t) && !t.Name.EndsWith("ContractsMarker", StringComparison.Ordinal))
             .Select(t => t.FullName);
 
-        offenders.ShouldBeEmpty("Contracts carry messages (records), enums and constants only; services belong to a platform abstraction.");
+        offenders.ShouldBeEmpty("Contracts carry messages (records), enums and constants, plus query interfaces in Queries; services belong to a platform abstraction.");
     }
 
     [Theory(SkipTestWithoutData = true)]

@@ -37,11 +37,8 @@ public sealed class NotificationTests(ApiFixture fixture, NotificationTests.Mail
 
     public static TheoryData<object, string, string> CodeEvents => new()
     {
-        { new OwnerVerificationCodeIssued(Guid.NewGuid(), "Ana", "verify@example.test", "111111", Expires, "es-AR"), "verify@example.test", "Tu código de Frappé: 111111" },
         { new PasswordResetCodeIssued(Guid.NewGuid(), Guid.NewGuid(), "reset@example.test", "Ana", "222222", Expires, "pt-BR"), "reset@example.test", "Código para trocar sua senha: 222222" },
         { new EmailChangeCodeIssued(Guid.NewGuid(), Guid.NewGuid(), "Ana", "new@example.test", "333333", Expires, "en"), "new@example.test", "Code to confirm your new email: 333333" },
-        // Written before events carried a locale: still mailed, in the default language.
-        { new OwnerVerificationCodeIssued(Guid.NewGuid(), "Ana", "old@example.test", "555555", Expires), "old@example.test", "Your Frappé code: 555555" },
     };
 
     [Theory]
@@ -61,13 +58,43 @@ public sealed class NotificationTests(ApiFixture fixture, NotificationTests.Mail
         mail.InlineImages.ShouldNotBeEmpty();
     }
 
+    [Theory]
+    [InlineData("es-AR", "Tu código de Frappé: 111111")]
+    [InlineData("en", "Your Frappé code: 111111")]
+    public async Task VerificationCode_IsMailedToTheOwnersCurrentAddress_InTheirLanguage(string locale, string subject)
+    {
+        var (host, mailer) = (mailerHost.Host, mailerHost.Mailer);
+        mailer.Clear();
+        var email = Identity.OwnerSeeder.NewEmail();
+        var owner = await Identity.OwnerSeeder.SeedAsync(host, email, Frappe.Identity.Domain.Principals.OwnerStatus.Pending, locale);
+
+        await host.TrackActivity().Timeout(TimeSpan.FromSeconds(30))
+            .PublishMessageAndWaitAsync(Sealed(host, new OwnerVerificationCodeIssued(owner.Id, "111111", Expires)));
+
+        var mail = mailer.Sent.ShouldHaveSingleItem();
+        mail.To.ShouldBe(email);
+        mail.Subject.ShouldBe(subject);
+    }
+
+    [Fact]
+    public async Task VerificationCode_ForAnOwnerAlreadyGone_IsDropped()
+    {
+        var (host, mailer) = (mailerHost.Host, mailerHost.Mailer);
+        mailer.Clear();
+
+        await host.TrackActivity().Timeout(TimeSpan.FromSeconds(30))
+            .PublishMessageAndWaitAsync(Sealed(host, new OwnerVerificationCodeIssued(Guid.NewGuid(), "111111", Expires)));
+
+        mailer.Sent.ShouldBeEmpty();
+    }
+
     [Fact]
     public async Task PublishedCodeEvent_CarriesTheCodeSealed_AndTheMailerOpensIt()
     {
         var (host, mailer) = (mailerHost.Host, mailerHost.Mailer);
         mailer.Clear();
-        var issued = (OwnerVerificationCodeIssued)Sealed(host,
-            new OwnerVerificationCodeIssued(Guid.NewGuid(), "Ana", "sealed@example.test", "777777", Expires, "en"));
+        var owner = await Identity.OwnerSeeder.SeedAsync(host, Identity.OwnerSeeder.NewEmail(), Frappe.Identity.Domain.Principals.OwnerStatus.Pending);
+        var issued = (OwnerVerificationCodeIssued)Sealed(host, new OwnerVerificationCodeIssued(owner.Id, "777777", Expires));
 
         await host.TrackActivity().Timeout(TimeSpan.FromSeconds(30)).PublishMessageAndWaitAsync(issued);
 
@@ -135,7 +162,7 @@ public sealed class NotificationTests(ApiFixture fixture, NotificationTests.Mail
         await using var host = await fixture.CreateHostAsync(services => services.AddSingleton<ILoggerProvider>(logs));
 
         await host.TrackActivity().Timeout(TimeSpan.FromSeconds(30))
-            .PublishMessageAndWaitAsync(Sealed(host, new OwnerVerificationCodeIssued(Guid.NewGuid(), "Ana", "log@example.test", "444444", Expires)));
+            .PublishMessageAndWaitAsync(Sealed(host, new PasswordResetCodeIssued(Guid.NewGuid(), Guid.NewGuid(), "log@example.test", "Ana", "444444", Expires, "en")));
 
         var line = logs.Messages.Where(m => m.StartsWith("Mail to *@example.test", StringComparison.Ordinal)).ShouldHaveSingleItem();
         line.ShouldContain("text+html");
@@ -170,9 +197,9 @@ public sealed class NotificationTests(ApiFixture fixture, NotificationTests.Mail
         await using var host = await fixture.CreateHostAsync(services => services.Replace(ServiceDescriptor.Singleton<IMailer>(mailer)));
 
         var tracked = await host.TrackActivity().Timeout(TimeSpan.FromSeconds(30)).DoNotAssertOnExceptionsDetected()
-            .PublishMessageAndWaitAsync(Sealed(host, new OwnerVerificationCodeIssued(Guid.NewGuid(), "Ana", "retry@example.test", "888888", Expires)));
+            .PublishMessageAndWaitAsync(Sealed(host, new PasswordResetCodeIssued(Guid.NewGuid(), Guid.NewGuid(), "retry@example.test", "Ana", "888888", Expires, "en")));
 
-        var envelope = tracked.Sent.Envelopes().Single(e => e.Message is OwnerVerificationCodeIssued);
+        var envelope = tracked.Sent.Envelopes().Single(e => e.Message is PasswordResetCodeIssued);
         mailer.Keys.Count.ShouldBe(2);
         mailer.Keys.ShouldAllBe(k => k == MailDelivery.KeyFor(envelope.Id));
     }
@@ -185,9 +212,9 @@ public sealed class NotificationTests(ApiFixture fixture, NotificationTests.Mail
         using var deadLettered = new MeterCounter("Frappe.Notification", "frappe.notification.mail.dead_lettered");
 
         var tracked = await host.TrackActivity().Timeout(TimeSpan.FromSeconds(30)).DoNotAssertOnExceptionsDetected()
-            .PublishMessageAndWaitAsync(Sealed(host, new OwnerVerificationCodeIssued(Guid.NewGuid(), "Ana", "bad@example.test", "999999", Expires)));
+            .PublishMessageAndWaitAsync(Sealed(host, new PasswordResetCodeIssued(Guid.NewGuid(), Guid.NewGuid(), "bad@example.test", "Ana", "999999", Expires, "en")));
 
-        tracked.MovedToErrorQueue.SingleMessage<OwnerVerificationCodeIssued>().Email.ShouldBe("bad@example.test");
+        tracked.MovedToErrorQueue.SingleMessage<PasswordResetCodeIssued>().Email.ShouldBe("bad@example.test");
         deadLettered.Total.ShouldBeGreaterThanOrEqualTo(1);
     }
 

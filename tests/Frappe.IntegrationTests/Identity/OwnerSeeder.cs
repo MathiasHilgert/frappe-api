@@ -18,7 +18,7 @@ internal static class OwnerSeeder
 
     public static string NewEmail() => $"owner-{Guid.NewGuid():N}@example.com";
 
-    public static async Task<Principal> SeedAsync(IAlbaHost host, string email, OwnerStatus status = OwnerStatus.Active)
+    public static async Task<Principal> SeedAsync(IAlbaHost host, string email, OwnerStatus status = OwnerStatus.Active, string locale = "en")
     {
         await using var scope = host.Services.CreateAsyncScope();
         var services = scope.ServiceProvider;
@@ -26,7 +26,7 @@ internal static class OwnerSeeder
         var clock = services.GetRequiredService<TimeProvider>();
         var hash = await services.GetRequiredService<IPasswordHasher>().HashAsync(Password, CancellationToken.None);
 
-        var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, Email.Create(email).Value, hash, Locale.Parse("en"), clock.GetUtcNow());
+        var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, Email.Create(email).Value, hash, Locale.Parse(locale), clock.GetUtcNow());
         if (status != OwnerStatus.Pending)
         {
             principal.IssueCode(CodePurpose.EmailVerify, "code-hash", clock.GetUtcNow());

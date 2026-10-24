@@ -44,7 +44,7 @@ public sealed class OwnerLocaleTests(ApiFixture fixture) : IAsyncLifetime
 
         var id = (await result.ReadAsJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
         (await SessionSeeder.LoadAsync(fixture.Host, id)).Owner.Locale.Value.ShouldBe(expected);
-        tracked.Sent.MessagesOf<OwnerVerificationCodeIssued>().ShouldHaveSingleItem().Locale.ShouldBe(expected);
+        tracked.Sent.MessagesOf<OwnerVerificationCodeIssued>().ShouldHaveSingleItem().PrincipalId.ShouldBe(id);
     }
 
     [Fact]
