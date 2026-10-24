@@ -37,7 +37,7 @@ public static class VerifyOwnerEmailHandler
         if (verified.IsFailure)
         {
             // Only a wrong code is a guess; an owner who is no longer pending gives the slot back.
-            if (verified.Errors.Any(e => e == IdentityErrors.AccountNotPending))
+            if (verified.Errors.Any(e => e.Is(IdentityErrors.AccountNotPending)))
                 await reservation.ReleaseAsync(cancellationToken);
             return Failed(verified.Errors[0]);
         }

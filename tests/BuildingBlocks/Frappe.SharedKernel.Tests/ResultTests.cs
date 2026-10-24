@@ -83,17 +83,32 @@ public sealed class ResultTests
     }
 
     [Fact]
-    public void Errors_WithTheSameCode_AreEqual_WhateverTheOccurrenceDetails()
+    public void Errors_ByRule_AreEqual_WhateverTheOccurrenceDetails()
     {
         var rule = new Error("sample.slow", "Slow down.", Kind: ErrorKind.TooManyRequests);
 
         var occurrence = rule.WithRetryAfter(TimeSpan.FromSeconds(5)).WithMetadata("ownerId", Guid.CreateVersion7());
         var annotated = rule.WithMetadata("ownerId", Guid.CreateVersion7());
 
-        occurrence.ShouldBe(rule);
-        (occurrence == rule).ShouldBeTrue();
-        annotated.ShouldBe(occurrence);
-        occurrence.GetHashCode().ShouldBe(rule.GetHashCode());
+        Error.ByRule.Equals(occurrence, rule).ShouldBeTrue();
+        occurrence.Is(rule).ShouldBeTrue();
+        Error.ByRule.Equals(annotated, occurrence).ShouldBeTrue();
+        Error.ByRule.GetHashCode(occurrence).ShouldBe(Error.ByRule.GetHashCode(rule));
+        new[] { occurrence }.ShouldContain(rule, Error.ByRule);
+    }
+
+    [Fact]
+    public void Errors_ByRule_Differ_WhenTheFieldDiffers() =>
+        Error.ByRule.Equals(new Error("sample.one", "Same.", "a"), new Error("sample.one", "Same.", "b")).ShouldBeFalse();
+
+    [Fact]
+    public void Errors_UseDefaultRecordEquality()
+    {
+        var rule = new Error("sample.slow", "Slow down.", Kind: ErrorKind.TooManyRequests);
+
+        rule.ShouldBe(new Error("sample.slow", "Slow down.", Kind: ErrorKind.TooManyRequests));
+        (rule.WithRetryAfter(TimeSpan.FromSeconds(5)) == rule).ShouldBeFalse();
+        (rule with { Message = "Other." }).ShouldNotBe(rule);
     }
 
     [Fact]
