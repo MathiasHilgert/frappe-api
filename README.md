@@ -82,14 +82,35 @@ sequenceDiagram
     participant N as NATS JetStream
     participant S as SSE /v1/stream
     C->>E: HTTP request (shape checked, 400)
-    E->>H: command
-    H->>A: invoke behavior
+    E->>H: IMessageBus.InvokeAsync<Result<T>>(command)
+    H->>A: load through the repository, invoke behavior
     A-->>H: Result (422 on broken rules) + domain events
-    H->>DB: state + events + RealtimePush, one transaction
+    H->>DB: state + events + cascading messages, one transaction
+    H-->>E: Result (id or small outcome, never a read model)
+    E-->>C: status + body, or result.ToProblem()
     DB-->>Q: outbox relays after commit
     Q->>N: publish realtime notification
     N->>S: stream sequence becomes SSE id
     S-->>C: event (Last-Event-ID resumes)
+```
+
+A query, end to end:
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant E as Endpoint
+    participant H as Wolverine handler
+    participant R as Read port (Infrastructure)
+    participant DB as Postgres
+    C->>E: HTTP GET
+    E->>H: IMessageBus.InvokeAsync<T>(query)
+    H->>R: ask for a DTO
+    R->>DB: AsNoTracking projection, no aggregate, no save
+    DB-->>R: rows
+    R-->>H: DTO
+    H-->>E: DTO
+    E-->>C: 200 + body
 ```
 
 ### Dependency rules
@@ -127,6 +148,7 @@ Only files tools must find at the root live there: `global.json`, `Directory.*.p
 | Topic | Rule |
 | --- | --- |
 | Validation | Domain invariants return `Result<T>` built from a `Notification` (Fowler): all broken rules at once. The HTTP layer checks only request shape, 400. Endpoints answer failures with `result.ToProblem()` (see [Errors and localization](#errors-and-localization)). |
+| Commands and queries | CQRS lite, see [Commands and queries](#commands-and-queries). |
 | Events / outbox | Aggregates raise domain events; Wolverine scrapes them from EF Core into the outbox in the same transaction. Reactions run from durable local queues. |
 | Realtime | A handler returns `RealtimePush.From(notification)` as a cascading message (Wolverine routes only concrete types). It is pushed to NATS JetStream after commit and streamed over SSE; the stream sequence is the SSE id, so `Last-Event-ID` resumes. |
 | Jobs | One-off work is a (scheduled) Wolverine message. Recurring work is a Quartz trigger running `PublishCommandJob<T>`, which only publishes a command. |
@@ -135,6 +157,24 @@ Only files tools must find at the root live there: `global.json`, `Directory.*.p
 | Time and ids | Inject `TimeProvider`; ids are UUIDv7 via `Guid.CreateVersion7(timeProvider.GetUtcNow())`. |
 | Correlation | Every request gets an id, echoed in `X-Request-Id` and flowed into logs and spans. |
 | Modules | `IModule.Name` is also the route segment: endpoints map under `/v1/{Name}`. |
+
+### Commands and queries
+
+Every use case is a message with one Wolverine handler, sent from the endpoint with `IMessageBus`, so every use case
+gets the same tracing, and every command the same EF Core transaction and outbox.
+
+| | Command | Query |
+| --- | --- | --- |
+| Message | `record` implementing `ICommand`, imperative name (`ChangeLocale`) | `record` implementing `IQuery<TResult>` (`GetMe`, `ListOwnerSessions`) |
+| Handler | Loads the aggregate through the repository, saves, returns `Result`/`Result<T>` with an id or a small outcome | Asks a read port (`IOwnerReads`) for a DTO; marked `[NonTransactional]` |
+| Data access | Repository, change tracking, `SaveChangesAsync` | Read port in Infrastructure: `AsNoTracking` projections straight to DTOs |
+| Side effects | Cascading messages (`OutgoingMessages`) or `IMessageContext.PublishAsync`, written to the outbox in the same transaction | None |
+
+Layout: Application holds one folder per use case (message, handler and result types together); endpoints stay in
+Infrastructure and only map HTTP to a message and a result to a status or `ToProblem()`. Transport concerns (cookies,
+`Retry-After`, `Content-Language`) stay in the endpoint. `tests/Frappe.ArchitectureTests/CqrsConventionTests.cs`
+fails when an endpoint calls an Application service, a message is not a marked record, a query handler touches a
+repository, or a command handler answers with a type some query returns.
 
 Migrations:
 

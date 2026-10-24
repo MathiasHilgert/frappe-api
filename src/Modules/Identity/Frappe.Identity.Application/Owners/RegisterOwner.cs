@@ -1,3 +1,4 @@
+using Frappe.Application.Abstractions.Messaging;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
 using Frappe.Identity.Contracts;
@@ -14,4 +15,4 @@ namespace Frappe.Identity.Application.Owners;
 /// Signs up a new owner: the account starts pending and an email-verification code is issued. <paramref name="Locale"/>
 /// is the one negotiated for the sign-up request, already one the platform speaks.
 /// </summary>
-public sealed record RegisterOwner(string? Name, string? Email, string? Password, Locale Locale);
+public sealed record RegisterOwner(string? Name, string? Email, string? Password, Locale Locale) : ICommand;
