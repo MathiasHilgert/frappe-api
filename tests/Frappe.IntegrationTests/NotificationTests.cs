@@ -97,6 +97,38 @@ public sealed class NotificationTests(ApiFixture fixture, NotificationTests.Mail
     }
 
     [Fact]
+    public async Task Development_WithAnSmtpHost_SendsMailToItOverSmtp_NeverToResend()
+    {
+        await using var host = await fixture.CreateHostAsync(configureSettings: s =>
+        {
+            s["Notification:Smtp:Host"] = "127.0.0.1";
+            s["Notification:Resend:ApiKey"] = "re_dummy_not_a_real_key";
+        });
+        using var scope = host.Services.CreateScope();
+
+        scope.ServiceProvider.GetRequiredService<IMailer>().GetType().Name.ShouldBe("SmtpMailer");
+    }
+
+    [Fact]
+    public async Task Production_IgnoresAnSmtpHost_AndUsesResend()
+    {
+        await using var host = await fixture.CreateHostAsync(
+            environment: "Production", configureSettings: s => s["Notification:Smtp:Host"] = "127.0.0.1");
+        using var scope = host.Services.CreateScope();
+
+        scope.ServiceProvider.GetRequiredService<IMailer>().GetType().Name.ShouldBe("ResendMailer");
+    }
+
+    [Fact]
+    public async Task ResendTimeout_OutOfRange_RefusesToStart()
+    {
+        var error = await Should.ThrowAsync<Exception>(() => fixture.CreateHostAsync(
+            environment: "Production", configureSettings: s => s["Notification:Resend:Timeout"] = "00:05:00"));
+
+        error.ToString().ShouldContain("ResendOptions.Timeout");
+    }
+
+    [Fact]
     public async Task Development_LogsThePublishedMail_WithoutTheCodeOrTheRecipient()
     {
         var logs = new CapturingLoggerProvider();
