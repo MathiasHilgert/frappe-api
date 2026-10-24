@@ -13,8 +13,20 @@ public sealed class EdgeRulesFailureTests
     [Fact]
     public void EndpointsBuildingProblems_NamesEveryEndpointShapingItsOwnProblem() =>
         EdgeRules.EndpointsBuildingProblems(Infrastructure).ShouldBe(
-            [typeof(TypedProblemEndpoints).FullName!, typeof(ProblemDetailsEndpoints).FullName!, typeof(ResultsProblemEndpoints).FullName!],
+            [
+                typeof(TypedProblemEndpoints).FullName!, typeof(ProblemDetailsEndpoints).FullName!,
+                typeof(ResultsProblemEndpoints).FullName!, typeof(BareStatusEndpoints).FullName!,
+            ],
             ignoreOrder: true);
+
+    [Fact]
+    public void EndpointsReadingTheCallerRaw_NamesHttpContextUserAndRemoteIpReads() =>
+        EdgeRules.EndpointsReadingTheCallerRaw(Infrastructure).ShouldBe([typeof(RawCallerEndpoints).FullName!]);
+
+    [Fact]
+    public void EndpointPayloadsThatAreNotResponses_NamesAnApplicationDtoReturnedAsTheBody() =>
+        EdgeRules.EndpointPayloadsThatAreNotResponses(Infrastructure)
+            .ShouldBe([$"{typeof(DtoPayloadEndpoints).FullName}.Handle: {nameof(FixtureProfile)}"]);
 
     [Fact]
     public void MisplacedEndpoints_NamesEndpointsOutsideTheFolderOrSingular() =>

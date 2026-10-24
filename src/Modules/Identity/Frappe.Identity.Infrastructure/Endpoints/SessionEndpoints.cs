@@ -16,7 +16,7 @@ using Wolverine;
 
 namespace Frappe.Identity.Infrastructure.Endpoints;
 
-/// <summary>Login, logout and the signed-in owner's profile (S7).</summary>
+/// <summary>Login, logout and the signed-in owner's profile.</summary>
 internal static class SessionEndpoints
 {
     public static RouteGroupBuilder MapSessionEndpoints(this RouteGroupBuilder group)
@@ -26,21 +26,19 @@ internal static class SessionEndpoints
             .WithName("LogIn")
             .WithSummary("Signs an owner in with email and password, issuing the session cookie and token.")
             .ProducesProblem(StatusCodes.Status401Unauthorized)
-            .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status429TooManyRequests);
+            .ProducesProblem(StatusCodes.Status403Forbidden);
         group.MapDelete("/sessions/current", LogOutAsync)
-            .RequireAuthorization(IdentityPolicies.OwnerSelf)
+            .RequireOwner()
             .WithName("LogOut")
             .WithSummary("Revokes the caller's session and clears the cookie.");
         group.MapGet("/me", GetMeAsync)
-            .RequireAuthorization(IdentityPolicies.OwnerSelf)
+            .RequireOwner()
             .WithName("GetMe")
             .WithSummary("The signed-in owner's profile.");
         group.MapPatch("/me", UpdateMeAsync)
-            .RequireAuthorization(IdentityPolicies.OwnerSelf)
+            .RequireOwner()
             .WithName("UpdateMe")
             .WithSummary("Updates the signed-in owner's profile; only the locale today.")
-            .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         return group;
     }
@@ -52,7 +50,7 @@ internal static class SessionEndpoints
         var surface = http.Request.Headers.ContainsKey(SessionAuthenticationHandler.CsrfHeader) ? SessionSurface.Console : SessionSurface.Api;
 
         var signedIn = await bus.InvokeAsync<Result<SignedIn>>(
-            new LogIn(request.Email ?? string.Empty, request.Password ?? string.Empty, http.ClientIp(), surface),
+            new LogIn(request.Email, request.Password, http.ClientIp(), surface),
             cancellationToken);
         // 401 bad credentials, 429 (Retry-After) throttled, 403 pending/suspended with the owner id disclosed.
         if (!signedIn.TryGetValue(out var opened))
@@ -75,24 +73,24 @@ internal static class SessionEndpoints
         return TypedResults.NoContent();
     }
 
-    private static async Task<Results<Ok<OwnerProfile>, UnauthorizedHttpResult>> GetMeAsync(
-        ICurrentPrincipal current, IMessageBus bus, CancellationToken cancellationToken) =>
-        await bus.InvokeAsync<OwnerProfile?>(new GetMe(current.RequiredSession().PrincipalId), cancellationToken) is { } profile
-            ? TypedResults.Ok(profile)
-            : TypedResults.Unauthorized();
+    private static async Task<Results<Ok<OwnerProfileResponse>, LocalizedProblemResult>> GetMeAsync(
+        ICurrentPrincipal current, IMessageBus bus, CancellationToken cancellationToken)
+    {
+        var profile = await bus.InvokeAsync<Result<OwnerProfile>>(new GetMe(current.RequiredSession().PrincipalId), cancellationToken);
+        return profile.TryGetValue(out var found) ? TypedResults.Ok(OwnerProfileResponse.From(found)) : profile.ToProblem();
+    }
 
-    private static async Task<Results<Ok<OwnerProfile>, UnauthorizedHttpResult, LocalizedProblemResult>> UpdateMeAsync(
+    private static async Task<Results<Ok<UpdatedProfileResponse>, LocalizedProblemResult>> UpdateMeAsync(
         UpdateMeRequest request, ICurrentPrincipal current, IMessageBus bus, IRequestLocale requestLocale,
         CancellationToken cancellationToken)
     {
-        var principalId = current.RequiredSession().PrincipalId;
-        var changed = await bus.InvokeAsync<Result<Locale>>(new ChangeLocale(principalId, request.Locale), cancellationToken);
+        var changed = await bus.InvokeAsync<Result<Locale>>(
+            new ChangeLocale(current.RequiredSession().PrincipalId, request.Locale), cancellationToken);
         if (!changed.TryGetValue(out var locale))
             return changed.ToProblem();
-        if (await bus.InvokeAsync<OwnerProfile?>(new GetMe(principalId), cancellationToken) is not { } profile)
-            return TypedResults.Unauthorized();
 
+        // The command answers the state it stored; no follow-up query is chained.
         requestLocale.AdoptPreferred(locale);
-        return TypedResults.Ok(profile);
+        return TypedResults.Ok(new UpdatedProfileResponse(locale.Value));
     }
 }

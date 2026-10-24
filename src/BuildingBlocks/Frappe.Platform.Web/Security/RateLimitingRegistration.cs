@@ -3,7 +3,6 @@ using Frappe.Platform.Web.Forwarding;
 using Frappe.Platform.Web.Problems;
 using Frappe.SharedKernel.Validation;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -44,15 +43,4 @@ public static class RateLimitingRegistration
         });
         return services;
     }
-
-    /// <summary>
-    /// The one convention for an endpoint reachable without a session (sign-in, sign-up, password reset): it opts out
-    /// of deny-by-default, is rate limited per IP by the in-process backstop, and documents the 429 that can answer.
-    /// </summary>
-    public static TBuilder AllowAnonymousAuth<TBuilder>(this TBuilder builder)
-        where TBuilder : IEndpointConventionBuilder =>
-        builder.AllowAnonymous()
-            .RequireRateLimiting(AnonymousAuthPolicy)
-            .WithMetadata(new ProducesResponseTypeMetadata(
-                StatusCodes.Status429TooManyRequests, typeof(Microsoft.AspNetCore.Mvc.ProblemDetails), ["application/problem+json"]));
 }

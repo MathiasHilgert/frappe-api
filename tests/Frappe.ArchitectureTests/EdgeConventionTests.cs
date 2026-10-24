@@ -20,6 +20,18 @@ public sealed class EdgeConventionTests
 
     [Theory(SkipTestWithoutData = true)]
     [MemberData(nameof(Modules))]
+    public void Endpoint_ReadsTheCallerThroughTheHelpers(string module) =>
+        EdgeRules.EndpointsReadingTheCallerRaw(Infrastructure(module)).ShouldBeEmpty(
+            "Endpoints read the caller with RequiredSession() and the address with ClientIp(), never HttpContext.User or RemoteIpAddress.");
+
+    [Theory(SkipTestWithoutData = true)]
+    [MemberData(nameof(Modules))]
+    public void Endpoint_AnswersAnInfrastructureResponse_NeverAnApplicationDto(string module) =>
+        EdgeRules.EndpointPayloadsThatAreNotResponses(Infrastructure(module)).ShouldBeEmpty(
+            "Success bodies are <Module>.Infrastructure *Response records mapped from the Application result.");
+
+    [Theory(SkipTestWithoutData = true)]
+    [MemberData(nameof(Modules))]
     public void Endpoint_LivesInTheEndpointsFolder_AsARouteGroup(string module) =>
         EdgeRules.MisplacedEndpoints(Infrastructure(module)).ShouldBeEmpty(
             "Endpoints live in <Module>.Infrastructure.Endpoints, named *Endpoints (or *EndpointFilter).");

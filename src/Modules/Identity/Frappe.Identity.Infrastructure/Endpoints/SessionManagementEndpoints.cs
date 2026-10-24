@@ -15,7 +15,7 @@ internal static class SessionManagementEndpoints
 {
     public static RouteGroupBuilder MapSessionManagementEndpoints(this RouteGroupBuilder group)
     {
-        var sessions = group.MapGroup("/sessions").RequireAuthorization(IdentityPolicies.OwnerSelf);
+        var sessions = group.MapGroup("/sessions").RequireOwner();
         sessions.MapGet("/", ListAsync)
             .WithName("ListSessions")
             .WithSummary("The owner's open sessions, flagging the caller's own.");

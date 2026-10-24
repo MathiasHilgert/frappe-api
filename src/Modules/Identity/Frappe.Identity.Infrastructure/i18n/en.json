@@ -27,5 +27,6 @@
   "identity.session.expired": "The session has expired.",
   "identity.email_change.none_pending": "There is no email change to confirm.",
   "identity.email_change.not_found": "This email change does not exist or was replaced by a newer one.",
-  "identity.password_hashing.busy": "The server is busy. Try again in a moment."
+  "identity.password_hashing.busy": "The server is busy. Try again in a moment.",
+  "identity.session.principal_gone": "The account behind this session no longer exists."
 }

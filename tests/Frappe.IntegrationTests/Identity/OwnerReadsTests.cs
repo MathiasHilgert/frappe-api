@@ -1,6 +1,8 @@
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Sessions;
+using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Principals;
+using Frappe.SharedKernel.Validation;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using Wolverine;
@@ -67,13 +69,13 @@ public sealed class OwnerReadsTests(ApiFixture fixture)
     }
 
     [Fact]
-    public async Task GetMe_ThroughTheBus_AnswersNullForAGonePrincipal()
+    public async Task GetMe_ThroughTheBus_FailsForAGonePrincipal()
     {
         await using var scope = fixture.Host.Services.CreateAsyncScope();
         var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
 
-        var profile = await bus.InvokeAsync<OwnerProfile?>(new GetMe(Guid.CreateVersion7()), TestContext.Current.CancellationToken);
+        var profile = await bus.InvokeAsync<Result<OwnerProfile>>(new GetMe(Guid.CreateVersion7()), TestContext.Current.CancellationToken);
 
-        profile.ShouldBeNull();
+        profile.Errors.ShouldBe([IdentityErrors.PrincipalGone]);
     }
 }

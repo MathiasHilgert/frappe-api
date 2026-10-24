@@ -14,7 +14,7 @@ internal static class StepUpEndpointFilter
 {
     /// <summary>
     /// Demands a step-up completed on the caller's session within the last five minutes, answering 403
-    /// <c>identity.step_up.required</c> otherwise. Put it after <c>RequireAuthorization</c>; the client then calls
+    /// <c>identity.step_up.required</c> otherwise. Put it after <c>RequireOwner()</c>; the client then calls
     /// <c>POST /v1/identity/sessions/current/step-ups</c> and retries.
     /// </summary>
     public static TBuilder RequireStepUp<TBuilder>(this TBuilder builder) where TBuilder : IEndpointConventionBuilder =>

@@ -32,7 +32,7 @@ public static class LogInHandler
     {
         // The same normalized address the account is stored under, so case or spacing never buys another budget.
         var parsed = Email.Create(command.Email);
-        var emailKey = parsed.TryGetValue(out var normalized) ? normalized.Value : command.Email.Trim().ToLowerInvariant();
+        var emailKey = parsed.TryGetValue(out var normalized) ? normalized.Value : command.Email?.Trim().ToLowerInvariant() ?? string.Empty;
         var reservation = await AttemptReservation.TakeAsync(limiter,
             [
                 (AttemptPolicies.LoginFailuresPerEmailAndIp, $"{emailKey}|{command.ClientIp}"),
@@ -47,7 +47,8 @@ public static class LogInHandler
         }
 
         // A wrong password keeps its reserved slots: that is the failure being counted.
-        var principal = await ProveAsync(normalized, command.Password, principals, passwordHasher, decoy, cancellationToken);
+        var password = command.Password ?? string.Empty;
+        var principal = await ProveAsync(normalized, password, principals, passwordHasher, decoy, cancellationToken);
         if (principal is null)
             return Result.Failure<SignedIn>(IdentityErrors.InvalidCredentials);
 
@@ -60,7 +61,7 @@ public static class LogInHandler
 
         // The password is in hand, so this is the one moment an outdated hash can be upgraded to the current cost.
         if (passwordHasher.NeedsRehash(principal.Owner.PasswordHash))
-            principal.RehashPassword(await passwordHasher.HashAsync(command.Password, cancellationToken));
+            principal.RehashPassword(await passwordHasher.HashAsync(password, cancellationToken));
 
         var saved = await principals.SaveAsync(cancellationToken);
         if (saved.IsFailure)

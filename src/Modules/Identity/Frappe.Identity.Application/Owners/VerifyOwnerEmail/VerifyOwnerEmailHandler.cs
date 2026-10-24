@@ -34,7 +34,7 @@ public static class VerifyOwnerEmailHandler
             return Failed(IdentityErrors.OwnerNotFound);
         }
 
-        var verified = principal.VerifyEmail(hasher.Hash(command.Code), clock.GetUtcNow());
+        var verified = principal.VerifyEmail(hasher.Hash(command.Code ?? string.Empty), clock.GetUtcNow());
         if (verified.IsFailure)
         {
             // Only a wrong code is a guess; an owner who is no longer pending gives the slot back.

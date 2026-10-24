@@ -22,15 +22,13 @@ internal static class OwnerRegistrationEndpoints
             .WithName("RegisterOwner")
             .WithSummary("Signs up a pending owner and emails them a verification code.")
             .ProducesProblem(StatusCodes.Status409Conflict)
-            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
-            .ProducesProblem(StatusCodes.Status429TooManyRequests);
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         group.MapPost("/owners/{id:guid}/verification-codes", ResendAsync)
             .AllowAnonymousAuth()
             .WithName("ResendVerificationCode")
             .WithSummary("Emails a pending owner a fresh verification code.")
             .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status409Conflict)
-            .ProducesProblem(StatusCodes.Status429TooManyRequests);
+            .ProducesProblem(StatusCodes.Status409Conflict);
         return group;
     }
 

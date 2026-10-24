@@ -76,6 +76,10 @@ public static class IdentityErrors
 
     public static readonly Error SessionNotFound = new("identity.session.not_found", "The session does not exist.", Kind: ErrorKind.NotFound);
 
+    /// <summary>The session authenticated, but the account behind it is gone (deleted meanwhile).</summary>
+    public static readonly Error PrincipalGone =
+        new("identity.session.principal_gone", "The account behind this session no longer exists.", Kind: ErrorKind.Unauthorized);
+
     public static readonly Error SessionExpired = new("identity.session.expired", "The session has expired.", Kind: ErrorKind.Unauthorized);
 
     public static readonly Error NoPendingEmailChange =

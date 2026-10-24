@@ -11,7 +11,7 @@ using Wolverine;
 
 namespace Frappe.Identity.Infrastructure.Endpoints;
 
-/// <summary>Signed-out password reset by emailed code (S7, S8). Both routes are public by design.</summary>
+/// <summary>Signed-out password reset by emailed code. Both routes are public by design.</summary>
 internal static class PasswordResetEndpoints
 {
     public static RouteGroupBuilder MapPasswordResetEndpoints(this RouteGroupBuilder group)
@@ -20,21 +20,19 @@ internal static class PasswordResetEndpoints
         resets.MapPost("/", RequestAsync)
             .WithName("RequestPasswordReset")
             .WithSummary("Emails a reset code when the address belongs to an owner; answers the same either way.")
-            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
-            .ProducesProblem(StatusCodes.Status429TooManyRequests);
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         resets.MapPost("/{id:guid}/confirmation", ConfirmAsync)
             .WithName("ConfirmPasswordReset")
             .WithSummary("Sets a new password with the emailed code, signing every session out.")
-            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
-            .ProducesProblem(StatusCodes.Status429TooManyRequests);
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         return group;
     }
 
     private static async Task<Results<Accepted<PasswordResetResponse>, LocalizedProblemResult>> RequestAsync(
-        PasswordResetRequest body, HttpContext http, IMessageBus bus, CancellationToken cancellationToken)
+        PasswordResetRequest request, HttpContext http, IMessageBus bus, CancellationToken cancellationToken)
     {
         var requested = await bus.InvokeAsync<Result<Guid>>(
-            new RequestPasswordReset(body.Email, http.ClientIp()), cancellationToken);
+            new RequestPasswordReset(request.Email, http.ClientIp()), cancellationToken);
 
         return requested.TryGetValue(out var resetId)
             ? TypedResults.Accepted((string?)null, new PasswordResetResponse(resetId))
@@ -42,10 +40,10 @@ internal static class PasswordResetEndpoints
     }
 
     private static async Task<Results<NoContent, LocalizedProblemResult>> ConfirmAsync(
-        Guid id, PasswordResetConfirmationRequest body, HttpContext http, IMessageBus bus, CancellationToken cancellationToken)
+        Guid id, PasswordResetConfirmationRequest request, HttpContext http, IMessageBus bus, CancellationToken cancellationToken)
     {
         var confirmed = await bus.InvokeAsync<Result>(
-            new ConfirmPasswordReset(id, body.Code, body.NewPassword, http.ClientIp()), cancellationToken);
+            new ConfirmPasswordReset(id, request.Code, request.NewPassword, http.ClientIp()), cancellationToken);
 
         return confirmed.IsSuccess ? TypedResults.NoContent() : confirmed.ToProblem();
     }

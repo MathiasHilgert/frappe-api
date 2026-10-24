@@ -21,8 +21,7 @@ internal static class OwnerVerificationEndpoints
             .WithSummary("Verifies a pending owner's email with the emailed code and signs them in.")
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
-            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
-            .ProducesProblem(StatusCodes.Status429TooManyRequests);
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         return group;
     }
 
@@ -30,7 +29,7 @@ internal static class OwnerVerificationEndpoints
         Guid id, OwnerVerificationRequest request, IMessageBus bus, ISessionCookie cookie, CancellationToken cancellationToken)
     {
         var verified = await bus.InvokeAsync<Result<OpenedSession>>(
-            new VerifyOwnerEmail(id, request.Code ?? string.Empty), cancellationToken);
+            new VerifyOwnerEmail(id, request.Code), cancellationToken);
         if (!verified.TryGetValue(out var session))
             return verified.ToProblem();
 
