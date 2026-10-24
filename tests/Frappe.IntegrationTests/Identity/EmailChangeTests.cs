@@ -15,7 +15,7 @@ public sealed class EmailChangeTests(EmailChangeTests.HostFixture hostFixture) :
     private const string EmailChanges = "/v1/identity/me/email-changes";
     private const string Password = "correct horse battery";
 
-    private readonly TestClock _clock = hostFixture.Clock;
+    private readonly TestClock _clock = hostFixture.Clock.Reset();
     private readonly IAlbaHost _host = hostFixture.Host;
 
     /// <summary>One host for the whole class: booting a host per test cost about a second each.</summary>
@@ -32,7 +32,12 @@ public sealed class EmailChangeTests(EmailChangeTests.HostFixture hostFixture) :
                 services.AddSingleton<ISecretGenerator>(new FixedCodeGenerator());
             });
 
-        public async ValueTask DisposeAsync() => await Host.DisposeAsync();
+        // A failed start leaves no host: disposing must not hide that error behind a null reference.
+        public async ValueTask DisposeAsync()
+        {
+            if (Host is not null)
+                await Host.DisposeAsync();
+        }
     }
 
     [Fact]

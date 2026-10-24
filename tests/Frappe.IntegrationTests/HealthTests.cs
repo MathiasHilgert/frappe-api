@@ -1,3 +1,4 @@
+using Alba;
 using System.Text.Json;
 using Frappe.Platform.Health;
 using Microsoft.Extensions.DependencyInjection;
@@ -5,8 +6,26 @@ using Shouldly;
 
 namespace Frappe.IntegrationTests;
 
-public sealed class HealthTests(ApiFixture api)
+public sealed class HealthTests(ApiFixture api, HealthTests.BrokenCriticalHostFixture brokenCritical)
+    : IClassFixture<HealthTests.BrokenCriticalHostFixture>
 {
+    /// <summary>One host with a failing critical dependency, shared by the tests that read it.</summary>
+    public sealed class BrokenCriticalHostFixture(ApiFixture api) : IAsyncLifetime
+    {
+        public IAlbaHost Host { get; private set; } = null!;
+
+        public async ValueTask InitializeAsync() =>
+            Host = await api.CreateHostAsync(services => services.AddHealthChecks()
+                .AddDependency("broken-critical", DependencyCriticality.Critical, (_, _) => throw new InvalidOperationException("down")));
+
+        // A failed start leaves no host: disposing must not hide that error behind a null reference.
+        public async ValueTask DisposeAsync()
+        {
+            if (Host is not null)
+                await Host.DisposeAsync();
+        }
+    }
+
     [Fact]
     public async Task Live_ChecksNoDependencies_ReturnsHealthy()
     {
@@ -45,8 +64,7 @@ public sealed class HealthTests(ApiFixture api)
     [Fact]
     public async Task Ready_CriticalDependencyDown_Returns503()
     {
-        await using var host = await api.CreateHostAsync(services => services.AddHealthChecks()
-            .AddDependency("broken-critical", DependencyCriticality.Critical, (_, _) => throw new InvalidOperationException("down")));
+        var host = brokenCritical.Host;
 
         var result = await host.Scenario(s =>
         {
@@ -81,8 +99,7 @@ public sealed class HealthTests(ApiFixture api)
     [Fact]
     public async Task Live_CriticalDependencyDown_StillHealthy()
     {
-        await using var host = await api.CreateHostAsync(services => services.AddHealthChecks()
-            .AddDependency("broken-critical", DependencyCriticality.Critical, (_, _) => throw new InvalidOperationException("down")));
+        var host = brokenCritical.Host;
 
         await host.Scenario(s =>
         {
