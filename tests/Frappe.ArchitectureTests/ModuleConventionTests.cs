@@ -43,7 +43,9 @@ public sealed partial class ModuleConventionTests
     public void Contracts_HoldOnlyMessages(string name)
     {
         var offenders = Solution.LoadAssembly(Solution.Projects.Single(p => p.Name == name)).GetTypes()
-            .Where(t => !t.IsNested && !t.IsDefined(typeof(CompilerGeneratedAttribute)))
+            // Coverage instrumentation injects tracker types into every assembly; only the project's own types count.
+            .Where(t => !t.IsNested && !t.IsDefined(typeof(CompilerGeneratedAttribute))
+                        && t.Namespace?.StartsWith("Frappe.", StringComparison.Ordinal) == true)
             .Where(t => !IsMessage(t) && !t.IsEnum && !IsConstantsHolder(t) && !t.Name.EndsWith("ContractsMarker", StringComparison.Ordinal))
             .Select(t => t.FullName);
 

@@ -37,5 +37,6 @@ public sealed class DomainPurityTests
 
     private static IEnumerable<Type> Types(string name) =>
         Solution.LoadAssembly(Solution.Projects.Single(p => p.Name == name)).GetTypes()
-            .Where(t => !t.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute)));
+            .Where(t => !t.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute))
+                        && t.Namespace?.StartsWith("Frappe.", StringComparison.Ordinal) == true);
 }
