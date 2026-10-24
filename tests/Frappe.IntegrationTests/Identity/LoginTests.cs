@@ -7,6 +7,7 @@ using Frappe.Identity.Domain.Principals;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Net.Http.Headers;
 using Shouldly;
+using Wolverine.Tracking;
 
 namespace Frappe.IntegrationTests.Identity;
 
@@ -151,6 +152,19 @@ public sealed class LoginTests(ApiFixture fixture)
 
         await LogInAsync(email, OwnerSeeder.Password, NewIp(), 429);
         await LogInAsync(email, OwnerSeeder.Password, home, 201);
+    }
+
+    [Fact]
+    public async Task ASuccessfulSignIn_RemembersItsOrigin_OnlyAfterCommit_AsACascadedCommand()
+    {
+        var email = OwnerSeeder.NewEmail();
+        await OwnerSeeder.SeedAsync(fixture.Host, email);
+
+        var tracked = await fixture.Host.InvokeMessageAndWaitAsync(
+            new Frappe.Identity.Application.Sessions.LogIn(email, OwnerSeeder.Password, "198.51.100.9", SessionSurface.Api));
+
+        tracked.Sent.SingleMessage<Frappe.Identity.Application.Sessions.RememberSignInOrigin>()
+            .ShouldBe(new Frappe.Identity.Application.Sessions.RememberSignInOrigin(email, "198.51.100.9"));
     }
 
     [Fact]

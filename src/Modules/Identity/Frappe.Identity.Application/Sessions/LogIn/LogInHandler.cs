@@ -4,6 +4,7 @@ using Frappe.Identity.Contracts;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Principals;
 using Frappe.SharedKernel.Validation;
+using Wolverine;
 
 namespace Frappe.Identity.Application.Sessions;
 
@@ -14,14 +15,16 @@ namespace Frappe.Identity.Application.Sessions;
 /// email ceiling alone could be reached by an attacker on many addresses, so an origin this email already signed in
 /// from (<see cref="IKnownSignInOrigins"/>) is exempt from it: the owner keeps signing in from the places they use,
 /// while that origin still has its own tight budget. This is the server-side form of OWASP's "device cookie"
-/// lockout defence; it needs no client support. A success clears that email and IP's count and remembers the origin. Each attempt reserves its slot before the password is checked, so a parallel
+/// lockout defence; it needs no client support. A success clears that email and IP's count, and cascades
+/// <see cref="RememberSignInOrigin"/>: the outbox sends it only after the session committed, so a rolled-back sign-in
+/// never makes its origin known. Each attempt reserves its slot before the password is checked, so a parallel
 /// burst cannot get more tries than the limit. Unknown email, malformed email and wrong password are deliberately the
 /// same <see cref="IdentityErrors.InvalidCredentials"/>; only an attempt that proved the password learns the account's
 /// state, with the owner id in the error's metadata under <see cref="IdentityErrorMetadata.OwnerId"/>.
 /// </summary>
 public static class LogInHandler
 {
-    public static async Task<Result<SignedIn>> Handle(
+    public static async Task<(Result<SignedIn>, OutgoingMessages)> Handle(
         LogIn command,
         IPrincipalRepository principals,
         IPasswordHasher passwordHasher,
@@ -34,9 +37,33 @@ public static class LogInHandler
         TimeProvider clock,
         CancellationToken cancellationToken)
     {
-        // The same normalized address the account is stored under, so case or spacing never buys another budget.
-        var parsed = Email.Create(command.Email);
-        var emailKey = parsed.TryGetValue(out var normalized) ? normalized.Value : command.Email?.Trim().ToLowerInvariant() ?? string.Empty;
+        var signedIn = await SignInAsync(command, principals, passwordHasher, decoy, secretHasher, secrets, limiter,
+            knownOrigins, telemetry, clock, cancellationToken);
+        var messages = new OutgoingMessages();
+        if (signedIn.IsSuccess)
+            messages.Add(new RememberSignInOrigin(EmailKey(command.Email), command.ClientIp));
+        return (signedIn, messages);
+    }
+
+    // The same normalized address the account is stored under, so case or spacing never buys another budget.
+    private static string EmailKey(string? email) =>
+        Email.Create(email).TryGetValue(out var normalized) ? normalized.Value : email?.Trim().ToLowerInvariant() ?? string.Empty;
+
+    private static async Task<Result<SignedIn>> SignInAsync(
+        LogIn command,
+        IPrincipalRepository principals,
+        IPasswordHasher passwordHasher,
+        DecoyPassword decoy,
+        ISecretHasher secretHasher,
+        ISecretGenerator secrets,
+        IAttemptLimiter limiter,
+        IKnownSignInOrigins knownOrigins,
+        IIdentityTelemetry telemetry,
+        TimeProvider clock,
+        CancellationToken cancellationToken)
+    {
+        _ = Email.Create(command.Email).TryGetValue(out var normalized);
+        var emailKey = EmailKey(command.Email);
         var limits = await LimitsAsync(emailKey, command.ClientIp, knownOrigins, cancellationToken);
         var reservation = await AttemptReservation.TakeAsync(limiter, limits, cancellationToken);
         if (!reservation.IsAllowed)
@@ -65,7 +92,6 @@ public static class LogInHandler
         var saved = await principals.SaveAsync(cancellationToken);
         if (saved.IsFailure)
             return Result.Failure<SignedIn>(saved.Errors);
-        await knownOrigins.RememberAsync(emailKey, command.ClientIp, CancellationToken.None);
         var session = opened.Value;
         return Result.Success(new SignedIn(principal.Id, session.Id, token, session.AbsoluteExpiresAt));
     }

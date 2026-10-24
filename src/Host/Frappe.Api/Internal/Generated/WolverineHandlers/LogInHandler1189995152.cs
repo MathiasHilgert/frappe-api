@@ -62,11 +62,15 @@ namespace Internal.Generated.WolverineHandlers
                 System.Diagnostics.Activity.Current?.SetTag("handler.type", "Frappe.Identity.Application.Sessions.LogInHandler");
                 
                 // The actual message execution
-                var outgoing1 = await Frappe.Identity.Application.Sessions.LogInHandler.Handle(logIn, principalRepository, _passwordHasher, _decoyPassword, _secretHasher, _secretGenerator, _attemptLimiter, _knownSignInOrigins, _identityTelemetry, _timeProvider, cancellation).ConfigureAwait(false);
+                (var outgoing1, var outgoing2) = await Frappe.Identity.Application.Sessions.LogInHandler.Handle(logIn, principalRepository, _passwordHasher, _decoyPassword, _secretHasher, _secretGenerator, _attemptLimiter, _knownSignInOrigins, _identityTelemetry, _timeProvider, cancellation).ConfigureAwait(false);
 
                 
                 // Outgoing, cascaded message
                 await context.EnqueueCascadingAsync(outgoing1).ConfigureAwait(false);
+
+                
+                // Outgoing, cascaded message
+                await context.EnqueueCascadingAsync(outgoing2).ConfigureAwait(false);
 
                 
                 // Added by EF Core Transaction Middleware
