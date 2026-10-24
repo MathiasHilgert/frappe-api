@@ -23,6 +23,10 @@ public sealed class CqrsRulesFailureTests
         CqrsRules.WritingQueryHandlers(Application).ShouldBe([typeof(GetWidgetHandler).FullName!]);
 
     [Fact]
+    public void TransactionalQueryHandlers_NamesAQueryHandlerWithoutNonTransactional() =>
+        CqrsRules.TransactionalQueryHandlers(Application).ShouldBe([typeof(GetWidgetHandler).FullName!]);
+
+    [Fact]
     public void CommandHandlersReturningReadModels_NamesACommandAnsweringWithAReadModel() =>
         CqrsRules.CommandHandlersReturningReadModels(Application)
             .ShouldBe([$"{typeof(RenameWidgetHandler).FullName}.Handle({nameof(RenameWidget)})"]);

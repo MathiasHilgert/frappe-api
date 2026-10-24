@@ -115,7 +115,9 @@ sequenceDiagram
 
 ### Dependency rules
 
-- Domain references nothing framework-specific; Application does not reference Infrastructure.
+- Domain references nothing framework-specific; Application does not reference Infrastructure. The one concession
+  to EF Core is a private parameterless constructor on entities and value objects it materializes: neutral C#, no
+  attribute or EF comment, so Domain still compiles and reads without any ORM.
 - Other modules may consume only a module's Contracts.
 - The host knows modules only through `IModule`.
 
@@ -177,8 +179,11 @@ stale code on its own, but production and the integration tests load only the co
 
 Layout: Application holds one folder per use case (message, handler and result types together, e.g.
 `Sessions/LogIn/`), while the namespace stays the feature area (`...Application.Sessions`) so a type never shares a
-name with its namespace. Endpoints stay in
-Infrastructure and only map HTTP to a message and a result to a status or `ToProblem()`. Use-case policy, attempt
+name with its namespace. Endpoints live in `<Module>.Infrastructure/Endpoints/`, one `*Endpoints` route group per
+feature area with one file per request/response record (`*Request`/`*Response`, unique names); they return a typed
+`Results<...>` with `WithSummary` and `ProducesProblem` metadata, read the caller with
+`ICurrentPrincipal.RequiredSession()`, the client address with `HttpContext.ClientIp()`, and only map HTTP to a
+message and a result to a status or `ToProblem()`. JSON is camelCase everywhere (the framework default). Use-case policy, attempt
 limits included, lives in the handler: a throttled command fails with a `TooManyRequests` error carrying
 `Error.WithRetryAfter(wait)`, and facts the edge may disclose ride in `Error.WithMetadata(key, value)`. Transport
 concerns (cookies through `ISessionCookie`, `Content-Language`) stay in Infrastructure.
@@ -188,8 +193,10 @@ Errors compare by `Code` and `Field`: `Kind`, `Message` and the occurrence detai
 two errors different, so `error == IdentityErrors.EmailTaken` holds for a throttled or annotated copy too.
 `tests/Frappe.ArchitectureTests/CqrsConventionTests.cs` fails when an endpoint calls an Application service, a message
 is not a marked record, a query handler touches a repository, a command handler answers with a type some query
-returns, a command handler returns anything but `Result`/`Result<T>`, or a background command handler returns a
-`Result`.
+returns, a command handler returns anything but `Result`/`Result<T>`, a background command handler returns a
+`Result`, or a query handler is not `[NonTransactional]`. `EdgeConventionTests.cs` fails when an endpoint builds a
+problem itself (`TypedResults.Problem`, `Results.Problem`, `new ProblemDetails`), an endpoint lives outside
+`Endpoints/` or is not named `*Endpoints`, or an `Error` is declared outside a `*Errors` catalogue.
 
 Migrations:
 
@@ -229,7 +236,10 @@ and `Localization:DefaultLocale`). The request locale (`IRequestLocale`) is nego
 Failures are RFC 9457 problems. `result.ToProblem()` picks the status from `Error.Kind` (422 validation, 404, 409,
 429 with `Retry-After` from the longest `Error.RetryAfter`, 401, 403; mixed kinds answer 422), sets `type` to
 `urn:frappe:problem:<code>` (one error) or `urn:frappe:problem:validation` (several), and translates `title` and each
-`errors[].message` by error code. A code with no catalogue entry falls back to `Error.Message`, in English.
+`errors[].message` by error code. A code with no catalogue entry falls back to `Error.Message`, in English. One error
+also sets `detail` (same text) and `code`, and every `Error.Metadata` entry becomes a top-level member (e.g. `ownerId`
+on a pending owner's login; the keys live in the module's Contracts, `IdentityErrorMetadata`). Endpoints never shape
+a problem themselves: give the error the right `Kind` instead.
 
 A module adds strings as flat ICU MessageFormat catalogues, one file per locale, keyed by error code or a
 module-prefixed key:
@@ -309,6 +319,8 @@ docker run -d -p 8080:8080 \
 | `Notification__Resend__From` | No | Sender address, default `Frappé <no-reply@frappe.la>`; must be a domain verified in Resend |
 | `ConnectionStrings__nats` | No | Defaults to a local URL; NonCritical, realtime degrades when down |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | Traces, metrics and logs over OTLP |
+| `ForwardedHeaders__KnownProxies__0`, `__1`… | Behind a proxy | IPs of the reverse proxies whose `X-Forwarded-For`/`-Proto` are trusted (loopback always is). Unset, the socket address is the client: per-IP rate limits would see only the proxy |
+| `ForwardedHeaders__KnownNetworks__0`, `__1`… | Behind a proxy | Same, as CIDR ranges (e.g. `10.0.0.0/8`) |
 
 Module EF migrations ship as migration bundles and also run before the app starts.
 The orchestrator probes `/health/live` and `/health/ready`; the image has no `HEALTHCHECK` (no shell).
