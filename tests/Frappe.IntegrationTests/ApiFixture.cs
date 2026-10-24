@@ -1,17 +1,17 @@
-using Alba;
-using Frappe.Identity.Application.Security;
-using Frappe.Identity.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.DependencyInjection;
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
+using Alba;
+using Frappe.Identity.Application.Security;
+using Frappe.Identity.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
-using Wolverine;
 using Testcontainers.Nats;
 using Testcontainers.PostgreSql;
 using Testcontainers.Redis;
+using Wolverine;
 
 [assembly: AssemblyFixture(typeof(Frappe.IntegrationTests.ApiFixture))]
 
@@ -76,7 +76,10 @@ public sealed class ApiFixture : IAsyncLifetime
         {
             if (_stacks.TryGetValue(CollectionKey, out var booted) && booted.IsValueCreated
                 && booted.Value.IsCompletedSuccessfully)
+            {
                 return booted.Value.Result;
+            }
+
             return Task.Run(StackAsync).GetAwaiter().GetResult();
         }
     }

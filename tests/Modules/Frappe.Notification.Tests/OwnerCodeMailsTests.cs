@@ -1,6 +1,5 @@
 using System.Text.RegularExpressions;
 using Frappe.Notification.Application;
-using Frappe.Notification.Domain;
 using Frappe.Notification.Infrastructure.Mails;
 using Frappe.Platform.Localization;
 using Microsoft.Extensions.Configuration;

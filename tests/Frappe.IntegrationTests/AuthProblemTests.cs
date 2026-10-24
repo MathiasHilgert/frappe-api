@@ -1,13 +1,10 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
-using Alba;
 using Frappe.Platform.Localization;
 using Frappe.Platform.Web.Correlation;
 using Frappe.Platform.Web.Security;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

@@ -1,6 +1,5 @@
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
-using Frappe.Identity.Domain.Principals;
 
 namespace Frappe.Identity.Application.Sessions;
 
@@ -30,7 +29,9 @@ public sealed class SessionAuthenticator(IPrincipalRepository principals, ISecre
 
         if (clock.GetUtcNow() - credential.LastSeenAt >= TouchInterval
             && !await TouchAsync(credential, tokenHash, cancellationToken))
+        {
             return null;
+        }
 
         return new AuthenticatedSession(credential.PrincipalId, credential.SessionId, credential.PrincipalType);
     }

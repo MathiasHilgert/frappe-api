@@ -53,8 +53,10 @@ internal sealed class MessageCatalog : IMessageCatalog
         foreach (var (key, pattern) in entries)
         {
             if (!target.TryAdd(key, pattern))
+            {
                 throw new InvalidOperationException(
                     $"Message '{key}' ({locale}) from {source.Assembly.GetName().Name} is already defined by another catalogue.");
+            }
         }
     }
 }

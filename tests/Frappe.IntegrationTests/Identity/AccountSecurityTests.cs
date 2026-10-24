@@ -1,11 +1,10 @@
-using Microsoft.Extensions.Time.Testing;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Alba;
-using Microsoft.Extensions.DependencyInjection;
 using Frappe.Identity.Application.Security;
 using Frappe.Identity.Domain.Principals;
 using Frappe.Identity.Infrastructure.Endpoints;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 using Shouldly;
 
 namespace Frappe.IntegrationTests.Identity;

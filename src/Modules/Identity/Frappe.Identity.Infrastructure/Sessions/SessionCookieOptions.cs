@@ -28,7 +28,9 @@ internal sealed class SessionCookieOptions : IValidatableObject
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if (Name?.StartsWith(HostPrefix, StringComparison.Ordinal) == true && (Path != "/" || !string.IsNullOrEmpty(Domain)))
+        {
             yield return new ValidationResult(
                 $"'{Section}': a {HostPrefix} Name needs Path '/' and no Domain.", [nameof(Path), nameof(Domain)]);
+        }
     }
 }

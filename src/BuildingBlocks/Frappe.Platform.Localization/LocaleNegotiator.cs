@@ -20,7 +20,9 @@ public sealed class LocaleNegotiator(SupportedLocales supported)
     {
         if (string.IsNullOrWhiteSpace(acceptLanguage)
             || !StringWithQualityHeaderValue.TryParseList([acceptLanguage], out var values))
+        {
             return null;
+        }
 
         return values
             .Select((value, index) => (value, index))

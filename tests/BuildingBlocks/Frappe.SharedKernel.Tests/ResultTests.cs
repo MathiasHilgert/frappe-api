@@ -149,7 +149,7 @@ public sealed class ResultTests
     [Fact]
     public void IsSuccess_LetsTheCompilerTrustValue()
     {
-        Result<string?> result = Result.Success<string?>("value");
+        var result = Result.Success<string?>("value");
 
         // MemberNotNullWhen(true, Value): no null-forgiving operator needed inside the branch.
         if (result.IsSuccess)

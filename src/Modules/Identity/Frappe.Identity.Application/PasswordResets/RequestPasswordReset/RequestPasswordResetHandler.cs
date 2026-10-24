@@ -28,8 +28,10 @@ public static class RequestPasswordResetHandler
         var perEmail = await limiter.RecordAsync(AttemptPolicies.PasswordResetPerEmail, email.Value.Value, cancellationToken);
         var perIp = await limiter.RecordAsync(AttemptPolicies.PasswordResetPerIp, command.ClientIp, cancellationToken);
         if (!perEmail.IsAllowed || !perIp.IsAllowed)
+        {
             return (Result.Failure<Guid>(IdentityErrors.TooManyAttempts.WithRetryAfter(
                 perEmail.RetryAfter > perIp.RetryAfter ? perEmail.RetryAfter : perIp.RetryAfter)), messages);
+        }
 
         var resetId = Guid.CreateVersion7(clock.GetUtcNow());
         messages.Add(new IssuePasswordResetCode(resetId, email.Value.Value));

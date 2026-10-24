@@ -142,7 +142,10 @@ internal static class CqrsRules
     {
         if (returnType.IsGenericType && returnType.GetGenericTypeDefinition() is var awaited
             && (awaited == typeof(Task<>) || awaited == typeof(ValueTask<>)))
+        {
             returnType = returnType.GetGenericArguments()[0];
+        }
+
         return returnType.IsGenericType && returnType.FullName?.StartsWith("System.ValueTuple`", StringComparison.Ordinal) == true
             ? returnType.GetGenericArguments()[0]
             : returnType;
