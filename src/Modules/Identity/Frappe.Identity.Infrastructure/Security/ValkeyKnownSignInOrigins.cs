@@ -74,7 +74,7 @@ internal sealed partial class ValkeyKnownSignInOrigins(
     private void Skip(Exception exception)
     {
         LogUnavailable(exception);
-        metrics.AttemptLimiterSkipped();
+        metrics.KnownOriginsSkipped();
     }
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Known sign-in origins unavailable; treating the origin as unknown")]

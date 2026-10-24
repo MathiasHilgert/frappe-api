@@ -16,11 +16,13 @@ internal sealed class IdentityMetrics : IIdentityTelemetry
     public const string LoginThrottledName = "frappe.identity.login.throttled";
     public const string CodeInvalid = "frappe.identity.code.invalid";
     public const string PurgeSkippedConflictName = "frappe.identity.purge.skipped_conflict";
+    public const string KnownOriginsUnavailable = "frappe.identity.known_origins.unavailable";
     public const string PurgeFailedName = "frappe.identity.purge.failed";
     public const string PurgedCount = "frappe.identity.purge.purged";
 
     private readonly Counter<long> _breachCheckUnavailable;
     private readonly Counter<long> _attemptLimiterUnavailable;
+    private readonly Counter<long> _knownOriginsUnavailable;
     private readonly Counter<long> _loginThrottled;
     private readonly Counter<long> _codeInvalid;
     private readonly Counter<long> _purgeSkippedConflict;
@@ -35,6 +37,8 @@ internal sealed class IdentityMetrics : IIdentityTelemetry
             description: "Breached-password checks skipped because the breach source failed or was slow.");
         _attemptLimiterUnavailable = meter.CreateCounter<long>(AttemptLimiterUnavailable,
             description: "Attempt-limiter operations allowed through because Valkey was unavailable.");
+        _knownOriginsUnavailable = meter.CreateCounter<long>(KnownOriginsUnavailable,
+            description: "Known sign-in origin lookups or writes skipped because Valkey was unavailable.");
         _loginThrottled = meter.CreateCounter<long>(LoginThrottledName,
             description: "Sign-ins refused by the attempt limiter.");
         _codeInvalid = meter.CreateCounter<long>(CodeInvalid,
@@ -49,6 +53,8 @@ internal sealed class IdentityMetrics : IIdentityTelemetry
     public void BreachCheckSkipped() => _breachCheckUnavailable.Add(1);
 
     public void AttemptLimiterSkipped() => _attemptLimiterUnavailable.Add(1);
+
+    public void KnownOriginsSkipped() => _knownOriginsUnavailable.Add(1);
 
     public void LoginThrottled() => _loginThrottled.Add(1);
 
