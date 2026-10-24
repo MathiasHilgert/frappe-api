@@ -1,8 +1,10 @@
 using Frappe.Identity.Application.Owners;
+using Frappe.Identity.Application.Sessions;
 using Frappe.Platform.Web.Problems;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Wolverine;
 
 namespace Frappe.Identity.Infrastructure.Endpoints;
 
@@ -27,12 +29,14 @@ internal static class OwnerVerificationEndpoint
     }
 
     private static async Task<IResult> HandleAsync(
-        Guid id, Request request, VerifyOwnerEmail handler, CancellationToken cancellationToken)
+        Guid id, Request request, IMessageBus bus, ISessionCookie cookie, CancellationToken cancellationToken)
     {
-        var outcome = await handler.HandleAsync(id, request.Code ?? string.Empty, cancellationToken);
+        var outcome = await bus.InvokeAsync<VerifyOwnerEmailOutcome>(
+            new VerifyOwnerEmail(id, request.Code ?? string.Empty), cancellationToken);
         if (outcome.Result.IsSuccess)
         {
             var session = outcome.Result.Value;
+            cookie.Issue(session.Token, session.ExpiresAt);
             return TypedResults.Created(
                 $"/v1/identity/sessions/{session.SessionId}",
                 new Response(session.SessionId, session.Token, session.ExpiresAt));

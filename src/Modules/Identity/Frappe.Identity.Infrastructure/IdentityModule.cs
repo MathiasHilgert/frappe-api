@@ -67,7 +67,6 @@ public sealed class IdentityModule : IModule
             .ValidateOnStart();
         services.AddSingleton<IAttemptLimiter, ValkeyAttemptLimiter>();
         services.AddScoped<VerificationCodeIssuer>();
-        services.AddScoped<VerifyOwnerEmail>();
         services.AddScoped<PasswordReverifier>();
         AddRecurringJobs(services);
     }
