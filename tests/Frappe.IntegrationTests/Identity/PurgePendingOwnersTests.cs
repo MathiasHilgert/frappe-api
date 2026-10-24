@@ -78,6 +78,26 @@ public sealed class PurgePendingOwnersTests(ApiFixture fixture)
     }
 
     [Fact]
+    public async Task AnIsolatedStep_ThatFailsOnAnyStatement_LeavesTheTransactionUsable_AndKeepsEarlierWork()
+    {
+        var kept = await SeedAsync(fixture.Host, TestTime.NewClock(), activate: false);
+        var ct = TestContext.Current.CancellationToken;
+        await using var scope = fixture.Host.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        var repository = scope.ServiceProvider.GetRequiredService<IPrincipalRepository>();
+        await using var transaction = await context.Database.BeginTransactionAsync(ct);
+
+        await Should.ThrowAsync<Exception>(() => repository.IsolateAsync<int>(async token =>
+            await context.Database.ExecuteSqlRawAsync("SELECT 1/0", token), ct));
+
+        var principal = (await repository.GetByIdAsync(kept, ct)).ShouldNotBeNull();
+        repository.Remove(principal);
+        (await repository.SaveAsync(ct)).IsSuccess.ShouldBeTrue();
+        await transaction.CommitAsync(ct);
+        (await ExistsAsync(fixture.Host, kept)).ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task Purge_IsScheduledDailyAtUtc()
     {
         var scheduler = await fixture.Host.Services.GetRequiredService<ISchedulerFactory>().GetScheduler(TestContext.Current.CancellationToken);

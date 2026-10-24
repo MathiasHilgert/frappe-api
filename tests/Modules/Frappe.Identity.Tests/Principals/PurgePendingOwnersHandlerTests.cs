@@ -49,6 +49,44 @@ public sealed class PurgePendingOwnersHandlerTests
     }
 
     [Fact]
+    public async Task EachPrincipal_IsReadAndSavedInsideItsOwnIsolatedStep()
+    {
+        var principals = new PagedPrincipals(count: 3, conflictOn: -1);
+
+        await Handle(principals, new RecordingTelemetry());
+
+        principals.Removed.Count.ShouldBe(3);
+        principals.IsolatedSteps.ShouldBeGreaterThanOrEqualTo(3);
+    }
+
+    [Fact]
+    public async Task ALoadFailure_SkipsOnlyThatPrincipal_AndTheRunGoesOn()
+    {
+        var principals = new PagedPrincipals(count: 3, conflictOn: -1, loadFailsFor: 1);
+        var telemetry = new RecordingTelemetry();
+
+        await Handle(principals, telemetry);
+
+        principals.Removed.ShouldBe([principals.Ids[0], principals.Ids[2]]);
+        telemetry.Failures.ShouldBe(1);
+        telemetry.Purged.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task APageQueryFailure_EndsTheRun_KeepingWhatItAlreadyPurged()
+    {
+        var principals = new PagedPrincipals(count: PurgePendingOwnersHandler.PageSize + 5, conflictOn: -1, pageFailsOn: 1);
+        var telemetry = new RecordingTelemetry();
+
+        var events = await Handle(principals, telemetry);
+
+        principals.Removed.Count.ShouldBe(PurgePendingOwnersHandler.PageSize);
+        events.OfType<OwnerPendingPurged>().Count().ShouldBe(PurgePendingOwnersHandler.PageSize);
+        telemetry.Failures.ShouldBe(1);
+        telemetry.Purged.ShouldBe(PurgePendingOwnersHandler.PageSize);
+    }
+
+    [Fact]
     public async Task ACancelledRun_StillStops() =>
         await Should.ThrowAsync<OperationCanceledException>(() => Handle(
             new PagedPrincipals(count: 3, conflictOn: -1, throwOn: 1, failure: new OperationCanceledException()),
@@ -100,13 +138,20 @@ public sealed class PurgePendingOwnersHandlerTests
         private readonly Dictionary<Guid, Principal> _byId;
         private readonly int _conflictOn;
         private readonly int _throwOn;
+        private readonly int _loadFailsFor;
+        private readonly int _pageFailsOn;
+        private bool _isolated;
+        private int _pages;
         private readonly Exception _failure;
         private readonly List<PurgeCandidate> _candidates;
         private Guid? _pending;
         private int _saves;
 
-        public PagedPrincipals(int count, int conflictOn, int throwOn = -1, Exception? failure = null)
+        public PagedPrincipals(
+            int count, int conflictOn, int throwOn = -1, Exception? failure = null, int loadFailsFor = -1, int pageFailsOn = -1)
         {
+            _loadFailsFor = loadFailsFor;
+            _pageFailsOn = pageFailsOn;
             _conflictOn = conflictOn;
             _throwOn = throwOn;
             _failure = failure ?? new InvalidOperationException("The database refused this row.");
@@ -122,11 +167,37 @@ public sealed class PurgePendingOwnersHandlerTests
         public List<Guid> Removed { get; } = [];
         public List<PurgeCandidate?> Cursors { get; } = [];
 
+        public int IsolatedSteps { get; private set; }
+
         public PurgeCandidate KeyOf(int index) => _candidates[index];
+
+        // Every database call of the purge must run inside an isolated step, or one failure aborts the transaction.
+        public async Task<T> IsolateAsync<T>(Func<CancellationToken, Task<T>> work, CancellationToken cancellationToken)
+        {
+            IsolatedSteps++;
+            _isolated = true;
+            try
+            {
+                return await work(cancellationToken);
+            }
+            finally
+            {
+                _isolated = false;
+            }
+        }
+
+        private void MustBeIsolated()
+        {
+            if (!_isolated)
+                throw new InvalidOperationException("A purge statement ran outside an isolated step.");
+        }
 
         public Task<IReadOnlyList<PurgeCandidate>> ListPurgeCandidatesAsync(
             DateTimeOffset cutoff, PurgeCandidate? after, int limit, CancellationToken cancellationToken)
         {
+            MustBeIsolated();
+            if (_pages++ == _pageFailsOn)
+                throw new InvalidOperationException("The page query failed.");
             Cursors.Add(after);
             IReadOnlyList<PurgeCandidate> page = [.. _candidates
                 .Where(c => c.RegisteredAt < cutoff && (after is null || (c.RegisteredAt, c.Id).CompareTo((after.RegisteredAt, after.Id)) > 0))
@@ -134,13 +205,19 @@ public sealed class PurgePendingOwnersHandlerTests
             return Task.FromResult(page);
         }
 
-        public Task<Principal?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
-            Task.FromResult<Principal?>(_byId.GetValueOrDefault(id));
+        public Task<Principal?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
+        {
+            MustBeIsolated();
+            if (_loadFailsFor >= 0 && id == Ids[_loadFailsFor])
+                throw new InvalidOperationException("The load failed.");
+            return Task.FromResult<Principal?>(_byId.GetValueOrDefault(id));
+        }
 
         public void Remove(Principal principal) => _pending = principal.Id;
 
         public Task<Result> SaveAsync(CancellationToken cancellationToken)
         {
+            MustBeIsolated();
             var attempt = _saves++;
             if (attempt == _throwOn)
             {

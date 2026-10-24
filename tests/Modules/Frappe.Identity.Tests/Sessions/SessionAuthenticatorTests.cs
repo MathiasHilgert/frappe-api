@@ -125,6 +125,7 @@ public sealed class SessionAuthenticatorTests
         public Task<Principal?> GetByCodeIdAsync(Guid codeId, CodePurpose purpose, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<PurgeCandidate>> ListPurgeCandidatesAsync(
             DateTimeOffset cutoff, PurgeCandidate? after, int limit, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<T> IsolateAsync<T>(Func<CancellationToken, Task<T>> work, CancellationToken cancellationToken) => throw new NotSupportedException();
         public void Add(Principal principal) => throw new NotSupportedException();
         public void Remove(Principal principal) => throw new NotSupportedException();
     }

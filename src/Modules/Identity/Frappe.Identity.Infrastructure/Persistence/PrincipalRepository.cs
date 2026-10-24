@@ -12,6 +12,8 @@ namespace Frappe.Identity.Infrastructure.Persistence;
 [InlinedByWolverine]
 public sealed class PrincipalRepository(IdentityDbContext context) : IPrincipalRepository
 {
+    private int _isolatedSteps;
+
     public Task<Principal?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         context.Principals.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 
@@ -54,6 +56,32 @@ public sealed class PrincipalRepository(IdentityDbContext context) : IPrincipalR
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<T> IsolateAsync<T>(Func<CancellationToken, Task<T>> work, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+        // Outside a transaction every statement commits on its own, so there is nothing to roll back to.
+        var transaction = context.Database.CurrentTransaction;
+        var savepoint = $"isolated_{Interlocked.Increment(ref _isolatedSteps)}";
+        if (transaction is not null)
+            await transaction.CreateSavepointAsync(savepoint, cancellationToken);
+        try
+        {
+            var result = await work(cancellationToken);
+            if (transaction is not null)
+                await transaction.ReleaseSavepointAsync(savepoint, cancellationToken);
+            return result;
+        }
+        catch
+        {
+            // Compensation, so it ignores the caller's token: a failed statement aborts the whole Postgres
+            // transaction until it is rolled back to the savepoint.
+            if (transaction is not null)
+                await transaction.RollbackToSavepointAsync(savepoint, CancellationToken.None);
+            context.ChangeTracker.Clear();
+            throw;
+        }
+    }
+
     public void Add(Principal principal) => context.Principals.Add(principal);
 
     public void Remove(Principal principal) => context.Principals.Remove(principal);
@@ -82,14 +110,6 @@ public sealed class PrincipalRepository(IdentityDbContext context) : IPrincipalR
             foreach (var entry in exception.Entries)
                 entry.State = EntityState.Detached;
             return Result.Failure(IdentityErrors.EmailTaken);
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            // Inside a transaction EF Core rolled the statement back to its savepoint, so the transaction lives on;
-            // forget the failed state too, so a later save (the transactional middleware's included) does not retry
-            // it. The caller decides whether the failure ends its unit of work.
-            context.ChangeTracker.Clear();
-            throw;
         }
     }
 }
