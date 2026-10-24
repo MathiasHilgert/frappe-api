@@ -9,27 +9,36 @@ namespace Frappe.Identity.Infrastructure.Security;
 
 /// <summary>
 /// Argon2id in the PHC string format (<c>$argon2id$v=19$m=…,t=…,p=…$salt$hash</c>), so a hash keeps the cost it
-/// was made with and raising the options never breaks existing passwords.
+/// was made with and raising the options never breaks existing passwords. At most
+/// <see cref="Argon2Options.MaxConcurrentHashes"/> derivations run at once; callers beyond that wait asynchronously.
 /// </summary>
-internal sealed class Argon2PasswordHasher(IOptions<Argon2Options> options) : IPasswordHasher
+internal sealed class Argon2PasswordHasher : IPasswordHasher, IDisposable
 {
     private const int SaltSize = 16;
     private const int HashSize = 32;
     private const string Prefix = "$argon2id$v=19$";
 
-    public string Hash(string password)
+    private readonly Argon2Options _cost;
+    private readonly SemaphoreSlim _slots;
+
+    public Argon2PasswordHasher(IOptions<Argon2Options> options)
+    {
+        _cost = options.Value;
+        _slots = new SemaphoreSlim(_cost.MaxConcurrentHashes, _cost.MaxConcurrentHashes);
+    }
+
+    public async Task<string> HashAsync(string password, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(password);
 
-        var cost = options.Value;
         var salt = RandomNumberGenerator.GetBytes(SaltSize);
-        var hash = Derive(password, salt, cost.MemorySizeKib, cost.Iterations, cost.Parallelism, HashSize);
+        var hash = await DeriveAsync(password, salt, _cost.MemorySizeKib, _cost.Iterations, _cost.Parallelism, HashSize, cancellationToken);
 
         return string.Create(CultureInfo.InvariantCulture,
-            $"{Prefix}m={cost.MemorySizeKib},t={cost.Iterations},p={cost.Parallelism}${Encode(salt)}${Encode(hash)}");
+            $"{Prefix}m={_cost.MemorySizeKib},t={_cost.Iterations},p={_cost.Parallelism}${Encode(salt)}${Encode(hash)}");
     }
 
-    public bool Verify(string password, string passwordHash)
+    public async Task<bool> VerifyAsync(string password, string passwordHash, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(password);
 
@@ -38,8 +47,31 @@ internal sealed class Argon2PasswordHasher(IOptions<Argon2Options> options) : IP
             return false;
         }
 
-        var actual = Derive(password, parsed.Salt, parsed.Memory, parsed.Iterations, parsed.Parallelism, parsed.Hash.Length);
+        var actual = await DeriveAsync(
+            password, parsed.Salt, parsed.Memory, parsed.Iterations, parsed.Parallelism, parsed.Hash.Length, cancellationToken);
         return CryptographicOperations.FixedTimeEquals(actual, parsed.Hash);
+    }
+
+    public bool NeedsRehash(string passwordHash) =>
+        !TryParse(passwordHash, out var parsed)
+        || parsed.Memory < _cost.MemorySizeKib
+        || parsed.Iterations < _cost.Iterations
+        || parsed.Parallelism != _cost.Parallelism;
+
+    public void Dispose() => _slots.Dispose();
+
+    private async Task<byte[]> DeriveAsync(
+        string password, byte[] salt, int memoryKib, int iterations, int parallelism, int size, CancellationToken cancellationToken)
+    {
+        await _slots.WaitAsync(cancellationToken);
+        try
+        {
+            return Derive(password, salt, memoryKib, iterations, parallelism, size);
+        }
+        finally
+        {
+            _slots.Release();
+        }
     }
 
     private static byte[] Derive(string password, byte[] salt, int memoryKib, int iterations, int parallelism, int size)

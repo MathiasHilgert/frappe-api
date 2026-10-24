@@ -6,7 +6,10 @@ using Frappe.SharedKernel.Validation;
 
 namespace Frappe.Identity.Application.Owners;
 
-/// <summary>Wrong codes are metered per owner; a right one clears the count.</summary>
+/// <summary>
+/// Wrong codes are metered per owner; a right one clears the count. Each attempt reserves its slot before the code is
+/// checked, so a parallel burst cannot get more guesses than the limit.
+/// </summary>
 public static class VerifyOwnerEmailHandler
 {
     public static async Task<Result<OpenedSession>> Handle(
@@ -19,30 +22,37 @@ public static class VerifyOwnerEmailHandler
         CancellationToken cancellationToken)
     {
         var policy = AttemptPolicies.VerifyEmailPerOwner;
-        var key = command.OwnerId.ToString();
-        var decision = await limiter.CheckAsync(policy, key, cancellationToken);
-        if (!decision.IsAllowed)
-            return Failed(IdentityErrors.TooManyAttempts.WithRetryAfter(decision.RetryAfter));
+        var reservation = await AttemptReservation.TakeAsync(limiter, cancellationToken, (policy, command.OwnerId.ToString()));
+        if (!reservation.IsAllowed)
+            return Failed(IdentityErrors.TooManyAttempts.WithRetryAfter(reservation.Decision.RetryAfter));
 
         var principal = await principals.GetByIdAsync(command.OwnerId, cancellationToken);
         if (principal is null)
+        {
+            await reservation.ReleaseAsync(cancellationToken);
             return Failed(IdentityErrors.OwnerNotFound);
+        }
 
         var verified = principal.VerifyEmail(hasher.Hash(command.Code), clock);
         if (verified.IsFailure)
         {
-            if (verified.Errors.All(e => e != IdentityErrors.AccountNotPending))
-                await limiter.RecordAsync(policy, key, cancellationToken);
+            // Only a wrong code is a guess; an owner who is no longer pending gives the slot back.
+            if (verified.Errors.Any(e => e == IdentityErrors.AccountNotPending))
+                await reservation.ReleaseAsync(cancellationToken);
             return Failed(verified.Errors[0]);
         }
 
         var token = secrets.NewSessionToken();
         var session = principal.OpenSession(hasher.Hash(token), SessionSurface.Console, clock).Value;
-        var saved = await principals.SaveChangesAsync(cancellationToken);
+        var saved = await principals.SaveAsync(cancellationToken);
         if (saved.IsFailure)
+        {
+            // The code was right but nothing was saved: not a guess, and the owner can simply retry.
+            await reservation.ReleaseAsync(cancellationToken);
             return Failed(saved.Errors[0]);
+        }
 
-        await limiter.ResetAsync(policy, key, cancellationToken);
+        await reservation.SucceededAsync(policy, cancellationToken);
         return Result.Success(new OpenedSession(session.Id, token, session.AbsoluteExpiresAt));
     }
 

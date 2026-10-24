@@ -42,12 +42,12 @@ public static class RegisterOwnerHandler
         if (await principals.GetByEmailAsync(email.Value, cancellationToken) is not null)
             return Result.Failure<Guid>(IdentityErrors.EmailTaken);
 
-        var principal = Principal.RegisterOwner(name.Value, email.Value, passwordHasher.Hash(password.Value.Value), command.Locale, clock);
+        var principal = Principal.RegisterOwner(name.Value, email.Value, await passwordHasher.HashAsync(password.Value.Value, cancellationToken), command.Locale, clock);
         var issued = codes.Issue(principal).Value; // A new principal has no previous code, so the resend cap cannot apply.
         principals.Add(principal);
 
         // The unique index on lower(email) is the authority on "taken", so a concurrent sign-up cannot slip through.
-        var saved = await principals.SaveChangesAsync(cancellationToken);
+        var saved = await principals.SaveClaimingEmailAsync(cancellationToken);
         if (saved.IsFailure)
             return Result.Failure<Guid>(saved.Errors[0]);
 

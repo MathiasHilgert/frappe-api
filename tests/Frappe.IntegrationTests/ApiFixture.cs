@@ -37,7 +37,10 @@ public sealed class ApiFixture : IAsyncLifetime
     private static readonly string ReuseScope = Convert.ToHexStringLower(
         SHA256.HashData(Encoding.UTF8.GetBytes(AppContext.BaseDirectory)))[..12];
 
+    // Parallel collections each boot hosts with their own pools, and burst tests fire requests at once: the default
+    // 100 connections run out.
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:16-alpine")
+        .WithCommand("-c", "max_connections=500")
         .WithReuse(Reuse).WithLabel("reuse-id", $"frappe-integration-postgres-{ReuseScope}").Build();
     private readonly NatsContainer _nats = new NatsBuilder("nats:2-alpine").WithCommand("--jetstream")
         .WithReuse(Reuse).WithLabel("reuse-id", $"frappe-integration-nats-{ReuseScope}").Build();

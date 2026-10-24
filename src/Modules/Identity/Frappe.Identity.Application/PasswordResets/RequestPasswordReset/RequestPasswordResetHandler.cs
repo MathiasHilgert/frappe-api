@@ -1,6 +1,4 @@
-using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
-using Frappe.Identity.Contracts.PasswordResets;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Principals;
 using Frappe.SharedKernel.Validation;
@@ -9,18 +7,16 @@ using Wolverine;
 namespace Frappe.Identity.Application.PasswordResets;
 
 /// <summary>
-/// Issues a reset code to the owner of <see cref="RequestPasswordReset.Email"/>. Callers cannot tell whether the
-/// account exists: an unknown or suspended address gets the same answer with a fresh id, and the limits count every
-/// request, known or not.
+/// Accepts a reset request for <see cref="RequestPasswordReset.Email"/>. Callers cannot tell whether the account
+/// exists: every well-formed address does exactly the same work here (count the limits, queue
+/// <see cref="IssuePasswordResetCode"/>) and gets a fresh id; the lookup and the code happen in the background. The
+/// limits count every request, known or not.
 /// </summary>
 public static class RequestPasswordResetHandler
 {
     public static async Task<(Result<Guid>, OutgoingMessages)> Handle(
         RequestPasswordReset command,
-        IPrincipalRepository principals,
         IAttemptLimiter limiter,
-        ISecretGenerator secrets,
-        ISecretHasher hasher,
         TimeProvider clock,
         CancellationToken cancellationToken)
     {
@@ -35,24 +31,8 @@ public static class RequestPasswordResetHandler
             return (Result.Failure<Guid>(IdentityErrors.TooManyAttempts.WithRetryAfter(
                 perEmail.RetryAfter > perIp.RetryAfter ? perEmail.RetryAfter : perIp.RetryAfter)), messages);
 
-        var anonymous = Result.Success(Guid.CreateVersion7(clock.GetUtcNow()));
-        var principal = await principals.GetByEmailAsync(email.Value, cancellationToken);
-        if (principal is null || principal.Owner.Status == OwnerStatus.Suspended)
-            return (anonymous, messages);
-
-        var code = secrets.NewVerificationCode();
-        var issued = principal.IssueCode(CodePurpose.PasswordReset, hasher.Hash(code), clock);
-        // Hitting the domain's resend cap must look like any other accepted request.
-        if (issued.IsFailure)
-            return (anonymous, messages);
-
-        var saved = await principals.SaveChangesAsync(cancellationToken);
-        if (saved.IsFailure)
-            throw new InvalidOperationException($"Saving a reset code failed: {saved.Errors[0].Code}.");
-
-        messages.Add(new PasswordResetCodeIssued(
-            issued.Value.Id, principal.Id, principal.Owner.Email.Value, principal.Owner.Name.Value, code, issued.Value.ExpiresAt,
-            principal.Owner.Locale.Value));
-        return (Result.Success(issued.Value.Id), messages);
+        var resetId = Guid.CreateVersion7(clock.GetUtcNow());
+        messages.Add(new IssuePasswordResetCode(resetId, email.Value.Value));
+        return (Result.Success(resetId), messages);
     }
 }

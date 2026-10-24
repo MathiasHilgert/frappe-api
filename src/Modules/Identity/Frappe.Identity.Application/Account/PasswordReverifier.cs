@@ -8,7 +8,8 @@ namespace Frappe.Identity.Application.Account;
 
 /// <summary>
 /// Re-checks the password of a signed-in owner under <see cref="AttemptPolicies.ReverifyFailuresPerPrincipal"/>:
-/// only wrong passwords count, and a right one clears the count. Nothing is ever locked.
+/// only wrong passwords count, and a right one clears the count. Nothing is ever locked. The slot is reserved before
+/// the password is checked, so parallel guesses cannot exceed the limit.
 /// </summary>
 public sealed class PasswordReverifier(IPrincipalRepository principals, IPasswordHasher hasher, IAttemptLimiter limiter)
 {
@@ -18,22 +19,23 @@ public sealed class PasswordReverifier(IPrincipalRepository principals, IPasswor
     public async Task<Result<Principal>> VerifyAsync(
         Guid principalId, string? password, Error wrong, CancellationToken cancellationToken)
     {
-        var key = principalId.ToString();
-        var gate = await limiter.CheckAsync(Policy, key, cancellationToken);
-        if (!gate.IsAllowed)
-            return Result.Failure<Principal>(IdentityErrors.TooManyAttempts.WithRetryAfter(gate.RetryAfter));
+        var reservation = await AttemptReservation.TakeAsync(limiter, cancellationToken, (Policy, principalId.ToString()));
+        if (!reservation.IsAllowed)
+            return Result.Failure<Principal>(IdentityErrors.TooManyAttempts.WithRetryAfter(reservation.Decision.RetryAfter));
 
         var principal = await principals.GetByIdAsync(principalId, cancellationToken);
         if (principal is null)
-            return Result.Failure<Principal>(IdentityErrors.SessionNotFound);
-
-        if (!hasher.Verify(password ?? string.Empty, principal.Owner.PasswordHash))
         {
-            await limiter.RecordAsync(Policy, key, cancellationToken);
-            return Result.Failure<Principal>(wrong);
+            await reservation.ReleaseAsync(cancellationToken);
+            return Result.Failure<Principal>(IdentityErrors.SessionNotFound);
         }
 
-        await limiter.ResetAsync(Policy, key, cancellationToken);
+        // Argon2 cannot derive from an empty secret; an empty password is simply wrong (and keeps its slot).
+        if (string.IsNullOrEmpty(password)
+            || !await hasher.VerifyAsync(password, principal.Owner.PasswordHash, cancellationToken))
+            return Result.Failure<Principal>(wrong);
+
+        await reservation.SucceededAsync(Policy, cancellationToken);
         return Result.Success(principal);
     }
 }

@@ -73,7 +73,7 @@ public sealed class PurgePendingOwnersTests(ApiFixture fixture)
 
         var repository = services.GetRequiredService<IPrincipalRepository>();
         repository.Add(principal);
-        (await repository.SaveChangesAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
+        (await repository.SaveAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
         return principal.Id;
     }
 

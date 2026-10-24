@@ -5,6 +5,7 @@
   "identity.email.invalid": "Email must look like name@domain and be at most 254 characters.",
   "identity.locale.unsupported": "Frappé does not speak this language yet.",
   "identity.email.taken": "An account with this email already exists.",
+  "identity.account.changed": "The account changed while this request was running. Try again.",
   "identity.password.too_short": "Password must be at least 10 characters.",
   "identity.password.too_long": "Password must be at most 128 characters.",
   "identity.password.breached": "This password has appeared in a data breach. Choose a different one.",

@@ -5,6 +5,7 @@
   "identity.email.invalid": "El correo debe tener la forma nombre@dominio y hasta 254 caracteres.",
   "identity.locale.unsupported": "Frappé todavía no habla este idioma.",
   "identity.email.taken": "Ya existe una cuenta con este correo.",
+  "identity.account.changed": "La cuenta cambió mientras se procesaba la solicitud. Inténtalo de nuevo.",
   "identity.password.too_short": "La contraseña debe tener al menos 10 caracteres.",
   "identity.password.too_long": "La contraseña puede tener hasta 128 caracteres.",
   "identity.password.breached": "Esta contraseña apareció en una filtración de datos. Elige otra.",

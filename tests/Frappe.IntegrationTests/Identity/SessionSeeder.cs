@@ -23,7 +23,7 @@ internal static class SessionSeeder
         var token = services.GetRequiredService<ISecretGenerator>().NewSessionToken();
 
         var email = Email.Create($"owner-{Guid.NewGuid():N}@example.com").Value;
-        var passwordHash = password is null ? "password-hash" : services.GetRequiredService<IPasswordHasher>().Hash(password);
+        var passwordHash = password is null ? "password-hash" : await services.GetRequiredService<IPasswordHasher>().HashAsync(password, CancellationToken.None);
         var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, email, passwordHash, Locale.Parse("en"), clock);
         principal.IssueCode(CodePurpose.EmailVerify, "code-hash", clock);
         principal.VerifyEmail("code-hash", clock).IsSuccess.ShouldBeTrue();
@@ -31,7 +31,7 @@ internal static class SessionSeeder
 
         var repository = services.GetRequiredService<IPrincipalRepository>();
         repository.Add(principal);
-        (await repository.SaveChangesAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
+        (await repository.SaveAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
         return (principal, session, token);
     }
 
@@ -45,7 +45,7 @@ internal static class SessionSeeder
         var principal = (await repository.GetByIdAsync(principalId, TestContext.Current.CancellationToken)).ShouldNotBeNull();
         var session = principal.OpenSession(services.GetRequiredService<ISecretHasher>().Hash(token), SessionSurface.Api,
             services.GetRequiredService<TimeProvider>()).Value;
-        (await repository.SaveChangesAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
+        (await repository.SaveAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
         return (session, token);
     }
 
@@ -62,7 +62,7 @@ internal static class SessionSeeder
         var repository = scope.ServiceProvider.GetRequiredService<IPrincipalRepository>();
         var principal = (await repository.GetByIdAsync(principalId, TestContext.Current.CancellationToken)).ShouldNotBeNull();
         principal.RevokeSession(sessionId).IsSuccess.ShouldBeTrue();
-        (await repository.SaveChangesAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
+        (await repository.SaveAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
     }
 
     public static async Task SuspendAsync(IAlbaHost host, Guid principalId)
@@ -71,6 +71,6 @@ internal static class SessionSeeder
         var repository = scope.ServiceProvider.GetRequiredService<IPrincipalRepository>();
         var principal = (await repository.GetByIdAsync(principalId, TestContext.Current.CancellationToken)).ShouldNotBeNull();
         principal.Suspend();
-        (await repository.SaveChangesAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
+        (await repository.SaveAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
     }
 }

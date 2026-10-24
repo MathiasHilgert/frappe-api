@@ -30,23 +30,23 @@ public sealed partial class ValkeyAttemptLimiter(
         return { count, redis.call('PTTL', @key) }
         """);
 
-    public async Task<AttemptDecision> CheckAsync(AttemptPolicy policy, string key, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(policy);
-        using var budget = Budget(cancellationToken);
-        try
-        {
-            var database = await DatabaseAsync(budget.Token);
-            var redisKey = KeyFor(policy, key);
-            var count = await database.StringGetAsync(redisKey).WaitAsync(budget.Token);
-            var ttl = await database.KeyTimeToLiveAsync(redisKey).WaitAsync(budget.Token);
-            return Decide(policy, count.TryParse(out long value) ? value : 0, value < policy.Limit, ttl);
-        }
-        catch (Exception exception) when (IsOutage(exception, cancellationToken))
-        {
-            return Skip(policy, exception);
-        }
-    }
+    // Refuses without counting once the key is at the limit, so a burst of parallel attempts cannot overshoot it.
+    private static readonly LuaScript Reserve = LuaScript.Prepare(
+        """
+        local count = tonumber(redis.call('GET', @key) or '0')
+        if count >= tonumber(@limit) then return { 0, count, redis.call('PTTL', @key) } end
+        count = redis.call('INCR', @key)
+        if count == 1 then redis.call('PEXPIRE', @key, @windowMs) end
+        return { 1, count, redis.call('PTTL', @key) }
+        """);
+
+    // DECR keeps the window's expiry; a key that already expired is not resurrected.
+    private static readonly LuaScript Release = LuaScript.Prepare(
+        """
+        local count = tonumber(redis.call('GET', @key) or '0')
+        if count > 0 then redis.call('DECR', @key) end
+        return 0
+        """);
 
     public async Task<AttemptDecision> RecordAsync(AttemptPolicy policy, string key, CancellationToken cancellationToken)
     {
@@ -64,6 +64,44 @@ public sealed partial class ValkeyAttemptLimiter(
         catch (Exception exception) when (IsOutage(exception, cancellationToken))
         {
             return Skip(policy, exception);
+        }
+    }
+
+    public async Task<AttemptDecision> ReserveAsync(AttemptPolicy policy, string key, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        using var budget = Budget(cancellationToken);
+        try
+        {
+            var database = await DatabaseAsync(budget.Token);
+            var reply = await database.ScriptEvaluateAsync(Reserve, new
+            {
+                key = KeyFor(policy, key),
+                limit = policy.Limit,
+                windowMs = (long)policy.Window.TotalMilliseconds,
+            }).WaitAsync(budget.Token);
+            var values = (long[]?)reply ?? throw new RedisException("The reserve script returned no counters.");
+            var (reserved, count, ttlMs) = (values[0] == 1, values[1], values[2]);
+            return Decide(policy, count, reserved, ttlMs > 0 ? TimeSpan.FromMilliseconds(ttlMs) : null);
+        }
+        catch (Exception exception) when (IsOutage(exception, cancellationToken))
+        {
+            return Skip(policy, exception);
+        }
+    }
+
+    public async Task ReleaseAsync(AttemptPolicy policy, string key, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        using var budget = Budget(cancellationToken);
+        try
+        {
+            var database = await DatabaseAsync(budget.Token);
+            await database.ScriptEvaluateAsync(Release, new { key = KeyFor(policy, key) }).WaitAsync(budget.Token);
+        }
+        catch (Exception exception) when (IsOutage(exception, cancellationToken))
+        {
+            Skip(policy, exception);
         }
     }
 

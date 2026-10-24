@@ -9,67 +9,70 @@ namespace Frappe.Identity.Application.Sessions;
 
 /// <summary>
 /// Failures are counted per email and per IP and slow the caller down with a retry-after; nothing is ever locked, and
-/// a success clears the email's count. Unknown email, malformed email and wrong password are deliberately the same
-/// <see cref="IdentityErrors.InvalidCredentials"/>; only an attempt that proved the password learns the account's
+/// a success clears the email's count. Each attempt reserves its slot before the password is checked, so a parallel
+/// burst cannot get more tries than the limit. Unknown email, malformed email and wrong password are deliberately the
+/// same <see cref="IdentityErrors.InvalidCredentials"/>; only an attempt that proved the password learns the account's
 /// state, with the owner id in the error's metadata under <see cref="IdentityErrorMetadata.OwnerId"/>.
 /// </summary>
 public static class LogInHandler
 {
-    // Hash of a random secret, verified against when the email is unknown so response time does not reveal it.
-    private static string? s_decoyHash;
 
     public static async Task<Result<SignedIn>> Handle(
         LogIn command,
         IPrincipalRepository principals,
         IPasswordHasher passwordHasher,
+        DecoyPassword decoy,
         ISecretHasher secretHasher,
         ISecretGenerator secrets,
         IAttemptLimiter limiter,
         TimeProvider clock,
         CancellationToken cancellationToken)
     {
-        var emailKey = command.Email.Trim();
-        var perEmail = await limiter.CheckAsync(AttemptPolicies.LoginFailuresPerEmail, emailKey, cancellationToken);
-        var perIp = await limiter.CheckAsync(AttemptPolicies.LoginFailuresPerIp, command.ClientIp, cancellationToken);
-        if (!perEmail.IsAllowed || !perIp.IsAllowed)
-            return Result.Failure<SignedIn>(IdentityErrors.TooManyAttempts.WithRetryAfter(Max(perEmail.RetryAfter, perIp.RetryAfter)));
+        var reservation = await AttemptReservation.TakeAsync(limiter, cancellationToken,
+            (AttemptPolicies.LoginFailuresPerEmail, command.Email.Trim()),
+            (AttemptPolicies.LoginFailuresPerIp, command.ClientIp));
+        if (!reservation.IsAllowed)
+            return Result.Failure<SignedIn>(IdentityErrors.TooManyAttempts.WithRetryAfter(reservation.Decision.RetryAfter));
 
-        var principal = await ProveAsync(command, principals, passwordHasher, secrets, cancellationToken);
+        // A wrong password keeps its reserved slots: that is the failure being counted.
+        var principal = await ProveAsync(command, principals, passwordHasher, decoy, cancellationToken);
         if (principal is null)
-        {
-            await limiter.RecordAsync(AttemptPolicies.LoginFailuresPerEmail, emailKey, cancellationToken);
-            await limiter.RecordAsync(AttemptPolicies.LoginFailuresPerIp, command.ClientIp, cancellationToken);
             return Result.Failure<SignedIn>(IdentityErrors.InvalidCredentials);
-        }
+
+        await reservation.SucceededAsync(AttemptPolicies.LoginFailuresPerEmail, cancellationToken);
 
         var token = secrets.NewSessionToken();
         var opened = principal.OpenSession(secretHasher.Hash(token), command.Surface, clock);
         if (opened.IsFailure)
             return Result.Failure<SignedIn>(opened.Errors[0].WithMetadata(IdentityErrorMetadata.OwnerId, principal.Id));
 
-        var saved = await principals.SaveChangesAsync(cancellationToken);
-        if (saved.IsFailure)
-            throw new InvalidOperationException($"Opening a session failed to save: {saved.Errors[0].Code}.");
+        // The password is in hand, so this is the one moment an outdated hash can be upgraded to the current cost.
+        if (passwordHasher.NeedsRehash(principal.Owner.PasswordHash))
+            principal.RehashPassword(await passwordHasher.HashAsync(command.Password, cancellationToken));
 
-        await limiter.ResetAsync(AttemptPolicies.LoginFailuresPerEmail, emailKey, cancellationToken);
+        var saved = await principals.SaveAsync(cancellationToken);
+        if (saved.IsFailure)
+            return Result.Failure<SignedIn>(saved.Errors[0]);
         var session = opened.Value;
         return Result.Success(new SignedIn(principal.Id, session.Id, token, session.AbsoluteExpiresAt));
     }
 
     /// <summary>The principal whose password this is, or null; an unknown email still pays for one hash check.</summary>
     private static async Task<Principal?> ProveAsync(
-        LogIn command, IPrincipalRepository principals, IPasswordHasher hasher, ISecretGenerator secrets,
+        LogIn command, IPrincipalRepository principals, IPasswordHasher hasher, DecoyPassword decoy,
         CancellationToken cancellationToken)
     {
         var parsed = Email.Create(command.Email);
         var principal = parsed.IsSuccess ? await principals.GetByEmailAsync(parsed.Value, cancellationToken) : null;
-        var hash = principal?.Owner.PasswordHash ?? DecoyHash(hasher, secrets);
         // Argon2 cannot derive from an empty secret; an empty password is simply wrong.
-        return command.Password.Length > 0 && hasher.Verify(command.Password, hash) ? principal : null;
+        if (command.Password.Length == 0)
+            return null;
+        if (principal is null)
+        {
+            await decoy.VerifyAsync(command.Password, cancellationToken);
+            return null;
+        }
+
+        return await hasher.VerifyAsync(command.Password, principal.Owner.PasswordHash, cancellationToken) ? principal : null;
     }
-
-    private static string DecoyHash(IPasswordHasher hasher, ISecretGenerator generator) =>
-        s_decoyHash ??= hasher.Hash(generator.NewSessionToken());
-
-    private static TimeSpan Max(TimeSpan a, TimeSpan b) => a > b ? a : b;
 }

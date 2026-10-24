@@ -7,7 +7,8 @@ namespace Frappe.Identity.Application.Account;
 
 /// <summary>
 /// Wrong codes count against <see cref="AttemptPolicies.EmailChangeConfirmFailuresPerPrincipal"/>; a right one clears
-/// the count.
+/// the count. Each attempt reserves its slot before the code is checked, so a parallel burst cannot get more guesses
+/// than the limit; failures that are not guesses give the slot back.
 /// </summary>
 public static class ConfirmEmailChangeHandler
 {
@@ -26,29 +27,29 @@ public static class ConfirmEmailChangeHandler
         TimeProvider clock,
         CancellationToken cancellationToken)
     {
-        var key = command.PrincipalId.ToString();
-        var gate = await limiter.CheckAsync(Policy, key, cancellationToken);
-        if (!gate.IsAllowed)
-            return Result.Failure(IdentityErrors.TooManyAttempts.WithRetryAfter(gate.RetryAfter));
+        var reservation = await AttemptReservation.TakeAsync(limiter, cancellationToken, (Policy, command.PrincipalId.ToString()));
+        if (!reservation.IsAllowed)
+            return Result.Failure(IdentityErrors.TooManyAttempts.WithRetryAfter(reservation.Decision.RetryAfter));
 
         var principal = await principals.GetByIdAsync(command.PrincipalId, cancellationToken);
         if (principal is null)
+        {
+            await reservation.ReleaseAsync(cancellationToken);
             return Result.Failure(IdentityErrors.SessionNotFound);
+        }
 
         var confirmed = principal.ConfirmEmailChange(command.ChangeId, hasher.Hash(command.Code ?? string.Empty), clock);
         if (confirmed.IsFailure)
         {
-            if (confirmed.Errors.Any(e => CodeFailures.Contains(e.Code)))
-                await limiter.RecordAsync(Policy, key, cancellationToken);
+            if (!confirmed.Errors.Any(e => CodeFailures.Contains(e.Code)))
+                await reservation.ReleaseAsync(cancellationToken);
             return Result.Failure(confirmed.Errors[0]);
         }
 
-        // Another owner may have claimed the address meanwhile: the unique index answers EmailTaken.
-        var saved = await principals.SaveChangesAsync(cancellationToken);
-        if (saved.IsFailure)
-            return Result.Failure(saved.Errors[0]);
+        // The code was right either way, so the count clears even when the address turns out to be taken.
+        await reservation.SucceededAsync(Policy, cancellationToken);
 
-        await limiter.ResetAsync(Policy, key, cancellationToken);
-        return Result.Success();
+        // Another owner may have claimed the address meanwhile: the unique index answers EmailTaken.
+        return await principals.SaveClaimingEmailAsync(cancellationToken);
     }
 }

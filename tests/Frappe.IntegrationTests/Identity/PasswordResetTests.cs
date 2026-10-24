@@ -1,4 +1,5 @@
 using Alba;
+using Frappe.Identity.Application.PasswordResets;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
 using Frappe.Identity.Contracts.PasswordResets;
@@ -28,10 +29,11 @@ public sealed class PasswordResetTests(ApiFixture fixture)
         issued.ResetId.ShouldBe(id);
         issued.PrincipalId.ShouldBe(principal.Id);
         issued.Email.ShouldBe(principal.Owner.Email.Value);
-        issued.Code.ShouldMatch("^[0-9]{6}$");
+        CodeOf(issued).ShouldMatch("^[0-9]{6}$");
+        issued.SealedCode.ShouldNotContain(CodeOf(issued));
         var stored = (await SessionSeeder.LoadAsync(fixture.Host, principal.Id)).Codes.Single(c => c.Purpose == CodePurpose.PasswordReset);
         stored.Id.ShouldBe(id);
-        string.Equals(stored.CodeHash, issued.Code, StringComparison.Ordinal).ShouldBeFalse();
+        string.Equals(stored.CodeHash, CodeOf(issued), StringComparison.Ordinal).ShouldBeFalse();
     }
 
     [Fact]
@@ -42,6 +44,35 @@ public sealed class PasswordResetTests(ApiFixture fixture)
 
         id.ShouldNotBe(Guid.Empty);
         issued.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Request_KnownOrUnknown_DoesTheSameWorkBeforeAnswering_AndIssuesInTheBackground()
+    {
+        var (principal, _, _) = await SessionSeeder.SeedAsync(fixture.Host);
+        var unknown = $"nobody-{Guid.NewGuid():N}@example.com";
+
+        var known = await RequestTrackedAsync(principal.Owner.Email.Value);
+        var missing = await RequestTrackedAsync(unknown);
+
+        // The request handler only queues the issue command; the account lookup happens after the answer.
+        known.Queued.ShouldBe(new IssuePasswordResetCode(known.Id, principal.Owner.Email.Value));
+        missing.Queued.ShouldBe(new IssuePasswordResetCode(missing.Id, unknown));
+        known.Issued.ShouldNotBeNull().ResetId.ShouldBe(known.Id);
+        missing.Issued.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Confirm_WithAWrongCodeAndAWeakPassword_ReportsTheCode_BeforeCheckingThePassword()
+    {
+        var (principal, _, _) = await SessionSeeder.SeedAsync(fixture.Host);
+        var (id, issued) = await RequestAsync(principal.Owner.Email.Value);
+        var wrong = CodeOf(issued) == "000000" ? "111111" : "000000";
+
+        var body = await ConfirmAsync(id, wrong, "short", 422);
+
+        body.ShouldContain("identity.code.invalid");
+        body.ShouldNotContain("identity.password.too_short");
     }
 
     [Fact]
@@ -81,7 +112,7 @@ public sealed class PasswordResetTests(ApiFixture fixture)
 
         await fixture.Host.Scenario(s =>
         {
-            s.Post.Json(new { code = issued!.Code, newPassword = NewPassword }).ToUrl($"{Requests}/{id}/confirmation");
+            s.Post.Json(new { code = CodeOf(issued), newPassword = NewPassword }).ToUrl($"{Requests}/{id}/confirmation");
             s.StatusCodeShouldBe(204);
         });
 
@@ -89,7 +120,8 @@ public sealed class PasswordResetTests(ApiFixture fixture)
         reloaded.Sessions.ShouldBeEmpty();
         reloaded.Codes.Single(c => c.Purpose == CodePurpose.PasswordReset).UsedAt.ShouldNotBeNull();
         await using var scope = fixture.Host.Services.CreateAsyncScope();
-        scope.ServiceProvider.GetRequiredService<IPasswordHasher>().Verify(NewPassword, reloaded.Owner.PasswordHash).ShouldBeTrue();
+        (await scope.ServiceProvider.GetRequiredService<IPasswordHasher>()
+            .VerifyAsync(NewPassword, reloaded.Owner.PasswordHash, CancellationToken.None)).ShouldBeTrue();
         await fixture.Host.Scenario(s =>
         {
             s.Get.Url("/v1/does-not-exist");
@@ -103,9 +135,9 @@ public sealed class PasswordResetTests(ApiFixture fixture)
     {
         var (principal, _, _) = await SessionSeeder.SeedAsync(fixture.Host);
         var (id, issued) = await RequestAsync(principal.Owner.Email.Value);
-        await ConfirmAsync(id, issued!.Code, NewPassword, 204);
+        await ConfirmAsync(id, CodeOf(issued), NewPassword, 204);
 
-        var body = await ConfirmAsync(id, issued.Code, NewPassword, 422);
+        var body = await ConfirmAsync(id, CodeOf(issued), NewPassword, 422);
 
         body.ShouldContain("identity.code.already_used");
     }
@@ -116,7 +148,7 @@ public sealed class PasswordResetTests(ApiFixture fixture)
         var (principal, _, _) = await SessionSeeder.SeedAsync(fixture.Host);
         var (id, issued) = await RequestAsync(principal.Owner.Email.Value);
 
-        var body = await ConfirmAsync(id, issued!.Code == "000000" ? "111111" : "000000", NewPassword, 422);
+        var body = await ConfirmAsync(id, CodeOf(issued) == "000000" ? "111111" : "000000", NewPassword, 422);
 
         body.ShouldContain("identity.code.invalid");
         (await SessionSeeder.LoadAsync(fixture.Host, principal.Id)).Owner.PasswordHash.ShouldBe("password-hash");
@@ -135,9 +167,9 @@ public sealed class PasswordResetTests(ApiFixture fixture)
         var (principal, _, _) = await SessionSeeder.SeedAsync(fixture.Host);
         var (id, issued) = await RequestAsync(principal.Owner.Email.Value);
 
-        (await ConfirmAsync(id, issued!.Code, "short", 422)).ShouldContain("identity.password.too_short");
+        (await ConfirmAsync(id, CodeOf(issued), "short", 422)).ShouldContain("identity.password.too_short");
 
-        await ConfirmAsync(id, issued.Code, NewPassword, 204);
+        await ConfirmAsync(id, CodeOf(issued), NewPassword, 204);
     }
 
     [Fact]
@@ -145,16 +177,39 @@ public sealed class PasswordResetTests(ApiFixture fixture)
     {
         var (principal, _, _) = await SessionSeeder.SeedAsync(fixture.Host);
         var (id, issued) = await RequestAsync(principal.Owner.Email.Value);
-        var wrong = issued!.Code == "000000" ? "111111" : "000000";
+        var wrong = CodeOf(issued) == "000000" ? "111111" : "000000";
         for (var i = 0; i < AttemptPolicies.PasswordResetConfirmFailuresPerReset.Limit; i++)
             await ConfirmAsync(id, wrong, NewPassword, 422);
 
-        await ConfirmAsync(id, issued.Code, NewPassword, 429);
+        await ConfirmAsync(id, CodeOf(issued), NewPassword, 429);
 
         (await SessionSeeder.LoadAsync(fixture.Host, principal.Id)).Owner.PasswordHash.ShouldBe("password-hash");
     }
 
+    [Fact]
+    public async Task Confirm_AParallelBurstOfWrongCodes_GetsOnlyTheLimitOfTries()
+    {
+        var (principal, _, _) = await SessionSeeder.SeedAsync(fixture.Host);
+        var (id, issued) = await RequestAsync(principal.Owner.Email.Value);
+        var wrong = CodeOf(issued) == "000000" ? "111111" : "000000";
+
+        var statuses = await Burst.StatusesAsync(fixture.Host,
+            s => s.Post.Json(new { code = wrong, newPassword = NewPassword }).ToUrl($"{Requests}/{id}/confirmation"));
+
+        var limit = AttemptPolicies.PasswordResetConfirmFailuresPerReset.Limit;
+        statuses.Count(s => s == 422).ShouldBe(limit);
+        statuses.Count(s => s == 429).ShouldBe(Burst.Size - limit);
+        await ConfirmAsync(id, CodeOf(issued), NewPassword, 429);
+        (await SessionSeeder.LoadAsync(fixture.Host, principal.Id)).Owner.PasswordHash.ShouldBe("password-hash");
+    }
+
     private async Task<(Guid Id, PasswordResetCodeIssued? Issued)> RequestAsync(string email)
+    {
+        var (id, issued, _) = await RequestTrackedAsync(email);
+        return (id, issued);
+    }
+
+    private async Task<(Guid Id, PasswordResetCodeIssued? Issued, IssuePasswordResetCode? Queued)> RequestTrackedAsync(string email)
     {
         IScenarioResult? result = null;
         var tracked = await fixture.Host
@@ -168,12 +223,12 @@ public sealed class PasswordResetTests(ApiFixture fixture)
                 })));
 
         var body = await result!.ReadAsJsonAsync<ResetAccepted>();
-        var issued = tracked.AllRecordsInOrder()
-            .Select(r => r.Message)
-            .OfType<PasswordResetCodeIssued>()
-            .FirstOrDefault();
-        return (body.Id, issued);
+        var messages = tracked.AllRecordsInOrder().Select(r => r.Message).ToList();
+        return (body.Id, messages.OfType<PasswordResetCodeIssued>().FirstOrDefault(),
+            messages.OfType<IssuePasswordResetCode>().FirstOrDefault());
     }
+
+    private string CodeOf(PasswordResetCodeIssued? issued) => CodeSeal.Open(fixture.Host, issued.ShouldNotBeNull().SealedCode);
 
     private async Task<string> ConfirmAsync(Guid id, string code, string newPassword, int status)
     {
@@ -191,7 +246,7 @@ public sealed class PasswordResetTests(ApiFixture fixture)
         var repository = scope.ServiceProvider.GetRequiredService<IPrincipalRepository>();
         var principal = (await repository.GetByIdAsync(principalId, TestContext.Current.CancellationToken)).ShouldNotBeNull();
         principal.OpenSession($"other-{Guid.NewGuid():N}", SessionSurface.Console, TimeProvider.System).IsSuccess.ShouldBeTrue();
-        (await repository.SaveChangesAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
+        (await repository.SaveAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
     }
 
     private async Task MigrateAsync()
