@@ -48,6 +48,46 @@ public sealed class JobsTests(ApiFixture fixture)
     }
 
     [Fact]
+    public async Task ARestart_KeepsTheTriggersState_WhenTheScheduleIsUnchanged()
+    {
+        await using var dataSource = NpgsqlDataSource.Create(fixture.PostgresConnectionString);
+        var original = await ScalarAsync<long>(dataSource, "SELECT next_fire_time FROM quartz.qrtz_triggers WHERE trigger_name = 'PurgePendingOwners'");
+        // 2100-01-01 in the store's ticks: a state only the store knows, far enough ahead never to misfire.
+        var kept = new DateTimeOffset(2100, 1, 1, 0, 0, 0, TimeSpan.Zero).UtcTicks;
+        await ScalarAsync<int>(dataSource, $"UPDATE quartz.qrtz_triggers SET next_fire_time = {kept} WHERE trigger_name = 'PurgePendingOwners' RETURNING 1");
+        try
+        {
+            await (await fixture.CreateHostAsync()).DisposeAsync(); // a restart
+
+            (await ScalarAsync<long>(dataSource, "SELECT next_fire_time FROM quartz.qrtz_triggers WHERE trigger_name = 'PurgePendingOwners'"))
+                .ShouldBe(kept);
+        }
+        finally
+        {
+            await ScalarAsync<int>(dataSource, $"UPDATE quartz.qrtz_triggers SET next_fire_time = {original} WHERE trigger_name = 'PurgePendingOwners' RETURNING 1");
+        }
+    }
+
+    [Fact]
+    public async Task ARestart_AppliesAChangedSchedule()
+    {
+        await using var dataSource = NpgsqlDataSource.Create(fixture.PostgresConnectionString);
+        await ScalarAsync<int>(dataSource,
+            "UPDATE quartz.qrtz_cron_triggers SET cron_expression = '0 0 4 * * ?' WHERE trigger_name = 'PurgePendingOwners' RETURNING 1");
+
+        await (await fixture.CreateHostAsync()).DisposeAsync(); // a restart
+
+        (await ScalarAsync<string>(dataSource, "SELECT cron_expression FROM quartz.qrtz_cron_triggers WHERE trigger_name = 'PurgePendingOwners'"))
+            .ShouldBe("0 0 3 * * ?");
+    }
+
+    private static async Task<T> ScalarAsync<T>(NpgsqlDataSource dataSource, string sql)
+    {
+        await using var command = dataSource.CreateCommand(sql);
+        return (T)(await command.ExecuteScalarAsync(TestContext.Current.CancellationToken))!;
+    }
+
+    [Fact]
     public async Task QuartzSchema_IsAResource_ForResourcesSetup()
     {
         var resource = fixture.Host.Services.GetServices<IStatefulResource>().Single(r => r.Name == "Quartz job store");

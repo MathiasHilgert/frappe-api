@@ -86,6 +86,8 @@ public sealed class PurgePendingOwnersTests(ApiFixture fixture)
 
         trigger.CronExpressionString.ShouldBe("0 0 3 * * ?");
         trigger.TimeZone.ShouldBe(TimeZoneInfo.Utc);
+        // A missed 03:00 (every instance down) runs once on recovery; the purge is idempotent, so once is enough.
+        trigger.MisfireInstruction.ShouldBe(CronTriggerMisfireInstruction.FireAndProceed);
     }
 
     // No module subscribes yet (analytics will), so Wolverine records the cascade as "no routes" rather than "sent".

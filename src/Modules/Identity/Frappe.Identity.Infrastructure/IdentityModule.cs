@@ -12,7 +12,7 @@ using Frappe.Identity.Infrastructure.Security;
 using Frappe.Identity.Infrastructure.Sessions;
 using Frappe.Modularity;
 using Frappe.Platform.Localization;
-using Frappe.Platform.Messaging.Jobs;
+using Frappe.Platform.Messaging;
 using Frappe.Platform.Persistence;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -93,10 +93,7 @@ public sealed class IdentityModule : IModule
 
     // Global UTC: the purge has no local meaning. 03:00 keeps it away from the midnight rush of other sweeps.
     private static void AddRecurringJobs(IServiceCollection services) =>
-        services.AddQuartz(quartz =>
-            quartz.ScheduleJob<PublishCommandJob<PurgePendingOwners>>(trigger => trigger
-                .WithIdentity(nameof(PurgePendingOwners))
-                .WithCronSchedule("0 0 3 * * ?", cron => cron.InTimeZone(TimeZoneInfo.Utc))));
+        services.AddRecurringCommand<PurgePendingOwners>(nameof(PurgePendingOwners), "0 0 3 * * ?");
 
     private static void AddPasswordPolicy(IServiceCollection services)
     {
