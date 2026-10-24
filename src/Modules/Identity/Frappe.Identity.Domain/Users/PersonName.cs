@@ -15,7 +15,7 @@ public sealed record PersonName
     {
         var trimmed = value?.Trim() ?? string.Empty;
 
-        var notification = new Notification()
+        var notification = new ValidationNotification()
             .AddIf(trimmed.Length == 0, IdentityErrors.NameRequired)
             .AddIf(trimmed.Length > MaxLength, IdentityErrors.NameTooLong);
 

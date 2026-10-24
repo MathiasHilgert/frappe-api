@@ -3,12 +3,12 @@ using Shouldly;
 
 namespace Frappe.SharedKernel.Tests;
 
-public sealed class NotificationTests
+public sealed class ValidationNotificationTests
 {
     [Fact]
     public void AddIf_OnlyAddsBrokenRules()
     {
-        var notification = new Notification()
+        var notification = new ValidationNotification()
             .AddIf(true, new Error("a", "A."))
             .AddIf(false, new Error("b", "B."));
 
@@ -18,7 +18,7 @@ public sealed class NotificationTests
     [Fact]
     public void Nest_PrefixesFieldsAndNamesFieldlessErrors()
     {
-        var notification = new Notification()
+        var notification = new ValidationNotification()
             .Add(new Error("a", "A.", "name"))
             .Add(new Error("b", "B."))
             .Nest("owner");
@@ -29,8 +29,8 @@ public sealed class NotificationTests
     [Fact]
     public void Merge_AppendsTheOtherErrors()
     {
-        var notification = new Notification().Add(new Error("a", "A."))
-            .Merge(new Notification().Add(new Error("b", "B.")));
+        var notification = new ValidationNotification().Add(new Error("a", "A."))
+            .Merge(new ValidationNotification().Add(new Error("b", "B.")));
 
         notification.Errors.Select(e => e.Code).ShouldBe(["a", "b"]);
     }

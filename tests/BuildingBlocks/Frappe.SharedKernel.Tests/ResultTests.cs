@@ -11,7 +11,7 @@ public sealed class ResultTests
     [Fact]
     public void Failure_NotificationChangedAfterwards_KeepsItsErrors()
     {
-        var notification = new Notification().Add(First);
+        var notification = new ValidationNotification().Add(First);
 
         var result = Result.Failure<int>(notification);
         notification.Add(Second).Nest("owner");
@@ -22,15 +22,15 @@ public sealed class ResultTests
     [Fact]
     public void Failure_EmptyNotification_Throws()
     {
-        Should.Throw<ArgumentException>(() => Result.Failure<int>(new Notification()));
-        Should.Throw<ArgumentException>(() => Result.Failure(new Notification()));
+        Should.Throw<ArgumentException>(() => Result.Failure<int>(new ValidationNotification()));
+        Should.Throw<ArgumentException>(() => Result.Failure(new ValidationNotification()));
     }
 
     [Fact]
     public void From_RulesBroken_ReturnsEveryErrorWithoutCreatingTheValue()
     {
         var created = false;
-        var notification = new Notification().Add(First).Add(Second);
+        var notification = new ValidationNotification().Add(First).Add(Second);
 
         var result = Result.From(notification, () => created = true);
 
@@ -42,7 +42,7 @@ public sealed class ResultTests
     [Fact]
     public void From_NoRulesBroken_ReturnsTheValue()
     {
-        var result = Result.From(new Notification(), () => 42);
+        var result = Result.From(new ValidationNotification(), () => 42);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ShouldBe(42);

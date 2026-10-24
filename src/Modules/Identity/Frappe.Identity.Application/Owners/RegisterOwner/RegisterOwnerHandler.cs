@@ -32,7 +32,7 @@ public static class RegisterOwnerHandler
         var name = PersonName.Create(command.Name);
         var email = Email.Create(command.Email);
         var password = await passwordPolicy.ValidateAsync(command.Password, cancellationToken);
-        var invalid = new Notification();
+        var invalid = new ValidationNotification();
         foreach (var error in name.Errors.Concat(email.Errors).Concat(password.Errors))
             invalid.Add(error);
         if (invalid.HasErrors)

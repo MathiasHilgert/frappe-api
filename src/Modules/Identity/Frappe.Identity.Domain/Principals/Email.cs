@@ -18,7 +18,7 @@ public sealed record Email
     {
         var trimmed = value?.Trim() ?? string.Empty;
 
-        var notification = new Notification()
+        var notification = new ValidationNotification()
             .AddIf(trimmed.Length == 0, IdentityErrors.EmailRequired)
             .AddIf(trimmed.Length > 0 && !IsWellFormed(trimmed), IdentityErrors.EmailInvalid);
 

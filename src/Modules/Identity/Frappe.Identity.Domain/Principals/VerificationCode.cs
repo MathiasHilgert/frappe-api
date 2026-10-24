@@ -71,7 +71,7 @@ public sealed class VerificationCode
 
     private Result CanConsume(DateTimeOffset now)
     {
-        var notification = new Notification()
+        var notification = new ValidationNotification()
             .AddIf(UsedAt is not null, IdentityErrors.CodeAlreadyUsed)
             .AddIf(UsedAt is null && now >= ExpiresAt, IdentityErrors.CodeExpired);
 

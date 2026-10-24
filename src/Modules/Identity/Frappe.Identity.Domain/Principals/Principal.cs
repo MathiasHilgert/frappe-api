@@ -123,7 +123,7 @@ public sealed class Principal : AggregateRoot<Guid>
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tokenHash);
 
-        var notification = new Notification()
+        var notification = new ValidationNotification()
             .AddIf(Owner.Status == OwnerStatus.Pending, IdentityErrors.AccountPending)
             .AddIf(Owner.Status == OwnerStatus.Suspended, IdentityErrors.AccountSuspended);
 
