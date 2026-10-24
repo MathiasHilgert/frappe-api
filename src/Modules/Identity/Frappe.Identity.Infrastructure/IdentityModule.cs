@@ -13,6 +13,7 @@ using Frappe.Identity.Infrastructure.Persistence;
 using Frappe.Identity.Infrastructure.Security;
 using Frappe.Identity.Infrastructure.Sessions;
 using Frappe.Modularity;
+using Frappe.Platform.Localization;
 using Frappe.Platform.Messaging.Jobs;
 using Frappe.Platform.Persistence;
 using Microsoft.AspNetCore.Routing;
@@ -37,6 +38,7 @@ public sealed class IdentityModule : IModule
     {
         services.AddModuleDbContext<IdentityDbContext>(Schema);
         services.AddScoped<IPrincipalRepository, PrincipalRepository>();
+        services.AddMessageCatalog(typeof(IdentityModule).Assembly);
 
         // Both checks run when the host starts, so commands that only compose it (resources setup) need no secrets.
         services.AddOptions<Argon2Options>()

@@ -47,7 +47,7 @@ internal static class OwnerRegistrationEndpoints
 
         if (registered.IsSuccess)
             return TypedResults.Created((string?)null, new RegisteredOwnerResponse(registered.Value));
-        return registered.Errors.Any(e => e == IdentityErrors.EmailTaken) ? EmailTaken() : registered.ToProblem();
+        return registered.Errors.Any(e => e == IdentityErrors.EmailTaken) ? EmailTaken(http) : registered.ToProblem();
     }
 
     private static async Task<IResult> ResendAsync(Guid id, HttpContext http, IMessageBus bus, CancellationToken cancellationToken)
@@ -58,15 +58,15 @@ internal static class OwnerRegistrationEndpoints
 
         var error = resent.Result.Errors[0];
         if (error == ResendVerificationCodeHandler.OwnerNotFound)
-            return TypedResults.Problem(title: error.Message, statusCode: StatusCodes.Status404NotFound, type: "urn:frappe:problem:not_found");
+            return TypedResults.Problem(title: http.LocalizedMessage(error), statusCode: StatusCodes.Status404NotFound, type: "urn:frappe:problem:not_found");
         if (error == IdentityErrors.AccountNotPending)
-            return TypedResults.Problem(title: error.Message, statusCode: StatusCodes.Status409Conflict, type: "urn:frappe:problem:account_not_pending");
+            return TypedResults.Problem(title: http.LocalizedMessage(error), statusCode: StatusCodes.Status409Conflict, type: "urn:frappe:problem:account_not_pending");
         return error == IdentityErrors.ResendLimitReached ? TooManyAttempts(http, resent.RetryAfter, error) : resent.Result.ToProblem();
     }
 
-    private static ProblemHttpResult EmailTaken() =>
+    private static ProblemHttpResult EmailTaken(HttpContext http) =>
         TypedResults.Problem(
-            title: IdentityErrors.EmailTaken.Message,
+            title: http.LocalizedMessage(IdentityErrors.EmailTaken),
             statusCode: StatusCodes.Status409Conflict,
             type: "urn:frappe:problem:email_taken",
             extensions: new Dictionary<string, object?>(StringComparer.Ordinal) { ["code"] = "email_taken" });
@@ -77,7 +77,7 @@ internal static class OwnerRegistrationEndpoints
         http.Response.Headers.RetryAfter = seconds.ToString(CultureInfo.InvariantCulture);
         error ??= IdentityErrors.TooManyAttempts;
         return TypedResults.Problem(
-            title: error.Message,
+            title: http.LocalizedMessage(error),
             statusCode: StatusCodes.Status429TooManyRequests,
             type: "urn:frappe:problem:too_many_attempts",
             extensions: new Dictionary<string, object?>(StringComparer.Ordinal) { ["code"] = error.Code });
