@@ -72,9 +72,11 @@ migration module name: setup
     dotnet ef migrations add {{name}} -p "$proj" -s src/Host/Frappe.Api -c "$ctx" -o Persistence/Migrations
 
 
-# Regenerate Wolverine handler code into src/Host/Frappe.Api/Internal/Generated (commit the result)
+# Regenerate Wolverine handler code into src/Host/Frappe.Api/Internal/Generated (commit the result).
+# The old files are removed first: stale generated code may no longer compile against the changed handlers.
 [group('dev')]
 codegen:
+    rm -rf src/Host/Frappe.Api/Internal/Generated
     cd src/Host/Frappe.Api && ASPNETCORE_ENVIRONMENT=Development Notification__Resend__ApiKey= \
       dotnet run --no-launch-profile -c {{configuration}} -- codegen write
 
