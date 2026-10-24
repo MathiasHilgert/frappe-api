@@ -49,6 +49,12 @@ internal sealed partial class ValkeyKnownSignInOrigins(
         }
     }
 
+    /// <summary>
+    /// An origin is the client IP alone (an IPv6 /64, as the limiter keys it), with no device cookie or fingerprint.
+    /// Trade-off, accepted: everyone behind one shared Wi-Fi or carrier NAT shares an origin, so an attacker on the
+    /// owner's café network also skips the per-email ceiling. They still face the tight per email+IP and per-IP
+    /// budgets, the exemption only lasts <see cref="IKnownSignInOrigins.KnownFor"/>, and it needs no client support.
+    /// </summary>
     internal static RedisKey KeyFor(string email, string clientIp)
     {
         ArgumentNullException.ThrowIfNull(email);

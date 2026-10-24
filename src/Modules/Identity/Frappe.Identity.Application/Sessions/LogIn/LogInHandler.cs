@@ -78,6 +78,9 @@ public static class LogInHandler
         if (principal is null)
             return Result.Failure<SignedIn>(IdentityErrors.InvalidCredentials);
 
+        // Cleared as soon as the password is proven, even when the account then refuses to open (pending,
+        // suspended): whoever holds the password gains nothing from more guesses, and the owner fixing their status
+        // must not stay throttled. The origin is still not remembered, because only a success cascades that.
         await reservation.SucceededAsync(AttemptPolicies.LoginFailuresPerEmailAndIp);
 
         var token = secrets.NewSessionToken();

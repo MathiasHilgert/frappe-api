@@ -255,6 +255,29 @@ public sealed class LoginTests(ApiFixture fixture)
         await LogInAsync(email, OwnerSeeder.Password, ip, 201);
     }
 
+    /// <summary>
+    /// The right password on a suspended (or pending) account proves the caller holds the password, so it clears that
+    /// email and IP's failures like any proof would; it opens no session and does not make the origin known.
+    /// </summary>
+    [Fact]
+    public async Task TheRightPassword_OnASuspendedAccount_ClearsThatIpsFailures_ButRemembersNoOrigin()
+    {
+        var email = OwnerSeeder.NewEmail();
+        await OwnerSeeder.SeedAsync(fixture.Host, email, OwnerStatus.Suspended);
+        var ip = NewIp();
+
+        for (var i = 0; i < AttemptPolicies.LoginFailuresPerEmailAndIp.Limit - 1; i++)
+            await LogInAsync(email, "wrong password!!", ip, 401);
+        await LogInAsync(email, OwnerSeeder.Password, ip, 403);
+        for (var i = 0; i < AttemptPolicies.LoginFailuresPerEmailAndIp.Limit - 1; i++)
+            await LogInAsync(email, "wrong password!!", ip, 401);
+        await LogInAsync(email, OwnerSeeder.Password, ip, 403);
+
+        var tracked = await fixture.Host.InvokeMessageAndWaitAsync(
+            new Frappe.Identity.Application.Sessions.LogIn(email, OwnerSeeder.Password, "198.51.100.10", SessionSurface.Api));
+        tracked.Sent.MessagesOf<Frappe.Identity.Application.Sessions.RememberSignInOrigin>().ShouldBeEmpty();
+    }
+
     [Fact]
     public async Task EmailCase_DoesNotGiveAnotherBudget()
     {
