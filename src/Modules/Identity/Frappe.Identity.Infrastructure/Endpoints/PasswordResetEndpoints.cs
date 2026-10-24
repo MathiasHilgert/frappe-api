@@ -16,12 +16,13 @@ internal static class PasswordResetEndpoints
 {
     public static RouteGroupBuilder MapPasswordResetEndpoints(this RouteGroupBuilder group)
     {
-        var resets = group.MapGroup("/password-resets").AllowAnonymousAuth();
-        resets.MapPost("/", RequestAsync)
+        group.MapPost("/password-resets", RequestAsync)
+            .AllowAnonymousAuth()
             .WithName("RequestPasswordReset")
             .WithSummary("Emails a reset code when the address belongs to an owner; answers the same either way.")
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
-        resets.MapPost("/{id:guid}/confirmation", ConfirmAsync)
+        group.MapPost("/password-resets/{id:guid}/confirmation", ConfirmAsync)
+            .AllowAnonymousAuth()
             .WithName("ConfirmPasswordReset")
             .WithSummary("Sets a new password with the emailed code, signing every session out.")
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);

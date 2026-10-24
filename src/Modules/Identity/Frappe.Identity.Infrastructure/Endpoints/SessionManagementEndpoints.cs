@@ -15,11 +15,12 @@ internal static class SessionManagementEndpoints
 {
     public static RouteGroupBuilder MapSessionManagementEndpoints(this RouteGroupBuilder group)
     {
-        var sessions = group.MapGroup("/sessions").RequireOwner();
-        sessions.MapGet("/", ListAsync)
+        group.MapGet("/sessions", ListAsync)
+            .RequireOwner()
             .WithName("ListSessions")
             .WithSummary("The owner's open sessions, flagging the caller's own.");
-        sessions.MapDelete("/{id:guid}", RevokeAsync)
+        group.MapDelete("/sessions/{id:guid}", RevokeAsync)
+            .RequireOwner()
             .WithName("RevokeSession")
             .WithSummary("Signs one of the owner's sessions out.")
             .ProducesProblem(StatusCodes.Status404NotFound);
