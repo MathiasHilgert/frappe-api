@@ -30,6 +30,12 @@ public sealed class CqrsConventionTests
 
     [Theory(SkipTestWithoutData = true)]
     [MemberData(nameof(Modules))]
+    public void QueryHandler_IsNonTransactional(string module) =>
+        CqrsRules.TransactionalQueryHandlers(Application(module)).ShouldBeEmpty(
+            "Query handlers are marked [NonTransactional]: a read needs no EF transaction or outbox.");
+
+    [Theory(SkipTestWithoutData = true)]
+    [MemberData(nameof(Modules))]
     public void CommandHandler_ReturnsNoReadModel(string module) =>
         CqrsRules.CommandHandlersReturningReadModels(Application(module)).ShouldBeEmpty(
             "Command handlers answer with an id or a small outcome; the client reads back through a query.");

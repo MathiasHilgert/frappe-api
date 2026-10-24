@@ -68,6 +68,19 @@ internal static class CqrsRules
             .ToList();
     }
 
+    /// <summary>
+    /// Query handlers not marked <c>[NonTransactional]</c>: a read opens no transaction and no outbox, so Wolverine's
+    /// auto-applied EF transaction must be switched off for it.
+    /// </summary>
+    public static List<string> TransactionalQueryHandlers(Layer application) =>
+        Handlers(application)
+            .Where(h => QueryResult(h.Message) is not null)
+            .Select(h => h.Handler)
+            .Distinct()
+            .Where(h => !h.GetCustomAttributes(inherit: false).Any(a => a.GetType().Name == "NonTransactionalAttribute"))
+            .Select(h => h.FullName!)
+            .ToList();
+
     /// <summary>Command handlers whose answer carries a type some query answers with.</summary>
     public static List<string> CommandHandlersReturningReadModels(Layer application)
     {
@@ -165,7 +178,7 @@ internal static class CqrsRules
             yield return nested;
     }
 
-    private static Type Outermost(Type type)
+    internal static Type Outermost(Type type)
     {
         while (type.DeclaringType is { } declaring)
             type = declaring;

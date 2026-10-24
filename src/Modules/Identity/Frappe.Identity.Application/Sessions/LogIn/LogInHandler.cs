@@ -1,5 +1,6 @@
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
+using Frappe.Identity.Contracts;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Principals;
 using Frappe.SharedKernel.Validation;
@@ -10,12 +11,10 @@ namespace Frappe.Identity.Application.Sessions;
 /// Failures are counted per email and per IP and slow the caller down with a retry-after; nothing is ever locked, and
 /// a success clears the email's count. Unknown email, malformed email and wrong password are deliberately the same
 /// <see cref="IdentityErrors.InvalidCredentials"/>; only an attempt that proved the password learns the account's
-/// state, with the owner id in the error's metadata under <see cref="OwnerIdKey"/>.
+/// state, with the owner id in the error's metadata under <see cref="IdentityErrorMetadata.OwnerId"/>.
 /// </summary>
 public static class LogInHandler
 {
-    public const string OwnerIdKey = "ownerId";
-
     // Hash of a random secret, verified against when the email is unknown so response time does not reveal it.
     private static string? s_decoyHash;
 
@@ -46,7 +45,7 @@ public static class LogInHandler
         var token = secrets.NewSessionToken();
         var opened = principal.OpenSession(secretHasher.Hash(token), command.Surface, clock);
         if (opened.IsFailure)
-            return Result.Failure<SignedIn>(opened.Errors[0].WithMetadata(OwnerIdKey, principal.Id));
+            return Result.Failure<SignedIn>(opened.Errors[0].WithMetadata(IdentityErrorMetadata.OwnerId, principal.Id));
 
         var saved = await principals.SaveChangesAsync(cancellationToken);
         if (saved.IsFailure)

@@ -47,8 +47,9 @@ public sealed class LoginTests(ApiFixture fixture)
         var email = OwnerSeeder.NewEmail();
         var owner = await OwnerSeeder.SeedAsync(fixture.Host, email);
 
-        var unknown = (await BodyAsync(LogInAsync(OwnerSeeder.NewEmail(), OwnerSeeder.Password, NewIp(), 401)));
-        var wrong = (await BodyAsync(LogInAsync(email, password, NewIp(), 401)));
+        var unknown = await (await LogInAsync(OwnerSeeder.NewEmail(), OwnerSeeder.Password, NewIp(), 401))
+            .ShouldBeProblemAsync(401, "identity.credentials.invalid");
+        var wrong = await (await LogInAsync(email, password, NewIp(), 401)).ShouldBeProblemAsync(401, "identity.credentials.invalid");
 
         wrong.GetProperty("code").GetString().ShouldBe("identity.credentials.invalid");
         wrong.GetProperty("code").GetString().ShouldBe(unknown.GetProperty("code").GetString());
@@ -66,9 +67,8 @@ public sealed class LoginTests(ApiFixture fixture)
         var email = OwnerSeeder.NewEmail();
         var owner = await OwnerSeeder.SeedAsync(fixture.Host, email, OwnerStatus.Pending);
 
-        var body = (await BodyAsync(LogInAsync(email, OwnerSeeder.Password, NewIp(), 403)));
+        var body = await (await LogInAsync(email, OwnerSeeder.Password, NewIp(), 403)).ShouldBeProblemAsync(403, "identity.account.pending");
 
-        body.GetProperty("code").GetString().ShouldBe("identity.account.pending");
         body.GetProperty("ownerId").GetGuid().ShouldBe(owner.Id);
         (await SessionSeeder.LoadAsync(fixture.Host, owner.Id)).Sessions.ShouldBeEmpty();
     }
@@ -106,7 +106,7 @@ public sealed class LoginTests(ApiFixture fixture)
         var result = await LogInAsync(email, OwnerSeeder.Password, NewIp(), 429);
         int.Parse(result.Context.Response.Headers[HeaderNames.RetryAfter].ToString(), System.Globalization.CultureInfo.InvariantCulture)
             .ShouldBeInRange(1, (int)AttemptPolicies.LoginFailuresPerEmail.Window.TotalSeconds);
-        (await result.ReadAsJsonAsync<JsonElement>()).GetProperty("code").GetString().ShouldBe("identity.attempts.too_many");
+        await result.ShouldBeProblemAsync(429, "identity.attempts.too_many");
     }
 
     [Fact]

@@ -5,6 +5,7 @@ using Frappe.Platform.Web.Problems;
 using Frappe.SharedKernel.Validation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
 using Wolverine;
 
@@ -17,20 +18,23 @@ internal static class AccountSecurityEndpoints
     {
         group.MapPost("/sessions/current/step-ups", CompleteStepUpAsync)
             .RequireAuthorization(IdentityPolicies.OwnerSelf)
-            .WithName("CompleteStepUp");
+            .WithName("CompleteStepUp")
+            .WithSummary("Re-proves the password, unlocking sensitive actions on this session for five minutes.")
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests);
         group.MapPut("/me/password", ChangePasswordAsync)
             .RequireAuthorization(IdentityPolicies.OwnerSelf)
-            .WithName("ChangePassword");
+            .WithName("ChangePassword")
+            .WithSummary("Changes the password, signing every other session out.")
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests);
         return group;
     }
 
-    private static async Task<IResult> CompleteStepUpAsync(
-        StepUpRequest request, ICurrentPrincipal current, IMessageBus bus,
-        CancellationToken cancellationToken)
+    private static async Task<Results<Created<StepUpResponse>, LocalizedProblemResult>> CompleteStepUpAsync(
+        StepUpRequest request, ICurrentPrincipal current, IMessageBus bus, CancellationToken cancellationToken)
     {
-        if (current.Session is not { } caller)
-            return TypedResults.Unauthorized();
-
+        var caller = current.RequiredSession();
         var result = await bus.InvokeAsync<Result<DateTimeOffset>>(
             new CompleteStepUp(caller.PrincipalId, caller.SessionId, request.Password), cancellationToken);
 
@@ -39,13 +43,10 @@ internal static class AccountSecurityEndpoints
             : result.ToProblem();
     }
 
-    private static async Task<IResult> ChangePasswordAsync(
-        ChangePasswordRequest request, ICurrentPrincipal current, IMessageBus bus,
-        CancellationToken cancellationToken)
+    private static async Task<Results<NoContent, LocalizedProblemResult>> ChangePasswordAsync(
+        ChangePasswordRequest request, ICurrentPrincipal current, IMessageBus bus, CancellationToken cancellationToken)
     {
-        if (current.Session is not { } caller)
-            return TypedResults.Unauthorized();
-
+        var caller = current.RequiredSession();
         var result = await bus.InvokeAsync<Result>(
             new ChangePassword(caller.PrincipalId, caller.SessionId, request.CurrentPassword, request.NewPassword),
             cancellationToken);

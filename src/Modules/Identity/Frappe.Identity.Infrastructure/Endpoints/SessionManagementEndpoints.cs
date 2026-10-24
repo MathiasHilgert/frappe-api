@@ -1,7 +1,6 @@
-using System.Text.Json.Serialization;
 using Frappe.Identity.Application.Sessions;
-using Frappe.Identity.Domain;
 using Frappe.Identity.Infrastructure.Sessions;
+using Frappe.Platform.Web.Problems;
 using Frappe.SharedKernel.Validation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -11,52 +10,36 @@ using Wolverine;
 
 namespace Frappe.Identity.Infrastructure.Endpoints;
 
+/// <summary>The signed-in owner's open sessions: list them and sign any one of them out.</summary>
 internal static class SessionManagementEndpoints
 {
-    public static RouteGroupBuilder MapSessionManagement(this RouteGroupBuilder group)
+    public static RouteGroupBuilder MapSessionManagementEndpoints(this RouteGroupBuilder group)
     {
         var sessions = group.MapGroup("/sessions").RequireAuthorization(IdentityPolicies.OwnerSelf);
-        sessions.MapGet("/", ListAsync).WithName("ListSessions");
-        sessions.MapDelete("/{id:guid}", RevokeAsync).WithName("RevokeSession");
+        sessions.MapGet("/", ListAsync)
+            .WithName("ListSessions")
+            .WithSummary("The owner's open sessions, flagging the caller's own.");
+        sessions.MapDelete("/{id:guid}", RevokeAsync)
+            .WithName("RevokeSession")
+            .WithSummary("Signs one of the owner's sessions out.")
+            .ProducesProblem(StatusCodes.Status404NotFound);
         return group;
     }
 
-    private static async Task<Results<Ok<IReadOnlyList<SessionResponse>>, UnauthorizedHttpResult>> ListAsync(
+    private static async Task<Ok<IReadOnlyList<SessionSummaryResponse>>> ListAsync(
         ICurrentPrincipal current, IMessageBus bus, CancellationToken cancellationToken)
     {
-        if (current.Session is not { } caller)
-        {
-            return TypedResults.Unauthorized();
-        }
-
+        var caller = current.RequiredSession();
         var list = await bus.InvokeAsync<IReadOnlyList<SessionSummary>>(
             new ListOwnerSessions(caller.PrincipalId, caller.SessionId), cancellationToken);
-        return TypedResults.Ok<IReadOnlyList<SessionResponse>>(
-            list.Select(s => new SessionResponse(s.Id, s.CreatedAt, s.LastSeenAt, s.Current)).ToList());
+        return TypedResults.Ok<IReadOnlyList<SessionSummaryResponse>>(
+            [.. list.Select(s => new SessionSummaryResponse(s.Id, s.CreatedAt, s.LastSeenAt, s.Current))]);
     }
 
-    private static async Task<Results<NoContent, NotFound, UnauthorizedHttpResult>> RevokeAsync(
+    private static async Task<Results<NoContent, LocalizedProblemResult>> RevokeAsync(
         Guid id, ICurrentPrincipal current, IMessageBus bus, CancellationToken cancellationToken)
     {
-        if (current.Session is not { } caller)
-        {
-            return TypedResults.Unauthorized();
-        }
-
-        var revoked = await bus.InvokeAsync<Result>(new RevokeSession(caller.PrincipalId, id), cancellationToken);
-        if (revoked.IsSuccess)
-        {
-            return TypedResults.NoContent();
-        }
-
-        return revoked.Errors.Contains(IdentityErrors.SessionNotFound)
-            ? TypedResults.NotFound()
-            : throw new InvalidOperationException($"Unexpected failure revoking a session: {revoked.Errors[0].Code}.");
+        var revoked = await bus.InvokeAsync<Result>(new RevokeSession(current.RequiredSession().PrincipalId, id), cancellationToken);
+        return revoked.IsSuccess ? TypedResults.NoContent() : revoked.ToProblem();
     }
-
-    internal sealed record SessionResponse(
-        [property: JsonPropertyName("id")] Guid Id,
-        [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
-        [property: JsonPropertyName("last_seen_at")] DateTimeOffset LastSeenAt,
-        [property: JsonPropertyName("current")] bool Current);
 }

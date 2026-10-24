@@ -2,15 +2,10 @@ using Microsoft.Extensions.Time.Testing;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Alba;
+using Microsoft.Extensions.DependencyInjection;
 using Frappe.Identity.Application.Security;
 using Frappe.Identity.Domain.Principals;
 using Frappe.Identity.Infrastructure.Endpoints;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.AspNetCore.Routing.Patterns;
-using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 
 namespace Frappe.IntegrationTests.Identity;
@@ -179,37 +174,23 @@ public sealed class AccountSecurityTests(ApiFixture fixture, AccountSecurityTest
     {
         var (host, clock) = (clockHost.Host, _clock);
         var (_, _, token) = await SessionSeeder.SeedAsync(host, Password);
-        var guarded = GuardedEndpoint(host.Services);
 
-        (await InvokeAsync(host, guarded, token)).StatusCode.ShouldBe(403);
+        // A step-up-guarded route; the malformed email makes getting past the guard answer 422 with no side effect.
+        var stale = await GuardedAsync(host, token, 403);
+        (await ErrorCodesAsync(stale)).ShouldBe(["identity.step_up.required"]);
         await StepUpAsync(host, token, Password, 201);
-        (await InvokeAsync(host, guarded, token)).StatusCode.ShouldBe(200);
+        await GuardedAsync(host, token, 422);
         clock.Advance(Session.StepUpValidity);
-        (await InvokeAsync(host, guarded, token)).StatusCode.ShouldBe(403);
+        await GuardedAsync(host, token, 403);
     }
 
-    // Builds a real endpoint with RequireStepUp(), exactly as a module would map one.
-    private static RequestDelegate GuardedEndpoint(IServiceProvider services)
-    {
-        var conventions = new Conventions();
-        conventions.RequireStepUp();
-        var endpoint = new RouteEndpointBuilder(null, RoutePatternFactory.Parse("/guarded"), 0) { ApplicationServices = services };
-        foreach (var convention in conventions.Items)
-            convention(endpoint);
-        return RequestDelegateFactory.Create(() => "ok",
-            new RequestDelegateFactoryOptions { EndpointBuilder = endpoint, ServiceProvider = services }).RequestDelegate;
-    }
-
-    private static async Task<HttpResponse> InvokeAsync(IAlbaHost host, RequestDelegate endpoint, string token)
-    {
-        await using var scope = host.Services.CreateAsyncScope();
-        var context = new DefaultHttpContext { RequestServices = scope.ServiceProvider };
-        context.Request.Headers.Authorization = $"Bearer {token}";
-        scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>().HttpContext = context;
-        context.User = (await context.AuthenticateAsync()).Principal.ShouldNotBeNull();
-        await endpoint(context);
-        return context.Response;
-    }
+    private static Task<IScenarioResult> GuardedAsync(IAlbaHost host, string token, int status) =>
+        host.Scenario(s =>
+        {
+            s.Post.Json(new { newEmail = "not-an-email" }).ToUrl("/v1/identity/me/email-changes");
+            Bearer(s, token);
+            s.StatusCodeShouldBe(status);
+        });
 
     private Task<IScenarioResult> StepUpAsync(string token, string password, int status) =>
         StepUpAsync(fixture.Host, token, password, status);
@@ -236,12 +217,5 @@ public sealed class AccountSecurityTests(ApiFixture fixture, AccountSecurityTest
     {
         using var body = JsonDocument.Parse(await result.ReadAsTextAsync());
         return [.. body.RootElement.GetProperty("errors").EnumerateArray().Select(e => e.GetProperty("code").GetString())];
-    }
-
-    private sealed class Conventions : IEndpointConventionBuilder
-    {
-        public List<Action<EndpointBuilder>> Items { get; } = [];
-
-        public void Add(Action<EndpointBuilder> convention) => Items.Add(convention);
     }
 }

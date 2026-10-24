@@ -1,5 +1,4 @@
 using System.Reflection;
-using Frappe.Identity.Application.Owners;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Infrastructure;
 using Frappe.Platform.Localization;
@@ -16,8 +15,7 @@ public sealed class IdentityErrorCatalogueTests
     private static IEnumerable<Error> IdentityErrorValues() =>
         typeof(IdentityErrors).GetFields(BindingFlags.Public | BindingFlags.Static)
             .Where(f => f.FieldType == typeof(Error))
-            .Select(f => (Error)f.GetValue(null)!)
-            .Append(ResendVerificationCodeHandler.OwnerNotFound);
+            .Select(f => (Error)f.GetValue(null)!);
 
     [Fact]
     public void Catalogue_HasEveryKeyInEveryLocale_AndEveryMessageFormats() =>
