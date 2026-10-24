@@ -44,6 +44,7 @@ internal static class PlatformComposition
         builder.AddMessaging(
             configuration.GetPostgresConnectionString(),
             modules,
+            typeof(PlatformComposition).Assembly,
             typeof(RealtimePushHandler).Assembly);
 
         return builder;

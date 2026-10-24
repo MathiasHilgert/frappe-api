@@ -14,9 +14,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Not fully private: it lifts EF Core to its own version, which the host ships and the generated
+         handler code (Internal/Generated) compiles against, so test hosts must load that same version. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
+      <PrivateAssets>build; contentfiles; analyzers; buildtransitive</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Npgsql.OpenTelemetry" />
