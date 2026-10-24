@@ -34,8 +34,8 @@ public sealed class ManageSessionsTests(ApiFixture fixture)
         var byId = items.ToDictionary(i => i.GetProperty("id").GetGuid());
         byId[current.Id].GetProperty("current").GetBoolean().ShouldBeTrue();
         byId[other].GetProperty("current").GetBoolean().ShouldBeFalse();
-        byId[current.Id].GetProperty("created_at").GetDateTimeOffset().ShouldBe(current.CreatedAt, TimeSpan.FromMilliseconds(1));
-        byId[current.Id].TryGetProperty("last_seen_at", out _).ShouldBeTrue();
+        byId[current.Id].GetProperty("createdAt").GetDateTimeOffset().ShouldBe(current.CreatedAt, TimeSpan.FromMilliseconds(1));
+        byId[current.Id].TryGetProperty("lastSeenAt", out _).ShouldBeTrue();
     }
 
     [Fact]
@@ -123,12 +123,14 @@ public sealed class ManageSessionsTests(ApiFixture fixture)
     {
         var (_, _, token) = await SessionSeeder.SeedAsync(fixture.Host);
 
-        await fixture.Host.Scenario(s =>
+        var result = await fixture.Host.Scenario(s =>
         {
             s.Delete.Url($"{Sessions}/{Guid.CreateVersion7()}");
             s.WithRequestHeader("Authorization", $"Bearer {token}");
             s.StatusCodeShouldBe(404);
         });
+
+        await result.ShouldBeProblemAsync(404, "identity.session.not_found");
     }
 
     [Fact]

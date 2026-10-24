@@ -84,8 +84,8 @@ public sealed class IdentityErrorLocalizationTests(ApiFixture fixture) : IAsyncL
 
         var body = await result.ReadAsJsonAsync<JsonElement>();
         body.GetProperty("title").GetString().ShouldBe(expected);
-        body.GetProperty("code").GetString().ShouldBe("email_taken");
-        body.GetProperty("type").GetString().ShouldBe("urn:frappe:problem:email_taken");
+        body.GetProperty("code").GetString().ShouldBe("identity.email.taken");
+        body.GetProperty("type").GetString().ShouldBe("urn:frappe:problem:identity.email.taken");
     }
 
     private static IPAddress NewIp() => new(Random.Shared.NextInt64(0x0A000001, 0x0AFFFFFE));

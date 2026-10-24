@@ -6,6 +6,7 @@ using Frappe.Platform.Messaging;
 using Frappe.Platform.Persistence;
 using Frappe.Platform.Realtime;
 using Frappe.Platform.Web.Correlation;
+using Frappe.Platform.Web.Forwarding;
 using Frappe.Platform.Web.Security;
 
 namespace Frappe.Api;
@@ -28,6 +29,7 @@ internal static class PlatformComposition
         builder.AddObservability();
 
         services.AddPlatformLocalization(configuration);
+        services.AddTrustedForwardedHeaders(configuration);
         services.AddRequestCorrelation();
         services.AddDenyByDefaultSecurity();
         services.AddSingleton(TimeProvider.System);
@@ -51,12 +53,14 @@ internal static class PlatformComposition
     }
 
     /// <summary>
-    /// The request pipeline. Order matters: correlation runs first so every response and error carries the
+    /// The request pipeline. Order matters: forwarded headers run first so everything sees the real client address
+    /// (only from trusted proxies); correlation runs next so every response and error carries the
     /// request id; error handling wraps everything after it; localization follows authentication so a stored
     /// preference can be read, and precedes authorization so 401/403 problems are translated too.
     /// </summary>
     public static WebApplication UseFrappe(this WebApplication app)
     {
+        app.UseTrustedForwardedHeaders();
         app.UseRequestCorrelation();
         app.UseExceptionHandler();
         app.UseStatusCodePages();

@@ -9,27 +9,17 @@ public static class ProblemResults
     /// A failed result as an RFC 9457 problem. The status follows the errors' <see cref="ErrorKind"/> (mixed kinds
     /// answer 422); <c>type</c> is <c>urn:frappe:problem:&lt;code&gt;</c> for one error and
     /// <c>urn:frappe:problem:validation</c> for several; <c>title</c> and every <c>errors[].message</c> are
-    /// translated into the request locale by error code, falling back to the error's own message.
+    /// translated into the request locale by error code, falling back to the error's own message. One error also
+    /// sets <c>detail</c> (same text) and <c>code</c>. Every <see cref="Error.Metadata"/> entry is a top-level member.
     /// </summary>
-    /// <remarks>A 429 sends <c>Retry-After</c> (whole seconds, rounded up) from the longest <see cref="Error.RetryAfter"/>.</remarks>
-    public static IResult ToProblem(this Result result)
+    /// <remarks>A 429 sends <c>Retry-After</c> (whole seconds, rounded up, at least 1) from the longest <see cref="Error.RetryAfter"/>.</remarks>
+    public static LocalizedProblemResult ToProblem(this Result result)
     {
         ArgumentNullException.ThrowIfNull(result);
         if (result.IsSuccess)
             throw new InvalidOperationException("A successful result is not a problem.");
 
         return new LocalizedProblemResult(result.Errors);
-    }
-
-    /// <summary>
-    /// <paramref name="error"/>'s message in the request locale, looked up by its code and falling back to
-    /// <c>Error.Message</c>; for endpoints that shape their own problem body instead of calling <c>ToProblem</c>.
-    /// </summary>
-    public static string LocalizedMessage(this HttpContext context, Error error)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(error);
-        return ProblemText.For(context).Translate(error.Code, error.Message);
     }
 
     internal static int StatusOf(ErrorKind kind) => kind switch

@@ -8,7 +8,7 @@ using Frappe.Identity.Application.Security;
 using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Contracts;
 using Frappe.Identity.Infrastructure.Endpoints;
-using Frappe.Identity.Infrastructure.Owners;
+using Frappe.Identity.Infrastructure.Localization;
 using Frappe.Identity.Infrastructure.Persistence;
 using Frappe.Identity.Infrastructure.Security;
 using Frappe.Identity.Infrastructure.Sessions;
@@ -66,6 +66,7 @@ public sealed class IdentityModule : IModule
         services.AddSingleton<IAttemptLimiter, ValkeyAttemptLimiter>();
         services.AddScoped<VerificationCodeIssuer>();
         services.AddScoped<PasswordReverifier>();
+        services.AddSingleton<IPlatformLocales, PlatformLocales>();
         AddRecurringJobs(services);
     }
 
@@ -79,13 +80,13 @@ public sealed class IdentityModule : IModule
 
     public void MapEndpoints(RouteGroupBuilder group)
     {
-        group.MapOwnerRegistration();
-        group.MapOwnerVerification();
+        group.MapOwnerRegistrationEndpoints();
+        group.MapOwnerVerificationEndpoints();
         group.MapSessionEndpoints();
-        group.MapSessionManagement();
+        group.MapSessionManagementEndpoints();
         group.MapAccountSecurityEndpoints();
         group.MapEmailChangeEndpoints();
-        group.MapPasswordResets();
+        group.MapPasswordResetEndpoints();
     }
 
     // Global UTC: the purge has no local meaning. 03:00 keeps it away from the midnight rush of other sweeps.

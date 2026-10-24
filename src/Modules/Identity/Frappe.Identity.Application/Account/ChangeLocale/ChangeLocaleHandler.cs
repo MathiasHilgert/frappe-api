@@ -1,21 +1,35 @@
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Domain;
+using Frappe.SharedKernel.Localization;
 using Frappe.SharedKernel.Validation;
 
 namespace Frappe.Identity.Application.Account;
 
 public static class ChangeLocaleHandler
 {
-    /// <summary>Saves the locale.</summary>
-    /// <returns>Success, or <see cref="IdentityErrors.SessionNotFound"/> when the principal is gone.</returns>
-    public static async Task<Result> Handle(
-        ChangeLocale command, IPrincipalRepository principals, CancellationToken cancellationToken)
+    /// <summary>
+    /// Only a locale the platform serves is stored; a regional variant it lacks maps to a sibling (es-CL to es-AR), as
+    /// negotiation would, while a language it does not speak at all is refused rather than silently stored as English.
+    /// </summary>
+    /// <returns>
+    /// The locale stored; or the tag's own parse errors, <see cref="IdentityErrors.LocaleUnsupported"/>, or
+    /// <see cref="IdentityErrors.OwnerNotFound"/> when the principal is gone.
+    /// </returns>
+    public static async Task<Result<Locale>> Handle(
+        ChangeLocale command, IPrincipalRepository principals, IPlatformLocales platform, CancellationToken cancellationToken)
     {
+        var parsed = Locale.Create(command.Locale);
+        if (parsed.IsFailure)
+            return Result.Failure<Locale>(parsed.Errors[0]);
+        if (platform.Lookup(parsed.Value) is not { } locale)
+            return Result.Failure<Locale>(IdentityErrors.LocaleUnsupported);
+
         var principal = await principals.GetByIdAsync(command.PrincipalId, cancellationToken);
         if (principal is null)
-            return Result.Failure(IdentityErrors.SessionNotFound);
+            return Result.Failure<Locale>(IdentityErrors.OwnerNotFound);
 
-        principal.ChangeLocale(command.Locale);
-        return await principals.SaveChangesAsync(cancellationToken);
+        principal.ChangeLocale(locale);
+        var saved = await principals.SaveChangesAsync(cancellationToken);
+        return saved.IsSuccess ? Result.Success(locale) : Result.Failure<Locale>(saved.Errors[0]);
     }
 }

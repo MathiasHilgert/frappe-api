@@ -5,6 +5,7 @@ using Frappe.Platform.Web.Problems;
 using Frappe.SharedKernel.Validation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
 using Wolverine;
 
@@ -20,37 +21,40 @@ internal static class EmailChangeEndpoints
         group.MapPost(Path, RequestAsync)
             .RequireAuthorization(IdentityPolicies.OwnerSelf)
             .RequireStepUp()
-            .WithName("RequestEmailChange");
+            .WithName("RequestEmailChange")
+            .WithSummary("Starts an email change, emailing a code to the new address. Needs a fresh step-up.")
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
         group.MapPost($"{Path}/{{id:guid}}/confirmation", ConfirmAsync)
             .RequireAuthorization(IdentityPolicies.OwnerSelf)
-            .WithName("ConfirmEmailChange");
+            .WithName("ConfirmEmailChange")
+            .WithSummary("Confirms an email change with the code sent to the new address.")
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests);
         return group;
     }
 
-    private static async Task<IResult> RequestAsync(
+    private static async Task<Results<Created<EmailChangeResponse>, LocalizedProblemResult>> RequestAsync(
         EmailChangeRequest request, ICurrentPrincipal current, IMessageBus bus, HttpRequest http,
         CancellationToken cancellationToken)
     {
-        if (current.Session is not { } caller)
-            return TypedResults.Unauthorized();
-
         var result = await bus.InvokeAsync<Result<Guid>>(
-            new RequestEmailChange(caller.PrincipalId, request.NewEmail), cancellationToken);
+            new RequestEmailChange(current.RequiredSession().PrincipalId, request.NewEmail), cancellationToken);
 
         return result.IsSuccess
             ? TypedResults.Created($"{http.PathBase}{http.Path}/{result.Value}", new EmailChangeResponse(result.Value))
             : result.ToProblem();
     }
 
-    private static async Task<IResult> ConfirmAsync(
+    private static async Task<Results<NoContent, LocalizedProblemResult>> ConfirmAsync(
         Guid id, EmailChangeConfirmationRequest request, ICurrentPrincipal current, IMessageBus bus,
         CancellationToken cancellationToken)
     {
-        if (current.Session is not { } caller)
-            return TypedResults.Unauthorized();
-
         var result = await bus.InvokeAsync<Result>(
-            new ConfirmEmailChange(caller.PrincipalId, id, request.Code), cancellationToken);
+            new ConfirmEmailChange(current.RequiredSession().PrincipalId, id, request.Code), cancellationToken);
 
         // Each error's Kind picks the status: 409 email taken, 404 no such change, 429 slow down, 422 otherwise.
         return result.IsSuccess ? TypedResults.NoContent() : result.ToProblem();

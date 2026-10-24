@@ -55,7 +55,7 @@ public static class IdentityErrors
     public static readonly Error CodeAlreadyUsed = new("identity.code.already_used", "The code was already used.", "code");
 
     public static readonly Error ResendLimitReached =
-        new("identity.code.resend_limit_reached", "Too many codes were sent. Try again later.");
+        new("identity.code.resend_limit_reached", "Too many codes were sent. Try again later.", Kind: ErrorKind.TooManyRequests);
 
     public static readonly Error StepUpPasswordIncorrect =
         new("identity.step_up.password_incorrect", "The password is not correct.", "password");
@@ -66,9 +66,9 @@ public static class IdentityErrors
     public static readonly Error StepUpRequired =
         new("identity.step_up.required", "Confirm your password again to continue.", Kind: ErrorKind.Forbidden);
 
-    public static readonly Error SessionNotFound = new("identity.session.not_found", "The session does not exist.");
+    public static readonly Error SessionNotFound = new("identity.session.not_found", "The session does not exist.", Kind: ErrorKind.NotFound);
 
-    public static readonly Error SessionExpired = new("identity.session.expired", "The session has expired.");
+    public static readonly Error SessionExpired = new("identity.session.expired", "The session has expired.", Kind: ErrorKind.Unauthorized);
 
     public static readonly Error NoPendingEmailChange =
         new("identity.email_change.none_pending", "There is no email change to confirm.", Kind: ErrorKind.NotFound);

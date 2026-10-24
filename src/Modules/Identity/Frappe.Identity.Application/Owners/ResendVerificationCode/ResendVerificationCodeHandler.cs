@@ -8,8 +8,6 @@ namespace Frappe.Identity.Application.Owners;
 
 public static class ResendVerificationCodeHandler
 {
-    public static readonly Error OwnerNotFound = new("identity.owner.not_found", "The owner does not exist.");
-
     public static async Task<Result> Handle(
         ResendVerificationCode command,
         IPrincipalRepository principals,
@@ -20,7 +18,7 @@ public static class ResendVerificationCodeHandler
     {
         var principal = await principals.GetByIdAsync(command.PrincipalId, cancellationToken);
         if (principal is null)
-            return Result.Failure(OwnerNotFound);
+            return Result.Failure(IdentityErrors.OwnerNotFound);
         if (principal.Owner.Status != OwnerStatus.Pending)
             return Result.Failure(IdentityErrors.AccountNotPending);
 

@@ -10,7 +10,7 @@ using Wolverine;
 
 namespace Frappe.Identity.Infrastructure.Endpoints;
 
-public static class StepUpEndpointFilter
+internal static class StepUpEndpointFilter
 {
     /// <summary>
     /// Demands a step-up completed on the caller's session within the last five minutes, answering 403
@@ -23,9 +23,7 @@ public static class StepUpEndpointFilter
     internal static async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
         var services = context.HttpContext.RequestServices;
-        if (services.GetRequiredService<ICurrentPrincipal>().Session is not { } caller)
-            return TypedResults.Unauthorized();
-
+        var caller = services.GetRequiredService<ICurrentPrincipal>().RequiredSession();
         var bus = services.GetRequiredService<IMessageBus>();
         return await bus.InvokeAsync<bool>(new HasFreshStepUp(caller.PrincipalId, caller.SessionId), context.HttpContext.RequestAborted)
             ? await next(context)

@@ -60,8 +60,7 @@ public sealed class OwnerRegistrationTests(ApiFixture fixture) : IAsyncLifetime
 
         var result = await PostRegister(new { name = "Bea", email = email.ToUpperInvariant(), password = ValidPassword }, UniqueIp(), 409);
 
-        var body = await result.ReadAsJsonAsync<JsonElement>();
-        body.GetProperty("code").GetString().ShouldBe("email_taken");
+        await result.ShouldBeProblemAsync(409, "identity.email.taken", "email");
     }
 
     [Fact]
@@ -160,18 +159,19 @@ public sealed class OwnerRegistrationTests(ApiFixture fixture) : IAsyncLifetime
         var result = await PostResend(id, 429);
 
         RetryAfterSeconds(result).ShouldBeInRange(3000, 3600);
-        (await result.ReadAsTextAsync()).ShouldContain("identity.code.resend_limit_reached");
+        await result.ShouldBeProblemAsync(429, "identity.code.resend_limit_reached");
     }
 
     [Fact]
-    public async Task Resend_UnknownOwner_Is404() => await PostResend(Guid.CreateVersion7(), 404);
+    public async Task Resend_UnknownOwner_Is404() =>
+        await (await PostResend(Guid.CreateVersion7(), 404)).ShouldBeProblemAsync(404, "identity.owner.not_found");
 
     [Fact]
     public async Task Resend_VerifiedOwner_Is409()
     {
         var (principal, _, _) = await SessionSeeder.SeedAsync(fixture.Host);
 
-        await PostResend(principal.Id, 409);
+        await (await PostResend(principal.Id, 409)).ShouldBeProblemAsync(409, "identity.account.not_pending");
     }
 
     private async Task<Guid> RegisterAsync()
