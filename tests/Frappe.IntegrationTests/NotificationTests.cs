@@ -16,9 +16,11 @@ public sealed class NotificationTests(ApiFixture fixture)
 
     public static TheoryData<object, string, string> CodeEvents => new()
     {
-        { new OwnerVerificationCodeIssued(Guid.NewGuid(), "Ana", "verify@example.test", "111111", Expires), "verify@example.test", "111111 is your Frappé verification code" },
-        { new PasswordResetCodeIssued(Guid.NewGuid(), Guid.NewGuid(), "reset@example.test", "Ana", "222222", Expires), "reset@example.test", "222222 is your Frappé password reset code" },
-        { new EmailChangeCodeIssued(Guid.NewGuid(), Guid.NewGuid(), "Ana", "new@example.test", "333333", Expires), "new@example.test", "333333 confirms your new Frappé email" },
+        { new OwnerVerificationCodeIssued(Guid.NewGuid(), "Ana", "verify@example.test", "111111", Expires, "es-AR"), "verify@example.test", "Tu código de Frappé: 111111" },
+        { new PasswordResetCodeIssued(Guid.NewGuid(), Guid.NewGuid(), "reset@example.test", "Ana", "222222", Expires, "pt-BR"), "reset@example.test", "Código para trocar sua senha: 222222" },
+        { new EmailChangeCodeIssued(Guid.NewGuid(), Guid.NewGuid(), "Ana", "new@example.test", "333333", Expires, "en"), "new@example.test", "Code to confirm your new email: 333333" },
+        // Written before events carried a locale: still mailed, in the default language.
+        { new OwnerVerificationCodeIssued(Guid.NewGuid(), "Ana", "old@example.test", "555555", Expires), "old@example.test", "Your Frappé code: 555555" },
     };
 
     [Theory]
@@ -34,7 +36,9 @@ public sealed class NotificationTests(ApiFixture fixture)
         var mail = mailer.Sent.ShouldHaveSingleItem();
         mail.To.ShouldBe(to);
         mail.Subject.ShouldBe(subject);
-        mail.Text.ShouldContain(subject[..6]);
+        mail.Text.ShouldContain(subject[^6..]);
+        mail.Html.ShouldNotBeNull().ShouldContain(subject[^1..]);
+        mail.InlineImages.ShouldNotBeEmpty();
     }
 
     [Fact]
@@ -55,7 +59,7 @@ public sealed class NotificationTests(ApiFixture fixture)
             .PublishMessageAndWaitAsync(new OwnerVerificationCodeIssued(Guid.NewGuid(), "Ana", "log@example.test", "444444", Expires));
 
         var line = logs.Messages.Where(m => m.StartsWith("Mail to log@example.test", StringComparison.Ordinal)).ShouldHaveSingleItem();
-        line.ShouldContain("444444 is your Frappé verification code");
+        line.ShouldContain("Your Frappé code: 444444");
         TestContext.Current.SendDiagnosticMessage(line);
     }
 

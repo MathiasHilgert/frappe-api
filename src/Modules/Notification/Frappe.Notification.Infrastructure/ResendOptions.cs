@@ -7,7 +7,7 @@ public sealed class ResendOptions
 
     public string? ApiKey { get; set; }
 
-    public string From { get; set; } = "Frappé <onboarding@resend.dev>";
+    public string From { get; set; } = "Frappé <no-reply@frappe.la>";
 
     public Uri BaseAddress { get; set; } = new("https://api.resend.com/");
 

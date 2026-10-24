@@ -5,6 +5,12 @@
     <ProjectReference Include="..\Frappe.Notification.Application\Frappe.Notification.Application.csproj" />
     <ProjectReference Include="..\Frappe.Notification.Contracts\Frappe.Notification.Contracts.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\Frappe.Modularity\Frappe.Modularity.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\Frappe.Platform.Localization\Frappe.Platform.Localization.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Mails/i18n/*.json" />
+    <EmbeddedResource Include="Mails/*.png" />
   </ItemGroup>
 
   <ItemGroup>

@@ -52,7 +52,8 @@ public static class RequestEmailChangeHandler
             return new Throttled<Guid>(Result.Failure<Guid>(saved.Errors[0]));
 
         await messages.PublishAsync(new EmailChangeCodeIssued(
-            issued.Value.Id, principal.Id, principal.Owner.Name.Value, email.Value.Value, code, issued.Value.ExpiresAt));
+            issued.Value.Id, principal.Id, principal.Owner.Name.Value, email.Value.Value, code, issued.Value.ExpiresAt,
+            principal.Owner.Locale.Value));
         return new Throttled<Guid>(Result.Success(issued.Value.Id));
     }
 }
