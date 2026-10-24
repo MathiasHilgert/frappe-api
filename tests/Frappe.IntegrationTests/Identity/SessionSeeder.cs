@@ -1,3 +1,4 @@
+using Frappe.SharedKernel.Localization;
 using Alba;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
@@ -23,7 +24,7 @@ internal static class SessionSeeder
 
         var email = Email.Create($"owner-{Guid.NewGuid():N}@example.com").Value;
         var passwordHash = password is null ? "password-hash" : services.GetRequiredService<IPasswordHasher>().Hash(password);
-        var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, email, passwordHash, clock);
+        var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, email, passwordHash, Locale.Parse("en"), clock);
         principal.IssueCode(CodePurpose.EmailVerify, "code-hash", clock);
         principal.VerifyEmail("code-hash", clock).IsSuccess.ShouldBeTrue();
         var session = principal.OpenSession(services.GetRequiredService<ISecretHasher>().Hash(token), SessionSurface.Console, clock).Value;

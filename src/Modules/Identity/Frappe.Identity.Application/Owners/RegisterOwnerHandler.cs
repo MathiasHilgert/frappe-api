@@ -34,7 +34,7 @@ public static class RegisterOwnerHandler
         if (await principals.GetByEmailAsync(email.Value, cancellationToken) is not null)
             return Result.Failure<Guid>(IdentityErrors.EmailTaken);
 
-        var principal = Principal.RegisterOwner(name.Value, email.Value, passwordHasher.Hash(password.Value.Value), clock);
+        var principal = Principal.RegisterOwner(name.Value, email.Value, passwordHasher.Hash(password.Value.Value), command.Locale, clock);
         var issued = codes.Issue(principal).Value; // A new principal has no previous code, so the resend cap cannot apply.
         principals.Add(principal);
 

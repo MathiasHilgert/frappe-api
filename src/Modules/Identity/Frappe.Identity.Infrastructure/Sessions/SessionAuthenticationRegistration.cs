@@ -1,4 +1,6 @@
+using Frappe.Identity.Application.Account;
 using Frappe.Identity.Application.Sessions;
+using Frappe.Platform.Localization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,6 +25,8 @@ internal static class SessionAuthenticationRegistration
         services.AddScoped<LogIn>();
         services.AddScoped<LogOut>();
         services.AddScoped<GetMe>();
+        services.AddScoped<ChangeLocale>();
+        services.AddScoped<IPreferredLocaleSource, OwnerPreferredLocaleSource>();
 
         services.AddAuthentication(SessionAuthenticationHandler.SchemeName)
             .AddScheme<AuthenticationSchemeOptions, SessionAuthenticationHandler>(SessionAuthenticationHandler.SchemeName, null);

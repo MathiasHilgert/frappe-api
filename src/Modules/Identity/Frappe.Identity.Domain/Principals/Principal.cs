@@ -1,5 +1,6 @@
 using Frappe.Identity.Domain.Users;
 using Frappe.SharedKernel.Domain;
+using Frappe.SharedKernel.Localization;
 using Frappe.SharedKernel.Validation;
 
 namespace Frappe.Identity.Domain.Principals;
@@ -31,11 +32,12 @@ public sealed class Principal : AggregateRoot<Guid>
     public IReadOnlyList<Session> Sessions => _sessions;
     public IReadOnlyList<VerificationCode> Codes => _codes;
 
-    public static Principal RegisterOwner(PersonName name, Email email, string passwordHash, TimeProvider clock)
+    public static Principal RegisterOwner(PersonName name, Email email, string passwordHash, Locale locale, TimeProvider clock)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(passwordHash);
+        ArgumentNullException.ThrowIfNull(locale);
 
-        var principal = new Principal(new OwnerAccount(name, email, passwordHash), clock.GetUtcNow());
+        var principal = new Principal(new OwnerAccount(name, email, passwordHash, locale), clock.GetUtcNow());
         principal.Raise(new OwnerRegistrationSubmitted(principal.Id, email.Value));
         return principal;
     }
@@ -89,6 +91,13 @@ public sealed class Principal : AggregateRoot<Guid>
 
         Raise(new OwnerPendingPurged(Id));
         return Result.Success();
+    }
+
+    /// <summary>Which locales the platform serves is not identity's rule: the caller passes one it already accepted.</summary>
+    public void ChangeLocale(Locale locale)
+    {
+        ArgumentNullException.ThrowIfNull(locale);
+        Owner.Locale = locale;
     }
 
     public void Suspend() => Owner.Status = OwnerStatus.Suspended;

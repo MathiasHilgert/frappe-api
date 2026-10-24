@@ -2,6 +2,7 @@ using System.Globalization;
 using Frappe.Identity.Application.Owners;
 using Frappe.Identity.Application.Security;
 using Frappe.Identity.Domain;
+using Frappe.Platform.Localization;
 using Frappe.Platform.Web.Problems;
 using Frappe.SharedKernel.Validation;
 using Microsoft.AspNetCore.Builder;
@@ -29,6 +30,7 @@ internal static class OwnerRegistrationEndpoints
         RegisterOwnerRequest request,
         HttpContext http,
         IAttemptLimiter limiter,
+        IRequestLocale requestLocale,
         IMessageBus bus,
         CancellationToken cancellationToken)
     {
@@ -39,8 +41,9 @@ internal static class OwnerRegistrationEndpoints
         if (!perIp.IsAllowed || !perEmail.IsAllowed)
             return TooManyAttempts(http, perIp.RetryAfter > perEmail.RetryAfter ? perIp.RetryAfter : perEmail.RetryAfter);
 
+        // An anonymous request has no stored preference, so this is Accept-Language looked up, or the default.
         var registered = await bus.InvokeAsync<Result<Guid>>(
-            new RegisterOwner(request.Name, request.Email, request.Password), cancellationToken);
+            new RegisterOwner(request.Name, request.Email, request.Password, requestLocale.Current), cancellationToken);
 
         if (registered.IsSuccess)
             return TypedResults.Created((string?)null, new RegisteredOwnerResponse(registered.Value));

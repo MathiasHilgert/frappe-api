@@ -1,3 +1,4 @@
+using Frappe.SharedKernel.Localization;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Alba;
@@ -144,7 +145,7 @@ public sealed class OwnerVerificationTests(ApiFixture fixture)
         var clock = services.GetRequiredService<TimeProvider>();
 
         var email = Email.Create($"owner-{Guid.NewGuid():N}@example.com").Value;
-        var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, email, "password-hash", clock);
+        var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, email, "password-hash", Locale.Parse("en"), clock);
         principal.IssueCode(CodePurpose.EmailVerify, HashOf(host, Code), clock).IsSuccess.ShouldBeTrue();
 
         var repository = services.GetRequiredService<IPrincipalRepository>();

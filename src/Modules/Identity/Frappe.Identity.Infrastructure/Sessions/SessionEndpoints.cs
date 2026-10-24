@@ -1,7 +1,11 @@
 using System.Globalization;
+using Frappe.Identity.Application.Account;
 using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Principals;
+using Frappe.Platform.Localization;
+using Frappe.Platform.Web.Problems;
+using Frappe.SharedKernel.Localization;
 using Frappe.SharedKernel.Validation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -19,10 +23,14 @@ internal static class SessionEndpoints
         group.MapPost("/sessions", LogInAsync).AllowAnonymous().WithName("LogIn");
         group.MapDelete("/sessions/current", LogOutAsync).RequireAuthorization(IdentityPolicies.OwnerSelf).WithName("LogOut");
         group.MapGet("/me", GetMeAsync).RequireAuthorization(IdentityPolicies.OwnerSelf).WithName("GetMe");
+        group.MapPatch("/me", UpdateMeAsync).RequireAuthorization(IdentityPolicies.OwnerSelf).WithName("UpdateMe");
         return group;
     }
 
     public sealed record LogInRequest(string Email, string Password);
+
+    /// <summary>A partial update of the profile; only the locale is editable today.</summary>
+    public sealed record UpdateMeRequest(string? Locale);
 
     public sealed record SessionResponse(Guid Id, Guid PrincipalId, string Token, DateTimeOffset ExpiresAt);
 
@@ -63,6 +71,23 @@ internal static class SessionEndpoints
         await getMe.ExecuteAsync(current.Session!, cancellationToken) is { } profile
             ? TypedResults.Ok(profile)
             : TypedResults.Unauthorized();
+
+    // Only a locale the platform serves is stored; a regional variant it lacks maps to a sibling (es-CL to es-AR), as
+    // negotiation would, while a language it does not speak at all is refused rather than silently stored as English.
+    private static async Task<IResult> UpdateMeAsync(
+        UpdateMeRequest request, ICurrentPrincipal current, SupportedLocales supported, ChangeLocale changeLocale,
+        CancellationToken cancellationToken)
+    {
+        var parsed = Locale.Create(request.Locale);
+        if (parsed.IsFailure)
+            return parsed.ToProblem();
+        if (supported.Lookup(parsed.Value) is not { } locale)
+            return Result.Failure(IdentityErrors.LocaleUnsupported).ToProblem();
+
+        return await changeLocale.HandleAsync(current.Session!, locale, cancellationToken) is { } profile
+            ? TypedResults.Ok(profile)
+            : TypedResults.Unauthorized();
+    }
 
     // The owner id is only disclosed after the password was proven, so the console can route a pending owner to verify.
     private static ProblemHttpResult Problem(int status, Error error, Guid? ownerId = null)

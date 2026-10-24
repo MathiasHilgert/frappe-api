@@ -16,6 +16,9 @@ public static class IdentityErrors
     public static readonly Error EmailInvalid =
         new("identity.email.invalid", $"Email must look like name@domain and be at most {Email.MaxLength} characters.", "email");
 
+    public static readonly Error LocaleUnsupported =
+        new("identity.locale.unsupported", "Frappé does not speak this language yet.", "locale");
+
     public static readonly Error EmailTaken =
         new("identity.email.taken", "An account with this email already exists.", "email", ErrorKind.Conflict);
 
