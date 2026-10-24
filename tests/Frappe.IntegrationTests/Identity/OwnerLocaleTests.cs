@@ -94,6 +94,32 @@ public sealed class OwnerLocaleTests(ApiFixture fixture) : IAsyncLifetime
         (await SessionSeeder.LoadAsync(fixture.Host, owner.Id)).Owner.Locale.Value.ShouldBe("es-MX");
     }
 
+    [Fact]
+    public async Task PatchMe_DeclaresTheNewlyStoredLocale_InContentLanguage()
+    {
+        var (_, _, token) = await SessionSeeder.SeedAsync(fixture.Host);
+
+        var result = await PatchAsync(token, new { locale = "pt-BR" }, 200);
+
+        result.Context.Response.Headers.ContentLanguage.ToString().ShouldBe("pt-BR");
+    }
+
+    [Fact]
+    public async Task PatchMe_WithAnExplicitAcceptLanguage_KeepsDeclaringTheHeaderLocale()
+    {
+        var (_, _, token) = await SessionSeeder.SeedAsync(fixture.Host);
+
+        var result = await fixture.Host.Scenario(s =>
+        {
+            s.Patch.Json(new { locale = "pt-BR" }).ToUrl(Me);
+            s.WithRequestHeader("Authorization", $"Bearer {token}");
+            s.WithRequestHeader("Accept-Language", "es-AR");
+            s.StatusCodeShouldBe(200);
+        });
+
+        result.Context.Response.Headers.ContentLanguage.ToString().ShouldBe("es-AR");
+    }
+
     [Theory]
     [InlineData("not a tag!", "locale.invalid")]
     [InlineData("", "locale.invalid")]
