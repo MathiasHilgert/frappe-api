@@ -66,6 +66,8 @@ public sealed class ApiFixture : IAsyncLifetime
             builder.UseSetting("Notification:Resend:ApiKey", string.Empty);
             // A generous limiter budget so a busy CI container never makes the real-Valkey tests fail open.
             builder.UseSetting("Identity:AttemptLimiter:TimeoutMilliseconds", "2000");
+            // Load the committed handler code like production does: a stale `just codegen` fails here, not in prod.
+            builder.UseSetting("Wolverine:TypeLoadMode", "Static");
             builder.ConfigureServices(services =>
             {
                 services.RunWolverineInSoloMode();

@@ -72,6 +72,18 @@ migration module name: setup
     dotnet ef migrations add {{name}} -p "$proj" -s src/Host/Frappe.Api -c "$ctx" -o Persistence/Migrations
 
 
+# Regenerate Wolverine handler code into src/Host/Frappe.Api/Internal/Generated (commit the result)
+[group('dev')]
+codegen:
+    cd src/Host/Frappe.Api && ASPNETCORE_ENVIRONMENT=Development Notification__Resend__ApiKey= \
+      dotnet run --no-launch-profile -c {{configuration}} -- codegen write
+
+# Fails when the committed handler code differs from what the current handlers generate
+[group('quality')]
+codegen-check: codegen
+    git add -N src/Host/Frappe.Api/Internal/Generated
+    git diff --exit-code --stat -- src/Host/Frappe.Api/Internal/Generated \
+      || { echo "Generated Wolverine code is stale: run 'just codegen' and commit the result." >&2; exit 1; }
 
 # Remove bin/obj, TestResults and coverage/mutation output
 [group('dev')]
@@ -117,7 +129,7 @@ cover: build
     rm -rf {{coverage_dir}}
     just _run-tests all coverage
     dotnet reportgenerator '-reports:{{coverage_dir}}/raw/*/coverage.cobertura.xml' '-targetdir:{{coverage_dir}}' \
-      '-reporttypes:Html;MarkdownSummaryGithub;Cobertura;TextSummary' '-assemblyfilters:-*Tests' '-filefilters:-*.g.cs;-*/obj/*'
+      '-reporttypes:Html;MarkdownSummaryGithub;Cobertura;TextSummary' '-assemblyfilters:-*Tests' '-filefilters:-*.g.cs;-*/obj/*;-*/Internal/Generated/*'
     cat {{coverage_dir}}/Summary.txt
     rate="$(grep -m1 -o 'line-rate="[0-9.]*"' {{coverage_dir}}/Cobertura.xml | grep -o '[0-9.]*')"; \
     pct="$(awk -v r="$rate" 'BEGIN { printf "%.1f", r * 100 }')"; \

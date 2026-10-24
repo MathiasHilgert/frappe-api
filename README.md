@@ -163,6 +163,11 @@ Only files tools must find at the root live there: `global.json`, `Directory.*.p
 Every use case is a message with one Wolverine handler, sent from the endpoint with `IMessageBus`, so every use case
 gets the same tracing, and every command the same EF Core transaction and outbox.
 
+Handler code is generated ahead of time into `src/Host/Frappe.Api/Internal/Generated` and committed. After adding
+or changing a handler (or its dependencies), run `just codegen` and commit the result: Development regenerates
+stale code on its own, but production and the integration tests load only the committed code
+(`TypeLoadMode.Static`), and CI (`just codegen-check`) fails when it is stale.
+
 | | Command | Query |
 | --- | --- | --- |
 | Message | `record` implementing `ICommand`, imperative name (`ChangeLocale`) | `record` implementing `IQuery<TResult>` (`GetMe`, `ListOwnerSessions`) |

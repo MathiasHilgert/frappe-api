@@ -39,3 +39,7 @@ dotnet_diagnostic.MA0006.severity = none
 [tests/**/*.cs]
 # Tests co-locate small test-only types (probe messages, fixture records) with the tests that use them.
 dotnet_diagnostic.MA0048.severity = none
+
+[src/Host/Frappe.Api/Internal/Generated/**.cs]
+# Wolverine handler code written by `just codegen`: analyzers and `dotnet format` skip it.
+generated_code = true
