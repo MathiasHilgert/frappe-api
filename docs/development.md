@@ -15,7 +15,7 @@ The devcontainer (`.devcontainer/devcontainer.json`) installs the SDK, Docker-in
 just dev
 ```
 
-`just dev` starts Postgres, NATS, Valkey, Mailpit and Grafana LGTM (`docker compose up -d --wait`), applies every
+`just dev` starts Postgres, NATS, Valkey, Mailpit and Grafana LGTM (`docker compose up -d --wait --no-recreate`: running containers are reused as they are, never recreated), applies every
 module's migrations (`just migrate`, a no-op when current) and runs the API under `dotnet watch` with the `http`
 profile. It never stops, resets or deletes anything, so rerun it whenever you like; Ctrl+C stops the API only, the
 containers keep their data. `just down` stops the containers without deleting volumes.

@@ -46,7 +46,7 @@ doctor:
 # Dependencies up, migrations applied, API with hot reload. Idempotent and non-destructive; Ctrl+C stops the API only
 [group('dev')]
 dev:
-    {{compose}} up -d --wait postgres nats valkey mailpit lgtm
+    {{compose}} up -d --wait --no-recreate postgres nats valkey mailpit lgtm
     just migrate
     @echo "API http://localhost:5131 | Scalar http://localhost:5131/scalar/v1 | Mailpit http://localhost:8025 | Grafana http://localhost:3000"
     dotnet watch --project src/Host/Frappe.Api run --launch-profile http
