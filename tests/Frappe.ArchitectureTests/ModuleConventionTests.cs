@@ -8,7 +8,7 @@ using Shouldly;
 
 namespace Frappe.ArchitectureTests;
 
-/// <summary>Module-level rules the README documents: how the host, Contracts, folders and schemas are shaped.</summary>
+/// <summary>Module-level rules docs/conventions.md documents: how the host, Contracts, folders and schemas are shaped.</summary>
 public sealed partial class ModuleConventionTests
 {
     public static TheoryData<string> ContractsProjects => [.. Solution.OfKind(ProjectKind.ModuleContracts).Select(p => p.Name)];
