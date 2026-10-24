@@ -1,6 +1,7 @@
 using Frappe.Identity.Application.PasswordResets;
 using Frappe.Platform.Web.Forwarding;
 using Frappe.Platform.Web.Problems;
+using Frappe.Platform.Web.Security;
 using Frappe.SharedKernel.Validation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -15,7 +16,7 @@ internal static class PasswordResetEndpoints
 {
     public static RouteGroupBuilder MapPasswordResetEndpoints(this RouteGroupBuilder group)
     {
-        var resets = group.MapGroup("/password-resets").AllowAnonymous();
+        var resets = group.MapGroup("/password-resets").AllowAnonymousAuth();
         resets.MapPost("/", RequestAsync)
             .WithName("RequestPasswordReset")
             .WithSummary("Emails a reset code when the address belongs to an owner; answers the same either way.")

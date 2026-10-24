@@ -26,5 +26,6 @@
   "identity.session.not_found": "A sessão não existe.",
   "identity.session.expired": "A sessão expirou.",
   "identity.email_change.none_pending": "Não há nenhuma troca de e-mail para confirmar.",
-  "identity.email_change.not_found": "Esta troca de e-mail não existe ou foi substituída por uma mais recente."
+  "identity.email_change.not_found": "Esta troca de e-mail não existe ou foi substituída por uma mais recente.",
+  "identity.password_hashing.busy": "O servidor está ocupado. Tente de novo em instantes."
 }

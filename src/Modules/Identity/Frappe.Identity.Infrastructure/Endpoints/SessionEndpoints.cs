@@ -5,6 +5,7 @@ using Frappe.Identity.Infrastructure.Sessions;
 using Frappe.Platform.Localization;
 using Frappe.Platform.Web.Forwarding;
 using Frappe.Platform.Web.Problems;
+using Frappe.Platform.Web.Security;
 using Frappe.SharedKernel.Localization;
 using Frappe.SharedKernel.Validation;
 using Microsoft.AspNetCore.Builder;
@@ -21,7 +22,7 @@ internal static class SessionEndpoints
     public static RouteGroupBuilder MapSessionEndpoints(this RouteGroupBuilder group)
     {
         group.MapPost("/sessions", LogInAsync)
-            .AllowAnonymous()
+            .AllowAnonymousAuth()
             .WithName("LogIn")
             .WithSummary("Signs an owner in with email and password, issuing the session cookie and token.")
             .ProducesProblem(StatusCodes.Status401Unauthorized)

@@ -56,7 +56,8 @@ public sealed class LocalizedProblemResult : IResult, IStatusCodeHttpResult
         foreach (var (key, value) in _errors.Where(e => e.Metadata is not null).SelectMany(e => e.Metadata!))
             problem.Extensions[key] = value;
 
-        if (StatusCode == StatusCodes.Status429TooManyRequests && _errors.Max(e => e.RetryAfter) is { } wait)
+        if (StatusCode is StatusCodes.Status429TooManyRequests or StatusCodes.Status503ServiceUnavailable
+            && _errors.Max(e => e.RetryAfter) is { } wait)
         {
             httpContext.Response.Headers[HeaderNames.RetryAfter] =
                 Math.Max(1L, (long)Math.Ceiling(wait.TotalSeconds)).ToString(CultureInfo.InvariantCulture);

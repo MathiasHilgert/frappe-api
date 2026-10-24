@@ -89,6 +89,23 @@ public sealed class Argon2PasswordHasherTests
             (await single.VerifyAsync("correct horse battery", hash, Ct)).ShouldBeTrue();
     }
 
+    [Fact]
+    public async Task NoSlotFreeingInTime_IsUnavailable_WithARetryAfter()
+    {
+        using var single = Create(maxConcurrentHashes: 1, slotWaitMilliseconds: 1);
+        var slots = (SemaphoreSlim)typeof(Argon2PasswordHasher)
+            .GetField("_slots", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(single)!;
+        await slots.WaitAsync(Ct); // another request holds the only slot
+
+        var busy = await Should.ThrowAsync<Frappe.SharedKernel.Validation.UnavailableException>(
+            () => single.HashAsync("correct horse battery", Ct));
+
+        busy.Error.Is(Frappe.Identity.Domain.IdentityErrors.PasswordHashingBusy).ShouldBeTrue();
+        busy.Error.RetryAfter.ShouldBe(TimeSpan.FromSeconds(1));
+        slots.Release();
+        (await single.HashAsync("correct horse battery", Ct)).ShouldStartWith("$argon2id$");
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(1_025)]
@@ -104,12 +121,14 @@ public sealed class Argon2PasswordHasherTests
         new Argon2OptionsValidator().Validate(null, new Argon2Options()).Succeeded.ShouldBeTrue();
     }
 
-    private static Argon2PasswordHasher Create(int iterations = Argon2Options.MinimumIterations, int maxConcurrentHashes = 4) =>
+    private static Argon2PasswordHasher Create(
+        int iterations = Argon2Options.MinimumIterations, int maxConcurrentHashes = 4, int slotWaitMilliseconds = 2_000) =>
         new(Options.Create(new Argon2Options
         {
             MemorySizeKib = Argon2Options.MinimumMemorySizeKib,
             Iterations = iterations,
             Parallelism = 1,
             MaxConcurrentHashes = maxConcurrentHashes,
+            SlotWaitMilliseconds = slotWaitMilliseconds,
         }));
 }

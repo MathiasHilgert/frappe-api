@@ -41,6 +41,10 @@ public static class IdentityErrors
     public static readonly Error TooManyAttempts =
         new("identity.attempts.too_many", "Too many attempts. Try again later.", Kind: ErrorKind.TooManyRequests);
 
+    /// <summary>No password-hashing slot freed in time: the server is saturated, so the caller backs off and retries.</summary>
+    public static readonly Error PasswordHashingBusy =
+        new("identity.password_hashing.busy", "The server is busy. Try again in a moment.", Kind: ErrorKind.Unavailable);
+
     public static readonly Error OwnerNotFound = new("identity.owner.not_found", "The owner does not exist.", Kind: ErrorKind.NotFound);
 
     public static readonly Error AccountPending = new("identity.account.pending", "The email has not been verified yet.", Kind: ErrorKind.Forbidden);

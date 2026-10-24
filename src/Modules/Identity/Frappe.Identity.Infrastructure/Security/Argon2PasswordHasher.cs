@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Frappe.Identity.Application.Security;
+using Frappe.Identity.Domain;
+using Frappe.SharedKernel.Validation;
 using Konscious.Security.Cryptography;
 using Microsoft.Extensions.Options;
 
@@ -10,7 +12,8 @@ namespace Frappe.Identity.Infrastructure.Security;
 /// <summary>
 /// Argon2id in the PHC string format (<c>$argon2id$v=19$m=…,t=…,p=…$salt$hash</c>), so a hash keeps the cost it
 /// was made with and raising the options never breaks existing passwords. At most
-/// <see cref="Argon2Options.MaxConcurrentHashes"/> derivations run at once; callers beyond that wait asynchronously.
+/// <see cref="Argon2Options.MaxConcurrentHashes"/> derivations run at once; callers beyond that wait asynchronously
+/// for at most <see cref="Argon2Options.SlotWaitMilliseconds"/>, then get an <see cref="UnavailableException"/> (503).
 /// </summary>
 internal sealed class Argon2PasswordHasher : IPasswordHasher, IDisposable
 {
@@ -63,7 +66,8 @@ internal sealed class Argon2PasswordHasher : IPasswordHasher, IDisposable
     private async Task<byte[]> DeriveAsync(
         string password, byte[] salt, int memoryKib, int iterations, int parallelism, int size, CancellationToken cancellationToken)
     {
-        await _slots.WaitAsync(cancellationToken);
+        if (!await _slots.WaitAsync(TimeSpan.FromMilliseconds(_cost.SlotWaitMilliseconds), cancellationToken))
+            throw new UnavailableException(IdentityErrors.PasswordHashingBusy.WithRetryAfter(TimeSpan.FromSeconds(1)));
         try
         {
             return Derive(password, salt, memoryKib, iterations, parallelism, size);

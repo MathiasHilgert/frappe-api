@@ -27,4 +27,11 @@ internal sealed class Argon2Options
     /// </summary>
     [Range(1, 1_024)]
     public int MaxConcurrentHashes { get; set; } = Environment.ProcessorCount;
+
+    /// <summary>
+    /// How long a caller waits for a hashing slot before the request answers 503 with a retry-after, so a flood
+    /// sheds load instead of piling up requests that hold memory and connections.
+    /// </summary>
+    [Range(1, 60_000)]
+    public int SlotWaitMilliseconds { get; set; } = 2_000;
 }

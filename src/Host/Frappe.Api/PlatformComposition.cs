@@ -32,6 +32,7 @@ internal static class PlatformComposition
         services.AddTrustedForwardedHeaders(configuration);
         services.AddRequestCorrelation();
         services.AddDenyByDefaultSecurity();
+        services.AddAnonymousRateLimiting();
         services.AddSingleton(TimeProvider.System);
         services.AddPlatformHealth();
         services.AddPostgres(configuration);
@@ -56,7 +57,7 @@ internal static class PlatformComposition
     /// The request pipeline. Order matters: forwarded headers run first so everything sees the real client address
     /// (only from trusted proxies); correlation runs next so every response and error carries the
     /// request id; error handling wraps everything after it; localization follows authentication so a stored
-    /// preference can be read, and precedes authorization so 401/403 problems are translated too.
+    /// preference can be read, and precedes the rate limiter and authorization so 429 and 401/403 problems are translated too.
     /// </summary>
     public static WebApplication UseFrappe(this WebApplication app)
     {
@@ -66,6 +67,7 @@ internal static class PlatformComposition
         app.UseStatusCodePages();
         app.UseAuthentication();
         app.UsePlatformLocalization();
+        app.UseRateLimiter();
         app.UseAuthorization();
 
         return app;

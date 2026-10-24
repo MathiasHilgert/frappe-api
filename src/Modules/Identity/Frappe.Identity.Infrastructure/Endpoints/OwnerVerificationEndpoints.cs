@@ -1,6 +1,7 @@
 using Frappe.Identity.Application.Owners;
 using Frappe.Identity.Infrastructure.Sessions;
 using Frappe.Platform.Web.Problems;
+using Frappe.Platform.Web.Security;
 using Frappe.SharedKernel.Validation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -15,7 +16,7 @@ internal static class OwnerVerificationEndpoints
     public static RouteGroupBuilder MapOwnerVerificationEndpoints(this RouteGroupBuilder group)
     {
         group.MapPost("/owners/{id:guid}/verification", VerifyAsync)
-            .AllowAnonymous()
+            .AllowAnonymousAuth()
             .WithName("VerifyOwnerEmail")
             .WithSummary("Verifies a pending owner's email with the emailed code and signs them in.")
             .ProducesProblem(StatusCodes.Status404NotFound)

@@ -9,4 +9,7 @@ public enum ErrorKind
     TooManyRequests,
     Unauthorized,
     Forbidden,
+
+    /// <summary>A dependency or capacity limit is temporarily exhausted; trying again later may succeed.</summary>
+    Unavailable,
 }

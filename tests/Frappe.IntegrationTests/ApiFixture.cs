@@ -128,11 +128,12 @@ public sealed class ApiFixture : IAsyncLifetime
         Action<IServiceCollection>? configureServices = null,
         string environment = "Development",
         string? connectionString = null,
-        bool realPasswordHasher = false)
+        bool realPasswordHasher = false,
+        Action<IDictionary<string, string?>>? configureSettings = null)
     {
         var stack = await StackAsync();
         return await CreateHostAsync(configureServices, environment, connectionString ?? stack.ConnectionString,
-            stack.ValkeyConnectionString, realPasswordHasher);
+            stack.ValkeyConnectionString, realPasswordHasher, configureSettings);
     }
 
     private Task<IAlbaHost> CreateHostAsync(
@@ -140,7 +141,8 @@ public sealed class ApiFixture : IAsyncLifetime
         string environment = "Development",
         string? connectionString = null,
         string? valkeyConnectionString = null,
-        bool realPasswordHasher = false) =>
+        bool realPasswordHasher = false,
+        Action<IDictionary<string, string?>>? configureSettings = null) =>
         AlbaHost.For<Program>(builder =>
         {
             builder.UseEnvironment(environment);
@@ -158,6 +160,10 @@ public sealed class ApiFixture : IAsyncLifetime
             builder.UseSetting("Identity:AttemptLimiter:TimeoutMilliseconds", "2000");
             // Load the committed handler code like production does: a stale `just codegen` fails here, not in prod.
             builder.UseSetting("Wolverine:TypeLoadMode", "Static");
+            var settings = new Dictionary<string, string?>(StringComparer.Ordinal);
+            configureSettings?.Invoke(settings);
+            foreach (var (key, value) in settings)
+                builder.UseSetting(key, value);
             builder.ConfigureServices(services =>
             {
                 services.RunWolverineInSoloMode();
