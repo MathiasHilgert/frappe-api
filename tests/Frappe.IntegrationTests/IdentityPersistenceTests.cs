@@ -225,6 +225,26 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
         scope.ServiceProvider.GetRequiredService<IdentityDbContext>().ChangeTracker.Entries().ShouldBeEmpty();
     }
 
+    [Fact]
+    public async Task TouchSession_MovesLastSeenOnlyWhenDue_InOneUpdate_LeavingThePrincipalsVersion()
+    {
+        var (principal, sessionId) = await SeedActiveWithSessionAsync();
+        var version = await ScalarAsync($"SELECT xmin::text FROM identity.principals WHERE id = '{principal.Id}'");
+        var seen = Clock.GetUtcNow();
+        await using var scope = fixture.Host.Services.CreateAsyncScope();
+        var touches = scope.ServiceProvider.GetRequiredService<Frappe.Identity.Application.Sessions.ISessionTouches>();
+        var ct = TestContext.Current.CancellationToken;
+
+        (await touches.TouchAsync(sessionId, seen.AddMinutes(1), seen, ct)).ShouldBeFalse();
+        (await touches.TouchAsync(sessionId, seen.AddMinutes(10), seen.AddMinutes(5), ct)).ShouldBeTrue();
+        (await touches.TouchAsync(sessionId, seen.AddMinutes(11), seen.AddMinutes(6), ct)).ShouldBeFalse();
+        (await touches.TouchAsync(Guid.CreateVersion7(), seen.AddMinutes(20), seen.AddMinutes(15), ct)).ShouldBeFalse();
+
+        var reloaded = (await WithRepositoryAsync(r => r.GetByIdAsync(principal.Id, ct))).ShouldNotBeNull();
+        reloaded.Sessions.Single().LastSeenAt.ShouldBe(seen.AddMinutes(10));
+        (await ScalarAsync($"SELECT xmin::text FROM identity.principals WHERE id = '{principal.Id}'")).ShouldBe(version);
+    }
+
     private async Task<(Principal Principal, Guid SessionId)> SeedActiveWithSessionAsync()
     {
         var principal = NewOwner(UniqueEmail());

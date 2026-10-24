@@ -5,10 +5,12 @@ namespace Frappe.Identity.Application.Sessions;
 
 /// <summary>
 /// Resolves an opaque session token to its live session, checking expiry against the clock on every call and
-/// rejecting sessions of suspended owners. Most requests only read a lean credential; the aggregate is loaded and
-/// tracked only when the session is due a touch.
+/// rejecting sessions of suspended owners. Every request reads one lean credential; a session due a touch costs one
+/// more single-row <c>UPDATE ... WHERE last_seen_at &lt; x</c>, never the aggregate. The credential is not cached:
+/// a revocation must take effect on the next request on every instance, and the read is one indexed lookup.
 /// </summary>
-public sealed class SessionAuthenticator(IPrincipalRepository principals, ISecretHasher hasher, TimeProvider clock)
+public sealed class SessionAuthenticator(
+    IPrincipalRepository principals, ISessionTouches touches, ISecretHasher hasher, TimeProvider clock)
 {
     /// <summary>
     /// Use moves the idle expiry, but writing on every request would turn each read into a write. A session is
@@ -37,15 +39,13 @@ public sealed class SessionAuthenticator(IPrincipalRepository principals, ISecre
     }
 
     /// <summary>
-    /// Best effort: a touch that loses a race (another request changed the principal meanwhile) is skipped, and the
-    /// session is admitted only if a fresh read still admits it, so a revocation racing the touch wins without a 500.
+    /// Best effort: when the update changes nothing (another request touched first, or a revocation deleted the
+    /// session), the session is admitted only if a fresh read still admits it, so a racing revocation wins.
     /// </summary>
     private async Task<bool> TouchAsync(SessionCredential credential, string tokenHash, CancellationToken cancellationToken)
     {
-        var principal = await principals.GetByIdAsync(credential.PrincipalId, cancellationToken);
-        if (principal is null || principal.TouchSession(credential.SessionId, clock.GetUtcNow()).IsFailure)
-            return false;
-        if ((await principals.SaveAsync(cancellationToken)).IsSuccess)
+        var now = clock.GetUtcNow();
+        if (await touches.TouchAsync(credential.SessionId, now, now - TouchInterval, cancellationToken))
             return true;
 
         var fresh = await principals.FindSessionCredentialAsync(tokenHash, cancellationToken);

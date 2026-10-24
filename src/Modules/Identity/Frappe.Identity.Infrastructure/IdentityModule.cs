@@ -4,6 +4,7 @@ using Frappe.Identity.Application.Account;
 using Frappe.Identity.Application.Owners;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
+using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Contracts;
 using Frappe.Identity.Contracts.Queries;
 using Frappe.Identity.Infrastructure.Endpoints;
@@ -73,6 +74,7 @@ public sealed class IdentityModule : IModule
         services.AddScoped<IPrincipalRepository, PrincipalRepository>();
         services.AddScoped<IOwnerReads, OwnerReads>();
         services.AddScoped<IOwnerDirectory, OwnerDirectory>();
+        services.AddScoped<ISessionTouches, SessionTouches>();
     }
 
     private static void AddTelemetry(IServiceCollection services)
