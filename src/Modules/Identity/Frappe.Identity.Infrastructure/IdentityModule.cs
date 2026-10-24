@@ -61,6 +61,7 @@ public sealed class IdentityModule : IModule
         services.AddSessionAuthentication(configuration);
         AddPasswordPolicy(services, configuration);
         services.AddSingleton<IdentityMetrics>();
+        services.AddSingleton<IIdentityTelemetry>(sp => sp.GetRequiredService<IdentityMetrics>());
         services.AddOptions<AttemptLimiterOptions>()
             .Bind(configuration.GetSection(AttemptLimiterOptions.Section))
             .ValidateOnStart();

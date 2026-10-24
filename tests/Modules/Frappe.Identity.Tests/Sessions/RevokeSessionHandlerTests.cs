@@ -72,8 +72,8 @@ public sealed class RevokeSessionHandlerTests
         public Task<Principal?> GetBySessionTokenHashAsync(string tokenHash, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<SessionCredential?> FindSessionCredentialAsync(string tokenHash, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<Principal?> GetByCodeIdAsync(Guid codeId, CodePurpose purpose, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<IReadOnlyList<Principal>> ListPendingRegisteredBeforeAsync(DateTimeOffset cutoff, int limit, CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
+        public Task<IReadOnlyList<PurgeCandidate>> ListPurgeCandidatesAsync(
+            DateTimeOffset cutoff, PurgeCandidate? after, int limit, CancellationToken cancellationToken) => throw new NotSupportedException();
         public void Add(Principal principal) => throw new NotSupportedException();
         public void Remove(Principal principal) => throw new NotSupportedException();
     }

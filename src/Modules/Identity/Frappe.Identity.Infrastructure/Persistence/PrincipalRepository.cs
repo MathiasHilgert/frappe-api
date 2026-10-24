@@ -34,13 +34,23 @@ public sealed class PrincipalRepository(IdentityDbContext context) : IPrincipalR
     public Task<Principal?> GetByCodeIdAsync(Guid codeId, CodePurpose purpose, CancellationToken cancellationToken) =>
         context.Principals.FirstOrDefaultAsync(p => p.Codes.Any(c => c.Id == codeId && c.Purpose == purpose), cancellationToken);
 
-    public async Task<IReadOnlyList<Principal>> ListPendingRegisteredBeforeAsync(
-        DateTimeOffset cutoff, int limit, CancellationToken cancellationToken) =>
-        await context.Principals
-            .Where(p => p.Owner.Status == OwnerStatus.Pending && p.RegisteredAt < cutoff)
-            .OrderBy(p => p.RegisteredAt)
+    public async Task<IReadOnlyList<PurgeCandidate>> ListPurgeCandidatesAsync(
+        DateTimeOffset cutoff, PurgeCandidate? after, int limit, CancellationToken cancellationToken)
+    {
+        var pending = context.Principals.AsNoTracking()
+            .Where(p => p.Owner.Status == OwnerStatus.Pending && p.RegisteredAt < cutoff);
+        if (after is not null)
+        {
+            pending = pending.Where(p => p.RegisteredAt > after.RegisteredAt
+                || (p.RegisteredAt == after.RegisteredAt && p.Id.CompareTo(after.Id) > 0));
+        }
+
+        return await pending
+            .OrderBy(p => p.RegisteredAt).ThenBy(p => p.Id)
             .Take(limit)
+            .Select(p => new PurgeCandidate(p.Id, p.RegisteredAt))
             .ToListAsync(cancellationToken);
+    }
 
     public void Add(Principal principal) => context.Principals.Add(principal);
 

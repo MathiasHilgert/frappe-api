@@ -29,6 +29,7 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.20.1" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.20.1" />
     <PackageVersion Include="Quartz.Extensions.Hosting" Version="4.6.0" />
+    <PackageVersion Include="Quartz.Serialization.SystemTextJson" Version="4.6.0" />
     <PackageVersion Include="Scalar.AspNetCore" Version="2.18.3" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="StackExchange.Redis" Version="3.4.20" />

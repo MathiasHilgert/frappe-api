@@ -37,7 +37,7 @@ internal static class PlatformComposition
         services.AddPostgres(configuration);
         services.AddRealtime(configuration);
         services.AddCaching(configuration, builder.Environment);
-        services.AddJobs();
+        services.AddJobs(configuration.GetPostgresConnectionString(), builder.Environment);
         services.AddOpenApiDocs();
 
         foreach (var module in modules)

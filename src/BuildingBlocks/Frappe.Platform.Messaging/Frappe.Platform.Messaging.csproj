@@ -11,13 +11,15 @@
 
   <ItemGroup>
     <PackageReference Include="Quartz.Extensions.Hosting" />
+    <PackageReference Include="Quartz.Serialization.SystemTextJson" />
     <PackageReference Include="WolverineFx" />
     <PackageReference Include="WolverineFx.EntityFrameworkCore" />
     <PackageReference Include="WolverineFx.Postgresql" />
     <PackageReference Include="WolverineFx.RuntimeCompilation" />
   </ItemGroup>
 
-  <PropertyGroup>
-  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Jobs\quartz-postgres.sql" LogicalName="Frappe.Platform.Messaging.Jobs.quartz-postgres.sql" />
+  </ItemGroup>
 
 </Project>

@@ -1,7 +1,9 @@
 using Frappe.Modularity;
+using Frappe.Platform.Messaging.Jobs;
 using Frappe.SharedKernel.Domain;
 using JasperFx;
 using JasperFx.CodeGeneration;
+using JasperFx.Resources;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -74,12 +76,28 @@ public static class MessagingRegistration
     }
 
     /// <summary>
-    /// Recurring jobs. In-memory store until the first real recurring job lands; switch to the clustered
-    /// PostgreSQL store (schema "quartz") then, so only one instance fires each trigger.
+    /// Recurring jobs on Quartz's clustered PostgreSQL store (schema <c>quartz</c>): every instance runs a scheduler,
+    /// but the store's row locks let exactly one of them fire each trigger, and a dead instance's jobs are recovered
+    /// by another. The schema is a JasperFx resource (<c>resources setup</c>); Development provisions it on start.
     /// </summary>
-    public static IServiceCollection AddJobs(this IServiceCollection services)
+    public static IServiceCollection AddJobs(
+        this IServiceCollection services, string postgresConnectionString, IHostEnvironment environment)
     {
-        services.AddQuartz();
+        ArgumentNullException.ThrowIfNull(environment);
+        var schema = new QuartzSchema(postgresConnectionString);
+        services.AddSingleton(schema);
+        services.AddSingleton<IStatefulResource>(schema);
+        // Registered before the Quartz hosted service, so it runs first.
+        services.AddHostedService(_ => new QuartzSchemaSetup(schema, provision: environment.IsDevelopment()));
+
+        services.AddQuartz(quartz => quartz.UsePersistentStore(store =>
+        {
+            store.UseClustering();
+            store.UseSystemTextJsonSerializer();
+            store.UsePostgres(postgresConnectionString);
+            store.ConfigureStore(options => options.TablePrefix = QuartzSchema.TablePrefix);
+        }));
+        services.Configure<QuartzSchedulerOptions>(options => options.GenerateInstanceId = true);
         services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);
         return services;
     }

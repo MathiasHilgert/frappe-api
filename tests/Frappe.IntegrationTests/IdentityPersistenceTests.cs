@@ -80,6 +80,21 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
     }
 
     [Fact]
+    public async Task ListPurgeCandidates_PagesByKeyset_StartingAfterTheCursor()
+    {
+        for (var i = 0; i < 3; i++)
+            await SaveAsync(NewOwner(UniqueEmail()));
+        var cutoff = DateTimeOffset.UtcNow.AddYears(1);
+
+        var all = await WithRepositoryAsync(r => r.ListPurgeCandidatesAsync(cutoff, null, 10_000, CancellationToken.None));
+        var rest = await WithRepositoryAsync(r => r.ListPurgeCandidatesAsync(cutoff, all[1], 10_000, CancellationToken.None));
+
+        all.Count.ShouldBeGreaterThanOrEqualTo(3);
+        all.Select(c => c.RegisteredAt).ShouldBe([.. all.Select(c => c.RegisteredAt).Order()]);
+        rest.ShouldBe(all.Skip(2).ToList());
+    }
+
+    [Fact]
     public async Task GetByEmail_ReturnsNullForAnUnknownAddress()
     {
         var loaded = await WithRepositoryAsync(r => r.GetByEmailAsync(Email(UniqueEmail()), TestContext.Current.CancellationToken));
