@@ -40,8 +40,7 @@ public static class MessagingRegistration
         builder.Services.AddOptions<MessageSealOptions>()
             .BindConfiguration(MessageSealOptions.SectionName)
             .Validate<IHostEnvironment>(
-                (options, environment) => environment.IsDevelopment()
-                    || !string.Equals(options.Key, MessageSealOptions.DevelopmentKey, StringComparison.Ordinal),
+                (options, environment) => environment.IsDevelopment() || !MessageSealOptions.IsDevelopmentKey(options.Key),
                 $"'{MessageSealOptions.SectionName}:Key' is the committed development key; set a real one outside Development.")
             .ValidateOnStart();
         builder.Services.AddSingleton<IMessageSeal, AesGcmMessageSeal>();

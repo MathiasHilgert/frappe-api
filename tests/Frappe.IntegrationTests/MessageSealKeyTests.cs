@@ -18,6 +18,26 @@ public sealed class MessageSealKeyTests(ApiFixture fixture)
         error.ToString().ShouldContain("'Messaging:Seal:Key' is the committed development key; set a real one outside Development.");
     }
 
+    [Theory]
+    [InlineData("upper")]
+    [InlineData("padded")]
+    [InlineData("base64")]
+    public async Task Production_WithAVariantOfTheDevelopmentSealKey_RefusesToStart(string variant)
+    {
+        var key = DevelopmentSealKey();
+        var configured = variant switch
+        {
+            "upper" => key.ToUpperInvariant(),
+            "padded" => $"  {key}\t",
+            _ => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(key)),
+        };
+
+        var error = await Should.ThrowAsync<Exception>(() => fixture.CreateHostAsync(
+            environment: "Production", configureSettings: s => s["Messaging:Seal:Key"] = configured));
+
+        error.ToString().ShouldContain("'Messaging:Seal:Key' is the committed development key; set a real one outside Development.");
+    }
+
     [Fact]
     public async Task Development_AcceptsTheDevelopmentSealKey()
     {
