@@ -1,3 +1,3 @@
 namespace Frappe.Identity.Infrastructure.Endpoints;
 
-public sealed record EmailChangeResponse(Guid Id);
+internal sealed record EmailChangeResponse(Guid Id);

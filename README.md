@@ -198,6 +198,8 @@ returns, a command handler returns anything but `Result`/`Result<T>`, a backgrou
 `Result`, or a query handler is not `[NonTransactional]`. `EdgeConventionTests.cs` fails when an endpoint builds a
 problem itself (`TypedResults.Problem`, `Results.Problem`, `new ProblemDetails`), an endpoint lives outside
 `Endpoints/` or is not named `*Endpoints`, or an `Error` is declared outside a `*Errors` catalogue.
+`VisibilityTests.cs` fails when a module's Infrastructure exposes a public type other than its `IModule`, except the
+adapters Wolverine constructs inline in the generated handlers (`IdentityDbContext`, `PrincipalRepository`, `OwnerReads`).
 
 Migrations:
 

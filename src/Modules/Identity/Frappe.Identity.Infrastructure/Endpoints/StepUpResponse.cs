@@ -1,3 +1,3 @@
 namespace Frappe.Identity.Infrastructure.Endpoints;
 
-public sealed record StepUpResponse(DateTimeOffset ExpiresAt);
+internal sealed record StepUpResponse(DateTimeOffset ExpiresAt);

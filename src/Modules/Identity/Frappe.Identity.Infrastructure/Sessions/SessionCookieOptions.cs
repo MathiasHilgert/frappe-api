@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace Frappe.Identity.Infrastructure.Sessions;
 
 /// <summary>Where the web console keeps its session token. Always HttpOnly, Secure and SameSite=Lax.</summary>
-public sealed class SessionCookieOptions : IValidatableObject
+internal sealed class SessionCookieOptions : IValidatableObject
 {
     public const string Section = "Identity:SessionCookie";
 

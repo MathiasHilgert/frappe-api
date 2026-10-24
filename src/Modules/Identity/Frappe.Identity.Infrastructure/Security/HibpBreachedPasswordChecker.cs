@@ -12,7 +12,7 @@ namespace Frappe.Identity.Infrastructure.Security;
 /// response is padded with fake zero-count entries, and the suffix is compared locally. A failure or a response
 /// slower than the configured timeout fails open (logged and counted), so the breach source never blocks sign-up.
 /// </summary>
-public sealed partial class HibpBreachedPasswordChecker(
+internal sealed partial class HibpBreachedPasswordChecker(
     HttpClient http,
     IOptions<BreachedPasswordOptions> options,
     IdentityMetrics metrics,

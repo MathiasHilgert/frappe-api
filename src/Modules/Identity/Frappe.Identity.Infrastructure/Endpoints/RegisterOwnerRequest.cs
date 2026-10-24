@@ -1,3 +1,3 @@
 namespace Frappe.Identity.Infrastructure.Endpoints;
 
-public sealed record RegisterOwnerRequest(string? Name, string? Email, string? Password);
+internal sealed record RegisterOwnerRequest(string? Name, string? Email, string? Password);
