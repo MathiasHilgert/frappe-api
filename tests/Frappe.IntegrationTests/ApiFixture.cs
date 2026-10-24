@@ -1,4 +1,5 @@
 using Alba;
+using Frappe.Identity.Application.Security;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
@@ -16,9 +17,20 @@ public sealed class ApiFixture : IAsyncLifetime
 {
     public const string SessionCookieName = "__Host-frappe_session";
 
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:16-alpine").Build();
-    private readonly NatsContainer _nats = new NatsBuilder("nats:2-alpine").WithCommand("--jetstream").Build();
-    private readonly RedisContainer _valkey = new RedisBuilder("valkey/valkey:8-alpine").Build();
+    /// <summary>
+    /// Local opt-in (<c>TESTCONTAINERS_REUSE_ENABLE=true</c>): keep the containers between runs to skip their
+    /// startup. Never in CI, where every run must start clean.
+    /// </summary>
+    private static readonly bool Reuse =
+        Environment.GetEnvironmentVariable("TESTCONTAINERS_REUSE_ENABLE") == "true"
+        && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI"));
+
+    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:16-alpine")
+        .WithReuse(Reuse).WithLabel("reuse-id", "frappe-integration-postgres").Build();
+    private readonly NatsContainer _nats = new NatsBuilder("nats:2-alpine").WithCommand("--jetstream")
+        .WithReuse(Reuse).WithLabel("reuse-id", "frappe-integration-nats").Build();
+    private readonly RedisContainer _valkey = new RedisBuilder("valkey/valkey:8-alpine")
+        .WithReuse(Reuse).WithLabel("reuse-id", "frappe-integration-valkey").Build();
 
     public IAlbaHost Host { get; private set; } = null!;
 
@@ -27,6 +39,9 @@ public sealed class ApiFixture : IAsyncLifetime
     public async ValueTask InitializeAsync()
     {
         await Task.WhenAll(_postgres.StartAsync(), _nats.StartAsync(), _valkey.StartAsync());
+        // Attempt limiter budgets from the previous run would answer 429; this container is the suite's own.
+        if (Reuse)
+            await _valkey.ExecAsync(["valkey-cli", "FLUSHALL"]);
         Host = await CreateHostAsync();
     }
 
@@ -34,7 +49,8 @@ public sealed class ApiFixture : IAsyncLifetime
     public Task<IAlbaHost> CreateHostAsync(
         Action<IServiceCollection>? configureServices = null,
         string environment = "Development",
-        string? connectionString = null) =>
+        string? connectionString = null,
+        bool realPasswordHasher = false) =>
         AlbaHost.For<Program>(builder =>
         {
             builder.UseEnvironment(environment);
@@ -53,6 +69,9 @@ public sealed class ApiFixture : IAsyncLifetime
             builder.ConfigureServices(services =>
             {
                 services.RunWolverineInSoloMode();
+                // Argon2id dominates the suite's runtime; only the dedicated hashing tests pay for it.
+                if (!realPasswordHasher)
+                    services.AddSingleton<IPasswordHasher, FastPasswordHasher>();
                 configureServices?.Invoke(services);
             });
         });
@@ -61,8 +80,13 @@ public sealed class ApiFixture : IAsyncLifetime
     public async Task<string> CreateDatabaseAsync(string name)
     {
         await using (var dataSource = NpgsqlDataSource.Create(PostgresConnectionString))
-        await using (var command = dataSource.CreateCommand($"CREATE DATABASE \"{name}\""))
-            await command.ExecuteNonQueryAsync();
+        {
+            // A reused container keeps the database from the previous run.
+            await using (var drop = dataSource.CreateCommand($"DROP DATABASE IF EXISTS \"{name}\" WITH (FORCE)"))
+                await drop.ExecuteNonQueryAsync();
+            await using (var command = dataSource.CreateCommand($"CREATE DATABASE \"{name}\""))
+                await command.ExecuteNonQueryAsync();
+        }
 
         return new NpgsqlConnectionStringBuilder(PostgresConnectionString) { Database = name }.ConnectionString;
     }
@@ -73,6 +97,7 @@ public sealed class ApiFixture : IAsyncLifetime
         if (Host is not null)
             await Host.DisposeAsync();
 
+        // Testcontainers leaves reused containers running on dispose (Ryuk skips them).
         await Task.WhenAll(_postgres.DisposeAsync().AsTask(), _nats.DisposeAsync().AsTask(), _valkey.DisposeAsync().AsTask());
     }
 }
