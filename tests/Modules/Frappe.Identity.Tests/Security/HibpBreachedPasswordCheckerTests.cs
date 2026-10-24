@@ -14,6 +14,7 @@ public sealed class HibpBreachedPasswordCheckerTests : IDisposable
 {
     private const string Password = "correct horse battery staple";
     private readonly ServiceProvider _metrics = new ServiceCollection().AddMetrics().BuildServiceProvider();
+    private readonly Microsoft.Extensions.Time.Testing.FakeTimeProvider _clock = new();
 
     [Fact]
     public async Task IsBreachedAsync_SuffixListedWithCount_ReturnsTrue()
@@ -61,18 +62,22 @@ public sealed class HibpBreachedPasswordCheckerTests : IDisposable
     }
 
     [Fact]
-    public async Task IsBreachedAsync_SlowServer_FailsOpenAfterTimeout()
+    public async Task IsBreachedAsync_SlowServer_FailsOpenOnceTheTimeoutPasses()
     {
+        var requested = new TaskCompletionSource();
         var handler = new FakeHandler(async (_, ct) =>
         {
-            await Task.Delay(TimeSpan.FromSeconds(30), ct);
+            requested.SetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, ct); // a server that never answers
             return Ok("");
         });
 
-        var started = TimeProvider.System.GetTimestamp();
-        (await Checker(handler).IsBreachedAsync(Password, TestContext.Current.CancellationToken)).ShouldBeFalse();
+        var checking = Checker(handler).IsBreachedAsync(Password, TestContext.Current.CancellationToken);
+        await requested.Task;
+        checking.IsCompleted.ShouldBeFalse();
+        _clock.Advance(TimeSpan.FromMilliseconds(200));
 
-        TimeProvider.System.GetElapsedTime(started).ShouldBeLessThan(TimeSpan.FromSeconds(5));
+        (await checking).ShouldBeFalse();
     }
 
     [Fact]
@@ -80,7 +85,7 @@ public sealed class HibpBreachedPasswordCheckerTests : IDisposable
     {
         var handler = new FakeHandler(async (_, ct) =>
         {
-            await Task.Delay(TimeSpan.FromSeconds(30), ct);
+            await Task.Delay(Timeout.InfiniteTimeSpan, ct);
             return Ok("");
         });
         using var cancelled = new CancellationTokenSource();
@@ -95,6 +100,7 @@ public sealed class HibpBreachedPasswordCheckerTests : IDisposable
         new(new HttpClient(handler) { BaseAddress = new Uri("https://hibp.test/") },
             Options.Create(new BreachedPasswordOptions { TimeoutMilliseconds = 200 }),
             new IdentityMetrics(_metrics.GetRequiredService<IMeterFactory>()),
+            _clock,
             NullLogger<HibpBreachedPasswordChecker>.Instance);
 
     private static HttpResponseMessage Ok(string body) => new(HttpStatusCode.OK) { Content = new StringContent(body) };

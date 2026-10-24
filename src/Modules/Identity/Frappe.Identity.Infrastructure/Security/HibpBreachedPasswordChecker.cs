@@ -16,6 +16,7 @@ internal sealed partial class HibpBreachedPasswordChecker(
     HttpClient http,
     IOptions<BreachedPasswordOptions> options,
     IdentityMetrics metrics,
+    TimeProvider clock,
     ILogger<HibpBreachedPasswordChecker> logger) : IBreachedPasswordChecker
 {
     private const int PrefixLength = 5;
@@ -23,8 +24,8 @@ internal sealed partial class HibpBreachedPasswordChecker(
     public async Task<bool> IsBreachedAsync(string password, CancellationToken cancellationToken)
     {
         var hash = Sha1Hex(password);
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromMilliseconds(options.Value.TimeoutMilliseconds));
+        using var deadline = new CancellationTokenSource(TimeSpan.FromMilliseconds(options.Value.TimeoutMilliseconds), clock);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
 
         try
         {
