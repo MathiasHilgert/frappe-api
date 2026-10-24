@@ -18,8 +18,8 @@ public sealed class ValkeyKnownSignInOriginsTests : IAsyncDisposable
     [Fact]
     public async Task ValkeyDown_OriginsReadAsUnknown_AndCountOnTheirOwnCounter()
     {
-        using var origins = new CounterListener(IdentityMetrics.KnownOriginsUnavailable);
-        var store = new ValkeyKnownSignInOrigins(_down, Options.Create(new AttemptLimiterOptions { TimeoutMilliseconds = 250 }),
+        using var origins = new CounterListener(IdentityMetrics.KnownOriginsUnavailableName);
+        var store = new ValkeyKnownSignInOrigins(_down, Options.Create(new AttemptLimiterOptions { Timeout = TimeSpan.FromMilliseconds(250) }),
             new IdentityMetrics(_metrics.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>()),
             NullLogger<ValkeyKnownSignInOrigins>.Instance);
 

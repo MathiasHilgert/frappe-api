@@ -16,24 +16,27 @@ Realtime pushes go to NATS JetStream and reach clients over SSE.
 
 ## Quickstart
 
-Prerequisites: the .NET SDK pinned in `global.json` (10.0.x), Docker, and [just](https://just.systems).
+Prerequisites: the .NET SDK pinned in `global.json` (10.0.x), Docker, [just](https://just.systems), curl and jq.
+Or open the repository in its devcontainer (`.devcontainer/`), which has them all.
 
 ```sh
-just setup   # dotnet tool restore + restore
-just up      # Postgres, NATS JetStream, Valkey, Grafana LGTM (deploy/compose.yaml)
-just migrate # apply every module's EF migrations to the local database
-just run     # API with the http launch profile
+just setup   # local tools, packages and git hooks
+just doctor  # reports anything missing
+just dev     # stack up, migrations applied, API with hot reload (safe to rerun)
+just seed    # in another terminal: a verified dev owner, credentials in scripts/dev/seed-owner.env
 ```
-
-Run `just migrate` again whenever a pull brings new migrations; it is a no-op when the database is current.
 
 | What | Where |
 | --- | --- |
 | API | http://localhost:5131 |
 | API reference (Scalar, Development only) | http://localhost:5131/scalar/v1 |
-| Realtime stream (SSE) | `/v1/stream?businessId=…` |
-| Liveness / readiness | `/health/live`, `/health/ready` |
+| Requests for the main flows | `src/Host/Frappe.Api/http/*.http` (environment `dev`) |
+| Mail sent in Development (Mailpit) | http://localhost:8025 |
 | Grafana (logs, traces, metrics) | http://localhost:3000 |
+| Liveness / readiness | `/health/live`, `/health/ready` |
+
+Development never sends real mail. More in [docs/development.md](docs/development.md); when something breaks,
+[docs/troubleshooting.md](docs/troubleshooting.md).
 
 ## Architecture
 
@@ -44,7 +47,7 @@ flowchart TD
         Infra["Infrastructure<br/>DbContext, endpoints, IModule"]
         App["Application<br/>Wolverine handlers"]
         Dom["Domain<br/>aggregates, invariants, events"]
-        Con["Contracts<br/>integration events, read ports"]
+        Con["Contracts<br/>versioned messages, Queries/ ports"]
     end
     subgraph BB["Building blocks"]
         Kernel["SharedKernel, Contracts.Abstractions,<br/>Application.Abstractions, Modularity"]
@@ -55,6 +58,7 @@ flowchart TD
         NATS[(NATS JetStream)]
         VK[(Valkey)]
         LGTM[Grafana LGTM]
+        MP[Mailpit, dev only]
     end
     Host --> Infra
     Host --> Platform
@@ -67,6 +71,7 @@ flowchart TD
     Platform --> NATS
     Platform --> VK
     Host --> LGTM
+    Platform -.-> MP
 ```
 
 A command, end to end:
@@ -104,41 +109,36 @@ sequenceDiagram
     participant R as Read port (Infrastructure)
     participant DB as Postgres
     C->>E: HTTP GET
-    E->>H: IMessageBus.InvokeAsync<T>(query)
+    E->>H: IMessageBus.InvokeAsync<Result<T>>(query)
     H->>R: ask for a DTO
     R->>DB: AsNoTracking projection, no aggregate, no save
     DB-->>R: rows
-    R-->>H: DTO
-    H-->>E: DTO
-    E-->>C: 200 + body
+    R-->>H: DTO (or nothing)
+    H-->>E: Result<DTO> (404 when gone)
+    E-->>C: 200 + body, or result.ToProblem()
 ```
 
-### Dependency rules
+## Documentation
 
-- Domain references nothing framework-specific; Application does not reference Infrastructure. The one concession
-  to EF Core is a private parameterless constructor on entities and value objects it materializes: neutral C#, no
-  attribute or EF comment, so Domain still compiles and reads without any ORM.
-- Other modules may consume only a module's Contracts.
-- The host knows modules only through `IModule` (its name, services, messaging, endpoints and meters).
-- A module's Contracts hold messages (records), enums and constants only. A service two modules share (such as
-  sealing a code a message carries, `IMessageSeal`) is a platform abstraction in `Frappe.Application.Abstractions`
-  with its implementation in a `Platform.*` project, never an interface in one module's Contracts.
-
-Enforcement:
-
-- `tests/Frappe.ArchitectureTests` checks the csproj reference graph and the compiled types. Projects are
-  classified by name, so a new module is covered with no test changes.
-- `eng/BannedSymbols.txt` fails the build in `src/` on `DateTime.Now/UtcNow/Today`, `DateTimeOffset.Now/UtcNow`
-  and `Guid.NewGuid`.
+| Doc | What it covers |
+| --- | --- |
+| [Development](docs/development.md) | Daily loop, seeding, mail, API UI, tests by name, hooks, devcontainer |
+| [Conventions](docs/conventions.md) | Dependency rules, CQRS, endpoints, errors, localization, messages between modules, metrics |
+| [Database](docs/database.md) | Schemas, migrations, connection pools and PgBouncer, per-module roles |
+| [Quality gates](docs/quality.md) | Analyzers, coverage, mutation, recipes and the workflows that call them |
+| [Deploy](docs/deploy.md) | Image, settings, key rotation |
+| [Troubleshooting](docs/troubleshooting.md) | Symptoms and fixes |
 
 ## Repository layout
 
 ```
 .config/            dotnet-tools.json, stryker-config.json, commitlint config
 .github/            workflows, composite actions, labels, labeler, Dependabot
-deploy/             Dockerfile (+ .dockerignore) and the local compose stack
+deploy/             Dockerfile (+ .dockerignore), the local compose stack, the Postgres role plan
+docs/               conventions, development, database, deploy, quality gates, troubleshooting
 eng/                build-consumed quality rules: banned APIs, complexity thresholds, Sonar
-scripts/git/        commit, branch and AI-attribution checks; commit-msg hook
+scripts/git/        commit, branch and AI-attribution checks; pre-commit and commit-msg hooks
+scripts/dev/        doctor, seed and the dev owner's credentials
 src/BuildingBlocks/ SharedKernel, abstractions, Modularity (IModule), Platform.*
 src/Modules/        one folder per module: .Domain, .Application, .Infrastructure, .Contracts
 src/Host/           Frappe.Api, the composition root
@@ -146,237 +146,12 @@ tests/              unit, architecture and integration (Testcontainers) tests
 ```
 
 Only files tools must find at the root live there: `global.json`, `Directory.*.props`, `.editorconfig`,
-`.gitignore`, `Frappe.slnx`, `justfile`, `LICENSE`.
-
-## Conventions
-
-| Topic | Rule |
-| --- | --- |
-| Validation | Domain invariants return `Result<T>` built from a `ValidationNotification` (Fowler): all broken rules at once. A failure propagates every error (`Result.Failure(other.Errors)`), never just the first. The HTTP layer checks only request shape, 400: request records carry the client's fields as sent (nullable) and the command passes them on, so the domain reports missing values with the rest. Endpoints answer failures with `result.ToProblem()` (see [Errors and localization](#errors-and-localization)). |
-| Commands and queries | CQRS lite, see [Commands and queries](#commands-and-queries). |
-| Events / outbox | Aggregates raise domain events; Wolverine scrapes them from EF Core into the outbox in the same transaction. Reactions run from durable local queues. |
-| Realtime | A handler returns `RealtimePush.From(notification)` as a cascading message (Wolverine routes only concrete types). It is pushed to NATS JetStream after commit and streamed over SSE; the stream sequence is the SSE id, so `Last-Event-ID` resumes. |
-| Jobs | One-off work is a (scheduled) Wolverine message. Recurring work is a Quartz trigger running `PublishCommandJob<T>`, which only publishes a command; a module declares it with `services.AddRecurringCommand<T>(name, cron)`. A restart keeps a stored trigger untouched unless its schedule changed, deletes `PublishCommandJob` jobs no module declares any more, and a missed firing runs once on recovery. Quartz uses its clustered PostgreSQL store (schema `quartz`), so with several instances exactly one fires each trigger. |
-| Persistence | One schema per module, EF migrations history in that schema. Outside Development the app creates nothing at startup (see [Deploy](#deploy)). |
-| Security | Deny by default: every endpoint requires an authenticated user. An endpoint opts in one of two ways (`EndpointConventions`): `AllowAnonymousAuth()` (anonymous, per-IP rate limited in process, 429 documented) or `RequirePolicy(policy)` (a module wraps it, e.g. Identity's `RequireOwner()`; 401/403 documented). |
-| Time and ids | Handlers inject `TimeProvider` and pass `DateTimeOffset now` into the domain, which never asks a clock; ids are UUIDv7 via `Guid.CreateVersion7(now)`. |
-| Options | One pattern: defaults on the options class, `public const string SectionName`, `AddOptions<T>().BindConfiguration(T.SectionName)`, a source-generated `[OptionsValidator]` partial class (DataAnnotations, `IValidatableObject` for cross-field rules) and `ValidateOnStart()`. |
-| Correlation | Every request gets an id, echoed in `X-Request-Id` and flowed into logs and spans. |
-| Modules | `IModule.Name` is also the route segment: endpoints map under `/v1/{Name}`. |
-
-### Commands and queries
-
-Every use case is a message with one Wolverine handler, sent from the endpoint with `IMessageBus`, so every use case
-gets the same tracing, and every command the same EF Core transaction and outbox.
-
-Handler code is generated ahead of time into `src/Host/Frappe.Api/Internal/Generated` and committed. After adding
-or changing a handler (or its dependencies), run `just codegen` and commit the result: Development regenerates
-stale code on its own, but production and the integration tests load only the committed code
-(`TypeLoadMode.Static`), and CI (`just codegen-check`) fails when it is stale.
-
-| | Command | Query |
-| --- | --- | --- |
-| Message | `record` implementing `ICommand`, imperative name (`ChangeLocale`) | `record` implementing `IQuery<TResult>` (`GetMe`, `ListOwnerSessions`) |
-| Handler | Loads the aggregate through the repository, saves, returns `Result`/`Result<T>` (first in a tuple when it also cascades) with an id or a small value; every failure, rate limits included, is an `Error` | Asks a read port (`IOwnerReads`) for a DTO; marked `[NonTransactional]` |
-| Data access | Repository, change tracking, `SaveChangesAsync` | Read port in Infrastructure: `AsNoTracking` projections straight to DTOs |
-| Side effects | Cascading messages (`OutgoingMessages`) or `IMessageContext.PublishAsync`, written to the outbox in the same transaction | None |
-
-Layout: Application holds one folder per use case (message, handler and result types together, e.g.
-`Sessions/LogIn/` with `LogIn.cs` and `LogInHandler.cs`), while the namespace stays the feature area
-(`...Application.Sessions`) so a type never shares a name with its namespace. A module that only reacts to other
-modules' events (Notification) groups its reactions by area instead: `OwnerCodeMails/` holds one handler class per
-message it reacts to (`VerificationCodeMailHandler`, ...), and the ports and exceptions they share sit in their own
-feature folder (`Mails/`). Endpoints live in `<Module>.Infrastructure/Endpoints/`, one `*Endpoints` route group per
-feature area with one file per request/response record (`*Request`/`*Response`, unique names); they return a typed
-`Results<...>` with `WithName`, `WithSummary` and `ProducesProblem` metadata, answer a success body that is an
-Infrastructure `*Response` record (never an Application DTO), read the caller with
-`ICurrentPrincipal.RequiredSession()`, the client address with `HttpContext.ClientIp()`, and only map HTTP to a
-message and a result to a status or `ToProblem()`. JSON is camelCase everywhere (the framework default). Use-case policy, attempt
-limits included, lives in the handler: a throttled command fails with a `TooManyRequests` error carrying
-`Error.WithRetryAfter(wait)`, and facts the edge may disclose ride in `Error.WithMetadata(key, value)`. Transport
-concerns (cookies through `ISessionCookie`, `Content-Language`) stay in Infrastructure.
-A command no caller awaits, whether cascaded by another handler (`IssuePasswordResetCode`) or published by a job
-(`PurgePendingOwners`), implements `IBackgroundCommand`: nobody reads its answer and a published handler's return
-value is cascaded, so it returns only its `OutgoingMessages`.
-`Error` keeps default record equality. To ask whether an error breaks a given rule, compare by `Code` and `Field` with
-`error.Is(IdentityErrors.EmailTaken)` or the `Error.ByRule` comparer (e.g. `ShouldContain(x, Error.ByRule)`): that
-holds for a throttled or annotated copy too, where `==` does not.
-`tests/Frappe.ArchitectureTests/CqrsConventionTests.cs` fails when an endpoint calls an Application service, a message
-is not a marked record, a query handler touches a repository, a command handler answers with a type some query
-returns, a command handler returns anything but `Result`/`Result<T>`, a background command handler returns a
-`Result`, or a query handler is not `[NonTransactional]`. `EdgeConventionTests.cs` fails when an endpoint builds a
-problem itself (`TypedResults.Problem`, `Results.Problem`, `new ProblemDetails`) or answers a bare status
-(`TypedResults.Unauthorized`, `NotFound`, `BadRequest`, `Forbid`, ...), reads `HttpContext.User` or
-`Connection.RemoteIpAddress`, returns a success body that is not an Infrastructure `*Response`, lives outside
-`Endpoints/` or is not named `*Endpoints`, or an `Error` is declared outside a `*Errors` catalogue.
-`VisibilityTests.cs` fails when a module's Infrastructure exposes a public type other than its `IModule` and the
-adapters marked `[InlinedByWolverine]` (Wolverine constructs those inline in the generated handlers only when public).
-`ModuleConventionTests.cs` fails when the host references a module type other than its `IModule`, a Contracts project
-holds anything but messages, enums and constants, a file's namespace is not its project plus feature folder, an
-Application use-case folder lacks `<UseCase>.cs` and `<UseCase>Handler.cs`, or a module has more than one
-`ModuleDbContext`. `DomainPurityTests.cs` fails when a domain method takes a `TimeProvider` or a domain property has a
-non-private setter. `OptionsConventionTests.cs` fails when an options class has no `[OptionsValidator]` or names its
-section anything but `SectionName`. In the integration suite, `EndpointConventionTests.cs` reads the route table:
-every module endpoint sits under `/v1/{IModule.Name}`, has a name, a summary and its problems documented, and is
-either `AllowAnonymousAuth()` (rate limited) or authorized with its 401/403; `ModuleSchemaTests.cs` checks every module
-table lives in the module's own schema.
-
-Not checked by a test (reviewed by hand): that a handler loads only the aggregate it changes, that domain events are
-named in the past tense, that a use case's policy lives in its handler rather than the endpoint, and that translated
-strings read naturally in each locale.
-
-Migrations:
-
-```sh
-just migration Identity <Name>   # add a migration to a module's Persistence/Migrations
-just migrate                     # apply every module's migrations locally (Development)
-dotnet ef migrations bundle -p … -s src/Host/Frappe.Api -c IdentityDbContext   # run before the app starts
-```
-
-### Health
-
-Any module declares what it needs to be ready, next to where it registers the client:
-
-```csharp
-services.AddHealthChecks()
-    .AddDependency("postgres", DependencyCriticality.Critical, async (sp, ct) => { /* ping */ });
-```
-
-- **Critical** down: `/health/ready` returns 503 and the instance leaves rotation (Postgres).
-- **NonCritical** down: `/health/ready` stays 200 with status `Degraded` (NATS, Valkey).
-  Valkey is still configuration-required: outside Development a missing `ConnectionStrings__valkey` fails startup
-  (checked when the app starts, so `resources setup` does not need it).
-- `/health/live` never checks dependencies, so a database outage does not restart every instance.
-- Each check times out after 2 s. Results are also exported as the `frappe.health.dependency.status` gauge.
-
-### Errors and localization
-
-Every response says which language it speaks: `Content-Language` is always set and `Vary: Accept-Language` appended.
-Platform locales are `es-AR`, `en`, `es-MX`, `pt-BR` (default `en`; override with `Localization:SupportedLocales`
-and `Localization:DefaultLocale`). The request locale (`IRequestLocale`) is negotiated by RFC 4647 lookup:
-
-1. Each `Accept-Language` tag in quality order: exact tag, its truncations, then the first configured locale of the
-   same language (`es-CL` → `es-AR`). The first servable tag wins, even over a stored preference.
-2. Otherwise the principal's stored preference, read through `IPreferredLocaleSource` (the owning module implements it).
-3. Otherwise `en`.
-
-Failures are RFC 9457 problems. `result.ToProblem()` picks the status from `Error.Kind` (422 validation, 404, 409,
-429 or 503 with `Retry-After` from the longest `Error.RetryAfter`, 401, 403; mixed kinds answer 422), sets `type` to
-`urn:frappe:problem:<code>` (one error) or `urn:frappe:problem:validation` (several), and translates `title` and each
-`errors[].message` by error code. A code with no catalogue entry falls back to `Error.Message`, in English. One error
-also sets `detail` (same text) and `code`, and every `Error.Metadata` entry becomes a top-level member (e.g. `ownerId`
-on a pending owner's login; the keys live in the module's Contracts, `IdentityErrorMetadata`). Endpoints never shape
-a problem themselves: give the error the right `Kind` instead. A 401/403 from authorization (challenge or forbid)
-answers the same shape with `platform.auth.required` or `platform.auth.forbidden` (`PlatformErrors`), the
-in-process rate limiter with `platform.rate_limited`, and an `UnavailableException` (e.g. no password-hashing slot
-freed in time) with a 503 carrying its error.
-
-Two layers slow abusive clients down, and neither ever locks an account. The attempt limiter (Valkey, fail-open)
-counts failures per use case: a sign-in has a tight budget per email and client IP together (10 per 15 minutes, so an
-attacker hammering an address from their own IP only throttles themselves), a much higher ceiling per email alone
-(100, reached only by a distributed attack) and one per IP. An address the email already signed in from in the last
-30 days is exempt from that ceiling, so a distributed attack cannot lock the owner out of the places they use (the
-server-side form of OWASP's device-cookie defence); it still has its own tight budget. Underneath, an in-process
-ASP.NET rate limiter caps every anonymous auth endpoint per IP (`Platform:RateLimiting`), so the API stays protected
-when Valkey is down. Every per-IP key comes from `ClientIp()`: an IPv4 address as is, an IPv6 address by its /64
-prefix. One IPv6 /64 is one budget: ISPs hand each subscriber at least a whole /64 (RFC 6177), so keying by full
-address would let one client rotate through billions of addresses and dodge every per-IP limit. The cost is the same
-as a shared IPv4 NAT: devices behind one /64 share its budget. An origin is remembered by a command the sign-in
-cascades, so only after the session committed. Throttled sign-ins, rejected codes, known-origin lookups skipped
-during a Valkey outage, purge outcomes (purged, skipped on a conflict, failed) and dead-lettered mails are metered
-(`Frappe.Identity`,
-`Frappe.Notification`, `Wolverine:*` meters).
-
-A module adds strings as flat ICU MessageFormat catalogues, one file per locale, keyed by error code or a
-module-prefixed key:
-
-```xml
-<EmbeddedResource Include="i18n/*.json" />   <!-- i18n/en.json, i18n/es-AR.json, i18n/es-MX.json, i18n/pt-BR.json -->
-```
-
-```json
-{ "identity.email.taken": "That email is already registered.",
-  "identity.codes.left": "{count, plural, one {# attempt left} other {# attempts left}}" }
-```
-
-Register them with `services.AddMessageCatalog(typeof(SomeModuleType).Assembly)` and format with
-`IMessageCatalog.Format(locale, key, args)`. A key missing in a locale falls back to another region of the same
-language, then to `en`; a key missing in `en` throws. In the module's tests:
-
-```csharp
-MessageCatalogConformance.Check(assembly).ShouldBeEmpty();                 // every en key in every locale, every message formats
-MessageCatalogConformance.CodesWithoutEntries(assembly, codes).ShouldBeEmpty(); // every error code translated
-```
-
-## Quality gates
-
-- **Build:** warnings are errors; `latest-recommended` analysis, code style enforced in build; Sonar, Meziantou
-  and Roslynator analyzers on every project.
-- **Complexity** (`eng/CodeMetricsConfig.txt`): cyclomatic complexity 10 per method / 50 per type, maintainability
-  index 20, class coupling 40 per method / 95 per type.
-- **Coverage:** `just cover` fails under 70 % line coverage (`COVERAGE_MIN` overrides).
-- **Mutation:** Stryker.NET on SharedKernel and Identity.Domain, nightly; break threshold 50 %.
-
-CI calls the same `justfile` recipes, so `just ci` reproduces the pipeline locally. Run `just` to list recipes.
-Linters and scanners run from pinned Docker images. Reports land in `artifacts/`.
-
-Tests build once and never rebuild: `just test` and `just cover` run `just build`, then launch every test
-project's Microsoft.Testing.Platform executable in parallel and print each one's output whole. `just cover`
-collects coverage during that single run and merges it, so CI runs each suite exactly once.
-
-| Group | Recipes | Workflow |
-| --- | --- | --- |
-| dev | `setup`, `up` / `down`, `run`, `clean` | — |
-| quality | `fix` (dotnet format), `lint` (format check, actionlint, hadolint, gitleaks) | `ci.yml` |
-| test | `build`, `test [fast\|integration\|all]`, `cover`, `mutate` | `ci.yml`, `nightly.yml` |
-| security | `audit` (vulnerable NuGet packages, transitive included; secrets are scanned by `lint`); CodeQL weekly | `ci.yml`, `codeql.yml` |
-| container | `image`, `image-scan` (trivy, HIGH/CRITICAL) | `ci.yml` |
-| git | `commits [base] [head]`, `branch [name]`, `hooks`, `test-git` (tests the hygiene scripts) | `pr-hygiene.yml` |
-| ci | `ci` (lint, test-git, cover (build + every suite), audit, image, image-scan) | — |
-
-Dependabot updates NuGet, Actions and Docker base images weekly, with Conventional Commit titles.
-
-## Deploy
-
-The image (`deploy/Dockerfile`) is framework-dependent on the chiseled ASP.NET runtime, runs as non-root and
-listens on port 8080. Outside Development the app creates no schema at startup, so every deploy runs the same image
-once with `resources setup` before starting the new version:
-
-```sh
-just image
-docker run --rm -e ConnectionStrings__frappe="Host=…" frappe-api:local resources setup   # Wolverine and Quartz schemas
-docker run -d -p 8080:8080 \
-  -e ConnectionStrings__frappe="Host=…" \
-  -e ConnectionStrings__valkey="host:6379" \
-  -e OTEL_EXPORTER_OTLP_ENDPOINT="http://collector:4317" \
-  frappe-api:local
-```
-
-| Setting | Required outside Development | Notes |
-| --- | --- | --- |
-| `ConnectionStrings__frappe` | Yes | Postgres; Critical for readiness |
-| `ConnectionStrings__valkey` | Yes | Startup fails without it; NonCritical for readiness |
-| `Identity__SecretHashing__Key` | Yes | HMAC key for session tokens and codes, 32+ characters; startup fails without it. Rotating it signs everyone out |
-| `Identity__SessionCookie__Name` | No | Session cookie name for the web console, default `__Host-frappe_session`; must be a valid cookie token or startup fails. A `__Host-` name requires Path `/` and no Domain |
-| `Identity__SessionCookie__Path` | No | Session cookie path, default `/`; must start with `/` |
-| `Identity__SessionCookie__Domain` | No | Unset by default (host-only cookie); not allowed with a `__Host-` name |
-| `Messaging__Seal__Key` | Yes | Key (32+ characters) that seals one-time codes inside queued messages; startup fails without it, and outside Development also when it is the committed development key (compared as bytes, so whitespace, case or Base64 variants of it are refused too). Rotating it makes codes still queued unreadable (they dead-letter) |
-| `Identity__PasswordHashing__*` | No | Argon2id cost (`MemorySizeKib`, `Iterations`, `Parallelism`); startup fails below the OWASP minimum. `MaxConcurrentHashes` (default: CPU count, 1..1024) caps hashes running at once; extra sign-ins wait at most `SlotWaitMilliseconds` (default 2000) for a slot, then get a 503 with `Retry-After` |
-| `Platform__RateLimiting__PermitLimit`, `__WindowSeconds` | No | In-process per-IP cap on anonymous auth endpoints, default 300 per 60 s |
-| `Notification__Resend__ApiKey` | Yes | Resend API key (secret, never committed); startup fails without it outside Development. Locally: `dotnet user-secrets set "Notification:Resend:ApiKey" "<key>" --project src/Host/Frappe.Api`. Without it, Development only logs that a mail was sent (recipient domain, kind, subject with digits masked; never the body or code) instead of sending it. Each delivery sends the Wolverine message id as `Idempotency-Key`, so retries never send twice |
-| `Notification__Resend__TimeoutSeconds` | No | Per-attempt timeout, default 10; the durable queue owns retries |
-| `Notification__Resend__From` | No | Sender address, default `Frappé <no-reply@frappe.la>`; must be a domain verified in Resend |
-| `ConnectionStrings__nats` | No | Defaults to a local URL; NonCritical, realtime degrades when down |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | Traces, metrics and logs over OTLP |
-| `ForwardedHeaders__KnownProxies__0`, `__1`… | Behind a proxy | IPs of the reverse proxies whose `X-Forwarded-For`/`-Proto` are trusted (loopback always is). Unset, the socket address is the client: per-IP rate limits would see only the proxy |
-| `ForwardedHeaders__KnownNetworks__0`, `__1`… | Behind a proxy | Same, as CIDR ranges (e.g. `10.0.0.0/8`) |
-
-Module EF migrations ship as migration bundles and also run before the app starts.
-The orchestrator probes `/health/live` and `/health/ready`; the image has no `HEALTHCHECK` (no shell).
+`.gitignore`, `Frappe.slnx`, `justfile`, `LICENSE`, plus `.devcontainer/`.
 
 ## Contributing
 
-Run `just hooks` once to install the local commit-msg hook.
+`just setup` installs the local hooks: pre-commit runs `dotnet format --verify-no-changes` on staged C# files,
+commit-msg checks the Conventional Commit header and AI attribution.
 
 | Rule | Check | Enforced by |
 | --- | --- | --- |

@@ -14,12 +14,15 @@ using Quartz;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.Postgresql;
+using Wolverine.Util;
 
 namespace Frappe.Platform.Messaging;
 
 public static class MessagingRegistration
 {
     public const string Schema = "wolverine";
+
+    private static int s_contractNamingInserted;
 
     /// <summary>Overrides how handler code is loaded (Dynamic | Auto | Static); integration tests force Static.</summary>
     public const string TypeLoadModeSetting = "Wolverine:TypeLoadMode";
@@ -45,15 +48,20 @@ public static class MessagingRegistration
             .ValidateOnStart();
         builder.Services.AddSingleton<IMessageSeal, AesGcmMessageSeal>();
 
+        // Process-wide in Wolverine, so inserted once even when one process builds several hosts (the tests do).
+        if (Interlocked.Exchange(ref s_contractNamingInserted, 1) == 0)
+            WolverineMessageNaming.InsertFirst<ContractMessageNaming>();
+
         builder.UseWolverine(opts =>
         {
-            // Handler code is generated ahead of time (`just codegen`) and compiled into the host. Development
-            // regenerates it when stale; everywhere else a missing or stale handler fails startup instead of
-            // compiling with Roslyn on the first message.
+            // Handler code is generated ahead of time (`just codegen`), committed and compiled into Release builds;
+            // everywhere but Development a missing or stale handler fails startup instead of compiling with Roslyn on
+            // the first message. Development generates it in memory at startup (Dynamic), so editing a handler needs
+            // no codegen step; Debug builds leave the committed code out for the same reason (Frappe.Api.csproj).
             opts.ApplicationAssembly = applicationAssembly;
             opts.CodeGeneration.TypeLoadMode = builder.Configuration.GetValue(
                 TypeLoadModeSetting,
-                builder.Environment.IsDevelopment() ? TypeLoadMode.Auto : TypeLoadMode.Static);
+                builder.Environment.IsDevelopment() ? TypeLoadMode.Dynamic : TypeLoadMode.Static);
 
             // Wolverine keeps its own pool: its envelope storage is configured before the container exists.
             opts.PersistMessagesWithPostgresql(postgresConnectionString, Schema);

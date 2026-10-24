@@ -6,13 +6,11 @@ namespace Frappe.Identity.Infrastructure.Security;
 internal sealed class BreachedPasswordOptions : IValidatableObject
 {
     public const string SectionName = "Identity:BreachedPasswords";
-    public const int MinimumTimeoutMilliseconds = 100;
-    public const int MaximumTimeoutMilliseconds = 10_000;
 
     public Uri BaseAddress { get; set; } = new("https://api.pwnedpasswords.com/");
 
-    [Range(MinimumTimeoutMilliseconds, MaximumTimeoutMilliseconds)]
-    public int TimeoutMilliseconds { get; set; } = 1_500;
+    [Range(typeof(TimeSpan), "00:00:00.100", "00:00:10")]
+    public TimeSpan Timeout { get; set; } = TimeSpan.FromMilliseconds(1_500);
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {

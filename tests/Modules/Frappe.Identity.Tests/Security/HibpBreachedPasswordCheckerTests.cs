@@ -54,7 +54,7 @@ public sealed class HibpBreachedPasswordCheckerTests : IDisposable
     [Fact]
     public async Task IsBreachedAsync_ServerError_FailsOpenAndCounts()
     {
-        using var counted = new CounterListener(IdentityMetrics.BreachCheckUnavailable);
+        using var counted = new CounterListener(IdentityMetrics.BreachCheckUnavailableName);
         var handler = new FakeHandler(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
 
         (await Checker(handler).IsBreachedAsync(Password, TestContext.Current.CancellationToken)).ShouldBeFalse();
@@ -98,7 +98,7 @@ public sealed class HibpBreachedPasswordCheckerTests : IDisposable
 
     private HibpBreachedPasswordChecker Checker(HttpMessageHandler handler) =>
         new(new HttpClient(handler) { BaseAddress = new Uri("https://hibp.test/") },
-            Options.Create(new BreachedPasswordOptions { TimeoutMilliseconds = 200 }),
+            Options.Create(new BreachedPasswordOptions { Timeout = TimeSpan.FromMilliseconds(200) }),
             new IdentityMetrics(_metrics.GetRequiredService<IMeterFactory>()),
             _clock,
             NullLogger<HibpBreachedPasswordChecker>.Instance);

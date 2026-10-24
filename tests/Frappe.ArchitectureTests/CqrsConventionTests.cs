@@ -42,10 +42,10 @@ public sealed class CqrsConventionTests
 
     [Theory(SkipTestWithoutData = true)]
     [MemberData(nameof(Modules))]
-    public void CommandHandler_ReturnsAResult(string module) =>
-        CqrsRules.CommandHandlersNotReturningResult(Application(module)).ShouldBeEmpty(
-            "Command handlers answer with Result or Result<T> (first in a tuple when cascading); a failure travels as an Error, retry-after included. "
-            + "Background commands answer only with their cascading messages.");
+    public void Handler_ReturnsWhatItsMarkerDeclares(string module) =>
+        HandlerAnswerRules.HandlersNotMatchingMarker(Application(module)).ShouldBeEmpty(
+            "ICommand answers Result, ICommand<T> and IQuery<T> answer Result<T> (first in a tuple when cascading); a failure "
+            + "travels as an Error, retry-after included. Background commands answer only with their cascading messages.");
 
     private static CqrsRules.Layer Application(string module) => Layer($"Frappe.{module}.Application");
 

@@ -14,18 +14,16 @@ namespace Frappe.Identity.Infrastructure.Endpoints;
 /// <summary>Changing the sign-in email: request after a step-up, then confirm with the code sent to the new address.</summary>
 internal static class EmailChangeEndpoints
 {
-    private const string Path = "/me/email-changes";
-
     public static RouteGroupBuilder MapEmailChangeEndpoints(this RouteGroupBuilder group)
     {
-        group.MapPost(Path, RequestAsync)
+        group.MapPost("/me/email-changes", RequestAsync)
             .RequireOwner()
             .RequireStepUp()
             .WithName("RequestEmailChange")
             .WithSummary("Starts an email change, emailing a code to the new address. Needs a fresh step-up.")
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
-        group.MapPost($"{Path}/{{id:guid}}/confirmation", ConfirmAsync)
+        group.MapPost("/me/email-changes/{id:guid}/confirmation", ConfirmAsync)
             .RequireOwner()
             .WithName("ConfirmEmailChange")
             .WithSummary("Confirms an email change with the code sent to the new address.")

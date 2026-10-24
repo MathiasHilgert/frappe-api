@@ -29,3 +29,12 @@ Branches: fix/limiter-security, refactor/http-edge, fix/mail-resilience, refacto
 - 2026-10-24 T5: Wolverine refuses non-public concrete types it must build inline (ServiceLocationPolicy.NotAllowed), so IdentityDbContext, PrincipalRepository and OwnerReads stay public; every other Infrastructure type is internal (public 180 -> 151, internal 49 -> 78). LoggingMailer now masks codes, so local dev can no longer read codes from the log.
 - L-R2 (2026-10-24): second blind review round on 13eab3f (C# 8.5, arch 7.5, quality 7.5). User: "Quiero que cubras absolutamente todo de nuevo en un solo PR." New task T6 (S6): every round-2 finding in one PR, branch fix/review-round-2. Reviewer claim "mail retries give up after ~6s" is false (1s,5s then 30s,2m,10m scheduled) — excluded.
 - 2026-10-24 T6: all 29 findings covered in 10 commits. Decisions: Result<T> is a separate type (no shadowing), implicit T/Error conversions kept; Email normalized once (trim + ToLowerInvariant) with a migration that lower-cases stored addresses and swaps the lower(email) index for a plain unique one; Quartz on its clustered Postgres store, DDL as a JasperFx resource (`resources setup`, Development applies it); seal moved to Application.Abstractions IMessageSeal + Platform.Messaging AES-GCM with a new Messaging:Seal:Key; DTOs/commands stay nullable (domain validates missing fields) instead of required members, so no endpoint coerces. QA on the real stack: email+IP lockout (attacker 401x10 then 429, owner from another IP 201), /me problem shapes, PATCH /me 200 {"locale"}, purge fired through Quartz (Purged 1), in-process limiter 429 platform.rate_limited, Production start fails without the Resend key.
+
+## Round 3 (fix/review-round-3, one PR)
+
+- S7: third review of main @ 63995f8: consistency C1-C11, architecture A1-A5, quality Q1-Q9, plus developer
+  experience D1-D8 added mid-task. Out of scope: tenant modelling, session business/role claims (pending product
+  decision). Checks: `just codegen-check`, `just test`, `just lint`, `just test-git`, QA on the real stack with the
+  Resend key blank, CI green; do not merge.
+- T7 S7 inline — commits eab7ba4..HEAD on fix/review-round-3; every item done except where the PR body says
+  otherwise (A3 delivered as a tested plan; A4 credential cache declined with reasons).

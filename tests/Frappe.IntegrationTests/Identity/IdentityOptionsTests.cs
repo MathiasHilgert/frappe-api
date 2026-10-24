@@ -16,8 +16,8 @@ public sealed class IdentityOptionsTests(ApiFixture fixture)
         { "'Identity:SecretHashing:Key'", s => s.Configure<SecretHashingOptions>(o => o.Key = null) },
         { "'Identity:SecretHashing:Key'", s => s.Configure<SecretHashingOptions>(o => o.Key = new string(' ', 40)) },
         { "'Identity:SecretHashing:Key'", s => s.Configure<SecretHashingOptions>(o => o.Key = "too-short") },
-        { "AttemptLimiterOptions.TimeoutMilliseconds", s => s.Configure<AttemptLimiterOptions>(o => o.TimeoutMilliseconds = 5) },
-        { "BreachedPasswordOptions.TimeoutMilliseconds", s => s.Configure<BreachedPasswordOptions>(o => o.TimeoutMilliseconds = 20_000) },
+        { "AttemptLimiterOptions.Timeout", s => s.Configure<AttemptLimiterOptions>(o => o.Timeout = TimeSpan.FromMilliseconds(5)) },
+        { "BreachedPasswordOptions.Timeout", s => s.Configure<BreachedPasswordOptions>(o => o.Timeout = TimeSpan.FromSeconds(20)) },
         { "'Identity:BreachedPasswords:BaseAddress'", s => s.Configure<BreachedPasswordOptions>(o => o.BaseAddress = new Uri("/relative", UriKind.Relative)) },
     };
 

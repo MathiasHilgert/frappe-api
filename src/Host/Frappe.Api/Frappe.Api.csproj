@@ -30,6 +30,13 @@
     <PackageReference Include="Scalar.AspNetCore" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <!-- Debug builds (`just dev`, `dotnet watch`, the IDE) leave the committed handler code out and Development generates
+         it at startup (TypeLoadMode.Dynamic), so a changed handler never breaks the build or needs `just codegen`.
+         Release builds (CI, tests, the image) compile it in and production loads only it (TypeLoadMode.Static). -->
+    <Compile Remove="Internal/Generated/**" />
+  </ItemGroup>
+
   <PropertyGroup>
     <!-- Local secrets (e.g. Notification:Resend:ApiKey) load from dotnet user-secrets in Development. -->
     <UserSecretsId>frappe-api</UserSecretsId>

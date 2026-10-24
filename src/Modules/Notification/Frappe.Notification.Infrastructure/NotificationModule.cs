@@ -6,6 +6,7 @@ using Frappe.Notification.Application.OwnerCodeMails;
 using Frappe.Notification.Contracts;
 using Frappe.Notification.Infrastructure.Mails;
 using Frappe.Notification.Infrastructure.Resend;
+using Frappe.Notification.Infrastructure.Smtp;
 using Frappe.Platform.Localization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,23 +33,19 @@ public sealed class NotificationModule : IModule
         services.AddSingleton<IOwnerCodeMails, CatalogOwnerCodeMails>();
         services.AddSingleton<NotificationMetrics>();
 
-        // Only Development may run without a key (mail is logged instead); anywhere else a missing key fails the
-        // start, not the first mail. Decided here, not in a factory: Wolverine generates handler code from concrete
-        // registrations.
+        // Only Development may run without a key; anywhere else a missing key fails the start, not the first mail.
+        // Decided here, not in a factory: Wolverine generates handler code from concrete registrations.
         var isDevelopment = string.Equals(configuration[HostDefaults.EnvironmentKey], Environments.Development,
             StringComparison.OrdinalIgnoreCase);
         services.AddSingleton<IValidateOptions<ResendOptions>, ResendOptionsValidator>();
         services.AddOptions<ResendOptions>()
             .BindConfiguration(ResendOptions.SectionName)
-            .Validate(options => options.BaseAddress.IsAbsoluteUri, $"'{ResendOptions.SectionName}:BaseAddress' must be absolute.")
-            .Validate(options => options.HasApiKey || isDevelopment,
-                $"'{ResendOptions.SectionName}:ApiKey' is required outside Development.")
+            .PostConfigure(options => options.ApiKeyOptional = isDevelopment)
             .ValidateOnStart();
 
-        var hasKey = configuration.GetSection(ResendOptions.SectionName).Get<ResendOptions>()?.HasApiKey ?? false;
-        if (!hasKey && isDevelopment)
+        if (isDevelopment)
         {
-            services.AddSingleton<IMailer, LoggingMailer>();
+            AddDevelopmentMailer(services, configuration);
             return;
         }
 
@@ -56,8 +53,23 @@ public sealed class NotificationModule : IModule
         {
             var options = sp.GetRequiredService<IOptions<ResendOptions>>().Value;
             http.BaseAddress = options.BaseAddress;
-            http.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+            http.Timeout = options.Timeout;
         });
+    }
+
+    /// <summary>
+    /// Development never sends real mail, whatever key a developer's user-secrets hold: mail goes to the local Mailpit
+    /// when <c>Notification:Smtp:Host</c> is set (appsettings.Development.json does), else to the masked log.
+    /// </summary>
+    private static void AddDevelopmentMailer(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddSingleton<IValidateOptions<SmtpOptions>, SmtpOptionsValidator>();
+        services.AddOptions<SmtpOptions>().BindConfiguration(SmtpOptions.SectionName).ValidateOnStart();
+        var smtp = configuration.GetSection(SmtpOptions.SectionName).Get<SmtpOptions>();
+        if (smtp?.HasHost == true)
+            services.AddSingleton<IMailer, SmtpMailer>();
+        else
+            services.AddSingleton<IMailer, LoggingMailer>();
     }
 
     public void ConfigureMessaging(WolverineOptions options)

@@ -25,7 +25,7 @@ internal static class OwnerVerificationEndpoints
         return group;
     }
 
-    private static async Task<Results<Created<VerifiedOwnerResponse>, LocalizedProblemResult>> VerifyAsync(
+    private static async Task<Results<Created<OpenedSessionResponse>, LocalizedProblemResult>> VerifyAsync(
         Guid id, OwnerVerificationRequest request, IMessageBus bus, ISessionCookie cookie, CancellationToken cancellationToken)
     {
         var verified = await bus.InvokeAsync<Result<OpenedSession>>(
@@ -36,6 +36,6 @@ internal static class OwnerVerificationEndpoints
         cookie.Issue(session.Token, session.ExpiresAt);
         return TypedResults.Created(
             $"/v1/identity/sessions/{session.SessionId}",
-            new VerifiedOwnerResponse(session.SessionId, session.Token, session.ExpiresAt));
+            new OpenedSessionResponse(session.SessionId, id, session.Token, session.ExpiresAt));
     }
 }

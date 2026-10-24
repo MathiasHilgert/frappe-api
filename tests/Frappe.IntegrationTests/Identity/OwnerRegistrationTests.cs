@@ -44,7 +44,8 @@ public sealed class OwnerRegistrationTests(ApiFixture fixture) : IAsyncLifetime
 
         var issued = tracked.Sent.MessagesOf<OwnerVerificationCodeIssued>().ShouldHaveSingleItem();
         issued.PrincipalId.ShouldBe(id);
-        issued.Email.ShouldBe(email);
+        // PII policy: the event names the owner by id; the mailer looks up the address itself.
+        System.Text.Json.JsonSerializer.Serialize(issued).ShouldNotContain(email);
         var code = principal.Codes.ShouldHaveSingleItem();
         code.Purpose.ShouldBe(CodePurpose.EmailVerify);
         code.CodeHash.ShouldBe(Hash(CodeSeal.Open(fixture.Host, issued.SealedCode)));

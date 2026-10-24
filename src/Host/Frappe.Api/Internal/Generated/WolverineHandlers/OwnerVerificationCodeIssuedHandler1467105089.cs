@@ -2,6 +2,7 @@
 #pragma warning disable
 using Frappe.Application.Abstractions.Messaging;
 using Microsoft.Extensions.DependencyInjection;
+using System.Collections.Generic;
 
 namespace Internal.Generated.WolverineHandlers
 {
@@ -11,11 +12,13 @@ namespace Internal.Generated.WolverineHandlers
     {
         private readonly Frappe.Application.Abstractions.Messaging.IMessageSeal _messageSeal;
         private readonly Microsoft.Extensions.DependencyInjection.IServiceScopeFactory _serviceScopeFactory;
+        private readonly System.Collections.Generic.IEnumerable<Wolverine.EntityFrameworkCore.IDomainEventScraper> _domainEventScraperIEnumerable;
 
-        public OwnerVerificationCodeIssuedHandler1467105089(Frappe.Application.Abstractions.Messaging.IMessageSeal messageSeal, Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory)
+        public OwnerVerificationCodeIssuedHandler1467105089(Frappe.Application.Abstractions.Messaging.IMessageSeal messageSeal, Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory, System.Collections.Generic.IEnumerable<Wolverine.EntityFrameworkCore.IDomainEventScraper> domainEventScraperIEnumerable)
         {
             _messageSeal = messageSeal;
             _serviceScopeFactory = serviceScopeFactory;
+            _domainEventScraperIEnumerable = domainEventScraperIEnumerable;
         }
 
         public override async System.Threading.Tasks.Task HandleAsync(Wolverine.Runtime.MessageContext context, System.Threading.CancellationToken cancellation)
@@ -23,17 +26,47 @@ namespace Internal.Generated.WolverineHandlers
             await using var serviceScope = _serviceScopeFactory.CreateAsyncScope();
             Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Wolverine.Runtime.ScopedMessageContextHolder>(serviceScope.ServiceProvider).Context = context;
             // This service has been marked as requiring service location independent of Wolverine's ability to use constructor injection of everything else
+            var identityDbContext = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Frappe.Identity.Infrastructure.Persistence.IdentityDbContext>(serviceScope.ServiceProvider);
+            var ownerDirectory = new Frappe.Identity.Infrastructure.Persistence.OwnerDirectory(identityDbContext);
+            // This service has been marked as requiring service location independent of Wolverine's ability to use constructor injection of everything else
             var mailer = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Frappe.Notification.Application.Mails.IMailer>(serviceScope.ServiceProvider);
             // This service has been marked as requiring service location independent of Wolverine's ability to use constructor injection of everything else
             var ownerCodeMails = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Frappe.Notification.Application.OwnerCodeMails.IOwnerCodeMails>(serviceScope.ServiceProvider);
             // The actual message body
             var ownerVerificationCodeIssued = (Frappe.Identity.Contracts.OwnerVerificationCodeIssued)context.Envelope.Message;
 
-            System.Diagnostics.Activity.Current?.SetTag("message.handler", "Frappe.Notification.Application.OwnerCodeMails.VerificationCodeMailHandler");
-            System.Diagnostics.Activity.Current?.SetTag("handler.type", "Frappe.Notification.Application.OwnerCodeMails.VerificationCodeMailHandler");
             
-            // The actual message execution
-            await Frappe.Notification.Application.OwnerCodeMails.VerificationCodeMailHandler.Handle(ownerVerificationCodeIssued, ownerCodeMails, _messageSeal, mailer, context.Envelope, cancellation).ConfigureAwait(false);
+            // Enroll the DbContext & IMessagingContext in the outgoing Wolverine outbox transaction
+            var efCoreEnvelopeTransaction = new Wolverine.EntityFrameworkCore.Internals.EfCoreEnvelopeTransaction(identityDbContext, context, _domainEventScraperIEnumerable);
+            await context.EnlistInOutboxAsync(efCoreEnvelopeTransaction).ConfigureAwait(false);
+            // Start the actual database transaction if one does not already exist
+            if (identityDbContext.Database.CurrentTransaction == null)
+            {
+                await identityDbContext.Database.BeginTransactionAsync(cancellation).ConfigureAwait(false);
+            }
+
+            try
+            {
+                System.Diagnostics.Activity.Current?.SetTag("message.handler", "Frappe.Notification.Application.OwnerCodeMails.VerificationCodeMailHandler");
+                System.Diagnostics.Activity.Current?.SetTag("handler.type", "Frappe.Notification.Application.OwnerCodeMails.VerificationCodeMailHandler");
+                
+                // The actual message execution
+                await Frappe.Notification.Application.OwnerCodeMails.VerificationCodeMailHandler.Handle(ownerVerificationCodeIssued, ownerDirectory, ownerCodeMails, _messageSeal, mailer, context.Envelope, cancellation).ConfigureAwait(false);
+
+                
+                // Added by EF Core Transaction Middleware
+                var result_of_SaveChangesAsync = await identityDbContext.SaveChangesAsync(cancellation).ConfigureAwait(false);
+
+                // Commit the EF Core transaction before writing the response (GH-2917). The outbox flush follows in its own frame (GH-4742)
+                await efCoreEnvelopeTransaction.CommitAsync(cancellation, flushOutgoingMessages: false).ConfigureAwait(false);
+                // GH-2917/GH-4742: flush the outbox after the commit and before the response is written
+                await Wolverine.EntityFrameworkCore.EfCoreOutboxFlushing.FlushOutgoingMessagesAsync(context).ConfigureAwait(false);
+            }
+            catch (System.Exception)
+            {
+                await efCoreEnvelopeTransaction.RollbackAsync().ConfigureAwait(false);
+                throw;
+            }
         }
     }
 

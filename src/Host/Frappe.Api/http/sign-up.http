@@ -1,0 +1,19 @@
+# Owner sign-up: register, read the code in Mailpit (http://localhost:8025), verify. `just seed` does all of it.
+# Environment "dev" (http-client.env.json) holds the seeded owner from scripts/dev/seed-owner.env.
+
+### Register an owner (201, the id; a code mail lands in Mailpit)
+# @name register
+POST {{host}}/v1/identity/owners
+Content-Type: application/json
+Accept-Language: en
+
+{ "name": "Ana Example", "email": "ana-{{$random.uuid}}@frappe.local", "password": "a long local password" }
+
+### Send a new code (202)
+POST {{host}}/v1/identity/owners/{{register.response.body.id}}/verification-codes
+
+### Verify with the code from Mailpit (201, opens a session)
+POST {{host}}/v1/identity/owners/{{register.response.body.id}}/verification
+Content-Type: application/json
+
+{ "code": "123456" }

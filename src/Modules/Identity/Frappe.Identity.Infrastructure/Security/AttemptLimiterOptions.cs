@@ -9,9 +9,7 @@ namespace Frappe.Identity.Infrastructure.Security;
 internal sealed class AttemptLimiterOptions
 {
     public const string SectionName = "Identity:AttemptLimiter";
-    public const int MinimumTimeoutMilliseconds = 10;
-    public const int MaximumTimeoutMilliseconds = 5_000;
 
-    [Range(MinimumTimeoutMilliseconds, MaximumTimeoutMilliseconds)]
-    public int TimeoutMilliseconds { get; set; } = 250;
+    [Range(typeof(TimeSpan), "00:00:00.010", "00:00:05")]
+    public TimeSpan Timeout { get; set; } = TimeSpan.FromMilliseconds(250);
 }

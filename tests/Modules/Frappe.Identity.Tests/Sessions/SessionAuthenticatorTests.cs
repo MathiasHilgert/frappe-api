@@ -1,7 +1,6 @@
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
 using Frappe.Identity.Application.Sessions;
-using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Principals;
 using Frappe.Identity.Domain.Users;
 using Frappe.SharedKernel.Localization;
@@ -11,7 +10,7 @@ using Shouldly;
 
 namespace Frappe.Identity.Tests.Sessions;
 
-/// <summary>Authentication reads a lean credential and loads the aggregate only to touch; a lost touch never throws.</summary>
+/// <summary>Authentication reads a lean credential and touches with one conditional update; a lost touch never throws.</summary>
 public sealed class SessionAuthenticatorTests
 {
     private readonly FakeTimeProvider _clock = new(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
@@ -32,17 +31,17 @@ public sealed class SessionAuthenticatorTests
     }
 
     [Fact]
-    public async Task ASessionDueATouch_IsTouchedAndSaved()
+    public async Task ASessionDueATouch_IsTouchedByOneUpdate_WithoutLoadingOrSavingTheAggregate()
     {
-        var (principal, session) = _principals.Seed(_clock);
+        var (_, session) = _principals.Seed(_clock);
         _clock.Advance(SessionAuthenticator.TouchInterval);
 
         var authenticated = await Authenticator().AuthenticateAsync("token", Ct);
 
         authenticated.ShouldNotBeNull().SessionId.ShouldBe(session.Id);
-        _principals.AggregateLoads.ShouldBe(1);
-        _principals.Saves.ShouldBe(1);
-        principal.Sessions.Single().LastSeenAt.ShouldBe(_clock.GetUtcNow());
+        _principals.Touches.ShouldBe([(session.Id, _clock.GetUtcNow(), _clock.GetUtcNow() - SessionAuthenticator.TouchInterval)]);
+        _principals.AggregateLoads.ShouldBe(0);
+        _principals.Saves.ShouldBe(0);
     }
 
     [Fact]
@@ -50,43 +49,50 @@ public sealed class SessionAuthenticatorTests
     {
         _principals.Seed(_clock);
         _clock.Advance(SessionAuthenticator.TouchInterval);
-        _principals.RevokeOnSave = true;
+        _principals.RevokeOnTouch = true;
 
         var authenticated = await Authenticator().AuthenticateAsync("token", Ct);
 
         authenticated.ShouldBeNull();
-        _principals.Saves.ShouldBe(1);
     }
 
     [Fact]
-    public async Task ATouchLosingARaceToAnUnrelatedChange_StillAdmitsTheLiveSession()
+    public async Task ATouchAnotherRequestAlreadyMade_StillAdmitsTheLiveSession()
     {
         var (_, session) = _principals.Seed(_clock);
         _clock.Advance(SessionAuthenticator.TouchInterval);
-        _principals.ConflictOnSave = true;
+        _principals.TouchedElsewhere = true;
 
         var authenticated = await Authenticator().AuthenticateAsync("token", Ct);
 
         authenticated.ShouldNotBeNull().SessionId.ShouldBe(session.Id);
     }
 
-    private SessionAuthenticator Authenticator() => new(_principals, new PlainHasher(), _clock);
+    private SessionAuthenticator Authenticator() => new(_principals, _principals, new PlainHasher(), _clock);
 
     private sealed class PlainHasher : ISecretHasher
     {
         public string Hash(string secret) => $"h:{secret}";
     }
 
-    /// <summary>Just enough repository: one principal, a credential read, and a save that can lose a race.</summary>
-    private sealed class FakePrincipals : IPrincipalRepository
+    /// <summary>Just enough repository: one principal, a credential read, and a touch that can lose a race.</summary>
+    private sealed class FakePrincipals : IPrincipalRepository, ISessionTouches
     {
         private Principal? _principal;
         private bool _revoked;
 
         public int AggregateLoads { get; private set; }
         public int Saves { get; private set; }
-        public bool RevokeOnSave { get; set; }
-        public bool ConflictOnSave { get; set; }
+        public bool RevokeOnTouch { get; set; }
+        public bool TouchedElsewhere { get; set; }
+        public List<(Guid SessionId, DateTimeOffset Now, DateTimeOffset LastSeenBefore)> Touches { get; } = [];
+
+        public Task<bool> TouchAsync(Guid sessionId, DateTimeOffset now, DateTimeOffset lastSeenBefore, CancellationToken cancellationToken)
+        {
+            Touches.Add((sessionId, now, lastSeenBefore));
+            _revoked = RevokeOnTouch;
+            return Task.FromResult(!RevokeOnTouch && !TouchedElsewhere);
+        }
 
         public (Principal Principal, Session Session) Seed(TimeProvider clock)
         {
@@ -116,8 +122,7 @@ public sealed class SessionAuthenticatorTests
         public Task<Result> SaveAsync(CancellationToken cancellationToken)
         {
             Saves++;
-            _revoked = RevokeOnSave;
-            return Task.FromResult(RevokeOnSave || ConflictOnSave ? Result.Failure(IdentityErrors.ConcurrentChange) : Result.Success());
+            return Task.FromResult(Result.Success());
         }
 
         public Task<Principal?> GetByEmailAsync(Email email, CancellationToken cancellationToken) => throw new NotSupportedException();

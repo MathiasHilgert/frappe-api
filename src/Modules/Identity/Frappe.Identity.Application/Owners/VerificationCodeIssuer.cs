@@ -17,8 +17,6 @@ public sealed class VerificationCodeIssuer(ISecretGenerator generator, ISecretHa
         var issued = principal.IssueCode(CodePurpose.EmailVerify, hasher.Hash(code), clock.GetUtcNow());
         return issued.IsFailure
             ? Result.Failure<OwnerVerificationCodeIssued>(issued.Errors)
-            : Result.Success(new OwnerVerificationCodeIssued(
-                principal.Id, principal.Owner.Name.Value, principal.Owner.Email.Value, seal.Seal(code), issued.Value.ExpiresAt,
-                principal.Owner.Locale.Value));
+            : Result.Success(new OwnerVerificationCodeIssued(principal.Id, seal.Seal(code), issued.Value.ExpiresAt));
     }
 }
