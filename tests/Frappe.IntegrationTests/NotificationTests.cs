@@ -110,7 +110,7 @@ public sealed class NotificationTests(ApiFixture fixture, NotificationTests.Mail
             }
         }
 
-        public Task SendAsync(Mail mail, CancellationToken ct)
+        public Task SendAsync(Mail mail, CancellationToken cancellationToken)
         {
             lock (_sent)
                 _sent.Add(mail);

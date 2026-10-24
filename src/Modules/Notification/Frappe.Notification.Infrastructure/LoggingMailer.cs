@@ -7,7 +7,7 @@ namespace Frappe.Notification.Infrastructure;
 /// <summary>Development and test stand-in for a provider: the mail, code included, only goes to the log.</summary>
 internal sealed partial class LoggingMailer(ILogger<LoggingMailer> logger) : IMailer
 {
-    public Task SendAsync(Mail mail, CancellationToken ct)
+    public Task SendAsync(Mail mail, CancellationToken cancellationToken)
     {
         LogMail(logger, mail.To, mail.Subject, mail.Text);
         return Task.CompletedTask;
