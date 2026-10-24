@@ -36,7 +36,13 @@ public static class MessagingRegistration
         params IReadOnlyList<System.Reflection.Assembly> platformMessagingAssemblies)
     {
         builder.Services.AddSingleton<IValidateOptions<MessageSealOptions>, MessageSealOptionsValidator>();
-        builder.Services.AddOptions<MessageSealOptions>().BindConfiguration(MessageSealOptions.SectionName).ValidateOnStart();
+        // The development key is committed, so it is public: outside Development it would seal nothing.
+        builder.Services.AddOptions<MessageSealOptions>()
+            .BindConfiguration(MessageSealOptions.SectionName)
+            .Validate<IHostEnvironment>(
+                (options, environment) => environment.IsDevelopment() || !MessageSealOptions.IsDevelopmentKey(options.Key),
+                $"'{MessageSealOptions.SectionName}:Key' is the committed development key; set a real one outside Development.")
+            .ValidateOnStart();
         builder.Services.AddSingleton<IMessageSeal, AesGcmMessageSeal>();
 
         builder.UseWolverine(opts =>
@@ -96,6 +102,8 @@ public static class MessagingRegistration
         services.AddSingleton<IStatefulResource>(schema);
         // Registered before the Quartz hosted service, so it runs first.
         services.AddHostedService(_ => new QuartzSchemaSetup(schema, provision: environment.IsDevelopment()));
+        // Then the declared recurring jobs are stored, before the scheduler starts firing them.
+        services.AddHostedService<RecurringJobScheduler>();
 
         services.AddQuartz(quartz => quartz.UsePersistentStore(store =>
         {
@@ -108,4 +116,16 @@ public static class MessagingRegistration
         services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);
         return services;
     }
+
+    /// <summary>
+    /// Declares a recurring job that publishes <typeparamref name="TCommand"/> on <paramref name="cronExpression"/>
+    /// (UTC). The trigger is keyed <paramref name="name"/> and survives restarts untouched unless its schedule changes.
+    /// </summary>
+    public static IServiceCollection AddRecurringCommand<TCommand>(
+        this IServiceCollection services, string name, string cronExpression)
+        where TCommand : new() =>
+        services.AddSingleton(new RecurringJob(
+            JobBuilder.Create<PublishCommandJob<TCommand>>().WithIdentity(name).StoreDurably().Build(),
+            cronExpression,
+            TimeZoneInfo.Utc));
 }

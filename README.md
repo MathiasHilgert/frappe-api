@@ -156,7 +156,7 @@ Only files tools must find at the root live there: `global.json`, `Directory.*.p
 | Commands and queries | CQRS lite, see [Commands and queries](#commands-and-queries). |
 | Events / outbox | Aggregates raise domain events; Wolverine scrapes them from EF Core into the outbox in the same transaction. Reactions run from durable local queues. |
 | Realtime | A handler returns `RealtimePush.From(notification)` as a cascading message (Wolverine routes only concrete types). It is pushed to NATS JetStream after commit and streamed over SSE; the stream sequence is the SSE id, so `Last-Event-ID` resumes. |
-| Jobs | One-off work is a (scheduled) Wolverine message. Recurring work is a Quartz trigger running `PublishCommandJob<T>`, which only publishes a command. Quartz uses its clustered PostgreSQL store (schema `quartz`), so with several instances exactly one fires each trigger. |
+| Jobs | One-off work is a (scheduled) Wolverine message. Recurring work is a Quartz trigger running `PublishCommandJob<T>`, which only publishes a command; a module declares it with `services.AddRecurringCommand<T>(name, cron)`. A restart keeps a stored trigger untouched unless its schedule changed, deletes `PublishCommandJob` jobs no module declares any more, and a missed firing runs once on recovery. Quartz uses its clustered PostgreSQL store (schema `quartz`), so with several instances exactly one fires each trigger. |
 | Persistence | One schema per module, EF migrations history in that schema. Outside Development the app creates nothing at startup (see [Deploy](#deploy)). |
 | Security | Deny by default: every endpoint requires an authenticated user. An endpoint opts in one of two ways (`EndpointConventions`): `AllowAnonymousAuth()` (anonymous, per-IP rate limited in process, 429 documented) or `RequirePolicy(policy)` (a module wraps it, e.g. Identity's `RequireOwner()`; 401/403 documented). |
 | Time and ids | Handlers inject `TimeProvider` and pass `DateTimeOffset now` into the domain, which never asks a clock; ids are UUIDv7 via `Guid.CreateVersion7(now)`. |
@@ -274,9 +274,17 @@ freed in time) with a 503 carrying its error.
 Two layers slow abusive clients down, and neither ever locks an account. The attempt limiter (Valkey, fail-open)
 counts failures per use case: a sign-in has a tight budget per email and client IP together (10 per 15 minutes, so an
 attacker hammering an address from their own IP only throttles themselves), a much higher ceiling per email alone
-(100, reached only by a distributed attack) and one per IP. Underneath, an in-process ASP.NET rate limiter caps every
-anonymous auth endpoint per IP (`Platform:RateLimiting`), so the API stays protected when Valkey is down. Throttled
-sign-ins, rejected codes, purge outcomes and dead-lettered mails are metered (`Frappe.Identity`,
+(100, reached only by a distributed attack) and one per IP. An address the email already signed in from in the last
+30 days is exempt from that ceiling, so a distributed attack cannot lock the owner out of the places they use (the
+server-side form of OWASP's device-cookie defence); it still has its own tight budget. Underneath, an in-process
+ASP.NET rate limiter caps every anonymous auth endpoint per IP (`Platform:RateLimiting`), so the API stays protected
+when Valkey is down. Every per-IP key comes from `ClientIp()`: an IPv4 address as is, an IPv6 address by its /64
+prefix. One IPv6 /64 is one budget: ISPs hand each subscriber at least a whole /64 (RFC 6177), so keying by full
+address would let one client rotate through billions of addresses and dodge every per-IP limit. The cost is the same
+as a shared IPv4 NAT: devices behind one /64 share its budget. An origin is remembered by a command the sign-in
+cascades, so only after the session committed. Throttled sign-ins, rejected codes, known-origin lookups skipped
+during a Valkey outage, purge outcomes (purged, skipped on a conflict, failed) and dead-lettered mails are metered
+(`Frappe.Identity`,
 `Frappe.Notification`, `Wolverine:*` meters).
 
 A module adds strings as flat ICU MessageFormat catalogues, one file per locale, keyed by error code or a
@@ -352,7 +360,7 @@ docker run -d -p 8080:8080 \
 | `Identity__SessionCookie__Name` | No | Session cookie name for the web console, default `__Host-frappe_session`; must be a valid cookie token or startup fails. A `__Host-` name requires Path `/` and no Domain |
 | `Identity__SessionCookie__Path` | No | Session cookie path, default `/`; must start with `/` |
 | `Identity__SessionCookie__Domain` | No | Unset by default (host-only cookie); not allowed with a `__Host-` name |
-| `Messaging__Seal__Key` | Yes | Key (32+ characters) that seals one-time codes inside queued messages; startup fails without it. Rotating it makes codes still queued unreadable (they dead-letter) |
+| `Messaging__Seal__Key` | Yes | Key (32+ characters) that seals one-time codes inside queued messages; startup fails without it, and outside Development also when it is the committed development key (compared as bytes, so whitespace, case or Base64 variants of it are refused too). Rotating it makes codes still queued unreadable (they dead-letter) |
 | `Identity__PasswordHashing__*` | No | Argon2id cost (`MemorySizeKib`, `Iterations`, `Parallelism`); startup fails below the OWASP minimum. `MaxConcurrentHashes` (default: CPU count, 1..1024) caps hashes running at once; extra sign-ins wait at most `SlotWaitMilliseconds` (default 2000) for a slot, then get a 503 with `Retry-After` |
 | `Platform__RateLimiting__PermitLimit`, `__WindowSeconds` | No | In-process per-IP cap on anonymous auth endpoints, default 300 per 60 s |
 | `Notification__Resend__ApiKey` | Yes | Resend API key (secret, never committed); startup fails without it outside Development. Locally: `dotnet user-secrets set "Notification:Resend:ApiKey" "<key>" --project src/Host/Frappe.Api`. Without it, Development only logs that a mail was sent (recipient domain, kind, subject with digits masked; never the body or code) instead of sending it. Each delivery sends the Wolverine message id as `Idempotency-Key`, so retries never send twice |

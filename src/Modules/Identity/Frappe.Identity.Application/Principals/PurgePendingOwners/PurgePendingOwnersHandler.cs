@@ -17,7 +17,11 @@ public static partial class PurgePendingOwnersHandler
 
     // The query applies the purge rule (pending, registered before the cutoff); the aggregate still decides, so the rule
     // has one owner. Each principal is loaded and saved on its own: a conflict (someone verified or changed it
-    // meanwhile) skips that principal only, and the keyset cursor moves past it, so it can never stall a run.
+    // meanwhile) skips that principal only, and the keyset cursor moves past it, so it can never stall a run. Every
+    // statement runs inside an isolated step (a savepoint): an unexpected failure loading or saving one principal
+    // (a constraint, a trigger, a bug) rolls back only that principal; the run logs, counts and moves on, and the
+    // next run retries it. A failed page query ends the run but keeps what it already purged. Only cancellation
+    // fails the whole run.
     // A deleted aggregate leaves the change tracker before its events can be scraped, so they are returned as
     // cascading messages instead: Wolverine writes them to the outbox in this handler's transaction. Nothing waits
     // for an answer (a recurring job publishes this), so the messages are all it returns.
@@ -38,12 +42,30 @@ public static partial class PurgePendingOwnersHandler
 
         while (attempted < BatchSize)
         {
-            var page = await repository.ListPurgeCandidatesAsync(
-                cutoff, after, Math.Min(PageSize, BatchSize - attempted), cancellationToken);
+            var page = await NextPageAsync(
+                repository, telemetry, logger, cutoff, after, Math.Min(PageSize, BatchSize - attempted), cancellationToken);
+            if (page is null)
+                break;
+
             foreach (var id in page.Select(c => c.Id))
             {
                 attempted++;
-                switch (await TryPurgeAsync(id, repository, now, events, cancellationToken))
+                Outcome outcome;
+                try
+                {
+                    // The events join the outbox only once the isolated step committed to its savepoint.
+                    (outcome, var raised) = await repository.IsolateAsync(
+                        token => TryPurgeAsync(id, repository, now, token), cancellationToken);
+                    events.AddRange(raised);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    telemetry.PurgeFailed();
+                    LogFailed(logger, exception, id);
+                    continue;
+                }
+
+                switch (outcome)
                 {
                     case Outcome.Purged:
                         purged++;
@@ -70,27 +92,46 @@ public static partial class PurgePendingOwnersHandler
 
     private enum Outcome { Purged, Refused, Conflict }
 
-    private static async Task<Outcome> TryPurgeAsync(
-        Guid id, IPrincipalRepository repository, DateTimeOffset now, OutgoingMessages events,
-        CancellationToken cancellationToken)
+    /// <summary>The next page of candidates, or null when the query failed (logged and counted).</summary>
+    private static async Task<IReadOnlyList<PurgeCandidate>?> NextPageAsync(
+        IPrincipalRepository repository, IIdentityTelemetry telemetry, ILogger logger, DateTimeOffset cutoff,
+        PurgeCandidate? after, int size, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await repository.IsolateAsync(
+                token => repository.ListPurgeCandidatesAsync(cutoff, after, size, token), cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            telemetry.PurgeFailed();
+            LogPageFailed(logger, exception);
+            return null;
+        }
+    }
+
+    private static async Task<(Outcome, object[])> TryPurgeAsync(
+        Guid id, IPrincipalRepository repository, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var principal = await repository.GetByIdAsync(id, cancellationToken);
         // Already gone (verified and deleted elsewhere is impossible, but a concurrent purge is not): nothing to do.
         if (principal is null || principal.PurgeAbandonedRegistration(now).IsFailure)
-            return Outcome.Refused;
+            return (Outcome.Refused, []);
 
         var raised = ((IHasDomainEvents)principal).DequeueDomainEvents();
         repository.Remove(principal);
         var saved = await repository.SaveAsync(cancellationToken);
-        if (saved.IsFailure)
-            return Outcome.Conflict;
-
-        events.AddRange(raised);
-        return Outcome.Purged;
+        return saved.IsFailure ? (Outcome.Conflict, []) : (Outcome.Purged, [.. raised]);
     }
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Purge skipped pending owner {PrincipalId}: {Reason}")]
     private static partial void LogSkipped(ILogger logger, Guid principalId, string reason);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Purge failed for pending owner {PrincipalId}; the next run retries it")]
+    private static partial void LogFailed(ILogger logger, Exception exception, Guid principalId);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Purge stopped: the candidate query failed; the next run continues")]
+    private static partial void LogPageFailed(ILogger logger, Exception exception);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Purged {Purged} abandoned registrations of {Attempted} candidates")]
     private static partial void LogPurged(ILogger logger, int purged, int attempted);

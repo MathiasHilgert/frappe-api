@@ -33,6 +33,14 @@ public interface IPrincipalRepository
     Task<IReadOnlyList<PurgeCandidate>> ListPurgeCandidatesAsync(
         DateTimeOffset cutoff, PurgeCandidate? after, int limit, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Runs <paramref name="work"/> (reads and saves alike) as one isolated step of the current unit of work. When it
+    /// throws, the database is rolled back to a savepoint taken before it, so the surrounding transaction stays usable
+    /// and keeps earlier steps; every change still tracked is discarded (earlier steps were already saved), and the
+    /// exception is rethrown. Use it to let one item of a batch fail without failing the batch.
+    /// </summary>
+    Task<T> IsolateAsync<T>(Func<CancellationToken, Task<T>> work, CancellationToken cancellationToken);
+
     void Add(Principal principal);
 
     void Remove(Principal principal);
@@ -41,7 +49,8 @@ public interface IPrincipalRepository
     /// Commits tracked changes, the one save every caller uses. It fails, with nothing saved and the rejected state no
     /// longer tracked, with <c>IdentityErrors.ConcurrentChange</c> when someone else changed the principal since it was
     /// loaded, or <c>IdentityErrors.EmailTaken</c> when another owner holds an address this save claims (a
-    /// registration, a confirmed email change). Best-effort writers (a session touch) just ignore the failure.
+    /// registration, a confirmed email change). Best-effort writers (a session touch) just ignore the failure. Any other
+    /// error throws and leaves the tracked state as it was; <see cref="IsolateAsync{T}"/> is how a caller recovers.
     /// </summary>
     Task<Result> SaveAsync(CancellationToken cancellationToken);
 }
