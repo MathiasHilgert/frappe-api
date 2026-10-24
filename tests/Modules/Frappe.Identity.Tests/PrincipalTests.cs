@@ -108,9 +108,7 @@ public sealed class PrincipalTests
     {
         var principal = RegisterWithCode(CodePurpose.EmailVerify, "c0");
         for (var i = 1; i <= VerificationCode.MaxResendsPerHour; i++)
-        {
             principal.IssueCode(CodePurpose.EmailVerify, $"c{i}", _clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
-        }
 
         principal.IssueCode(CodePurpose.EmailVerify, "late", _clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.ResendLimitReached]);
 

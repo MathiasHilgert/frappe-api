@@ -46,9 +46,7 @@ internal sealed class Argon2PasswordHasher : IPasswordHasher, IDisposable
         ArgumentNullException.ThrowIfNull(password);
 
         if (!TryParse(passwordHash, out var parsed))
-        {
             return false;
-        }
 
         var actual = await DeriveAsync(
             password, parsed.Salt, parsed.Memory, parsed.Iterations, parsed.Parallelism, parsed.Hash.Length, cancellationToken);
@@ -92,15 +90,11 @@ internal sealed class Argon2PasswordHasher : IPasswordHasher, IDisposable
     {
         parsed = default;
         if (phc is null || !phc.StartsWith(Prefix, StringComparison.Ordinal))
-        {
             return false;
-        }
 
         var parts = phc[Prefix.Length..].Split('$');
         if (parts.Length != 3)
-        {
             return false;
-        }
 
         if (!TryParseCost(parts[0], out var memory, out var iterations, out var parallelism)
             || !TryDecode(parts[1], out var salt)
@@ -140,9 +134,7 @@ internal sealed class Argon2PasswordHasher : IPasswordHasher, IDisposable
         var padded = value.PadRight(value.Length + ((4 - (value.Length % 4)) % 4), '=');
         bytes = new byte[padded.Length];
         if (!Convert.TryFromBase64String(padded, bytes, out var written))
-        {
             return false;
-        }
 
         bytes = bytes[..written];
         return true;

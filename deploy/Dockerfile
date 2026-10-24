@@ -42,6 +42,6 @@ USER $APP_UID
 EXPOSE 8080
 # No HEALTHCHECK: chiseled has no shell/curl; the orchestrator probes /health/live and /health/ready.
 # No arguments runs the API. Before starting a new version, the deploy runs the same image once with
-# `resources setup` (and the connection strings) to create the Wolverine message storage schema:
+# `resources setup` (and the connection strings) to create the Wolverine and Quartz storage schemas:
 #   docker run --rm -e ConnectionStrings__frappe=... <image> resources setup
 ENTRYPOINT ["dotnet", "Frappe.Api.dll"]

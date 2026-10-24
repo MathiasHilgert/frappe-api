@@ -52,8 +52,10 @@ dotnet_diagnostic.xUnit1051.severity = error
 # Code style: the repo's dominant idioms, enforced in the build (EnforceCodeStyleInBuild) and by `dotnet format`.
 csharp_style_namespace_declarations = file_scoped:error
 dotnet_diagnostic.IDE0161.severity = error
+# Braces only when the statement spans several lines: IDE0011 adds them there, RCS1002 removes them elsewhere.
 csharp_prefer_braces = when_multiline:warning
 dotnet_diagnostic.IDE0011.severity = warning
+dotnet_diagnostic.RCS1002.severity = warning
 csharp_style_var_for_built_in_types = true:warning
 csharp_style_var_when_type_is_apparent = true:warning
 csharp_style_var_elsewhere = true:warning

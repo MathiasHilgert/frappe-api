@@ -48,9 +48,7 @@ public sealed class VerificationCode
     private Result<VerificationCode> Resend(Guid id, string codeHash, DateTimeOffset now)
     {
         if (now - WindowStartedAt >= ResendWindow)
-        {
             return Result.Success(First(id, Purpose, codeHash, now));
-        }
 
         return ResendCount >= MaxResendsPerHour
             ? Result.Failure<VerificationCode>(IdentityErrors.ResendLimitReached)
@@ -82,9 +80,7 @@ public sealed class VerificationCode
     {
         var consumable = CanConsume(now);
         if (consumable.IsSuccess)
-        {
             UsedAt = now;
-        }
         return consumable;
     }
 }

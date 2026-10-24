@@ -16,9 +16,7 @@ internal static class OpenApiDocs
     {
         // Development only: the API surface is not published in other environments.
         if (!app.Environment.IsDevelopment())
-        {
             return app;
-        }
 
         // The fallback policy requires authentication; docs must opt out explicitly.
         app.MapOpenApi().AllowAnonymous();

@@ -119,7 +119,10 @@ sequenceDiagram
   to EF Core is a private parameterless constructor on entities and value objects it materializes: neutral C#, no
   attribute or EF comment, so Domain still compiles and reads without any ORM.
 - Other modules may consume only a module's Contracts.
-- The host knows modules only through `IModule`.
+- The host knows modules only through `IModule` (its name, services, messaging, endpoints and meters).
+- A module's Contracts hold messages (records), enums and constants only. A service two modules share (such as
+  sealing a code a message carries, `IMessageSeal`) is a platform abstraction in `Frappe.Application.Abstractions`
+  with its implementation in a `Platform.*` project, never an interface in one module's Contracts.
 
 Enforcement:
 
@@ -149,14 +152,15 @@ Only files tools must find at the root live there: `global.json`, `Directory.*.p
 
 | Topic | Rule |
 | --- | --- |
-| Validation | Domain invariants return `Result<T>` built from a `Notification` (Fowler): all broken rules at once. The HTTP layer checks only request shape, 400. Endpoints answer failures with `result.ToProblem()` (see [Errors and localization](#errors-and-localization)). |
+| Validation | Domain invariants return `Result<T>` built from a `ValidationNotification` (Fowler): all broken rules at once. A failure propagates every error (`Result.Failure(other.Errors)`), never just the first. The HTTP layer checks only request shape, 400: request records carry the client's fields as sent (nullable) and the command passes them on, so the domain reports missing values with the rest. Endpoints answer failures with `result.ToProblem()` (see [Errors and localization](#errors-and-localization)). |
 | Commands and queries | CQRS lite, see [Commands and queries](#commands-and-queries). |
 | Events / outbox | Aggregates raise domain events; Wolverine scrapes them from EF Core into the outbox in the same transaction. Reactions run from durable local queues. |
 | Realtime | A handler returns `RealtimePush.From(notification)` as a cascading message (Wolverine routes only concrete types). It is pushed to NATS JetStream after commit and streamed over SSE; the stream sequence is the SSE id, so `Last-Event-ID` resumes. |
-| Jobs | One-off work is a (scheduled) Wolverine message. Recurring work is a Quartz trigger running `PublishCommandJob<T>`, which only publishes a command. |
+| Jobs | One-off work is a (scheduled) Wolverine message. Recurring work is a Quartz trigger running `PublishCommandJob<T>`, which only publishes a command. Quartz uses its clustered PostgreSQL store (schema `quartz`), so with several instances exactly one fires each trigger. |
 | Persistence | One schema per module, EF migrations history in that schema. Outside Development the app creates nothing at startup (see [Deploy](#deploy)). |
-| Security | Deny by default: every endpoint requires an authenticated user unless it calls `AllowAnonymous()`. |
-| Time and ids | Inject `TimeProvider`; ids are UUIDv7 via `Guid.CreateVersion7(timeProvider.GetUtcNow())`. |
+| Security | Deny by default: every endpoint requires an authenticated user. An endpoint opts in one of two ways (`EndpointConventions`): `AllowAnonymousAuth()` (anonymous, per-IP rate limited in process, 429 documented) or `RequirePolicy(policy)` (a module wraps it, e.g. Identity's `RequireOwner()`; 401/403 documented). |
+| Time and ids | Handlers inject `TimeProvider` and pass `DateTimeOffset now` into the domain, which never asks a clock; ids are UUIDv7 via `Guid.CreateVersion7(now)`. |
+| Options | One pattern: defaults on the options class, `public const string SectionName`, `AddOptions<T>().BindConfiguration(T.SectionName)`, a source-generated `[OptionsValidator]` partial class (DataAnnotations, `IValidatableObject` for cross-field rules) and `ValidateOnStart()`. |
 | Correlation | Every request gets an id, echoed in `X-Request-Id` and flowed into logs and spans. |
 | Modules | `IModule.Name` is also the route segment: endpoints map under `/v1/{Name}`. |
 
@@ -178,17 +182,22 @@ stale code on its own, but production and the integration tests load only the co
 | Side effects | Cascading messages (`OutgoingMessages`) or `IMessageContext.PublishAsync`, written to the outbox in the same transaction | None |
 
 Layout: Application holds one folder per use case (message, handler and result types together, e.g.
-`Sessions/LogIn/`), while the namespace stays the feature area (`...Application.Sessions`) so a type never shares a
-name with its namespace. Endpoints live in `<Module>.Infrastructure/Endpoints/`, one `*Endpoints` route group per
+`Sessions/LogIn/` with `LogIn.cs` and `LogInHandler.cs`), while the namespace stays the feature area
+(`...Application.Sessions`) so a type never shares a name with its namespace. A module that only reacts to other
+modules' events (Notification) groups its reactions by area instead: `OwnerCodeMails/` holds one handler class per
+message it reacts to (`VerificationCodeMailHandler`, ...), and the ports and exceptions they share sit in their own
+feature folder (`Mails/`). Endpoints live in `<Module>.Infrastructure/Endpoints/`, one `*Endpoints` route group per
 feature area with one file per request/response record (`*Request`/`*Response`, unique names); they return a typed
-`Results<...>` with `WithSummary` and `ProducesProblem` metadata, read the caller with
+`Results<...>` with `WithName`, `WithSummary` and `ProducesProblem` metadata, answer a success body that is an
+Infrastructure `*Response` record (never an Application DTO), read the caller with
 `ICurrentPrincipal.RequiredSession()`, the client address with `HttpContext.ClientIp()`, and only map HTTP to a
 message and a result to a status or `ToProblem()`. JSON is camelCase everywhere (the framework default). Use-case policy, attempt
 limits included, lives in the handler: a throttled command fails with a `TooManyRequests` error carrying
 `Error.WithRetryAfter(wait)`, and facts the edge may disclose ride in `Error.WithMetadata(key, value)`. Transport
 concerns (cookies through `ISessionCookie`, `Content-Language`) stay in Infrastructure.
-A command that only a recurring job publishes (`PurgePendingOwners`) implements `IBackgroundCommand`: nobody reads
-its answer and a published handler's return value is cascaded, so it returns only its `OutgoingMessages`.
+A command no caller awaits, whether cascaded by another handler (`IssuePasswordResetCode`) or published by a job
+(`PurgePendingOwners`), implements `IBackgroundCommand`: nobody reads its answer and a published handler's return
+value is cascaded, so it returns only its `OutgoingMessages`.
 `Error` keeps default record equality. To ask whether an error breaks a given rule, compare by `Code` and `Field` with
 `error.Is(IdentityErrors.EmailTaken)` or the `Error.ByRule` comparer (e.g. `ShouldContain(x, Error.ByRule)`): that
 holds for a throttled or annotated copy too, where `==` does not.
@@ -196,10 +205,25 @@ holds for a throttled or annotated copy too, where `==` does not.
 is not a marked record, a query handler touches a repository, a command handler answers with a type some query
 returns, a command handler returns anything but `Result`/`Result<T>`, a background command handler returns a
 `Result`, or a query handler is not `[NonTransactional]`. `EdgeConventionTests.cs` fails when an endpoint builds a
-problem itself (`TypedResults.Problem`, `Results.Problem`, `new ProblemDetails`), an endpoint lives outside
+problem itself (`TypedResults.Problem`, `Results.Problem`, `new ProblemDetails`) or answers a bare status
+(`TypedResults.Unauthorized`, `NotFound`, `BadRequest`, `Forbid`, ...), reads `HttpContext.User` or
+`Connection.RemoteIpAddress`, returns a success body that is not an Infrastructure `*Response`, lives outside
 `Endpoints/` or is not named `*Endpoints`, or an `Error` is declared outside a `*Errors` catalogue.
-`VisibilityTests.cs` fails when a module's Infrastructure exposes a public type other than its `IModule`, except the
-adapters Wolverine constructs inline in the generated handlers (`IdentityDbContext`, `PrincipalRepository`, `OwnerReads`).
+`VisibilityTests.cs` fails when a module's Infrastructure exposes a public type other than its `IModule` and the
+adapters marked `[InlinedByWolverine]` (Wolverine constructs those inline in the generated handlers only when public).
+`ModuleConventionTests.cs` fails when the host references a module type other than its `IModule`, a Contracts project
+holds anything but messages, enums and constants, a file's namespace is not its project plus feature folder, an
+Application use-case folder lacks `<UseCase>.cs` and `<UseCase>Handler.cs`, or a module has more than one
+`ModuleDbContext`. `DomainPurityTests.cs` fails when a domain method takes a `TimeProvider` or a domain property has a
+non-private setter. `OptionsConventionTests.cs` fails when an options class has no `[OptionsValidator]` or names its
+section anything but `SectionName`. In the integration suite, `EndpointConventionTests.cs` reads the route table:
+every module endpoint sits under `/v1/{IModule.Name}`, has a name, a summary and its problems documented, and is
+either `AllowAnonymousAuth()` (rate limited) or authorized with its 401/403; `ModuleSchemaTests.cs` checks every module
+table lives in the module's own schema.
+
+Not checked by a test (reviewed by hand): that a handler loads only the aggregate it changes, that domain events are
+named in the past tense, that a use case's policy lives in its handler rather than the endpoint, and that translated
+strings read naturally in each locale.
 
 Migrations:
 
@@ -237,13 +261,23 @@ and `Localization:DefaultLocale`). The request locale (`IRequestLocale`) is nego
 3. Otherwise `en`.
 
 Failures are RFC 9457 problems. `result.ToProblem()` picks the status from `Error.Kind` (422 validation, 404, 409,
-429 with `Retry-After` from the longest `Error.RetryAfter`, 401, 403; mixed kinds answer 422), sets `type` to
+429 or 503 with `Retry-After` from the longest `Error.RetryAfter`, 401, 403; mixed kinds answer 422), sets `type` to
 `urn:frappe:problem:<code>` (one error) or `urn:frappe:problem:validation` (several), and translates `title` and each
 `errors[].message` by error code. A code with no catalogue entry falls back to `Error.Message`, in English. One error
 also sets `detail` (same text) and `code`, and every `Error.Metadata` entry becomes a top-level member (e.g. `ownerId`
 on a pending owner's login; the keys live in the module's Contracts, `IdentityErrorMetadata`). Endpoints never shape
 a problem themselves: give the error the right `Kind` instead. A 401/403 from authorization (challenge or forbid)
-answers the same shape with `platform.auth.required` or `platform.auth.forbidden` (`PlatformErrors`).
+answers the same shape with `platform.auth.required` or `platform.auth.forbidden` (`PlatformErrors`), the
+in-process rate limiter with `platform.rate_limited`, and an `UnavailableException` (e.g. no password-hashing slot
+freed in time) with a 503 carrying its error.
+
+Two layers slow abusive clients down, and neither ever locks an account. The attempt limiter (Valkey, fail-open)
+counts failures per use case: a sign-in has a tight budget per email and client IP together (10 per 15 minutes, so an
+attacker hammering an address from their own IP only throttles themselves), a much higher ceiling per email alone
+(100, reached only by a distributed attack) and one per IP. Underneath, an in-process ASP.NET rate limiter caps every
+anonymous auth endpoint per IP (`Platform:RateLimiting`), so the API stays protected when Valkey is down. Throttled
+sign-ins, rejected codes, purge outcomes and dead-lettered mails are metered (`Frappe.Identity`,
+`Frappe.Notification`, `Wolverine:*` meters).
 
 A module adds strings as flat ICU MessageFormat catalogues, one file per locale, keyed by error code or a
 module-prefixed key:
@@ -302,7 +336,7 @@ once with `resources setup` before starting the new version:
 
 ```sh
 just image
-docker run --rm -e ConnectionStrings__frappe="Host=…" frappe-api:local resources setup   # Wolverine storage schema
+docker run --rm -e ConnectionStrings__frappe="Host=…" frappe-api:local resources setup   # Wolverine and Quartz schemas
 docker run -d -p 8080:8080 \
   -e ConnectionStrings__frappe="Host=…" \
   -e ConnectionStrings__valkey="host:6379" \
@@ -318,8 +352,11 @@ docker run -d -p 8080:8080 \
 | `Identity__SessionCookie__Name` | No | Session cookie name for the web console, default `__Host-frappe_session`; must be a valid cookie token or startup fails. A `__Host-` name requires Path `/` and no Domain |
 | `Identity__SessionCookie__Path` | No | Session cookie path, default `/`; must start with `/` |
 | `Identity__SessionCookie__Domain` | No | Unset by default (host-only cookie); not allowed with a `__Host-` name |
-| `Identity__PasswordHashing__*` | No | Argon2id cost (`MemorySizeKib`, `Iterations`, `Parallelism`); startup fails below the OWASP minimum. `MaxConcurrentHashes` (default: CPU count, 1..1024) caps hashes running at once; extra sign-ins wait for a slot instead of exhausting memory |
-| `Notification__Resend__ApiKey` | Outside Development | Resend API key (secret, never committed). Locally: `dotnet user-secrets set "Notification:Resend:ApiKey" "<key>" --project src/Host/Frappe.Api`. Without it, Development only logs that a mail was sent (recipient domain, kind, subject with digits masked; never the body or code) instead of sending it; elsewhere sending fails and is retried |
+| `Messaging__Seal__Key` | Yes | Key (32+ characters) that seals one-time codes inside queued messages; startup fails without it. Rotating it makes codes still queued unreadable (they dead-letter) |
+| `Identity__PasswordHashing__*` | No | Argon2id cost (`MemorySizeKib`, `Iterations`, `Parallelism`); startup fails below the OWASP minimum. `MaxConcurrentHashes` (default: CPU count, 1..1024) caps hashes running at once; extra sign-ins wait at most `SlotWaitMilliseconds` (default 2000) for a slot, then get a 503 with `Retry-After` |
+| `Platform__RateLimiting__PermitLimit`, `__WindowSeconds` | No | In-process per-IP cap on anonymous auth endpoints, default 300 per 60 s |
+| `Notification__Resend__ApiKey` | Yes | Resend API key (secret, never committed); startup fails without it outside Development. Locally: `dotnet user-secrets set "Notification:Resend:ApiKey" "<key>" --project src/Host/Frappe.Api`. Without it, Development only logs that a mail was sent (recipient domain, kind, subject with digits masked; never the body or code) instead of sending it. Each delivery sends the Wolverine message id as `Idempotency-Key`, so retries never send twice |
+| `Notification__Resend__TimeoutSeconds` | No | Per-attempt timeout, default 10; the durable queue owns retries |
 | `Notification__Resend__From` | No | Sender address, default `Frappé <no-reply@frappe.la>`; must be a domain verified in Resend |
 | `ConnectionStrings__nats` | No | Defaults to a local URL; NonCritical, realtime degrades when down |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | Traces, metrics and logs over OTLP |

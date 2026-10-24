@@ -66,9 +66,7 @@ public sealed class Principal : AggregateRoot<Guid>
     public Result VerifyEmail(string codeHash, DateTimeOffset now)
     {
         if (Owner.Status != OwnerStatus.Pending)
-        {
             return Result.Failure(IdentityErrors.AccountNotPending);
-        }
 
         var consumed = ConsumeCode(CodePurpose.EmailVerify, codeHash, now);
         if (consumed.IsSuccess)
@@ -86,13 +84,9 @@ public sealed class Principal : AggregateRoot<Guid>
     public Result PurgeAbandonedRegistration(DateTimeOffset now)
     {
         if (Owner.Status != OwnerStatus.Pending)
-        {
             return Result.Failure(IdentityErrors.AccountNotPending);
-        }
         if (now - RegisteredAt <= PendingGracePeriod)
-        {
             return Result.Failure(IdentityErrors.RegistrationInGrace);
-        }
 
         Raise(new OwnerPendingPurged(Id));
         return Result.Success();
@@ -109,9 +103,7 @@ public sealed class Principal : AggregateRoot<Guid>
     public Result Suspend()
     {
         if (Owner.Status == OwnerStatus.Suspended)
-        {
             return Result.Failure(IdentityErrors.AccountSuspended);
-        }
 
         Owner.Suspend();
         Raise(new OwnerSuspended(Id));
@@ -140,13 +132,9 @@ public sealed class Principal : AggregateRoot<Guid>
     {
         var session = _sessions.Find(s => s.Id == sessionId);
         if (session is null)
-        {
             return Result.Failure(IdentityErrors.SessionNotFound);
-        }
         if (!session.IsLive(now))
-        {
             return Result.Failure(IdentityErrors.SessionExpired);
-        }
 
         session.Touch(now);
         return Result.Success();
@@ -160,13 +148,9 @@ public sealed class Principal : AggregateRoot<Guid>
     {
         var session = _sessions.Find(s => s.Id == sessionId);
         if (session is null)
-        {
             return Result.Failure<DateTimeOffset>(IdentityErrors.SessionNotFound);
-        }
         if (!session.IsLive(now))
-        {
             return Result.Failure<DateTimeOffset>(IdentityErrors.SessionExpired);
-        }
 
         return Result.Success(session.StepUp(now));
     }
@@ -178,9 +162,7 @@ public sealed class Principal : AggregateRoot<Guid>
     {
         var session = _sessions.Find(s => s.Id == sessionId);
         if (session is null)
-        {
             return Result.Failure(IdentityErrors.SessionNotFound);
-        }
 
         Revoke(session);
         return Result.Success();
@@ -236,13 +218,9 @@ public sealed class Principal : AggregateRoot<Guid>
     public Result ConfirmEmailChange(Guid changeId, string codeHash, DateTimeOffset now)
     {
         if (Owner.PendingEmail is not { } newEmail)
-        {
             return Result.Failure(IdentityErrors.NoPendingEmailChange);
-        }
         if (CodeFor(CodePurpose.EmailChange)?.Id != changeId)
-        {
             return Result.Failure(IdentityErrors.EmailChangeNotFound);
-        }
 
         var consumed = ConsumeCode(CodePurpose.EmailChange, codeHash, now);
         if (consumed.IsSuccess)
@@ -269,9 +247,7 @@ public sealed class Principal : AggregateRoot<Guid>
     private void RevokeSessionsExcept(Guid? currentSessionId)
     {
         foreach (var session in _sessions.Where(s => s.Id != currentSessionId).ToList())
-        {
             Revoke(session);
-        }
     }
 
     private void Revoke(Session session)

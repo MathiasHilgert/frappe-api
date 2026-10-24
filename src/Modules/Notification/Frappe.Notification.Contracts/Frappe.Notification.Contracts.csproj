@@ -1,3 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <!-- Contracts are read by other modules: every public member is documented (CS1591 stays on here). -->
+    <NoWarn>$(NoWarn.Replace('CS1591', ''))</NoWarn>
+  </PropertyGroup>
+
 </Project>

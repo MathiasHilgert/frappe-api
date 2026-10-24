@@ -9,5 +9,5 @@ app.UseFrappe();
 app.MapFrappe(Modules.All);
 
 // No arguments runs the API. Outside Development nothing is created at startup: the deploy runs
-// `dotnet Frappe.Api.dll resources setup` first to create the Wolverine message storage schema.
+// `dotnet Frappe.Api.dll resources setup` first to create the Wolverine and Quartz storage schemas.
 return await app.RunJasperFxCommands(args);
