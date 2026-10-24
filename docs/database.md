@@ -55,6 +55,6 @@ with data lands:
 
 1. Run the script (extended with a block per module) as the database owner in each environment.
 2. Give each module its own connection string (`ConnectionStrings__identity`, ...) logging in as a user that is a
-   member of its role; `AddModuleDbContext` picks the module's string when present, the shared one otherwise.
+   member of its role, and teach `AddModuleDbContext` to prefer the module's string over the shared one.
 3. Run migrations as the owner, so new tables inherit the default privileges.
 4. Add an integration test per module that its connection is refused another module's schema.
