@@ -12,15 +12,17 @@ namespace Internal.Generated.WolverineHandlers
     public sealed class ConfirmPasswordResetHandler1687093405 : Wolverine.Runtime.Handlers.MessageHandler
     {
         private readonly Frappe.Identity.Application.Security.IAttemptLimiter _attemptLimiter;
+        private readonly Frappe.Identity.Application.Security.IIdentityTelemetry _identityTelemetry;
         private readonly Frappe.Identity.Application.Security.IPasswordHasher _passwordHasher;
         private readonly Frappe.Identity.Application.Security.ISecretHasher _secretHasher;
         private readonly Microsoft.Extensions.DependencyInjection.IServiceScopeFactory _serviceScopeFactory;
         private readonly System.Collections.Generic.IEnumerable<Wolverine.EntityFrameworkCore.IDomainEventScraper> _domainEventScraperIEnumerable;
         private readonly System.TimeProvider _timeProvider;
 
-        public ConfirmPasswordResetHandler1687093405(Frappe.Identity.Application.Security.IAttemptLimiter attemptLimiter, Frappe.Identity.Application.Security.IPasswordHasher passwordHasher, Frappe.Identity.Application.Security.ISecretHasher secretHasher, Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory, System.Collections.Generic.IEnumerable<Wolverine.EntityFrameworkCore.IDomainEventScraper> domainEventScraperIEnumerable, System.TimeProvider timeProvider)
+        public ConfirmPasswordResetHandler1687093405(Frappe.Identity.Application.Security.IAttemptLimiter attemptLimiter, Frappe.Identity.Application.Security.IIdentityTelemetry identityTelemetry, Frappe.Identity.Application.Security.IPasswordHasher passwordHasher, Frappe.Identity.Application.Security.ISecretHasher secretHasher, Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory, System.Collections.Generic.IEnumerable<Wolverine.EntityFrameworkCore.IDomainEventScraper> domainEventScraperIEnumerable, System.TimeProvider timeProvider)
         {
             _attemptLimiter = attemptLimiter;
+            _identityTelemetry = identityTelemetry;
             _passwordHasher = passwordHasher;
             _secretHasher = secretHasher;
             _serviceScopeFactory = serviceScopeFactory;
@@ -56,7 +58,7 @@ namespace Internal.Generated.WolverineHandlers
                 System.Diagnostics.Activity.Current?.SetTag("handler.type", "Frappe.Identity.Application.PasswordResets.ConfirmPasswordResetHandler");
                 
                 // The actual message execution
-                var outgoing1 = await Frappe.Identity.Application.PasswordResets.ConfirmPasswordResetHandler.Handle(confirmPasswordReset, principalRepository, _attemptLimiter, passwordPolicy, _passwordHasher, _secretHasher, _timeProvider, cancellation).ConfigureAwait(false);
+                var outgoing1 = await Frappe.Identity.Application.PasswordResets.ConfirmPasswordResetHandler.Handle(confirmPasswordReset, principalRepository, _attemptLimiter, _identityTelemetry, passwordPolicy, _passwordHasher, _secretHasher, _timeProvider, cancellation).ConfigureAwait(false);
 
                 
                 // Outgoing, cascaded message

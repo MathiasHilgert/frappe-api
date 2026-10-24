@@ -55,10 +55,12 @@ public sealed class OwnerVerificationTests(ApiFixture fixture)
     public async Task WrongCode_Is422_AndTheOwnerStaysPending()
     {
         var ownerId = await SeedPendingOwnerAsync(fixture.Host);
+        using var rejected = new MeterCounter("Frappe.Identity", "frappe.identity.code.invalid");
 
         var result = await VerifyAsync(fixture.Host, ownerId, "000000", 422);
 
         (await ErrorCodesAsync(result)).ShouldBe(["identity.code.invalid"]);
+        rejected.Total.ShouldBeGreaterThanOrEqualTo(1);
         var principal = await SessionSeeder.LoadAsync(fixture.Host, ownerId);
         principal.Owner.Status.ShouldBe(OwnerStatus.Pending);
         principal.Sessions.ShouldBeEmpty();

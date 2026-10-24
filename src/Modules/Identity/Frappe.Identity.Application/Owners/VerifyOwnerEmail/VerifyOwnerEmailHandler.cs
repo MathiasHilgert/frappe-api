@@ -18,18 +18,19 @@ public static class VerifyOwnerEmailHandler
         ISecretHasher hasher,
         ISecretGenerator secrets,
         IAttemptLimiter limiter,
+        IIdentityTelemetry telemetry,
         TimeProvider clock,
         CancellationToken cancellationToken)
     {
         var policy = AttemptPolicies.VerifyEmailPerOwner;
-        var reservation = await AttemptReservation.TakeAsync(limiter, cancellationToken, (policy, command.OwnerId.ToString()));
+        var reservation = await AttemptReservation.TakeAsync(limiter, [(policy, command.OwnerId.ToString())], cancellationToken);
         if (!reservation.IsAllowed)
             return Failed(IdentityErrors.TooManyAttempts.WithRetryAfter(reservation.Decision.RetryAfter));
 
         var principal = await principals.GetByIdAsync(command.OwnerId, cancellationToken);
         if (principal is null)
         {
-            await reservation.ReleaseAsync(cancellationToken);
+            await reservation.ReleaseAsync();
             return Failed(IdentityErrors.OwnerNotFound);
         }
 
@@ -38,7 +39,9 @@ public static class VerifyOwnerEmailHandler
         {
             // Only a wrong code is a guess; an owner who is no longer pending gives the slot back.
             if (verified.Has(IdentityErrors.AccountNotPending))
-                await reservation.ReleaseAsync(cancellationToken);
+                await reservation.ReleaseAsync();
+            else
+                telemetry.CodeRejected(CodePurpose.EmailVerify);
             return Result.Failure<OpenedSession>(verified.Errors);
         }
 
@@ -48,11 +51,11 @@ public static class VerifyOwnerEmailHandler
         if (saved.IsFailure)
         {
             // The code was right but nothing was saved: not a guess, and the owner can simply retry.
-            await reservation.ReleaseAsync(cancellationToken);
+            await reservation.ReleaseAsync();
             return Result.Failure<OpenedSession>(saved.Errors);
         }
 
-        await reservation.SucceededAsync(policy, cancellationToken);
+        await reservation.SucceededAsync(policy);
         return Result.Success(new OpenedSession(session.Id, token, session.AbsoluteExpiresAt));
     }
 

@@ -12,15 +12,17 @@ namespace Internal.Generated.WolverineHandlers
     public sealed class VerifyOwnerEmailHandler2098745408 : Wolverine.Runtime.Handlers.MessageHandler
     {
         private readonly Frappe.Identity.Application.Security.IAttemptLimiter _attemptLimiter;
+        private readonly Frappe.Identity.Application.Security.IIdentityTelemetry _identityTelemetry;
         private readonly Frappe.Identity.Application.Security.ISecretGenerator _secretGenerator;
         private readonly Frappe.Identity.Application.Security.ISecretHasher _secretHasher;
         private readonly Microsoft.Extensions.DependencyInjection.IServiceScopeFactory _serviceScopeFactory;
         private readonly System.Collections.Generic.IEnumerable<Wolverine.EntityFrameworkCore.IDomainEventScraper> _domainEventScraperIEnumerable;
         private readonly System.TimeProvider _timeProvider;
 
-        public VerifyOwnerEmailHandler2098745408(Frappe.Identity.Application.Security.IAttemptLimiter attemptLimiter, Frappe.Identity.Application.Security.ISecretGenerator secretGenerator, Frappe.Identity.Application.Security.ISecretHasher secretHasher, Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory, System.Collections.Generic.IEnumerable<Wolverine.EntityFrameworkCore.IDomainEventScraper> domainEventScraperIEnumerable, System.TimeProvider timeProvider)
+        public VerifyOwnerEmailHandler2098745408(Frappe.Identity.Application.Security.IAttemptLimiter attemptLimiter, Frappe.Identity.Application.Security.IIdentityTelemetry identityTelemetry, Frappe.Identity.Application.Security.ISecretGenerator secretGenerator, Frappe.Identity.Application.Security.ISecretHasher secretHasher, Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory, System.Collections.Generic.IEnumerable<Wolverine.EntityFrameworkCore.IDomainEventScraper> domainEventScraperIEnumerable, System.TimeProvider timeProvider)
         {
             _attemptLimiter = attemptLimiter;
+            _identityTelemetry = identityTelemetry;
             _secretGenerator = secretGenerator;
             _secretHasher = secretHasher;
             _serviceScopeFactory = serviceScopeFactory;
@@ -54,7 +56,7 @@ namespace Internal.Generated.WolverineHandlers
                 System.Diagnostics.Activity.Current?.SetTag("handler.type", "Frappe.Identity.Application.Owners.VerifyOwnerEmailHandler");
                 
                 // The actual message execution
-                var outgoing1 = await Frappe.Identity.Application.Owners.VerifyOwnerEmailHandler.Handle(verifyOwnerEmail, principalRepository, _secretHasher, _secretGenerator, _attemptLimiter, _timeProvider, cancellation).ConfigureAwait(false);
+                var outgoing1 = await Frappe.Identity.Application.Owners.VerifyOwnerEmailHandler.Handle(verifyOwnerEmail, principalRepository, _secretHasher, _secretGenerator, _attemptLimiter, _identityTelemetry, _timeProvider, cancellation).ConfigureAwait(false);
 
                 
                 // Outgoing, cascaded message

@@ -2,8 +2,13 @@ namespace Frappe.Identity.Application.Security;
 
 /// <summary>
 /// Reserve-first gating over several limits at once: every limit is reserved before the work, so parallel attempts
-/// cannot all pass a check and record later. A refused limit gives back the reservations already taken.
+/// cannot all pass a check and record later. When any limit refuses, every slot that was taken is given back and the
+/// caller is told the longest wait among the refusals.
 /// </summary>
+/// <remarks>
+/// Giving slots back is compensation, so it runs on <see cref="CancellationToken.None"/>: a request cancelled midway
+/// must not leak the reservations it already holds (the limiter bounds every call with its own timeout).
+/// </remarks>
 public sealed class AttemptReservation
 {
     private readonly IAttemptLimiter _limiter;
@@ -22,43 +27,53 @@ public sealed class AttemptReservation
     public bool IsAllowed => Decision.IsAllowed;
 
     public static async Task<AttemptReservation> TakeAsync(
-        IAttemptLimiter limiter, CancellationToken cancellationToken, params (AttemptPolicy Policy, string Key)[] limits)
+        IAttemptLimiter limiter, IReadOnlyCollection<(AttemptPolicy Policy, string Key)> limits,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(limiter);
         ArgumentNullException.ThrowIfNull(limits);
 
-        var taken = new List<(AttemptPolicy, string)>(limits.Length);
+        var taken = new List<(AttemptPolicy, string)>(limits.Count);
+        var longestWait = TimeSpan.Zero;
+        var refused = false;
         foreach (var (policy, key) in limits)
         {
             var decision = await limiter.ReserveAsync(policy, key, cancellationToken);
-            if (!decision.IsAllowed)
+            if (decision.IsAllowed)
             {
-                foreach (var (heldPolicy, heldKey) in taken)
-                    await limiter.ReleaseAsync(heldPolicy, heldKey, cancellationToken);
-                return new AttemptReservation(limiter, [], decision);
+                taken.Add((policy, key));
             }
-            taken.Add((policy, key));
+            else
+            {
+                refused = true;
+                longestWait = decision.RetryAfter > longestWait ? decision.RetryAfter : longestWait;
+            }
         }
 
-        return new AttemptReservation(limiter, [.. taken], AttemptDecision.Allow(0));
+        if (!refused)
+            return new AttemptReservation(limiter, [.. taken], AttemptDecision.Allow(0));
+
+        foreach (var (policy, key) in taken)
+            await limiter.ReleaseAsync(policy, key, CancellationToken.None);
+        return new AttemptReservation(limiter, [], new AttemptDecision(false, 0, longestWait));
     }
 
-    /// <summary>The attempt did not count (a success, or a failure the limits do not meter): give every slot back.</summary>
-    public async Task ReleaseAsync(CancellationToken cancellationToken)
+    /// <summary>The attempt did not count (a failure the limits do not meter): give every slot back.</summary>
+    public async Task ReleaseAsync()
     {
         foreach (var (policy, key) in _limits)
-            await _limiter.ReleaseAsync(policy, key, cancellationToken);
+            await _limiter.ReleaseAsync(policy, key, CancellationToken.None);
     }
 
     /// <summary>A success that clears <paramref name="policy"/>'s key entirely, giving back the other slots.</summary>
-    public async Task SucceededAsync(AttemptPolicy policy, CancellationToken cancellationToken)
+    public async Task SucceededAsync(AttemptPolicy policy)
     {
         foreach (var (held, key) in _limits)
         {
             if (held == policy)
-                await _limiter.ResetAsync(held, key, cancellationToken);
+                await _limiter.ResetAsync(held, key, CancellationToken.None);
             else
-                await _limiter.ReleaseAsync(held, key, cancellationToken);
+                await _limiter.ReleaseAsync(held, key, CancellationToken.None);
         }
     }
 }

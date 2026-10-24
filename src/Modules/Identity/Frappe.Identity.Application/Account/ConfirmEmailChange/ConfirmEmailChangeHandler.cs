@@ -1,6 +1,7 @@
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
 using Frappe.Identity.Domain;
+using Frappe.Identity.Domain.Principals;
 using Frappe.SharedKernel.Validation;
 
 namespace Frappe.Identity.Application.Account;
@@ -24,17 +25,18 @@ public static class ConfirmEmailChangeHandler
         IPrincipalRepository principals,
         ISecretHasher hasher,
         IAttemptLimiter limiter,
+        IIdentityTelemetry telemetry,
         TimeProvider clock,
         CancellationToken cancellationToken)
     {
-        var reservation = await AttemptReservation.TakeAsync(limiter, cancellationToken, (Policy, command.PrincipalId.ToString()));
+        var reservation = await AttemptReservation.TakeAsync(limiter, [(Policy, command.PrincipalId.ToString())], cancellationToken);
         if (!reservation.IsAllowed)
             return Result.Failure(IdentityErrors.TooManyAttempts.WithRetryAfter(reservation.Decision.RetryAfter));
 
         var principal = await principals.GetByIdAsync(command.PrincipalId, cancellationToken);
         if (principal is null)
         {
-            await reservation.ReleaseAsync(cancellationToken);
+            await reservation.ReleaseAsync();
             return Result.Failure(IdentityErrors.SessionNotFound);
         }
 
@@ -42,12 +44,14 @@ public static class ConfirmEmailChangeHandler
         if (confirmed.IsFailure)
         {
             if (!confirmed.Errors.Any(e => CodeFailures.Contains(e.Code)))
-                await reservation.ReleaseAsync(cancellationToken);
+                await reservation.ReleaseAsync();
+            else
+                telemetry.CodeRejected(CodePurpose.EmailChange);
             return Result.Failure(confirmed.Errors);
         }
 
         // The code was right either way, so the count clears even when the address turns out to be taken.
-        await reservation.SucceededAsync(Policy, cancellationToken);
+        await reservation.SucceededAsync(Policy);
 
         // Another owner may have claimed the address meanwhile: the unique index answers EmailTaken.
         return await principals.SaveAsync(cancellationToken);

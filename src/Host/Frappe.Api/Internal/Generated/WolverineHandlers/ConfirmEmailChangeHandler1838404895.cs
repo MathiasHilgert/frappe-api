@@ -12,14 +12,16 @@ namespace Internal.Generated.WolverineHandlers
     public sealed class ConfirmEmailChangeHandler1838404895 : Wolverine.Runtime.Handlers.MessageHandler
     {
         private readonly Frappe.Identity.Application.Security.IAttemptLimiter _attemptLimiter;
+        private readonly Frappe.Identity.Application.Security.IIdentityTelemetry _identityTelemetry;
         private readonly Frappe.Identity.Application.Security.ISecretHasher _secretHasher;
         private readonly Microsoft.Extensions.DependencyInjection.IServiceScopeFactory _serviceScopeFactory;
         private readonly System.Collections.Generic.IEnumerable<Wolverine.EntityFrameworkCore.IDomainEventScraper> _domainEventScraperIEnumerable;
         private readonly System.TimeProvider _timeProvider;
 
-        public ConfirmEmailChangeHandler1838404895(Frappe.Identity.Application.Security.IAttemptLimiter attemptLimiter, Frappe.Identity.Application.Security.ISecretHasher secretHasher, Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory, System.Collections.Generic.IEnumerable<Wolverine.EntityFrameworkCore.IDomainEventScraper> domainEventScraperIEnumerable, System.TimeProvider timeProvider)
+        public ConfirmEmailChangeHandler1838404895(Frappe.Identity.Application.Security.IAttemptLimiter attemptLimiter, Frappe.Identity.Application.Security.IIdentityTelemetry identityTelemetry, Frappe.Identity.Application.Security.ISecretHasher secretHasher, Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory, System.Collections.Generic.IEnumerable<Wolverine.EntityFrameworkCore.IDomainEventScraper> domainEventScraperIEnumerable, System.TimeProvider timeProvider)
         {
             _attemptLimiter = attemptLimiter;
+            _identityTelemetry = identityTelemetry;
             _secretHasher = secretHasher;
             _serviceScopeFactory = serviceScopeFactory;
             _domainEventScraperIEnumerable = domainEventScraperIEnumerable;
@@ -52,7 +54,7 @@ namespace Internal.Generated.WolverineHandlers
                 System.Diagnostics.Activity.Current?.SetTag("handler.type", "Frappe.Identity.Application.Account.ConfirmEmailChangeHandler");
                 
                 // The actual message execution
-                var outgoing1 = await Frappe.Identity.Application.Account.ConfirmEmailChangeHandler.Handle(confirmEmailChange, principalRepository, _secretHasher, _attemptLimiter, _timeProvider, cancellation).ConfigureAwait(false);
+                var outgoing1 = await Frappe.Identity.Application.Account.ConfirmEmailChangeHandler.Handle(confirmEmailChange, principalRepository, _secretHasher, _attemptLimiter, _identityTelemetry, _timeProvider, cancellation).ConfigureAwait(false);
 
                 
                 // Outgoing, cascaded message
