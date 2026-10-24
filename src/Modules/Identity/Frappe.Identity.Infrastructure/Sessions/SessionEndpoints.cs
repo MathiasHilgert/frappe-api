@@ -98,6 +98,7 @@ internal static class SessionEndpoints
         if (ownerId is { } id)
             extensions["ownerId"] = id;
 
-        return TypedResults.Problem(detail: http.LocalizedMessage(error), statusCode: status, type: $"urn:frappe:problem:{error.Code}", extensions: extensions);
+        var message = http.LocalizedMessage(error);
+        return TypedResults.Problem(detail: message, statusCode: status, title: message, type: $"urn:frappe:problem:{error.Code}", extensions: extensions);
     }
 }

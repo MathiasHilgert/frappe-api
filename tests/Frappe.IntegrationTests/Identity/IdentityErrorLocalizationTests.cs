@@ -59,6 +59,7 @@ public sealed class IdentityErrorLocalizationTests(ApiFixture fixture) : IAsyncL
 
         var body = await result.ReadAsJsonAsync<JsonElement>();
         body.GetProperty("detail").GetString().ShouldBe(expected);
+        body.GetProperty("title").GetString().ShouldBe(expected);
         body.GetProperty("code").GetString().ShouldBe("identity.credentials.invalid");
         body.GetProperty("type").GetString().ShouldBe("urn:frappe:problem:identity.credentials.invalid");
     }
