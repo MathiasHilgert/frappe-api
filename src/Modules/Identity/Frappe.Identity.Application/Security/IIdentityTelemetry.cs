@@ -14,6 +14,11 @@ public interface IIdentityTelemetry
     /// <summary>The purge skipped a pending owner someone changed meanwhile; the next run retries it.</summary>
     void PurgeSkippedConflict();
 
+    /// <summary>
+    /// Saving one pending owner failed unexpectedly (not a concurrent change); the run went on and the next one retries.
+    /// </summary>
+    void PurgeFailed();
+
     /// <summary>The purge deleted <paramref name="count"/> abandoned registrations.</summary>
     void PurgedOwners(int count);
 }

@@ -34,6 +34,27 @@ public sealed class PurgePendingOwnersHandlerTests
     }
 
     [Fact]
+    public async Task AnUnexpectedFailure_SkipsOnlyThatPrincipal_IsCounted_AndTheRunGoesOn()
+    {
+        var principals = new PagedPrincipals(count: 3, conflictOn: -1, throwOn: 1);
+        var telemetry = new RecordingTelemetry();
+
+        var events = await Handle(principals, telemetry);
+
+        principals.Removed.ShouldBe([principals.Ids[0], principals.Ids[2]]);
+        events.OfType<OwnerPendingPurged>().Select(e => e.PrincipalId).ShouldBe([principals.Ids[0], principals.Ids[2]]);
+        telemetry.Failures.ShouldBe(1);
+        telemetry.SkippedConflicts.ShouldBe(0);
+        telemetry.Purged.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task ACancelledRun_StillStops() =>
+        await Should.ThrowAsync<OperationCanceledException>(() => Handle(
+            new PagedPrincipals(count: 3, conflictOn: -1, throwOn: 1, failure: new OperationCanceledException()),
+            new RecordingTelemetry()));
+
+    [Fact]
     public async Task Paging_MovesPastRowsItCouldNotPurge_InsteadOfReReadingTheSameOldestPage()
     {
         var principals = new PagedPrincipals(count: PurgePendingOwnersHandler.PageSize + 5, conflictOn: 0);
@@ -65,24 +86,30 @@ public sealed class PurgePendingOwnersHandlerTests
     {
         public int SkippedConflicts { get; private set; }
         public int Purged { get; private set; }
+        public int Failures { get; private set; }
 
         public void LoginThrottled() { }
         public void CodeRejected(CodePurpose purpose) { }
         public void PurgeSkippedConflict() => SkippedConflicts++;
         public void PurgedOwners(int count) => Purged += count;
+        public void PurgeFailed() => Failures++;
     }
 
     private sealed class PagedPrincipals : IPrincipalRepository
     {
         private readonly Dictionary<Guid, Principal> _byId;
         private readonly int _conflictOn;
+        private readonly int _throwOn;
+        private readonly Exception _failure;
         private readonly List<PurgeCandidate> _candidates;
         private Guid? _pending;
         private int _saves;
 
-        public PagedPrincipals(int count, int conflictOn)
+        public PagedPrincipals(int count, int conflictOn, int throwOn = -1, Exception? failure = null)
         {
             _conflictOn = conflictOn;
+            _throwOn = throwOn;
+            _failure = failure ?? new InvalidOperationException("The database refused this row.");
             var all = Enumerable.Range(0, count).Select(i => Principal.RegisterOwner(
                 PersonName.Create("Ana").Value, Email.Create($"ana{i}@example.com").Value, "pw", Locale.Parse("en"),
                 LongAgo.AddSeconds(i))).ToList();
@@ -114,7 +141,14 @@ public sealed class PurgePendingOwnersHandlerTests
 
         public Task<Result> SaveAsync(CancellationToken cancellationToken)
         {
-            var conflict = _saves++ == _conflictOn;
+            var attempt = _saves++;
+            if (attempt == _throwOn)
+            {
+                _pending = null;
+                throw _failure;
+            }
+
+            var conflict = attempt == _conflictOn;
             if (!conflict && _pending is { } id)
                 Removed.Add(id);
             _pending = null;

@@ -17,7 +17,10 @@ public static partial class PurgePendingOwnersHandler
 
     // The query applies the purge rule (pending, registered before the cutoff); the aggregate still decides, so the rule
     // has one owner. Each principal is loaded and saved on its own: a conflict (someone verified or changed it
-    // meanwhile) skips that principal only, and the keyset cursor moves past it, so it can never stall a run.
+    // meanwhile) skips that principal only, and the keyset cursor moves past it, so it can never stall a run. An
+    // unexpected failure (a constraint, a trigger, a bug) is isolated the same way: the repository rolls the failed
+    // save back to its savepoint and forgets it, the run logs, counts and moves on, and the next run retries it.
+    // Only cancellation stops the run.
     // A deleted aggregate leaves the change tracker before its events can be scraped, so they are returned as
     // cascading messages instead: Wolverine writes them to the outbox in this handler's transaction. Nothing waits
     // for an answer (a recurring job publishes this), so the messages are all it returns.
@@ -43,7 +46,19 @@ public static partial class PurgePendingOwnersHandler
             foreach (var id in page.Select(c => c.Id))
             {
                 attempted++;
-                switch (await TryPurgeAsync(id, repository, now, events, cancellationToken))
+                Outcome outcome;
+                try
+                {
+                    outcome = await TryPurgeAsync(id, repository, now, events, cancellationToken);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    telemetry.PurgeFailed();
+                    LogFailed(logger, exception, id);
+                    continue;
+                }
+
+                switch (outcome)
                 {
                     case Outcome.Purged:
                         purged++;
@@ -91,6 +106,9 @@ public static partial class PurgePendingOwnersHandler
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Purge skipped pending owner {PrincipalId}: {Reason}")]
     private static partial void LogSkipped(ILogger logger, Guid principalId, string reason);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Purge failed for pending owner {PrincipalId}; the next run retries it")]
+    private static partial void LogFailed(ILogger logger, Exception exception, Guid principalId);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Purged {Purged} abandoned registrations of {Attempted} candidates")]
     private static partial void LogPurged(ILogger logger, int purged, int attempted);

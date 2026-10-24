@@ -83,5 +83,13 @@ public sealed class PrincipalRepository(IdentityDbContext context) : IPrincipalR
                 entry.State = EntityState.Detached;
             return Result.Failure(IdentityErrors.EmailTaken);
         }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Inside a transaction EF Core rolled the statement back to its savepoint, so the transaction lives on;
+            // forget the failed state too, so a later save (the transactional middleware's included) does not retry
+            // it. The caller decides whether the failure ends its unit of work.
+            context.ChangeTracker.Clear();
+            throw;
+        }
     }
 }

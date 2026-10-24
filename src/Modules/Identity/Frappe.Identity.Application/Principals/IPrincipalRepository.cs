@@ -41,7 +41,8 @@ public interface IPrincipalRepository
     /// Commits tracked changes, the one save every caller uses. It fails, with nothing saved and the rejected state no
     /// longer tracked, with <c>IdentityErrors.ConcurrentChange</c> when someone else changed the principal since it was
     /// loaded, or <c>IdentityErrors.EmailTaken</c> when another owner holds an address this save claims (a
-    /// registration, a confirmed email change). Best-effort writers (a session touch) just ignore the failure.
+    /// registration, a confirmed email change). Best-effort writers (a session touch) just ignore the failure. Any other
+    /// error throws, with the failed state no longer tracked and, inside a transaction, the transaction still usable.
     /// </summary>
     Task<Result> SaveAsync(CancellationToken cancellationToken);
 }

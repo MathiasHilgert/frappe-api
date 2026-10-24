@@ -16,6 +16,7 @@ internal sealed class IdentityMetrics : IIdentityTelemetry
     public const string LoginThrottledName = "frappe.identity.login.throttled";
     public const string CodeInvalid = "frappe.identity.code.invalid";
     public const string PurgeSkippedConflictName = "frappe.identity.purge.skipped_conflict";
+    public const string PurgeFailedName = "frappe.identity.purge.failed";
     public const string PurgedCount = "frappe.identity.purge.purged";
 
     private readonly Counter<long> _breachCheckUnavailable;
@@ -23,6 +24,7 @@ internal sealed class IdentityMetrics : IIdentityTelemetry
     private readonly Counter<long> _loginThrottled;
     private readonly Counter<long> _codeInvalid;
     private readonly Counter<long> _purgeSkippedConflict;
+    private readonly Counter<long> _purgeFailed;
     private readonly Counter<long> _purged;
 
     public IdentityMetrics(IMeterFactory meterFactory)
@@ -39,6 +41,8 @@ internal sealed class IdentityMetrics : IIdentityTelemetry
             description: "Wrong, expired or used verification codes presented, tagged by purpose.");
         _purgeSkippedConflict = meter.CreateCounter<long>(PurgeSkippedConflictName,
             description: "Pending owners the purge skipped because they changed meanwhile.");
+        _purgeFailed = meter.CreateCounter<long>(PurgeFailedName,
+            description: "Pending owners the purge could not delete because of an unexpected error; retried next run.");
         _purged = meter.CreateCounter<long>(PurgedCount, description: "Abandoned registrations deleted by the purge.");
     }
 
@@ -52,6 +56,8 @@ internal sealed class IdentityMetrics : IIdentityTelemetry
         _codeInvalid.Add(1, new KeyValuePair<string, object?>("purpose", purpose.ToString()));
 
     public void PurgeSkippedConflict() => _purgeSkippedConflict.Add(1);
+
+    public void PurgeFailed() => _purgeFailed.Add(1);
 
     public void PurgedOwners(int count) => _purged.Add(count);
 }

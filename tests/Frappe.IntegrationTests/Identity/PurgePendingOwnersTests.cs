@@ -6,6 +6,7 @@ using Frappe.Identity.Infrastructure.Persistence;
 using Frappe.SharedKernel.Localization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using Quartz;
 using Shouldly;
 using Wolverine.Tracking;
@@ -35,6 +36,45 @@ public sealed class PurgePendingOwnersTests(ApiFixture fixture)
         published.ShouldContain(new OwnerPendingPurged(oldPending));
         published.ShouldNotContain(new OwnerPendingPurged(freshPending));
         published.ShouldNotContain(new OwnerPendingPurged(oldActive));
+    }
+
+    [Fact]
+    public async Task Purge_ADatabaseErrorOnOnePrincipal_StillPurgesTheOthers_AndCountsTheFailure()
+    {
+        var host = fixture.Host;
+        var longAgo = TestTime.NewClock();
+        var first = await SeedAsync(host, longAgo, activate: false);
+        var poisoned = await SeedAsync(host, longAgo, activate: false);
+        var last = await SeedAsync(host, longAgo, activate: false);
+        using var failures = new MeterCounter("Frappe.Identity", "frappe.identity.purge.failed");
+        await using var dataSource = NpgsqlDataSource.Create(fixture.PostgresConnectionString);
+        var trigger = $"refuse_{poisoned:N}";
+        await ExecuteAsync(dataSource, $"""
+            CREATE FUNCTION identity.{trigger}() RETURNS trigger LANGUAGE plpgsql AS
+              $$ BEGIN RAISE EXCEPTION 'refused by test'; END $$;
+            CREATE TRIGGER {trigger} BEFORE DELETE ON identity.principals
+              FOR EACH ROW WHEN (OLD.id = '{poisoned}') EXECUTE FUNCTION identity.{trigger}();
+            """);
+        try
+        {
+            await host.InvokeMessageAndWaitAsync(new PurgePendingOwners());
+
+            (await ExistsAsync(host, first)).ShouldBeFalse();
+            (await ExistsAsync(host, last)).ShouldBeFalse();
+            (await ExistsAsync(host, poisoned)).ShouldBeTrue();
+            failures.Total.ShouldBeGreaterThanOrEqualTo(1);
+        }
+        finally
+        {
+            await ExecuteAsync(dataSource, $"""
+                DROP TRIGGER IF EXISTS {trigger} ON identity.principals;
+                DROP FUNCTION IF EXISTS identity.{trigger}();
+                """);
+        }
+
+        // Idempotent: once the database accepts it, the next run purges what the last one left.
+        await host.InvokeMessageAndWaitAsync(new PurgePendingOwners());
+        (await ExistsAsync(host, poisoned)).ShouldBeFalse();
     }
 
     [Fact]
@@ -73,6 +113,12 @@ public sealed class PurgePendingOwnersTests(ApiFixture fixture)
         repository.Add(principal);
         (await repository.SaveAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
         return principal.Id;
+    }
+
+    private static async Task ExecuteAsync(NpgsqlDataSource dataSource, string sql)
+    {
+        await using var command = dataSource.CreateCommand(sql);
+        await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
     }
 
     private static async Task<bool> ExistsAsync(IAlbaHost host, Guid principalId)
