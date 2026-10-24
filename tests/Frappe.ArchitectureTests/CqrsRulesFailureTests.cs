@@ -15,13 +15,8 @@ public sealed class CqrsRulesFailureTests
 
     [Fact]
     public void EndpointsCallingServices_NamesTheEndpointUsingAService() =>
-        CqrsRules.EndpointsCallingServices(Application, Infrastructure, new HashSet<string>(StringComparer.Ordinal))
+        CqrsRules.EndpointsCallingServices(Application, Infrastructure)
             .ShouldBe(["Frappe.ArchitectureTests.Fixtures.Infrastructure.ShortcutEndpoints"]);
-
-    [Fact]
-    public void EndpointsCallingServices_IgnoresAllowlistedServices() =>
-        CqrsRules.EndpointsCallingServices(Application, Infrastructure, new HashSet<string>(StringComparer.Ordinal) { typeof(GetWidgetService).FullName! })
-            .ShouldBeEmpty();
 
     [Fact]
     public void WritingQueryHandlers_NamesAQueryHandlerUsingARepository() =>

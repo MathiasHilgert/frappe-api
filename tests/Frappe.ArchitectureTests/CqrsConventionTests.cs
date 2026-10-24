@@ -8,15 +8,6 @@ namespace Frappe.ArchitectureTests;
 /// </summary>
 public sealed class CqrsConventionTests
 {
-    /// <summary>
-    /// Application services endpoints still call directly, by module, until their slice moves to messages. Shrinks to
-    /// empty as modules migrate; never add to it.
-    /// </summary>
-    private static readonly HashSet<string> NotYetMigrated = new(StringComparer.Ordinal)
-    {
-        "Frappe.Identity.Application.Owners.VerifyOwnerEmail",
-    };
-
     public static TheoryData<string> Modules => [.. Solution.ModuleNames];
 
     [Theory(SkipTestWithoutData = true)]
@@ -28,7 +19,7 @@ public sealed class CqrsConventionTests
     [Theory(SkipTestWithoutData = true)]
     [MemberData(nameof(Modules))]
     public void Endpoint_ReachesApplicationOnlyThroughTheBus(string module) =>
-        CqrsRules.EndpointsCallingServices(Application(module), Infrastructure(module), NotYetMigrated).ShouldBeEmpty(
+        CqrsRules.EndpointsCallingServices(Application(module), Infrastructure(module)).ShouldBeEmpty(
             "Endpoints map HTTP to a message and send it with IMessageBus; they never call an Application service.");
 
     [Theory(SkipTestWithoutData = true)]
@@ -42,18 +33,6 @@ public sealed class CqrsConventionTests
     public void CommandHandler_ReturnsNoReadModel(string module) =>
         CqrsRules.CommandHandlersReturningReadModels(Application(module)).ShouldBeEmpty(
             "Command handlers answer with an id or a small outcome; the client reads back through a query.");
-
-    [Fact]
-    public void NotYetMigrated_ListsOnlyServicesThatStillExist()
-    {
-        var services = Solution.ModuleNames
-            .SelectMany(m => CqrsRules.Services(Application(m)))
-            .Select(t => t.FullName)
-            .ToHashSet(StringComparer.Ordinal);
-
-        NotYetMigrated.Where(name => !services.Contains(name)).ShouldBeEmpty(
-            "Remove migrated services from the allowlist.");
-    }
 
     private static CqrsRules.Layer Application(string module) => Layer($"Frappe.{module}.Application");
 

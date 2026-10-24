@@ -33,9 +33,9 @@ internal static class CqrsRules
             .ToList();
 
     /// <summary>Endpoint types (and their lambdas and state machines) that use an Application service.</summary>
-    public static List<string> EndpointsCallingServices(Layer application, Layer infrastructure, IReadOnlySet<string> allowed)
+    public static List<string> EndpointsCallingServices(Layer application, Layer infrastructure)
     {
-        string[] services = [.. Services(application).Select(t => t.FullName!).Where(n => !allowed.Contains(n))];
+        string[] services = [.. Services(application).Select(t => t.FullName!)];
         if (services.Length == 0)
             return [];
 
