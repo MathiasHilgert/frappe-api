@@ -88,12 +88,13 @@ internal static class CqrsRules
 
     /// <summary>
     /// Command handlers that answer with anything but <c>Result</c> or <c>Result&lt;T&gt;</c>: awaited through
-    /// <c>Task</c>/<c>ValueTask</c>, and first in a tuple when the rest cascades.
+    /// <c>Task</c>/<c>ValueTask</c>, and first in a tuple when the rest cascades. A background command is the
+    /// reverse: nobody reads its answer, so a <c>Result</c> there would cascade as an unrouted message.
     /// </summary>
     public static List<string> CommandHandlersNotReturningResult(Layer application) =>
         Handlers(application)
             .Where(h => IsCommand(h.Message))
-            .Where(h => !IsResult(Answer(h.Method.ReturnType)))
+            .Where(h => IsResult(Answer(h.Method.ReturnType)) == IsBackgroundCommand(h.Message))
             .Select(h => $"{h.Handler.FullName}.{h.Method.Name}({h.Message.Name})")
             .ToList();
 
@@ -137,6 +138,8 @@ internal static class CqrsRules
     private static bool IsResult(Type type) => type == typeof(Result) || (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Result<>));
 
     private static bool IsCommand(Type message) => typeof(ICommand).IsAssignableFrom(message);
+
+    private static bool IsBackgroundCommand(Type message) => typeof(IBackgroundCommand).IsAssignableFrom(message);
 
     private static Type? QueryResult(Type message) =>
         message.GetInterfaces()

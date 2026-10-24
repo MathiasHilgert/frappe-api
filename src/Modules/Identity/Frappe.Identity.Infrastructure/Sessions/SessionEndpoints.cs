@@ -52,17 +52,24 @@ internal static class SessionEndpoints
                 new SessionResponse(opened.SessionId, opened.PrincipalId, opened.Token, opened.ExpiresAt));
         }
 
-        var error = signedIn.Errors[0];
-        if (error.Code == IdentityErrors.InvalidCredentials.Code)
-            return Problem(http, StatusCodes.Status401Unauthorized, error);
-        if (error.RetryAfter is { } wait)
-        {
-            http.Response.Headers[HeaderNames.RetryAfter] =
-                Math.Max(1, (int)Math.Ceiling(wait.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
-            return Problem(http, StatusCodes.Status429TooManyRequests, error);
-        }
+        return LogInProblem(http, signedIn.Errors[0]);
+    }
 
-        return Problem(http, StatusCodes.Status403Forbidden, error);
+    /// <summary>A failed login as a problem: 401 for bad credentials, 429 (with Retry-After) when throttled, 403 otherwise.</summary>
+    internal static ProblemHttpResult LogInProblem(HttpContext http, Error error)
+    {
+        switch (error.Kind)
+        {
+            case ErrorKind.Unauthorized:
+                return Problem(http, StatusCodes.Status401Unauthorized, error);
+            case ErrorKind.TooManyRequests:
+                if (error.RetryAfter is { } wait)
+                    http.Response.Headers[HeaderNames.RetryAfter] =
+                        Math.Max(1, (int)Math.Ceiling(wait.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
+                return Problem(http, StatusCodes.Status429TooManyRequests, error);
+            default:
+                return Problem(http, StatusCodes.Status403Forbidden, error);
+        }
     }
 
     private static async Task<IResult> LogOutAsync(

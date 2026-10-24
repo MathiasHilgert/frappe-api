@@ -81,4 +81,26 @@ public sealed class ResultTests
         tagged.Metadata["extra"].ShouldBe(1);
         error.Metadata.ShouldBeNull();
     }
+
+    [Fact]
+    public void Errors_WithTheSameCode_AreEqual_WhateverTheOccurrenceDetails()
+    {
+        var rule = new Error("sample.slow", "Slow down.", Kind: ErrorKind.TooManyRequests);
+
+        var occurrence = rule.WithRetryAfter(TimeSpan.FromSeconds(5)).WithMetadata("ownerId", Guid.CreateVersion7());
+        var annotated = rule.WithMetadata("ownerId", Guid.CreateVersion7());
+
+        occurrence.ShouldBe(rule);
+        (occurrence == rule).ShouldBeTrue();
+        annotated.ShouldBe(occurrence);
+        occurrence.GetHashCode().ShouldBe(rule.GetHashCode());
+    }
+
+    [Fact]
+    public void Errors_WithDifferentCodes_AreNotEqual_EvenWithTheSameMessage() =>
+        new Error("sample.one", "Same.").ShouldNotBe(new Error("sample.two", "Same."));
+
+    [Fact]
+    public void Errors_WithTheSameCode_OnDifferentFields_AreNotEqual() =>
+        new Error("sample.required", "Required.", "name").ShouldNotBe(new Error("sample.required", "Required.", "email"));
 }

@@ -54,6 +54,21 @@ namespace Frappe.ArchitectureTests.Fixtures.Application
         public static ValueTask<Result> Handle(ForgetWidget command) => ValueTask.FromResult(Result.Success());
     }
 
+    public sealed record SweepWidgets : IBackgroundCommand;
+
+    public static class SweepWidgetsHandler
+    {
+        public static Task<OutgoingMessages> Handle(SweepWidgets command) => Task.FromResult(new OutgoingMessages());
+    }
+
+    public sealed record ReindexWidgets : IBackgroundCommand;
+
+    public static class ReindexWidgetsHandler
+    {
+        public static Task<(Result, OutgoingMessages)> Handle(ReindexWidgets command) =>
+            Task.FromResult((Result.Success(), new OutgoingMessages()));
+    }
+
     public sealed class UnmarkedMessage;
 
     public static class UnmarkedMessageHandler

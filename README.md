@@ -177,9 +177,14 @@ Infrastructure and only map HTTP to a message and a result to a status or `ToPro
 limits included, lives in the handler: a throttled command fails with a `TooManyRequests` error carrying
 `Error.WithRetryAfter(wait)`, and facts the edge may disclose ride in `Error.WithMetadata(key, value)`. Transport
 concerns (cookies through `ISessionCookie`, `Content-Language`) stay in Infrastructure.
+A command that only a recurring job publishes (`PurgePendingOwners`) implements `IBackgroundCommand`: nobody reads
+its answer and a published handler's return value is cascaded, so it returns only its `OutgoingMessages`.
+Errors compare by `Code` and `Field`: `Kind`, `Message` and the occurrence details (`RetryAfter`, `Metadata`) never make
+two errors different, so `error == IdentityErrors.EmailTaken` holds for a throttled or annotated copy too.
 `tests/Frappe.ArchitectureTests/CqrsConventionTests.cs` fails when an endpoint calls an Application service, a message
 is not a marked record, a query handler touches a repository, a command handler answers with a type some query
-returns, or a command handler returns anything but `Result`/`Result<T>`.
+returns, a command handler returns anything but `Result`/`Result<T>`, or a background command handler returns a
+`Result`.
 
 Migrations:
 
