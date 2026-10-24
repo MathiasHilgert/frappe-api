@@ -9,7 +9,10 @@ public static class AttemptPolicies
     /// </summary>
     public static readonly AttemptPolicy LoginFailuresPerEmailAndIp = new("login-email-ip", 10, TimeSpan.FromMinutes(15));
 
-    /// <summary>Wrong passwords for one email from anywhere: a much higher ceiling that only a distributed attack reaches.</summary>
+    /// <summary>
+    /// Wrong passwords for one email from anywhere: a much higher ceiling that only a distributed attack reaches. It does
+    /// not apply to an origin the email already signed in from, so reaching it never locks the owner out.
+    /// </summary>
     public static readonly AttemptPolicy LoginFailuresPerEmail = new("login-email", 100, TimeSpan.FromMinutes(15));
     public static readonly AttemptPolicy LoginFailuresPerIp = new("login-ip", 100, TimeSpan.FromMinutes(15));
     public static readonly AttemptPolicy RegisterPerEmail = new("register-email", 5, TimeSpan.FromHours(1));

@@ -25,6 +25,19 @@ public sealed class ForwardedHeadersTests
     public async Task AnUnknownSender_CannotSpoofItsAddress() =>
         (await ClientIpAsync(Proxy, "203.0.113.7")).ShouldBe("10.1.2.3");
 
+    [Theory]
+    [InlineData("2001:db8:1:2:3:4:5:6", "2001:db8:1:2::/64")]
+    [InlineData("2001:db8:1:2:ffff:ffff:ffff:ffff", "2001:db8:1:2::/64")]
+    [InlineData("2001:db8:1:3::1", "2001:db8:1:3::/64")]
+    [InlineData("::ffff:203.0.113.7", "203.0.113.7")]
+    [InlineData("203.0.113.7", "203.0.113.7")]
+    public async Task Ipv6_IsKeyedByItsSlash64_AndIpv4ByItsAddress(string remote, string expected) =>
+        (await ClientIpAsync(IPAddress.Parse(remote), null)).ShouldBe(expected);
+
+    [Fact]
+    public async Task AForwardedIpv6Client_IsKeyedByItsSlash64() =>
+        (await ClientIpAsync(Proxy, "2001:db8:aa:bb:1:2:3:4", ("KnownProxies:0", "10.1.2.3"))).ShouldBe("2001:db8:aa:bb::/64");
+
     [Fact]
     public async Task NoTransportAddress_IsUnknown() =>
         (await ClientIpAsync(null, null)).ShouldBe("unknown");

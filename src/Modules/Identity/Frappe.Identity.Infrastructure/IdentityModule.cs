@@ -66,6 +66,7 @@ public sealed class IdentityModule : IModule
             .BindConfiguration(AttemptLimiterOptions.SectionName)
             .ValidateOnStart();
         services.AddSingleton<IAttemptLimiter, ValkeyAttemptLimiter>();
+        services.AddSingleton<IKnownSignInOrigins, ValkeyKnownSignInOrigins>();
         services.AddScoped<VerificationCodeIssuer>();
         services.AddScoped<PasswordReverifier>();
         services.AddSingleton<IPlatformLocales, PlatformLocales>();

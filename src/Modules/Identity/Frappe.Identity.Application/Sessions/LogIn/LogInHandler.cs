@@ -10,8 +10,11 @@ namespace Frappe.Identity.Application.Sessions;
 /// <summary>
 /// Failures are counted per email and IP together (the tight budget), per email alone (a much higher ceiling only a
 /// distributed attack reaches) and per IP; each slows the caller down with a retry-after and frees itself when its
-/// window ends. Keying the tight budget on the IP too means an attacker cannot lock the owner out from elsewhere. A
-/// success clears that email and IP's count. Each attempt reserves its slot before the password is checked, so a parallel
+/// window ends. Keying the tight budget on the IP too means an attacker cannot lock the owner out from elsewhere. The
+/// email ceiling alone could be reached by an attacker on many addresses, so an origin this email already signed in
+/// from (<see cref="IKnownSignInOrigins"/>) is exempt from it: the owner keeps signing in from the places they use,
+/// while that origin still has its own tight budget. This is the server-side form of OWASP's "device cookie"
+/// lockout defence; it needs no client support. A success clears that email and IP's count and remembers the origin. Each attempt reserves its slot before the password is checked, so a parallel
 /// burst cannot get more tries than the limit. Unknown email, malformed email and wrong password are deliberately the
 /// same <see cref="IdentityErrors.InvalidCredentials"/>; only an attempt that proved the password learns the account's
 /// state, with the owner id in the error's metadata under <see cref="IdentityErrorMetadata.OwnerId"/>.
@@ -26,6 +29,7 @@ public static class LogInHandler
         ISecretHasher secretHasher,
         ISecretGenerator secrets,
         IAttemptLimiter limiter,
+        IKnownSignInOrigins knownOrigins,
         IIdentityTelemetry telemetry,
         TimeProvider clock,
         CancellationToken cancellationToken)
@@ -33,13 +37,8 @@ public static class LogInHandler
         // The same normalized address the account is stored under, so case or spacing never buys another budget.
         var parsed = Email.Create(command.Email);
         var emailKey = parsed.TryGetValue(out var normalized) ? normalized.Value : command.Email?.Trim().ToLowerInvariant() ?? string.Empty;
-        var reservation = await AttemptReservation.TakeAsync(limiter,
-            [
-                (AttemptPolicies.LoginFailuresPerEmailAndIp, $"{emailKey}|{command.ClientIp}"),
-                (AttemptPolicies.LoginFailuresPerEmail, emailKey),
-                (AttemptPolicies.LoginFailuresPerIp, command.ClientIp),
-            ],
-            cancellationToken);
+        var limits = await LimitsAsync(emailKey, command.ClientIp, knownOrigins, cancellationToken);
+        var reservation = await AttemptReservation.TakeAsync(limiter, limits, cancellationToken);
         if (!reservation.IsAllowed)
         {
             telemetry.LoginThrottled();
@@ -66,8 +65,23 @@ public static class LogInHandler
         var saved = await principals.SaveAsync(cancellationToken);
         if (saved.IsFailure)
             return Result.Failure<SignedIn>(saved.Errors);
+        await knownOrigins.RememberAsync(emailKey, command.ClientIp, CancellationToken.None);
         var session = opened.Value;
         return Result.Success(new SignedIn(principal.Id, session.Id, token, session.AbsoluteExpiresAt));
+    }
+
+    /// <summary>The limits this attempt reserves; an origin the email already signed in from skips the email ceiling.</summary>
+    private static async Task<List<(AttemptPolicy, string)>> LimitsAsync(
+        string emailKey, string clientIp, IKnownSignInOrigins knownOrigins, CancellationToken cancellationToken)
+    {
+        var limits = new List<(AttemptPolicy, string)>
+        {
+            (AttemptPolicies.LoginFailuresPerEmailAndIp, $"{emailKey}|{clientIp}"),
+            (AttemptPolicies.LoginFailuresPerIp, clientIp),
+        };
+        if (!await knownOrigins.IsKnownAsync(emailKey, clientIp, cancellationToken))
+            limits.Add((AttemptPolicies.LoginFailuresPerEmail, emailKey));
+        return limits;
     }
 
     /// <summary>The principal whose password this is, or null; an unknown email still pays for one hash check.</summary>

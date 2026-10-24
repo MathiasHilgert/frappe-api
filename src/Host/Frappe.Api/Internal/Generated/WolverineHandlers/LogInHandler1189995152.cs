@@ -14,6 +14,7 @@ namespace Internal.Generated.WolverineHandlers
         private readonly Frappe.Identity.Application.Security.DecoyPassword _decoyPassword;
         private readonly Frappe.Identity.Application.Security.IAttemptLimiter _attemptLimiter;
         private readonly Frappe.Identity.Application.Security.IIdentityTelemetry _identityTelemetry;
+        private readonly Frappe.Identity.Application.Security.IKnownSignInOrigins _knownSignInOrigins;
         private readonly Frappe.Identity.Application.Security.IPasswordHasher _passwordHasher;
         private readonly Frappe.Identity.Application.Security.ISecretGenerator _secretGenerator;
         private readonly Frappe.Identity.Application.Security.ISecretHasher _secretHasher;
@@ -21,11 +22,12 @@ namespace Internal.Generated.WolverineHandlers
         private readonly System.Collections.Generic.IEnumerable<Wolverine.EntityFrameworkCore.IDomainEventScraper> _domainEventScraperIEnumerable;
         private readonly System.TimeProvider _timeProvider;
 
-        public LogInHandler1189995152(Frappe.Identity.Application.Security.DecoyPassword decoyPassword, Frappe.Identity.Application.Security.IAttemptLimiter attemptLimiter, Frappe.Identity.Application.Security.IIdentityTelemetry identityTelemetry, Frappe.Identity.Application.Security.IPasswordHasher passwordHasher, Frappe.Identity.Application.Security.ISecretGenerator secretGenerator, Frappe.Identity.Application.Security.ISecretHasher secretHasher, Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory, System.Collections.Generic.IEnumerable<Wolverine.EntityFrameworkCore.IDomainEventScraper> domainEventScraperIEnumerable, System.TimeProvider timeProvider)
+        public LogInHandler1189995152(Frappe.Identity.Application.Security.DecoyPassword decoyPassword, Frappe.Identity.Application.Security.IAttemptLimiter attemptLimiter, Frappe.Identity.Application.Security.IIdentityTelemetry identityTelemetry, Frappe.Identity.Application.Security.IKnownSignInOrigins knownSignInOrigins, Frappe.Identity.Application.Security.IPasswordHasher passwordHasher, Frappe.Identity.Application.Security.ISecretGenerator secretGenerator, Frappe.Identity.Application.Security.ISecretHasher secretHasher, Microsoft.Extensions.DependencyInjection.IServiceScopeFactory serviceScopeFactory, System.Collections.Generic.IEnumerable<Wolverine.EntityFrameworkCore.IDomainEventScraper> domainEventScraperIEnumerable, System.TimeProvider timeProvider)
         {
             _decoyPassword = decoyPassword;
             _attemptLimiter = attemptLimiter;
             _identityTelemetry = identityTelemetry;
+            _knownSignInOrigins = knownSignInOrigins;
             _passwordHasher = passwordHasher;
             _secretGenerator = secretGenerator;
             _secretHasher = secretHasher;
@@ -60,7 +62,7 @@ namespace Internal.Generated.WolverineHandlers
                 System.Diagnostics.Activity.Current?.SetTag("handler.type", "Frappe.Identity.Application.Sessions.LogInHandler");
                 
                 // The actual message execution
-                var outgoing1 = await Frappe.Identity.Application.Sessions.LogInHandler.Handle(logIn, principalRepository, _passwordHasher, _decoyPassword, _secretHasher, _secretGenerator, _attemptLimiter, _identityTelemetry, _timeProvider, cancellation).ConfigureAwait(false);
+                var outgoing1 = await Frappe.Identity.Application.Sessions.LogInHandler.Handle(logIn, principalRepository, _passwordHasher, _decoyPassword, _secretHasher, _secretGenerator, _attemptLimiter, _knownSignInOrigins, _identityTelemetry, _timeProvider, cancellation).ConfigureAwait(false);
 
                 
                 // Outgoing, cascaded message

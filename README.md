@@ -274,9 +274,13 @@ freed in time) with a 503 carrying its error.
 Two layers slow abusive clients down, and neither ever locks an account. The attempt limiter (Valkey, fail-open)
 counts failures per use case: a sign-in has a tight budget per email and client IP together (10 per 15 minutes, so an
 attacker hammering an address from their own IP only throttles themselves), a much higher ceiling per email alone
-(100, reached only by a distributed attack) and one per IP. Underneath, an in-process ASP.NET rate limiter caps every
-anonymous auth endpoint per IP (`Platform:RateLimiting`), so the API stays protected when Valkey is down. Throttled
-sign-ins, rejected codes, purge outcomes and dead-lettered mails are metered (`Frappe.Identity`,
+(100, reached only by a distributed attack) and one per IP. An address the email already signed in from in the last
+30 days is exempt from that ceiling, so a distributed attack cannot lock the owner out of the places they use (the
+server-side form of OWASP's device-cookie defence); it still has its own tight budget. Underneath, an in-process
+ASP.NET rate limiter caps every anonymous auth endpoint per IP (`Platform:RateLimiting`), so the API stays protected
+when Valkey is down. Every per-IP key comes from `ClientIp()`: an IPv4 address as is, an IPv6 address by its /64
+prefix, since one subscriber holds a whole /64. Throttled sign-ins, rejected codes, purge outcomes (purged, skipped
+on a conflict, failed) and dead-lettered mails are metered (`Frappe.Identity`,
 `Frappe.Notification`, `Wolverine:*` meters).
 
 A module adds strings as flat ICU MessageFormat catalogues, one file per locale, keyed by error code or a
@@ -348,7 +352,7 @@ docker run -d -p 8080:8080 \
 | --- | --- | --- |
 | `ConnectionStrings__frappe` | Yes | Postgres; Critical for readiness |
 | `ConnectionStrings__valkey` | Yes | Startup fails without it; NonCritical for readiness |
-| `Identity__SecretHashing__Key` | Yes | HMAC key for session tokens and codes, 32+ characters; startup fails without it, and outside Development also when it is the committed development key. Rotating it signs everyone out |
+| `Identity__SecretHashing__Key` | Yes | HMAC key for session tokens and codes, 32+ characters; startup fails without it. Rotating it signs everyone out |
 | `Identity__SessionCookie__Name` | No | Session cookie name for the web console, default `__Host-frappe_session`; must be a valid cookie token or startup fails. A `__Host-` name requires Path `/` and no Domain |
 | `Identity__SessionCookie__Path` | No | Session cookie path, default `/`; must start with `/` |
 | `Identity__SessionCookie__Domain` | No | Unset by default (host-only cookie); not allowed with a `__Host-` name |

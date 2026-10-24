@@ -139,6 +139,49 @@ public sealed class LoginTests(ApiFixture fixture)
     }
 
     [Fact]
+    public async Task ADistributedAttack_CannotLockTheOwnerOut_FromAnAddressTheyAlreadySignedInFrom()
+    {
+        var email = OwnerSeeder.NewEmail();
+        await OwnerSeeder.SeedAsync(fixture.Host, email);
+        var home = NewIp();
+        await LogInAsync(email, OwnerSeeder.Password, home, 201);
+
+        for (var i = 0; i < AttemptPolicies.LoginFailuresPerEmail.Limit; i++)
+            await LogInAsync(email, "wrong password!!", NewIp(), 401);
+
+        await LogInAsync(email, OwnerSeeder.Password, NewIp(), 429);
+        await LogInAsync(email, OwnerSeeder.Password, home, 201);
+    }
+
+    [Fact]
+    public async Task AKnownAddress_StillHasItsOwnTightBudget()
+    {
+        var email = OwnerSeeder.NewEmail();
+        await OwnerSeeder.SeedAsync(fixture.Host, email);
+        var shared = NewIp();
+        await LogInAsync(email, OwnerSeeder.Password, shared, 201);
+
+        for (var i = 0; i < AttemptPolicies.LoginFailuresPerEmailAndIp.Limit; i++)
+            await LogInAsync(email, "wrong password!!", shared, 401);
+
+        await LogInAsync(email, OwnerSeeder.Password, shared, 429);
+    }
+
+    [Fact]
+    public async Task Ipv6Addresses_InOneSlash64_ShareOneBudget_AndTheNextPrefixDoesNot()
+    {
+        var email = OwnerSeeder.NewEmail();
+        await OwnerSeeder.SeedAsync(fixture.Host, email);
+        var prefix = $"2001:db8:{Random.Shared.Next(0x10000):x}:{Random.Shared.Next(0x10000):x}";
+
+        for (var i = 1; i <= AttemptPolicies.LoginFailuresPerEmailAndIp.Limit; i++)
+            await LogInAsync(email, "wrong password!!", IPAddress.Parse($"{prefix}:{i:x}::{i:x}"), 401);
+
+        await LogInAsync(email, OwnerSeeder.Password, IPAddress.Parse($"{prefix}:ffff:ffff:ffff:ffff"), 429);
+        await LogInAsync(email, OwnerSeeder.Password, IPAddress.Parse($"2001:db8:ffff:{Random.Shared.Next(0x10000):x}::1"), 201);
+    }
+
+    [Fact]
     public void TheEmailCeiling_IsFarAboveThePerIpBudget() =>
         AttemptPolicies.LoginFailuresPerEmail.Limit.ShouldBeGreaterThanOrEqualTo(5 * AttemptPolicies.LoginFailuresPerEmailAndIp.Limit);
 
