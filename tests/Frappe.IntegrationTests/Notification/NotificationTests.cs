@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 using Shouldly;
 using Wolverine.Tracking;
 
-namespace Frappe.IntegrationTests;
+namespace Frappe.IntegrationTests.Notification;
 
 public sealed class NotificationTests(ApiFixture fixture, NotificationTests.MailerHostFixture mailerHost)
     : IClassFixture<NotificationTests.MailerHostFixture>

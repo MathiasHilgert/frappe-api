@@ -2,7 +2,7 @@ using Frappe.Identity.Application.Security;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 
-namespace Frappe.IntegrationTests;
+namespace Frappe.IntegrationTests.Identity;
 
 /// <summary>The Valkey attempt limiter against a real Valkey: counts per key, blocks at the limit, never locks.</summary>
 public sealed class AttemptLimiterTests(ApiFixture fixture)

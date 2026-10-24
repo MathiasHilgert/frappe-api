@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 
-namespace Frappe.IntegrationTests;
+namespace Frappe.IntegrationTests.Identity;
 
 /// <summary>The Principal aggregate round-trips through the identity schema created by its migrations.</summary>
 public sealed class IdentityPersistenceTests(ApiFixture fixture)
