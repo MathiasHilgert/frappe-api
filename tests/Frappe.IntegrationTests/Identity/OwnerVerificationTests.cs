@@ -26,7 +26,8 @@ public sealed class OwnerVerificationTests(ApiFixture fixture)
 
         var body = await result.ReadAsJsonAsync<JsonElement>();
         var token = body.GetProperty("token").GetString().ShouldNotBeNull();
-        var sessionId = body.GetProperty("sessionId").GetGuid();
+        var sessionId = body.GetProperty("id").GetGuid();
+        body.GetProperty("principalId").GetGuid().ShouldBe(ownerId);
         result.Context.Response.Headers.Location.ToString().ShouldBe($"/v1/identity/sessions/{sessionId}");
 
         var setCookie = result.Context.Response.Headers.SetCookie.ToString();
