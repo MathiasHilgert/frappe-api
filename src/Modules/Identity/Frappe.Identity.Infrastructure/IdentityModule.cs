@@ -35,40 +35,15 @@ public sealed class IdentityModule : IModule
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddModuleDbContext<IdentityDbContext>(Schema);
-        services.AddScoped<IPrincipalRepository, PrincipalRepository>();
-        services.AddScoped<IOwnerReads, OwnerReads>();
+        AddPersistence(services);
         services.AddMessageCatalog(typeof(IdentityModule).Assembly);
-
-        // Both checks run when the host starts, so commands that only compose it (resources setup) need no secrets.
-        services.AddSingleton<IValidateOptions<Argon2Options>, Argon2OptionsValidator>();
-        services.AddSingleton<IValidateOptions<SecretHashingOptions>, SecretHashingOptionsValidator>();
-        services.AddSingleton<IValidateOptions<AttemptLimiterOptions>, AttemptLimiterOptionsValidator>();
-        services.AddSingleton<IValidateOptions<BreachedPasswordOptions>, BreachedPasswordOptionsValidator>();
-        services.AddOptions<Argon2Options>()
-            .BindConfiguration(Argon2Options.SectionName)
-            .ValidateOnStart();
-        services.AddOptions<SecretHashingOptions>()
-            .BindConfiguration(SecretHashingOptions.SectionName)
-            .ValidateOnStart();
-
-        services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
-        services.AddSingleton<ISecretHasher, HmacSecretHasher>();
-        services.AddSingleton<ISecretGenerator, RandomSecretGenerator>();
-        services.AddSingleton<DecoyPassword>();
-
-        services.AddSessionAuthentication(configuration);
-        AddPasswordPolicy(services);
-        services.AddSingleton<IdentityMetrics>();
-        services.AddSingleton<IIdentityTelemetry>(sp => sp.GetRequiredService<IdentityMetrics>());
-        services.AddOptions<AttemptLimiterOptions>()
-            .BindConfiguration(AttemptLimiterOptions.SectionName)
-            .ValidateOnStart();
-        services.AddSingleton<IAttemptLimiter, ValkeyAttemptLimiter>();
-        services.AddSingleton<IKnownSignInOrigins, ValkeyKnownSignInOrigins>();
-        services.AddScoped<VerificationCodeIssuer>();
-        services.AddScoped<PasswordReverifier>();
         services.AddSingleton<IPlatformLocales, PlatformLocales>();
+        AddTelemetry(services);
+        AddSecrets(services);
+        AddPasswordPolicy(services);
+        AddAttemptLimiting(services);
+        services.AddSessionAuthentication(configuration);
+        AddUseCaseServices(services);
         AddRecurringJobs(services);
     }
 
@@ -91,12 +66,53 @@ public sealed class IdentityModule : IModule
         group.MapPasswordResetEndpoints();
     }
 
+    private static void AddPersistence(IServiceCollection services)
+    {
+        services.AddModuleDbContext<IdentityDbContext>(Schema);
+        services.AddScoped<IPrincipalRepository, PrincipalRepository>();
+        services.AddScoped<IOwnerReads, OwnerReads>();
+    }
+
+    private static void AddTelemetry(IServiceCollection services)
+    {
+        services.AddSingleton<IdentityMetrics>();
+        services.AddSingleton<IIdentityTelemetry>(sp => sp.GetRequiredService<IdentityMetrics>());
+    }
+
+    /// <summary>Password and secret hashing. Options validate when the host starts, so commands that only compose it need no secrets.</summary>
+    private static void AddSecrets(IServiceCollection services)
+    {
+        services.AddSingleton<IValidateOptions<Argon2Options>, Argon2OptionsValidator>();
+        services.AddSingleton<IValidateOptions<SecretHashingOptions>, SecretHashingOptionsValidator>();
+        services.AddOptions<Argon2Options>().BindConfiguration(Argon2Options.SectionName).ValidateOnStart();
+        services.AddOptions<SecretHashingOptions>().BindConfiguration(SecretHashingOptions.SectionName).ValidateOnStart();
+        services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
+        services.AddSingleton<ISecretHasher, HmacSecretHasher>();
+        services.AddSingleton<ISecretGenerator, RandomSecretGenerator>();
+        services.AddSingleton<DecoyPassword>();
+    }
+
+    private static void AddAttemptLimiting(IServiceCollection services)
+    {
+        services.AddSingleton<IValidateOptions<AttemptLimiterOptions>, AttemptLimiterOptionsValidator>();
+        services.AddOptions<AttemptLimiterOptions>().BindConfiguration(AttemptLimiterOptions.SectionName).ValidateOnStart();
+        services.AddSingleton<IAttemptLimiter, ValkeyAttemptLimiter>();
+        services.AddSingleton<IKnownSignInOrigins, ValkeyKnownSignInOrigins>();
+    }
+
+    private static void AddUseCaseServices(IServiceCollection services)
+    {
+        services.AddScoped<VerificationCodeIssuer>();
+        services.AddScoped<PasswordReverifier>();
+    }
+
     // Global UTC: the purge has no local meaning. 03:00 keeps it away from the midnight rush of other sweeps.
     private static void AddRecurringJobs(IServiceCollection services) =>
         services.AddRecurringCommand<PurgePendingOwners>(nameof(PurgePendingOwners), "0 0 3 * * ?");
 
     private static void AddPasswordPolicy(IServiceCollection services)
     {
+        services.AddSingleton<IValidateOptions<BreachedPasswordOptions>, BreachedPasswordOptionsValidator>();
         services.AddOptions<BreachedPasswordOptions>()
             .BindConfiguration(BreachedPasswordOptions.SectionName)
             .ValidateOnStart();
