@@ -12,7 +12,7 @@ namespace Frappe.Identity.Application.PasswordResets;
 /// </summary>
 public static class ConfirmPasswordResetHandler
 {
-    public static async Task<PasswordResetConfirmed> Handle(
+    public static async Task<Result> Handle(
         ConfirmPasswordReset command,
         IPrincipalRepository principals,
         IAttemptLimiter limiter,
@@ -26,11 +26,12 @@ public static class ConfirmPasswordResetHandler
         var perReset = await limiter.CheckAsync(AttemptPolicies.PasswordResetConfirmFailuresPerReset, resetKey, cancellationToken);
         var perIp = await limiter.CheckAsync(AttemptPolicies.PasswordResetConfirmFailuresPerIp, command.ClientIp, cancellationToken);
         if (!perReset.IsAllowed || !perIp.IsAllowed)
-            return new(Result.Success(), perReset.RetryAfter > perIp.RetryAfter ? perReset.RetryAfter : perIp.RetryAfter);
+            return Result.Failure(IdentityErrors.TooManyAttempts.WithRetryAfter(
+                perReset.RetryAfter > perIp.RetryAfter ? perReset.RetryAfter : perIp.RetryAfter));
 
         var password = await passwordPolicy.ValidateAsync(command.NewPassword, cancellationToken);
         if (password.IsFailure)
-            return new(password, TimeSpan.Zero);
+            return password;
 
         var principal = await principals.GetByCodeIdAsync(command.ResetId, CodePurpose.PasswordReset, cancellationToken);
         var reset = principal is null || string.IsNullOrEmpty(command.Code)
@@ -41,13 +42,13 @@ public static class ConfirmPasswordResetHandler
         {
             await limiter.RecordAsync(AttemptPolicies.PasswordResetConfirmFailuresPerReset, resetKey, cancellationToken);
             await limiter.RecordAsync(AttemptPolicies.PasswordResetConfirmFailuresPerIp, command.ClientIp, cancellationToken);
-            return new(reset, TimeSpan.Zero);
+            return reset;
         }
 
         var saved = await principals.SaveChangesAsync(cancellationToken);
         if (saved.IsFailure)
             throw new InvalidOperationException($"Saving a password reset failed: {saved.Errors[0].Code}.");
         await limiter.ResetAsync(AttemptPolicies.PasswordResetConfirmFailuresPerReset, resetKey, cancellationToken);
-        return new(Result.Success(), TimeSpan.Zero);
+        return Result.Success();
     }
 }

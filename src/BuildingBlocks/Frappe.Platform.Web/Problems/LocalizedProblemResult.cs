@@ -10,7 +10,7 @@ using Microsoft.Net.Http.Headers;
 namespace Frappe.Platform.Web.Problems;
 
 /// <summary>Translates at execution time, when the request locale is known, so endpoints keep returning <c>result.ToProblem()</c>.</summary>
-internal sealed class LocalizedProblemResult(IReadOnlyList<Error> errors, TimeSpan? retryAfter) : IResult, IStatusCodeHttpResult
+internal sealed class LocalizedProblemResult(IReadOnlyList<Error> errors) : IResult, IStatusCodeHttpResult
 {
     public const string ValidationType = "urn:frappe:problem:validation";
     public const string ValidationTitleKey = "platform.problem.validation";
@@ -38,7 +38,7 @@ internal sealed class LocalizedProblemResult(IReadOnlyList<Error> errors, TimeSp
             },
         };
 
-        if (StatusCode == StatusCodes.Status429TooManyRequests && retryAfter is { } wait)
+        if (StatusCode == StatusCodes.Status429TooManyRequests && errors.Max(e => e.RetryAfter) is { } wait)
             httpContext.Response.Headers[HeaderNames.RetryAfter] =
                 ((long)Math.Ceiling(wait.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
 

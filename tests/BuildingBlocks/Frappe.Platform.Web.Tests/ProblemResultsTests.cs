@@ -12,7 +12,7 @@ namespace Frappe.Platform.Web.Tests;
 
 public sealed class ProblemResultsTests
 {
-    private static async Task<(HttpResponse Response, JsonElement Body)> Execute(Result result, string? acceptLanguage = null, TimeSpan? retryAfter = null)
+    private static async Task<(HttpResponse Response, JsonElement Body)> Execute(Result result, string? acceptLanguage = null)
     {
         var services = new ServiceCollection().AddLogging()
             .AddPlatformLocalization(new ConfigurationBuilder().Build())
@@ -24,7 +24,7 @@ public sealed class ProblemResultsTests
             context.Request.Headers.AcceptLanguage = acceptLanguage;
 
         // The middleware is what negotiates the locale; run it in front of the result like the pipeline does.
-        var pipeline = new ApplicationBuilderStub(services).Build(ctx => result.ToProblem(retryAfter).ExecuteAsync(ctx));
+        var pipeline = new ApplicationBuilderStub(services).Build(ctx => result.ToProblem().ExecuteAsync(ctx));
         await pipeline(context);
 
         context.Response.Body.Position = 0;
@@ -71,12 +71,22 @@ public sealed class ProblemResultsTests
     public async Task CatalogueEntryForTheCode_TranslatesTitleAndMessage(string acceptLanguage, string expected)
     {
         var (response, body) = await Execute(
-            Result.Failure(new Error("platform.problem.429", "untranslated", Kind: ErrorKind.TooManyRequests)),
-            acceptLanguage, TimeSpan.FromSeconds(29.2));
+            Result.Failure(new Error("platform.problem.429", "untranslated", Kind: ErrorKind.TooManyRequests)
+                .WithRetryAfter(TimeSpan.FromSeconds(29.2))),
+            acceptLanguage);
 
         body.GetProperty("title").GetString().ShouldBe(expected);
         body.GetProperty("errors")[0].GetProperty("message").GetString().ShouldBe(expected);
         response.Headers.RetryAfter.ToString().ShouldBe("30");
+    }
+
+    [Fact]
+    public async Task TooManyRequests_WithoutAWait_SendsNoRetryAfter()
+    {
+        var (response, _) = await Execute(Result.Failure(new Error("sample.slow", "Slow down.", Kind: ErrorKind.TooManyRequests)));
+
+        response.StatusCode.ShouldBe(429);
+        response.Headers.ContainsKey("Retry-After").ShouldBeFalse();
     }
 
     [Fact]

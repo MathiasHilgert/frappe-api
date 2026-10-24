@@ -55,4 +55,30 @@ public sealed class ResultTests
 
         Should.Throw<InvalidOperationException>(() => result.Value);
     }
+
+    [Fact]
+    public void WithRetryAfter_CarriesTheWait_AndKeepsTheRule()
+    {
+        var error = new Error("sample.slow", "Slow down.", Kind: ErrorKind.TooManyRequests);
+
+        var waiting = error.WithRetryAfter(TimeSpan.FromSeconds(5));
+
+        waiting.RetryAfter.ShouldBe(TimeSpan.FromSeconds(5));
+        waiting.Code.ShouldBe(error.Code);
+        waiting.Kind.ShouldBe(ErrorKind.TooManyRequests);
+        error.RetryAfter.ShouldBeNull();
+    }
+
+    [Fact]
+    public void WithMetadata_AddsAnEntry_WithoutTouchingTheOriginal()
+    {
+        var error = new Error("sample.refused", "Refused.");
+        var id = Guid.NewGuid();
+
+        var tagged = error.WithMetadata("ownerId", id).WithMetadata("extra", 1);
+
+        tagged.Metadata.ShouldNotBeNull()["ownerId"].ShouldBe(id);
+        tagged.Metadata["extra"].ShouldBe(1);
+        error.Metadata.ShouldBeNull();
+    }
 }

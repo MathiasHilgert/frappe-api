@@ -1,7 +1,9 @@
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
 using Frappe.Identity.Contracts.PasswordResets;
+using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Principals;
+using Frappe.SharedKernel.Validation;
 using Wolverine;
 
 namespace Frappe.Identity.Application.PasswordResets;
@@ -13,7 +15,7 @@ namespace Frappe.Identity.Application.PasswordResets;
 /// </summary>
 public static class RequestPasswordResetHandler
 {
-    public static async Task<(PasswordResetRequested, OutgoingMessages)> Handle(
+    public static async Task<(Result<Guid>, OutgoingMessages)> Handle(
         RequestPasswordReset command,
         IPrincipalRepository principals,
         IAttemptLimiter limiter,
@@ -25,14 +27,15 @@ public static class RequestPasswordResetHandler
         var messages = new OutgoingMessages();
         var email = Email.Create(command.Email);
         if (email.IsFailure)
-            return (PasswordResetRequested.Invalid(email), messages);
+            return (Result.Failure<Guid>(email.Errors[0]), messages);
 
         var perEmail = await limiter.RecordAsync(AttemptPolicies.PasswordResetPerEmail, email.Value.Value, cancellationToken);
         var perIp = await limiter.RecordAsync(AttemptPolicies.PasswordResetPerIp, command.ClientIp, cancellationToken);
         if (!perEmail.IsAllowed || !perIp.IsAllowed)
-            return (PasswordResetRequested.Limited(perEmail.RetryAfter > perIp.RetryAfter ? perEmail.RetryAfter : perIp.RetryAfter), messages);
+            return (Result.Failure<Guid>(IdentityErrors.TooManyAttempts.WithRetryAfter(
+                perEmail.RetryAfter > perIp.RetryAfter ? perEmail.RetryAfter : perIp.RetryAfter)), messages);
 
-        var anonymous = PasswordResetRequested.Accepted(Guid.CreateVersion7(clock.GetUtcNow()));
+        var anonymous = Result.Success(Guid.CreateVersion7(clock.GetUtcNow()));
         var principal = await principals.GetByEmailAsync(email.Value, cancellationToken);
         if (principal is null || principal.Owner.Status == OwnerStatus.Suspended)
             return (anonymous, messages);
@@ -50,6 +53,6 @@ public static class RequestPasswordResetHandler
         messages.Add(new PasswordResetCodeIssued(
             issued.Value.Id, principal.Id, principal.Owner.Email.Value, principal.Owner.Name.Value, code, issued.Value.ExpiresAt,
             principal.Owner.Locale.Value));
-        return (PasswordResetRequested.Accepted(issued.Value.Id), messages);
+        return (Result.Success(issued.Value.Id), messages);
     }
 }

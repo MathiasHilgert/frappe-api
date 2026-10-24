@@ -166,17 +166,20 @@ gets the same tracing, and every command the same EF Core transaction and outbox
 | | Command | Query |
 | --- | --- | --- |
 | Message | `record` implementing `ICommand`, imperative name (`ChangeLocale`) | `record` implementing `IQuery<TResult>` (`GetMe`, `ListOwnerSessions`) |
-| Handler | Loads the aggregate through the repository, saves, returns `Result`/`Result<T>` with an id or a small outcome | Asks a read port (`IOwnerReads`) for a DTO; marked `[NonTransactional]` |
+| Handler | Loads the aggregate through the repository, saves, returns `Result`/`Result<T>` (first in a tuple when it also cascades) with an id or a small value; every failure, rate limits included, is an `Error` | Asks a read port (`IOwnerReads`) for a DTO; marked `[NonTransactional]` |
 | Data access | Repository, change tracking, `SaveChangesAsync` | Read port in Infrastructure: `AsNoTracking` projections straight to DTOs |
 | Side effects | Cascading messages (`OutgoingMessages`) or `IMessageContext.PublishAsync`, written to the outbox in the same transaction | None |
 
 Layout: Application holds one folder per use case (message, handler and result types together, e.g.
 `Sessions/LogIn/`), while the namespace stays the feature area (`...Application.Sessions`) so a type never shares a
 name with its namespace. Endpoints stay in
-Infrastructure and only map HTTP to a message and a result to a status or `ToProblem()`. Transport concerns (cookies,
-`Retry-After`, `Content-Language`) stay in the endpoint. `tests/Frappe.ArchitectureTests/CqrsConventionTests.cs`
-fails when an endpoint calls an Application service, a message is not a marked record, a query handler touches a
-repository, or a command handler answers with a type some query returns.
+Infrastructure and only map HTTP to a message and a result to a status or `ToProblem()`. Use-case policy, attempt
+limits included, lives in the handler: a throttled command fails with a `TooManyRequests` error carrying
+`Error.WithRetryAfter(wait)`, and facts the edge may disclose ride in `Error.WithMetadata(key, value)`. Transport
+concerns (cookies through `ISessionCookie`, `Content-Language`) stay in Infrastructure.
+`tests/Frappe.ArchitectureTests/CqrsConventionTests.cs` fails when an endpoint calls an Application service, a message
+is not a marked record, a query handler touches a repository, a command handler answers with a type some query
+returns, or a command handler returns anything but `Result`/`Result<T>`.
 
 Migrations:
 
@@ -214,7 +217,7 @@ and `Localization:DefaultLocale`). The request locale (`IRequestLocale`) is nego
 3. Otherwise `en`.
 
 Failures are RFC 9457 problems. `result.ToProblem()` picks the status from `Error.Kind` (422 validation, 404, 409,
-429 with `Retry-After` via `ToProblem(retryAfter)`, 401, 403; mixed kinds answer 422), sets `type` to
+429 with `Retry-After` from the longest `Error.RetryAfter`, 401, 403; mixed kinds answer 422), sets `type` to
 `urn:frappe:problem:<code>` (one error) or `urn:frappe:problem:validation` (several), and translates `title` and each
 `errors[].message` by error code. A code with no catalogue entry falls back to `Error.Message`, in English.
 

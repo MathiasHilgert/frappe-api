@@ -1,6 +1,5 @@
 using Frappe.Identity.Application.Account;
 using Frappe.Identity.Application.Sessions;
-using Frappe.Identity.Domain;
 using Frappe.Identity.Infrastructure.Sessions;
 using Frappe.Platform.Web.Problems;
 using Frappe.SharedKernel.Validation;
@@ -35,10 +34,8 @@ internal static class EmailChangeEndpoints
         if (current.Session is not { } caller)
             return TypedResults.Unauthorized();
 
-        var outcome = await bus.InvokeAsync<Throttled<Guid>>(
+        var result = await bus.InvokeAsync<Result<Guid>>(
             new RequestEmailChange(caller.PrincipalId, request.NewEmail), cancellationToken);
-        if (outcome.Result is not { } result)
-            return TooManyAttempts(outcome.RetryAfter);
 
         return result.IsSuccess
             ? TypedResults.Created($"{http.PathBase}{http.Path}/{result.Value}", new EmailChangeResponse(result.Value))
@@ -52,15 +49,10 @@ internal static class EmailChangeEndpoints
         if (current.Session is not { } caller)
             return TypedResults.Unauthorized();
 
-        var outcome = await bus.InvokeAsync<Throttled<bool>>(
+        var result = await bus.InvokeAsync<Result>(
             new ConfirmEmailChange(caller.PrincipalId, id, request.Code), cancellationToken);
-        if (outcome.Result is not { } result)
-            return TooManyAttempts(outcome.RetryAfter);
 
-        // Each error's Kind picks the status: 409 email taken, 404 no such change, 422 otherwise.
+        // Each error's Kind picks the status: 409 email taken, 404 no such change, 429 slow down, 422 otherwise.
         return result.IsSuccess ? TypedResults.NoContent() : result.ToProblem();
     }
-
-    private static IResult TooManyAttempts(TimeSpan retryAfter) =>
-        Result.Failure(IdentityErrors.TooManyAttempts).ToProblem(retryAfter);
 }

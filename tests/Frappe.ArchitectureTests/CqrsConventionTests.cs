@@ -34,6 +34,12 @@ public sealed class CqrsConventionTests
         CqrsRules.CommandHandlersReturningReadModels(Application(module)).ShouldBeEmpty(
             "Command handlers answer with an id or a small outcome; the client reads back through a query.");
 
+    [Theory(SkipTestWithoutData = true)]
+    [MemberData(nameof(Modules))]
+    public void CommandHandler_ReturnsAResult(string module) =>
+        CqrsRules.CommandHandlersNotReturningResult(Application(module)).ShouldBeEmpty(
+            "Command handlers answer with Result or Result<T> (first in a tuple when cascading); a failure travels as an Error, retry-after included.");
+
     private static CqrsRules.Layer Application(string module) => Layer($"Frappe.{module}.Application");
 
     private static CqrsRules.Layer Infrastructure(string module) => Layer($"Frappe.{module}.Infrastructure");

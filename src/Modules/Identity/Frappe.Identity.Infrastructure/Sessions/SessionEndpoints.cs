@@ -42,30 +42,34 @@ internal static class SessionEndpoints
         // The web console marks its requests with the CSRF header; any other client is an API surface.
         var surface = http.Request.Headers.ContainsKey(SessionAuthenticationHandler.CsrfHeader) ? SessionSurface.Console : SessionSurface.Api;
 
-        var outcome = await bus.InvokeAsync<LogInOutcome>(
+        var signedIn = await bus.InvokeAsync<Result<SignedIn>>(
             new LogIn(request.Email ?? string.Empty, request.Password ?? string.Empty, clientIp, surface), cancellationToken);
-        switch (outcome)
+        if (signedIn.IsSuccess)
         {
-            case LogInOutcome.Opened opened:
-                cookie.Issue(opened.Token, opened.ExpiresAt);
-                return TypedResults.Created("/v1/identity/sessions/current",
-                    new SessionResponse(opened.SessionId, opened.PrincipalId, opened.Token, opened.ExpiresAt));
-            case LogInOutcome.Throttled throttled:
-                http.Response.Headers[HeaderNames.RetryAfter] =
-                    Math.Max(1, (int)Math.Ceiling(throttled.RetryAfter.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
-                return Problem(http, StatusCodes.Status429TooManyRequests, IdentityErrors.TooManyAttempts);
-            case LogInOutcome.Refused refused:
-                return Problem(http, StatusCodes.Status403Forbidden, refused.Error, refused.PrincipalId);
-            default:
-                return Problem(http, StatusCodes.Status401Unauthorized, IdentityErrors.InvalidCredentials);
+            var opened = signedIn.Value;
+            cookie.Issue(opened.Token, opened.ExpiresAt);
+            return TypedResults.Created("/v1/identity/sessions/current",
+                new SessionResponse(opened.SessionId, opened.PrincipalId, opened.Token, opened.ExpiresAt));
         }
+
+        var error = signedIn.Errors[0];
+        if (error.Code == IdentityErrors.InvalidCredentials.Code)
+            return Problem(http, StatusCodes.Status401Unauthorized, error);
+        if (error.RetryAfter is { } wait)
+        {
+            http.Response.Headers[HeaderNames.RetryAfter] =
+                Math.Max(1, (int)Math.Ceiling(wait.TotalSeconds)).ToString(CultureInfo.InvariantCulture);
+            return Problem(http, StatusCodes.Status429TooManyRequests, error);
+        }
+
+        return Problem(http, StatusCodes.Status403Forbidden, error);
     }
 
     private static async Task<IResult> LogOutAsync(
         ICurrentPrincipal current, IMessageBus bus, ISessionCookie cookie, CancellationToken cancellationToken)
     {
         var caller = current.Session!;
-        await bus.InvokeAsync(new LogOut(caller.PrincipalId, caller.SessionId), cancellationToken);
+        await bus.InvokeAsync<Result>(new LogOut(caller.PrincipalId, caller.SessionId), cancellationToken);
         cookie.Clear();
         return TypedResults.NoContent();
     }
@@ -97,11 +101,11 @@ internal static class SessionEndpoints
     }
 
     // The owner id is only disclosed after the password was proven, so the console can route a pending owner to verify.
-    private static ProblemHttpResult Problem(HttpContext http, int status, Error error, Guid? ownerId = null)
+    private static ProblemHttpResult Problem(HttpContext http, int status, Error error)
     {
         var extensions = new Dictionary<string, object?>(StringComparer.Ordinal) { ["code"] = error.Code };
-        if (ownerId is { } id)
-            extensions["ownerId"] = id;
+        if (error.Metadata?.GetValueOrDefault(LogInHandler.OwnerIdKey) is Guid id)
+            extensions[LogInHandler.OwnerIdKey] = id;
 
         var message = http.LocalizedMessage(error);
         return TypedResults.Problem(detail: message, statusCode: status, title: message, type: $"urn:frappe:problem:{error.Code}", extensions: extensions);

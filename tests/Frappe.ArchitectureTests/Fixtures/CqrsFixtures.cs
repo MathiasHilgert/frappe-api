@@ -3,6 +3,8 @@
 
 using Frappe.Application.Abstractions.Messaging;
 using Frappe.ArchitectureTests.Fixtures.Application;
+using Frappe.SharedKernel.Validation;
+using Wolverine;
 
 namespace Frappe.ArchitectureTests.Fixtures.Application
 {
@@ -26,6 +28,30 @@ namespace Frappe.ArchitectureTests.Fixtures.Application
     public static class RenameWidgetHandler
     {
         public static Task<WidgetView> Handle(RenameWidget command) => Task.FromResult(new WidgetView(command.Id, command.Name));
+    }
+
+    public sealed record ArchiveWidget(Guid Id) : ICommand;
+
+    public sealed record ArchiveOutcome(bool Archived, TimeSpan RetryAfter);
+
+    public static class ArchiveWidgetHandler
+    {
+        public static Task<ArchiveOutcome> Handle(ArchiveWidget command) => Task.FromResult(new ArchiveOutcome(true, TimeSpan.Zero));
+    }
+
+    public sealed record PublishWidget(Guid Id) : ICommand;
+
+    public static class PublishWidgetHandler
+    {
+        public static Task<(Result<Guid>, OutgoingMessages)> Handle(PublishWidget command) =>
+            Task.FromResult((Result.Success(command.Id), new OutgoingMessages()));
+    }
+
+    public sealed record ForgetWidget(Guid Id) : ICommand;
+
+    public static class ForgetWidgetHandler
+    {
+        public static ValueTask<Result> Handle(ForgetWidget command) => ValueTask.FromResult(Result.Success());
     }
 
     public sealed class UnmarkedMessage;

@@ -1,5 +1,6 @@
 using Frappe.Identity.Domain.Principals;
 using Frappe.SharedKernel.Domain;
+using Frappe.SharedKernel.Validation;
 using Wolverine;
 
 namespace Frappe.Identity.Application.Principals.Purge;
@@ -12,7 +13,7 @@ public static class PurgePendingOwnersHandler
     // The query only narrows the candidates; the aggregate decides, so the purge rule lives in one place.
     // A deleted aggregate leaves the change tracker before its events can be scraped, so they are returned
     // as cascading messages instead: Wolverine writes them to the outbox in this handler's transaction.
-    public static async Task<OutgoingMessages> Handle(
+    public static async Task<(Result, OutgoingMessages)> Handle(
         PurgePendingOwners command,
         IPrincipalRepository repository,
         TimeProvider clock,
@@ -32,6 +33,6 @@ public static class PurgePendingOwnersHandler
         }
 
         await repository.SaveChangesAsync(cancellationToken);
-        return events;
+        return (Result.Success(), events);
     }
 }

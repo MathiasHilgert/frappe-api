@@ -1,5 +1,4 @@
 using Frappe.Identity.Application.PasswordResets;
-using Frappe.Identity.Domain;
 using Frappe.Platform.Web.Problems;
 using Frappe.SharedKernel.Validation;
 using Microsoft.AspNetCore.Builder;
@@ -28,25 +27,21 @@ internal static class PasswordResetEndpoints
 
     private static async Task<IResult> RequestAsync(ResetRequest body, HttpContext http, IMessageBus bus, CancellationToken cancellationToken)
     {
-        var outcome = await bus.InvokeAsync<PasswordResetRequested>(
+        var requested = await bus.InvokeAsync<Result<Guid>>(
             new RequestPasswordReset(body.Email, ClientIp(http)), cancellationToken);
 
-        if (outcome.RetryAfter > TimeSpan.Zero)
-            return Result.Failure(IdentityErrors.TooManyAttempts).ToProblem(outcome.RetryAfter);
-        return outcome.Validation.IsFailure
-            ? outcome.Validation.ToProblem()
-            : TypedResults.Accepted((string?)null, new ResetAccepted(outcome.ResetId));
+        return requested.IsSuccess
+            ? TypedResults.Accepted((string?)null, new ResetAccepted(requested.Value))
+            : requested.ToProblem();
     }
 
     private static async Task<IResult> ConfirmAsync(
         Guid id, ResetConfirmation body, HttpContext http, IMessageBus bus, CancellationToken cancellationToken)
     {
-        var outcome = await bus.InvokeAsync<PasswordResetConfirmed>(
+        var confirmed = await bus.InvokeAsync<Result>(
             new ConfirmPasswordReset(id, body.Code, body.NewPassword, ClientIp(http)), cancellationToken);
 
-        if (outcome.RetryAfter > TimeSpan.Zero)
-            return Result.Failure(IdentityErrors.TooManyAttempts).ToProblem(outcome.RetryAfter);
-        return outcome.Outcome.IsFailure ? outcome.Outcome.ToProblem() : TypedResults.NoContent();
+        return confirmed.IsSuccess ? TypedResults.NoContent() : confirmed.ToProblem();
     }
 
     private static string ClientIp(HttpContext http) => http.Connection.RemoteIpAddress?.ToString() ?? "unknown";

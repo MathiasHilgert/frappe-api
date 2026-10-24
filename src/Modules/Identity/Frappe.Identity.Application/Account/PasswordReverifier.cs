@@ -15,25 +15,25 @@ public sealed class PasswordReverifier(IPrincipalRepository principals, IPasswor
     private static readonly AttemptPolicy Policy = AttemptPolicies.ReverifyFailuresPerPrincipal;
 
     /// <summary>Loads the caller's principal when <paramref name="password"/> is theirs; <paramref name="wrong"/> otherwise.</summary>
-    public async Task<Throttled<Principal>> VerifyAsync(
+    public async Task<Result<Principal>> VerifyAsync(
         Guid principalId, string? password, Error wrong, CancellationToken cancellationToken)
     {
         var key = principalId.ToString();
         var gate = await limiter.CheckAsync(Policy, key, cancellationToken);
         if (!gate.IsAllowed)
-            return new Throttled<Principal>(null, gate.RetryAfter);
+            return Result.Failure<Principal>(IdentityErrors.TooManyAttempts.WithRetryAfter(gate.RetryAfter));
 
         var principal = await principals.GetByIdAsync(principalId, cancellationToken);
         if (principal is null)
-            return new Throttled<Principal>(Result.Failure<Principal>(IdentityErrors.SessionNotFound));
+            return Result.Failure<Principal>(IdentityErrors.SessionNotFound);
 
         if (!hasher.Verify(password ?? string.Empty, principal.Owner.PasswordHash))
         {
             await limiter.RecordAsync(Policy, key, cancellationToken);
-            return new Throttled<Principal>(Result.Failure<Principal>(wrong));
+            return Result.Failure<Principal>(wrong);
         }
 
         await limiter.ResetAsync(Policy, key, cancellationToken);
-        return new Throttled<Principal>(Result.Success(principal));
+        return Result.Success(principal);
     }
 }
