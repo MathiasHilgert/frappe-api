@@ -25,7 +25,7 @@ public static class PurgePendingOwnersHandler
         var events = new OutgoingMessages();
         foreach (var principal in candidates)
         {
-            if (principal.PurgeAbandonedRegistration(clock).IsSuccess)
+            if (principal.PurgeAbandonedRegistration(clock.GetUtcNow()).IsSuccess)
             {
                 events.AddRange(((IHasDomainEvents)principal).DequeueDomainEvents());
                 repository.Remove(principal);

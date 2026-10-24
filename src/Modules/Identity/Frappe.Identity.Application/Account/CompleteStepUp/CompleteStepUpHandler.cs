@@ -15,13 +15,13 @@ public static class CompleteStepUpHandler
         var verified = await reverifier.VerifyAsync(
             command.PrincipalId, command.Password, IdentityErrors.StepUpPasswordIncorrect, cancellationToken);
         if (!verified.TryGetValue(out var principal))
-            return Result.Failure<DateTimeOffset>(verified.Errors[0]);
+            return Result.Failure<DateTimeOffset>(verified.Errors);
 
-        var expiresAt = principal.CompleteStepUp(command.SessionId, clock);
+        var expiresAt = principal.CompleteStepUp(command.SessionId, clock.GetUtcNow());
         if (expiresAt.IsFailure)
             return expiresAt;
 
         var saved = await principals.SaveAsync(cancellationToken);
-        return saved.IsSuccess ? expiresAt : Result.Failure<DateTimeOffset>(saved.Errors[0]);
+        return saved.IsSuccess ? expiresAt : Result.Failure<DateTimeOffset>(saved.Errors);
     }
 }

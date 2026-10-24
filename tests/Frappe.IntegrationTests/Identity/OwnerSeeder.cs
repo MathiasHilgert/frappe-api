@@ -26,11 +26,11 @@ internal static class OwnerSeeder
         var clock = services.GetRequiredService<TimeProvider>();
         var hash = await services.GetRequiredService<IPasswordHasher>().HashAsync(Password, CancellationToken.None);
 
-        var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, Email.Create(email).Value, hash, Locale.Parse("en"), clock);
+        var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, Email.Create(email).Value, hash, Locale.Parse("en"), clock.GetUtcNow());
         if (status != OwnerStatus.Pending)
         {
-            principal.IssueCode(CodePurpose.EmailVerify, "code-hash", clock);
-            principal.VerifyEmail("code-hash", clock).IsSuccess.ShouldBeTrue();
+            principal.IssueCode(CodePurpose.EmailVerify, "code-hash", clock.GetUtcNow());
+            principal.VerifyEmail("code-hash", clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
         }
         if (status == OwnerStatus.Suspended)
             principal.Suspend();

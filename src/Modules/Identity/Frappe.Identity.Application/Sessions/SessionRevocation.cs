@@ -28,7 +28,7 @@ internal static class SessionRevocation
                 return revoked;
 
             outcome = await principals.SaveAsync(cancellationToken);
-            if (outcome.IsSuccess || !outcome.Errors[0].Is(IdentityErrors.ConcurrentChange))
+            if (outcome.IsSuccess || !outcome.Has(IdentityErrors.ConcurrentChange))
                 return outcome;
         }
         return outcome;

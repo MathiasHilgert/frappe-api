@@ -19,10 +19,10 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
     public async Task Principal_RoundTrips_WithItsOwnerSessionsAndCodes()
     {
         var principal = NewOwner(UniqueEmail());
-        principal.IssueCode(CodePurpose.EmailVerify, "code-hash", Clock).IsSuccess.ShouldBeTrue();
-        principal.VerifyEmail("code-hash", Clock).IsSuccess.ShouldBeTrue();
-        principal.IssueCode(CodePurpose.PasswordReset, "reset-hash", Clock).IsSuccess.ShouldBeTrue();
-        var session = principal.OpenSession(UniqueToken(), SessionSurface.Console, Clock).Value;
+        principal.IssueCode(CodePurpose.EmailVerify, "code-hash", Clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
+        principal.VerifyEmail("code-hash", Clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
+        principal.IssueCode(CodePurpose.PasswordReset, "reset-hash", Clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
+        var session = principal.OpenSession(UniqueToken(), SessionSurface.Console, Clock.GetUtcNow()).Value;
         await SaveAsync(principal);
 
         var loaded = await WithRepositoryAsync(r => r.GetByIdAsync(principal.Id, TestContext.Current.CancellationToken));
@@ -45,7 +45,7 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
     public async Task Principal_StoresEnumsAsSnakeCaseText()
     {
         var principal = NewOwner(UniqueEmail());
-        principal.IssueCode(CodePurpose.PasswordReset, "reset-hash", Clock);
+        principal.IssueCode(CodePurpose.PasswordReset, "reset-hash", Clock.GetUtcNow());
         await SaveAsync(principal);
 
         var status = await ScalarAsync($"SELECT status FROM identity.owner_accounts WHERE principal_id = '{principal.Id}'");
@@ -95,10 +95,10 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
     public async Task GetBySessionTokenHash_FindsTheOwningPrincipal()
     {
         var principal = NewOwner(UniqueEmail());
-        principal.IssueCode(CodePurpose.EmailVerify, "code-hash", Clock);
-        principal.VerifyEmail("code-hash", Clock);
+        principal.IssueCode(CodePurpose.EmailVerify, "code-hash", Clock.GetUtcNow());
+        principal.VerifyEmail("code-hash", Clock.GetUtcNow());
         var token = UniqueToken();
-        principal.OpenSession(token, SessionSurface.Api, Clock);
+        principal.OpenSession(token, SessionSurface.Api, Clock.GetUtcNow());
         await SaveAsync(principal);
 
         var loaded = await WithRepositoryAsync(r => r.GetBySessionTokenHashAsync(token, TestContext.Current.CancellationToken));
@@ -112,16 +112,16 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
     public async Task Save_PersistsChangesToALoadedPrincipal()
     {
         var principal = NewOwner(UniqueEmail());
-        principal.IssueCode(CodePurpose.EmailVerify, "code-hash", Clock);
+        principal.IssueCode(CodePurpose.EmailVerify, "code-hash", Clock.GetUtcNow());
         await SaveAsync(principal);
 
         await WithRepositoryAsync(async r =>
         {
             var loaded = (await r.GetByIdAsync(principal.Id, TestContext.Current.CancellationToken)).ShouldNotBeNull();
             // A resend replaces the live code of the same purpose within one save.
-            loaded.IssueCode(CodePurpose.EmailVerify, "resent-hash", Clock).IsSuccess.ShouldBeTrue();
-            loaded.VerifyEmail("resent-hash", Clock).IsSuccess.ShouldBeTrue();
-            loaded.OpenSession(UniqueToken(), SessionSurface.Api, Clock).IsSuccess.ShouldBeTrue();
+            loaded.IssueCode(CodePurpose.EmailVerify, "resent-hash", Clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
+            loaded.VerifyEmail("resent-hash", Clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
+            loaded.OpenSession(UniqueToken(), SessionSurface.Api, Clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
             return await r.SaveAsync(TestContext.Current.CancellationToken);
         });
 
@@ -144,7 +144,7 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
         loadedA.RevokeSession(sessionId).IsSuccess.ShouldBeTrue();
         (await a.SaveAsync(CancellationToken.None)).IsSuccess.ShouldBeTrue();
         // Only a child row changes here, yet the aggregate's version still guards it.
-        loadedB.CompleteStepUp(sessionId, Clock).IsSuccess.ShouldBeTrue();
+        loadedB.CompleteStepUp(sessionId, Clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
 
         (await b.SaveAsync(CancellationToken.None)).Errors.ShouldBe([IdentityErrors.ConcurrentChange]);
         (await WithRepositoryAsync(r => r.GetByIdAsync(principal.Id, CancellationToken.None)))
@@ -161,12 +161,12 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
         await WithRepositoryAsync(async r =>
         {
             var revoking = (await r.GetByIdAsync(principal.Id, CancellationToken.None)).ShouldNotBeNull();
-            revoking.ResetPassword("reset-hash", "new-password-hash", Clock).IsSuccess.ShouldBeTrue();
+            revoking.ResetPassword("reset-hash", "new-password-hash", Clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
             (await r.SaveAsync(CancellationToken.None)).IsSuccess.ShouldBeTrue();
             return true;
         });
 
-        loaded.TouchSession(sessionId, Clock).IsSuccess.ShouldBeTrue();
+        loaded.TouchSession(sessionId, Clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
         var saved = await touching.SaveUnlessChangedAsync(CancellationToken.None);
 
         saved.ShouldBeFalse();
@@ -199,10 +199,10 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
     private async Task<(Principal Principal, Guid SessionId)> SeedActiveWithSessionAsync()
     {
         var principal = NewOwner(UniqueEmail());
-        principal.IssueCode(CodePurpose.EmailVerify, "code-hash", Clock);
-        principal.VerifyEmail("code-hash", Clock);
-        principal.IssueCode(CodePurpose.PasswordReset, "reset-hash", Clock);
-        var session = principal.OpenSession(UniqueToken(), SessionSurface.Api, Clock).Value;
+        principal.IssueCode(CodePurpose.EmailVerify, "code-hash", Clock.GetUtcNow());
+        principal.VerifyEmail("code-hash", Clock.GetUtcNow());
+        principal.IssueCode(CodePurpose.PasswordReset, "reset-hash", Clock.GetUtcNow());
+        var session = principal.OpenSession(UniqueToken(), SessionSurface.Api, Clock.GetUtcNow()).Value;
         await SaveAsync(principal);
         return (principal, session.Id);
     }
@@ -211,7 +211,7 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
         scope.ServiceProvider.GetRequiredService<IPrincipalRepository>();
 
     private static Principal NewOwner(string email) =>
-        Principal.RegisterOwner(PersonName.Create("Ana").Value, Email(email), "password-hash", Locale.Parse("en"), Clock);
+        Principal.RegisterOwner(PersonName.Create("Ana").Value, Email(email), "password-hash", Locale.Parse("en"), Clock.GetUtcNow());
 
     private static Email Email(string value) => Frappe.Identity.Domain.Principals.Email.Create(value).Value;
 

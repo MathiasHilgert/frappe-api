@@ -34,7 +34,7 @@ public static class ConfirmPasswordResetHandler
         var codeHash = string.IsNullOrEmpty(command.Code) ? null : secretHasher.Hash(command.Code);
         var proven = principal is null || codeHash is null
             ? Result.Failure(IdentityErrors.CodeInvalid)
-            : principal.CheckCode(CodePurpose.PasswordReset, codeHash, clock);
+            : principal.CheckCode(CodePurpose.PasswordReset, codeHash, clock.GetUtcNow());
         if (proven.IsFailure)
             return proven; // A wrong code keeps its reserved slots.
 
@@ -43,10 +43,10 @@ public static class ConfirmPasswordResetHandler
 
         var password = await passwordPolicy.ValidateAsync(command.NewPassword, cancellationToken);
         if (password.IsFailure)
-            return password;
+            return password.WithoutValue();
 
         var reset = principal!.ResetPassword(
-            codeHash!, await passwordHasher.HashAsync(password.Value.Value, cancellationToken), clock);
+            codeHash!, await passwordHasher.HashAsync(password.Value.Value, cancellationToken), clock.GetUtcNow());
         if (reset.IsFailure)
             return reset;
 

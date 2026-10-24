@@ -23,13 +23,30 @@ public sealed class OwnerAccount
     }
 
     public PersonName Name { get; }
-    public Email Email { get; internal set; }
-    public string PasswordHash { get; internal set; }
-    public OwnerStatus Status { get; internal set; } = OwnerStatus.Pending;
+    public Email Email { get; private set; }
+    public string PasswordHash { get; private set; }
+    public OwnerStatus Status { get; private set; } = OwnerStatus.Pending;
 
     /// <summary>The requested new address. The current one keeps working until the change is confirmed.</summary>
-    public Email? PendingEmail { get; internal set; }
+    public Email? PendingEmail { get; private set; }
 
     /// <summary>The language the owner reads: mails and responses without an explicit <c>Accept-Language</c>.</summary>
-    public Locale Locale { get; internal set; }
+    public Locale Locale { get; private set; }
+
+    internal void Activate() => Status = OwnerStatus.Active;
+
+    internal void Suspend() => Status = OwnerStatus.Suspended;
+
+    internal void ReplacePasswordHash(string passwordHash) => PasswordHash = passwordHash;
+
+    internal void ChangeLocale(Locale locale) => Locale = locale;
+
+    internal void ParkPendingEmail(Email newEmail) => PendingEmail = newEmail;
+
+    /// <summary>The pending address becomes the current one.</summary>
+    internal void ConfirmPendingEmail()
+    {
+        Email = PendingEmail ?? throw new InvalidOperationException("No pending email to confirm.");
+        PendingEmail = null;
+    }
 }

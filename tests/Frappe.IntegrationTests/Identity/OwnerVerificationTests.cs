@@ -158,8 +158,8 @@ public sealed class OwnerVerificationTests(ApiFixture fixture)
         var clock = services.GetRequiredService<TimeProvider>();
 
         var email = Email.Create($"owner-{Guid.NewGuid():N}@example.com").Value;
-        var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, email, "password-hash", Locale.Parse("en"), clock);
-        principal.IssueCode(CodePurpose.EmailVerify, HashOf(host, Code), clock).IsSuccess.ShouldBeTrue();
+        var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, email, "password-hash", Locale.Parse("en"), clock.GetUtcNow());
+        principal.IssueCode(CodePurpose.EmailVerify, HashOf(host, Code), clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
 
         var repository = services.GetRequiredService<IPrincipalRepository>();
         repository.Add(principal);

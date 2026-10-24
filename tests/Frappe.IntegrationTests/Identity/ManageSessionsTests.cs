@@ -158,7 +158,7 @@ public sealed class ManageSessionsTests(ApiFixture fixture)
         var repository = services.GetRequiredService<IPrincipalRepository>();
         var principal = (await repository.GetByIdAsync(principalId, TestContext.Current.CancellationToken)).ShouldNotBeNull();
         var hash = services.GetRequiredService<ISecretHasher>().Hash(services.GetRequiredService<ISecretGenerator>().NewSessionToken());
-        var session = principal.OpenSession(hash, SessionSurface.Console, services.GetRequiredService<TimeProvider>()).Value;
+        var session = principal.OpenSession(hash, SessionSurface.Console, services.GetRequiredService<TimeProvider>().GetUtcNow()).Value;
         (await repository.SaveAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
         return session.Id;
     }

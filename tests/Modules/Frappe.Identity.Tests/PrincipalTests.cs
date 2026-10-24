@@ -33,7 +33,7 @@ public sealed class PrincipalTests
     {
         var principal = RegisterWithCode(CodePurpose.EmailVerify, "c1");
 
-        var result = principal.VerifyEmail("c1", _clock);
+        var result = principal.VerifyEmail("c1", _clock.GetUtcNow());
 
         result.IsSuccess.ShouldBeTrue();
         principal.Owner.Status.ShouldBe(OwnerStatus.Active);
@@ -46,7 +46,7 @@ public sealed class PrincipalTests
     {
         var principal = RegisterWithCode(CodePurpose.EmailVerify, "c1");
 
-        principal.VerifyEmail("other", _clock).Errors.ShouldBe([IdentityErrors.CodeInvalid]);
+        principal.VerifyEmail("other", _clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.CodeInvalid]);
 
         principal.Owner.Status.ShouldBe(OwnerStatus.Pending);
         Events(principal).ShouldBeEmpty();
@@ -58,7 +58,7 @@ public sealed class PrincipalTests
         var principal = RegisterWithCode(CodePurpose.EmailVerify, "c1");
         _clock.Advance(VerificationCode.Lifetime + TimeSpan.FromSeconds(1));
 
-        principal.VerifyEmail("c1", _clock).Errors.ShouldBe([IdentityErrors.CodeExpired]);
+        principal.VerifyEmail("c1", _clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.CodeExpired]);
         principal.Owner.Status.ShouldBe(OwnerStatus.Pending);
     }
 
@@ -67,26 +67,26 @@ public sealed class PrincipalTests
     {
         var principal = RegisterWithCode(CodePurpose.PasswordReset, "c1");
 
-        principal.VerifyEmail("c1", _clock).Errors.ShouldBe([IdentityErrors.CodeInvalid]);
+        principal.VerifyEmail("c1", _clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.CodeInvalid]);
     }
 
     [Fact]
     public void VerifyEmail_AlreadyActive_ReportsAccountNotPending()
     {
         var principal = ActiveOwner();
-        principal.IssueCode(CodePurpose.EmailVerify, "c2", _clock);
+        principal.IssueCode(CodePurpose.EmailVerify, "c2", _clock.GetUtcNow());
 
-        principal.VerifyEmail("c2", _clock).Errors.ShouldBe([IdentityErrors.AccountNotPending]);
+        principal.VerifyEmail("c2", _clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.AccountNotPending]);
     }
 
     [Fact]
     public void ConsumeCode_Twice_ReportsCodeAlreadyUsed()
     {
         var principal = ActiveOwner();
-        principal.IssueCode(CodePurpose.PasswordReset, "r1", _clock);
-        principal.ResetPassword("r1", "new-hash", _clock);
+        principal.IssueCode(CodePurpose.PasswordReset, "r1", _clock.GetUtcNow());
+        principal.ResetPassword("r1", "new-hash", _clock.GetUtcNow());
 
-        principal.ResetPassword("r1", "newer-hash", _clock).Errors.ShouldBe([IdentityErrors.CodeAlreadyUsed]);
+        principal.ResetPassword("r1", "newer-hash", _clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.CodeAlreadyUsed]);
         principal.Owner.PasswordHash.ShouldBe("new-hash");
     }
 
@@ -95,12 +95,12 @@ public sealed class PrincipalTests
     {
         var principal = RegisterWithCode(CodePurpose.EmailVerify, "c1");
 
-        var code = principal.IssueCode(CodePurpose.EmailVerify, "c2", _clock).Value;
+        var code = principal.IssueCode(CodePurpose.EmailVerify, "c2", _clock.GetUtcNow()).Value;
 
         code.ResendCount.ShouldBe(1);
         principal.Codes.ShouldHaveSingleItem().ShouldBeSameAs(code);
-        principal.VerifyEmail("c1", _clock).Errors.ShouldBe([IdentityErrors.CodeInvalid]);
-        principal.VerifyEmail("c2", _clock).IsSuccess.ShouldBeTrue();
+        principal.VerifyEmail("c1", _clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.CodeInvalid]);
+        principal.VerifyEmail("c2", _clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
     }
 
     [Fact]
@@ -109,13 +109,13 @@ public sealed class PrincipalTests
         var principal = RegisterWithCode(CodePurpose.EmailVerify, "c0");
         for (var i = 1; i <= VerificationCode.MaxResendsPerHour; i++)
         {
-            principal.IssueCode(CodePurpose.EmailVerify, $"c{i}", _clock).IsSuccess.ShouldBeTrue();
+            principal.IssueCode(CodePurpose.EmailVerify, $"c{i}", _clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
         }
 
-        principal.IssueCode(CodePurpose.EmailVerify, "late", _clock).Errors.ShouldBe([IdentityErrors.ResendLimitReached]);
+        principal.IssueCode(CodePurpose.EmailVerify, "late", _clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.ResendLimitReached]);
 
         _clock.Advance(TimeSpan.FromHours(1));
-        principal.IssueCode(CodePurpose.EmailVerify, "fresh", _clock).Value.ResendCount.ShouldBe(0);
+        principal.IssueCode(CodePurpose.EmailVerify, "fresh", _clock.GetUtcNow()).Value.ResendCount.ShouldBe(0);
     }
 
     [Fact]
@@ -123,20 +123,20 @@ public sealed class PrincipalTests
     {
         var principal = ActiveOwner();
 
-        var session = principal.OpenSession("t1", SessionSurface.Console, _clock).Value;
+        var session = principal.OpenSession("t1", SessionSurface.Console, _clock.GetUtcNow()).Value;
 
         session.Id.Version.ShouldBe(7);
         session.TokenHash.ShouldBe("t1");
         session.Surface.ShouldBe(SessionSurface.Console);
         session.LastSeenAt.ShouldBe(_clock.GetUtcNow());
-        session.IsLive(_clock).ShouldBeTrue();
+        session.IsLive(_clock.GetUtcNow()).ShouldBeTrue();
         principal.Sessions.ShouldBe([session]);
         Events(principal).ShouldBe([new SessionOpened(principal.Id, session.Id, SessionSurface.Console)]);
     }
 
     [Fact]
     public void OpenSession_Pending_ReportsAccountPending() =>
-        Register().OpenSession("t1", SessionSurface.Api, _clock).Errors.ShouldBe([IdentityErrors.AccountPending]);
+        Register().OpenSession("t1", SessionSurface.Api, _clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.AccountPending]);
 
     [Fact]
     public void OpenSession_Suspended_ReportsAccountSuspended()
@@ -144,46 +144,46 @@ public sealed class PrincipalTests
         var principal = ActiveOwner();
         principal.Suspend();
 
-        principal.OpenSession("t1", SessionSurface.Api, _clock).Errors.ShouldBe([IdentityErrors.AccountSuspended]);
+        principal.OpenSession("t1", SessionSurface.Api, _clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.AccountSuspended]);
     }
 
     [Fact]
     public void Session_IdleForTwelveHours_IsNoLongerLive()
     {
-        var session = ActiveOwner().OpenSession("t1", SessionSurface.Api, _clock).Value;
+        var session = ActiveOwner().OpenSession("t1", SessionSurface.Api, _clock.GetUtcNow()).Value;
 
         _clock.Advance(Session.IdleTimeout);
 
-        session.IsLive(_clock).ShouldBeFalse();
+        session.IsLive(_clock.GetUtcNow()).ShouldBeFalse();
     }
 
     [Fact]
     public void TouchSession_MovesIdleExpiryButNeverTheAbsoluteOne()
     {
         var principal = ActiveOwner();
-        var session = principal.OpenSession("t1", SessionSurface.Api, _clock).Value;
+        var session = principal.OpenSession("t1", SessionSurface.Api, _clock.GetUtcNow()).Value;
         var absolute = session.AbsoluteExpiresAt;
 
         for (var elapsed = TimeSpan.Zero; elapsed < Session.AbsoluteLifetime; elapsed += TimeSpan.FromHours(11))
         {
-            principal.TouchSession(session.Id, _clock).IsSuccess.ShouldBeTrue();
+            principal.TouchSession(session.Id, _clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
             session.LastSeenAt.ShouldBe(_clock.GetUtcNow());
             _clock.Advance(TimeSpan.FromHours(11));
         }
 
         session.AbsoluteExpiresAt.ShouldBe(absolute);
-        principal.TouchSession(session.Id, _clock).Errors.ShouldBe([IdentityErrors.SessionExpired]);
+        principal.TouchSession(session.Id, _clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.SessionExpired]);
     }
 
     [Fact]
     public void TouchSession_Unknown_ReportsSessionNotFound() =>
-        ActiveOwner().TouchSession(Guid.CreateVersion7(), _clock).Errors.ShouldBe([IdentityErrors.SessionNotFound]);
+        ActiveOwner().TouchSession(Guid.CreateVersion7(), _clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.SessionNotFound]);
 
     [Fact]
     public void RevokeSession_RemovesItAndRaisesSessionRevoked()
     {
         var principal = ActiveOwner();
-        var session = principal.OpenSession("t1", SessionSurface.Api, _clock).Value;
+        var session = principal.OpenSession("t1", SessionSurface.Api, _clock.GetUtcNow()).Value;
         Events(principal);
 
         principal.RevokeSession(session.Id).IsSuccess.ShouldBeTrue();
@@ -197,8 +197,8 @@ public sealed class PrincipalTests
     public void ChangePassword_KeepsCurrentSessionAndRevokesTheRest()
     {
         var principal = ActiveOwner();
-        var current = principal.OpenSession("t1", SessionSurface.Console, _clock).Value;
-        var other = principal.OpenSession("t2", SessionSurface.Api, _clock).Value;
+        var current = principal.OpenSession("t1", SessionSurface.Console, _clock.GetUtcNow()).Value;
+        var other = principal.OpenSession("t2", SessionSurface.Api, _clock.GetUtcNow()).Value;
         Events(principal);
 
         principal.ChangePassword("new-hash", current.Id);
@@ -212,54 +212,54 @@ public sealed class PrincipalTests
     public void CompleteStepUp_MakesTheSessionFreshForFiveMinutesOnly()
     {
         var principal = ActiveOwner();
-        var session = principal.OpenSession("t1", SessionSurface.Console, _clock).Value;
-        principal.HasFreshStepUp(session.Id, _clock).ShouldBeFalse();
+        var session = principal.OpenSession("t1", SessionSurface.Console, _clock.GetUtcNow()).Value;
+        principal.HasFreshStepUp(session.Id, _clock.GetUtcNow()).ShouldBeFalse();
 
-        var expiresAt = principal.CompleteStepUp(session.Id, _clock);
+        var expiresAt = principal.CompleteStepUp(session.Id, _clock.GetUtcNow());
 
         expiresAt.Value.ShouldBe(_clock.GetUtcNow() + Session.StepUpValidity);
-        principal.HasFreshStepUp(session.Id, _clock).ShouldBeTrue();
+        principal.HasFreshStepUp(session.Id, _clock.GetUtcNow()).ShouldBeTrue();
         _clock.Advance(Session.StepUpValidity - TimeSpan.FromSeconds(1));
-        principal.TouchSession(session.Id, _clock);
-        principal.HasFreshStepUp(session.Id, _clock).ShouldBeTrue();
+        principal.TouchSession(session.Id, _clock.GetUtcNow());
+        principal.HasFreshStepUp(session.Id, _clock.GetUtcNow()).ShouldBeTrue();
         _clock.Advance(TimeSpan.FromSeconds(1));
-        principal.HasFreshStepUp(session.Id, _clock).ShouldBeFalse();
+        principal.HasFreshStepUp(session.Id, _clock.GetUtcNow()).ShouldBeFalse();
     }
 
     [Fact]
     public void CompleteStepUp_IsBoundToItsSession()
     {
         var principal = ActiveOwner();
-        var stepped = principal.OpenSession("t1", SessionSurface.Console, _clock).Value;
-        var other = principal.OpenSession("t2", SessionSurface.Console, _clock).Value;
+        var stepped = principal.OpenSession("t1", SessionSurface.Console, _clock.GetUtcNow()).Value;
+        var other = principal.OpenSession("t2", SessionSurface.Console, _clock.GetUtcNow()).Value;
 
-        principal.CompleteStepUp(stepped.Id, _clock);
+        principal.CompleteStepUp(stepped.Id, _clock.GetUtcNow());
 
-        principal.HasFreshStepUp(other.Id, _clock).ShouldBeFalse();
-        principal.HasFreshStepUp(Guid.NewGuid(), _clock).ShouldBeFalse();
+        principal.HasFreshStepUp(other.Id, _clock.GetUtcNow()).ShouldBeFalse();
+        principal.HasFreshStepUp(Guid.NewGuid(), _clock.GetUtcNow()).ShouldBeFalse();
     }
 
     [Fact]
     public void CompleteStepUp_UnknownOrExpiredSession_Fails()
     {
         var principal = ActiveOwner();
-        var session = principal.OpenSession("t1", SessionSurface.Console, _clock).Value;
+        var session = principal.OpenSession("t1", SessionSurface.Console, _clock.GetUtcNow()).Value;
 
-        principal.CompleteStepUp(Guid.NewGuid(), _clock).Errors.ShouldBe([IdentityErrors.SessionNotFound]);
+        principal.CompleteStepUp(Guid.NewGuid(), _clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.SessionNotFound]);
         _clock.Advance(Session.IdleTimeout);
-        principal.CompleteStepUp(session.Id, _clock).Errors.ShouldBe([IdentityErrors.SessionExpired]);
-        principal.HasFreshStepUp(session.Id, _clock).ShouldBeFalse();
+        principal.CompleteStepUp(session.Id, _clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.SessionExpired]);
+        principal.HasFreshStepUp(session.Id, _clock.GetUtcNow()).ShouldBeFalse();
     }
 
     [Fact]
     public void ResetPassword_WithCode_ChangesHashAndRevokesEverySession()
     {
         var principal = ActiveOwner();
-        var session = principal.OpenSession("t1", SessionSurface.Api, _clock).Value;
-        principal.IssueCode(CodePurpose.PasswordReset, "r1", _clock);
+        var session = principal.OpenSession("t1", SessionSurface.Api, _clock.GetUtcNow()).Value;
+        principal.IssueCode(CodePurpose.PasswordReset, "r1", _clock.GetUtcNow());
         Events(principal);
 
-        principal.ResetPassword("r1", "new-hash", _clock).IsSuccess.ShouldBeTrue();
+        principal.ResetPassword("r1", "new-hash", _clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
 
         principal.Owner.PasswordHash.ShouldBe("new-hash");
         principal.Sessions.ShouldBeEmpty();
@@ -272,7 +272,7 @@ public sealed class PrincipalTests
         var principal = ActiveOwner();
         var newEmail = Email.Create("new@example.com").Value;
 
-        var code = principal.RequestEmailChange(newEmail, "e1", _clock).Value;
+        var code = principal.RequestEmailChange(newEmail, "e1", _clock.GetUtcNow()).Value;
 
         code.Purpose.ShouldBe(CodePurpose.EmailChange);
         principal.Owner.Email.Value.ShouldBe("ana@example.com");
@@ -285,10 +285,10 @@ public sealed class PrincipalTests
     {
         var principal = ActiveOwner();
         var newEmail = Email.Create("new@example.com").Value;
-        var code = principal.RequestEmailChange(newEmail, "e1", _clock).Value;
+        var code = principal.RequestEmailChange(newEmail, "e1", _clock.GetUtcNow()).Value;
         Events(principal);
 
-        principal.ConfirmEmailChange(code.Id, "e1", _clock).IsSuccess.ShouldBeTrue();
+        principal.ConfirmEmailChange(code.Id, "e1", _clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
 
         principal.Owner.Email.ShouldBe(newEmail);
         principal.Owner.PendingEmail.ShouldBeNull();
@@ -299,19 +299,19 @@ public sealed class PrincipalTests
     public void ConfirmEmailChange_WithoutRequest_ReportsNoPendingEmailChange()
     {
         var principal = ActiveOwner();
-        var code = principal.IssueCode(CodePurpose.EmailChange, "e1", _clock).Value;
+        var code = principal.IssueCode(CodePurpose.EmailChange, "e1", _clock.GetUtcNow()).Value;
 
-        principal.ConfirmEmailChange(code.Id, "e1", _clock).Errors.ShouldBe([IdentityErrors.NoPendingEmailChange]);
+        principal.ConfirmEmailChange(code.Id, "e1", _clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.NoPendingEmailChange]);
     }
 
     [Fact]
     public void ConfirmEmailChange_ForAReplacedRequest_ReportsNotFoundAndKeepsTheEmail()
     {
         var principal = ActiveOwner();
-        var first = principal.RequestEmailChange(Email.Create("one@example.com").Value, "e1", _clock).Value;
-        principal.RequestEmailChange(Email.Create("two@example.com").Value, "e2", _clock);
+        var first = principal.RequestEmailChange(Email.Create("one@example.com").Value, "e1", _clock.GetUtcNow()).Value;
+        principal.RequestEmailChange(Email.Create("two@example.com").Value, "e2", _clock.GetUtcNow());
 
-        principal.ConfirmEmailChange(first.Id, "e2", _clock).Errors.ShouldBe([IdentityErrors.EmailChangeNotFound]);
+        principal.ConfirmEmailChange(first.Id, "e2", _clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.EmailChangeNotFound]);
         principal.Owner.Email.Value.ShouldBe("ana@example.com");
     }
 
@@ -322,7 +322,7 @@ public sealed class PrincipalTests
         Events(principal);
         _clock.Advance(Principal.PendingGracePeriod + TimeSpan.FromSeconds(1));
 
-        principal.PurgeAbandonedRegistration(_clock).IsSuccess.ShouldBeTrue();
+        principal.PurgeAbandonedRegistration(_clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
 
         Events(principal).ShouldBe([new OwnerPendingPurged(principal.Id)]);
     }
@@ -334,7 +334,7 @@ public sealed class PrincipalTests
         Events(principal);
         _clock.Advance(Principal.PendingGracePeriod);
 
-        principal.PurgeAbandonedRegistration(_clock).Errors.ShouldBe([IdentityErrors.RegistrationInGrace]);
+        principal.PurgeAbandonedRegistration(_clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.RegistrationInGrace]);
         Events(principal).ShouldBeEmpty();
     }
 
@@ -347,8 +347,8 @@ public sealed class PrincipalTests
         Events(suspended);
         _clock.Advance(TimeSpan.FromDays(30));
 
-        active.PurgeAbandonedRegistration(_clock).Errors.ShouldBe([IdentityErrors.AccountNotPending]);
-        suspended.PurgeAbandonedRegistration(_clock).Errors.ShouldBe([IdentityErrors.AccountNotPending]);
+        active.PurgeAbandonedRegistration(_clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.AccountNotPending]);
+        suspended.PurgeAbandonedRegistration(_clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.AccountNotPending]);
         Events(active).ShouldBeEmpty();
         Events(suspended).ShouldBeEmpty();
     }
@@ -382,10 +382,10 @@ public sealed class PrincipalTests
     {
         var principal = RegisterWithCode(CodePurpose.PasswordReset, "r1");
 
-        principal.CheckCode(CodePurpose.PasswordReset, "r1", _clock).IsSuccess.ShouldBeTrue();
+        principal.CheckCode(CodePurpose.PasswordReset, "r1", _clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
 
         principal.Codes.Single().UsedAt.ShouldBeNull();
-        principal.ResetPassword("r1", "new-hash", _clock).IsSuccess.ShouldBeTrue();
+        principal.ResetPassword("r1", "new-hash", _clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
     }
 
     [Fact]
@@ -393,14 +393,14 @@ public sealed class PrincipalTests
     {
         var principal = RegisterWithCode(CodePurpose.PasswordReset, "r1");
 
-        principal.CheckCode(CodePurpose.PasswordReset, "nope", _clock).Errors.ShouldBe([IdentityErrors.CodeInvalid]);
-        principal.CheckCode(CodePurpose.EmailChange, "r1", _clock).Errors.ShouldBe([IdentityErrors.CodeInvalid]);
-        principal.ResetPassword("r1", "new-hash", _clock).IsSuccess.ShouldBeTrue();
-        principal.CheckCode(CodePurpose.PasswordReset, "r1", _clock).Errors.ShouldBe([IdentityErrors.CodeAlreadyUsed]);
+        principal.CheckCode(CodePurpose.PasswordReset, "nope", _clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.CodeInvalid]);
+        principal.CheckCode(CodePurpose.EmailChange, "r1", _clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.CodeInvalid]);
+        principal.ResetPassword("r1", "new-hash", _clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
+        principal.CheckCode(CodePurpose.PasswordReset, "r1", _clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.CodeAlreadyUsed]);
 
         var expired = RegisterWithCode(CodePurpose.PasswordReset, "r2");
         _clock.Advance(VerificationCode.Lifetime);
-        expired.CheckCode(CodePurpose.PasswordReset, "r2", _clock).Errors.ShouldBe([IdentityErrors.CodeExpired]);
+        expired.CheckCode(CodePurpose.PasswordReset, "r2", _clock.GetUtcNow()).Errors.ShouldBe([IdentityErrors.CodeExpired]);
     }
 
     [Fact]
@@ -409,7 +409,7 @@ public sealed class PrincipalTests
         var principal = Register();
         var id = Guid.CreateVersion7();
 
-        principal.IssueCode(id, CodePurpose.PasswordReset, "r1", _clock).Value.Id.ShouldBe(id);
+        principal.IssueCode(id, CodePurpose.PasswordReset, "r1", _clock.GetUtcNow()).Value.Id.ShouldBe(id);
 
         principal.Codes.Single().Id.ShouldBe(id);
     }
@@ -418,7 +418,7 @@ public sealed class PrincipalTests
     public void RehashPassword_ReplacesTheHash_KeepingSessionsAndRaisingNothing()
     {
         var principal = ActiveOwner();
-        principal.OpenSession("t1", SessionSurface.Api, _clock);
+        principal.OpenSession("t1", SessionSurface.Api, _clock.GetUtcNow());
         Events(principal);
 
         principal.RehashPassword("stronger-hash");
@@ -429,12 +429,12 @@ public sealed class PrincipalTests
     }
 
     private Principal Register() =>
-        Principal.RegisterOwner(PersonName.Create("Ana").Value, Email.Create("ana@example.com").Value, "pw-hash", Locale.Parse("en"), _clock);
+        Principal.RegisterOwner(PersonName.Create("Ana").Value, Email.Create("ana@example.com").Value, "pw-hash", Locale.Parse("en"), _clock.GetUtcNow());
 
     private Principal RegisterWithCode(CodePurpose purpose, string codeHash)
     {
         var principal = Register();
-        principal.IssueCode(purpose, codeHash, _clock);
+        principal.IssueCode(purpose, codeHash, _clock.GetUtcNow());
         Events(principal);
         return principal;
     }
@@ -442,7 +442,7 @@ public sealed class PrincipalTests
     private Principal ActiveOwner()
     {
         var principal = RegisterWithCode(CodePurpose.EmailVerify, "v1");
-        principal.VerifyEmail("v1", _clock);
+        principal.VerifyEmail("v1", _clock.GetUtcNow());
         Events(principal);
         return principal;
     }

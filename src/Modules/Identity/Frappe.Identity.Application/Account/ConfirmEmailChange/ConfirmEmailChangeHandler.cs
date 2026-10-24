@@ -38,12 +38,12 @@ public static class ConfirmEmailChangeHandler
             return Result.Failure(IdentityErrors.SessionNotFound);
         }
 
-        var confirmed = principal.ConfirmEmailChange(command.ChangeId, hasher.Hash(command.Code ?? string.Empty), clock);
+        var confirmed = principal.ConfirmEmailChange(command.ChangeId, hasher.Hash(command.Code ?? string.Empty), clock.GetUtcNow());
         if (confirmed.IsFailure)
         {
             if (!confirmed.Errors.Any(e => CodeFailures.Contains(e.Code)))
                 await reservation.ReleaseAsync(cancellationToken);
-            return Result.Failure(confirmed.Errors[0]);
+            return Result.Failure(confirmed.Errors);
         }
 
         // The code was right either way, so the count clears even when the address turns out to be taken.

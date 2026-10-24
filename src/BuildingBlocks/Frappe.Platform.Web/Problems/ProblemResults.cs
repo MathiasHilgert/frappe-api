@@ -22,6 +22,16 @@ public static class ProblemResults
         return new LocalizedProblemResult(result.Errors);
     }
 
+    /// <inheritdoc cref="ToProblem(Result)"/>
+    public static LocalizedProblemResult ToProblem<T>(this Result<T> result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        if (result.IsSuccess)
+            throw new InvalidOperationException("A successful result is not a problem.");
+
+        return new LocalizedProblemResult(result.Errors);
+    }
+
     internal static int StatusOf(ErrorKind kind) => kind switch
     {
         ErrorKind.NotFound => StatusCodes.Status404NotFound,

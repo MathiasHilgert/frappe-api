@@ -165,4 +165,58 @@ public sealed class ResultTests
         success.Match(v => v * 2, _ => -1).ShouldBe(42);
         failure.Match(v => v * 2, errors => errors.Count).ShouldBe(1);
     }
+
+    [Fact]
+    public void Failure_FromAnotherResult_PropagatesEveryError()
+    {
+        var invalid = Result.Failure<string>(new ValidationNotification().Add(First).Add(Second));
+
+        var typed = Result.Failure<int>(invalid.Errors);
+        var untyped = Result.Failure(invalid.Errors);
+
+        typed.Errors.ShouldBe([First, Second]);
+        untyped.Errors.ShouldBe([First, Second]);
+    }
+
+    [Fact]
+    public void Failure_FromNoErrors_Throws()
+    {
+        Should.Throw<ArgumentException>(() => Result.Failure<int>(Array.Empty<Error>()));
+        Should.Throw<ArgumentException>(() => Result.Failure(Array.Empty<Error>()));
+    }
+
+    [Fact]
+    public void Failure_FromErrors_KeepsASnapshot()
+    {
+        var errors = new List<Error> { First };
+
+        var result = Result.Failure(errors);
+        errors.Add(Second);
+
+        result.Errors.ShouldBe([First]);
+    }
+
+    [Fact]
+    public void ValueResult_DoesNotDeriveFromResult_SoItsFlagIsNeverShadowed()
+    {
+        typeof(Result<int>).BaseType.ShouldBe(typeof(object));
+        typeof(Result<int>).GetProperty(nameof(Result<int>.IsSuccess))!.DeclaringType.ShouldBe(typeof(Result<int>));
+    }
+
+    [Fact]
+    public void WithoutValue_KeepsTheOutcome()
+    {
+        Result.Success(5).WithoutValue().IsSuccess.ShouldBeTrue();
+        Result.Failure<int>(First).WithoutValue().Errors.ShouldBe([First]);
+    }
+
+    [Fact]
+    public void Has_FindsARuleAmongEveryError()
+    {
+        var result = Result.Failure(new ValidationNotification().Add(First).Add(Second));
+
+        result.Has(Second).ShouldBeTrue();
+        Result.Success().Has(First).ShouldBeFalse();
+        Result.Failure<int>(First).Has(Second).ShouldBeFalse();
+    }
 }

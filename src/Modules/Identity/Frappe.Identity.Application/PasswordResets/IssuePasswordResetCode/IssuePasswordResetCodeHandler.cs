@@ -29,7 +29,7 @@ public static class IssuePasswordResetCodeHandler
             return messages;
 
         var code = secrets.NewVerificationCode();
-        var issued = principal.IssueCode(command.ResetId, CodePurpose.PasswordReset, hasher.Hash(code), clock);
+        var issued = principal.IssueCode(command.ResetId, CodePurpose.PasswordReset, hasher.Hash(code), clock.GetUtcNow());
         if (issued.IsFailure)
             return messages;
 

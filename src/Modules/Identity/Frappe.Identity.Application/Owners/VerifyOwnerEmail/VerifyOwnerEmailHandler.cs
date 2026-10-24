@@ -33,23 +33,23 @@ public static class VerifyOwnerEmailHandler
             return Failed(IdentityErrors.OwnerNotFound);
         }
 
-        var verified = principal.VerifyEmail(hasher.Hash(command.Code), clock);
+        var verified = principal.VerifyEmail(hasher.Hash(command.Code), clock.GetUtcNow());
         if (verified.IsFailure)
         {
             // Only a wrong code is a guess; an owner who is no longer pending gives the slot back.
-            if (verified.Errors.Any(e => e.Is(IdentityErrors.AccountNotPending)))
+            if (verified.Has(IdentityErrors.AccountNotPending))
                 await reservation.ReleaseAsync(cancellationToken);
-            return Failed(verified.Errors[0]);
+            return Result.Failure<OpenedSession>(verified.Errors);
         }
 
         var token = secrets.NewSessionToken();
-        var session = principal.OpenSession(hasher.Hash(token), SessionSurface.Console, clock).Value;
+        var session = principal.OpenSession(hasher.Hash(token), SessionSurface.Console, clock.GetUtcNow()).Value;
         var saved = await principals.SaveAsync(cancellationToken);
         if (saved.IsFailure)
         {
             // The code was right but nothing was saved: not a guess, and the owner can simply retry.
             await reservation.ReleaseAsync(cancellationToken);
-            return Failed(saved.Errors[0]);
+            return Result.Failure<OpenedSession>(saved.Errors);
         }
 
         await reservation.SucceededAsync(policy, cancellationToken);

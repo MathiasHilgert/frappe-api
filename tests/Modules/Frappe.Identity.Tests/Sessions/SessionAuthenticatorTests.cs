@@ -90,10 +90,10 @@ public sealed class SessionAuthenticatorTests
         public (Principal Principal, Session Session) Seed(TimeProvider clock)
         {
             var principal = Principal.RegisterOwner(
-                PersonName.Create("Ana").Value, Email.Create("ana@example.com").Value, "pw", Locale.Parse("en"), clock);
-            principal.IssueCode(CodePurpose.EmailVerify, "c", clock);
-            principal.VerifyEmail("c", clock);
-            var session = principal.OpenSession("h:token", SessionSurface.Api, clock).Value;
+                PersonName.Create("Ana").Value, Email.Create("ana@example.com").Value, "pw", Locale.Parse("en"), clock.GetUtcNow());
+            principal.IssueCode(CodePurpose.EmailVerify, "c", clock.GetUtcNow());
+            principal.VerifyEmail("c", clock.GetUtcNow());
+            var session = principal.OpenSession("h:token", SessionSurface.Api, clock.GetUtcNow()).Value;
             _principal = principal;
             return (principal, session);
         }

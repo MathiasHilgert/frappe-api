@@ -24,10 +24,10 @@ internal static class SessionSeeder
 
         var email = Email.Create($"owner-{Guid.NewGuid():N}@example.com").Value;
         var passwordHash = password is null ? "password-hash" : await services.GetRequiredService<IPasswordHasher>().HashAsync(password, CancellationToken.None);
-        var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, email, passwordHash, Locale.Parse("en"), clock);
-        principal.IssueCode(CodePurpose.EmailVerify, "code-hash", clock);
-        principal.VerifyEmail("code-hash", clock).IsSuccess.ShouldBeTrue();
-        var session = principal.OpenSession(services.GetRequiredService<ISecretHasher>().Hash(token), SessionSurface.Console, clock).Value;
+        var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, email, passwordHash, Locale.Parse("en"), clock.GetUtcNow());
+        principal.IssueCode(CodePurpose.EmailVerify, "code-hash", clock.GetUtcNow());
+        principal.VerifyEmail("code-hash", clock.GetUtcNow()).IsSuccess.ShouldBeTrue();
+        var session = principal.OpenSession(services.GetRequiredService<ISecretHasher>().Hash(token), SessionSurface.Console, clock.GetUtcNow()).Value;
 
         var repository = services.GetRequiredService<IPrincipalRepository>();
         repository.Add(principal);
@@ -44,7 +44,7 @@ internal static class SessionSeeder
         var repository = services.GetRequiredService<IPrincipalRepository>();
         var principal = (await repository.GetByIdAsync(principalId, TestContext.Current.CancellationToken)).ShouldNotBeNull();
         var session = principal.OpenSession(services.GetRequiredService<ISecretHasher>().Hash(token), SessionSurface.Api,
-            services.GetRequiredService<TimeProvider>()).Value;
+            services.GetRequiredService<TimeProvider>().GetUtcNow()).Value;
         (await repository.SaveAsync(TestContext.Current.CancellationToken)).IsSuccess.ShouldBeTrue();
         return (session, token);
     }

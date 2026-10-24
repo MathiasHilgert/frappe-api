@@ -16,7 +16,6 @@ namespace Frappe.Identity.Application.Sessions;
 /// </summary>
 public static class LogInHandler
 {
-
     public static async Task<Result<SignedIn>> Handle(
         LogIn command,
         IPrincipalRepository principals,
@@ -42,9 +41,9 @@ public static class LogInHandler
         await reservation.SucceededAsync(AttemptPolicies.LoginFailuresPerEmail, cancellationToken);
 
         var token = secrets.NewSessionToken();
-        var opened = principal.OpenSession(secretHasher.Hash(token), command.Surface, clock);
+        var opened = principal.OpenSession(secretHasher.Hash(token), command.Surface, clock.GetUtcNow());
         if (opened.IsFailure)
-            return Result.Failure<SignedIn>(opened.Errors[0].WithMetadata(IdentityErrorMetadata.OwnerId, principal.Id));
+            return Result.Failure<SignedIn>(opened.Errors.Select(e => e.WithMetadata(IdentityErrorMetadata.OwnerId, principal.Id)));
 
         // The password is in hand, so this is the one moment an outdated hash can be upgraded to the current cost.
         if (passwordHasher.NeedsRehash(principal.Owner.PasswordHash))
@@ -52,7 +51,7 @@ public static class LogInHandler
 
         var saved = await principals.SaveAsync(cancellationToken);
         if (saved.IsFailure)
-            return Result.Failure<SignedIn>(saved.Errors[0]);
+            return Result.Failure<SignedIn>(saved.Errors);
         var session = opened.Value;
         return Result.Success(new SignedIn(principal.Id, session.Id, token, session.AbsoluteExpiresAt));
     }

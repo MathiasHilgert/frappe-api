@@ -20,7 +20,7 @@ public static class ChangeLocaleHandler
     {
         var parsed = Locale.Create(command.Locale);
         if (!parsed.TryGetValue(out var requested))
-            return Result.Failure<Locale>(parsed.Errors[0]);
+            return Result.Failure<Locale>(parsed.Errors);
         if (platform.Lookup(requested) is not { } locale)
             return Result.Failure<Locale>(IdentityErrors.LocaleUnsupported);
 
@@ -30,6 +30,6 @@ public static class ChangeLocaleHandler
 
         principal.ChangeLocale(locale);
         var saved = await principals.SaveAsync(cancellationToken);
-        return saved.IsSuccess ? Result.Success(locale) : Result.Failure<Locale>(saved.Errors[0]);
+        return saved.IsSuccess ? Result.Success(locale) : Result.Failure<Locale>(saved.Errors);
     }
 }
