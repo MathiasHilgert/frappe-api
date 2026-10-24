@@ -348,11 +348,11 @@ docker run -d -p 8080:8080 \
 | --- | --- | --- |
 | `ConnectionStrings__frappe` | Yes | Postgres; Critical for readiness |
 | `ConnectionStrings__valkey` | Yes | Startup fails without it; NonCritical for readiness |
-| `Identity__SecretHashing__Key` | Yes | HMAC key for session tokens and codes, 32+ characters; startup fails without it. Rotating it signs everyone out |
+| `Identity__SecretHashing__Key` | Yes | HMAC key for session tokens and codes, 32+ characters; startup fails without it, and outside Development also when it is the committed development key. Rotating it signs everyone out |
 | `Identity__SessionCookie__Name` | No | Session cookie name for the web console, default `__Host-frappe_session`; must be a valid cookie token or startup fails. A `__Host-` name requires Path `/` and no Domain |
 | `Identity__SessionCookie__Path` | No | Session cookie path, default `/`; must start with `/` |
 | `Identity__SessionCookie__Domain` | No | Unset by default (host-only cookie); not allowed with a `__Host-` name |
-| `Messaging__Seal__Key` | Yes | Key (32+ characters) that seals one-time codes inside queued messages; startup fails without it. Rotating it makes codes still queued unreadable (they dead-letter) |
+| `Messaging__Seal__Key` | Yes | Key (32+ characters) that seals one-time codes inside queued messages; startup fails without it, and outside Development also when it is the committed development key. Rotating it makes codes still queued unreadable (they dead-letter) |
 | `Identity__PasswordHashing__*` | No | Argon2id cost (`MemorySizeKib`, `Iterations`, `Parallelism`); startup fails below the OWASP minimum. `MaxConcurrentHashes` (default: CPU count, 1..1024) caps hashes running at once; extra sign-ins wait at most `SlotWaitMilliseconds` (default 2000) for a slot, then get a 503 with `Retry-After` |
 | `Platform__RateLimiting__PermitLimit`, `__WindowSeconds` | No | In-process per-IP cap on anonymous auth endpoints, default 300 per 60 s |
 | `Notification__Resend__ApiKey` | Yes | Resend API key (secret, never committed); startup fails without it outside Development. Locally: `dotnet user-secrets set "Notification:Resend:ApiKey" "<key>" --project src/Host/Frappe.Api`. Without it, Development only logs that a mail was sent (recipient domain, kind, subject with digits masked; never the body or code) instead of sending it. Each delivery sends the Wolverine message id as `Idempotency-Key`, so retries never send twice |

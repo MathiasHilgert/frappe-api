@@ -36,7 +36,14 @@ public static class MessagingRegistration
         params IReadOnlyList<System.Reflection.Assembly> platformMessagingAssemblies)
     {
         builder.Services.AddSingleton<IValidateOptions<MessageSealOptions>, MessageSealOptionsValidator>();
-        builder.Services.AddOptions<MessageSealOptions>().BindConfiguration(MessageSealOptions.SectionName).ValidateOnStart();
+        // The development key is committed, so it is public: outside Development it would seal nothing.
+        builder.Services.AddOptions<MessageSealOptions>()
+            .BindConfiguration(MessageSealOptions.SectionName)
+            .Validate<IHostEnvironment>(
+                (options, environment) => environment.IsDevelopment()
+                    || !string.Equals(options.Key, MessageSealOptions.DevelopmentKey, StringComparison.Ordinal),
+                $"'{MessageSealOptions.SectionName}:Key' is the committed development key; set a real one outside Development.")
+            .ValidateOnStart();
         builder.Services.AddSingleton<IMessageSeal, AesGcmMessageSeal>();
 
         builder.UseWolverine(opts =>
