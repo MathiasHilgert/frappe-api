@@ -20,7 +20,7 @@ public sealed class ValkeyAttemptLimiterTests : IAsyncDisposable
     [Fact]
     public async Task ValkeyDown_ReserveAndRecord_FailOpenAndCount()
     {
-        using var counted = new CounterListener(IdentityMetrics.AttemptLimiterUnavailable);
+        using var counted = new CounterListener(IdentityMetrics.AttemptLimiterUnavailableName);
         var limiter = Limiter();
 
         (await limiter.RecordAsync(Policy, "a@example.com", TestContext.Current.CancellationToken)).IsAllowed.ShouldBeTrue();
@@ -35,7 +35,7 @@ public sealed class ValkeyAttemptLimiterTests : IAsyncDisposable
     {
         // Default client settings would wait about five seconds per call; the limiter's own budget must win.
         await using var unreachable = new ValkeyConnection(ConfigurationOptions.Parse("127.0.0.1:1,abortConnect=false"));
-        using var counted = new CounterListener(IdentityMetrics.AttemptLimiterUnavailable);
+        using var counted = new CounterListener(IdentityMetrics.AttemptLimiterUnavailableName);
         var limiter = Limiter(unreachable);
 
         var started = TimeProvider.System.GetTimestamp();

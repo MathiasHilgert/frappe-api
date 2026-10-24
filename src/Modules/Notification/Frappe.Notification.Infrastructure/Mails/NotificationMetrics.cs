@@ -6,14 +6,14 @@ namespace Frappe.Notification.Infrastructure.Mails;
 internal sealed class NotificationMetrics
 {
     public const string MeterName = "Frappe.Notification";
-    public const string MailDeadLettered = "frappe.notification.mail.dead_lettered";
+    public const string MailDeadLetteredName = "frappe.notification.mail.dead_lettered";
 
     private readonly Counter<long> _deadLettered;
 
     public NotificationMetrics(IMeterFactory meterFactory)
     {
         ArgumentNullException.ThrowIfNull(meterFactory);
-        _deadLettered = meterFactory.Create(MeterName).CreateCounter<long>(MailDeadLettered,
+        _deadLettered = meterFactory.Create(MeterName).CreateCounter<long>(MailDeadLetteredName,
             description: "Mails moved to the dead-letter queue, tagged by reason (rejected or exhausted).");
     }
 
