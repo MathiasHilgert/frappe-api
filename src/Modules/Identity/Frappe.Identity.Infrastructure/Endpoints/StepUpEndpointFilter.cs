@@ -6,6 +6,7 @@ using Frappe.SharedKernel.Validation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Wolverine;
 
 namespace Frappe.Identity.Infrastructure.Endpoints;
 
@@ -25,8 +26,8 @@ public static class StepUpEndpointFilter
         if (services.GetRequiredService<ICurrentPrincipal>().Session is not { } caller)
             return TypedResults.Unauthorized();
 
-        var requirement = services.GetRequiredService<StepUpRequirement>();
-        return await requirement.IsSatisfiedAsync(caller, context.HttpContext.RequestAborted)
+        var bus = services.GetRequiredService<IMessageBus>();
+        return await bus.InvokeAsync<bool>(new HasFreshStepUp(caller.PrincipalId, caller.SessionId), context.HttpContext.RequestAborted)
             ? await next(context)
             : Result.Failure(IdentityErrors.StepUpRequired).ToProblem();
     }

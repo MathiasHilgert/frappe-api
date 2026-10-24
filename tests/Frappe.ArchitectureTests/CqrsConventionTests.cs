@@ -14,16 +14,7 @@ public sealed class CqrsConventionTests
     /// </summary>
     private static readonly HashSet<string> NotYetMigrated = new(StringComparer.Ordinal)
     {
-        "Frappe.Identity.Application.Account.ChangeLocale",
-        "Frappe.Identity.Application.Account.ChangePassword",
-        "Frappe.Identity.Application.Account.CompleteStepUp",
-        "Frappe.Identity.Application.Account.ConfirmEmailChange",
-        "Frappe.Identity.Application.Account.StepUpRequirement",
         "Frappe.Identity.Application.Owners.VerifyOwnerEmail",
-        "Frappe.Identity.Application.Sessions.GetMe",
-        "Frappe.Identity.Application.Sessions.LogIn",
-        "Frappe.Identity.Application.Sessions.LogOut",
-        "Frappe.Identity.Application.Sessions.OwnerSessions",
     };
 
     public static TheoryData<string> Modules => [.. Solution.ModuleNames];

@@ -7,6 +7,7 @@ using Frappe.SharedKernel.Validation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Wolverine;
 
 namespace Frappe.Identity.Infrastructure.Endpoints;
 
@@ -25,13 +26,14 @@ internal static class AccountSecurityEndpoints
     }
 
     private static async Task<IResult> CompleteStepUpAsync(
-        StepUpRequest request, ICurrentPrincipal current, CompleteStepUp handler,
+        StepUpRequest request, ICurrentPrincipal current, IMessageBus bus,
         CancellationToken cancellationToken)
     {
         if (current.Session is not { } caller)
             return TypedResults.Unauthorized();
 
-        var outcome = await handler.HandleAsync(caller, request.Password, cancellationToken);
+        var outcome = await bus.InvokeAsync<Throttled<DateTimeOffset>>(
+            new CompleteStepUp(caller.PrincipalId, caller.SessionId, request.Password), cancellationToken);
         if (outcome.Result is not { } result)
             return Result.Failure(IdentityErrors.TooManyAttempts).ToProblem(outcome.RetryAfter);
 
@@ -41,13 +43,15 @@ internal static class AccountSecurityEndpoints
     }
 
     private static async Task<IResult> ChangePasswordAsync(
-        ChangePasswordRequest request, ICurrentPrincipal current, ChangePassword handler,
+        ChangePasswordRequest request, ICurrentPrincipal current, IMessageBus bus,
         CancellationToken cancellationToken)
     {
         if (current.Session is not { } caller)
             return TypedResults.Unauthorized();
 
-        var outcome = await handler.HandleAsync(caller, request.CurrentPassword, request.NewPassword, cancellationToken);
+        var outcome = await bus.InvokeAsync<Throttled<bool>>(
+            new ChangePassword(caller.PrincipalId, caller.SessionId, request.CurrentPassword, request.NewPassword),
+            cancellationToken);
         if (outcome.Result is not { } result)
             return Result.Failure(IdentityErrors.TooManyAttempts).ToProblem(outcome.RetryAfter);
 
