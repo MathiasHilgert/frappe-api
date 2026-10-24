@@ -113,6 +113,20 @@ public sealed class OwnerVerificationTests(ApiFixture fixture)
     }
 
     [Fact]
+    public async Task AParallelBurstOfWrongCodes_GetsOnlyTheLimitOfTries()
+    {
+        var ownerId = await SeedPendingOwnerAsync(fixture.Host);
+
+        var statuses = await Burst.StatusesAsync(fixture.Host,
+            s => s.Post.Json(new { code = "000000" }).ToUrl($"/v1/identity/owners/{ownerId}/verification"));
+
+        statuses.Count(s => s == 422).ShouldBe(AttemptPolicies.VerifyEmailPerOwner.Limit);
+        statuses.Count(s => s == 429).ShouldBe(Burst.Size - AttemptPolicies.VerifyEmailPerOwner.Limit);
+        await VerifyAsync(fixture.Host, ownerId, Code, 429);
+        (await SessionSeeder.LoadAsync(fixture.Host, ownerId)).Owner.Status.ShouldBe(OwnerStatus.Pending);
+    }
+
+    [Fact]
     public async Task MalformedJson_Is400() =>
         await fixture.Host.Scenario(s =>
         {

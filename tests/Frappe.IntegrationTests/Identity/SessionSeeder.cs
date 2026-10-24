@@ -23,7 +23,7 @@ internal static class SessionSeeder
         var token = services.GetRequiredService<ISecretGenerator>().NewSessionToken();
 
         var email = Email.Create($"owner-{Guid.NewGuid():N}@example.com").Value;
-        var passwordHash = password is null ? "password-hash" : services.GetRequiredService<IPasswordHasher>().Hash(password);
+        var passwordHash = password is null ? "password-hash" : await services.GetRequiredService<IPasswordHasher>().HashAsync(password, CancellationToken.None);
         var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, email, passwordHash, Locale.Parse("en"), clock);
         principal.IssueCode(CodePurpose.EmailVerify, "code-hash", clock);
         principal.VerifyEmail("code-hash", clock).IsSuccess.ShouldBeTrue();

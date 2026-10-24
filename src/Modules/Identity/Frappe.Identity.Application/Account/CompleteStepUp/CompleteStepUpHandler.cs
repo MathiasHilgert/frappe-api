@@ -20,7 +20,7 @@ public static class CompleteStepUpHandler
 
         var expiresAt = principal.CompleteStepUp(command.SessionId, clock);
         if (expiresAt.IsSuccess)
-            await principals.SaveChangesAsync(cancellationToken);
+            await principals.SaveAsync(cancellationToken);
         return expiresAt;
     }
 }

@@ -32,7 +32,7 @@ public static class PurgePendingOwnersHandler
             }
         }
 
-        await repository.SaveChangesAsync(cancellationToken);
+        await repository.SaveAsync(cancellationToken);
         return events;
     }
 }

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Frappe.SharedKernel.Validation;
 
 namespace Frappe.Identity.Domain.Principals;
@@ -11,9 +12,10 @@ public sealed class VerificationCode
 
     private VerificationCode() => CodeHash = null!;
 
-    private VerificationCode(CodePurpose purpose, string codeHash, DateTimeOffset now, DateTimeOffset windowStartedAt, int resendCount)
+    private VerificationCode(
+        Guid id, CodePurpose purpose, string codeHash, DateTimeOffset now, DateTimeOffset windowStartedAt, int resendCount)
     {
-        Id = Guid.CreateVersion7(now);
+        Id = id;
         Purpose = purpose;
         CodeHash = codeHash;
         IssuedAt = now;
@@ -34,34 +36,55 @@ public sealed class VerificationCode
     /// <summary>How many codes replaced the first one within <see cref="ResendWindow"/>.</summary>
     public int ResendCount { get; }
 
-    internal static VerificationCode First(CodePurpose purpose, string codeHash, DateTimeOffset now) =>
-        new(purpose, codeHash, now, now, 0);
+    private static VerificationCode First(Guid id, CodePurpose purpose, string codeHash, DateTimeOffset now) =>
+        new(id, purpose, codeHash, now, now, 0);
+
+    /// <summary>The first code for <paramref name="purpose"/>, or a resend of <paramref name="previous"/>.</summary>
+    internal static Result<VerificationCode> Replacing(
+        VerificationCode? previous, Guid id, CodePurpose purpose, string codeHash, DateTimeOffset now) =>
+        previous is null ? Result.Success(First(id, purpose, codeHash, now)) : previous.Resend(id, codeHash, now);
 
     /// <summary>A new code replacing this one, counted against the hourly resend limit.</summary>
-    internal Result<VerificationCode> Resend(string codeHash, DateTimeOffset now)
+    private Result<VerificationCode> Resend(Guid id, string codeHash, DateTimeOffset now)
     {
         if (now - WindowStartedAt >= ResendWindow)
         {
-            return Result.Success(First(Purpose, codeHash, now));
+            return Result.Success(First(id, Purpose, codeHash, now));
         }
 
         return ResendCount >= MaxResendsPerHour
             ? Result.Failure<VerificationCode>(IdentityErrors.ResendLimitReached)
-            : Result.Success(new VerificationCode(Purpose, codeHash, now, WindowStartedAt, ResendCount + 1));
+            : Result.Success(new VerificationCode(id, Purpose, codeHash, now, WindowStartedAt, ResendCount + 1));
     }
 
-    internal Result Consume(DateTimeOffset now)
+    /// <summary>Whether <paramref name="codeHash"/> is <paramref name="code"/>'s and it could be used now; uses nothing.</summary>
+    internal static Result Check(VerificationCode? code, string codeHash, DateTimeOffset now) =>
+        Matches(code, codeHash) ? code.CanConsume(now) : Result.Failure(IdentityErrors.CodeInvalid);
+
+    /// <summary>Uses <paramref name="code"/> up when <paramref name="codeHash"/> is its hash and it is still valid.</summary>
+    internal static Result Consume(VerificationCode? code, string codeHash, DateTimeOffset now) =>
+        Matches(code, codeHash) ? code.Consume(now) : Result.Failure(IdentityErrors.CodeInvalid);
+
+    // Hashes are compared, never codes: the caller hashes what the person typed with the same port.
+    private static bool Matches([NotNullWhen(true)] VerificationCode? code, string codeHash) =>
+        code is not null && string.Equals(code.CodeHash, codeHash, StringComparison.Ordinal);
+
+    private Result CanConsume(DateTimeOffset now)
     {
         var notification = new Notification()
             .AddIf(UsedAt is not null, IdentityErrors.CodeAlreadyUsed)
             .AddIf(UsedAt is null && now >= ExpiresAt, IdentityErrors.CodeExpired);
 
-        if (notification.HasErrors)
-        {
-            return Result.Failure(notification);
-        }
+        return notification.HasErrors ? Result.Failure(notification) : Result.Success();
+    }
 
-        UsedAt = now;
-        return Result.Success();
+    private Result Consume(DateTimeOffset now)
+    {
+        var consumable = CanConsume(now);
+        if (consumable.IsSuccess)
+        {
+            UsedAt = now;
+        }
+        return consumable;
     }
 }

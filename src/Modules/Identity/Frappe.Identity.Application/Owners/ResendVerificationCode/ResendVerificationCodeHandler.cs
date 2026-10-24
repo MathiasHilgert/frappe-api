@@ -29,9 +29,7 @@ public static class ResendVerificationCodeHandler
             return Result.Failure(issued.Errors[0].WithRetryAfter(window + VerificationCode.ResendWindow - clock.GetUtcNow()));
         }
 
-        var saved = await principals.SaveChangesAsync(cancellationToken);
-        if (saved.IsFailure)
-            return Result.Failure(saved.Errors[0]);
+        await principals.SaveAsync(cancellationToken);
 
         await messages.PublishAsync(issued.Value);
         return Result.Success();

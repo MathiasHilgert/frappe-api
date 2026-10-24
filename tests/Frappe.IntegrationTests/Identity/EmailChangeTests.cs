@@ -97,7 +97,8 @@ public sealed class EmailChangeTests(EmailChangeTests.HostFixture hostFixture) :
         issued.PrincipalId.ShouldBe(principal.Id);
         issued.Name.ShouldBe(principal.Owner.Name.Value);
         issued.Email.ShouldBe(newEmail);
-        issued.Code.ShouldBe(FixedCodeGenerator.Code);
+        issued.SealedCode.ShouldNotContain(FixedCodeGenerator.Code);
+        CodeSeal.Open(_host, issued.SealedCode).ShouldBe(FixedCodeGenerator.Code);
         issued.ExpiresAt.ShouldBeGreaterThan(_clock.GetUtcNow());
     }
 
@@ -197,6 +198,25 @@ public sealed class EmailChangeTests(EmailChangeTests.HostFixture hostFixture) :
         var result = await ConfirmAsync(token, id, FixedCodeGenerator.Code, 429);
 
         result.Context.Response.Headers.RetryAfter.ToString().ShouldNotBeNullOrEmpty();
+        (await SessionSeeder.LoadAsync(_host, principal.Id)).Owner.PendingEmail.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task Confirm_AParallelBurstOfWrongCodes_GetsOnlyTheLimitOfTries()
+    {
+        var (principal, _, token) = await SeedSteppedUpAsync();
+        var id = await IdAsync(await RequestAsync(token, NewEmail(), 201));
+
+        var statuses = await Burst.StatusesAsync(_host, s =>
+        {
+            s.Post.Json(new { code = "000000" }).ToUrl($"{EmailChanges}/{id}/confirmation");
+            Bearer(s, token);
+        });
+
+        var limit = AttemptPolicies.EmailChangeConfirmFailuresPerPrincipal.Limit;
+        statuses.Count(s => s == 422).ShouldBe(limit);
+        statuses.Count(s => s == 429).ShouldBe(Burst.Size - limit);
+        await ConfirmAsync(token, id, FixedCodeGenerator.Code, 429);
         (await SessionSeeder.LoadAsync(_host, principal.Id)).Owner.PendingEmail.ShouldNotBeNull();
     }
 

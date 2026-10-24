@@ -5,8 +5,10 @@ using Frappe.SharedKernel.Validation;
 
 namespace Frappe.Identity.Application.Owners;
 
-/// <summary>Issues a fresh email-verification code: the principal keeps its hash, the message carries the code to the mailer.</summary>
-public sealed class VerificationCodeIssuer(ISecretGenerator generator, ISecretHasher hasher, TimeProvider clock)
+/// <summary>
+/// Issues a fresh email-verification code: the principal keeps its hash, the message carries it sealed to the mailer.
+/// </summary>
+public sealed class VerificationCodeIssuer(ISecretGenerator generator, ISecretHasher hasher, IOwnerCodeSeal seal, TimeProvider clock)
 {
     public Result<OwnerVerificationCodeIssued> Issue(Principal principal)
     {
@@ -15,7 +17,7 @@ public sealed class VerificationCodeIssuer(ISecretGenerator generator, ISecretHa
         return issued.IsFailure
             ? Result.Failure<OwnerVerificationCodeIssued>(issued.Errors[0])
             : Result.Success(new OwnerVerificationCodeIssued(
-                principal.Id, principal.Owner.Name.Value, principal.Owner.Email.Value, code, issued.Value.ExpiresAt,
+                principal.Id, principal.Owner.Name.Value, principal.Owner.Email.Value, seal.Seal(code), issued.Value.ExpiresAt,
                 principal.Owner.Locale.Value));
     }
 }

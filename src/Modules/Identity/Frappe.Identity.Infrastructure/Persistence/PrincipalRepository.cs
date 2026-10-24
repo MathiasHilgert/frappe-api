@@ -25,7 +25,7 @@ public sealed class PrincipalRepository(IdentityDbContext context) : IPrincipalR
 #pragma warning disable EF1002, S2077 // Only mapped identifiers are inlined; the email stays a parameter.
         return context.Principals
             .FromSqlRaw($"""
-                SELECT p.* FROM {QualifiedTable(principals)} p
+                SELECT p.*, p.xmin FROM {QualifiedTable(principals)} p
                 JOIN {QualifiedTable(owners)} o ON o.principal_id = p.id
                 WHERE lower(o.email) = lower(@email)
                 """, new NpgsqlParameter("email", email.Value))
@@ -38,6 +38,14 @@ public sealed class PrincipalRepository(IdentityDbContext context) : IPrincipalR
 
     public Task<Principal?> GetBySessionTokenHashAsync(string tokenHash, CancellationToken cancellationToken) =>
         context.Principals.FirstOrDefaultAsync(p => p.Sessions.Any(s => s.TokenHash == tokenHash), cancellationToken);
+
+    public Task<SessionCredential?> FindSessionCredentialAsync(string tokenHash, CancellationToken cancellationToken) =>
+        context.Principals
+            .AsNoTracking()
+            .SelectMany(p => p.Sessions
+                .Where(s => s.TokenHash == tokenHash)
+                .Select(s => new SessionCredential(p.Id, p.Type, p.Owner.Status, s.Id, s.CreatedAt, s.LastSeenAt)))
+            .FirstOrDefaultAsync(cancellationToken);
 
     public Task<Principal?> GetByCodeIdAsync(Guid codeId, CodePurpose purpose, CancellationToken cancellationToken) =>
         context.Principals.FirstOrDefaultAsync(p => p.Codes.Any(c => c.Id == codeId && c.Purpose == purpose), cancellationToken);
@@ -54,7 +62,26 @@ public sealed class PrincipalRepository(IdentityDbContext context) : IPrincipalR
 
     public void Remove(Principal principal) => context.Principals.Remove(principal);
 
-    public async Task<Result> SaveChangesAsync(CancellationToken cancellationToken)
+    public Task SaveAsync(CancellationToken cancellationToken) => context.SaveChangesAsync(cancellationToken);
+
+    public Task<Result> SaveChangesAsync(CancellationToken cancellationToken) => SaveClaimingEmailAsync(cancellationToken);
+
+    public async Task<bool> SaveUnlessChangedAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Nothing was written; forget the stale state so this unit of work cannot retry it by accident.
+            context.ChangeTracker.Clear();
+            return false;
+        }
+    }
+
+    public async Task<Result> SaveClaimingEmailAsync(CancellationToken cancellationToken)
     {
         try
         {

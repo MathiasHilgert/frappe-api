@@ -43,13 +43,19 @@ public sealed class Principal : AggregateRoot<Guid>
     }
 
     /// <summary>Issues a code for <paramref name="purpose"/>, replacing the previous one so only one is live.</summary>
-    public Result<VerificationCode> IssueCode(CodePurpose purpose, string codeHash, TimeProvider clock)
+    public Result<VerificationCode> IssueCode(CodePurpose purpose, string codeHash, TimeProvider clock) =>
+        IssueCode(Guid.CreateVersion7(clock.GetUtcNow()), purpose, codeHash, clock);
+
+    /// <summary>
+    /// Issues a code whose id the caller chose, for flows that hand the id out before the code exists (a password
+    /// reset answers at once and issues in the background, so its timing reveals nothing).
+    /// </summary>
+    public Result<VerificationCode> IssueCode(Guid codeId, CodePurpose purpose, string codeHash, TimeProvider clock)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(codeHash);
 
         var now = clock.GetUtcNow();
-        var previous = CodeFor(purpose);
-        var issued = previous is null ? Result.Success(VerificationCode.First(purpose, codeHash, now)) : previous.Resend(codeHash, now);
+        var issued = VerificationCode.Replacing(CodeFor(purpose), codeId, purpose, codeHash, now);
         if (issued.IsSuccess)
         {
             _codes.RemoveAll(c => c.Purpose == purpose);
@@ -100,7 +106,18 @@ public sealed class Principal : AggregateRoot<Guid>
         Owner.Locale = locale;
     }
 
-    public void Suspend() => Owner.Status = OwnerStatus.Suspended;
+    /// <summary>Shuts the owner out at once; their sessions stop authenticating. Suspending twice is refused.</summary>
+    public Result Suspend()
+    {
+        if (Owner.Status == OwnerStatus.Suspended)
+        {
+            return Result.Failure(IdentityErrors.AccountSuspended);
+        }
+
+        Owner.Status = OwnerStatus.Suspended;
+        Raise(new OwnerSuspended(Id));
+        return Result.Success();
+    }
 
     public Result<Session> OpenSession(string tokenHash, SessionSurface surface, TimeProvider clock)
     {
@@ -156,7 +173,7 @@ public sealed class Principal : AggregateRoot<Guid>
     }
 
     public bool HasFreshStepUp(Guid sessionId, TimeProvider clock) =>
-        _sessions.Find(s => s.Id == sessionId)?.HasFreshStepUp(clock) ?? false;
+        _sessions.Exists(s => s.Id == sessionId && s.HasFreshStepUp(clock));
 
     public Result RevokeSession(Guid sessionId)
     {
@@ -178,6 +195,16 @@ public sealed class Principal : AggregateRoot<Guid>
         RevokeSessionsExcept(currentSessionId);
         Owner.PasswordHash = newPasswordHash;
         Raise(new OwnerPasswordChanged(Id));
+    }
+
+    /// <summary>
+    /// Replaces the stored hash with a stronger hash of the same password (the caller just proved it). The credential
+    /// does not change, so sessions survive and nothing is announced.
+    /// </summary>
+    public void RehashPassword(string passwordHash)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(passwordHash);
+        Owner.PasswordHash = passwordHash;
     }
 
     /// <summary>A signed-out change proven by a reset code: no session survives it.</summary>
@@ -229,16 +256,17 @@ public sealed class Principal : AggregateRoot<Guid>
         return consumed;
     }
 
+    /// <summary>
+    /// Whether <paramref name="codeHash"/> matches the live, unused code for <paramref name="purpose"/>, without using
+    /// it up. Lets a caller prove the code before paying for anything expensive.
+    /// </summary>
+    public Result CheckCode(CodePurpose purpose, string codeHash, TimeProvider clock) =>
+        VerificationCode.Check(CodeFor(purpose), codeHash, clock.GetUtcNow());
+
     private VerificationCode? CodeFor(CodePurpose purpose) => _codes.Find(c => c.Purpose == purpose);
 
-    // Hashes are compared, never codes: the caller hashes what the person typed with the same port.
-    private Result ConsumeCode(CodePurpose purpose, string codeHash, TimeProvider clock)
-    {
-        var code = CodeFor(purpose);
-        return code is null || !string.Equals(code.CodeHash, codeHash, StringComparison.Ordinal)
-            ? Result.Failure(IdentityErrors.CodeInvalid)
-            : code.Consume(clock.GetUtcNow());
-    }
+    private Result ConsumeCode(CodePurpose purpose, string codeHash, TimeProvider clock) =>
+        VerificationCode.Consume(CodeFor(purpose), codeHash, clock.GetUtcNow());
 
     private void RevokeSessionsExcept(Guid? currentSessionId)
     {

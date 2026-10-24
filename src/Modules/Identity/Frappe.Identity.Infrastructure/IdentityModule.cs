@@ -56,6 +56,8 @@ public sealed class IdentityModule : IModule
         services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
         services.AddSingleton<ISecretHasher, HmacSecretHasher>();
         services.AddSingleton<ISecretGenerator, RandomSecretGenerator>();
+        services.AddSingleton<IOwnerCodeSeal, AesGcmOwnerCodeSeal>();
+        services.AddSingleton<DecoyPassword>();
 
         services.AddSessionAuthentication(configuration);
         AddPasswordPolicy(services, configuration);

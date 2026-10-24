@@ -7,8 +7,10 @@ using Frappe.SharedKernel.Validation;
 namespace Frappe.Identity.Application.PasswordResets;
 
 /// <summary>
-/// Sets a new password proven by the reset code; the aggregate revokes every session. Only wrong codes count against
-/// the limits, and a blocked reset stays blocked even for the right code, so six digits cannot be brute-forced.
+/// Sets a new password proven by the reset code; the aggregate revokes every session. Each attempt reserves its slot
+/// first and only wrong codes keep it, so six digits cannot be brute-forced, not even by a parallel burst; a blocked
+/// reset stays blocked even for the right code. The code is proven before the password policy (a breach lookup) or
+/// Argon2 run, so a guess costs the server nothing expensive.
 /// </summary>
 public static class ConfirmPasswordResetHandler
 {
@@ -22,33 +24,33 @@ public static class ConfirmPasswordResetHandler
         TimeProvider clock,
         CancellationToken cancellationToken)
     {
-        var resetKey = command.ResetId.ToString();
-        var perReset = await limiter.CheckAsync(AttemptPolicies.PasswordResetConfirmFailuresPerReset, resetKey, cancellationToken);
-        var perIp = await limiter.CheckAsync(AttemptPolicies.PasswordResetConfirmFailuresPerIp, command.ClientIp, cancellationToken);
-        if (!perReset.IsAllowed || !perIp.IsAllowed)
-            return Result.Failure(IdentityErrors.TooManyAttempts.WithRetryAfter(
-                perReset.RetryAfter > perIp.RetryAfter ? perReset.RetryAfter : perIp.RetryAfter));
+        var reservation = await AttemptReservation.TakeAsync(limiter, cancellationToken,
+            (AttemptPolicies.PasswordResetConfirmFailuresPerReset, command.ResetId.ToString()),
+            (AttemptPolicies.PasswordResetConfirmFailuresPerIp, command.ClientIp));
+        if (!reservation.IsAllowed)
+            return Result.Failure(IdentityErrors.TooManyAttempts.WithRetryAfter(reservation.Decision.RetryAfter));
+
+        var principal = await principals.GetByCodeIdAsync(command.ResetId, CodePurpose.PasswordReset, cancellationToken);
+        var codeHash = string.IsNullOrEmpty(command.Code) ? null : secretHasher.Hash(command.Code);
+        var proven = principal is null || codeHash is null
+            ? Result.Failure(IdentityErrors.CodeInvalid)
+            : principal.CheckCode(CodePurpose.PasswordReset, codeHash, clock);
+        if (proven.IsFailure)
+            return proven; // A wrong code keeps its reserved slots.
+
+        // From here on the code is right: whatever happens, the attempt is not a guess.
+        await reservation.SucceededAsync(AttemptPolicies.PasswordResetConfirmFailuresPerReset, cancellationToken);
 
         var password = await passwordPolicy.ValidateAsync(command.NewPassword, cancellationToken);
         if (password.IsFailure)
             return password;
 
-        var principal = await principals.GetByCodeIdAsync(command.ResetId, CodePurpose.PasswordReset, cancellationToken);
-        var reset = principal is null || string.IsNullOrEmpty(command.Code)
-            ? Result.Failure(IdentityErrors.CodeInvalid)
-            : principal.ResetPassword(secretHasher.Hash(command.Code), passwordHasher.Hash(password.Value.Value), clock);
-
+        var reset = principal!.ResetPassword(
+            codeHash!, await passwordHasher.HashAsync(password.Value.Value, cancellationToken), clock);
         if (reset.IsFailure)
-        {
-            await limiter.RecordAsync(AttemptPolicies.PasswordResetConfirmFailuresPerReset, resetKey, cancellationToken);
-            await limiter.RecordAsync(AttemptPolicies.PasswordResetConfirmFailuresPerIp, command.ClientIp, cancellationToken);
             return reset;
-        }
 
-        var saved = await principals.SaveChangesAsync(cancellationToken);
-        if (saved.IsFailure)
-            throw new InvalidOperationException($"Saving a password reset failed: {saved.Errors[0].Code}.");
-        await limiter.ResetAsync(AttemptPolicies.PasswordResetConfirmFailuresPerReset, resetKey, cancellationToken);
+        await principals.SaveAsync(cancellationToken);
         return Result.Success();
     }
 }

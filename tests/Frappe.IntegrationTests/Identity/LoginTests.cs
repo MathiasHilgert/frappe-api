@@ -1,9 +1,10 @@
 using System.Net;
 using System.Text.Json;
 using Alba;
+using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
-using Frappe.Identity.Domain.Principals;
 using Microsoft.Extensions.DependencyInjection;
+using Frappe.Identity.Domain.Principals;
 using Microsoft.Net.Http.Headers;
 using Shouldly;
 
@@ -107,6 +108,45 @@ public sealed class LoginTests(ApiFixture fixture)
         int.Parse(result.Context.Response.Headers[HeaderNames.RetryAfter].ToString(), System.Globalization.CultureInfo.InvariantCulture)
             .ShouldBeInRange(1, (int)AttemptPolicies.LoginFailuresPerEmail.Window.TotalSeconds);
         await result.ShouldBeProblemAsync(429, "identity.attempts.too_many");
+    }
+
+    [Fact]
+    public async Task AParallelBurstOfWrongPasswords_GetsOnlyTheLimitOfTries()
+    {
+        var email = OwnerSeeder.NewEmail();
+        await OwnerSeeder.SeedAsync(fixture.Host, email);
+
+        var statuses = await Burst.StatusesAsync(fixture.Host, s =>
+        {
+            s.Post.Json(new { email, password = "wrong password!!" }).ToUrl(Sessions);
+            s.ConfigureHttpContext(c => c.Connection.RemoteIpAddress = NewIp());
+        });
+
+        statuses.Count(s => s == 401).ShouldBe(AttemptPolicies.LoginFailuresPerEmail.Limit);
+        statuses.Count(s => s == 429).ShouldBe(Burst.Size - AttemptPolicies.LoginFailuresPerEmail.Limit);
+        await LogInAsync(email, OwnerSeeder.Password, NewIp(), 429);
+    }
+
+    [Fact]
+    public async Task ASuccessfulLogin_WithAnOutdatedHash_StoresAHashAtTheCurrentCost()
+    {
+        var email = OwnerSeeder.NewEmail();
+        var owner = await OwnerSeeder.SeedAsync(fixture.Host, email);
+        await using (var scope = fixture.Host.Services.CreateAsyncScope())
+        {
+            var repository = scope.ServiceProvider.GetRequiredService<IPrincipalRepository>();
+            var principal = (await repository.GetByIdAsync(owner.Id, CancellationToken.None)).ShouldNotBeNull();
+            principal.RehashPassword(FastPasswordHasher.LegacyHash(OwnerSeeder.Password));
+            await repository.SaveAsync(CancellationToken.None);
+        }
+
+        await LogInAsync(email, OwnerSeeder.Password, NewIp(), 201);
+
+        var stored = (await SessionSeeder.LoadAsync(fixture.Host, owner.Id)).Owner.PasswordHash;
+        var hasher = fixture.Host.Services.GetRequiredService<IPasswordHasher>();
+        hasher.NeedsRehash(stored).ShouldBeFalse();
+        (await hasher.VerifyAsync(OwnerSeeder.Password, stored, CancellationToken.None)).ShouldBeTrue();
+        await LogInAsync(email, OwnerSeeder.Password, NewIp(), 201);
     }
 
     [Fact]

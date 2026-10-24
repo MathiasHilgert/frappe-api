@@ -131,6 +131,86 @@ public sealed class IdentityPersistenceTests(ApiFixture fixture)
         reloaded.Sessions.ShouldHaveSingleItem();
     }
 
+    [Fact]
+    public async Task Save_OfAPrincipalChangedMeanwhile_FailsWithAConcurrencyConflict_AndKeepsTheFirstWrite()
+    {
+        var (principal, sessionId) = await SeedActiveWithSessionAsync();
+        await using var first = fixture.Host.Services.CreateAsyncScope();
+        await using var second = fixture.Host.Services.CreateAsyncScope();
+        var a = Repository(first);
+        var b = Repository(second);
+        var loadedA = (await a.GetByIdAsync(principal.Id, CancellationToken.None)).ShouldNotBeNull();
+        var loadedB = (await b.GetByIdAsync(principal.Id, CancellationToken.None)).ShouldNotBeNull();
+
+        loadedA.RevokeSession(sessionId).IsSuccess.ShouldBeTrue();
+        await a.SaveAsync(CancellationToken.None);
+        // Only a child row changes here, yet the aggregate's version still guards it.
+        loadedB.CompleteStepUp(sessionId, Clock).IsSuccess.ShouldBeTrue();
+
+        await Should.ThrowAsync<DbUpdateConcurrencyException>(b.SaveAsync(CancellationToken.None));
+        (await WithRepositoryAsync(r => r.GetByIdAsync(principal.Id, CancellationToken.None)))
+            .ShouldNotBeNull().Sessions.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task SaveUnlessChanged_ATouchRacingARevocation_ReturnsFalseAndWritesNothing()
+    {
+        var (principal, sessionId) = await SeedActiveWithSessionAsync();
+        await using var toucher = fixture.Host.Services.CreateAsyncScope();
+        var touching = Repository(toucher);
+        var loaded = (await touching.GetByIdAsync(principal.Id, CancellationToken.None)).ShouldNotBeNull();
+        await WithRepositoryAsync(async r =>
+        {
+            var revoking = (await r.GetByIdAsync(principal.Id, CancellationToken.None)).ShouldNotBeNull();
+            revoking.ResetPassword("reset-hash", "new-password-hash", Clock).IsSuccess.ShouldBeTrue();
+            await r.SaveAsync(CancellationToken.None);
+            return true;
+        });
+
+        loaded.TouchSession(sessionId, Clock).IsSuccess.ShouldBeTrue();
+        var saved = await touching.SaveUnlessChangedAsync(CancellationToken.None);
+
+        saved.ShouldBeFalse();
+        var reloaded = (await WithRepositoryAsync(r => r.GetByIdAsync(principal.Id, CancellationToken.None))).ShouldNotBeNull();
+        reloaded.Sessions.ShouldBeEmpty();
+        reloaded.Owner.PasswordHash.ShouldBe("new-password-hash");
+    }
+
+    [Fact]
+    public async Task FindSessionCredential_ReadsOnlyTheSessionView_WithoutTrackingTheAggregate()
+    {
+        var (principal, sessionId) = await SeedActiveWithSessionAsync();
+        await using var scope = fixture.Host.Services.CreateAsyncScope();
+        var tokenHash = (await Repository(scope).GetByIdAsync(principal.Id, CancellationToken.None))!.Sessions.Single().TokenHash;
+        scope.ServiceProvider.GetRequiredService<IdentityDbContext>().ChangeTracker.Clear();
+
+        var credential = await Repository(scope).FindSessionCredentialAsync(tokenHash, CancellationToken.None);
+        var missing = await Repository(scope).FindSessionCredentialAsync(UniqueToken(), CancellationToken.None);
+
+        credential.ShouldNotBeNull();
+        credential.PrincipalId.ShouldBe(principal.Id);
+        credential.SessionId.ShouldBe(sessionId);
+        credential.PrincipalType.ShouldBe(PrincipalType.Owner);
+        credential.OwnerStatus.ShouldBe(OwnerStatus.Active);
+        credential.Admits(Clock).ShouldBeTrue();
+        missing.ShouldBeNull();
+        scope.ServiceProvider.GetRequiredService<IdentityDbContext>().ChangeTracker.Entries().ShouldBeEmpty();
+    }
+
+    private async Task<(Principal Principal, Guid SessionId)> SeedActiveWithSessionAsync()
+    {
+        var principal = NewOwner(UniqueEmail());
+        principal.IssueCode(CodePurpose.EmailVerify, "code-hash", Clock);
+        principal.VerifyEmail("code-hash", Clock);
+        principal.IssueCode(CodePurpose.PasswordReset, "reset-hash", Clock);
+        var session = principal.OpenSession(UniqueToken(), SessionSurface.Api, Clock).Value;
+        await SaveAsync(principal);
+        return (principal, session.Id);
+    }
+
+    private static IPrincipalRepository Repository(AsyncServiceScope scope) =>
+        scope.ServiceProvider.GetRequiredService<IPrincipalRepository>();
+
     private static Principal NewOwner(string email) =>
         Principal.RegisterOwner(PersonName.Create("Ana").Value, Email(email), "password-hash", Locale.Parse("en"), Clock);
 

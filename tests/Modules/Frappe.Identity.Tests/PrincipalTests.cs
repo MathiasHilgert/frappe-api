@@ -343,13 +343,89 @@ public sealed class PrincipalTests
     {
         var active = ActiveOwner();
         var suspended = ActiveOwner();
-        suspended.Suspend();
+        suspended.Suspend().IsSuccess.ShouldBeTrue();
+        Events(suspended);
         _clock.Advance(TimeSpan.FromDays(30));
 
         active.PurgeAbandonedRegistration(_clock).Errors.ShouldBe([IdentityErrors.AccountNotPending]);
         suspended.PurgeAbandonedRegistration(_clock).Errors.ShouldBe([IdentityErrors.AccountNotPending]);
         Events(active).ShouldBeEmpty();
         Events(suspended).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Suspend_AnActiveOwner_SuspendsAndRaisesOwnerSuspended()
+    {
+        var principal = ActiveOwner();
+
+        var result = principal.Suspend();
+
+        result.IsSuccess.ShouldBeTrue();
+        principal.Owner.Status.ShouldBe(OwnerStatus.Suspended);
+        Events(principal).ShouldBe([new OwnerSuspended(principal.Id)]);
+    }
+
+    [Fact]
+    public void Suspend_TwiceIsRefused_AndRaisesNothingMore()
+    {
+        var principal = ActiveOwner();
+        principal.Suspend();
+        Events(principal);
+
+        principal.Suspend().Errors.ShouldBe([IdentityErrors.AccountSuspended]);
+        principal.Owner.Status.ShouldBe(OwnerStatus.Suspended);
+        Events(principal).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void CheckCode_WithTheLiveCode_SucceedsWithoutUsingItUp()
+    {
+        var principal = RegisterWithCode(CodePurpose.PasswordReset, "r1");
+
+        principal.CheckCode(CodePurpose.PasswordReset, "r1", _clock).IsSuccess.ShouldBeTrue();
+
+        principal.Codes.Single().UsedAt.ShouldBeNull();
+        principal.ResetPassword("r1", "new-hash", _clock).IsSuccess.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void CheckCode_WrongExpiredOrUsed_ReportsWhy()
+    {
+        var principal = RegisterWithCode(CodePurpose.PasswordReset, "r1");
+
+        principal.CheckCode(CodePurpose.PasswordReset, "nope", _clock).Errors.ShouldBe([IdentityErrors.CodeInvalid]);
+        principal.CheckCode(CodePurpose.EmailChange, "r1", _clock).Errors.ShouldBe([IdentityErrors.CodeInvalid]);
+        principal.ResetPassword("r1", "new-hash", _clock).IsSuccess.ShouldBeTrue();
+        principal.CheckCode(CodePurpose.PasswordReset, "r1", _clock).Errors.ShouldBe([IdentityErrors.CodeAlreadyUsed]);
+
+        var expired = RegisterWithCode(CodePurpose.PasswordReset, "r2");
+        _clock.Advance(VerificationCode.Lifetime);
+        expired.CheckCode(CodePurpose.PasswordReset, "r2", _clock).Errors.ShouldBe([IdentityErrors.CodeExpired]);
+    }
+
+    [Fact]
+    public void IssueCode_WithAChosenId_KeepsThatId()
+    {
+        var principal = Register();
+        var id = Guid.CreateVersion7();
+
+        principal.IssueCode(id, CodePurpose.PasswordReset, "r1", _clock).Value.Id.ShouldBe(id);
+
+        principal.Codes.Single().Id.ShouldBe(id);
+    }
+
+    [Fact]
+    public void RehashPassword_ReplacesTheHash_KeepingSessionsAndRaisingNothing()
+    {
+        var principal = ActiveOwner();
+        principal.OpenSession("t1", SessionSurface.Api, _clock);
+        Events(principal);
+
+        principal.RehashPassword("stronger-hash");
+
+        principal.Owner.PasswordHash.ShouldBe("stronger-hash");
+        principal.Sessions.ShouldHaveSingleItem();
+        Events(principal).ShouldBeEmpty();
     }
 
     private Principal Register() =>

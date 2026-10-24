@@ -92,6 +92,43 @@ public sealed class AttemptLimiterTests(ApiFixture fixture)
             .IsAllowed.ShouldBeTrue();
     }
 
+    [Fact]
+    public async Task Reserve_AParallelBurst_AdmitsExactlyTheLimit()
+    {
+        var key = UniqueKey();
+
+        var decisions = await Task.WhenAll(Enumerable.Range(0, 30)
+            .Select(_ => Limiter.ReserveAsync(ThreePerMinute, key, CancellationToken.None)));
+
+        decisions.Count(d => d.IsAllowed).ShouldBe(3);
+        decisions.Where(d => !d.IsAllowed).ShouldAllBe(d => d.RetryAfter > TimeSpan.Zero);
+        (await Limiter.CheckAsync(ThreePerMinute, key, CancellationToken.None)).Remaining.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Reserve_AtTheLimit_RefusesWithoutCounting_AndReleaseGivesASlotBack()
+    {
+        var key = UniqueKey();
+        for (var i = 0; i < 3; i++)
+            (await Limiter.ReserveAsync(ThreePerMinute, key, CancellationToken.None)).IsAllowed.ShouldBeTrue();
+        (await Limiter.ReserveAsync(ThreePerMinute, key, CancellationToken.None)).IsAllowed.ShouldBeFalse();
+
+        await Limiter.ReleaseAsync(ThreePerMinute, key, CancellationToken.None);
+
+        (await Limiter.CheckAsync(ThreePerMinute, key, CancellationToken.None)).Remaining.ShouldBe(1);
+        (await Limiter.ReserveAsync(ThreePerMinute, key, CancellationToken.None)).IsAllowed.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Release_OfAnUnknownKey_NeverGoesBelowZero()
+    {
+        var key = UniqueKey();
+
+        await Limiter.ReleaseAsync(ThreePerMinute, key, CancellationToken.None);
+
+        (await Limiter.CheckAsync(ThreePerMinute, key, CancellationToken.None)).Remaining.ShouldBe(3);
+    }
+
     private static string UniqueKey() => $"owner-{Ulid()}@example.com";
 
     private static string Ulid() => Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(8)).ToLowerInvariant();

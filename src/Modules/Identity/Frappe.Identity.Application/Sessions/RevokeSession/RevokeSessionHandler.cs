@@ -14,6 +14,8 @@ public static class RevokeSessionHandler
             return Result.Failure(IdentityErrors.SessionNotFound);
 
         var revoked = principal.RevokeSession(command.SessionId);
-        return revoked.IsFailure ? revoked : await principals.SaveChangesAsync(cancellationToken);
+        if (revoked.IsSuccess)
+            await principals.SaveAsync(cancellationToken);
+        return revoked;
     }
 }

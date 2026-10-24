@@ -24,7 +24,7 @@ internal static class OwnerSeeder
         var services = scope.ServiceProvider;
         await services.GetRequiredService<IdentityDbContext>().Database.MigrateAsync();
         var clock = services.GetRequiredService<TimeProvider>();
-        var hash = services.GetRequiredService<IPasswordHasher>().Hash(Password);
+        var hash = await services.GetRequiredService<IPasswordHasher>().HashAsync(Password, CancellationToken.None);
 
         var principal = Principal.RegisterOwner(PersonName.Create("Ana").Value, Email.Create(email).Value, hash, Locale.Parse("en"), clock);
         if (status != OwnerStatus.Pending)

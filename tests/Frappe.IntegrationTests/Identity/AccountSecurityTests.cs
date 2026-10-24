@@ -122,8 +122,8 @@ public sealed class AccountSecurityTests(ApiFixture fixture, AccountSecurityTest
         var stored = await SessionSeeder.LoadAsync(fixture.Host, principal.Id);
         stored.Sessions.Select(x => x.Id).ShouldBe([current.Id]);
         var hasher = fixture.Host.Services.GetRequiredService<IPasswordHasher>();
-        hasher.Verify(NewPassword, stored.Owner.PasswordHash).ShouldBeTrue();
-        hasher.Verify(Password, stored.Owner.PasswordHash).ShouldBeFalse();
+        (await hasher.VerifyAsync(NewPassword, stored.Owner.PasswordHash, CancellationToken.None)).ShouldBeTrue();
+        (await hasher.VerifyAsync(Password, stored.Owner.PasswordHash, CancellationToken.None)).ShouldBeFalse();
         await StepUpAsync(otherToken, NewPassword, 401);
         await StepUpAsync(token, NewPassword, 201);
     }
@@ -139,7 +139,8 @@ public sealed class AccountSecurityTests(ApiFixture fixture, AccountSecurityTest
         (await ErrorCodesAsync(result)).ShouldBe(["identity.password.current_incorrect"]);
         var stored = await SessionSeeder.LoadAsync(fixture.Host, principal.Id);
         stored.Sessions.Count.ShouldBe(2);
-        fixture.Host.Services.GetRequiredService<IPasswordHasher>().Verify(Password, stored.Owner.PasswordHash).ShouldBeTrue();
+        (await fixture.Host.Services.GetRequiredService<IPasswordHasher>()
+            .VerifyAsync(Password, stored.Owner.PasswordHash, CancellationToken.None)).ShouldBeTrue();
     }
 
     [Fact]

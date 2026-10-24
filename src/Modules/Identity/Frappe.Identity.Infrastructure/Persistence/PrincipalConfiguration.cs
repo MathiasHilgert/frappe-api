@@ -14,7 +14,10 @@ namespace Frappe.Identity.Infrastructure.Persistence;
 internal sealed class PrincipalConfiguration : IEntityTypeConfiguration<Principal>
 {
     public const string EmailUniqueIndex = "owner_accounts_email_key";
-    private const string PrincipalIdColumn = "PrincipalId";
+    public const string PrincipalIdColumn = "PrincipalId";
+
+    /// <summary>Shadow concurrency token over PostgreSQL's <c>xmin</c>, so the domain stays free of it.</summary>
+    public const string VersionProperty = "Version";
 
     /// <summary>Generous for any canonical BCP-47 tag the platform could ever serve (RFC 5646 suggests 35).</summary>
     private const int LocaleMaxLength = 35;
@@ -26,6 +29,7 @@ internal sealed class PrincipalConfiguration : IEntityTypeConfiguration<Principa
         builder.Property(p => p.Id).ValueGeneratedNever();
         builder.Property(p => p.Type).HasConversion<SnakeCaseEnumConverter<PrincipalType>>();
         builder.Property(p => p.RegisteredAt);
+        builder.Property<uint>(VersionProperty).IsRowVersion();
 
         builder.OwnsOne(p => p.Owner, ConfigureOwner);
         builder.Navigation(p => p.Owner).IsRequired();

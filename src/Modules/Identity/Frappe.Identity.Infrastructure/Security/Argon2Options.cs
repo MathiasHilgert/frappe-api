@@ -20,4 +20,11 @@ public sealed class Argon2Options
 
     [Range(1, 16)]
     public int Parallelism { get; set; } = 1;
+
+    /// <summary>
+    /// How many hashes may run at once; the rest wait for a slot. Each one holds <see cref="MemorySizeKib"/> and a
+    /// core, so a burst of sign-ins queues instead of exhausting memory and starving the thread pool.
+    /// </summary>
+    [Range(1, 1_024)]
+    public int MaxConcurrentHashes { get; set; } = Environment.ProcessorCount;
 }

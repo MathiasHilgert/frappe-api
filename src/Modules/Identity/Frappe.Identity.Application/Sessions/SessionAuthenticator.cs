@@ -6,7 +6,8 @@ namespace Frappe.Identity.Application.Sessions;
 
 /// <summary>
 /// Resolves an opaque session token to its live session, checking expiry against the clock on every call and
-/// rejecting sessions of suspended owners.
+/// rejecting sessions of suspended owners. Most requests only read a lean credential; the aggregate is loaded and
+/// tracked only when the session is due a touch.
 /// </summary>
 public sealed class SessionAuthenticator(IPrincipalRepository principals, ISecretHasher hasher, TimeProvider clock)
 {
@@ -22,18 +23,31 @@ public sealed class SessionAuthenticator(IPrincipalRepository principals, ISecre
             return null;
 
         var tokenHash = hasher.Hash(token);
-        var principal = await principals.GetBySessionTokenHashAsync(tokenHash, cancellationToken);
-        var session = principal?.Sessions.FirstOrDefault(s => string.Equals(s.TokenHash, tokenHash, StringComparison.Ordinal));
+        var credential = await principals.FindSessionCredentialAsync(tokenHash, cancellationToken);
         // A suspended owner is shut out at once, even through sessions opened before the suspension.
-        if (principal is null || session is null || !session.IsLive(clock) || principal.Owner.Status == OwnerStatus.Suspended)
+        if (credential is null || !credential.Admits(clock))
             return null;
 
-        if (clock.GetUtcNow() - session.LastSeenAt >= TouchInterval
-            && principal.TouchSession(session.Id, clock).IsSuccess)
-        {
-            await principals.SaveChangesAsync(cancellationToken);
-        }
+        if (clock.GetUtcNow() - credential.LastSeenAt >= TouchInterval
+            && !await TouchAsync(credential, tokenHash, cancellationToken))
+            return null;
 
-        return new AuthenticatedSession(principal.Id, session.Id, principal.Type);
+        return new AuthenticatedSession(credential.PrincipalId, credential.SessionId, credential.PrincipalType);
+    }
+
+    /// <summary>
+    /// Best effort: a touch that loses a race (another request changed the principal meanwhile) is skipped, and the
+    /// session is admitted only if a fresh read still admits it, so a revocation racing the touch wins without a 500.
+    /// </summary>
+    private async Task<bool> TouchAsync(SessionCredential credential, string tokenHash, CancellationToken cancellationToken)
+    {
+        var principal = await principals.GetByIdAsync(credential.PrincipalId, cancellationToken);
+        if (principal is null || principal.TouchSession(credential.SessionId, clock).IsFailure)
+            return false;
+        if (await principals.SaveUnlessChangedAsync(cancellationToken))
+            return true;
+
+        var fresh = await principals.FindSessionCredentialAsync(tokenHash, cancellationToken);
+        return fresh is not null && fresh.Admits(clock);
     }
 }

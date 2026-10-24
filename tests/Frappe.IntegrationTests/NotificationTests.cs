@@ -50,7 +50,7 @@ public sealed class NotificationTests(ApiFixture fixture, NotificationTests.Mail
         var (host, mailer) = (mailerHost.Host, mailerHost.Mailer);
         mailer.Clear();
 
-        await host.TrackActivity().Timeout(TimeSpan.FromSeconds(30)).PublishMessageAndWaitAsync(issued);
+        await host.TrackActivity().Timeout(TimeSpan.FromSeconds(30)).PublishMessageAndWaitAsync(Sealed(host, issued));
 
         var mail = mailer.Sent.ShouldHaveSingleItem();
         mail.To.ShouldBe(to);
@@ -60,6 +60,33 @@ public sealed class NotificationTests(ApiFixture fixture, NotificationTests.Mail
         mail.InlineImages.ShouldNotBeEmpty();
     }
 
+    [Fact]
+    public async Task PublishedCodeEvent_CarriesTheCodeSealed_AndTheMailerOpensIt()
+    {
+        var (host, mailer) = (mailerHost.Host, mailerHost.Mailer);
+        mailer.Clear();
+        var issued = (OwnerVerificationCodeIssued)Sealed(host,
+            new OwnerVerificationCodeIssued(Guid.NewGuid(), "Ana", "sealed@example.test", "777777", Expires, "en"));
+
+        await host.TrackActivity().Timeout(TimeSpan.FromSeconds(30)).PublishMessageAndWaitAsync(issued);
+
+        issued.SealedCode.ShouldNotContain("777777");
+        mailer.Sent.ShouldHaveSingleItem().Text.ShouldContain("777777");
+    }
+
+
+    /// <summary>Theory data holds plain codes for readability; identity only ever publishes them sealed.</summary>
+    private static object Sealed(IAlbaHost host, object issued)
+    {
+        var seal = host.Services.GetRequiredService<IOwnerCodeSeal>();
+        return issued switch
+        {
+            OwnerVerificationCodeIssued m => m with { SealedCode = seal.Seal(m.SealedCode) },
+            PasswordResetCodeIssued m => m with { SealedCode = seal.Seal(m.SealedCode) },
+            EmailChangeCodeIssued m => m with { SealedCode = seal.Seal(m.SealedCode) },
+            _ => throw new ArgumentOutOfRangeException(nameof(issued)),
+        };
+    }
     [Fact]
     public void Development_WithoutAResendKey_LogsMailInsteadOfSendingIt()
     {
@@ -75,7 +102,7 @@ public sealed class NotificationTests(ApiFixture fixture, NotificationTests.Mail
         await using var host = await fixture.CreateHostAsync(services => services.AddSingleton<ILoggerProvider>(logs));
 
         await host.TrackActivity().Timeout(TimeSpan.FromSeconds(30))
-            .PublishMessageAndWaitAsync(new OwnerVerificationCodeIssued(Guid.NewGuid(), "Ana", "log@example.test", "444444", Expires));
+            .PublishMessageAndWaitAsync(Sealed(host, new OwnerVerificationCodeIssued(Guid.NewGuid(), "Ana", "log@example.test", "444444", Expires)));
 
         var line = logs.Messages.Where(m => m.StartsWith("Mail to log@example.test", StringComparison.Ordinal)).ShouldHaveSingleItem();
         line.ShouldContain("Your Frappé code: 444444");

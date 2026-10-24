@@ -7,42 +7,41 @@ namespace Frappe.Identity.Tests.Security;
 public sealed class Argon2PasswordHasherTests
 {
     // The smallest cost the options accept keeps the tests fast; production uses the OWASP defaults.
-    private static readonly Argon2PasswordHasher Hasher = new(Options.Create(new Argon2Options
-    {
-        MemorySizeKib = Argon2Options.MinimumMemorySizeKib,
-        Iterations = Argon2Options.MinimumIterations,
-        Parallelism = 1,
-    }));
+    private static readonly Argon2PasswordHasher Hasher = Create();
+
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
-    public void Hash_ProducesAnArgon2idPhcString()
+    public async Task Hash_ProducesAnArgon2idPhcString()
     {
-        var hash = Hasher.Hash("correct horse battery");
+        var hash = await Hasher.HashAsync("correct horse battery", Ct);
 
         hash.ShouldStartWith("$argon2id$v=19$m=19456,t=2,p=1$");
         hash.ShouldNotContain("correct horse battery");
     }
 
     [Fact]
-    public void Hash_SaltsEveryCall()
+    public async Task Hash_SaltsEveryCall()
     {
-        Hasher.Hash("correct horse battery").ShouldNotBe(Hasher.Hash("correct horse battery"), StringComparer.Ordinal);
+        var first = await Hasher.HashAsync("correct horse battery", Ct);
+
+        first.ShouldNotBe(await Hasher.HashAsync("correct horse battery", Ct), StringComparer.Ordinal);
     }
 
     [Fact]
-    public void Verify_AcceptsTheSamePassword()
+    public async Task Verify_AcceptsTheSamePassword()
     {
-        var hash = Hasher.Hash("correct horse battery");
+        var hash = await Hasher.HashAsync("correct horse battery", Ct);
 
-        Hasher.Verify("correct horse battery", hash).ShouldBeTrue();
+        (await Hasher.VerifyAsync("correct horse battery", hash, Ct)).ShouldBeTrue();
     }
 
     [Fact]
-    public void Verify_RejectsAnotherPassword()
+    public async Task Verify_RejectsAnotherPassword()
     {
-        var hash = Hasher.Hash("correct horse battery");
+        var hash = await Hasher.HashAsync("correct horse battery", Ct);
 
-        Hasher.Verify("Correct horse battery", hash).ShouldBeFalse();
+        (await Hasher.VerifyAsync("Correct horse battery", hash, Ct)).ShouldBeFalse();
     }
 
     [Theory]
@@ -50,9 +49,9 @@ public sealed class Argon2PasswordHasherTests
     [InlineData("not-a-hash")]
     [InlineData("$argon2i$v=19$m=19456,t=2,p=1$c2FsdHNhbHRzYWx0c2FsdA$aGFzaA")]
     [InlineData("$argon2id$v=19$m=x,t=2,p=1$c2FsdHNhbHRzYWx0c2FsdA$aGFzaA")]
-    public void Verify_RejectsAMalformedHash(string hash)
+    public async Task Verify_RejectsAMalformedHash(string hash)
     {
-        Hasher.Verify("correct horse battery", hash).ShouldBeFalse();
+        (await Hasher.VerifyAsync("correct horse battery", hash, Ct)).ShouldBeFalse();
     }
 
     [Theory]
@@ -68,8 +67,49 @@ public sealed class Argon2PasswordHasherTests
     }
 
     [Fact]
+    public async Task NeedsRehash_OnlyForAHashWeakerThanTheCurrentCost()
+    {
+        var current = await Hasher.HashAsync("correct horse battery", Ct);
+        using var stronger = Create(iterations: Argon2Options.MinimumIterations + 1);
+
+        Hasher.NeedsRehash(current).ShouldBeFalse();
+        stronger.NeedsRehash(current).ShouldBeTrue();
+        Hasher.NeedsRehash("not-a-hash").ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task ConcurrentCalls_BeyondTheBound_WaitForASlotAndAllComplete()
+    {
+        using var single = Create(maxConcurrentHashes: 1);
+
+        var hashes = await Task.WhenAll(Enumerable.Range(0, 4)
+            .Select(_ => single.HashAsync("correct horse battery", Ct)));
+
+        foreach (var hash in hashes)
+            (await single.VerifyAsync("correct horse battery", hash, Ct)).ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1_025)]
+    public void Options_WithAnOutOfRangeConcurrencyBound_AreInvalid(int maxConcurrentHashes)
+    {
+        new Argon2OptionsValidator().Validate(null, new Argon2Options { MaxConcurrentHashes = maxConcurrentHashes })
+            .Failed.ShouldBeTrue();
+    }
+
+    [Fact]
     public void Options_Defaults_AreValid()
     {
         new Argon2OptionsValidator().Validate(null, new Argon2Options()).Succeeded.ShouldBeTrue();
     }
+
+    private static Argon2PasswordHasher Create(int iterations = Argon2Options.MinimumIterations, int maxConcurrentHashes = 4) =>
+        new(Options.Create(new Argon2Options
+        {
+            MemorySizeKib = Argon2Options.MinimumMemorySizeKib,
+            Iterations = iterations,
+            Parallelism = 1,
+            MaxConcurrentHashes = maxConcurrentHashes,
+        }));
 }

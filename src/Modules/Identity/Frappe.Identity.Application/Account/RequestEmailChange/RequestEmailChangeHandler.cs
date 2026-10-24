@@ -22,6 +22,7 @@ public static class RequestEmailChangeHandler
         IPrincipalRepository principals,
         ISecretGenerator generator,
         ISecretHasher hasher,
+        IOwnerCodeSeal seal,
         IAttemptLimiter limiter,
         TimeProvider clock,
         IMessageContext messages,
@@ -47,12 +48,10 @@ public static class RequestEmailChangeHandler
         if (issued.IsFailure)
             return Result.Failure<Guid>(issued.Errors[0]);
 
-        var saved = await principals.SaveChangesAsync(cancellationToken);
-        if (saved.IsFailure)
-            return Result.Failure<Guid>(saved.Errors[0]);
+        await principals.SaveAsync(cancellationToken);
 
         await messages.PublishAsync(new EmailChangeCodeIssued(
-            issued.Value.Id, principal.Id, principal.Owner.Name.Value, email.Value.Value, code, issued.Value.ExpiresAt,
+            issued.Value.Id, principal.Id, principal.Owner.Name.Value, email.Value.Value, seal.Seal(code), issued.Value.ExpiresAt,
             principal.Owner.Locale.Value));
         return Result.Success(issued.Value.Id);
     }
