@@ -1,7 +1,8 @@
 using System.Net;
 using System.Text.Json;
+using Frappe.Notification.Application;
 using Frappe.Notification.Domain;
-using Frappe.Notification.Infrastructure;
+using Frappe.Notification.Infrastructure.Resend;
 using Microsoft.Extensions.Options;
 using Shouldly;
 
@@ -49,24 +50,83 @@ public sealed class ResendMailerTests
         attachment.GetProperty("content_id").GetString().ShouldBe("logo");
     }
 
+    [Fact]
+    public async Task SendAsync_SendsAStableIdempotencyKey_SoARetryAfterATimeoutDoesNotSendTwice()
+    {
+        var first = new RecordingHandler(HttpStatusCode.OK);
+        var retry = new RecordingHandler(HttpStatusCode.OK);
+        var other = new RecordingHandler(HttpStatusCode.OK);
+
+        await Create(first).SendAsync(Mail, TestContext.Current.CancellationToken);
+        await Create(retry).SendAsync(Mail with { }, TestContext.Current.CancellationToken);
+        await Create(other).SendAsync(new Mail("owner@example.test", "654321 is your code", "Your code is 654321."),
+            TestContext.Current.CancellationToken);
+
+        var key = first.Request!.Headers.GetValues("Idempotency-Key").ShouldHaveSingleItem();
+        key.Length.ShouldBeInRange(1, 256);
+        retry.Request!.Headers.GetValues("Idempotency-Key").ShouldHaveSingleItem().ShouldBe(key);
+        string.Equals(other.Request!.Headers.GetValues("Idempotency-Key").ShouldHaveSingleItem(), key, StringComparison.Ordinal).ShouldBeFalse();
+    }
+
     [Theory]
+    [InlineData(HttpStatusCode.BadRequest)]
     [InlineData(HttpStatusCode.Unauthorized)]
-    [InlineData(HttpStatusCode.TooManyRequests)]
-    [InlineData(HttpStatusCode.InternalServerError)]
-    public async Task SendAsync_ThrowsWhenResendRejects_SoTheQueueRetries(HttpStatusCode status)
+    [InlineData(HttpStatusCode.Forbidden)]
+    [InlineData(HttpStatusCode.UnprocessableEntity)]
+    public async Task SendAsync_ThrowsMailRejected_OnAClientError_SoItIsDeadLetteredWithoutRetries(HttpStatusCode status)
     {
         var mailer = Create(new RecordingHandler(status));
 
-        var error = await Should.ThrowAsync<HttpRequestException>(() => mailer.SendAsync(Mail, TestContext.Current.CancellationToken));
+        var error = await Should.ThrowAsync<MailRejectedException>(() => mailer.SendAsync(Mail, TestContext.Current.CancellationToken));
 
         error.StatusCode.ShouldBe(status);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.TooManyRequests)]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    [InlineData(HttpStatusCode.BadGateway)]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    public async Task SendAsync_ThrowsMailDeliveryFailed_OnThrottlingOrAServerError_SoTheQueueRetries(HttpStatusCode status)
+    {
+        var mailer = Create(new RecordingHandler(status));
+
+        var error = await Should.ThrowAsync<MailDeliveryFailedException>(() => mailer.SendAsync(Mail, TestContext.Current.CancellationToken));
+
+        error.StatusCode.ShouldBe(status);
+    }
+
+    [Fact]
+    public async Task SendAsync_ThrowsMailDeliveryFailed_OnATimeout()
+    {
+        var mailer = Create(new RecordingHandler(HttpStatusCode.OK, new TaskCanceledException("timeout", new TimeoutException())));
+
+        await Should.ThrowAsync<MailDeliveryFailedException>(() => mailer.SendAsync(Mail, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task SendAsync_ThrowsMailDeliveryFailed_OnANetworkFailure()
+    {
+        var mailer = Create(new RecordingHandler(HttpStatusCode.OK, new HttpRequestException("connection refused")));
+
+        await Should.ThrowAsync<MailDeliveryFailedException>(() => mailer.SendAsync(Mail, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task SendAsync_LetsCancellationThrough_WhenTheCallerCancels()
+    {
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+        var mailer = Create(new RecordingHandler(HttpStatusCode.OK, new TaskCanceledException()));
+
+        await Should.ThrowAsync<OperationCanceledException>(() => mailer.SendAsync(Mail, cancellation.Token));
     }
 
     private static ResendMailer Create(RecordingHandler handler) =>
         new(new HttpClient(handler) { BaseAddress = new Uri("https://api.resend.test/") },
             Options.Create(new ResendOptions { ApiKey = "re_test_key", From = "Frappé <no-reply@example.test>" }));
 
-    private sealed class RecordingHandler(HttpStatusCode status) : HttpMessageHandler
+    private sealed class RecordingHandler(HttpStatusCode status, Exception? failure = null) : HttpMessageHandler
     {
         public HttpRequestMessage? Request { get; private set; }
 
@@ -76,6 +136,8 @@ public sealed class ResendMailerTests
         {
             Request = request;
             Body = await request.Content!.ReadAsStringAsync(cancellationToken);
+            if (failure is not null)
+                throw failure;
             return new HttpResponseMessage(status);
         }
     }

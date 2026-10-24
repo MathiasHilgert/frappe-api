@@ -3,12 +3,14 @@ using Frappe.Modularity;
 using Frappe.Notification.Application;
 using Frappe.Notification.Contracts;
 using Frappe.Notification.Infrastructure.Mails;
+using Frappe.Notification.Infrastructure.Resend;
 using Frappe.Platform.Localization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Wolverine;
+using Wolverine.ErrorHandling;
 
 namespace Frappe.Notification.Infrastructure;
 
@@ -51,5 +53,13 @@ public sealed class NotificationModule : IModule
         // and the mail composer depends on the platform's internal catalogue.
         options.CodeGeneration.AlwaysUseServiceLocationFor<IMailer>();
         options.CodeGeneration.AlwaysUseServiceLocationFor<IOwnerCodeMails>();
+
+        // Only the mailer throws these, so the rules apply to the notification handlers alone. A rejected mail can
+        // never succeed: straight to the dead-letter queue. A failed delivery backs off, then dead-letters.
+        options.Policies.OnException<MailRejectedException>().MoveToErrorQueue();
+        options.Policies.OnException<MailDeliveryFailedException>()
+            .RetryWithCooldown(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(5))
+            .Then.ScheduleRetry(TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(10))
+            .Then.MoveToErrorQueue();
     }
 }
