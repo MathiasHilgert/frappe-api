@@ -96,7 +96,7 @@ public sealed class NotificationTests(ApiFixture fixture, NotificationTests.Mail
     }
 
     [Fact]
-    public async Task Development_LogsThePublishedMail()
+    public async Task Development_LogsThePublishedMail_WithoutTheCodeOrTheRecipient()
     {
         var logs = new CapturingLoggerProvider();
         await using var host = await fixture.CreateHostAsync(services => services.AddSingleton<ILoggerProvider>(logs));
@@ -104,8 +104,9 @@ public sealed class NotificationTests(ApiFixture fixture, NotificationTests.Mail
         await host.TrackActivity().Timeout(TimeSpan.FromSeconds(30))
             .PublishMessageAndWaitAsync(Sealed(host, new OwnerVerificationCodeIssued(Guid.NewGuid(), "Ana", "log@example.test", "444444", Expires)));
 
-        var line = logs.Messages.Where(m => m.StartsWith("Mail to log@example.test", StringComparison.Ordinal)).ShouldHaveSingleItem();
-        line.ShouldContain("Your Frappé code: 444444");
+        var line = logs.Messages.Where(m => m.StartsWith("Mail to *@example.test", StringComparison.Ordinal)).ShouldHaveSingleItem();
+        line.ShouldContain("text+html");
+        logs.Messages.ShouldAllBe(m => !m.Contains("444444", StringComparison.Ordinal) && !m.Contains("log@example.test", StringComparison.Ordinal));
         TestContext.Current.SendDiagnosticMessage(line);
     }
 
