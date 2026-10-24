@@ -3,6 +3,8 @@ namespace Frappe.SharedKernel.Validation;
 /// <summary>
 /// A broken rule. <see cref="Code"/> is stable and machine-readable and doubles as the message catalogue key;
 /// <see cref="Message"/> is the English fallback; <see cref="Field"/> points at the offending input when there is one.
+/// Two errors are equal when their <see cref="Code"/> is: the code names the rule, while the message, field, kind and the
+/// occurrence details (<see cref="RetryAfter"/>, <see cref="Metadata"/>) describe one breach of it.
 /// </summary>
 public sealed record Error(string Code, string Message, string? Field = null, ErrorKind Kind = ErrorKind.Validation)
 {
@@ -24,4 +26,8 @@ public sealed record Error(string Code, string Message, string? Field = null, Er
                 [key] = value,
             },
         };
+
+    public bool Equals(Error? other) => other is not null && string.Equals(Code, other.Code, StringComparison.Ordinal);
+
+    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Code);
 }

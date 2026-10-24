@@ -117,6 +117,10 @@ public sealed class OwnerRegistrationTests(ApiFixture fixture) : IAsyncLifetime
         var result = await PostRegister(new { name = "Ana", email, password = ValidPassword }, UniqueIp(), 429);
 
         RetryAfterSeconds(result).ShouldBeInRange(1, 3600);
+        // The same problem shape as every other throttled command answered through ToProblem.
+        var body = await result.ReadAsTextAsync();
+        body.ShouldContain("\"type\":\"urn:frappe:problem:identity.attempts.too_many\"");
+        body.ShouldContain("\"code\":\"identity.attempts.too_many\"");
     }
 
     [Fact]

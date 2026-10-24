@@ -33,5 +33,6 @@ public sealed class CqrsRulesFailureTests
         [
             $"{typeof(RenameWidgetHandler).FullName}.Handle({nameof(RenameWidget)})",
             $"{typeof(ArchiveWidgetHandler).FullName}.Handle({nameof(ArchiveWidget)})",
+            $"{typeof(ReindexWidgetsHandler).FullName}.Handle({nameof(ReindexWidgets)})",
         ], ignoreOrder: true);
 }
