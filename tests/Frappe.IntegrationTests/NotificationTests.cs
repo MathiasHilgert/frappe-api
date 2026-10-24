@@ -1,7 +1,8 @@
 using Alba;
+using Frappe.Application.Abstractions.Messaging;
 using Frappe.Identity.Contracts;
 using Frappe.Identity.Contracts.PasswordResets;
-using Frappe.Notification.Application;
+using Frappe.Notification.Application.Mails;
 using Frappe.Notification.Domain;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -78,7 +79,7 @@ public sealed class NotificationTests(ApiFixture fixture, NotificationTests.Mail
     /// <summary>Theory data holds plain codes for readability; identity only ever publishes them sealed.</summary>
     private static object Sealed(IAlbaHost host, object issued)
     {
-        var seal = host.Services.GetRequiredService<IOwnerCodeSeal>();
+        var seal = host.Services.GetRequiredService<IMessageSeal>();
         return issued switch
         {
             OwnerVerificationCodeIssued m => m with { SealedCode = seal.Seal(m.SealedCode) },
@@ -111,17 +112,70 @@ public sealed class NotificationTests(ApiFixture fixture, NotificationTests.Mail
     }
 
     [Fact]
-    public async Task Production_UsesResend()
+    public async Task Production_UsesResend_WithAShortPerAttemptTimeout()
     {
         await using var host = await fixture.CreateHostAsync(environment: "Production");
         using var scope = host.Services.CreateScope();
 
         scope.ServiceProvider.GetRequiredService<IMailer>().GetType().Name.ShouldBe("ResendMailer");
+        host.Services.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(IMailer)).Timeout
+            .ShouldBe(TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public async Task Production_WithoutAResendKey_RefusesToStart()
+    {
+        var error = await Should.ThrowAsync<Exception>(() => fixture.CreateHostAsync(
+            environment: "Production", configureSettings: s => s["Notification:Resend:ApiKey"] = string.Empty));
+
+        error.ToString().ShouldContain("'Notification:Resend:ApiKey' is required outside Development.");
+    }
+
+    [Fact]
+    public async Task EveryDelivery_UsesItsMessageIdAsTheIdempotencyKey_TheSameAcrossRetries()
+    {
+        var mailer = new CapturingMailer { FailFirstAttempts = 1 };
+        await using var host = await fixture.CreateHostAsync(services => services.Replace(ServiceDescriptor.Singleton<IMailer>(mailer)));
+
+        var tracked = await host.TrackActivity().Timeout(TimeSpan.FromSeconds(30)).DoNotAssertOnExceptionsDetected()
+            .PublishMessageAndWaitAsync(Sealed(host, new OwnerVerificationCodeIssued(Guid.NewGuid(), "Ana", "retry@example.test", "888888", Expires)));
+
+        var envelope = tracked.Sent.Envelopes().Single(e => e.Message is OwnerVerificationCodeIssued);
+        mailer.Keys.Count.ShouldBe(2);
+        mailer.Keys.ShouldAllBe(k => k == MailDelivery.KeyFor(envelope.Id));
+    }
+
+    [Fact]
+    public async Task ARejectedMail_IsDeadLettered_AndCounted()
+    {
+        var mailer = new CapturingMailer { Reject = true };
+        await using var host = await fixture.CreateHostAsync(services => services.Replace(ServiceDescriptor.Singleton<IMailer>(mailer)));
+        using var deadLettered = new MeterCounter("Frappe.Notification", "frappe.notification.mail.dead_lettered");
+
+        var tracked = await host.TrackActivity().Timeout(TimeSpan.FromSeconds(30)).DoNotAssertOnExceptionsDetected()
+            .PublishMessageAndWaitAsync(Sealed(host, new OwnerVerificationCodeIssued(Guid.NewGuid(), "Ana", "bad@example.test", "999999", Expires)));
+
+        tracked.MovedToErrorQueue.SingleMessage<OwnerVerificationCodeIssued>().Email.ShouldBe("bad@example.test");
+        deadLettered.Total.ShouldBeGreaterThanOrEqualTo(1);
     }
 
     internal sealed class CapturingMailer : IMailer
     {
         private readonly List<Mail> _sent = [];
+        private readonly List<string> _keys = [];
+
+        public int FailFirstAttempts { get; set; }
+
+        public bool Reject { get; set; }
+
+        public IReadOnlyList<string> Keys
+        {
+            get
+            {
+                lock (_sent)
+                    return [.. _keys];
+            }
+        }
 
         public void Clear()
         {
@@ -138,10 +192,17 @@ public sealed class NotificationTests(ApiFixture fixture, NotificationTests.Mail
             }
         }
 
-        public Task SendAsync(Mail mail, CancellationToken cancellationToken)
+        public Task SendAsync(Mail mail, string idempotencyKey, CancellationToken cancellationToken)
         {
             lock (_sent)
+            {
+                _keys.Add(idempotencyKey);
+                if (Reject)
+                    throw new MailRejectedException(System.Net.HttpStatusCode.UnprocessableEntity);
+                if (FailFirstAttempts-- > 0)
+                    throw new MailDeliveryFailedException("Resend is down.", null);
                 _sent.Add(mail);
+            }
             return Task.CompletedTask;
         }
     }

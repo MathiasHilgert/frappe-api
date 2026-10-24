@@ -26,7 +26,7 @@ internal static class PlatformComposition
             options.ValidateScopes = true;
         });
 
-        builder.AddObservability();
+        builder.AddObservability(modules);
 
         services.AddPlatformLocalization(configuration);
         services.AddTrustedForwardedHeaders(configuration);

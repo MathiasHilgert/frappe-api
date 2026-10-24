@@ -1,4 +1,4 @@
-using Frappe.Notification.Application;
+using Frappe.Notification.Application.Mails;
 using Frappe.Notification.Infrastructure;
 using Shouldly;
 using Wolverine;

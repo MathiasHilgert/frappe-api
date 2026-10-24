@@ -1,3 +1,4 @@
+using Frappe.Application.Abstractions.Messaging;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Security;
 using Frappe.Identity.Contracts;
@@ -22,7 +23,7 @@ public static class RequestEmailChangeHandler
         IPrincipalRepository principals,
         ISecretGenerator generator,
         ISecretHasher hasher,
-        IOwnerCodeSeal seal,
+        IMessageSeal seal,
         IAttemptLimiter limiter,
         TimeProvider clock,
         IMessageContext messages,

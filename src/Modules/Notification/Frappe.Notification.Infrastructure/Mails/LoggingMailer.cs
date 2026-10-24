@@ -1,9 +1,9 @@
 using System.Text.RegularExpressions;
-using Frappe.Notification.Application;
+using Frappe.Notification.Application.Mails;
 using Frappe.Notification.Domain;
 using Microsoft.Extensions.Logging;
 
-namespace Frappe.Notification.Infrastructure;
+namespace Frappe.Notification.Infrastructure.Mails;
 
 /// <summary>
 /// Development and test stand-in for a provider: logs that a mail was sent, never what it says. The recipient is reduced
@@ -11,7 +11,7 @@ namespace Frappe.Notification.Infrastructure;
 /// </summary>
 internal sealed partial class LoggingMailer(ILogger<LoggingMailer> logger) : IMailer
 {
-    public Task SendAsync(Mail mail, CancellationToken cancellationToken)
+    public Task SendAsync(Mail mail, string idempotencyKey, CancellationToken cancellationToken)
     {
         if (logger.IsEnabled(LogLevel.Information))
         {

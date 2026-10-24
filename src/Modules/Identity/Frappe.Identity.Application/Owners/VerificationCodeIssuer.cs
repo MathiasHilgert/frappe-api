@@ -1,3 +1,4 @@
+using Frappe.Application.Abstractions.Messaging;
 using Frappe.Identity.Application.Security;
 using Frappe.Identity.Contracts;
 using Frappe.Identity.Domain.Principals;
@@ -8,7 +9,7 @@ namespace Frappe.Identity.Application.Owners;
 /// <summary>
 /// Issues a fresh email-verification code: the principal keeps its hash, the message carries it sealed to the mailer.
 /// </summary>
-public sealed class VerificationCodeIssuer(ISecretGenerator generator, ISecretHasher hasher, IOwnerCodeSeal seal, TimeProvider clock)
+public sealed class VerificationCodeIssuer(ISecretGenerator generator, ISecretHasher hasher, IMessageSeal seal, TimeProvider clock)
 {
     public Result<OwnerVerificationCodeIssued> Issue(Principal principal)
     {

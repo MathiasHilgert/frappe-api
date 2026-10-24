@@ -1,6 +1,6 @@
 using Frappe.Notification.Domain;
 
-namespace Frappe.Notification.Application;
+namespace Frappe.Notification.Application.OwnerCodeMails;
 
 /// <summary>Writes a code mail in the owner's language.</summary>
 public interface IOwnerCodeMails

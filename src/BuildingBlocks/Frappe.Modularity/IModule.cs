@@ -18,6 +18,12 @@ public interface IModule
     /// </summary>
     IReadOnlyList<Assembly> MessagingAssemblies { get; }
 
+    /// <summary>
+    /// Names of the meters the module publishes. The host exports them, so it never references a module's internals
+    /// to wire observability.
+    /// </summary>
+    IReadOnlyList<string> Meters => [];
+
     void AddServices(IServiceCollection services, IConfiguration configuration);
 
     /// <summary>Module-specific routing, queues and retry policies.</summary>

@@ -1,9 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Security.Cryptography;
-using System.Text;
-using Frappe.Notification.Application;
+using Frappe.Notification.Application.Mails;
 using Frappe.Notification.Domain;
 using Microsoft.Extensions.Options;
 
@@ -15,7 +13,7 @@ namespace Frappe.Notification.Infrastructure.Resend;
 /// </summary>
 internal sealed class ResendMailer(HttpClient http, IOptions<ResendOptions> options) : IMailer
 {
-    public async Task SendAsync(Mail mail, CancellationToken cancellationToken)
+    public async Task SendAsync(Mail mail, string idempotencyKey, CancellationToken cancellationToken)
     {
         var settings = options.Value;
         using var request = new HttpRequestMessage(HttpMethod.Post, "emails")
@@ -24,7 +22,7 @@ internal sealed class ResendMailer(HttpClient http, IOptions<ResendOptions> opti
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", settings.ApiKey);
         // Resend drops a repeat of the same key for 24 hours, so a retry after a timeout cannot send the code twice.
-        request.Headers.Add("Idempotency-Key", IdempotencyKey(mail));
+        request.Headers.Add("Idempotency-Key", idempotencyKey);
 
         HttpResponseMessage response;
         try
@@ -59,11 +57,4 @@ internal sealed class ResendMailer(HttpClient http, IOptions<ResendOptions> opti
             ? null
             : [.. mail.InlineImages.Select(i =>
                 new ResendAttachment(i.FileName, Convert.ToBase64String(i.Content.Span), i.ContentType, i.ContentId))]);
-
-    // The mail carries its one-time code, so its content is unique per message yet identical across retries.
-    private static string IdempotencyKey(Mail mail)
-    {
-        var content = string.Join('\n', mail.To, mail.Subject, mail.Text, mail.Html ?? string.Empty);
-        return "mail-" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(content)));
-    }
 }

@@ -7,6 +7,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Frappe.SharedKernel\Frappe.SharedKernel.csproj" />
     <ProjectReference Include="..\Frappe.Modularity\Frappe.Modularity.csproj" />
+    <ProjectReference Include="..\Frappe.Application.Abstractions\Frappe.Application.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

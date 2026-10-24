@@ -1,5 +1,7 @@
+using Frappe.Application.Abstractions.Messaging;
 using Frappe.Modularity;
 using Frappe.Platform.Messaging.Jobs;
+using Frappe.Platform.Messaging.Sealing;
 using Frappe.SharedKernel.Domain;
 using JasperFx;
 using JasperFx.CodeGeneration;
@@ -7,6 +9,7 @@ using JasperFx.Resources;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Quartz;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
@@ -32,6 +35,10 @@ public static class MessagingRegistration
         System.Reflection.Assembly applicationAssembly,
         params IReadOnlyList<System.Reflection.Assembly> platformMessagingAssemblies)
     {
+        builder.Services.AddSingleton<IValidateOptions<MessageSealOptions>, MessageSealOptionsValidator>();
+        builder.Services.AddOptions<MessageSealOptions>().BindConfiguration(MessageSealOptions.SectionName).ValidateOnStart();
+        builder.Services.AddSingleton<IMessageSeal, AesGcmMessageSeal>();
+
         builder.UseWolverine(opts =>
         {
             // Handler code is generated ahead of time (`just codegen`) and compiled into the host. Development

@@ -33,6 +33,8 @@ public sealed class IdentityModule : IModule
     public IReadOnlyList<Assembly> MessagingAssemblies { get; } =
         [typeof(IdentityApplicationMarker).Assembly, typeof(IdentityContractsMarker).Assembly];
 
+    public IReadOnlyList<string> Meters { get; } = [IdentityMetrics.MeterName];
+
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddModuleDbContext<IdentityDbContext>(Schema);
@@ -55,7 +57,6 @@ public sealed class IdentityModule : IModule
         services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
         services.AddSingleton<ISecretHasher, HmacSecretHasher>();
         services.AddSingleton<ISecretGenerator, RandomSecretGenerator>();
-        services.AddSingleton<IOwnerCodeSeal, AesGcmOwnerCodeSeal>();
         services.AddSingleton<DecoyPassword>();
 
         services.AddSessionAuthentication(configuration);
