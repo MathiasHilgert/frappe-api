@@ -8,5 +8,7 @@
   "platform.problem.403": "You are not allowed to do this.",
   "platform.problem.500": "Something went wrong on our side.",
   "platform.problem.503": "The service is temporarily unavailable.",
-  "locale.invalid": "The locale must be a valid BCP-47 language tag, e.g. es-AR."
+  "locale.invalid": "The locale must be a valid BCP-47 language tag, e.g. es-AR.",
+  "platform.auth.required": "Authentication is required.",
+  "platform.auth.forbidden": "You are not allowed to do this."
 }

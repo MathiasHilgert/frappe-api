@@ -8,5 +8,7 @@
   "platform.problem.403": "Você não tem permissão para fazer isso.",
   "platform.problem.500": "Algo deu errado do nosso lado.",
   "platform.problem.503": "O serviço está temporariamente indisponível.",
-  "locale.invalid": "O idioma precisa ser uma etiqueta BCP-47 válida, por exemplo pt-BR."
+  "locale.invalid": "O idioma precisa ser uma etiqueta BCP-47 válida, por exemplo pt-BR.",
+  "platform.auth.required": "É preciso entrar na sua conta.",
+  "platform.auth.forbidden": "Você não tem permissão para fazer isso."
 }

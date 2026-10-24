@@ -239,7 +239,8 @@ Failures are RFC 9457 problems. `result.ToProblem()` picks the status from `Erro
 `errors[].message` by error code. A code with no catalogue entry falls back to `Error.Message`, in English. One error
 also sets `detail` (same text) and `code`, and every `Error.Metadata` entry becomes a top-level member (e.g. `ownerId`
 on a pending owner's login; the keys live in the module's Contracts, `IdentityErrorMetadata`). Endpoints never shape
-a problem themselves: give the error the right `Kind` instead.
+a problem themselves: give the error the right `Kind` instead. A 401/403 from authorization (challenge or forbid)
+answers the same shape with `platform.auth.required` or `platform.auth.forbidden` (`PlatformErrors`).
 
 A module adds strings as flat ICU MessageFormat catalogues, one file per locale, keyed by error code or a
 module-prefixed key:

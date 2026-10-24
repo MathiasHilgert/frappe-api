@@ -8,5 +8,7 @@
   "platform.problem.403": "No tienes permiso para hacer esto.",
   "platform.problem.500": "Algo salió mal de nuestro lado.",
   "platform.problem.503": "El servicio no está disponible por el momento.",
-  "locale.invalid": "El idioma debe ser una etiqueta BCP-47 válida, por ejemplo es-MX."
+  "locale.invalid": "El idioma debe ser una etiqueta BCP-47 válida, por ejemplo es-MX.",
+  "platform.auth.required": "Necesitas iniciar sesión.",
+  "platform.auth.forbidden": "No tienes permiso para hacer esto."
 }
