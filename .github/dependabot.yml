@@ -1,0 +1,32 @@
+version: 2
+
+# One grouped pull request per ecosystem per week, titled as a Conventional Commit.
+# The cooldown lets a new release age a week before it is proposed.
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    labels: [dependencies]
+    groups:
+      nuget:
+        patterns: ["*"]
+    commit-message:
+      prefix: build
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    labels: [dependencies]
+    groups:
+      github-actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
+      include: scope
