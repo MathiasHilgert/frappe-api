@@ -1,0 +1,80 @@
+# Every label the repository uses. The Triage workflow syncs this file to GitHub on main.
+
+# Kind: from the Conventional Commit type in the pull request title.
+- name: kind/feature
+  color: "1d76db"
+  description: "A new capability (feat)"
+- name: kind/fix
+  color: "d73a4a"
+  description: "A bug fix (fix)"
+- name: kind/refactor
+  color: "5319e7"
+  description: "Restructures code without changing behavior (refactor)"
+- name: kind/perf
+  color: "fbca04"
+  description: "Improves performance (perf)"
+- name: kind/docs
+  color: "0075ca"
+  description: "Documentation only (docs)"
+- name: kind/test
+  color: "bfd4f2"
+  description: "Adds or fixes tests (test)"
+- name: kind/build
+  color: "c5def5"
+  description: "Build system, tooling or dependencies (build)"
+- name: kind/ci
+  color: "c5def5"
+  description: "CI configuration and workflows (ci)"
+- name: kind/chore
+  color: "ededed"
+  description: "Maintenance that fits no other kind (chore)"
+- name: kind/style
+  color: "ededed"
+  description: "Formatting or style with no behavior change (style)"
+- name: kind/revert
+  color: "ededed"
+  description: "Reverts an earlier change (revert)"
+- name: breaking-change
+  color: "b60205"
+  description: "The title marks a breaking change with !"
+
+# Area: cross-cutting paths.
+- name: area/kernel
+  color: "0e8a16"
+  description: "Touches src/Frappe.Kernel"
+- name: area/platform
+  color: "0e8a16"
+  description: "Touches src/Frappe.Platform"
+- name: area/host
+  color: "0e8a16"
+  description: "Touches src/Frappe.Host"
+- name: area/build
+  color: "0e8a16"
+  description: "Touches root build files or eng/"
+- name: area/ci
+  color: "0e8a16"
+  description: "Touches .github/ or the justfile"
+- name: area/docs
+  color: "0e8a16"
+  description: "Touches the README, the license or root Markdown files"
+
+# Size: changed lines, lock files excluded.
+- name: size/XS
+  color: "ededed"
+  description: "Up to 10 changed lines"
+- name: size/S
+  color: "d4c5f9"
+  description: "Up to 100 changed lines"
+- name: size/M
+  color: "bfdadc"
+  description: "Up to 500 changed lines"
+- name: size/L
+  color: "f9d0c4"
+  description: "Up to 1000 changed lines"
+- name: size/XL
+  color: "e99695"
+  description: "More than 1000 changed lines; consider splitting"
+
+- name: dependencies
+  color: "0366d6"
+  description: "Dependency updates (Dependabot)"
