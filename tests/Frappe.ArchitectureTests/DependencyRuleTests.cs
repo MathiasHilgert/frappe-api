@@ -31,8 +31,6 @@ public sealed class DependencyRuleTests
             .ResideInAssembly(_kernel)
             .Should()
             .NotDependOnAny(Types().That().ResideInNamespaceMatching(forbiddenNamespace))
-            // shortcut: the Kernel has no types yet, so the rule may match nothing; drop this once it does.
-            .WithoutRequiringPositiveResults()
             .Check(_architecture);
     }
 
@@ -44,8 +42,6 @@ public sealed class DependencyRuleTests
             .ResideInAssembly(_kernel)
             .Should()
             .NotDependOnAny(Types().That().ResideInAssembly(_platform).Or().ResideInAssembly(_host))
-            // shortcut: the Kernel has no types yet, so the rule may match nothing; drop this once it does.
-            .WithoutRequiringPositiveResults()
             .Check(_architecture);
     }
 

@@ -2,7 +2,7 @@ P:System.DateTime.Now;Time comes from the NodaTime IClock port
 P:System.DateTime.UtcNow;Time comes from the NodaTime IClock port
 P:System.DateTimeOffset.Now;Time comes from the NodaTime IClock port
 P:System.DateTimeOffset.UtcNow;Time comes from the NodaTime IClock port
-M:System.Guid.NewGuid;IDs are UUIDv7 via EntityId.New()
+M:System.Guid.NewGuid;IDs are UUIDv7 via the typed ID NewId()
 T:System.Console;Output goes through ILogger, never the console
 M:System.Diagnostics.Debug.WriteLine(System.String);Output goes through ILogger, never Debug output
 M:System.Diagnostics.Debug.WriteLine(System.Object);Output goes through ILogger, never Debug output
