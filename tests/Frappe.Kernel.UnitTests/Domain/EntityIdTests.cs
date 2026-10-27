@@ -1,5 +1,3 @@
-using Frappe.Kernel.Domain;
-
 namespace Frappe.Kernel.UnitTests.Domain;
 
 public sealed class EntityIdTests
@@ -17,11 +15,12 @@ public sealed class EntityIdTests
     [Theory]
     [InlineData("00000000-0000-0000-0000-000000000000")]
     [InlineData("3f2504e0-4f89-41d3-9a0c-0305e82c3301")]
-    public void An_empty_or_non_v7_value_is_rejected(string raw)
+    [InlineData("0190a6b2-1234-7abc-0def-123456789abc")]
+    public void An_empty_non_v7_or_non_RFC_variant_value_is_rejected(string raw)
     {
         ErrorOr<WidgetId> result = WidgetId.From(Guid.Parse(raw));
 
-        result.FirstError.ShouldBe(EntityId.Invalid);
+        result.FirstError.Code.ShouldBe("kernel.entity_id.invalid");
     }
 
     [Fact]

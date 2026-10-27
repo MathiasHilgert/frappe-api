@@ -22,6 +22,11 @@ public sealed class PolicyTests
     [InlineData("Order.Tab.Open")]
     [InlineData("order..open")]
     [InlineData("order.tab.")]
+    [InlineData(".order.tab")]
+    [InlineData("order.tab.open\n")]
+    [InlineData("order-tab.open")]
+    [InlineData("1order.tab")]
+    [InlineData("order.tab.ópen")]
     [InlineData("$self")]
     [InlineData("$anonymous")]
     public void Anything_else_is_rejected(string permission)

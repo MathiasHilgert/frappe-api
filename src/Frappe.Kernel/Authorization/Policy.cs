@@ -37,7 +37,7 @@ public sealed partial record Policy
     public string Permission { get; private init; }
 
     [GeneratedRegex(
-        "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+$",
+        "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+\\z",
         RegexOptions.CultureInvariant,
         matchTimeoutMilliseconds: 100
     )]

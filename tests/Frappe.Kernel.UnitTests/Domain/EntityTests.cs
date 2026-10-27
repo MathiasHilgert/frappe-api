@@ -39,6 +39,27 @@ public sealed class EntityTests
     }
 
     [Fact]
+    public void Two_entities_without_an_id_are_not_equal()
+    {
+        var first = Widget.Materialized();
+        var second = Widget.Materialized();
+
+        bool equal = first == second;
+
+        equal.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void An_entity_without_an_id_equals_itself()
+    {
+        var widget = Widget.Materialized();
+
+        bool equal = widget.Equals(widget);
+
+        equal.ShouldBeTrue();
+    }
+
+    [Fact]
     public void An_entity_cannot_be_created_with_a_default_id()
     {
         Action create = () => _ = new Widget(default);
