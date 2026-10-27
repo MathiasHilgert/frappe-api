@@ -6,4 +6,8 @@
     <!-- Lets the xUnit-generated entry point (blocking Main) opt out of analyzers; house code still does not. -->
     <DefineConstants>$(DefineConstants);XUNIT_GENERATED_DISABLE_WARNINGS</DefineConstants>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
 </Project>

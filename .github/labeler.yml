@@ -1,0 +1,49 @@
+# Path labels for pull requests. A label applies when any changed file matches one of its globs.
+
+area/kernel:
+  - changed-files:
+      - any-glob-to-any-file: src/Frappe.Kernel/**
+
+area/platform:
+  - changed-files:
+      - any-glob-to-any-file: src/Frappe.Platform/**
+
+area/host:
+  - changed-files:
+      - any-glob-to-any-file: src/Frappe.Host/**
+
+area/build:
+  - changed-files:
+      - any-glob-to-any-file:
+          - eng/**
+          - .config/**
+          - Directory.Build.props
+          - Directory.Packages.props
+          - Frappe.slnx
+          - global.json
+          - nuget.config
+          - .editorconfig
+          - .gitattributes
+          - .gitignore
+          - "**/*.csproj"
+          - "**/packages.lock.json"
+
+area/ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**
+          - justfile
+
+area/docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - LICENSE
+          - "*.md"
+
+# Each module adds its own label when its first project lands, for example:
+#
+# module/orders:
+#   - changed-files:
+#       - any-glob-to-any-file:
+#           - src/**/Frappe.Orders.*/**
+#           - tests/**/Frappe.Orders.*/**
