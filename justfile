@@ -111,12 +111,12 @@ run role="all": restore
 [group('env')]
 [doc('Build the container image')]
 image:
-    docker build --tag frappe-api:local .
+    docker build --build-arg REVISION="$(git rev-parse HEAD)" --tag frappe-api:local .
 
 [group('env')]
 [doc('Start PostgreSQL and the API in containers; wait until they are up')]
 up:
-    docker compose up --detach --build --wait
+    REVISION="$(git rev-parse HEAD)" docker compose up --detach --build --wait
 
 [group('env')]
 [doc('Stop and remove the containers; data stays in its volume')]

@@ -37,8 +37,7 @@ LABEL org.opencontainers.image.title="frappe-api" \
       org.opencontainers.image.description="Frappé backend host; Platform__Role selects all, api, worker or scheduler" \
       org.opencontainers.image.source="https://github.com/MathiasHilgert/frappe-api" \
       org.opencontainers.image.licenses="LicenseRef-Proprietary" \
-      org.opencontainers.image.revision="${REVISION}" \
-      org.opencontainers.image.base.name="mcr.microsoft.com/dotnet/aspnet:10.0.14-noble-chiseled-extra"
+      org.opencontainers.image.revision="${REVISION}"
 # Restated from the base image so the listening port is part of this image's contract.
 ENV ASPNETCORE_HTTP_PORTS=8080
 WORKDIR /app

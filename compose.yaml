@@ -15,15 +15,21 @@ services:
       # PostgreSQL 18 images keep data under a versioned directory below this mount point.
       - postgres-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready --username \"$$POSTGRES_USER\" --dbname \"$$POSTGRES_DB\""]
+      # TCP, because the temporary server the image runs during first-time init listens only on the socket.
+      test: ["CMD-SHELL", "pg_isready --host 127.0.0.1 --username \"$$POSTGRES_USER\" --dbname \"$$POSTGRES_DB\""]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 10s
 
   api:
-    build: .
+    build:
+      context: .
+      args:
+        # The image recipes pass the commit; a plain compose build cannot read git.
+        REVISION: ${REVISION:-unknown}
     image: frappe-api:local
+    # No healthcheck: the chiseled image has no shell or HTTP client to probe /health/ready with.
     depends_on:
       postgres:
         condition: service_healthy
