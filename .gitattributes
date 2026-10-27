@@ -1,0 +1,8 @@
+# Normalize line endings to LF in the repository and the working tree, matching .editorconfig.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary
+*.zip binary

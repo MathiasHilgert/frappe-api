@@ -1,0 +1,2 @@
+T:System.Threading.AsyncLocal`1;Ambient flow (tenant context) is a Platform concern
+P:System.TimeProvider.System;Receive the Platform-registered TimeProvider instead

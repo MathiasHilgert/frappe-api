@@ -1,0 +1,30 @@
+P:System.DateTime.Now;Time comes from the NodaTime IClock port
+P:System.DateTime.UtcNow;Time comes from the NodaTime IClock port
+P:System.DateTimeOffset.Now;Time comes from the NodaTime IClock port
+P:System.DateTimeOffset.UtcNow;Time comes from the NodaTime IClock port
+M:System.Guid.NewGuid;IDs are UUIDv7 via EntityId.New()
+T:System.Console;Output goes through ILogger, never the console
+M:System.Diagnostics.Debug.WriteLine(System.String);Output goes through ILogger, never Debug output
+M:System.Diagnostics.Debug.WriteLine(System.Object);Output goes through ILogger, never Debug output
+M:System.Diagnostics.Debug.WriteLine(System.Object,System.String);Output goes through ILogger, never Debug output
+M:System.Diagnostics.Debug.WriteLine(System.String,System.Object[]);Output goes through ILogger, never Debug output
+M:System.Diagnostics.Debug.WriteLine(System.String,System.String);Output goes through ILogger, never Debug output
+P:System.Threading.Tasks.Task`1.Result;Blocking on a task deadlocks and starves the thread pool; await it
+M:System.Threading.Tasks.Task.Wait;Blocking on a task deadlocks and starves the thread pool; await it
+M:System.Threading.Tasks.Task.Wait(System.TimeSpan);Blocking on a task deadlocks and starves the thread pool; await it
+M:System.Threading.Tasks.Task.Wait(System.TimeSpan,System.Threading.CancellationToken);Blocking on a task deadlocks and starves the thread pool; await it
+M:System.Threading.Tasks.Task.Wait(System.Threading.CancellationToken);Blocking on a task deadlocks and starves the thread pool; await it
+M:System.Threading.Tasks.Task.Wait(System.Int32);Blocking on a task deadlocks and starves the thread pool; await it
+M:System.Threading.Tasks.Task.Wait(System.Int32,System.Threading.CancellationToken);Blocking on a task deadlocks and starves the thread pool; await it
+M:System.Runtime.CompilerServices.TaskAwaiter.GetResult;Blocking on a task deadlocks and starves the thread pool; await it
+M:System.Runtime.CompilerServices.TaskAwaiter`1.GetResult;Blocking on a task deadlocks and starves the thread pool; await it
+M:System.Threading.Thread.Sleep(System.Int32);Sleeping blocks a pool thread; use Task.Delay or a timer
+M:System.Threading.Thread.Sleep(System.TimeSpan);Sleeping blocks a pool thread; use Task.Delay or a timer
+M:System.GC.Collect;Induced collections hurt throughput
+M:System.GC.Collect(System.Int32);Induced collections hurt throughput
+M:System.GC.Collect(System.Int32,System.GCCollectionMode);Induced collections hurt throughput
+M:System.GC.Collect(System.Int32,System.GCCollectionMode,System.Boolean);Induced collections hurt throughput
+M:System.GC.Collect(System.Int32,System.GCCollectionMode,System.Boolean,System.Boolean);Induced collections hurt throughput
+T:Microsoft.AspNetCore.Identity.PasswordHasher`1;Argon2id via IHasher is the house password hasher
+T:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter;Type-driven deserialization is unsafe
+P:System.Net.Http.HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;Never disable TLS certificate validation

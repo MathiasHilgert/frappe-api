@@ -1,0 +1,137 @@
+root = true
+
+# Layout is owned by CSharpier, which reads these keys.
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+max_line_length = 100
+
+[*.{config,csproj,props,slnx,targets,xml,json}]
+indent_size = 2
+
+[*.cs]
+# CSharpier owns layout; IDE0055 would fight its output.
+dotnet_diagnostic.IDE0055.severity = none
+
+# Types and visibility.
+csharp_style_namespace_declarations = file_scoped
+dotnet_diagnostic.IDE0161.severity = error
+dotnet_style_require_accessibility_modifiers = always
+dotnet_diagnostic.IDE0040.severity = error
+csharp_style_var_when_type_is_apparent = true
+csharp_style_var_elsewhere = false
+csharp_style_var_for_built_in_types = false
+dotnet_diagnostic.IDE0007.severity = error
+dotnet_diagnostic.IDE0008.severity = error
+csharp_style_prefer_primary_constructors = true
+dotnet_diagnostic.IDE0290.severity = error
+csharp_prefer_static_anonymous_function = true
+dotnet_diagnostic.IDE0320.severity = error
+
+# Naming.
+dotnet_naming_symbols.interfaces.applicable_kinds = interface
+dotnet_naming_style.prefix_i.required_prefix = I
+dotnet_naming_style.prefix_i.capitalization = pascal_case
+dotnet_naming_rule.interfaces_start_with_i.symbols = interfaces
+dotnet_naming_rule.interfaces_start_with_i.style = prefix_i
+dotnet_naming_rule.interfaces_start_with_i.severity = error
+
+dotnet_naming_symbols.async_methods.applicable_kinds = method, local_function
+dotnet_naming_symbols.async_methods.required_modifiers = async
+dotnet_naming_style.async_suffix.required_suffix = Async
+dotnet_naming_style.async_suffix.capitalization = pascal_case
+dotnet_naming_rule.async_methods_end_in_async.symbols = async_methods
+dotnet_naming_rule.async_methods_end_in_async.style = async_suffix
+dotnet_naming_rule.async_methods_end_in_async.severity = error
+
+dotnet_naming_symbols.constants.applicable_kinds = field, local
+dotnet_naming_symbols.constants.required_modifiers = const
+dotnet_naming_style.pascal.capitalization = pascal_case
+dotnet_naming_rule.constants_are_pascal.symbols = constants
+dotnet_naming_rule.constants_are_pascal.style = pascal
+dotnet_naming_rule.constants_are_pascal.severity = error
+
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel.required_prefix = _
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+dotnet_naming_rule.private_fields_are_underscore_camel.symbols = private_fields
+dotnet_naming_rule.private_fields_are_underscore_camel.style = underscore_camel
+dotnet_naming_rule.private_fields_are_underscore_camel.severity = error
+
+dotnet_naming_symbols.types_and_members.applicable_kinds = namespace, class, struct, enum, delegate, method, property, event, local_function
+dotnet_naming_rule.types_and_members_are_pascal.symbols = types_and_members
+dotnet_naming_rule.types_and_members_are_pascal.style = pascal
+dotnet_naming_rule.types_and_members_are_pascal.severity = error
+
+dotnet_diagnostic.IDE1006.severity = error
+
+# Performance category on: warnings fail the build through TreatWarningsAsErrors.
+dotnet_analyzer_diagnostic.category-Performance.severity = warning
+# Named exception: concrete-type suggestions fight interface-typed collection contracts.
+dotnet_diagnostic.CA1859.severity = suggestion
+
+# Raised explicitly to error: house style relies on them.
+dotnet_diagnostic.CA1002.severity = error
+dotnet_code_quality.CA1002.api_surface = all
+dotnet_diagnostic.CA1031.severity = error
+dotnet_diagnostic.CA1305.severity = error
+dotnet_diagnostic.CA1309.severity = error
+dotnet_diagnostic.CA1310.severity = error
+dotnet_diagnostic.CA1510.severity = error
+dotnet_diagnostic.CA1511.severity = error
+dotnet_diagnostic.CA1512.severity = error
+dotnet_diagnostic.CA1513.severity = error
+dotnet_diagnostic.CA1815.severity = error
+dotnet_diagnostic.CA1816.severity = error
+dotnet_diagnostic.CA1848.severity = error
+dotnet_diagnostic.CA1852.severity = error
+dotnet_diagnostic.CA1869.severity = error
+dotnet_diagnostic.CA2012.severity = error
+dotnet_diagnostic.CA2016.severity = error
+dotnet_diagnostic.CA2200.severity = error
+dotnet_diagnostic.CA2215.severity = error
+dotnet_diagnostic.MA0040.severity = error
+dotnet_diagnostic.MA0042.severity = error
+dotnet_diagnostic.MA0079.severity = error
+dotnet_diagnostic.MA0110.severity = error
+dotnet_diagnostic.MA0155.severity = error
+dotnet_diagnostic.SYSLIB1045.severity = error
+
+# Complexity at the analyzer defaults; thresholds in eng/CodeMetricsConfig.txt.
+dotnet_diagnostic.CA1502.severity = error
+dotnet_diagnostic.CA1505.severity = error
+# Coupling stays visible but non-blocking (WarningsNotAsErrors).
+dotnet_diagnostic.CA1506.severity = warning
+
+# App code never uses ConfigureAwait; MA0004 would push it onto every await.
+dotnet_diagnostic.MA0004.severity = none
+# TODOs stay warnings through S1135; MA0026 would make them errors.
+dotnet_diagnostic.MA0026.severity = none
+# Too noisy across DI-owned objects; disposal is a review rule.
+dotnet_diagnostic.CA2000.severity = none
+# Unused usings fail the build.
+dotnet_diagnostic.IDE0005.severity = error
+# XML docs are required only on the contract surface (Kernel, module Contracts, API DTOs and endpoints).
+dotnet_diagnostic.CS1591.severity = none
+
+# S1192 excluded where literals repeat by nature.
+[tests/**.cs]
+dotnet_diagnostic.S1192.severity = none
+dotnet_diagnostic.CA1822.severity = none
+# Test names are Khorikov plain-English sentences with underscores and no Async suffix.
+dotnet_diagnostic.CA1707.severity = none
+dotnet_naming_rule.async_methods_end_in_async.severity = none
+
+[**/Migrations/**.cs]
+dotnet_diagnostic.S1192.severity = none
+
+[{**/*Endpoint.cs,**/*Endpoints.cs}]
+dotnet_diagnostic.S1192.severity = none
+
+[src/Frappe.Kernel/**.cs]
+dotnet_diagnostic.CS1591.severity = error
