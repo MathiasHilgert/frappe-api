@@ -1,0 +1,30 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors>NU1901;NU1902;NU1903;NU1904;S1135;S1192;CA1506</WarningsNotAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <!-- Required for IDE0005 (unused usings) to run in the build; CS1591 is scoped in .editorconfig. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(CI)' == 'true' or '$(TF_BUILD)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)eng/BannedSymbols.txt" />
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)eng/CodeMetricsConfig.txt" />
+    <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory)eng/Frappe.globalconfig" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'Frappe.Platform'">
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)eng/BannedSymbols.OutsidePlatform.txt" />
+  </ItemGroup>
+</Project>
