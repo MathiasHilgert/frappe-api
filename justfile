@@ -1,4 +1,4 @@
-# Every recipe is plain dotnet commands, so each one also works by hand without Just.
+# Every recipe is plain dotnet or docker commands, so each one also works by hand without Just.
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
@@ -105,6 +105,33 @@ test kind="all": build
 [arg('role', pattern='all|api|worker|scheduler')]
 run role="all": restore
     dotnet run --project src/Frappe.Host --no-restore -- --Platform:Role {{ role }}
+
+# --- env ---
+
+[group('env')]
+[doc('Build the container image')]
+image:
+    docker build --tag frappe-api:local .
+
+[group('env')]
+[doc('Start PostgreSQL and the API in containers; wait until they are up')]
+up:
+    docker compose up --detach --build --wait
+
+[group('env')]
+[doc('Stop and remove the containers; data stays in its volume')]
+down:
+    docker compose down
+
+[group('env')]
+[doc('Follow the logs of every service, or of one: postgres | api')]
+logs service="":
+    docker compose logs --follow {{ service }}
+
+[group('env')]
+[doc('List the services and their health')]
+ps:
+    docker compose ps
 
 # --- ci ---
 

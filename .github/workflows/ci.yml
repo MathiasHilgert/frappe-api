@@ -166,10 +166,28 @@ jobs:
           version: 1.31.1
           advanced-security: false
 
+  image:
+    name: Container image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Lint the Dockerfile with hadolint
+        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
+      - name: Set up Just
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+        with:
+          just-version: 1.59.0
+      - name: Build the image without pushing it
+        run: just image
+
   ci-passed:
     name: CI passed
     if: ${{ always() }}
-    needs: [format, lint, test, audit, secrets, workflows]
+    needs: [format, lint, test, audit, image, secrets, workflows]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

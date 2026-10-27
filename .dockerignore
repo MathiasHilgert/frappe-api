@@ -1,0 +1,11 @@
+# Allow-list: the build context holds only what the image build reads.
+*
+!.editorconfig
+!Directory.Build.props
+!Directory.Packages.props
+!global.json
+!nuget.config
+!eng/
+!src/
+**/bin/
+**/obj/
