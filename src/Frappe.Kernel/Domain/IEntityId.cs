@@ -4,7 +4,7 @@ namespace Frappe.Kernel.Domain;
 /// A strongly typed, time-ordered (UUIDv7) entity identifier.
 /// </summary>
 /// <typeparam name="TSelf">The implementing ID type.</typeparam>
-public interface IEntityId<TSelf>
+public interface IEntityId<TSelf> : IEquatable<TSelf>
     where TSelf : struct, IEntityId<TSelf>
 {
     /// <summary>Gets the underlying UUIDv7 value.</summary>
