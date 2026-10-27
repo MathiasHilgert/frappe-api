@@ -8,12 +8,16 @@ The backend of Frappé, the operating system for restaurants: one multi-tenant p
 
 ## Build and test
 
+The `justfile` holds every command CI runs. [Just](https://just.systems) is optional: each recipe is plain `dotnet` commands you can run by hand.
+
 ```bash
-dotnet tool restore
-dotnet restore --locked-mode
-dotnet build --no-restore
-dotnet csharpier check .
-dotnet test --no-build
+just              # list the recipes
+just build        # restore exactly as locked, then build
+just test         # all tests; or: just test unit | integration | architecture
+just format       # format with CSharpier (format-check only verifies)
+just lint         # rebuild so every analyzer runs
+just audit        # fail on a high or critical package advisory
+just check        # everything CI runs, in the same order
 ```
 
 The build treats warnings as errors, so a clean build means every analyzer rule passes.
@@ -21,7 +25,8 @@ The build treats warnings as errors, so a clean build means every analyzer rule 
 ## Run
 
 ```bash
-dotnet run --project src/Frappe.Host
+just run                              # or: just run api | worker | scheduler
+dotnet run --project src/Frappe.Host  # the same without Just
 ```
 
 One binary runs every process role. Select it with `Platform:Role`, for example `--Platform:Role worker` or the environment variable `Platform__Role=worker`:
@@ -43,7 +48,8 @@ Every role serves the health endpoints: `/health/live` (the process answers) and
 | `src/Frappe.Platform` | Adapters, middleware, health and hosting defaults |
 | `src/Frappe.Host` | Composition root |
 | `tests/` | Architecture and host tests |
-| `eng/` | Analyzer configuration, banned APIs and code metrics |
+| `eng/` | Analyzer configuration, banned APIs, code metrics and CI scripts |
+| `.github/` | CI workflows, Dependabot, labels and the pull request template |
 
 ## License
 
