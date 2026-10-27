@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Frappe.Host/Frappe.Host.csproj" />
+    <Project Path="src/Frappe.Kernel/Frappe.Kernel.csproj" />
+    <Project Path="src/Frappe.Platform/Frappe.Platform.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Frappe.Host.Tests/Frappe.Host.Tests.csproj" />
+  </Folder>
+</Solution>
