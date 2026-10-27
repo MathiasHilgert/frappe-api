@@ -7,5 +7,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/Frappe.ArchitectureTests/Frappe.ArchitectureTests.csproj" />
     <Project Path="tests/Frappe.Host.Tests/Frappe.Host.Tests.csproj" />
+    <Project Path="tests/Frappe.Kernel.UnitTests/Frappe.Kernel.UnitTests.csproj" />
   </Folder>
 </Solution>

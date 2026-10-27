@@ -589,13 +589,29 @@
         }
       },
       "frappe.kernel": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "ErrorOr": "[2.1.1, )",
+          "NodaTime": "[3.3.6, )"
+        }
       },
       "frappe.platform": {
         "type": "Project",
         "dependencies": {
           "Frappe.Kernel": "[1.0.0, )"
         }
+      },
+      "ErrorOr": {
+        "type": "CentralTransitive",
+        "requested": "[2.1.1, )",
+        "resolved": "2.1.1",
+        "contentHash": "Y/AhvEZ5DjSi993Db1VrnYpK8YpM4o+tonF4f+AtXDzrIHYvbjWJD7fpip+ugSwW8kMw+XXEnMlJM7E0BKJBWA=="
+      },
+      "NodaTime": {
+        "type": "CentralTransitive",
+        "requested": "[3.3.6, )",
+        "resolved": "3.3.6",
+        "contentHash": "vAjAdOvqu5hqgDVgzJxFPhSVy4EM5/tmSHJn/k0lLDIn4637OReqJgvR49fzFzj+5uZfebdJEFbI6LOLazWXog=="
       }
     }
   }
