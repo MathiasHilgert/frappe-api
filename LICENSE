@@ -1,0 +1,84 @@
+NULLED SOFTWARE PROPRIETARY LICENSE
+
+Copyright (c) 2026 NULLED SOFTWARE. All rights reserved.
+
+1. OWNERSHIP
+
+This repository and everything it contains, including source code, object
+code, documentation, designs, architecture, database schemas, data models,
+specifications, prompts, configuration, names, logos and any other material
+(together, the "Software"), are the exclusive property of NULLED SOFTWARE
+and are protected by copyright, trade secret and other intellectual property
+laws and international treaties.
+
+2. NO LICENSE GRANTED
+
+No license, right or permission of any kind, express or implied, is granted
+to any person or entity by the publication, visibility or availability of
+the Software. The fact that the Software can be viewed publicly does not
+place it in the public domain, does not make it open source and does not
+grant any right to use it.
+
+3. PROHIBITED ACTS
+
+Without the prior, express and written authorization of NULLED SOFTWARE,
+signed by an authorized representative, you may not, in whole or in part:
+
+  a) use, run, install, deploy or host the Software for any purpose,
+     commercial or non-commercial;
+  b) copy, reproduce, download, mirror, archive or store the Software,
+     except as strictly required by the terms of service of the platform
+     hosting it to display it in a web browser;
+  c) modify, adapt, translate, refactor or create derivative works based
+     on the Software;
+  d) distribute, publish, sublicense, sell, rent, lease, lend, transfer
+     or otherwise make the Software available to any third party;
+  e) reverse engineer, decompile or disassemble the Software, or attempt
+     to derive its design, algorithms or architecture to build a similar
+     or competing product or service;
+  f) use the Software, or any part of it, to train, fine-tune, evaluate
+     or otherwise develop machine learning or artificial intelligence
+     models or datasets;
+  g) remove, alter or obscure any copyright, trademark or proprietary
+     notice contained in the Software.
+
+4. HOSTING PLATFORM
+
+To the extent the Software is hosted on a platform whose terms of service
+grant its users limited rights (such as viewing or forking within that
+platform), those rights are limited to the minimum the platform's terms
+strictly require and confer no further right under this license. Any fork
+or copy remains subject to every restriction in this license.
+
+5. CONFIDENTIALITY
+
+The Software contains confidential information and trade secrets of
+NULLED SOFTWARE. You must not disclose, use or exploit any of it except as
+expressly authorized in writing by NULLED SOFTWARE.
+
+6. TRADEMARKS
+
+"Frappé", "NULLED SOFTWARE" and their associated names and logos are
+trademarks of NULLED SOFTWARE. No right to use them is granted.
+
+7. TERMINATION AND REMEDIES
+
+Any use of the Software in breach of this license is unauthorized and may
+give rise to civil and criminal liability. NULLED SOFTWARE reserves all
+rights and remedies available under applicable law, including injunctive
+relief, damages and the recovery of legal costs. Upon any breach you must
+immediately cease all use and destroy every copy of the Software in your
+possession or control.
+
+8. NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL
+NULLED SOFTWARE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE.
+
+9. RESERVATION OF RIGHTS
+
+All rights not expressly granted in writing by NULLED SOFTWARE are
+reserved. For licensing inquiries, contact NULLED SOFTWARE.

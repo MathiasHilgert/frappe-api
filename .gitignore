@@ -1,0 +1,269 @@
+# ------------------------------------------------------------------
+# Local-only project material (not versioned for now)
+# ------------------------------------------------------------------
+.agents/
+AGENTS.md
+odd/
+
+# AI agent and tooling state
+.claude/
+CLAUDE.md
+.codegraph/
+.atl/
+.rtk/
+.playwright/
+.engram/
+
+# ------------------------------------------------------------------
+# .NET build output
+# ------------------------------------------------------------------
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Ll]og/
+[Ll]ogs/
+artifacts/
+publish/
+out/
+*.efbundle
+efbundle*
+
+# MSBuild / compiler artifacts
+*.binlog
+*.ilk
+*.meta
+*.obj
+*.iobj
+*.pch
+*.pdb
+*.ipdb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*_wpftmp.csproj
+*.log
+*.tlog
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
+project.lock.json
+project.fragment.lock.json
+nuget.g.props
+nuget.g.targets
+
+# NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+.nuget/
+
+# User-specific build settings
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+launchSettings.local.json
+
+# ------------------------------------------------------------------
+# Tests, coverage and benchmarks
+# ------------------------------------------------------------------
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+coverage/
+coverage*.json
+coverage*.xml
+coverage*.info
+*.lcov
+.coverlet/
+StrykerOutput/
+BenchmarkDotNet.Artifacts/
+*.received.*
+*.VisualState.xml
+TestResult.xml
+nunit-*.xml
+
+# ------------------------------------------------------------------
+# IDEs and editors
+# ------------------------------------------------------------------
+# Visual Studio
+.vs/
+*.VC.db
+*.VC.VC.opendb
+*.opendb
+*.opensdf
+*.sdf
+*.cachefile
+ipch/
+*.aps
+*.ncb
+*.ncrunch*
+_NCrunch_*
+.*crunch*.local.xml
+*.DotSettings.user
+_ReSharper*/
+*.[Rr]e[Ss]harper
+_TeamCity*
+*.dotCover
+.axoCover/
+*.GhostDoc.xml
+*.jmconfig
+*.vsp
+*.vspx
+*.sap
+*.psess
+*.vsps
+
+# JetBrains (Rider, IntelliJ, Fleet)
+.idea/
+*.iml
+*.ipr
+*.iws
+.fleet/
+*.sln.iml
+
+# VS Code and forks (Cursor, Windsurf, VSCodium)
+.vscode/
+.vscode-test/
+*.code-workspace
+.history/
+.cursor/
+.windsurf/
+.ionide/
+
+# Zed, Sublime, Vim/Neovim, Emacs, Eclipse, Kate
+.zed/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*.swn
+*~
+Session.vim
+Sessionx.vim
+.netrwhist
+tags
+[._]*.un~
+\#*\#
+.\#*
+*.elc
+auto-save-list/
+.dir-locals-2.el
+.project
+.classpath
+.settings/
+.metadata/
+*.kate-swp
+.kateproject.d/
+
+# ------------------------------------------------------------------
+# Secrets and local configuration
+# ------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.env
+appsettings.*.local.json
+appsettings.Local.json
+secrets.json
+*.pfx
+*.p12
+*.pem
+*.key
+*.crt
+*.cer
+*.jks
+*.keystore
+id_rsa*
+id_ed25519*
+
+# ------------------------------------------------------------------
+# Containers and local infrastructure
+# ------------------------------------------------------------------
+docker-compose.override.yml
+compose.override.yml
+.docker/
+*.pid
+*.seed
+*.dump
+*.sql.gz
+pgdata/
+.data/
+
+# ------------------------------------------------------------------
+# Node tooling (if ever used for scripts or docs)
+# ------------------------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# ------------------------------------------------------------------
+# Operating systems
+# ------------------------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+.TemporaryItems
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
+*.stackdump
+
+# Linux
+.directory
+.fuse_hidden*
+.nfs*
+.Trash-*
+
+# ------------------------------------------------------------------
+# Misc
+# ------------------------------------------------------------------
+*.bak
+*.orig
+*.rej
+*.cache
+.cache/
+tmp/
+temp/
+scratch/
