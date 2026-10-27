@@ -5,6 +5,7 @@
     <Project Path="src/Frappe.Platform/Frappe.Platform.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Frappe.ArchitectureTests/Frappe.ArchitectureTests.csproj" />
     <Project Path="tests/Frappe.Host.Tests/Frappe.Host.Tests.csproj" />
   </Folder>
 </Solution>
