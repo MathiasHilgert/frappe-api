@@ -1,6 +1,6 @@
-# The 10.0.1xx SDK matches the feature band global.json pins.
+# The newest SDK band; global.json's latestFeature accepts it and any local 10.0 SDK from 10.0.100 up.
 # BUILDPLATFORM: the framework-dependent output is architecture-neutral, so it never needs emulation.
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0.103-noble@sha256:e362a8dbcd691522456da26a5198b8f3ca1d7641c95624fadc5e3e82678bd08a AS sdk
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0.403-noble@sha256:de4fe90a98845d75910b9769662465c84de1a934665c431279d1382b2bddc02b AS sdk
 ENV DOTNET_NOLOGO=true \
     DOTNET_CLI_TELEMETRY_OPTOUT=true \
     NUGET_PACKAGES=/nuget/packages
