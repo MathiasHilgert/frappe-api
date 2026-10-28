@@ -8,7 +8,7 @@ namespace Frappe.Platform.Persistence;
 /// The <see cref="FrappeDbContext"/> options the host and the migrations tooling share, so the model
 /// migrations are generated from is the model the host runs.
 /// </summary>
-public static class FrappeDbContextOptions
+public static class FrappeDbContextOptionsBuilderExtensions
 {
     /// <summary>The assembly that holds the migrations and the model snapshot.</summary>
     public const string MigrationsAssembly = "Frappe.Migrations";

@@ -388,6 +388,7 @@
           "EFCore.NamingConventions": "[10.0.1, )",
           "Frappe.Platform.Health": "[1.0.0, )",
           "Frappe.Platform.Hosting": "[1.0.0, )",
+          "Npgsql.DependencyInjection": "[10.0.3, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.3, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime": "[10.0.3, )"
         }
@@ -486,6 +487,16 @@
         "requested": "[3.3.6, )",
         "resolved": "3.3.6",
         "contentHash": "vAjAdOvqu5hqgDVgzJxFPhSVy4EM5/tmSHJn/k0lLDIn4637OReqJgvR49fzFzj+5uZfebdJEFbI6LOLazWXog=="
+      },
+      "Npgsql.DependencyInjection": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.3, )",
+        "resolved": "10.0.3",
+        "contentHash": "L0595kRX2NS5QWu/XGhQPmdhRLv3KhFGhnwpy8pEKZh4qlkom6wek1GW+eMBiPzoqFWlxHp3nc5myIKlX8VvYA==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.0",
+          "Npgsql": "10.0.3"
+        }
       },
       "Npgsql.EntityFrameworkCore.PostgreSQL": {
         "type": "CentralTransitive",

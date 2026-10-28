@@ -4,7 +4,6 @@ using HealthChecks.NpgSql;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
 
@@ -24,8 +23,10 @@ public static class PersistenceExtensions
         builder
             .Services.AddOptionsWithValidateOnStart<DatabaseOptions, DatabaseOptionsValidator>()
             .BindConfiguration(DatabaseOptions.SectionName);
-        // One data source per process owns the one connection pool and the NodaTime type mappings.
-        builder.Services.AddSingleton(static services => BuildDataSource(services));
+        // One data source per process owns the one connection pool and the NodaTime type mappings. The
+        // connection string is read from the validated options when the data source is first resolved,
+        // so configuration added after registration, as test hosts add it, still applies.
+        builder.Services.AddNpgsqlDataSource(connectionString: "", ConfigureDataSource);
         // shortcut: plain AddDbContext without the Wolverine integration; the query-bus PR replaces it
         // with AddDbContextWithWolverineIntegration.
         builder.Services.AddDbContext<FrappeDbContext>(
@@ -46,22 +47,20 @@ public static class PersistenceExtensions
         return builder;
     }
 
-    private static NpgsqlDataSource BuildDataSource(IServiceProvider services)
+    private static void ConfigureDataSource(
+        IServiceProvider services,
+        NpgsqlDataSourceBuilder dataSource
+    )
     {
         DatabaseOptions database = services.GetRequiredService<IOptions<DatabaseOptions>>().Value;
         HostRole role = services.GetRequiredService<IOptions<PlatformOptions>>().Value.Role;
-        NpgsqlDataSourceBuilder dataSource = new(database.Frappe);
+        dataSource.ConnectionStringBuilder.ConnectionString = database.Frappe;
         // The application name shows which role holds each connection in pg_stat_activity.
         dataSource.ConnectionStringBuilder.ApplicationName = ApplicationName(role);
-        // Every handler holds a physical connection for its explicit transaction; multiplexing has
-        // nothing to share.
-        dataSource.ConnectionStringBuilder.Multiplexing = false;
         // Encryption to Postgres is TLS; the default GSS attempt needs a Kerberos library the
         // runtime image does not ship, so it fails and logs an error before falling back.
         dataSource.ConnectionStringBuilder.GssEncryptionMode = GssEncryptionMode.Disable;
-        dataSource.UseLoggerFactory(services.GetRequiredService<ILoggerFactory>());
         dataSource.UseNodaTime();
-        return dataSource.Build();
     }
 
     private static string ApplicationName(HostRole role) =>

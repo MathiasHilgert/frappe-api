@@ -1,3 +1,4 @@
+using Frappe.Platform.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -45,5 +46,27 @@ public sealed class PersistenceRegistrationTests(AppFixture app)
         );
 
         error.Message.ShouldContain("Role");
+    }
+
+    [Fact]
+    public void Persistence_and_the_platform_together_bind_the_role_once()
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder(
+            new HostApplicationBuilderSettings { DisableDefaults = true }
+        );
+
+        builder.AddPersistence();
+        builder.AddFrappePlatform();
+
+        builder
+            .Services.Count(static service =>
+                service.ServiceType == typeof(IConfigureOptions<PlatformOptions>)
+            )
+            .ShouldBe(1);
+        builder
+            .Services.Count(static service =>
+                service.ServiceType == typeof(IOptionsChangeTokenSource<PlatformOptions>)
+            )
+            .ShouldBe(1);
     }
 }
