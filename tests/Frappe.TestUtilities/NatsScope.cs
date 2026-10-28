@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Frappe.TestUtilities;
 
 /// <summary>
@@ -8,6 +10,12 @@ namespace Frappe.TestUtilities;
 /// <param name="Root">The subject root and consumer prefix; the stream is its upper-case form.</param>
 public sealed record NatsScope(string Url, string Root)
 {
+    /// <summary>
+    /// The size of every test stream: JetStream reserves max_bytes on the server, and the deployed 10 GiB per
+    /// test stream exhausts a CI runner's storage.
+    /// </summary>
+    public const long MaxBytes = 16L * 1024 * 1024;
+
     /// <summary>Gets the stream name.</summary>
     public string Stream => Root.ToUpperInvariant();
 
@@ -18,6 +26,7 @@ public sealed record NatsScope(string Url, string Root)
             new("Nats:SubjectRoot", Root),
             new("Nats:ConsumerPrefix", Root),
             new("Nats:Stream", Stream),
+            new("Nats:MaxBytes", MaxBytes.ToString(CultureInfo.InvariantCulture)),
         ];
 
     /// <summary>Creates a scope with a fresh root on <paramref name="nats"/>.</summary>

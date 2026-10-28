@@ -8,6 +8,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NATS.Client.Core;
 using NATS.Client.JetStream.Models;
+using Wolverine;
+using Wolverine.Nats.Configuration;
+using Wolverine.Nats.Internal;
 using Wolverine.Runtime.Serialization;
 using Wolverine.Tracking;
 using BillingConsumer = Frappe.Platform.IntegrationTests.Messaging.Billing.Application.TicketOpenedConsumer;
@@ -63,7 +66,14 @@ public sealed class NatsOutageTests(NatsOutageFixture fixture)
     public async Task An_event_committed_while_nats_is_down_stays_in_the_outbox_and_drains_after_the_restart()
     {
         var scope = NatsScope.On(fixture.Server);
-        await using IAlbaHost host = await fixture.StartHostAsync(scope, Environments.Development);
+        await using IAlbaHost host = await fixture.StartHostAsync(
+            scope,
+            Environments.Development,
+            configure: static builder =>
+                builder.Services.ConfigureWolverine(static options =>
+                    ShortenNatsClientTimeouts(options)
+                )
+        );
         await fixture.Server.StopAsync();
 
         await InvokeAsync(host);
@@ -119,6 +129,22 @@ public sealed class NatsOutageTests(NatsOutageFixture fixture)
         Runs.Of(_ticket, BillingConsumer.Name).ShouldBe(1);
         ConsumerInfo info = await JetStreamReads.ConsumerAsync(scope, consumer);
         info.Config.MaxDeliver.ShouldBe(NatsTopology.MaxDeliver);
+    }
+
+    // A publish on a connection that lost NATS waits out the client's command timeout (one minute) and request
+    // timeout before the outbox keeps the event; the test proves the outbox, not those waits.
+    private static void ShortenNatsClientTimeouts(WolverineOptions options)
+    {
+        NatsTransportConfiguration configuration = options
+            .Transports.GetOrCreate<NatsTransport>()
+            .Configuration;
+        Func<NatsOpts, NatsOpts>? configured = configuration.ConfigureNatsOpts;
+        configuration.ConfigureNatsOpts = opts =>
+            (configured?.Invoke(opts) ?? opts) with
+            {
+                CommandTimeout = TimeSpan.FromSeconds(2),
+                RequestTimeout = TimeSpan.FromSeconds(2),
+            };
     }
 
     private async Task InvokeAsync(IAlbaHost host)

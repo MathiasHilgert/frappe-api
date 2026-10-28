@@ -12,7 +12,7 @@ namespace Frappe.Platform.Messaging;
 /// </summary>
 public static partial class NatsTopology
 {
-    /// <summary>The most bytes the stream keeps before it drops the oldest events.</summary>
+    /// <summary>The most bytes the deployed stream keeps before it drops the oldest events.</summary>
     public const long MaxBytes = 10L * 1024 * 1024 * 1024;
 
     /// <summary>The largest event the stream accepts; bigger content travels as a claim check.</summary>

@@ -43,4 +43,12 @@ public sealed class NatsOptions
     /// <summary>Gets the stream's replica count: 3 in deployed environments, 1 locally.</summary>
     [Range(1, 5)]
     public int Replicas { get; init; } = 1;
+
+    /// <summary>
+    /// Gets the most bytes the stream keeps before it drops the oldest events: <see cref="NatsTopology.MaxBytes"/>
+    /// unless a test host shrinks it. JetStream reserves it against the server's storage, so many test streams on
+    /// one server each need a small one.
+    /// </summary>
+    [Range(NatsTopology.MaxMessageSize, long.MaxValue)]
+    public long MaxBytes { get; init; } = NatsTopology.MaxBytes;
 }

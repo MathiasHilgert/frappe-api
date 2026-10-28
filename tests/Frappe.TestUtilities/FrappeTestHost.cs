@@ -44,6 +44,18 @@ public static class FrappeTestHost
         {
             builder.Services.DisableAllExternalWolverineTransports();
         }
+        else
+        {
+            // A broken NATS fails the start in seconds, not after Wolverine's default wait. A publishing role
+            // keeps its zero wait (it starts without NATS); tests that need another wait set their own.
+            builder.Services.ConfigureWolverine(static options =>
+            {
+                if (options.BrokerInitializationTimeout != TimeSpan.Zero)
+                {
+                    options.BrokerInitializationTimeout = TimeSpan.FromSeconds(10);
+                }
+            });
+        }
 
         configure?.Invoke(builder);
         return AlbaHost.For(builder, static app => app.MapFrappeEndpoints());

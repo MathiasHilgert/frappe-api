@@ -103,7 +103,7 @@ internal sealed class NatsEvents(
                     stream.Storage = StreamConfigStorage.File;
                     stream.DiscardPolicy = StreamConfigDiscard.Old;
                     stream.MaxAge = NatsTopology.MaxAge;
-                    stream.MaxBytes = NatsTopology.MaxBytes;
+                    stream.MaxBytes = settings.MaxBytes;
                     stream.MaxMessages = -1;
                     stream.Replicas = settings.Replicas;
                     stream.DuplicateWindow = NatsTopology.DuplicateWindow;
