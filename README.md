@@ -130,7 +130,10 @@ tests/
   Frappe.Host.IntegrationTests/
   Frappe.Kernel.UnitTests/
   Frappe.Migrations.UnitTests/
-  Platform/                   Frappe.Platform.*.UnitTests and .IntegrationTests
+  Platform/
+    Frappe.Platform.UnitTests/         one folder per Platform project, such as Health/
+    Frappe.Platform.IntegrationTests/  Health/ and Persistence/, sharing one migrated database and host
+  Modules/<Name>/             Frappe.<Name>.UnitTests and Frappe.<Name>.IntegrationTests
 eng/                          analyzer configuration, banned APIs, code metrics, CI scripts and the PostgreSQL role init script
 .github/                      CI workflows, Dependabot, labels and the pull request template
 Dockerfile, compose.yaml      host and migrations images, and the local environment
@@ -140,7 +143,8 @@ The layout follows these rules:
 
 - A grouping folder exists only when it holds two or more projects (`Platform`, `Modules/<Name>`, ...); a lone project sits directly in `src/` or `tests/`. A grouping folder never holds a `.csproj`; a project never sits inside another project's folder, because the SDK compiles every file below a project.
 - A project's folder name, project name, assembly name and root namespace are the same.
-- `tests/` mirrors `src/` path for path: the tests of `src/<Group>/<Project>` live in `tests/<Group>/<Project>.<Kind>Tests`, and the tests of `src/<Project>` in `tests/<Project>.<Kind>Tests`, named `.UnitTests`, `.IntegrationTests` or `.ArchitectureTests`; solution-wide tests and the shared `Frappe.TestUtilities` library also sit at the root of `tests/`.
+- A module's projects are named `Frappe.<Name>.<Layer>` (`Frappe.Orders.Domain`, `Frappe.Orders.Application`, `Frappe.Orders.Infrastructure`, `Frappe.Orders.Contracts`), with no `Modules.` segment, and so are their namespaces.
+- `tests/` has one test project per group and kind, not per project and kind: the tests of the projects in `src/<Group>/` live in `tests/<Group>/Frappe.<Group>.<Kind>Tests` (`tests/Platform/Frappe.Platform.IntegrationTests`, `tests/Modules/<Name>/Frappe.<Name>.UnitTests`), one folder per tested project inside it, and the tests of a lone `src/<Project>` in `tests/<Project>.<Kind>Tests`. The kind is `.UnitTests`, `.IntegrationTests` or `.ArchitectureTests`; solution-wide tests and the shared `Frappe.TestUtilities` library also sit at the root of `tests/`.
 - Settings are scoped by subtree: each `Directory.Build.props` below the root imports its parent's with `GetPathOfFileAbove`, so a rule applies to a folder, never to a project name. Package versions live only in the root `Directory.Packages.props`.
 - `Frappe.slnx` solution folders mirror the disk (`/src/`, `/src/Platform/`, `/tests/Platform/`, ...).
 

@@ -1,6 +1,6 @@
 using Npgsql;
 
-namespace Frappe.Platform.Persistence.IntegrationTests;
+namespace Frappe.Platform.IntegrationTests.Persistence;
 
 // What the roles and the applied migrations leave in the catalog, read as the owner.
 public sealed class DatabaseCatalogTests(AppFixture app)

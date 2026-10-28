@@ -1,7 +1,8 @@
 using Alba;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
-namespace Frappe.Platform.Persistence.IntegrationTests;
+namespace Frappe.Platform.IntegrationTests.Persistence;
 
 public sealed class DatabaseHealthTests(AppFixture app)
 {
@@ -81,10 +82,10 @@ public sealed class DatabaseHealthTests(AppFixture app)
         string? connectionString
     )
     {
+        using IHost host = BuildPlatform(connectionString);
+
         OptionsValidationException error = await Should.ThrowAsync<OptionsValidationException>(() =>
-            AlbaHost.For<Program>(builder =>
-                builder.UseSetting("ConnectionStrings:Frappe", connectionString)
-            )
+            host.StartAsync(TestContext.Current.CancellationToken)
         );
 
         error.Message.ShouldContain("Frappe");
@@ -95,13 +96,25 @@ public sealed class DatabaseHealthTests(AppFixture app)
     {
         const string Malformed = $"Host=127.0.0.1;Password={Password};Bogus Key=1";
 
+        using IHost host = BuildPlatform(Malformed);
+
         OptionsValidationException error = await Should.ThrowAsync<OptionsValidationException>(() =>
-            AlbaHost.For<Program>(static builder =>
-                builder.UseSetting("ConnectionStrings:Frappe", Malformed)
-            )
+            host.StartAsync(TestContext.Current.CancellationToken)
         );
 
         error.Message.ShouldContain("ConnectionStrings:Frappe");
         error.Message.ShouldNotContain(Password);
+    }
+
+    // Startup failures are asserted on a host built here, as Program composes it: through
+    // WebApplicationFactory the app thread can dispose the host first (dotnet/aspnetcore#69684).
+    private static IHost BuildPlatform(string? connectionString)
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder(
+            new HostApplicationBuilderSettings { DisableDefaults = true }
+        );
+        builder.Configuration["ConnectionStrings:Frappe"] = connectionString;
+        builder.AddFrappePlatform();
+        return builder.Build();
     }
 }

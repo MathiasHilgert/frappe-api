@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using Frappe.Kernel.Domain;
 
-namespace Frappe.Platform.Persistence.IntegrationTests.Revisions;
+namespace Frappe.Platform.IntegrationTests.Persistence.Revisions;
 
 // An aggregate with every part the revision rule covers: its own columns, an owned value and child
 // rows in their own table. No method touches Revision; saving is what increments it.

@@ -1,10 +1,11 @@
 using Frappe.Platform.Hosting;
+using Frappe.Platform.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
-namespace Frappe.Platform.Persistence.IntegrationTests;
+namespace Frappe.Platform.IntegrationTests.Persistence;
 
 // A host that registers persistence on its own, without the platform composition.
 public sealed class PersistenceRegistrationTests(AppFixture app)
