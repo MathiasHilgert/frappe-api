@@ -4,6 +4,7 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Frappe.Platform" />
+    <InternalsVisibleTo Include="Frappe.Platform.Messaging" />
     <InternalsVisibleTo Include="Frappe.Platform.UnitTests" />
   </ItemGroup>
   <ItemGroup>

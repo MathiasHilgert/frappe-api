@@ -1,5 +1,6 @@
 using Frappe.Platform.Health;
 using Frappe.Platform.Hosting;
+using Frappe.Platform.Messaging;
 using Frappe.Platform.Modularity;
 using Frappe.Platform.Persistence;
 using Microsoft.AspNetCore.Builder;
@@ -22,6 +23,8 @@ public static class PlatformExtensions
     {
         builder.AddHostRole();
         builder.AddHealth();
+        // Before persistence, so every context it and the modules register joins the bus's transaction.
+        builder.AddMessaging();
         builder.AddPersistence();
         return builder;
     }

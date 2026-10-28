@@ -11,14 +11,11 @@ public interface IEventPublisher
     /// <param name="domainEvent">The event.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that completes once the event is in the outbox.</returns>
-    Task PublishDomainEventAsync(IDomainEvent domainEvent, CancellationToken cancellationToken);
+    Task PublishAsync(IDomainEvent domainEvent, CancellationToken cancellationToken);
 
     /// <summary>Publishes an integration event to other modules.</summary>
     /// <param name="integrationEvent">The event.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that completes once the event is in the outbox.</returns>
-    Task PublishIntegrationEventAsync(
-        IIntegrationEvent integrationEvent,
-        CancellationToken cancellationToken
-    );
+    Task PublishAsync(IIntegrationEvent integrationEvent, CancellationToken cancellationToken);
 }

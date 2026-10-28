@@ -1,6 +1,9 @@
+using Frappe.Kernel.Domain;
+using Frappe.Kernel.Messaging;
+
 namespace Frappe.Platform.Modularity;
 
-/// <summary>The rules across modules, checked from their metadata alone so they run before any service exists.</summary>
+/// <summary>The rules across modules, checked from their metadata and their types so they run before any service exists.</summary>
 internal static class ModuleChecks
 {
     // The platform's own tables and those of the libraries it hosts live in these schemas, next to the ones
@@ -31,8 +34,10 @@ internal static class ModuleChecks
             .. OverlappingEventIds(metadata),
             .. SharedPublications(metadata),
             .. UnpublishedSubscriptions(metadata),
+            .. UnsubscribedHandlers(modules),
+            .. MessagesWithoutOneHandler(modules),
+            .. MessagesWithoutIdentity(modules),
         ];
-        // TODO: the Wolverine bus PR adds the check that every event a module handles is in its SubscribedEvents.
         // TODO: module dependencies are checked here only if a real need appears; none is planned.
         if (violations.Count > 0)
         {
@@ -90,4 +95,62 @@ internal static class ModuleChecks
                 )
         );
     }
+
+    // A handled event missing from SubscribedEvents would run without the boot check ever seeing the subscription.
+    private static IEnumerable<string> UnsubscribedHandlers(IReadOnlyList<IModule> modules) =>
+        from module in modules
+        from handler in ModuleTypes.Handlers(module)
+        from contract in ModuleTypes.HandlerInterfaces(handler)
+        where contract.GetGenericTypeDefinition() == typeof(IIntegrationEventConsumer<>)
+        let handled = contract.GenericTypeArguments[0]
+        where !module.Metadata.SubscribedEvents.Contains(handled)
+        select $"Module '{module.Metadata.Name}' handles {handled.FullName} in {handler.FullName}, which is not in its SubscribedEvents; add it to SubscribedEvents in the module's metadata.";
+
+    // The dispatcher invokes a command or query on exactly one handler; none or two is a wiring bug.
+    private static IEnumerable<string> MessagesWithoutOneHandler(IReadOnlyList<IModule> modules)
+    {
+        ILookup<Type, Type> handlers = (
+            from handler in modules.SelectMany(ModuleTypes.Handlers).Distinct()
+            from contract in ModuleTypes.HandlerInterfaces(handler)
+            where contract.GetGenericTypeDefinition() != typeof(IIntegrationEventConsumer<>)
+            select (Message: contract.GenericTypeArguments[0], Handler: handler)
+        ).ToLookup(static pair => pair.Message, static pair => pair.Handler);
+        return from module in modules
+            from message in ModuleTypes.Owned(module)
+            where !message.IsAbstract && IsCommandOrQuery(message)
+            let found = handlers[message].ToArray()
+            where found.Length != 1
+            select found.Length == 0
+                ? $"{message.FullName} has 0 handlers; a command or query has exactly one. For module '{module.Metadata.Name}' the bus searched the public types under {ModuleTypes.Scope(module)}; add a public class there implementing the Kernel handler interface for it."
+                : $"{message.FullName} has {found.Length} handlers ({string.Join(", ", found.Select(static handler => handler.FullName))}); a command or query has exactly one, so remove all but one.";
+    }
+
+    // Durable queues, schedules and dead letters store a message under its identity, so one without it would
+    // be stored under its class name and stranded by a rename.
+    private static IEnumerable<string> MessagesWithoutIdentity(IReadOnlyList<IModule> modules) =>
+        from module in modules
+        from message in ModuleTypes.Owned(module)
+        where
+            message is { IsAbstract: false, IsInterface: false }
+            && IsPersisted(message)
+            && !Attribute.IsDefined(message, typeof(MessageIdentityAttribute))
+        select $"{message.FullName} is stored by the bus but has no [MessageIdentity]; add [MessageIdentity(\"{module.Metadata.Name}.<name>\")] with a name that never changes.";
+
+    private static bool IsPersisted(Type type) =>
+        type.IsAssignableTo(typeof(IIntegrationEvent))
+        || type.IsAssignableTo(typeof(IDomainEvent))
+        || type.GetInterfaces()
+            .Any(static contract =>
+                contract.IsGenericType && contract.GetGenericTypeDefinition() == typeof(ICommand<,>)
+            );
+
+    private static bool IsCommandOrQuery(Type type) =>
+        type.GetInterfaces()
+            .Any(static contract =>
+                contract.IsGenericType
+                && (
+                    contract.GetGenericTypeDefinition() == typeof(ICommand<,>)
+                    || contract.GetGenericTypeDefinition() == typeof(IQuery<,>)
+                )
+            );
 }

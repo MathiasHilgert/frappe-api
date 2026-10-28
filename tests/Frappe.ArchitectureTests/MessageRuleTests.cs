@@ -1,4 +1,6 @@
+using System.Reflection;
 using Frappe.Kernel.Authorization;
+using Frappe.Kernel.Domain;
 using Frappe.Kernel.Messaging;
 using Assembly = System.Reflection.Assembly;
 
@@ -48,6 +50,46 @@ public sealed class MessageRuleTests
         );
     }
 
+    // Durable queues, schedules and dead letters store a message under its identity, so a missing or
+    // repeated one would strand persisted messages.
+    [Fact]
+    public void Every_persisted_message_has_a_unique_stable_identity()
+    {
+        Type[] messages =
+        [
+            .. _frappeAssemblies
+                .SelectMany(static assembly => assembly.GetTypes())
+                .Where(static type =>
+                    type is { IsAbstract: false, IsInterface: false } && IsPersisted(type)
+                ),
+        ];
+        string[] identities =
+        [
+            .. messages
+                .Select(static type => type.GetCustomAttribute<MessageIdentityAttribute>()?.Name)
+                .OfType<string>(),
+        ];
+
+        Assert.Contains(typeof(SampleCommand), messages);
+        Assert.Empty(
+            messages
+                .Where(static type => !Attribute.IsDefined(type, typeof(MessageIdentityAttribute)))
+                .Select(static type =>
+                    $"{type.FullName} is stored by the bus but has no [MessageIdentity]; add one with a name that never changes."
+                )
+        );
+        Assert.Equal(identities.Length, identities.Distinct(StringComparer.Ordinal).Count());
+    }
+
+    private static bool IsPersisted(Type type) =>
+        type.IsAssignableTo(typeof(IDomainEvent))
+        || type.IsAssignableTo(typeof(IIntegrationEvent))
+        || type.GetInterfaces()
+            .Any(static contract =>
+                contract.IsGenericType && contract.GetGenericTypeDefinition() == typeof(ICommand<,>)
+            );
+
+    [MessageIdentity("sample.run")]
     private sealed record SampleCommand : ICommand<SampleCommand, int>
     {
         public static Policy Policy { get; } = new("sample.run");
