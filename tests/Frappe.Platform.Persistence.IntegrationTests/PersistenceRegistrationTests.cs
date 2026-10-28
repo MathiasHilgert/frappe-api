@@ -1,0 +1,49 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+
+namespace Frappe.Platform.Persistence.IntegrationTests;
+
+// A host that registers persistence on its own, without the platform composition.
+public sealed class PersistenceRegistrationTests(AppFixture app)
+{
+    [Fact]
+    public async Task Persistence_alone_names_connections_after_the_configured_role()
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder(
+            new HostApplicationBuilderSettings { DisableDefaults = true }
+        );
+        builder.Configuration["Platform:Role"] = "worker";
+        builder.Configuration["ConnectionStrings:Frappe"] = app.ConnectionString;
+        builder.AddPersistence();
+        using IHost host = builder.Build();
+        await host.StartAsync(TestContext.Current.CancellationToken);
+        await using AsyncServiceScope scope = host.Services.CreateAsyncScope();
+        FrappeDbContext db = scope.ServiceProvider.GetRequiredService<FrappeDbContext>();
+
+        string name = await db
+            .Database.SqlQuery<string>($"SELECT current_setting('application_name') AS \"Value\"")
+            .SingleAsync(TestContext.Current.CancellationToken);
+
+        name.ShouldBe("frappe-worker");
+    }
+
+    [Fact]
+    public async Task Persistence_alone_still_rejects_an_invalid_role()
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder(
+            new HostApplicationBuilderSettings { DisableDefaults = true }
+        );
+        builder.Configuration["Platform:Role"] = "7";
+        builder.Configuration["ConnectionStrings:Frappe"] = app.ConnectionString;
+        builder.AddPersistence();
+        using IHost host = builder.Build();
+
+        OptionsValidationException error = await Should.ThrowAsync<OptionsValidationException>(() =>
+            host.StartAsync(TestContext.Current.CancellationToken)
+        );
+
+        error.Message.ShouldContain("Role");
+    }
+}

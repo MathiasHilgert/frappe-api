@@ -1,7 +1,7 @@
-namespace Frappe.Platform;
+namespace Frappe.Platform.Hosting;
 
 // The process role; one binary runs any of them.
-internal enum HostRole
+public enum HostRole
 {
     All,
     Api,
