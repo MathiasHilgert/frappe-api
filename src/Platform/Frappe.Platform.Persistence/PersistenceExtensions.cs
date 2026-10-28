@@ -60,6 +60,9 @@ public static class PersistenceExtensions
         // Encryption to Postgres is TLS; the default GSS attempt needs a Kerberos library the
         // runtime image does not ship, so it fails and logs an error before falling back.
         dataSource.ConnectionStringBuilder.GssEncryptionMode = GssEncryptionMode.Disable;
+        // Every handler holds its connection for an explicit transaction, so multiplexing is never
+        // allowed, whatever the connection string says.
+        dataSource.ConnectionStringBuilder.Multiplexing = false;
         dataSource.UseNodaTime();
     }
 
