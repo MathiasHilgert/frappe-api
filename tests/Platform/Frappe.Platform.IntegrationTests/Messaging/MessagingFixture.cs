@@ -2,7 +2,10 @@ using Alba;
 using Frappe.Platform.IntegrationTests.Messaging.Audit.Infrastructure;
 using Frappe.Platform.IntegrationTests.Messaging.Billing.Infrastructure;
 using Frappe.Platform.IntegrationTests.Messaging.Kitchen.Infrastructure;
+using Frappe.Platform.IntegrationTests.Persistence;
+using Frappe.Platform.Modularity;
 using Frappe.TestUtilities;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -13,8 +16,9 @@ using OpenTelemetry.Metrics;
 namespace Frappe.Platform.IntegrationTests.Messaging;
 
 // The platform with three fixture modules on a database of its own, so no other host in the run
-// recovers or clears this host's envelopes. Development, so Wolverine runs Solo.
-public class MessagingFixture : IAsyncLifetime
+// recovers or clears this host's envelopes, and on a NATS scope of its own. Development, so Wolverine runs
+// Solo and creates the NATS topology.
+public class MessagingFixture(AppFixture app) : IAsyncLifetime
 {
     private const string FixtureSchemas = """
         CREATE SCHEMA kitchen;
@@ -39,12 +43,18 @@ public class MessagingFixture : IAsyncLifetime
 
     internal TransactionTenants Transactions { get; } = new();
 
+    internal NatsScope Nats { get; } = NatsScope.On(app.Nats);
+
+    // The assembly's NATS server, for fixtures whose tests take scopes of their own.
+    internal FrappeNats SharedNats { get; } = app.Nats;
+
     // The exporter adds from its own thread while a test reads.
     internal LockedCollection<MetricSnapshot> Metrics { get; } = new();
 
-    protected virtual string HostEnvironment => Environments.Development;
+    // The environment of the fixture's own host, or null for a fixture whose tests start their own hosts.
+    protected virtual string? HostEnvironment => Environments.Development;
 
-    public async ValueTask InitializeAsync()
+    public virtual async ValueTask InitializeAsync()
     {
         await _database.InitializeAsync();
         _owner = NpgsqlDataSource.Create(_database.OwnerConnectionString);
@@ -53,11 +63,39 @@ public class MessagingFixture : IAsyncLifetime
             await schemas.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
         }
 
-        _host = await FrappeTestHost.StartAsync(
+        if (HostEnvironment is not { } environment)
+        {
+            return;
+        }
+
+        if (!string.Equals(environment, Environments.Development, StringComparison.Ordinal))
+        {
+            await ProvisionAsync(Nats);
+        }
+
+        _host = await StartHostAsync(Nats, environment);
+    }
+
+    // Deployed environments only verify the NATS topology; a Development host creates it, as the deploy step does.
+    public async Task ProvisionAsync(NatsScope nats, IModule[]? modules = null) =>
+        await (
+            await StartHostAsync(nats, Environments.Development, "worker", modules)
+        ).DisposeAsync();
+
+    // A host on this fixture's database: Kitchen, Billing and Audit unless other modules are given.
+    public Task<IAlbaHost> StartHostAsync(
+        NatsScope nats,
+        string environment,
+        string role = "all",
+        IModule[]? modules = null,
+        Action<WebApplicationBuilder>? configure = null
+    ) =>
+        FrappeTestHost.StartAsync(
             _database.AppConnectionString,
-            [new KitchenModule(), new BillingModule(), new AuditModule()],
+            modules ?? [new KitchenModule(), new BillingModule(), new AuditModule()],
             builder =>
             {
+                builder.Configuration["Platform:Role"] = role;
                 builder.Logging.AddProvider(Logs);
                 builder.Services.ConfigureDbContext<KitchenDbContext>(
                     Intercept,
@@ -74,10 +112,11 @@ public class MessagingFixture : IAsyncLifetime
                 builder
                     .Services.AddOpenTelemetry()
                     .WithMetrics(metrics => metrics.AddInMemoryExporter(Metrics));
+                configure?.Invoke(builder);
             },
-            HostEnvironment
+            environment,
+            nats
         );
-    }
 
     // Owner reads bypass row-level security, so a test sees every row its handlers wrote.
     public async Task<long> CountAsync(string sql, Guid id)
@@ -89,6 +128,68 @@ public class MessagingFixture : IAsyncLifetime
         );
     }
 
+    // Polls until the count is positive, for rows Wolverine writes after the message's tracked lifecycle ends,
+    // such as a dead letter it stores in a later batch.
+    public async Task<long> WaitForRowsAsync(string sql, Guid id)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
+            TestContext.Current.CancellationToken
+        );
+        timeout.CancelAfter(TrackedMessages.Timeout);
+        using PeriodicTimer poll = new(TimeSpan.FromMilliseconds(200));
+        long count;
+        while ((count = await CountAsync(sql, id)) == 0)
+        {
+            await poll.WaitForNextTickAsync(timeout.Token);
+        }
+
+        return count;
+    }
+
+    // Waits for every transaction still writing to the table to commit, then counts: a SHARE lock queues behind
+    // their ROW EXCLUSIVE locks. For a test whose handler ran outside any tracked session it can wait on.
+    public async Task<long> CountCommittedAsync(string table, string sql, Guid id)
+    {
+        await using NpgsqlConnection connection = await _owner!.OpenConnectionAsync(
+            TestContext.Current.CancellationToken
+        );
+        await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync(
+            TestContext.Current.CancellationToken
+        );
+        await using (
+            NpgsqlCommand lockTable = new(
+                $"LOCK TABLE {table} IN SHARE MODE",
+                connection,
+                transaction
+            )
+        )
+        {
+            await lockTable.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+
+        await using NpgsqlCommand count = new(sql, connection, transaction);
+        count.Parameters.AddWithValue(id);
+        return (long)(await count.ExecuteScalarAsync(TestContext.Current.CancellationToken) ?? 0L);
+    }
+
+    public async Task ExecuteAsync(string sql, Guid id)
+    {
+        await using NpgsqlCommand command = _owner!.CreateCommand(sql);
+        command.Parameters.AddWithValue(id);
+        await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+    }
+
+    // As the owner, for DDL that breaks the store behind the application's back.
+    public async Task ExecuteAsync(string sql)
+    {
+        await using NpgsqlCommand command = _owner!.CreateCommand(sql);
+        await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+    }
+
+    public Task PauseDatabaseAsync() => _database.PauseAsync();
+
+    public Task UnpauseDatabaseAsync() => _database.UnpauseAsync();
+
     public async Task<T?> ScalarAsync<T>(string sql, Guid id)
     {
         await using NpgsqlCommand command = _owner!.CreateCommand(sql);
@@ -97,7 +198,7 @@ public class MessagingFixture : IAsyncLifetime
         return value is DBNull or null ? default : (T)value;
     }
 
-    public async ValueTask DisposeAsync()
+    public virtual async ValueTask DisposeAsync()
     {
         if (_host is not null)
         {

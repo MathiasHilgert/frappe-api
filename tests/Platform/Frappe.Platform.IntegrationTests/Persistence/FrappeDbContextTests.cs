@@ -72,6 +72,7 @@ public sealed class FrappeDbContextTests(AppFixture app)
             builder
                 .UseSetting("Platform:Role", role)
                 .UseSetting("ConnectionStrings:Frappe", app.ConnectionString)
+                .UseSetting("Nats:Url", app.NatsUrl)
         );
         await using AsyncServiceScope scope = host.Services.CreateAsyncScope();
         PlatformDbContext db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
@@ -87,10 +88,12 @@ public sealed class FrappeDbContextTests(AppFixture app)
     public async Task Connections_never_attempt_gss_encryption_even_when_asked_to()
     {
         await using IAlbaHost host = await AlbaHost.For<Program>(builder =>
-            builder.UseSetting(
-                "ConnectionStrings:Frappe",
-                $"{app.ConnectionString};GSS Encryption Mode=Prefer"
-            )
+            builder
+                .UseSetting(
+                    "ConnectionStrings:Frappe",
+                    $"{app.ConnectionString};GSS Encryption Mode=Prefer"
+                )
+                .UseSetting("Nats:Url", app.NatsUrl)
         );
         NpgsqlDataSource dataSource = host.Services.GetRequiredService<NpgsqlDataSource>();
 
@@ -103,10 +106,9 @@ public sealed class FrappeDbContextTests(AppFixture app)
     public async Task Connections_never_multiplex_even_when_asked_to()
     {
         await using IAlbaHost host = await AlbaHost.For<Program>(builder =>
-            builder.UseSetting(
-                "ConnectionStrings:Frappe",
-                $"{app.ConnectionString};Multiplexing=true"
-            )
+            builder
+                .UseSetting("ConnectionStrings:Frappe", $"{app.ConnectionString};Multiplexing=true")
+                .UseSetting("Nats:Url", app.NatsUrl)
         );
         NpgsqlDataSource dataSource = host.Services.GetRequiredService<NpgsqlDataSource>();
 

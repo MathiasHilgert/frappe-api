@@ -41,6 +41,21 @@ services:
       retries: 10
       start_period: "10s"
 
+  nats:
+    # The same image the tests run; JetStream keeps the stream in the named volume. No auth locally.
+    image: "nats:2.14.9-alpine"
+    command: ["--jetstream", "--store_dir", "/data", "--http_port", "8222"]
+    ports:
+      - "127.0.0.1:${NATS_PORT:-4222}:4222"
+    volumes:
+      - "nats-data:/data"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8222/healthz?js-enabled-only=true"]
+      interval: "5s"
+      timeout: "5s"
+      retries: 10
+      start_period: "5s"
+
   migrate:
     image: "frappe-migrations:local"
     build:
@@ -67,9 +82,13 @@ services:
     depends_on:
       migrate:
         condition: "service_completed_successfully"
+      nats:
+        condition: "service_healthy"
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
       Platform__Role: "all"
+      # Development creates the stream and consumers on start; deployed environments verify them.
+      Nats__Url: "nats://nats:4222"
       ConnectionStrings__Frappe: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-frappe};Username=frappe_app;Password=${FRAPPE_APP_PASSWORD:-app-local-only}"
     ports:
       - "127.0.0.1:${API_PORT:-8080}:8080"
@@ -78,3 +97,4 @@ services:
 
 volumes:
   postgres-data:
+  nats-data:

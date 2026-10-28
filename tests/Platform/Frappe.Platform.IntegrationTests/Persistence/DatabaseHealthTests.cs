@@ -139,6 +139,8 @@ public sealed class DatabaseHealthTests(AppFixture app)
             new HostApplicationBuilderSettings { DisableDefaults = true }
         );
         builder.Configuration["ConnectionStrings:Frappe"] = connectionString;
+        // The database fails the start first: Wolverine registers its node before any transport connects.
+        builder.Configuration["Nats:Url"] = "nats://127.0.0.1:1";
         builder.AddFrappePlatform();
         return builder.Build();
     }

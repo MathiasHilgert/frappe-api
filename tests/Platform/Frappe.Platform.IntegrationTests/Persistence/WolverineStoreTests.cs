@@ -18,6 +18,7 @@ public sealed class WolverineStoreTests(AppFixture app)
             new WebApplicationOptions { EnvironmentName = Environments.Production }
         );
         builder.Configuration["ConnectionStrings:Frappe"] = app.ConnectionString;
+        builder.Configuration["Nats:Url"] = app.NatsUrl;
         builder.AddFrappePlatform();
         await using WebApplication host = builder.Build();
         var store = (IDatabase)host.Services.GetRequiredService<IMessageStore>();

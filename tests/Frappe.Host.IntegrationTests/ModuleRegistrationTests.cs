@@ -8,14 +8,16 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Frappe.Host.IntegrationTests;
 
-public sealed class ModuleRegistrationTests(FrappeDatabase database)
+public sealed class ModuleRegistrationTests(FrappeDatabase database, FrappeNats nats)
 {
     // Modules are listed by hand in Program, so a module whose class exists but is not listed would never run.
     [Fact]
     public async Task The_host_adds_every_module_it_ships()
     {
         await using IAlbaHost host = await AlbaHost.For<Program>(builder =>
-            builder.UseSetting("ConnectionStrings:Frappe", database.AppConnectionString)
+            builder
+                .UseSetting("ConnectionStrings:Frappe", database.AppConnectionString)
+                .UseSetting("Nats:Url", nats.Url)
         );
 
         IEnumerable<Type> added = host
@@ -30,7 +32,9 @@ public sealed class ModuleRegistrationTests(FrappeDatabase database)
     public async Task Each_module_context_owns_its_module_schema()
     {
         await using IAlbaHost host = await AlbaHost.For<Program>(builder =>
-            builder.UseSetting("ConnectionStrings:Frappe", database.AppConnectionString)
+            builder
+                .UseSetting("ConnectionStrings:Frappe", database.AppConnectionString)
+                .UseSetting("Nats:Url", nats.Url)
         );
         await using AsyncServiceScope scope = host.Services.CreateAsyncScope();
 

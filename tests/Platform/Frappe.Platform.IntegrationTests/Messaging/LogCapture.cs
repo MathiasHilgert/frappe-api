@@ -15,7 +15,8 @@ internal sealed class LogCapture : ILoggerProvider
     internal sealed record Record(
         LogLevel Level,
         EventId EventId,
-        IReadOnlyDictionary<string, object?> State
+        IReadOnlyDictionary<string, object?> State,
+        string Text
     );
 
     private sealed class Logger(LogCapture capture) : ILogger
@@ -46,7 +47,9 @@ internal sealed class LogCapture : ILoggerProvider
                                 static group => group.Last().Value,
                                 StringComparer.Ordinal
                             )
-                        : new Dictionary<string, object?>(StringComparer.Ordinal)
+                        : new Dictionary<string, object?>(StringComparer.Ordinal),
+                    // Only for tests that prove a secret reaches no log.
+                    $"{formatter(state, exception)} {exception}"
                 )
             );
     }

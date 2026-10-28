@@ -1,9 +1,10 @@
+using Frappe.Platform.IntegrationTests.Persistence;
 using Microsoft.Extensions.Hosting;
 
 namespace Frappe.Platform.IntegrationTests.Messaging;
 
 // The fixture host as deployed: Production, so Wolverine runs Balanced, on the app role.
-public sealed class BalancedFixture : MessagingFixture
+public sealed class BalancedFixture(AppFixture app) : MessagingFixture(app)
 {
-    protected override string HostEnvironment => Environments.Production;
+    protected override string? HostEnvironment => Environments.Production;
 }

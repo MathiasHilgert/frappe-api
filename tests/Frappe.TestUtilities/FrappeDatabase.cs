@@ -38,6 +38,11 @@ public sealed class FrappeDatabase : IAsyncLifetime
 
     public ValueTask DisposeAsync() => _postgres.DisposeAsync();
 
+    // Freezes the server, as an outage does: open connections hang instead of failing fast.
+    public Task PauseAsync() => _postgres.PauseAsync(TestContext.Current.CancellationToken);
+
+    public Task UnpauseAsync() => _postgres.UnpauseAsync(TestContext.Current.CancellationToken);
+
     private string ConnectAs(string role, string password) =>
         new NpgsqlConnectionStringBuilder(_postgres.GetConnectionString())
         {

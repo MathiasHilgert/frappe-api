@@ -1,5 +1,6 @@
 using Frappe.Kernel.Messaging;
 using Frappe.Kernel.Tenancy;
+using Frappe.Platform.Health;
 using Frappe.Platform.Hosting;
 using Frappe.Platform.Persistence;
 using JasperFx;
@@ -78,7 +79,17 @@ public static class MessagingExtensions
             ExtensionDiscovery.ManualOnly,
             options => Configure(options, development)
         );
+        builder
+            .Services.AddOptionsWithValidateOnStart<NatsOptions, NatsOptionsValidator>()
+            .BindConfiguration(NatsOptions.SectionName);
         builder.Services.AddSingleton<IWolverineExtension, ModuleHandlerDiscovery>();
+        builder.Services.AddSingleton<IWolverineExtension, NatsEvents>();
+        // After AddWolverine, so they start once the bus has.
+        builder.Services.AddHostedService<MessageStoreCheck>();
+        builder.Services.AddHostedService<NatsTopologyCheck>();
+        builder
+            .Services.AddHealthChecks()
+            .AddDependency<NatsHealthCheck>("nats", Criticality.Critical);
         builder.Services.AddSingleton<ErrorOrOutcome>();
         builder.Services.AddScoped<IDispatcher, WolverineDispatcher>();
         builder.Services.AddScoped<IEventPublisher, WolverineEventPublisher>();
@@ -97,8 +108,7 @@ public static class MessagingExtensions
 
         // Solo clears the node table at startup, so it is safe only with one process: development and tests.
         options.Durability.Mode = development ? DurabilityMode.Solo : DurabilityMode.Balanced;
-        // TODO: the NATS PR routes integration events through JetStream (stream FRAPPE_EVENTS, a durable
-        // consumer per subscribing module); until then every message runs on a durable local queue.
+        // Integration events travel through NATS JetStream (NatsEvents); commands run on durable local queues.
         options.PersistMessagesWithPostgresqlUsingDataSourceFromContainer(schemaName: Schema);
         // The app role cannot run DDL: the store's tables come from the owner-run migration.
         options.AutoBuildMessageStorageOnStartup = AutoCreate.None;
@@ -109,7 +119,6 @@ public static class MessagingExtensions
         options.Policies.AutoApplyTransactions();
 
         options.Policies.UseDurableLocalQueues();
-        // These two act once a transport exists (the NATS PR); local queues are durable through the line above.
         options.Policies.UseDurableInboxOnAllListeners();
         options.Policies.UseDurableOutboxOnAllSendingEndpoints();
         // Each in-flight handler holds a pooled connection inside its eager transaction; with the queues of one
@@ -124,6 +133,8 @@ public static class MessagingExtensions
         options.UnknownMessageBehavior = UnknownMessageBehavior.DeadLetterQueue;
         options.Durability.DeadLetterQueueExpirationEnabled = true;
         options.Durability.DeadLetterQueueExpiration = 30.Days();
+        // The inbox remembers a handled envelope id at least as long as JetStream drops a repeated publish.
+        options.Durability.KeepAfterMessageHandling = NatsTopology.DuplicateWindow;
 
         options.Policies.MessageSuccessLogLevel(LogLevel.Debug);
         options
@@ -142,7 +153,7 @@ public static class MessagingExtensions
         // through IDispatcher.
         options.Discovery.DisableConventionalDiscovery();
 
-        // TODO: later PRs add CloudEvents headers (NATS PR), events.event_log, domain-event scraping
+        // TODO: later PRs add events.event_log, domain-event scraping
         // (PublishDomainEventsFromEntityFrameworkCore), circuit breakers, a dead-letter replay CLI and the
         // Quartz outbox outside handlers (IDbContextOutbox).
     }
@@ -173,6 +184,8 @@ public static class MessagingExtensions
 
     private static void AddTelemetry(IServiceCollection services) =>
         // TODO: the telemetry PR adds the resource and the OTLP exporter; until then nothing is exported.
+        // Wolverine's meter already gauges the inbox and outbox size; inbox depth and oldest age per local queue
+        // and the oldest outbox row need timestamps the 6.56 store tables lack (alerts PR).
         services
             .AddOpenTelemetry()
             .WithTracing(static tracing => tracing.AddSource("Wolverine"))

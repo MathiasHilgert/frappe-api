@@ -2,6 +2,7 @@ using System.Reflection;
 using Frappe.Kernel.Authorization;
 using Frappe.Kernel.Domain;
 using Frappe.Kernel.Messaging;
+using Frappe.Platform.Messaging;
 using Assembly = System.Reflection.Assembly;
 
 namespace Frappe.ArchitectureTests;
@@ -81,6 +82,50 @@ public sealed class MessageRuleTests
         Assert.Equal(identities.Length, identities.Distinct(StringComparer.Ordinal).Count());
     }
 
+    // The NATS subject is the root plus the identity: five tokens ending in a version, one subject per event.
+    [Fact]
+    public void Every_integration_event_maps_to_its_own_five_token_subject()
+    {
+        Type[] events =
+        [
+            .. _frappeAssemblies
+                .SelectMany(static assembly => assembly.GetTypes())
+                .Where(static type =>
+                    type is { IsAbstract: false, IsInterface: false }
+                    && type.IsAssignableTo(typeof(IIntegrationEvent))
+                    && type != typeof(UnversionedEvent)
+                ),
+        ];
+        List<string> subjects = [];
+        List<string> broken = [];
+        foreach (Type integrationEvent in events)
+        {
+            try
+            {
+                subjects.Add(NatsTopology.Subject("frappe", integrationEvent));
+            }
+            catch (InvalidOperationException error)
+            {
+                broken.Add(error.Message);
+            }
+        }
+
+        Assert.Contains("frappe.sample.ticket.opened.v1", subjects, StringComparer.Ordinal);
+        Assert.Empty(broken);
+        Assert.All(subjects, static subject => Assert.Equal(5, subject.Split('.').Length));
+        Assert.Equal(subjects.Count, subjects.Distinct(StringComparer.Ordinal).Count());
+    }
+
+    [Fact]
+    public void An_integration_event_whose_identity_lacks_a_version_has_no_subject()
+    {
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(static () =>
+            NatsTopology.Subject("frappe", typeof(UnversionedEvent))
+        );
+
+        Assert.Contains("module.entity.fact.vN", error.Message, StringComparison.Ordinal);
+    }
+
     private static bool IsPersisted(Type type) =>
         type.IsAssignableTo(typeof(IDomainEvent))
         || type.IsAssignableTo(typeof(IIntegrationEvent))
@@ -94,6 +139,13 @@ public sealed class MessageRuleTests
     {
         public static Policy Policy { get; } = new("sample.run");
     }
+
+    [MessageIdentity("sample.ticket.opened.v1")]
+    private sealed record SampleEvent : IIntegrationEvent;
+
+    // Read by reflection only, so the scan above must skip it: it is the broken shape on purpose.
+    [MessageIdentity("sample.ticket.opened")]
+    private sealed record UnversionedEvent : IIntegrationEvent;
 
     private sealed record SampleQuery : IQuery<SampleQuery, string>
     {
