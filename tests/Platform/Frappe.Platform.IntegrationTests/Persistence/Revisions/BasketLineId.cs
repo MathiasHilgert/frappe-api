@@ -1,7 +1,7 @@
 using ErrorOr;
 using Frappe.Kernel.Domain;
 
-namespace Frappe.Platform.Persistence.IntegrationTests.Revisions;
+namespace Frappe.Platform.IntegrationTests.Persistence.Revisions;
 
 internal readonly record struct BasketLineId(Guid Value) : IEntityId<BasketLineId>
 {

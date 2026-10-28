@@ -1,10 +1,11 @@
 using Alba;
+using Frappe.Platform.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
 using Npgsql;
 
-namespace Frappe.Platform.Persistence.IntegrationTests;
+namespace Frappe.Platform.IntegrationTests.Persistence;
 
 public sealed class FrappeDbContextTests(AppFixture app)
 {

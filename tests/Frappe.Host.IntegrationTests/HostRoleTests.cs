@@ -1,5 +1,7 @@
 using Alba;
+using Frappe.Platform;
 using Frappe.TestUtilities;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace Frappe.Host.IntegrationTests;
@@ -52,12 +54,10 @@ public sealed class HostRoleTests(FrappeDatabase database)
     [Fact]
     public async Task A_role_name_that_does_not_exist_stops_the_host_from_starting()
     {
+        using IHost host = BuildPlatform("web");
+
         InvalidOperationException error = await Should.ThrowAsync<InvalidOperationException>(() =>
-            AlbaHost.For<Program>(builder =>
-                builder
-                    .UseSetting("Platform:Role", "web")
-                    .UseSetting("ConnectionStrings:Frappe", database.AppConnectionString)
-            )
+            host.StartAsync(TestContext.Current.CancellationToken)
         );
 
         error.Message.ShouldContain("Platform:Role");
@@ -66,14 +66,25 @@ public sealed class HostRoleTests(FrappeDatabase database)
     [Fact]
     public async Task A_numeric_role_outside_the_defined_roles_stops_the_host_from_starting()
     {
+        using IHost host = BuildPlatform("7");
+
         OptionsValidationException error = await Should.ThrowAsync<OptionsValidationException>(() =>
-            AlbaHost.For<Program>(builder =>
-                builder
-                    .UseSetting("Platform:Role", "7")
-                    .UseSetting("ConnectionStrings:Frappe", database.AppConnectionString)
-            )
+            host.StartAsync(TestContext.Current.CancellationToken)
         );
 
         error.Message.ShouldContain("Role");
+    }
+
+    // Startup failures are asserted on a host built here, as Program composes it: through
+    // WebApplicationFactory the app thread can dispose the host first (dotnet/aspnetcore#69684).
+    private IHost BuildPlatform(string role)
+    {
+        HostApplicationBuilder builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder(
+            new HostApplicationBuilderSettings { DisableDefaults = true }
+        );
+        builder.Configuration["Platform:Role"] = role;
+        builder.Configuration["ConnectionStrings:Frappe"] = database.AppConnectionString;
+        builder.AddFrappePlatform();
+        return builder.Build();
     }
 }

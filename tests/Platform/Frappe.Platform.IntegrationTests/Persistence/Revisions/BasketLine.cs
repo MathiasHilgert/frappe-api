@@ -1,6 +1,6 @@
 using Frappe.Kernel.Domain;
 
-namespace Frappe.Platform.Persistence.IntegrationTests.Revisions;
+namespace Frappe.Platform.IntegrationTests.Persistence.Revisions;
 
 // A child entity in its own table, reached only through its basket.
 internal sealed class BasketLine : Entity<BasketLineId>

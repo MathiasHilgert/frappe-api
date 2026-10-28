@@ -1,10 +1,11 @@
 using Alba;
+using Frappe.Platform.Health;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 
-namespace Frappe.Platform.Health.IntegrationTests;
+namespace Frappe.Platform.IntegrationTests.Health;
 
 public sealed class HealthEndpointTests
 {

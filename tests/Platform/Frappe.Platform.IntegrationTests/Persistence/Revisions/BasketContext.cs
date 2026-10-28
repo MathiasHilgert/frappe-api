@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
-namespace Frappe.Platform.Persistence.IntegrationTests.Revisions;
+namespace Frappe.Platform.IntegrationTests.Persistence.Revisions;
 
 // A test-only model in its own schema, so the migrations model never sees it.
 internal sealed class BasketContext(DbContextOptions<BasketContext> options) : DbContext(options)

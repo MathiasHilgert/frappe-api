@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
-namespace Frappe.Platform.Persistence.IntegrationTests.Revisions;
+namespace Frappe.Platform.IntegrationTests.Persistence.Revisions;
 
 public sealed class AggregateRevisionTests(BasketDatabase database) : IClassFixture<BasketDatabase>
 {

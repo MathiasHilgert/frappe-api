@@ -18,8 +18,7 @@
     <Project Path="tests/Frappe.TestUtilities/Frappe.TestUtilities.csproj" />
   </Folder>
   <Folder Name="/tests/Platform/">
-    <Project Path="tests/Platform/Frappe.Platform.Health.IntegrationTests/Frappe.Platform.Health.IntegrationTests.csproj" />
-    <Project Path="tests/Platform/Frappe.Platform.Health.UnitTests/Frappe.Platform.Health.UnitTests.csproj" />
-    <Project Path="tests/Platform/Frappe.Platform.Persistence.IntegrationTests/Frappe.Platform.Persistence.IntegrationTests.csproj" />
+    <Project Path="tests/Platform/Frappe.Platform.IntegrationTests/Frappe.Platform.IntegrationTests.csproj" />
+    <Project Path="tests/Platform/Frappe.Platform.UnitTests/Frappe.Platform.UnitTests.csproj" />
   </Folder>
 </Solution>
