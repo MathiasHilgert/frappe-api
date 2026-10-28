@@ -50,15 +50,6 @@
           "StyleCop.Analyzers.Unstable": "1.2.0.556"
         }
       },
-      "Testcontainers.PostgreSql": {
-        "type": "Direct",
-        "requested": "[4.16.0, )",
-        "resolved": "4.16.0",
-        "contentHash": "QqvFS8Oj+i6deH3QJOMd7jgFF9P3h7RZ37wOaoR97ZahMcSYMYCb+COR4nUVznT1d7EavEcZdUs1QV0ow69JiA==",
-        "dependencies": {
-          "Testcontainers": "4.16.0"
-        }
-      },
       "xunit.v3": {
         "type": "Direct",
         "requested": "[4.0.2, )",
@@ -628,14 +619,6 @@
           "xunit.v3.runner.inproc.console": "[4.0.2]"
         }
       },
-      "xunit.v3.extensibility.core": {
-        "type": "Transitive",
-        "resolved": "4.0.2",
-        "contentHash": "ARTt+pGyd86mdtiFBkKpyBQvRC3u0rr8oidBlII2GsAg7D6TfOsDFCsoQtFij83V5pE57m3whUIqT4xjiARXbQ==",
-        "dependencies": {
-          "xunit.v3.common": "[4.0.2]"
-        }
-      },
       "xunit.v3.mtp-v2": {
         "type": "Transitive",
         "resolved": "4.0.2",
@@ -715,6 +698,14 @@
           "Npgsql.DependencyInjection": "[10.0.3, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.3, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime": "[10.0.3, )"
+        }
+      },
+      "frappe.testutilities": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Migrations": "[1.0.0, )",
+          "Testcontainers.PostgreSql": "[4.16.0, )",
+          "xunit.v3.extensibility.core": "[4.0.2, )"
         }
       },
       "AspNetCore.HealthChecks.NpgSql": {
@@ -897,6 +888,24 @@
         "dependencies": {
           "Npgsql.EntityFrameworkCore.PostgreSQL": "10.0.3",
           "Npgsql.NodaTime": "10.0.3"
+        }
+      },
+      "Testcontainers.PostgreSql": {
+        "type": "CentralTransitive",
+        "requested": "[4.16.0, )",
+        "resolved": "4.16.0",
+        "contentHash": "QqvFS8Oj+i6deH3QJOMd7jgFF9P3h7RZ37wOaoR97ZahMcSYMYCb+COR4nUVznT1d7EavEcZdUs1QV0ow69JiA==",
+        "dependencies": {
+          "Testcontainers": "4.16.0"
+        }
+      },
+      "xunit.v3.extensibility.core": {
+        "type": "CentralTransitive",
+        "requested": "[4.0.2, )",
+        "resolved": "4.0.2",
+        "contentHash": "ARTt+pGyd86mdtiFBkKpyBQvRC3u0rr8oidBlII2GsAg7D6TfOsDFCsoQtFij83V5pE57m3whUIqT4xjiARXbQ==",
+        "dependencies": {
+          "xunit.v3.common": "[4.0.2]"
         }
       }
     }

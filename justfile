@@ -80,10 +80,12 @@ test kind="all": build
     set -euo pipefail
     # The kind comes from the project name, so a new test project needs no change here.
     unit=(-name '*.UnitTests.csproj')
-    integration=(-name '*.IntegrationTests.csproj' -o -name '*.Host.Tests.csproj')
+    integration=(-name '*.IntegrationTests.csproj')
     architecture=(-name '*.ArchitectureTests.csproj')
     every=("${unit[@]}" -o "${integration[@]}" -o "${architecture[@]}")
-    unnamed=$(find tests -name '*.csproj' -not \( "${every[@]}" \))
+    # A shared library declares IsTestProject false and is not a test project.
+    unnamed=$(find tests -name '*.csproj' -not \( "${every[@]}" \) \
+      -not -exec grep -q '<IsTestProject>false</IsTestProject>' {} \; -print)
     if [[ -n "$unnamed" ]]; then
       echo "error: these test projects match no kind; end the name in .UnitTests," >&2
       echo ".IntegrationTests or .ArchitectureTests:" >&2

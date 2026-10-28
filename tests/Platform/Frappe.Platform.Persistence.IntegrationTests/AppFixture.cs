@@ -1,6 +1,6 @@
 using Alba;
 using Frappe.Platform.Persistence.IntegrationTests;
-using Frappe.Testing;
+using Frappe.TestUtilities;
 using Xunit.Sdk;
 using Xunit.v3;
 

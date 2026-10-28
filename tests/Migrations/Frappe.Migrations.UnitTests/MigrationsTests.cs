@@ -1,8 +1,7 @@
 using System.Reflection;
-using Frappe.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations;
 
-namespace Frappe.Platform.Persistence.IntegrationTests;
+namespace Frappe.Migrations.UnitTests;
 
 public sealed class MigrationsTests
 {

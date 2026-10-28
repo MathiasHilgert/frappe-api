@@ -16,12 +16,16 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Frappe.ArchitectureTests/Frappe.ArchitectureTests.csproj" />
+    <Project Path="tests/Frappe.TestUtilities/Frappe.TestUtilities.csproj" />
   </Folder>
   <Folder Name="/tests/Host/">
-    <Project Path="tests/Host/Frappe.Host.Tests/Frappe.Host.Tests.csproj" />
+    <Project Path="tests/Host/Frappe.Host.IntegrationTests/Frappe.Host.IntegrationTests.csproj" />
   </Folder>
   <Folder Name="/tests/Kernel/">
     <Project Path="tests/Kernel/Frappe.Kernel.UnitTests/Frappe.Kernel.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Migrations/">
+    <Project Path="tests/Migrations/Frappe.Migrations.UnitTests/Frappe.Migrations.UnitTests.csproj" />
   </Folder>
   <Folder Name="/tests/Platform/">
     <Project Path="tests/Platform/Frappe.Platform.Health.IntegrationTests/Frappe.Platform.Health.IntegrationTests.csproj" />

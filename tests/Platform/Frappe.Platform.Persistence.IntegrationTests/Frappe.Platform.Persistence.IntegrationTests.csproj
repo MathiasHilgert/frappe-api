@@ -2,7 +2,6 @@
   <ItemGroup>
     <PackageReference Include="Alba" />
     <PackageReference Include="Shouldly" />
-    <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="xunit.v3" />
   </ItemGroup>
   <ItemGroup>
@@ -10,13 +9,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../../src/Host/Frappe.Host/Frappe.Host.csproj" />
-    <ProjectReference Include="../../../src/Migrations/Frappe.Migrations/Frappe.Migrations.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <None
-      Include="../../../eng/postgres/init-roles.sh"
-      Link="init-roles.sh"
-      CopyToOutputDirectory="PreserveNewest"
-    />
+    <ProjectReference Include="../../Frappe.TestUtilities/Frappe.TestUtilities.csproj" />
   </ItemGroup>
 </Project>
