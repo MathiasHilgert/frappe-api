@@ -1,49 +1,54 @@
-# Local development environment only. The defaults below are throwaway local credentials;
-# override any of them in an untracked .env file next to this one. Never reuse them elsewhere.
+# Local development only: throwaway credentials, overridable from an untracked .env file.
 name: frappe
+
+x-database:
+  name: &database-name "${POSTGRES_DB:-frappe}"
+  user: &database-user "${POSTGRES_USER:-frappe}"
+  password: &database-password "${POSTGRES_PASSWORD:-frappe-local-only}"
 
 services:
   postgres:
-    image: postgres:18.6
+    image: "postgres:18.6"
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-frappe}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-frappe-local-only}
-      POSTGRES_DB: ${POSTGRES_DB:-frappe}
+      POSTGRES_DB: *database-name
+      POSTGRES_USER: *database-user
+      POSTGRES_PASSWORD: *database-password
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
-      # PostgreSQL 18 images keep data under a versioned directory below this mount point.
-      - postgres-data:/var/lib/postgresql
+      # PostgreSQL 18 keeps its data in a versioned directory below this mount point.
+      - "postgres-data:/var/lib/postgresql"
     healthcheck:
-      # TCP, because the temporary server the image runs during first-time init listens only on the socket.
+      # TCP: the temporary server that runs during first-time init listens only on the socket.
       test: ["CMD-SHELL", "pg_isready --host 127.0.0.1 --username \"$$POSTGRES_USER\" --dbname \"$$POSTGRES_DB\""]
-      interval: 5s
-      timeout: 5s
+      interval: "5s"
+      timeout: "5s"
       retries: 10
-      start_period: 10s
+      start_period: "10s"
 
   api:
+    image: "frappe-api:local"
     build:
-      context: .
+      context: "."
       args:
-        # The image recipes pass the commit; a plain compose build cannot read git.
-        REVISION: ${REVISION:-unknown}
-    image: frappe-api:local
-    # No healthcheck: the chiseled image has no shell or HTTP client to probe /health/ready with.
+        # The just recipes pass the commit; a plain compose build cannot read git.
+        REVISION: "${REVISION:-unknown}"
     depends_on:
       postgres:
-        condition: service_healthy
+        condition: "service_healthy"
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      Platform__Role: all
+      ASPNETCORE_ENVIRONMENT: "Development"
+      Platform__Role: "all"
+      # Anchors cannot be interpolated inside a string, so the defaults are restated here.
       ConnectionStrings__Frappe: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-frappe};Username=${POSTGRES_USER:-frappe};Password=${POSTGRES_PASSWORD:-frappe-local-only}"
     ports:
       - "127.0.0.1:${API_PORT:-8080}:8080"
+    # No healthcheck: the chiseled image has no shell or HTTP client to probe with.
     read_only: true
     tmpfs:
-      # The runtime writes its diagnostics sockets here.
-      - /tmp
-    cap_drop: [ALL]
+      # The runtime's diagnostics sockets.
+      - "/tmp"
+    cap_drop: ["ALL"]
     security_opt: ["no-new-privileges:true"]
 
 volumes:

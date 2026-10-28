@@ -182,7 +182,7 @@ jobs:
         with:
           just-version: 1.59.0
       - name: Build the image without pushing it
-        run: just image
+        run: just package
 
   ci-passed:
     name: CI passed

@@ -22,6 +22,11 @@ build: restore
     dotnet build --no-restore
 
 [group('build')]
+[doc('Package the host as a container image')]
+package:
+    docker build --build-arg REVISION="$(git rev-parse HEAD 2>/dev/null || echo unknown)" --tag frappe-api:local .
+
+[group('build')]
 [doc('Remove build output and test results')]
 clean:
     dotnet clean
@@ -101,7 +106,7 @@ test kind="all": build
 # --- run ---
 
 [group('run')]
-[doc('Run the host in one role: all | api | worker | scheduler')]
+[doc('Run the host as a local process: all | api | worker | scheduler')]
 [arg('role', pattern='all|api|worker|scheduler')]
 run role="all": restore
     dotnet run --project src/Frappe.Host --no-restore -- --Platform:Role {{ role }}
@@ -109,28 +114,24 @@ run role="all": restore
 # --- env ---
 
 [group('env')]
-[doc('Build the container image')]
-image:
-    docker build --build-arg REVISION="$(git rev-parse HEAD)" --tag frappe-api:local .
+[doc('Start PostgreSQL and the API in containers')]
+start:
+    REVISION="$(git rev-parse HEAD 2>/dev/null || echo unknown)" docker compose up --detach --build --wait
 
 [group('env')]
-[doc('Start PostgreSQL and the API in containers; wait until they are up')]
-up:
-    REVISION="$(git rev-parse HEAD)" docker compose up --detach --build --wait
-
-[group('env')]
-[doc('Stop and remove the containers; data stays in its volume')]
-down:
+[doc('Stop the containers; data stays in its volume')]
+stop:
     docker compose down
 
 [group('env')]
-[doc('Follow the logs of every service, or of one: postgres | api')]
-logs service="":
-    docker compose logs --follow {{ service }}
+[doc('Follow container logs: all | postgres | api')]
+[arg('service', pattern='all|postgres|api')]
+logs service="all":
+    docker compose logs --follow {{ if service == "all" { "" } else { service } }}
 
 [group('env')]
-[doc('List the services and their health')]
-ps:
+[doc('Show each container and its health')]
+status:
     docker compose ps
 
 # --- ci ---
