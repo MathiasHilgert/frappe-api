@@ -1,0 +1,29 @@
+name: Set up the toolchain
+description: Installs Just and, unless disabled, the .NET SDK pinned by global.json with a NuGet cache.
+
+inputs:
+  dotnet:
+    description: Install the .NET SDK; disable it for jobs that only need Just.
+    required: false
+    default: "true"
+  nuget-cache:
+    description: >-
+      Cache NuGet packages keyed on packages.lock.json. Disable it for jobs that restore
+      only tools, so they never save an incomplete cache under the full key.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Set up .NET
+      if: ${{ inputs.dotnet == 'true' }}
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        global-json-file: global.json
+        cache: ${{ inputs.nuget-cache }}
+        cache-dependency-path: "**/packages.lock.json"
+    - name: Set up Just
+      uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+      with:
+        just-version: 1.59.0

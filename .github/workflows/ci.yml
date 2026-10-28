@@ -27,14 +27,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      - name: Set up the toolchain
+        uses: ./.github/actions/setup-toolchain # zizmor: ignore[self-repository] actionlint does not parse $/ yet
         with:
-          global-json-file: global.json
-      - name: Set up Just
-        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
-        with:
-          just-version: 1.59.0
+          nuget-cache: false # restores only tools
       - name: Check formatting
         run: just format-check
 
@@ -48,16 +44,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          global-json-file: global.json
-          cache: true
-          cache-dependency-path: "**/packages.lock.json"
-      - name: Set up Just
-        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
-        with:
-          just-version: 1.59.0
+      - name: Set up the toolchain
+        uses: ./.github/actions/setup-toolchain # zizmor: ignore[self-repository] actionlint does not parse $/ yet
       - name: Build with every analyzer, warnings as errors
         run: just lint
       - name: Check that the migrations capture the model
@@ -77,16 +65,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          global-json-file: global.json
-          cache: true
-          cache-dependency-path: "**/packages.lock.json"
-      - name: Set up Just
-        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
-        with:
-          just-version: 1.59.0
+      - name: Set up the toolchain
+        uses: ./.github/actions/setup-toolchain # zizmor: ignore[self-repository] actionlint does not parse $/ yet
       - name: Run ${{ matrix.kind }} tests
         env:
           KIND: ${{ matrix.kind }}
@@ -117,16 +97,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          global-json-file: global.json
-          cache: true
-          cache-dependency-path: "**/packages.lock.json"
-      - name: Set up Just
-        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
-        with:
-          just-version: 1.59.0
+      - name: Set up the toolchain
+        uses: ./.github/actions/setup-toolchain # zizmor: ignore[self-repository] actionlint does not parse $/ yet
       - name: Fail on high or critical advisories
         run: just audit
 
@@ -180,9 +152,9 @@ jobs:
       - name: Lint the Dockerfile with hadolint
         uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
       - name: Set up Just
-        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+        uses: ./.github/actions/setup-toolchain # zizmor: ignore[self-repository] actionlint does not parse $/ yet
         with:
-          just-version: 1.59.0
+          dotnet: false
       - name: Build the host and migrations images without pushing them
         run: just package
 
