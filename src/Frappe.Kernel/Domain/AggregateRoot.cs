@@ -15,13 +15,13 @@ public abstract class AggregateRoot<TId> : Entity<TId>, IAggregateRoot
     /// <summary>Initializes an aggregate root with its identity.</summary>
     /// <param name="id">The identity; never <see langword="default"/>.</param>
     protected AggregateRoot(TId id)
-        : base(id) => DomainEvents = _domainEvents.AsReadOnly();
+        : base(id) { }
 
     /// <summary>Initializes an aggregate root for materialization by the persistence layer.</summary>
-    protected AggregateRoot() => DomainEvents = _domainEvents.AsReadOnly();
+    protected AggregateRoot() { }
 
     /// <inheritdoc />
-    public IReadOnlyCollection<IDomainEvent> DomainEvents { get; }
+    public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
 
     /// <inheritdoc />
     public int Revision { get; private set; }
