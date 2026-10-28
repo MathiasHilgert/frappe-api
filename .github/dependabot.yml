@@ -18,7 +18,8 @@ updates:
       include: scope
 
   - package-ecosystem: github-actions
-    directory: /
+    # "/" covers only .github/workflows and a root action.yml; composite actions are listed too.
+    directories: ["/", "/.github/actions/*"]
     schedule:
       interval: weekly
     cooldown:
