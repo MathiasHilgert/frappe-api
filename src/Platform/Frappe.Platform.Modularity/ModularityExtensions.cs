@@ -69,8 +69,7 @@ public static class ModularityExtensions
             builder.Services.AddSingleton(module);
         }
 
-        // TODO: the Wolverine bus PR includes each module's assembly in handler discovery (IncludeAssembly) here,
-        // with MultipleHandlerBehavior.Separated so two modules handling one event each get their own handler.
+        // The bus finds each module's handlers from the registered IModule services (Frappe.Platform.Messaging).
         return builder;
     }
 }

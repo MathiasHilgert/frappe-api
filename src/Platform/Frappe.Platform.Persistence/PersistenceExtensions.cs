@@ -44,20 +44,35 @@ public static class PersistenceExtensions
 
     /// <summary>
     /// Registers <typeparamref name="TContext"/>, the context that owns <paramref name="schema"/>, on the
-    /// one data source <see cref="AddPersistence"/> registers.
+    /// one data source <see cref="AddPersistence"/> registers; through the <see cref="IDbContextRegistrar"/>
+    /// registered before it, when there is one, so the context joins the message bus's transaction.
     /// </summary>
     public static IServiceCollection AddFrappeDbContext<TContext>(
         this IServiceCollection services,
         string schema
     )
-        where TContext : FrappeDbContext =>
-        // shortcut: plain AddDbContext without the Wolverine integration; the query-bus PR replaces it
-        // with AddDbContextWithWolverineIntegration.
-        services.AddDbContext<TContext>(
-            (provider, options) =>
-                options.UseFrappeDatabase(provider.GetRequiredService<NpgsqlDataSource>(), schema),
+        where TContext : FrappeDbContext
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        void Configure(IServiceProvider provider, DbContextOptionsBuilder options) =>
+            options.UseFrappeDatabase(provider.GetRequiredService<NpgsqlDataSource>(), schema);
+
+        if (
+            services
+                .LastOrDefault(static service => service.ServiceType == typeof(IDbContextRegistrar))
+                ?.ImplementationInstance
+            is IDbContextRegistrar registrar
+        )
+        {
+            registrar.Register<TContext>(services, Configure);
+            return services;
+        }
+
+        return services.AddDbContext<TContext>(
+            Configure,
             optionsLifetime: ServiceLifetime.Singleton
         );
+    }
 
     private static void ConfigureDataSource(
         IServiceProvider services,
@@ -75,6 +90,8 @@ public static class PersistenceExtensions
         // Every handler holds its connection for an explicit transaction, so multiplexing is never
         // allowed, whatever the connection string says.
         dataSource.ConnectionStringBuilder.Multiplexing = false;
+        // The pool bounds every in-flight handler and request: Npgsql's default of 100 connections unless
+        // the connection string sets Maximum Pool Size, the budget the bus's queue parallelism stays under.
         dataSource.UseNodaTime();
     }
 
