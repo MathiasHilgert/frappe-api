@@ -35,6 +35,17 @@
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" Version="10.0.3" />
   </ItemGroup>
 
+  <ItemGroup Label="Messaging">
+    <PackageVersion Include="WolverineFx" Version="6.56.0" />
+    <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="6.56.0" />
+    <PackageVersion Include="WolverineFx.Postgresql" Version="6.56.0" />
+    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.56.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Telemetry">
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" />
+  </ItemGroup>
+
   <!--
     Transitive pins: every Microsoft runtime package (EF Core, Microsoft.Extensions.*, ASP.NET Core) rides
     the same 10.0.x servicing patch as the runtime image; dotnet-ef in .config/dotnet-tools.json matches it.
@@ -51,6 +62,7 @@
 
   <ItemGroup Label="Tests">
     <PackageVersion Include="Alba" Version="8.5.3" />
+    <PackageVersion Include="OpenTelemetry.Exporter.InMemory" Version="1.19.1" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
     <PackageVersion Include="TngTech.ArchUnitNET.xUnitV3" Version="0.13.5" />

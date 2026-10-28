@@ -5,11 +5,13 @@
     <IsTestProject>false</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Alba" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="xunit.v3.extensibility.core" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Frappe.Migrations/Frappe.Migrations.csproj" />
+    <ProjectReference Include="../../src/Platform/Frappe.Platform/Frappe.Platform.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None

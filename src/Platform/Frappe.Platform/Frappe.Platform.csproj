@@ -8,5 +8,6 @@
     <ProjectReference Include="../Frappe.Platform.Hosting/Frappe.Platform.Hosting.csproj" />
     <ProjectReference Include="../Frappe.Platform.Modularity/Frappe.Platform.Modularity.csproj" />
     <ProjectReference Include="../Frappe.Platform.Persistence/Frappe.Platform.Persistence.csproj" />
+    <ProjectReference Include="../Frappe.Platform.Messaging/Frappe.Platform.Messaging.csproj" />
   </ItemGroup>
 </Project>
