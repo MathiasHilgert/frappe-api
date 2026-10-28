@@ -1,12 +1,16 @@
 using System.Reflection;
+using Frappe.Platform.IntegrationTests.Messaging.Audit.Infrastructure;
+using Frappe.Platform.IntegrationTests.Messaging.Billing.Infrastructure;
+using Frappe.Platform.IntegrationTests.Messaging.Kitchen.Infrastructure;
 using Frappe.Platform.Messaging;
 using Frappe.Platform.Persistence;
+using Frappe.TestUtilities;
 using Microsoft.Extensions.Hosting;
 using Wolverine.Util;
 
 namespace Frappe.Platform.IntegrationTests.Messaging;
 
-// Registration only: no host starts, so no database is needed.
+// Registration and boot checks only: no database is needed.
 public sealed class MessagingRegistrationTests
 {
     // A context registered before the bus would use a plain AddDbContext and write outside the outbox
@@ -23,6 +27,22 @@ public sealed class MessagingRegistrationTests
 
         error.Message.ShouldContain(nameof(PlatformDbContext));
         error.Message.ShouldContain("before AddPersistence");
+    }
+
+    // Each local queue's handlers hold a pooled connection inside their transaction, so queues that can run
+    // more handlers at once than the pool has connections would starve each other and every request.
+    [Fact]
+    public async Task A_bus_whose_queues_outnumber_the_pool_fails_the_boot_naming_both_numbers()
+    {
+        InvalidOperationException error = await Should.ThrowAsync<InvalidOperationException>(() =>
+            FrappeTestHost.StartAsync(
+                "Host=127.0.0.1;Port=1;Username=frappe;Password=x;Database=frappe;Maximum Pool Size=4",
+                [new KitchenModule(), new BillingModule(), new AuditModule()]
+            )
+        );
+
+        error.Message.ShouldContain("Maximum Pool Size");
+        error.Message.ShouldContain("pool of 4");
     }
 
     // Wolverine keeps its naming strategies in one process-wide list, which every host built in the

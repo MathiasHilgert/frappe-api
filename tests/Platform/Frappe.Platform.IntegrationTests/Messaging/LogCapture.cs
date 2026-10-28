@@ -36,8 +36,16 @@ internal sealed class LogCapture : ILoggerProvider
                 new Record(
                     logLevel,
                     eventId,
+                    // A template may name a placeholder twice; the last value wins instead of throwing
+                    // into the code that logged.
                     state is IReadOnlyList<KeyValuePair<string, object?>> pairs
-                        ? pairs.ToDictionary(StringComparer.Ordinal)
+                        ? pairs
+                            .GroupBy(static pair => pair.Key, StringComparer.Ordinal)
+                            .ToDictionary(
+                                static group => group.Key,
+                                static group => group.Last().Value,
+                                StringComparer.Ordinal
+                            )
                         : new Dictionary<string, object?>(StringComparer.Ordinal)
                 )
             );
