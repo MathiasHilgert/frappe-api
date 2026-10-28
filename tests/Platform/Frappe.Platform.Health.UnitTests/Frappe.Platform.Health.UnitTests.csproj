@@ -4,10 +4,9 @@
     <PackageReference Include="xunit.v3" />
   </ItemGroup>
   <ItemGroup>
-    <Using Include="ErrorOr" />
     <Using Include="Shouldly" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../../src/Frappe.Kernel/Frappe.Kernel.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.Platform.Health/Frappe.Platform.Health.csproj" />
   </ItemGroup>
 </Project>

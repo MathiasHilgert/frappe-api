@@ -9,12 +9,12 @@
     <Using Include="Shouldly" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../../src/Frappe.Host/Frappe.Host.csproj" />
-    <ProjectReference Include="../../src/Frappe.Migrations/Frappe.Migrations.csproj" />
+    <ProjectReference Include="../../../src/Host/Frappe.Host/Frappe.Host.csproj" />
+    <ProjectReference Include="../../../src/Migrations/Frappe.Migrations/Frappe.Migrations.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None
-      Include="../../eng/postgres/init-roles.sh"
+      Include="../../../eng/postgres/init-roles.sh"
       Link="init-roles.sh"
       CopyToOutputDirectory="PreserveNewest"
     />

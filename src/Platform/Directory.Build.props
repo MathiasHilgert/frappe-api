@@ -1,0 +1,8 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!-- Platform owns the infrastructure the rest of the code reaches only through it, so it is exempt from BannedSymbols.OutsidePlatform.txt. -->
+  <PropertyGroup>
+    <IsPlatformProject>true</IsPlatformProject>
+  </PropertyGroup>
+</Project>

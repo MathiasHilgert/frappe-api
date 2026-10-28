@@ -3,7 +3,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../Frappe.Platform.Persistence/Frappe.Platform.Persistence.csproj" />
+    <ProjectReference Include="../../Platform/Frappe.Platform.Persistence/Frappe.Platform.Persistence.csproj" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Sql/*.sql" LogicalName="%(Filename)%(Extension)" />

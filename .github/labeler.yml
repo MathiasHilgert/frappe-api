@@ -2,18 +2,17 @@
 
 area/kernel:
   - changed-files:
-      - any-glob-to-any-file: src/Frappe.Kernel/**
+      - any-glob-to-any-file: src/Kernel/**
 
 area/platform:
   - changed-files:
       - any-glob-to-any-file:
-          - src/Frappe.Platform/**
-          - src/Frappe.Platform.*/**
-          - src/Frappe.Migrations/**
+          - src/Platform/**
+          - src/Migrations/**
 
 area/host:
   - changed-files:
-      - any-glob-to-any-file: src/Frappe.Host/**
+      - any-glob-to-any-file: src/Host/**
 
 area/build:
   - changed-files:
@@ -43,10 +42,11 @@ area/docs:
           - LICENSE
           - "*.md"
 
-# Each module adds its own label when its first project lands, for example:
+# Each module adds its own module/<name> label when its first project lands, covering
+# src/Modules/<Name>/** and tests/Modules/<Name>/**, for example:
 #
 # module/orders:
 #   - changed-files:
 #       - any-glob-to-any-file:
-#           - src/**/Frappe.Orders.*/**
-#           - tests/**/Frappe.Orders.*/**
+#           - src/Modules/Orders/**
+#           - tests/Modules/Orders/**
