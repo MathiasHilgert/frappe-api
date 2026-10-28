@@ -252,6 +252,21 @@ public sealed class NatsTransportTests(NatsFixture fixture) : IClassFixture<Nats
         error.ToString().ShouldContain("MaxAge");
     }
 
+    [Fact]
+    public async Task A_deployed_worker_does_not_start_when_a_consumer_differs_from_its_declaration()
+    {
+        await fixture.ProvisionAsync(_scope);
+        await JetStreamReads.UpdateConsumerAsync(
+            _scope,
+            Consumer,
+            static config => config.MaxDeliver = 10
+        );
+
+        Exception error = await Should.ThrowAsync<Exception>(() => StartDeployedWorkerAsync());
+
+        error.ToString().ShouldContain("MaxDeliver");
+    }
+
     // Wolverine cannot declare max_msg_size, so the platform checks it next to Verify.
     [Fact]
     public async Task A_deployed_worker_does_not_start_when_the_stream_takes_messages_over_one_megabyte()

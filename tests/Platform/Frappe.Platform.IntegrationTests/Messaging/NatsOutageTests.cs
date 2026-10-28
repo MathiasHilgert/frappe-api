@@ -1,10 +1,15 @@
 using Alba;
 using Frappe.Kernel.Messaging;
 using Frappe.Platform.IntegrationTests.Messaging.Kitchen.Application;
+using Frappe.Platform.IntegrationTests.Messaging.Kitchen.Contracts;
 using Frappe.Platform.Messaging;
 using Frappe.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using NATS.Client.Core;
+using NATS.Client.JetStream.Models;
+using Wolverine.Runtime.Serialization;
+using Wolverine.Tracking;
 using BillingConsumer = Frappe.Platform.IntegrationTests.Messaging.Billing.Application.TicketOpenedConsumer;
 
 namespace Frappe.Platform.IntegrationTests.Messaging;
@@ -67,6 +72,53 @@ public sealed class NatsOutageTests(NatsOutageFixture fixture)
         await Runs.WaitForAsync(_ticket, BillingConsumer.Name);
 
         (await fixture.CountAsync(Outbox, _ticket)).ShouldBe(0);
+    }
+
+    // An inbox write that fails leaves the event unacknowledged, and unlimited deliveries keep the server offering
+    // it, so a PostgreSQL outage while NATS is up delays the event and never drops it. The test waits for one
+    // redelivery, not for a finite budget to run out: a redelivery after the failed write plus MaxDeliver -1 on the
+    // server is what rules out the skip, in about a minute instead of the old 5 x 30 s budget plus margin.
+    [Fact]
+    public async Task An_event_that_arrives_while_postgres_is_down_is_handled_once_after_it_returns()
+    {
+        var scope = NatsScope.On(fixture.Server);
+        await fixture.ProvisionAsync(scope);
+        await using IAlbaHost worker = await fixture.StartHostAsync(
+            scope,
+            Environments.Production,
+            "worker"
+        );
+        string consumer = NatsTopology.Consumer(scope.Root, typeof(TicketOpened));
+        IMessageSerializer serializer = worker.GetRuntime().Options.DefaultSerializer;
+        NatsHeaders headers = new()
+        {
+            ["id"] = _ticket.ToString(),
+            ["Nats-Msg-Id"] = _ticket.ToString(),
+            ["message-type"] = "kitchen.ticket.opened.v1",
+            ["content-type"] = serializer.ContentType,
+            ["tenant-id"] = _tenant.ToString(),
+        };
+
+        await fixture.PauseDatabaseAsync();
+        try
+        {
+            await JetStreamReads.PublishAsync(
+                scope,
+                NatsTopology.Subject(scope.Root, typeof(TicketOpened)),
+                serializer.WriteMessage(new TicketOpened(_ticket)),
+                headers
+            );
+            await JetStreamReads.WaitForRedeliveryAsync(scope, consumer);
+        }
+        finally
+        {
+            await fixture.UnpauseDatabaseAsync();
+        }
+
+        await Runs.WaitForAsync(_ticket, BillingConsumer.Name);
+        Runs.Of(_ticket, BillingConsumer.Name).ShouldBe(1);
+        ConsumerInfo info = await JetStreamReads.ConsumerAsync(scope, consumer);
+        info.Config.MaxDeliver.ShouldBe(NatsTopology.MaxDeliver);
     }
 
     private async Task InvokeAsync(IAlbaHost host)

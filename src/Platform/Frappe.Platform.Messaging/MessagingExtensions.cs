@@ -84,7 +84,8 @@ public static class MessagingExtensions
             .BindConfiguration(NatsOptions.SectionName);
         builder.Services.AddSingleton<IWolverineExtension, ModuleHandlerDiscovery>();
         builder.Services.AddSingleton<IWolverineExtension, NatsEvents>();
-        // After AddWolverine, so it starts once the bus has.
+        // After AddWolverine, so they start once the bus has.
+        builder.Services.AddHostedService<MessageStoreCheck>();
         builder.Services.AddHostedService<NatsTopologyCheck>();
         builder
             .Services.AddHealthChecks()

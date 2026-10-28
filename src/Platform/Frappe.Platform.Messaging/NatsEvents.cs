@@ -59,7 +59,8 @@ internal sealed class NatsEvents(
 
         // A publishing role starts while NATS is unreachable: the outbox keeps every event and its sending
         // agent delivers them once NATS answers. One connection attempt, then startup continues, and no
-        // listener starts, not even Wolverine's request/reply subject, which needs the connection.
+        // listener starts, not even Wolverine's request/reply subject, which needs the connection. The same
+        // setting would let a broken message store pass too; MessageStoreCheck fails the start for it.
         options.DisableAllExternalListeners = true;
         options.ResourceMigrationFailureMode = ResourceMigrationFailureMode.ContinueOnFailures;
         options.BrokerInitializationTimeout = TimeSpan.Zero;
@@ -92,7 +93,7 @@ internal sealed class NatsEvents(
                 defaults.DeliverPolicy = ConsumerConfigDeliverPolicy.New;
                 defaults.DuplicateWindow = NatsTopology.DuplicateWindow;
             })
-            // max_msg_size has no setting here: NatsStreamCheck covers it.
+            // max_msg_size has no setting here: NatsTopologyCheck covers it.
             .DefineStream(
                 settings.Stream,
                 stream =>
@@ -120,6 +121,11 @@ internal sealed class NatsEvents(
                     NatsTopology.Consumer(settings.ConsumerPrefix, consumed)
                 )
                 .DeliverFrom(ConsumerConfigDeliverPolicy.New)
+                // Only a publisher other than the application can omit Wolverine's message-type header, and NATS
+                // account permissions keep the subject root to the application. Without this, Wolverine acks and
+                // drops such a message; the subject names the event, so it is read as that event instead and
+                // fails like any other bad envelope (no tenant: dead-lettered).
+                .DefaultIncomingMessage(consumed)
                 .MaximumParallelMessages(NatsTopology.ListenerParallelism);
         }
     }

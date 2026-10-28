@@ -128,6 +128,24 @@ public class MessagingFixture(AppFixture app) : IAsyncLifetime
         );
     }
 
+    // Polls until the count is positive, for rows Wolverine writes after the message's tracked lifecycle ends,
+    // such as a dead letter it stores in a later batch.
+    public async Task<long> WaitForRowsAsync(string sql, Guid id)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
+            TestContext.Current.CancellationToken
+        );
+        timeout.CancelAfter(TrackedMessages.Timeout);
+        using PeriodicTimer poll = new(TimeSpan.FromMilliseconds(200));
+        long count;
+        while ((count = await CountAsync(sql, id)) == 0)
+        {
+            await poll.WaitForNextTickAsync(timeout.Token);
+        }
+
+        return count;
+    }
+
     // Waits for every transaction still writing to the table to commit, then counts: a SHARE lock queues behind
     // their ROW EXCLUSIVE locks. For a test whose handler ran outside any tracked session it can wait on.
     public async Task<long> CountCommittedAsync(string table, string sql, Guid id)
@@ -160,6 +178,17 @@ public class MessagingFixture(AppFixture app) : IAsyncLifetime
         command.Parameters.AddWithValue(id);
         await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
     }
+
+    // As the owner, for DDL that breaks the store behind the application's back.
+    public async Task ExecuteAsync(string sql)
+    {
+        await using NpgsqlCommand command = _owner!.CreateCommand(sql);
+        await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+    }
+
+    public Task PauseDatabaseAsync() => _database.PauseAsync();
+
+    public Task UnpauseDatabaseAsync() => _database.UnpauseAsync();
 
     public async Task<T?> ScalarAsync<T>(string sql, Guid id)
     {
