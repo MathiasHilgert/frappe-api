@@ -1,2 +1,3 @@
 T:System.Threading.AsyncLocal`1;Ambient flow (tenant context) is a Platform concern
-P:System.TimeProvider.System;Receive the Platform-registered TimeProvider instead
+P:System.TimeProvider.System;Time comes from the NodaTime IClock port; TimeProvider is only for the BCL and framework APIs Platform configures
+P:NodaTime.SystemClock.Instance;Time comes from an injected NodaTime IClock; only Platform supplies the system clock

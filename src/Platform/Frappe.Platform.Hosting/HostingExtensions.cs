@@ -4,7 +4,7 @@ using Microsoft.Extensions.Options;
 
 namespace Frappe.Platform.Hosting;
 
-/// <summary>The process role every adapter can read; <c>Platform:Role</c> is validated on start.</summary>
+/// <summary>Registers the process role every adapter can read; <c>Platform:Role</c> is validated on start.</summary>
 public static class HostingExtensions
 {
     /// <summary>
