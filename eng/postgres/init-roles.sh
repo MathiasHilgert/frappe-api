@@ -20,6 +20,8 @@ CREATE ROLE frappe_app LOGIN NOBYPASSRLS PASSWORD :'app_password';
 ALTER DATABASE :"database" OWNER TO frappe_owner;
 REVOKE ALL ON DATABASE :"database" FROM PUBLIC;
 GRANT CONNECT ON DATABASE :"database" TO frappe_owner, frappe_app;
+-- The maintenance database stays reachable only by the superuser.
+REVOKE CONNECT ON DATABASE postgres FROM PUBLIC;
 
 -- statement_timeout stays below the outbound and request timeouts so the database fails first.
 ALTER ROLE frappe_app SET statement_timeout = '15s';

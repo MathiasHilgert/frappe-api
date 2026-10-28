@@ -50,6 +50,16 @@ public sealed class DatabaseCatalogTests(AppFixture app)
     }
 
     [Fact]
+    public async Task The_app_role_cannot_connect_to_the_maintenance_database()
+    {
+        bool canConnect = await ScalarAsync<bool>(
+            "SELECT has_database_privilege('frappe_app', 'postgres', 'CONNECT')"
+        );
+
+        canConnect.ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task The_migrations_history_table_lives_in_the_platform_schema()
     {
         string[] columns = await ScalarAsync<string[]>(

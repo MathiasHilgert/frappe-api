@@ -132,6 +132,8 @@ dotnet_diagnostic.S1192.severity = none
 # EF scaffolds migrations with block namespaces in timestamped files; the generated shape is kept.
 dotnet_diagnostic.IDE0161.severity = none
 dotnet_diagnostic.MA0048.severity = none
+# EF always scaffolds `using System;`, which ImplicitUsings makes redundant.
+dotnet_diagnostic.IDE0005.severity = none
 
 [{**/*Endpoint.cs,**/*Endpoints.cs}]
 dotnet_diagnostic.S1192.severity = none
