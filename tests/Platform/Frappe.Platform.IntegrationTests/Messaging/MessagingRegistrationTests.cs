@@ -45,6 +45,22 @@ public sealed class MessagingRegistrationTests
         error.Message.ShouldContain("pool of 4");
     }
 
+    // A NATS listener runs its handlers on the listener when one module subscribes, so its parallelism holds
+    // connections too: Kitchen, Billing and Audit have 5 local queues (20 handlers) and one listener (4 more).
+    [Fact]
+    public async Task The_connection_budget_counts_the_nats_listeners()
+    {
+        InvalidOperationException error = await Should.ThrowAsync<InvalidOperationException>(() =>
+            FrappeTestHost.StartAsync(
+                "Host=127.0.0.1;Port=1;Username=frappe;Password=x;Database=frappe;Maximum Pool Size=20",
+                [new KitchenModule(), new BillingModule(), new AuditModule()]
+            )
+        );
+
+        error.Message.ShouldContain("1 NATS listeners");
+        error.Message.ShouldContain("pool of 20");
+    }
+
     // Wolverine keeps its naming strategies in one process-wide list, which every host built in the
     // process would otherwise grow.
     [Fact]
