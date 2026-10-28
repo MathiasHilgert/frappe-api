@@ -2,6 +2,7 @@ using ArchUnitNET.Domain;
 using ArchUnitNET.Loader;
 using ArchUnitNET.xUnitV3;
 using Frappe.Platform;
+using Frappe.Platform.Health;
 using static ArchUnitNET.Fluent.ArchRuleDefinition;
 using Assembly = System.Reflection.Assembly;
 
@@ -12,10 +13,11 @@ public sealed class DependencyRuleTests
     // Layers are selected by assembly: the Host's top-level Program lives in the global namespace.
     private static readonly Assembly _kernel = Assembly.Load("Frappe.Kernel");
     private static readonly Assembly _platform = typeof(PlatformExtensions).Assembly;
+    private static readonly Assembly _health = typeof(HealthExtensions).Assembly;
     private static readonly Assembly _host = typeof(Program).Assembly;
 
     private static readonly Architecture _architecture = new ArchLoader()
-        .LoadAssemblies(_kernel, _platform, _host)
+        .LoadAssemblies(_kernel, _platform, _health, _host)
         .Build();
 
     [Theory]
@@ -53,6 +55,17 @@ public sealed class DependencyRuleTests
             .ResideInAssembly(_platform)
             .Should()
             .NotDependOnAny(Types().That().ResideInAssembly(_host))
+            .Check(_architecture);
+    }
+
+    [Fact]
+    public void Health_depends_on_neither_the_platform_composition_nor_the_host()
+    {
+        Types()
+            .That()
+            .ResideInAssembly(_health)
+            .Should()
+            .NotDependOnAny(Types().That().ResideInAssembly(_platform).Or().ResideInAssembly(_host))
             .Check(_architecture);
     }
 }

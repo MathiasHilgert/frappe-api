@@ -15,6 +15,10 @@ public sealed class HostRoleTests
     [InlineData("api", "/health/ready")]
     [InlineData("worker", "/health/ready")]
     [InlineData("scheduler", "/health/ready")]
+    [InlineData("all", "/health/startup")]
+    [InlineData("api", "/health/startup")]
+    [InlineData("worker", "/health/startup")]
+    [InlineData("scheduler", "/health/startup")]
     public async Task Every_role_answers_the_health_endpoints(string role, string url)
     {
         await using IAlbaHost host = await AlbaHost.For<Program>(builder =>

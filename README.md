@@ -42,7 +42,28 @@ One binary runs every process role. Select it with `Platform:Role`, for example 
 | `worker` | Background message processing |
 | `scheduler` | Scheduled jobs |
 
-Every role serves the health endpoints: `/health/live` (the process answers) and `/health/ready` (critical dependencies are healthy).
+Every role serves the health endpoints (see Health checks).
+
+## Health checks
+
+| Endpoint | Runs | Use as |
+|---|---|---|
+| `/health/live` | Only the trivial `self` check, never a dependency | Liveness probe: a failure restarts the process |
+| `/health/startup` | Checks tagged `startup` and every critical dependency | Startup probe |
+| `/health/ready` | Every critical dependency | Readiness probe: a failure takes the replica out of the load balancer |
+| `/health` | Every check, as JSON with each status, duration and description (never exception text or check data) | Diagnosis; served only in the Development environment |
+
+The probe endpoints answer the plain-text status: `Healthy` and `Degraded` return 200, `Unhealthy` returns 503.
+
+An adapter for an external dependency registers its check with a criticality (`Frappe.Platform.Health`):
+
+```csharp
+builder.Services.AddHealthChecks()
+    .AddDependency<PostgresHealthCheck>("postgres", Criticality.Critical)
+    .AddDependency("valkey", Criticality.NonCritical, sp => new ValkeyHealthCheck(sp.GetRequiredService<IConnectionMultiplexer>()));
+```
+
+A critical dependency fails with `Unhealthy` and gates readiness and startup; a non-critical one fails with `Degraded` and never fails a probe. Each check gets a 2-second timeout unless one is passed, and a check reports its failure as `new HealthCheckResult(context.Registration.FailureStatus)`.
 
 ## Local environment
 
@@ -55,7 +76,7 @@ just logs          # follow every container; or: just logs postgres | api
 just stop          # stop and remove the containers; the database volume is kept
 ```
 
-The API listens on <http://localhost:8080> (`/health/live`, `/health/ready`) and PostgreSQL on `localhost:5432`, both bound to the loopback interface only. The credentials in `compose.yaml` are throwaway local defaults; override `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT` or `API_PORT` in an untracked `.env` file. To delete the database as well, run `docker compose down --volumes`.
+The API listens on <http://localhost:8080> (`/health/live`, `/health/startup`, `/health/ready`) and PostgreSQL on `localhost:5432`, both bound to the loopback interface only. The credentials in `compose.yaml` are throwaway local defaults; override `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT` or `API_PORT` in an untracked `.env` file. To delete the database as well, run `docker compose down --volumes`.
 
 The image runs the host on the chiseled ASP.NET runtime as a non-root user, listening on port 8080; select the role with `Platform__Role`, for example `docker run -e Platform__Role=worker frappe-api:local`.
 
@@ -64,9 +85,10 @@ The image runs the host on the chiseled ASP.NET runtime as a non-root user, list
 | Path | Contents |
 |---|---|
 | `src/Frappe.Kernel` | Types shared by every module |
-| `src/Frappe.Platform` | Adapters, middleware, health and hosting defaults |
+| `src/Frappe.Platform` | Composes the platform projects into `AddFrappePlatform` and `MapFrappeEndpoints` |
+| `src/Frappe.Platform.Health` | Dependency health checks by criticality and the probe endpoints |
 | `src/Frappe.Host` | Composition root |
-| `tests/` | Architecture and host tests |
+| `tests/` | Unit, integration, architecture and host tests |
 | `eng/` | Analyzer configuration, banned APIs, code metrics and CI scripts |
 | `.github/` | CI workflows, Dependabot, labels and the pull request template |
 | `Dockerfile`, `compose.yaml` | Container image and local environment |
