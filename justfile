@@ -124,12 +124,12 @@ run role="all": restore
 # --- env ---
 
 [group('env')]
-[doc('Start PostgreSQL and NATS, apply pending migrations, then start the API, all in containers')]
+[doc('Start PostgreSQL and NATS, apply pending migrations and seeds, then start the API, all in containers')]
 start:
     REVISION="$(git rev-parse HEAD 2>/dev/null || echo unknown)" docker compose up --detach --build --wait
 
 [group('env')]
-[doc('Apply pending migrations to the local database')]
+[doc('Apply pending migrations and seed reference data in the local database')]
 migrate:
     REVISION="$(git rev-parse HEAD 2>/dev/null || echo unknown)" docker compose run --rm --build migrate
 

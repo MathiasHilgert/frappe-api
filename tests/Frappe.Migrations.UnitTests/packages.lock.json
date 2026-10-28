@@ -340,6 +340,7 @@
       "frappe.migrations": {
         "type": "Project",
         "dependencies": {
+          "Frappe.Platform.Modularity": "[1.0.0, )",
           "Frappe.Platform.Persistence": "[1.0.0, )"
         }
       },
@@ -351,6 +352,13 @@
         "dependencies": {
           "Microsoft.Extensions.Hosting.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Options.ConfigurationExtensions": "[10.0.14, )"
+        }
+      },
+      "frappe.platform.modularity": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Kernel": "[1.0.0, )",
+          "Frappe.Platform.Hosting": "[1.0.0, )"
         }
       },
       "frappe.platform.persistence": {

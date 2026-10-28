@@ -104,11 +104,13 @@ just migrations-check   # tests that every context is listed, has no model chang
 
 Migrations are forward-only: delete the generated `Down` method. Each migration that creates a table grants `frappe_app` exactly the privileges it needs on it, and raw SQL lives in `.sql` files under `src/Frappe.Migrations/Sql`, embedded and run with `migrationBuilder.Sql(EmbeddedSql.Read("<file>.sql"))`.
 
-The host never applies migrations. The `migrations` target of the `Dockerfile` builds the image `frappe-migrations:local`, the migrator `src/Frappe.Migrations`, which applies every context's pending migrations, Platform first, and exits non-zero on failure; run it as the owner role before starting a new version of the host:
+The host never applies migrations. The `migrations` target of the `Dockerfile` builds the image `frappe-migrations:local`, the migrator `src/Frappe.Migrations`, which applies every context's pending migrations, Platform first, then seeds every module's reference data, and exits non-zero on failure; run it as the owner role before starting a new version of the host:
 
 ```bash
 docker run --rm frappe-migrations:local --connection "Host=...;Database=frappe;Username=frappe_owner;Password=..."
 ```
+
+Reference data (countries, currencies, roles...) is not schema, so it never goes in a migration or `HasData`. A module loads it in `IModule.SeedAsync`, listed in `MigrationsRunner.Modules` in dependency order. The migrator runs every seed after the migrations, on every deployment, each module in its own transaction. Seeds must be idempotent: upsert by natural key with `ON CONFLICT ... DO UPDATE ... WHERE ... IS DISTINCT FROM excluded`, so an unchanged row is not counted, and never delete a row.
 
 The image runs the host on the chiseled ASP.NET runtime as a non-root user, listening on port 8080; select the role with `Platform__Role` and pass the connection string as `ConnectionStrings__Frappe`, for example `docker run -e Platform__Role=worker -e ConnectionStrings__Frappe="Host=...;Database=frappe;Username=frappe_app;Password=..." frappe-api:local`.
 
@@ -118,7 +120,7 @@ The image runs the host on the chiseled ASP.NET runtime as a non-root user, list
 src/
   Frappe.Host/                composition root
   Frappe.Kernel/              types shared by every module
-  Frappe.Migrations/          the migrator: every context's migrations and snapshot, its design-time factories; never referenced by the host
+  Frappe.Migrations/          the migrator: every context's migrations and snapshot, its design-time factories, then every module's seed; never referenced by the host
   Platform/
     Directory.Build.props     exempts Platform from eng/BannedSymbols.OutsidePlatform.txt
     Frappe.Platform/          composes the platform projects into AddFrappePlatform and MapFrappeEndpoints
