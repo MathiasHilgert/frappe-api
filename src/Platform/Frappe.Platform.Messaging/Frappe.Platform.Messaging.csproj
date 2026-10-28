@@ -6,11 +6,13 @@
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
     <PackageReference Include="WolverineFx" />
     <PackageReference Include="WolverineFx.EntityFrameworkCore" />
+    <PackageReference Include="WolverineFx.Nats" />
     <PackageReference Include="WolverineFx.Postgresql" />
     <PackageReference Include="WolverineFx.RuntimeCompilation" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../Frappe.Kernel/Frappe.Kernel.csproj" />
+    <ProjectReference Include="../Frappe.Platform.Health/Frappe.Platform.Health.csproj" />
     <ProjectReference Include="../Frappe.Platform.Hosting/Frappe.Platform.Hosting.csproj" />
     <ProjectReference Include="../Frappe.Platform.Modularity/Frappe.Platform.Modularity.csproj" />
     <ProjectReference Include="../Frappe.Platform.Persistence/Frappe.Platform.Persistence.csproj" />

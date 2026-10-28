@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Alba" />
+    <PackageReference Include="Testcontainers.Nats" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="xunit.v3.extensibility.core" />
   </ItemGroup>
