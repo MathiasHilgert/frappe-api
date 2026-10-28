@@ -44,7 +44,7 @@
   description: "Touches src/Frappe.Kernel"
 - name: area/platform
   color: "0e8a16"
-  description: "Touches src/Frappe.Platform"
+  description: "Touches src/Frappe.Platform or src/Frappe.Platform.*"
 - name: area/host
   color: "0e8a16"
   description: "Touches src/Frappe.Host"

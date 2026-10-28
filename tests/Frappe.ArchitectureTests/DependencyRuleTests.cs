@@ -16,8 +16,17 @@ public sealed class DependencyRuleTests
     private static readonly Assembly _health = typeof(HealthExtensions).Assembly;
     private static readonly Assembly _host = typeof(Program).Assembly;
 
+    // Every Frappe.Platform* project the Host ships, found by file so a new one is covered at once.
+    private static readonly Assembly[] _platformProjects =
+    [
+        .. Directory
+            .GetFiles(AppContext.BaseDirectory, "Frappe.Platform*.dll")
+            .Order(StringComparer.Ordinal)
+            .Select(static file => Assembly.Load(Path.GetFileNameWithoutExtension(file))),
+    ];
+
     private static readonly Architecture _architecture = new ArchLoader()
-        .LoadAssemblies(_kernel, _platform, _health, _host)
+        .LoadAssemblies([_kernel, _host, .. _platformProjects])
         .Build();
 
     [Theory]
@@ -32,7 +41,8 @@ public sealed class DependencyRuleTests
             .That()
             .ResideInAssembly(_kernel)
             .Should()
-            .NotDependOnAny(Types().That().ResideInNamespaceMatching(forbiddenNamespace))
+            .NotDependOnAnyTypesThat()
+            .ResideInNamespaceMatching(forbiddenNamespace)
             .Check(_architecture);
     }
 
@@ -43,7 +53,7 @@ public sealed class DependencyRuleTests
             .That()
             .ResideInAssembly(_kernel)
             .Should()
-            .NotDependOnAny(Types().That().ResideInAssembly(_platform).Or().ResideInAssembly(_host))
+            .NotDependOnAny(Types().That().ResideInAssembly(_host, _platformProjects))
             .Check(_architecture);
     }
 
@@ -66,6 +76,52 @@ public sealed class DependencyRuleTests
             .ResideInAssembly(_health)
             .Should()
             .NotDependOnAny(Types().That().ResideInAssembly(_platform).Or().ResideInAssembly(_host))
+            .Check(_architecture);
+    }
+
+    [Theory]
+    [InlineData("Frappe.Platform.Hosting")]
+    [InlineData("Frappe.Platform.Health")]
+    [InlineData("Frappe.Platform.Persistence")]
+    public void A_platform_project_depends_on_neither_the_composition_nor_the_host(string project)
+    {
+        Types()
+            .That()
+            .ResideInAssembly(Assembly.Load(project))
+            .Should()
+            .NotDependOnAny(Types().That().ResideInAssembly(_platform).Or().ResideInAssembly(_host))
+            .Check(_architecture);
+    }
+
+    [Theory]
+    [InlineData("Frappe.Platform.Hosting", "Frappe.Platform.Health")]
+    [InlineData("Frappe.Platform.Hosting", "Frappe.Platform.Persistence")]
+    [InlineData("Frappe.Platform.Health", "Frappe.Platform.Hosting")]
+    [InlineData("Frappe.Platform.Health", "Frappe.Platform.Persistence")]
+    public void Hosting_and_health_depend_on_no_other_platform_project(string project, string other)
+    {
+        Types()
+            .That()
+            .ResideInAssembly(Assembly.Load(project))
+            .Should()
+            .NotDependOnAny(Types().That().ResideInAssembly(Assembly.Load(other)))
+            .Check(_architecture);
+    }
+
+    [Theory]
+    [InlineData(@"^Microsoft\.AspNetCore(\..+)?$")]
+    [InlineData(@"^Wolverine(\..+)?$")]
+    [InlineData(@"^NATS(\..+)?$")]
+    [InlineData(@"^Quartz(\..+)?$")]
+    [InlineData(@"^StackExchange\.Redis(\..+)?$")]
+    public void Persistence_depends_on_no_other_infrastructure_library(string forbiddenNamespace)
+    {
+        Types()
+            .That()
+            .ResideInAssembly(Assembly.Load("Frappe.Platform.Persistence"))
+            .Should()
+            .NotDependOnAnyTypesThat()
+            .ResideInNamespaceMatching(forbiddenNamespace)
             .Check(_architecture);
     }
 }

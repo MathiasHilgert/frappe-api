@@ -5,7 +5,7 @@ The backend of Frappé, the operating system for restaurants: one multi-tenant p
 ## Prerequisites
 
 - [.NET SDK 10.0.100](https://dotnet.microsoft.com/download/dotnet/10.0) or a later 10.0.1xx patch (pinned in `global.json`).
-- [Docker](https://docs.docker.com/get-docker/) with Compose v2, only for the container image and the local environment.
+- [Docker](https://docs.docker.com/get-docker/) with Compose v2, for the local environment (PostgreSQL 18), the container image and the integration tests, which start their own PostgreSQL 18 container.
 
 ## Build and test
 
@@ -27,6 +27,13 @@ The build treats warnings as errors, so a clean build means every analyzer rule 
 ## Run
 
 `just run` starts the host as a local process; `just start` runs it in containers with PostgreSQL (see Local environment).
+
+The host needs the connection string `ConnectionStrings:Frappe` and refuses to start without it. It is a secret, so keep it out of `appsettings*.json`: `just start` passes it to the container, and for `just run` store it in user-secrets, pointing at the PostgreSQL that `just start` exposes on `localhost:5432` (elsewhere use the environment variable `ConnectionStrings__Frappe`). `just run` runs the host in the `Development` environment on <http://localhost:5000>, so it reads user-secrets.
+
+```bash
+dotnet user-secrets set ConnectionStrings:Frappe \
+  "Host=localhost;Database=frappe;Username=frappe;Password=frappe-local-only" --project src/Frappe.Host
+```
 
 ```bash
 just run                              # or: just run api | worker | scheduler
@@ -78,7 +85,7 @@ just stop          # stop and remove the containers; the database volume is kept
 
 The API listens on <http://localhost:8080> (`/health/live`, `/health/startup`, `/health/ready`) and PostgreSQL on `localhost:5432`, both bound to the loopback interface only. The credentials in `compose.yaml` are throwaway local defaults; override `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT` or `API_PORT` in an untracked `.env` file. To delete the database as well, run `docker compose down --volumes`.
 
-The image runs the host on the chiseled ASP.NET runtime as a non-root user, listening on port 8080; select the role with `Platform__Role`, for example `docker run -e Platform__Role=worker frappe-api:local`.
+The image runs the host on the chiseled ASP.NET runtime as a non-root user, listening on port 8080; select the role with `Platform__Role` and pass the connection string as `ConnectionStrings__Frappe`, for example `docker run -e Platform__Role=worker -e ConnectionStrings__Frappe="Host=...;Database=frappe;Username=frappe;Password=..." frappe-api:local`.
 
 ## Repository layout
 
@@ -86,7 +93,9 @@ The image runs the host on the chiseled ASP.NET runtime as a non-root user, list
 |---|---|
 | `src/Frappe.Kernel` | Types shared by every module |
 | `src/Frappe.Platform` | Composes the platform projects into `AddFrappePlatform` and `MapFrappeEndpoints` |
+| `src/Frappe.Platform.Hosting` | Process role (`Platform:Role`) |
 | `src/Frappe.Platform.Health` | Dependency health checks by criticality and the probe endpoints |
+| `src/Frappe.Platform.Persistence` | PostgreSQL data source, `FrappeDbContext` and its critical health check |
 | `src/Frappe.Host` | Composition root |
 | `tests/` | Unit, integration, architecture and host tests |
 | `eng/` | Analyzer configuration, banned APIs, code metrics and CI scripts |

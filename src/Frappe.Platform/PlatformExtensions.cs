@@ -1,6 +1,7 @@
 using Frappe.Platform.Health;
+using Frappe.Platform.Hosting;
+using Frappe.Platform.Persistence;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 namespace Frappe.Platform;
@@ -11,14 +12,16 @@ namespace Frappe.Platform;
 /// </summary>
 public static class PlatformExtensions
 {
-    /// <summary>Registers the platform services; <c>Platform:Role</c> is validated when the host starts.</summary>
+    /// <summary>
+    /// Registers the platform services; <c>Platform:Role</c> and <c>ConnectionStrings:Frappe</c> are
+    /// validated when the host starts.
+    /// </summary>
     public static TBuilder AddFrappePlatform<TBuilder>(this TBuilder builder)
         where TBuilder : IHostApplicationBuilder
     {
-        builder
-            .Services.AddOptionsWithValidateOnStart<PlatformOptions, PlatformOptionsValidator>()
-            .BindConfiguration(PlatformOptions.SectionName);
+        builder.AddHostRole();
         builder.AddHealth();
+        builder.AddPersistence();
         return builder;
     }
 

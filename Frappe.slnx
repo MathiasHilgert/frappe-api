@@ -2,8 +2,10 @@
   <Folder Name="/src/">
     <Project Path="src/Frappe.Host/Frappe.Host.csproj" />
     <Project Path="src/Frappe.Kernel/Frappe.Kernel.csproj" />
-    <Project Path="src/Frappe.Platform/Frappe.Platform.csproj" />
     <Project Path="src/Frappe.Platform.Health/Frappe.Platform.Health.csproj" />
+    <Project Path="src/Frappe.Platform.Hosting/Frappe.Platform.Hosting.csproj" />
+    <Project Path="src/Frappe.Platform.Persistence/Frappe.Platform.Persistence.csproj" />
+    <Project Path="src/Frappe.Platform/Frappe.Platform.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Frappe.ArchitectureTests/Frappe.ArchitectureTests.csproj" />
@@ -11,5 +13,6 @@
     <Project Path="tests/Frappe.Kernel.UnitTests/Frappe.Kernel.UnitTests.csproj" />
     <Project Path="tests/Frappe.Platform.Health.IntegrationTests/Frappe.Platform.Health.IntegrationTests.csproj" />
     <Project Path="tests/Frappe.Platform.Health.UnitTests/Frappe.Platform.Health.UnitTests.csproj" />
+    <Project Path="tests/Frappe.Platform.Persistence.IntegrationTests/Frappe.Platform.Persistence.IntegrationTests.csproj" />
   </Folder>
 </Solution>

@@ -1,8 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace Frappe.Platform;
+namespace Frappe.Platform.Hosting;
 
-internal sealed class PlatformOptions
+public sealed class PlatformOptions
 {
     public const string SectionName = "Platform";
 
