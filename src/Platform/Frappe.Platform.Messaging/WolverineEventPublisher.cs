@@ -15,8 +15,7 @@ public sealed class WolverineEventPublisher(IMessageContext bus) : IEventPublish
     /// <inheritdoc />
     public async Task PublishAsync(IDomainEvent domainEvent, CancellationToken cancellationToken)
     {
-        WolverineDispatcher.StampTenant(bus);
-        await bus.PublishAsync(domainEvent);
+        await bus.PublishAsync(domainEvent, WolverineDispatcher.Delivery(bus));
     }
 
     /// <inheritdoc />
@@ -28,7 +27,6 @@ public sealed class WolverineEventPublisher(IMessageContext bus) : IEventPublish
         // TODO: the NATS PR routes integration events through JetStream (stream FRAPPE_EVENTS, a durable
         // consumer per subscribing module); until then they reach subscribers on durable local queues.
         // TODO: the event log PR writes the events.event_log row here, in the same transaction.
-        WolverineDispatcher.StampTenant(bus);
-        await bus.PublishAsync(integrationEvent);
+        await bus.PublishAsync(integrationEvent, WolverineDispatcher.Delivery(bus));
     }
 }

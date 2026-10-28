@@ -24,6 +24,15 @@ internal static class Tickets
             throw new TimeoutException($"Ticket {ticketId} timed out.");
         }
 
+        // A transient failure as EF Core reports it: wrapped in an exception that is not transient itself.
+        if (string.Equals(note, "wrapped-flaky", StringComparison.Ordinal) && run == 1)
+        {
+            throw new InvalidOperationException(
+                $"Ticket {ticketId} failed.",
+                new TimeoutException($"Ticket {ticketId} timed out.")
+            );
+        }
+
         bool inTransaction = db.Database.CurrentTransaction is not null;
         await db.Database.ExecuteSqlAsync(
             $"INSERT INTO kitchen.tickets (id, business_id, note, in_transaction) VALUES ({ticketId}, {tenant.BusinessId}, {note}, {inTransaction})",

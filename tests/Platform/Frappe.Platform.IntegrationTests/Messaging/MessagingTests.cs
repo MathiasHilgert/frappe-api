@@ -16,8 +16,11 @@ public sealed class MessagingTests(MessagingFixture fixture)
     private const string Tickets = "SELECT count(*) FROM kitchen.tickets WHERE id = $1";
     private const string Invoices = "SELECT count(*) FROM billing.invoices WHERE ticket_id = $1";
     private const string AuditEntries = "SELECT count(*) FROM audit.entries WHERE ticket_id = $1";
+
+    // The bus's tables hold every test's envelopes; one is this test's when its body names the id.
+    private const string ForTheId = "position(convert_to($1::text, 'UTF8') in body) > 0";
     private const string DeadLetters =
-        "SELECT count(*) FROM wolverine.wolverine_dead_letters WHERE exception_message LIKE '%' || $1::text || '%'";
+        $"SELECT count(*) FROM wolverine.wolverine_dead_letters WHERE {ForTheId}";
 
     private readonly Guid _tenant = Guid.CreateVersion7();
     private readonly Guid _ticket = Guid.CreateVersion7();
@@ -46,6 +49,29 @@ public sealed class MessagingTests(MessagingFixture fixture)
                 _ticket
             )
         ).ShouldBeTrue();
+    }
+
+    // One scope may send for several tenants in turn; a tenant must never stick to the scope's bus.
+    [Fact]
+    public async Task Each_send_carries_the_tenant_current_at_that_send()
+    {
+        var other = Guid.CreateVersion7();
+        var invoked = Guid.CreateVersion7();
+        var queued = Guid.CreateVersion7();
+
+        await TrackAsync(async dispatcher =>
+        {
+            await dispatcher.EnqueueAsync(new QueueTicket(_ticket, "ok"), Cancellation);
+            using (TenantScope.Begin(other, branchId: null, TenantScope.SystemPrincipalId))
+            {
+                await dispatcher.InvokeAsync(new OpenTicket(invoked, "ok"), Cancellation);
+                await dispatcher.EnqueueAsync(new QueueTicket(queued, "ok"), Cancellation);
+            }
+        });
+
+        (await BusinessOfAsync(_ticket)).ShouldBe(_tenant);
+        (await BusinessOfAsync(invoked)).ShouldBe(other);
+        (await BusinessOfAsync(queued)).ShouldBe(other);
     }
 
     [Fact]
@@ -80,7 +106,7 @@ public sealed class MessagingTests(MessagingFixture fixture)
         (await fixture.CountAsync(AuditEntries, _ticket)).ShouldBe(0);
         (
             await fixture.CountAsync(
-                "SELECT count(*) FROM wolverine.wolverine_outgoing_envelopes WHERE $1 IS NOT NULL",
+                $"SELECT count(*) FROM wolverine.wolverine_outgoing_envelopes WHERE {ForTheId}",
                 _ticket
             )
         ).ShouldBe(0);
@@ -103,6 +129,7 @@ public sealed class MessagingTests(MessagingFixture fixture)
     [Fact]
     public async Task An_enqueued_command_that_returns_an_error_is_logged_acknowledged_and_never_cascaded()
     {
+        int logged = fixture.Logs.Records.Count;
         ITrackedSession session = await TrackAsync(dispatcher =>
             dispatcher.EnqueueAsync(new QueueTicket(_ticket, "reject"), Cancellation)
         );
@@ -116,11 +143,14 @@ public sealed class MessagingTests(MessagingFixture fixture)
             .Select(static record => record.Message!.GetType())
             .Distinct()
             .ShouldBe([typeof(QueueTicket)]);
-        fixture.Logs.Records.ShouldContain(record =>
-            record.EventId.Id == 101
-            && record.Level == LogLevel.Warning
-            && Equals(record.State["ErrorCodes"], "kitchen.ticket.rejected")
-        );
+        // Only this test's records: the collection runs one test at a time and waits for its messages.
+        fixture
+            .Logs.Records.Skip(logged)
+            .ShouldContain(record =>
+                record.EventId.Id == 101
+                && record.Level == LogLevel.Warning
+                && Equals(record.State["ErrorCodes"], "kitchen.ticket.rejected")
+            );
     }
 
     // ErrorOrOutcome tells an inline invoke from a queued message by this flag alone; if an upgrade changes
@@ -156,6 +186,20 @@ public sealed class MessagingTests(MessagingFixture fixture)
     }
 
     [Fact]
+    public async Task A_transient_failure_wrapped_in_another_exception_is_retried_and_then_succeeds()
+    {
+        await TrackAsync(
+            dispatcher =>
+                dispatcher.EnqueueAsync(new QueueTicket(_ticket, "wrapped-flaky"), Cancellation),
+            assertExceptions: false
+        );
+
+        Runs.Of(_ticket).ShouldBe(2);
+        (await fixture.CountAsync(Tickets, _ticket)).ShouldBe(1);
+        (await fixture.CountAsync(DeadLetters, _ticket)).ShouldBe(0);
+    }
+
+    [Fact]
     public async Task A_bug_goes_to_the_dead_letters_without_a_retry()
     {
         await TrackAsync(
@@ -167,7 +211,7 @@ public sealed class MessagingTests(MessagingFixture fixture)
         (await fixture.CountAsync(Tickets, _ticket)).ShouldBe(0);
         (
             await fixture.ScalarAsync<string>(
-                "SELECT exception_type FROM wolverine.wolverine_dead_letters WHERE exception_message LIKE '%' || $1::text || '%'",
+                $"SELECT exception_type FROM wolverine.wolverine_dead_letters WHERE {ForTheId}",
                 _ticket
             )
         ).ShouldBe(typeof(InvalidOperationException).FullName);
@@ -186,10 +230,10 @@ public sealed class MessagingTests(MessagingFixture fixture)
         (await fixture.CountAsync(Tickets, _ticket)).ShouldBe(0);
         (
             await fixture.CountAsync(
-                "SELECT count(*) FROM wolverine.wolverine_dead_letters WHERE message_type = 'kitchen.queue_ticket' AND exception_message LIKE '%has no tenant%TenantScope.Begin%[GlobalMessage]%' AND $1 IS NOT NULL",
+                $"SELECT count(*) FROM wolverine.wolverine_dead_letters WHERE message_type = 'kitchen.queue_ticket' AND exception_message LIKE '%has no tenant%TenantScope.Begin%[GlobalMessage]%' AND {ForTheId}",
                 _ticket
             )
-        ).ShouldBeGreaterThan(0);
+        ).ShouldBe(1);
     }
 
     [Fact]
@@ -219,6 +263,9 @@ public sealed class MessagingTests(MessagingFixture fixture)
         (await fixture.CountAsync(Invoices, _ticket)).ShouldBe(1);
         (await fixture.CountAsync(AuditEntries, _ticket)).ShouldBe(2);
     }
+
+    private Task<Guid> BusinessOfAsync(Guid ticket) =>
+        fixture.ScalarAsync<Guid>("SELECT business_id FROM kitchen.tickets WHERE id = $1", ticket);
 
     private Task<ITrackedSession> TrackAsync(
         Func<IDispatcher, Task> act,

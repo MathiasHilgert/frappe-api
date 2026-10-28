@@ -18,8 +18,7 @@ public sealed class WolverineDispatcher(IMessageContext bus) : IDispatcher
     )
         where TCommand : ICommand<TCommand, TResult>
     {
-        StampTenant(bus);
-        return bus.InvokeAsync<ErrorOr<TResult>>(command, cancellationToken);
+        return bus.InvokeAsync<ErrorOr<TResult>>(command, Delivery(bus), cancellationToken);
     }
 
     /// <inheritdoc />
@@ -29,16 +28,14 @@ public sealed class WolverineDispatcher(IMessageContext bus) : IDispatcher
     )
         where TQuery : IQuery<TQuery, TResult>
     {
-        StampTenant(bus);
-        return bus.InvokeAsync<ErrorOr<TResult>>(query, cancellationToken);
+        return bus.InvokeAsync<ErrorOr<TResult>>(query, Delivery(bus), cancellationToken);
     }
 
     /// <inheritdoc />
     public async Task EnqueueAsync<TCommand>(TCommand command, CancellationToken cancellationToken)
         where TCommand : ICommand<TCommand>
     {
-        StampTenant(bus);
-        await bus.SendAsync(command);
+        await bus.SendAsync(command, Delivery(bus));
     }
 
     /// <inheritdoc />
@@ -49,17 +46,14 @@ public sealed class WolverineDispatcher(IMessageContext bus) : IDispatcher
     )
         where TCommand : ICommand<TCommand>
     {
-        StampTenant(bus);
-        await bus.SendAsync(command, new DeliveryOptions { ScheduledTime = at.ToDateTimeOffset() });
+        DeliveryOptions delivery = Delivery(bus);
+        delivery.ScheduledTime = at.ToDateTimeOffset();
+        await bus.SendAsync(command, delivery);
     }
 
-    // Inside a handler the context already carries the envelope's tenant, which every message it sends
-    // inherits; outside one (an HTTP request, a job) the open tenant scope supplies it.
-    internal static void StampTenant(IMessageBus bus)
-    {
-        if (bus.TenantId is null && TenantScope.Current is { } tenant)
-        {
-            bus.TenantId = tenant.BusinessId.ToString();
-        }
-    }
+    // Stamped on each send, never on the bus: the bus lives as long as its scope, which may send for
+    // several tenants in turn. The open tenant scope is the current one (inside a handler, TenantMiddleware
+    // opened it from the envelope); without one, the bus's own tenant, if any, is inherited.
+    internal static DeliveryOptions Delivery(IMessageBus bus) =>
+        new() { TenantId = TenantScope.Current?.BusinessId.ToString() ?? bus.TenantId };
 }

@@ -113,8 +113,8 @@ public static class MessagingExtensions
         options.Policies.UseDurableInboxOnAllListeners();
         options.Policies.UseDurableOutboxOnAllSendingEndpoints();
         // Each in-flight handler holds a pooled connection inside its eager transaction; with the queues of one
-        // process at this parallelism plus HTTP concurrency, the pool (PersistenceExtensions) stays the bound.
-        // TODO: the first module's PR gives each module a named local queue and the boot check sums them.
+        // process at this parallelism plus HTTP concurrency, the pool (PersistenceExtensions) stays the bound;
+        // ModuleHandlerDiscovery fails the boot when the queues alone could exceed it.
         options.Policies.AllLocalQueues(queue =>
             queue.MaximumParallelMessages(LocalQueueParallelism)
         );
@@ -147,7 +147,21 @@ public static class MessagingExtensions
         // Quartz outbox outside handlers (IDbContextOutbox).
     }
 
-    private static bool IsTransient(Exception exception) =>
+    // EF Core and callers wrap the driver's exception, so the whole inner chain is searched.
+    private static bool IsTransient(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (IsTransientItself(current))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsTransientItself(Exception exception) =>
         exception
             is PostgresException
                 {

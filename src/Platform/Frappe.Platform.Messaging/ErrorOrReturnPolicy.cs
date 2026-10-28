@@ -31,6 +31,8 @@ internal sealed class ErrorOrReturnPolicy : IHandlerPolicy
         }
     }
 
+    // Task<ErrorOr<T>> only: every Kernel handler interface returns it, and discovery takes only types that
+    // implement one; a ValueTask signature would need a Kernel change first, and then a case here.
     private static bool ReturnsErrorOr(Type type) =>
         type.IsGenericType
         && (
