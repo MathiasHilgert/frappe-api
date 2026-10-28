@@ -6,7 +6,7 @@ using Microsoft.Extensions.Options;
 
 namespace Frappe.Host.IntegrationTests;
 
-public sealed class HostRoleTests(FrappeDatabase database)
+public sealed class HostRoleTests(FrappeDatabase database, FrappeNats nats)
 {
     [Theory]
     [InlineData("all", "/health/live")]
@@ -28,6 +28,7 @@ public sealed class HostRoleTests(FrappeDatabase database)
             builder
                 .UseSetting("Platform:Role", role)
                 .UseSetting("ConnectionStrings:Frappe", database.AppConnectionString)
+                .UseSetting("Nats:Url", nats.Url)
         );
 
         await host.Scenario(scenario =>
@@ -41,7 +42,9 @@ public sealed class HostRoleTests(FrappeDatabase database)
     public async Task The_host_starts_without_a_role_setting()
     {
         await using IAlbaHost host = await AlbaHost.For<Program>(builder =>
-            builder.UseSetting("ConnectionStrings:Frappe", database.AppConnectionString)
+            builder
+                .UseSetting("ConnectionStrings:Frappe", database.AppConnectionString)
+                .UseSetting("Nats:Url", nats.Url)
         );
 
         await host.Scenario(static scenario =>
@@ -84,6 +87,7 @@ public sealed class HostRoleTests(FrappeDatabase database)
         );
         builder.Configuration["Platform:Role"] = role;
         builder.Configuration["ConnectionStrings:Frappe"] = database.AppConnectionString;
+        builder.Configuration["Nats:Url"] = nats.Url;
         builder.AddFrappePlatform();
         return builder.Build();
     }

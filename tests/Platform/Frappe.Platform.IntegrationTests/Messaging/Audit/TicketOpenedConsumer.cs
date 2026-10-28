@@ -9,6 +9,8 @@ namespace Frappe.Platform.IntegrationTests.Messaging.Audit.Application;
 public sealed class TicketOpenedConsumer(AuditDbContext db)
     : IIntegrationEventConsumer<TicketOpened>
 {
+    public const string Name = "audit";
+
     public async Task<ErrorOr<Success>> Handle(
         TicketOpened integrationEvent,
         CancellationToken cancellationToken
@@ -18,6 +20,8 @@ public sealed class TicketOpenedConsumer(AuditDbContext db)
             $"INSERT INTO audit.entries (ticket_id) VALUES ({integrationEvent.TicketId})",
             cancellationToken
         );
+        // After the write, so a test that sees the run can wait for its commit.
+        Runs.Record(integrationEvent.TicketId, Name);
         return Result.Success;
     }
 }

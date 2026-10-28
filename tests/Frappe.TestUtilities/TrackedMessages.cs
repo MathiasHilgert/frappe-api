@@ -1,6 +1,7 @@
 using Alba;
 using Frappe.Platform.Messaging;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Wolverine;
 using Wolverine.Tracking;
 
@@ -20,16 +21,22 @@ public static class TrackedMessages
     /// <param name="tenant">The business the work runs for, or <see langword="null"/> for none.</param>
     /// <param name="act">The work, given the scope's services.</param>
     /// <param name="assertExceptions">Whether a handler exception fails the session.</param>
+    /// <param name="alsoTrack">Other hosts whose messages the session waits for, such as a worker.</param>
     /// <returns>The finished session.</returns>
     public static Task<ITrackedSession> TrackAsync(
         this IAlbaHost host,
         Guid? tenant,
         Func<IServiceProvider, Task> act,
-        bool assertExceptions = true
+        bool assertExceptions = true,
+        params IHost[] alsoTrack
     )
     {
         ArgumentNullException.ThrowIfNull(host);
-        TrackedSessionConfiguration tracking = host.TrackActivity().Timeout(Timeout);
+        // Integration events leave through NATS, so the session follows them there and into every host.
+        TrackedSessionConfiguration tracking = host.TrackActivity()
+            .Timeout(Timeout)
+            .IncludeExternalTransports()
+            .AlsoTrack(alsoTrack);
         if (!assertExceptions)
         {
             tracking = tracking.DoNotAssertOnExceptionsDetected();
