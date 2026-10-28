@@ -16,7 +16,8 @@ internal sealed class StubModule(ModuleMetadata metadata) : IModule
         string? routePrefix = null,
         EventIdRange? eventIds = null,
         Type[]? published = null,
-        Type[]? subscribed = null
+        Type[]? subscribed = null,
+        string[]? permissions = null
     ) =>
         new(
             new ModuleMetadata(
@@ -24,7 +25,7 @@ internal sealed class StubModule(ModuleMetadata metadata) : IModule
                 schema ?? name,
                 routePrefix ?? name,
                 eventIds ?? new EventIdRange(1000, 1999),
-                [],
+                permissions ?? [],
                 published ?? [],
                 subscribed ?? []
             )

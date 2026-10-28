@@ -27,12 +27,17 @@ public static class PlatformExtensions
     }
 
     /// <summary>
-    /// Adds the business modules the host runs, after <see cref="AddFrappePlatform{TBuilder}"/>; see
-    /// <see cref="ModularityExtensions.AddModules{TBuilder}"/> for the boot checks.
+    /// Adds the business modules the host runs, after <see cref="AddFrappePlatform{TBuilder}"/>: checks
+    /// <paramref name="modules"/> against each other, then calls each one's <see cref="IModule.AddServices"/> in
+    /// order and keeps them for <see cref="MapFrappeEndpoints"/>. The checks need no service, so a bad module fails
+    /// here, before <c>Build()</c>.
     /// </summary>
     /// <param name="builder">The application builder.</param>
-    /// <param name="modules">Every module the host runs, listed explicitly.</param>
+    /// <param name="modules">Every module the host runs, listed explicitly; no assembly is scanned.</param>
     /// <returns>The same builder, for chaining.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// The modules were already added, or they break a boot check; the message lists every violation.
+    /// </exception>
     public static TBuilder AddFrappeModules<TBuilder>(
         this TBuilder builder,
         params IModule[] modules

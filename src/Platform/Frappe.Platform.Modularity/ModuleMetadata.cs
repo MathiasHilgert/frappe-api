@@ -5,17 +5,21 @@ using Frappe.Kernel.Messaging;
 namespace Frappe.Platform.Modularity;
 
 /// <summary>
-/// What a module declares about itself. Each value is validated here; the rules across modules (unique names,
-/// schemas, route prefixes and EventId ranges, subscriptions some module publishes) run when the modules are added.
+/// What a module declares about itself. Each value is validated here and every collection is copied; the rules
+/// across modules (unique names, schemas, route prefixes, EventId ranges, permissions and published events,
+/// subscriptions some module publishes) run when the modules are added.
 /// </summary>
-public sealed partial record ModuleMetadata
+public sealed partial class ModuleMetadata
 {
     /// <summary>Initializes the metadata of a module.</summary>
     /// <param name="name">The module name, a lowercase identifier such as <c>geo</c>; also its OpenAPI tag.</param>
     /// <param name="schema">The PostgreSQL schema the module owns, a lowercase identifier.</param>
     /// <param name="routePrefix">The first path segment after <c>/v1</c>, lowercase kebab case such as <c>cash-shifts</c>.</param>
     /// <param name="eventIds">The log EventIds the module owns.</param>
-    /// <param name="permissions">The permissions the module's messages require, each in the <see cref="Policy"/> format.</param>
+    /// <param name="permissions">
+    /// The permissions the module's messages require, each in the <see cref="Policy"/> format and starting with
+    /// <c>{name}.</c>.
+    /// </param>
     /// <param name="publishedEvents">The integration events the module publishes.</param>
     /// <param name="subscribedEvents">The integration events the module handles; each must be published by some module.</param>
     /// <exception cref="ArgumentException">A value is not in its format, or a type is not an integration event.</exception>
@@ -48,10 +52,17 @@ public sealed partial record ModuleMetadata
         {
             // The Policy constructor owns the permission format, so a typo fails as it would in Perms.
             _ = new Policy(permission);
+            if (!permission.StartsWith($"{name}.", StringComparison.Ordinal))
+            {
+                throw new ArgumentException(
+                    $"'{permission}' does not start with the module name '{name}.'.",
+                    nameof(permissions)
+                );
+            }
         }
 
         EventIds = eventIds;
-        Permissions = permissions;
+        Permissions = [.. permissions];
         PublishedEvents = IntegrationEvents(publishedEvents, nameof(publishedEvents));
         SubscribedEvents = IntegrationEvents(subscribedEvents, nameof(subscribedEvents));
     }
@@ -69,13 +80,13 @@ public sealed partial record ModuleMetadata
     public EventIdRange EventIds { get; }
 
     /// <summary>Gets the permissions the module's messages require.</summary>
-    public IReadOnlyCollection<string> Permissions { get; }
+    public IReadOnlyList<string> Permissions { get; }
 
     /// <summary>Gets the integration events the module publishes.</summary>
-    public IReadOnlyCollection<Type> PublishedEvents { get; }
+    public IReadOnlyList<Type> PublishedEvents { get; }
 
     /// <summary>Gets the integration events the module handles.</summary>
-    public IReadOnlyCollection<Type> SubscribedEvents { get; }
+    public IReadOnlyList<Type> SubscribedEvents { get; }
 
     private static string Matching(string value, string parameter, Regex format, string expected)
     {
@@ -85,7 +96,7 @@ public sealed partial record ModuleMetadata
             : throw new ArgumentException($"'{value}' is not {expected}.", parameter);
     }
 
-    private static IReadOnlyCollection<Type> IntegrationEvents(
+    private static IReadOnlyList<Type> IntegrationEvents(
         IReadOnlyCollection<Type> types,
         string parameter
     )
@@ -102,7 +113,7 @@ public sealed partial record ModuleMetadata
             }
         }
 
-        return types;
+        return [.. types];
     }
 
     [GeneratedRegex(

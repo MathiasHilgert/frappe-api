@@ -78,7 +78,11 @@ public sealed class ModuleMetadataTests
     [InlineData("Geo.Zone.Read")]
     [InlineData("geo")]
     [InlineData("$self")]
-    public void A_permission_outside_the_policy_format_is_rejected(string permission)
+    [InlineData("diner.tab.open")]
+    [InlineData("geography.zone.read")]
+    public void A_permission_outside_the_policy_format_or_another_modules_namespace_is_rejected(
+        string permission
+    )
     {
         Should.Throw<ArgumentException>(() =>
             new ModuleMetadata(
@@ -102,5 +106,30 @@ public sealed class ModuleMetadataTests
     {
         Should.Throw<ArgumentException>(() => StubModule.Named("geo", published: [type]));
         Should.Throw<ArgumentException>(() => StubModule.Named("geo", subscribed: [type]));
+    }
+
+    [Fact]
+    public void The_declared_collections_are_copied_so_a_later_change_to_the_source_is_not_seen()
+    {
+        List<string> permissions = ["geo.zone.read"];
+        List<Type> published = [typeof(TableOpened)];
+        List<Type> subscribed = [typeof(TableClosed)];
+        var metadata = new ModuleMetadata(
+            "geo",
+            "geo",
+            "geo",
+            new EventIdRange(1000, 1999),
+            permissions,
+            published,
+            subscribed
+        );
+
+        permissions.Add("geo.zone.write");
+        published.Add(typeof(TableClosed));
+        subscribed.Clear();
+
+        metadata.Permissions.ShouldBe(["geo.zone.read"]);
+        metadata.PublishedEvents.ShouldBe([typeof(TableOpened)]);
+        metadata.SubscribedEvents.ShouldBe([typeof(TableClosed)]);
     }
 }
