@@ -1041,6 +1041,7 @@
       "frappe.migrations": {
         "type": "Project",
         "dependencies": {
+          "Frappe.Platform.Modularity": "[1.0.0, )",
           "Frappe.Platform.Persistence": "[1.0.0, )"
         }
       },

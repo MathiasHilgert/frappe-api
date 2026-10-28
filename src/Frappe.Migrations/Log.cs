@@ -18,7 +18,10 @@ internal static partial class Log
     [LoggerMessage(
         3,
         LogLevel.Critical,
-        "Migrations failed; nothing after the failing migration was applied"
+        "Migrations or seed failed; nothing after the failing migration or module was applied"
     )]
     public static partial void Failed(ILogger logger, Exception exception);
+
+    [LoggerMessage(4, LogLevel.Information, "Seeded {Count} reference row(s)")]
+    public static partial void Seeded(ILogger logger, int count);
 }
