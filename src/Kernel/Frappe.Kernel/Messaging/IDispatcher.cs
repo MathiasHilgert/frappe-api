@@ -18,7 +18,7 @@ public interface IDispatcher
     /// <param name="command">The command.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The result, or every expected failure.</returns>
-    public Task<ErrorOr<TResult>> InvokeAsync<TCommand, TResult>(
+    Task<ErrorOr<TResult>> InvokeAsync<TCommand, TResult>(
         ICommand<TCommand, TResult> command,
         CancellationToken cancellationToken
     )
@@ -30,7 +30,7 @@ public interface IDispatcher
     /// <param name="query">The query.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The result, or every expected failure.</returns>
-    public Task<ErrorOr<TResult>> QueryAsync<TQuery, TResult>(
+    Task<ErrorOr<TResult>> QueryAsync<TQuery, TResult>(
         IQuery<TQuery, TResult> query,
         CancellationToken cancellationToken
     )
@@ -43,7 +43,7 @@ public interface IDispatcher
     /// <param name="command">The command.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that completes once the command is stored.</returns>
-    public Task EnqueueAsync<TCommand>(TCommand command, CancellationToken cancellationToken)
+    Task EnqueueAsync<TCommand>(TCommand command, CancellationToken cancellationToken)
         where TCommand : ICommand<TCommand>;
 
     /// <summary>Stores a command durably to run once at <paramref name="at"/>.</summary>
@@ -52,10 +52,6 @@ public interface IDispatcher
     /// <param name="at">When the command runs.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that completes once the command is stored.</returns>
-    public Task ScheduleAsync<TCommand>(
-        TCommand command,
-        Instant at,
-        CancellationToken cancellationToken
-    )
+    Task ScheduleAsync<TCommand>(TCommand command, Instant at, CancellationToken cancellationToken)
         where TCommand : ICommand<TCommand>;
 }

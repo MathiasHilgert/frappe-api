@@ -12,5 +12,5 @@ public interface IQueryHandler<in TQuery, TResult>
     /// <param name="query">The query.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The result, or every expected failure.</returns>
-    public Task<ErrorOr<TResult>> Handle(TQuery query, CancellationToken cancellationToken);
+    Task<ErrorOr<TResult>> Handle(TQuery query, CancellationToken cancellationToken);
 }

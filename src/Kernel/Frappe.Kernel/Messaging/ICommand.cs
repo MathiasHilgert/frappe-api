@@ -11,7 +11,7 @@ public interface ICommand<TSelf, TResult>
     where TSelf : ICommand<TSelf, TResult>
 {
     /// <summary>Gets the policy the caller must satisfy.</summary>
-    public static abstract Policy Policy { get; }
+    static abstract Policy Policy { get; }
 }
 
 /// <summary>

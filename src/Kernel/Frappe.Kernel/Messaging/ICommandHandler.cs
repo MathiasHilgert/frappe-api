@@ -12,5 +12,5 @@ public interface ICommandHandler<in TCommand, TResult>
     /// <param name="command">The command.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The result, or every expected failure.</returns>
-    public Task<ErrorOr<TResult>> Handle(TCommand command, CancellationToken cancellationToken);
+    Task<ErrorOr<TResult>> Handle(TCommand command, CancellationToken cancellationToken);
 }
