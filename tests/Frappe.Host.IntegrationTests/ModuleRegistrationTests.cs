@@ -1,7 +1,9 @@
 using System.Reflection;
 using Alba;
 using Frappe.Platform.Modularity;
+using Frappe.Platform.Persistence;
 using Frappe.TestUtilities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Frappe.Host.IntegrationTests;
@@ -21,6 +23,31 @@ public sealed class ModuleRegistrationTests(FrappeDatabase database)
             .Select(static module => module.GetType());
 
         added.ShouldBe(ShippedModules(), ignoreOrder: true);
+    }
+
+    // A module's context must own its module's schema; vacuous, like the test above, until the first module lands.
+    [Fact]
+    public async Task Each_module_context_owns_its_module_schema()
+    {
+        await using IAlbaHost host = await AlbaHost.For<Program>(builder =>
+            builder.UseSetting("ConnectionStrings:Frappe", database.AppConnectionString)
+        );
+        await using AsyncServiceScope scope = host.Services.CreateAsyncScope();
+
+        foreach (IModule module in host.Services.GetServices<IModule>())
+        {
+            IEnumerable<Type> contexts = module
+                .GetType()
+                .Assembly.GetTypes()
+                .Where(static type =>
+                    type.IsClass && !type.IsAbstract && type.IsAssignableTo(typeof(FrappeDbContext))
+                );
+            foreach (Type context in contexts)
+            {
+                var resolved = (DbContext)scope.ServiceProvider.GetRequiredService(context);
+                resolved.Model.GetDefaultSchema().ShouldBe(module.Metadata.Schema, context.Name);
+            }
+        }
     }
 
     // Every Frappé assembly next to the Host, except the test projects; empty until the first module lands.

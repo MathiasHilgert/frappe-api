@@ -3,6 +3,10 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Platform" />
+    <InternalsVisibleTo Include="Frappe.Platform.UnitTests" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../../Frappe.Kernel/Frappe.Kernel.csproj" />
     <ProjectReference Include="../Frappe.Platform.Hosting/Frappe.Platform.Hosting.csproj" />
   </ItemGroup>

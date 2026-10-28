@@ -82,7 +82,11 @@ public sealed class ModuleRegistrationTests
     [InlineData("platform")]
     [InlineData("wolverine")]
     [InlineData("quartz")]
-    public void A_schema_the_platform_owns_is_rejected(string schema)
+    [InlineData("public")]
+    [InlineData("information_schema")]
+    [InlineData("pg_catalog")]
+    [InlineData("pg_temp")]
+    public void A_schema_the_platform_or_postgres_owns_is_rejected(string schema)
     {
         ShouldReject($"schema '{schema}'", StubModule.Named("geo", schema: schema));
     }
@@ -115,6 +119,50 @@ public sealed class ModuleRegistrationTests
             StubModule.Named("geo", eventIds: new(1000, 1999), published: [typeof(TableOpened)]),
             StubModule.Named("diner", eventIds: new(2000, 2999), subscribed: [typeof(TableClosed)])
         );
+    }
+
+    [Fact]
+    public void An_event_two_modules_publish_is_rejected()
+    {
+        ShouldReject(
+            $"Modules 'geo', 'diner' publish {typeof(TableOpened).FullName}",
+            StubModule.Named("geo", eventIds: new(1000, 1999), published: [typeof(TableOpened)]),
+            StubModule.Named("diner", eventIds: new(2000, 2999), published: [typeof(TableOpened)])
+        );
+    }
+
+    [Fact]
+    public void A_permission_two_modules_declare_is_rejected()
+    {
+        ShouldReject(
+            "share permission 'geo.zone.read'",
+            StubModule.Named(
+                "geo",
+                schema: "geo_a",
+                routePrefix: "geo-a",
+                eventIds: new(1000, 1999),
+                permissions: ["geo.zone.read"]
+            ),
+            StubModule.Named(
+                "geo",
+                schema: "geo_b",
+                routePrefix: "geo-b",
+                eventIds: new(2000, 2999),
+                permissions: ["geo.zone.read"]
+            )
+        );
+    }
+
+    [Fact]
+    public void A_retry_after_a_failed_check_reports_the_violations_again()
+    {
+        HostApplicationBuilder builder = NewBuilder();
+        IModule[] modules = [StubModule.Named("geo", schema: "quartz")];
+        Should.Throw<InvalidOperationException>(() => builder.AddModules(modules));
+
+        Should
+            .Throw<InvalidOperationException>(() => builder.AddModules(modules))
+            .Message.ShouldContain("schema 'quartz'");
     }
 
     [Fact]
