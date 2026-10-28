@@ -98,5 +98,21 @@ public sealed class FrappeDbContextTests(AppFixture app)
         settings.GssEncryptionMode.ShouldBe(GssEncryptionMode.Disable);
     }
 
+    [Fact]
+    public async Task Connections_never_multiplex_even_when_asked_to()
+    {
+        await using IAlbaHost host = await AlbaHost.For<Program>(builder =>
+            builder.UseSetting(
+                "ConnectionStrings:Frappe",
+                $"{app.ConnectionString};Multiplexing=true"
+            )
+        );
+        NpgsqlDataSource dataSource = host.Services.GetRequiredService<NpgsqlDataSource>();
+
+        NpgsqlConnectionStringBuilder settings = new(dataSource.ConnectionString);
+
+        settings.Multiplexing.ShouldBeFalse();
+    }
+
     public sealed record NamingProbe(int AnswerValue);
 }
