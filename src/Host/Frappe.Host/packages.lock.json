@@ -85,6 +85,7 @@
         "dependencies": {
           "AspNetCore.HealthChecks.NpgSql": "[9.0.0, )",
           "EFCore.NamingConventions": "[10.0.1, )",
+          "Frappe.Kernel": "[1.0.0, )",
           "Frappe.Platform.Health": "[1.0.0, )",
           "Frappe.Platform.Hosting": "[1.0.0, )",
           "Npgsql.DependencyInjection": "[10.0.3, )",

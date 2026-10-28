@@ -345,6 +345,13 @@
           "System.Composition.Runtime": "9.0.0"
         }
       },
+      "frappe.kernel": {
+        "type": "Project",
+        "dependencies": {
+          "ErrorOr": "[2.1.1, )",
+          "NodaTime": "[3.3.6, )"
+        }
+      },
       "frappe.platform.health": {
         "type": "Project"
       },
@@ -360,6 +367,7 @@
         "dependencies": {
           "AspNetCore.HealthChecks.NpgSql": "[9.0.0, )",
           "EFCore.NamingConventions": "[10.0.1, )",
+          "Frappe.Kernel": "[1.0.0, )",
           "Frappe.Platform.Health": "[1.0.0, )",
           "Frappe.Platform.Hosting": "[1.0.0, )",
           "Npgsql.DependencyInjection": "[10.0.3, )",
@@ -387,6 +395,12 @@
           "Microsoft.EntityFrameworkCore.Relational": "[10.0.1, 11.0.0)",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.1"
         }
+      },
+      "ErrorOr": {
+        "type": "CentralTransitive",
+        "requested": "[2.1.1, )",
+        "resolved": "2.1.1",
+        "contentHash": "Y/AhvEZ5DjSi993Db1VrnYpK8YpM4o+tonF4f+AtXDzrIHYvbjWJD7fpip+ugSwW8kMw+XXEnMlJM7E0BKJBWA=="
       },
       "Microsoft.EntityFrameworkCore": {
         "type": "CentralTransitive",

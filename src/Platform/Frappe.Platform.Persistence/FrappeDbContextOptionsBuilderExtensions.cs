@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Npgsql;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Infrastructure;
 
@@ -21,7 +22,8 @@ public static class FrappeDbContextOptionsBuilderExtensions
 
     /// <summary>
     /// Configures PostgreSQL on <paramref name="dataSource"/>; without one, the connection string is
-    /// set later, as the migrations tooling does.
+    /// set later, as the migrations tooling does. Every aggregate root's <c>Revision</c> becomes its
+    /// concurrency token and is incremented once per save that changes the aggregate.
     /// </summary>
     public static DbContextOptionsBuilder UseFrappeDatabase(
         this DbContextOptionsBuilder options,
@@ -31,7 +33,10 @@ public static class FrappeDbContextOptionsBuilderExtensions
             dataSource is null
                 ? options.UseNpgsql(ConfigureNpgsql)
                 : options.UseNpgsql(dataSource, ConfigureNpgsql)
-        ).UseSnakeCaseNamingConvention();
+        )
+            .UseSnakeCaseNamingConvention()
+            .ReplaceService<IModelCustomizer, FrappeModelCustomizer>()
+            .AddInterceptors(AggregateRevisionInterceptor.Instance);
 
     private static void ConfigureNpgsql(NpgsqlDbContextOptionsBuilder npgsql) =>
         npgsql
