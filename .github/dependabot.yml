@@ -41,10 +41,6 @@ updates:
     groups:
       docker:
         patterns: ["*"]
-    ignore:
-      # The SDK image must stay in the feature band global.json pins; moving bands is its own change.
-      - dependency-name: "dotnet/sdk"
-        versions: [">= 10.0.200"]
     commit-message:
       prefix: build
       include: scope

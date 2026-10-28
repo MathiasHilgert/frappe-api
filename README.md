@@ -4,7 +4,7 @@ The backend of Frappé, the operating system for restaurants: one multi-tenant p
 
 ## Prerequisites
 
-- [.NET SDK 10.0.100](https://dotnet.microsoft.com/download/dotnet/10.0) or a later 10.0.1xx patch (pinned in `global.json`).
+- [.NET SDK 10.0.100](https://dotnet.microsoft.com/download/dotnet/10.0) or any later 10.0 SDK (`global.json` rolls forward to the newest installed 10.0 feature band).
 - [Docker](https://docs.docker.com/get-docker/) with Compose v2, for the local environment (PostgreSQL 18), the container image and the integration tests, which start their own PostgreSQL 18 container.
 
 ## Build and test
