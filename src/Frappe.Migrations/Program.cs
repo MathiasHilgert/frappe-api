@@ -20,11 +20,21 @@ internal static class Program
             return 2;
         }
 
-        IReadOnlyList<string> applied = await MigrationsRunner.MigrateAllAsync(
-            connectionString,
-            CancellationToken.None
-        );
-        Log.Applied(logger, applied.Count, string.Join(", ", applied));
-        return 0;
+        try
+        {
+            IReadOnlyList<string> applied = await MigrationsRunner.MigrateAllAsync(
+                connectionString,
+                CancellationToken.None
+            );
+            Log.Applied(logger, applied.Count, string.Join(", ", applied));
+            return 0;
+        }
+#pragma warning disable CA1031 // The process boundary: any failure becomes exit code 1, never a crash.
+        catch (Exception exception)
+#pragma warning restore CA1031
+        {
+            Log.Failed(logger, exception);
+            return 1;
+        }
     }
 }

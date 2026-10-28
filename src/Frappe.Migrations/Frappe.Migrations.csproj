@@ -10,6 +10,9 @@
     <ProjectReference Include="../Platform/Frappe.Platform.Persistence/Frappe.Platform.Persistence.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Migrations.UnitTests" />
+  </ItemGroup>
+  <ItemGroup>
     <EmbeddedResource Include="Sql/*.sql" LogicalName="%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>
