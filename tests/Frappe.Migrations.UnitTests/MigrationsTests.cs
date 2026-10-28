@@ -11,7 +11,7 @@ public sealed class MigrationsTests
     {
         string[] withDown =
         [
-            .. typeof(MigrationsDbContextFactory)
+            .. typeof(MigrationsRunner)
                 .Assembly.GetTypes()
                 .Where(static type =>
                     type.IsSubclassOf(typeof(Migration))

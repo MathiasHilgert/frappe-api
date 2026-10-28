@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Frappe.Migrations.Migrations
+namespace Frappe.Migrations.Migrations.Platform
 {
     /// <inheritdoc />
     public partial class InitPlatform : Migration

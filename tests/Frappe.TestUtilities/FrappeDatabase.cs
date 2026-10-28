@@ -1,7 +1,5 @@
 using DotNet.Testcontainers.Configurations;
 using Frappe.Migrations;
-using Frappe.Platform.Persistence;
-using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Testcontainers.PostgreSql;
 
@@ -32,9 +30,10 @@ public sealed class FrappeDatabase : IAsyncLifetime
     public async ValueTask InitializeAsync()
     {
         await _postgres.StartAsync(TestContext.Current.CancellationToken);
-        await using FrappeDbContext db = new MigrationsDbContextFactory().CreateDbContext([]);
-        db.Database.SetConnectionString(OwnerConnectionString);
-        await db.Database.MigrateAsync(TestContext.Current.CancellationToken);
+        await MigrationsRunner.MigrateAllAsync(
+            OwnerConnectionString,
+            TestContext.Current.CancellationToken
+        );
     }
 
     public ValueTask DisposeAsync() => _postgres.DisposeAsync();

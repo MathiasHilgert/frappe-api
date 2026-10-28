@@ -33,26 +33,17 @@ RUN --mount=type=cache,id=nuget,target=/nuget/packages \
         -p:UseAppHost=false \
         -p:ContinuousIntegrationBuild=true
 
-# The migrations bundle: one executable that applies pending migrations given --connection.
+# The migrator: applies every context's pending migrations, in order, given --connection.
 FROM sources AS migrations-build
-ARG TARGETARCH
 # Framework-dependent on the host's own base image: Persistence pulls in the ASP.NET shared framework
-# through Health, and every base layer is shared with the host image. The bundle's own publish restores again for the target RID, outside locked
-# mode; that graph adds no RID-specific package, so it resolves what the lock files pin.
+# through Health, and every base layer is shared with the host image.
 RUN --mount=type=cache,id=nuget,target=/nuget/packages \
-    case "$TARGETARCH" in amd64) rid=linux-x64 ;; *) rid="linux-$TARGETARCH" ;; esac \
-    && dotnet tool restore \
-    && dotnet build src/Frappe.Migrations/Frappe.Migrations.csproj \
+    dotnet publish src/Frappe.Migrations/Frappe.Migrations.csproj \
         --configuration Release \
         --no-restore \
-        -p:ContinuousIntegrationBuild=true \
-    && dotnet ef migrations bundle \
-        --project src/Frappe.Migrations \
-        --startup-project src/Frappe.Migrations \
-        --configuration Release \
-        --no-build \
-        --target-runtime "$rid" \
-        --output /bundle/efbundle
+        --output /migrations \
+        -p:UseAppHost=false \
+        -p:ContinuousIntegrationBuild=true
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0.14-noble-chiseled-extra@sha256:9b755ea799ae649141a073e30d8b62d8095a5465af2b7694d17866e8c05131d8 AS migrations
 ARG REVISION=unknown
@@ -62,9 +53,9 @@ LABEL org.opencontainers.image.title="frappe-migrations" \
       org.opencontainers.image.licenses="LicenseRef-Proprietary" \
       org.opencontainers.image.revision="${REVISION}"
 WORKDIR /app
-COPY --link --from=migrations-build /bundle/efbundle ./
+COPY --link --from=migrations-build /migrations ./
 USER 1654
-ENTRYPOINT ["/app/efbundle"]
+ENTRYPOINT ["dotnet", "Frappe.Migrations.dll"]
 
 # The host image stays last, so a build without --target produces it.
 # Chiseled (no shell, no package manager); -extra adds the ICU and tzdata that culture-aware formatting needs.

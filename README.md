@@ -14,11 +14,11 @@ The `justfile` holds every command CI runs. [Just](https://just.systems) is opti
 ```bash
 just              # list the recipes
 just build        # restore exactly as locked, then build
-just package      # the container images frappe-api:local and frappe-migrations:local
+just package      # the container images frappe-api:local and frappe-migrations:local (the migrator)
 just test         # all tests; or: just test unit | integration | architecture
 just format       # format with CSharpier (format-check only verifies)
 just lint         # rebuild so every analyzer runs
-just migrations-check  # fail when the model has changes no migration captures
+just migrations-check  # fail when a context has model changes no migration captures
 just audit        # fail on a high or critical package advisory
 just check        # everything CI runs, in the same order
 ```
@@ -91,16 +91,16 @@ PostgreSQL runs `eng/postgres/init-roles.sh` only when its data volume is empty.
 
 ## Database migrations
 
-EF Core migrations for `FrappeDbContext` live in `src/Frappe.Migrations`, which is both the project and the startup project for `dotnet ef` (pinned in `.config/dotnet-tools.json`); no shipped project references it. Its design-time factory builds the same model as the host and holds no connection string, so commands that touch a database take the owner's through `--connection`. The history table is `platform.__ef_migrations_history`.
+Each module owns one EF Core context, derived from `FrappeDbContext`, and one PostgreSQL schema: its tables, its migrations and its own history table `<schema>.__ef_migrations_history` live there, and no foreign key crosses schemas. `PlatformDbContext` owns `platform`. Every context's migrations live in `src/Frappe.Migrations`, one folder and one model snapshot per context (`Migrations/Platform/`); that project is both the project and the startup project for `dotnet ef` (pinned in `.config/dotnet-tools.json`); no shipped project references it. Each context has a design-time factory that builds the same model as the host and holds no connection string, so commands that touch a database take the owner's through `--connection`. A new context is added to the ordered list in `MigrationsRunner`, after Platform.
 
 ```bash
-just add-migration AddOrders   # dotnet ef migrations add AddOrders --project src/Frappe.Migrations --startup-project src/Frappe.Migrations
-just migrations-check          # dotnet ef migrations has-pending-model-changes (same project options)
+just add-migration AddOrders PlatformDbContext   # dotnet ef migrations add AddOrders --context PlatformDbContext --output-dir Migrations/Platform (same project options)
+just migrations-check   # tests that every context is listed, has no model change without a migration, and stays in its schema
 ```
 
 Migrations are forward-only: delete the generated `Down` method. Each migration that creates a table grants `frappe_app` exactly the privileges it needs on it, and raw SQL lives in `.sql` files under `src/Frappe.Migrations/Sql`, embedded and run with `migrationBuilder.Sql(EmbeddedSql.Read("<file>.sql"))`.
 
-The host never applies migrations. The `migrations` target of the `Dockerfile` builds the image `frappe-migrations:local`, an [EF Core migrations bundle](https://learn.microsoft.com/ef/core/managing-schemas/migrations/applying#bundles) that applies every pending migration and exits; run it as the owner role before starting a new version of the host:
+The host never applies migrations. The `migrations` target of the `Dockerfile` builds the image `frappe-migrations:local`, the migrator `src/Frappe.Migrations`, which applies every context's pending migrations, Platform first, and exits non-zero on failure; run it as the owner role before starting a new version of the host:
 
 ```bash
 docker run --rm frappe-migrations:local --connection "Host=...;Database=frappe;Username=frappe_owner;Password=..."
@@ -114,14 +114,14 @@ The image runs the host on the chiseled ASP.NET runtime as a non-root user, list
 src/
   Frappe.Host/                composition root
   Frappe.Kernel/              types shared by every module
-  Frappe.Migrations/          EF Core migrations, the model snapshot and the design-time factory; never referenced by the host
+  Frappe.Migrations/          the migrator: every context's migrations and snapshot, its design-time factories; never referenced by the host
   Platform/
     Directory.Build.props     exempts Platform from eng/BannedSymbols.OutsidePlatform.txt
     Frappe.Platform/          composes the platform projects into AddFrappePlatform and MapFrappeEndpoints
     Frappe.Platform.Health/   dependency health checks by criticality and the probe endpoints
     Frappe.Platform.Hosting/  process role (Platform:Role)
     Frappe.Platform.Persistence/
-                              PostgreSQL data source, FrappeDbContext, its shared options and its critical health check
+                              PostgreSQL data source, the FrappeDbContext base, PlatformDbContext, their shared options and the critical health check
   Modules/<Name>/             one folder per module, holding that module's projects
 tests/
   Directory.Build.props       settings for every test project

@@ -10,11 +10,12 @@ using Npgsql;
 namespace Frappe.Platform.Persistence;
 
 /// <summary>
-/// PostgreSQL for every module: one data source, <see cref="FrappeDbContext"/> and its critical health check.
+/// PostgreSQL for every module: one data source, the <see cref="PlatformDbContext"/>, the registration
+/// every module's context uses and the critical health check.
 /// </summary>
 public static class PersistenceExtensions
 {
-    /// <summary>Registers the data source and the context; <c>ConnectionStrings:Frappe</c> is validated on start.</summary>
+    /// <summary>Registers the data source and the platform context; <c>ConnectionStrings:Frappe</c> is validated on start.</summary>
     public static TBuilder AddPersistence<TBuilder>(this TBuilder builder)
         where TBuilder : IHostApplicationBuilder
     {
@@ -27,13 +28,7 @@ public static class PersistenceExtensions
         // connection string is read from the validated options when the data source is first resolved,
         // so configuration added after registration, as test hosts add it, still applies.
         builder.Services.AddNpgsqlDataSource(connectionString: "", ConfigureDataSource);
-        // shortcut: plain AddDbContext without the Wolverine integration; the query-bus PR replaces it
-        // with AddDbContextWithWolverineIntegration.
-        builder.Services.AddDbContext<FrappeDbContext>(
-            static (services, options) =>
-                options.UseFrappeDatabase(services.GetRequiredService<NpgsqlDataSource>()),
-            optionsLifetime: ServiceLifetime.Singleton
-        );
+        builder.Services.AddFrappeDbContext<PlatformDbContext>(PlatformDbContext.Schema);
         // Opens a connection from the registered data source and runs SELECT 1, never a business query.
         builder
             .Services.AddHealthChecks()
@@ -46,6 +41,23 @@ public static class PersistenceExtensions
             );
         return builder;
     }
+
+    /// <summary>
+    /// Registers <typeparamref name="TContext"/>, the context that owns <paramref name="schema"/>, on the
+    /// one data source <see cref="AddPersistence"/> registers.
+    /// </summary>
+    public static IServiceCollection AddFrappeDbContext<TContext>(
+        this IServiceCollection services,
+        string schema
+    )
+        where TContext : FrappeDbContext =>
+        // shortcut: plain AddDbContext without the Wolverine integration; the query-bus PR replaces it
+        // with AddDbContextWithWolverineIntegration.
+        services.AddDbContext<TContext>(
+            (provider, options) =>
+                options.UseFrappeDatabase(provider.GetRequiredService<NpgsqlDataSource>(), schema),
+            optionsLifetime: ServiceLifetime.Singleton
+        );
 
     private static void ConfigureDataSource(
         IServiceProvider services,

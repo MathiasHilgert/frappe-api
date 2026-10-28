@@ -1,15 +1,18 @@
+using Frappe.Platform.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Frappe.Platform.IntegrationTests.Persistence.Revisions;
 
-// A test-only model in its own schema, so the migrations model never sees it.
-internal sealed class BasketContext(DbContextOptions<BasketContext> options) : DbContext(options)
+// A test-only context in its own schema, so the migrations model never sees it; Revision is a
+// concurrency token only through the base context, as in every module's context.
+internal sealed class BasketContext(DbContextOptions<BasketContext> options)
+    : FrappeDbContext(options, Schema)
 {
     public const string Schema = "revision_probe";
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.HasDefaultSchema(Schema);
+        base.OnModelCreating(modelBuilder);
         modelBuilder.Entity<Basket>(basket =>
         {
             basket
