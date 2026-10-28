@@ -70,12 +70,17 @@ internal sealed class NatsEvents(
         options
             .UseNats(settings.Url)
             .ConfigureNatsOpts(opts =>
-                settings.Creds is { Length: > 0 } creds
-                    ? opts with
-                    {
-                        AuthOpts = opts.AuthOpts with { Creds = creds },
-                    }
-                    : opts
+                opts with
+                {
+                    AuthOpts = settings.Creds is { Length: > 0 } creds
+                        ? opts.AuthOpts with
+                        {
+                            Creds = creds,
+                        }
+                        : opts.AuthOpts,
+                    CommandTimeout = NatsTopology.ClientTimeout,
+                    RequestTimeout = NatsTopology.ClientTimeout,
+                }
             )
             // Deployed processes run with restricted credentials and only check the topology that
             // eng/nats/provision.sh creates; startup fails listing every difference.
