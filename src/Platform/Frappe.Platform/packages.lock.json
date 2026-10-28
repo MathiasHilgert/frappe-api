@@ -71,6 +71,13 @@
       "frappe.platform.hosting": {
         "type": "Project"
       },
+      "frappe.platform.modularity": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Kernel": "[1.0.0, )",
+          "Frappe.Platform.Hosting": "[1.0.0, )"
+        }
+      },
       "frappe.platform.persistence": {
         "type": "Project",
         "dependencies": {
