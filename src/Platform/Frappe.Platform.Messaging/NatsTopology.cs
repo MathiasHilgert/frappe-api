@@ -38,6 +38,12 @@ public static partial class NatsTopology
     /// <summary>How long the server waits for an acknowledgement before it delivers an event again.</summary>
     public static readonly TimeSpan AckWait = 30.Seconds();
 
+    /// <summary>
+    /// How long a publish waits for NATS before it fails and the outbox keeps the event for a later retry, so a
+    /// short wait loses nothing; the client's one-minute default held a request for about 90 s when NATS dropped.
+    /// </summary>
+    public static readonly TimeSpan ClientTimeout = 2.Seconds();
+
     /// <summary>Gets the subject an integration event is published on.</summary>
     /// <param name="root">The first token, <see cref="NatsOptions.SubjectRoot"/>.</param>
     /// <param name="eventType">The integration event type.</param>
