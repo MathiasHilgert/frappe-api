@@ -1,6 +1,10 @@
 using Alba;
+using Frappe.Platform.Health;
+using Frappe.Platform.Persistence;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Npgsql;
 
 namespace Frappe.Platform.IntegrationTests.Persistence;
 
@@ -31,9 +35,7 @@ public sealed class DatabaseHealthTests(AppFixture app)
         string url
     )
     {
-        await using IAlbaHost host = await AlbaHost.For<Program>(static builder =>
-            builder.UseSetting("ConnectionStrings:Frappe", UnreachableDatabase)
-        );
+        await using IAlbaHost host = await StartWithUnreachableDatabaseAsync();
 
         await host.Scenario(scenario =>
         {
@@ -45,9 +47,7 @@ public sealed class DatabaseHealthTests(AppFixture app)
     [Fact]
     public async Task Liveness_stays_healthy_when_the_database_is_unreachable()
     {
-        await using IAlbaHost host = await AlbaHost.For<Program>(static builder =>
-            builder.UseSetting("ConnectionStrings:Frappe", UnreachableDatabase)
-        );
+        await using IAlbaHost host = await StartWithUnreachableDatabaseAsync();
 
         await host.Scenario(static scenario =>
         {
@@ -59,9 +59,7 @@ public sealed class DatabaseHealthTests(AppFixture app)
     [Fact]
     public async Task Readiness_reports_only_the_status_when_the_database_is_unreachable()
     {
-        await using IAlbaHost host = await AlbaHost.For<Program>(static builder =>
-            builder.UseSetting("ConnectionStrings:Frappe", UnreachableDatabase)
-        );
+        await using IAlbaHost host = await StartWithUnreachableDatabaseAsync();
 
         IScenarioResult result = await host.Scenario(static scenario =>
         {
@@ -104,6 +102,33 @@ public sealed class DatabaseHealthTests(AppFixture app)
 
         error.Message.ShouldContain("ConnectionStrings:Frappe");
         error.Message.ShouldNotContain(Password);
+    }
+
+    // The bus needs its store to start, so the full platform cannot start without the database (asserted
+    // below); the health checks are proven on persistence alone, which starts and reports the outage.
+    [Fact]
+    public async Task The_platform_does_not_start_while_the_database_is_unreachable()
+    {
+        using IHost host = BuildPlatform(UnreachableDatabase);
+
+        // Wolverine's store check fails first and wraps the connection failure in an AggregateException.
+        Exception error = await Should.ThrowAsync<Exception>(() =>
+            host.StartAsync(TestContext.Current.CancellationToken)
+        );
+
+        (error is AggregateException all ? all.Flatten().InnerExceptions : [error]).ShouldContain(
+            static inner => inner is NpgsqlException
+        );
+        error.ToString().ShouldNotContain(Password);
+    }
+
+    private static async Task<IAlbaHost> StartWithUnreachableDatabaseAsync()
+    {
+        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        builder.Configuration["ConnectionStrings:Frappe"] = UnreachableDatabase;
+        builder.AddHealth();
+        builder.AddPersistence();
+        return await AlbaHost.For(builder, static app => app.MapHealthEndpoints());
     }
 
     // Startup failures are asserted on a host built here, as Program composes it: through

@@ -1,4 +1,5 @@
 using ArchUnitNET.Domain;
+using ArchUnitNET.Fluent.Syntax.Elements.Types;
 using ArchUnitNET.Loader;
 using ArchUnitNET.xUnitV3;
 using Frappe.Platform;
@@ -37,8 +38,7 @@ public sealed class DependencyRuleTests
     [InlineData(@"^Quartz(\..+)?$")]
     public void The_kernel_depends_on_no_infrastructure_library(string forbiddenNamespace)
     {
-        Types()
-            .That()
+        FrappeTypes()
             .ResideInAssembly(_kernel)
             .Should()
             .NotDependOnAnyTypesThat()
@@ -49,8 +49,7 @@ public sealed class DependencyRuleTests
     [Fact]
     public void The_kernel_depends_on_neither_the_platform_nor_the_host()
     {
-        Types()
-            .That()
+        FrappeTypes()
             .ResideInAssembly(_kernel)
             .Should()
             .NotDependOnAny(Types().That().ResideInAssembly(_host, _platformProjects))
@@ -60,8 +59,7 @@ public sealed class DependencyRuleTests
     [Fact]
     public void The_platform_does_not_depend_on_the_host()
     {
-        Types()
-            .That()
+        FrappeTypes()
             .ResideInAssembly(_platform)
             .Should()
             .NotDependOnAny(Types().That().ResideInAssembly(_host))
@@ -71,8 +69,7 @@ public sealed class DependencyRuleTests
     [Fact]
     public void Health_depends_on_neither_the_platform_composition_nor_the_host()
     {
-        Types()
-            .That()
+        FrappeTypes()
             .ResideInAssembly(_health)
             .Should()
             .NotDependOnAny(Types().That().ResideInAssembly(_platform).Or().ResideInAssembly(_host))
@@ -84,10 +81,10 @@ public sealed class DependencyRuleTests
     [InlineData("Frappe.Platform.Health")]
     [InlineData("Frappe.Platform.Persistence")]
     [InlineData("Frappe.Platform.Modularity")]
+    [InlineData("Frappe.Platform.Messaging")]
     public void A_platform_project_depends_on_neither_the_composition_nor_the_host(string project)
     {
-        Types()
-            .That()
+        FrappeTypes()
             .ResideInAssembly(Assembly.Load(project))
             .Should()
             .NotDependOnAny(Types().That().ResideInAssembly(_platform).Or().ResideInAssembly(_host))
@@ -101,11 +98,28 @@ public sealed class DependencyRuleTests
     [InlineData("Frappe.Platform.Health", "Frappe.Platform.Persistence")]
     public void Hosting_and_health_depend_on_no_other_platform_project(string project, string other)
     {
-        Types()
-            .That()
+        FrappeTypes()
             .ResideInAssembly(Assembly.Load(project))
             .Should()
             .NotDependOnAny(Types().That().ResideInAssembly(Assembly.Load(other)))
+            .Check(_architecture);
+    }
+
+    // The bus stays swappable behind the Kernel ports: one adapter project knows Wolverine.
+    [Theory]
+    [InlineData("Frappe.Platform")]
+    [InlineData("Frappe.Platform.Hosting")]
+    [InlineData("Frappe.Platform.Health")]
+    [InlineData("Frappe.Platform.Persistence")]
+    [InlineData("Frappe.Platform.Modularity")]
+    [InlineData("Frappe.Host")]
+    public void Only_the_messaging_adapter_depends_on_wolverine(string project)
+    {
+        FrappeTypes()
+            .ResideInAssembly(Assembly.Load(project))
+            .Should()
+            .NotDependOnAnyTypesThat()
+            .ResideInNamespaceMatching(@"^Wolverine(\..+)?$")
             .Check(_architecture);
     }
 
@@ -127,12 +141,17 @@ public sealed class DependencyRuleTests
     [InlineData(@"^StackExchange\.Redis(\..+)?$")]
     public void Persistence_depends_on_no_other_infrastructure_library(string forbiddenNamespace)
     {
-        Types()
-            .That()
+        FrappeTypes()
             .ResideInAssembly(Assembly.Load("Frappe.Platform.Persistence"))
             .Should()
             .NotDependOnAnyTypesThat()
             .ResideInNamespaceMatching(forbiddenNamespace)
             .Check(_architecture);
     }
+
+    // JasperFx's source generator, which WolverineFx flows into every project above it, emits the same
+    // JasperFx.Generated type into each assembly; ArchUnitNET merges them into one type that seems to cross
+    // every boundary, so the rules leave that generated namespace out.
+    private static GivenTypesThat FrappeTypes() =>
+        Types().That().DoNotResideInNamespace("JasperFx.Generated").And();
 }

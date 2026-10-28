@@ -57,8 +57,9 @@ public sealed class PersistenceRegistrationTests(AppFixture app)
             new HostApplicationBuilderSettings { DisableDefaults = true }
         );
 
-        builder.AddPersistence();
+        // The platform first: the bus must be registered before any context.
         builder.AddFrappePlatform();
+        builder.AddPersistence();
 
         builder
             .Services.Count(static service =>
