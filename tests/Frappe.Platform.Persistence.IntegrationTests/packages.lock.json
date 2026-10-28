@@ -757,6 +757,12 @@
           "NodaTime": "[3.3.6, )"
         }
       },
+      "frappe.migrations": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Platform.Persistence": "[1.0.0, )"
+        }
+      },
       "frappe.platform": {
         "type": "Project",
         "dependencies": {
@@ -767,10 +773,7 @@
         }
       },
       "frappe.platform.health": {
-        "type": "Project",
-        "dependencies": {
-          "Frappe.Platform.Hosting": "[1.0.0, )"
-        }
+        "type": "Project"
       },
       "frappe.platform.hosting": {
         "type": "Project",

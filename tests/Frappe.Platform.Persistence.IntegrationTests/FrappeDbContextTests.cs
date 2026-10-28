@@ -20,6 +20,19 @@ public sealed class FrappeDbContextTests(AppFixture app)
     }
 
     [Fact]
+    public async Task The_host_connects_as_the_app_role()
+    {
+        await using AsyncServiceScope scope = app.Host.Services.CreateAsyncScope();
+        FrappeDbContext db = scope.ServiceProvider.GetRequiredService<FrappeDbContext>();
+
+        string user = await db
+            .Database.SqlQuery<string>($"SELECT current_user::text AS \"Value\"")
+            .SingleAsync(TestContext.Current.CancellationToken);
+
+        user.ShouldBe("frappe_app");
+    }
+
+    [Fact]
     public async Task An_instant_round_trips_through_the_database_context()
     {
         Instant sent = Instant.FromUtc(2026, 10, 27, 13, 45, 30).PlusNanoseconds(123_456_000);

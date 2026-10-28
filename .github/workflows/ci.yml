@@ -60,6 +60,8 @@ jobs:
           just-version: 1.59.0
       - name: Build with every analyzer, warnings as errors
         run: just lint
+      - name: Check that the migrations capture the model
+        run: just migrations-check
 
   test:
     name: Tests (${{ matrix.kind }})
@@ -181,7 +183,7 @@ jobs:
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
         with:
           just-version: 1.59.0
-      - name: Build the image without pushing it
+      - name: Build the host and migrations images without pushing them
         run: just package
 
   ci-passed:

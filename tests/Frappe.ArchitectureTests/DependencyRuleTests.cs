@@ -108,6 +108,14 @@ public sealed class DependencyRuleTests
             .Check(_architecture);
     }
 
+    // This project references only the Host, so the file is here only when a shipped project
+    // references the migrations.
+    [Fact]
+    public void No_shipped_project_references_the_migrations()
+    {
+        Assert.False(File.Exists(Path.Combine(AppContext.BaseDirectory, "Frappe.Migrations.dll")));
+    }
+
     [Theory]
     [InlineData(@"^Microsoft\.AspNetCore(\..+)?$")]
     [InlineData(@"^Wolverine(\..+)?$")]

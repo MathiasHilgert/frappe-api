@@ -22,9 +22,10 @@ build: restore
     dotnet build --no-restore
 
 [group('build')]
-[doc('Package the host as a container image')]
+[doc('Package the host and the migrations bundle as container images')]
 package:
     docker build --build-arg REVISION="$(git rev-parse HEAD 2>/dev/null || echo unknown)" --tag frappe-api:local .
+    docker build --build-arg REVISION="$(git rev-parse HEAD 2>/dev/null || echo unknown)" --target migrations --tag frappe-migrations:local .
 
 [group('build')]
 [doc('Remove build output and test results')]
@@ -50,6 +51,11 @@ format-check:
 [doc('Rebuild everything so every analyzer runs; warnings are errors')]
 lint: restore
     dotnet build --no-restore --no-incremental
+
+[group('quality')]
+[doc('Fail when the model has changes that no migration captures')]
+migrations-check: restore
+    dotnet ef migrations has-pending-model-changes --project src/Frappe.Migrations --startup-project src/Frappe.Migrations
 
 [group('quality')]
 [doc('List vulnerable packages; fail on a high or critical advisory')]
@@ -114,9 +120,14 @@ run role="all": restore
 # --- env ---
 
 [group('env')]
-[doc('Start PostgreSQL and the API in containers')]
+[doc('Start PostgreSQL, apply pending migrations, then start the API, all in containers')]
 start:
     REVISION="$(git rev-parse HEAD 2>/dev/null || echo unknown)" docker compose up --detach --build --wait
+
+[group('env')]
+[doc('Apply pending migrations to the local database')]
+migrate:
+    REVISION="$(git rev-parse HEAD 2>/dev/null || echo unknown)" docker compose run --rm --build migrate
 
 [group('env')]
 [doc('Stop the containers; data stays in its volume')]
@@ -124,8 +135,8 @@ stop:
     docker compose down
 
 [group('env')]
-[doc('Follow container logs: all | postgres | api')]
-[arg('service', pattern='all|postgres|api')]
+[doc('Follow container logs: all | postgres | migrate | api')]
+[arg('service', pattern='all|postgres|migrate|api')]
 logs service="all":
     docker compose logs --follow {{ if service == "all" { "" } else { service } }}
 
@@ -134,8 +145,17 @@ logs service="all":
 status:
     docker compose ps
 
+# --- db ---
+
+[group('db')]
+[doc('Add a migration to Frappe.Migrations')]
+[arg('name', pattern='[A-Z][A-Za-z0-9]*')]
+add-migration name:
+    dotnet tool restore
+    dotnet ef migrations add {{ name }} --project src/Frappe.Migrations --startup-project src/Frappe.Migrations
+
 # --- ci ---
 
 [group('ci')]
 [doc('Run every check CI runs, in the same order')]
-check: format-check lint (test "all") audit
+check: format-check lint migrations-check (test "all") audit

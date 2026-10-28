@@ -3,8 +3,19 @@ name: frappe
 
 x-database:
   name: &database-name "${POSTGRES_DB:-frappe}"
-  user: &database-user "${POSTGRES_USER:-frappe}"
-  password: &database-password "${POSTGRES_PASSWORD:-frappe-local-only}"
+  # The superuser exists only for the image's first-time init, which creates the two roles below.
+  user: &database-user "${POSTGRES_USER:-postgres}"
+  password: &database-password "${POSTGRES_PASSWORD:-postgres-local-only}"
+  owner-password: &owner-password "${FRAPPE_OWNER_PASSWORD:-owner-local-only}"
+  app-password: &app-password "${FRAPPE_APP_PASSWORD:-app-local-only}"
+
+x-hardening: &hardening
+  read_only: true
+  tmpfs:
+    # The runtime's diagnostics sockets.
+    - "/tmp"
+  cap_drop: ["ALL"]
+  security_opt: ["no-new-privileges:true"]
 
 services:
   postgres:
@@ -13,11 +24,15 @@ services:
       POSTGRES_DB: *database-name
       POSTGRES_USER: *database-user
       POSTGRES_PASSWORD: *database-password
+      FRAPPE_OWNER_PASSWORD: *owner-password
+      FRAPPE_APP_PASSWORD: *app-password
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       # PostgreSQL 18 keeps its data in a versioned directory below this mount point.
       - "postgres-data:/var/lib/postgresql"
+      # Runs only when the data volume is empty.
+      - "./eng/postgres/init-roles.sh:/docker-entrypoint-initdb.d/init-roles.sh:ro"
     healthcheck:
       # TCP: the temporary server that runs during first-time init listens only on the socket.
       test: ["CMD-SHELL", "pg_isready --host 127.0.0.1 --username \"$$POSTGRES_USER\" --dbname \"$$POSTGRES_DB\""]
@@ -25,6 +40,22 @@ services:
       timeout: "5s"
       retries: 10
       start_period: "10s"
+
+  migrate:
+    image: "frappe-migrations:local"
+    build:
+      context: "."
+      target: "migrations"
+      args:
+        REVISION: "${REVISION:-unknown}"
+    depends_on:
+      postgres:
+        condition: "service_healthy"
+    # Anchors cannot be interpolated inside a string, so the defaults are restated here.
+    command:
+      - "--connection"
+      - "Host=postgres;Port=5432;Database=${POSTGRES_DB:-frappe};Username=frappe_owner;Password=${FRAPPE_OWNER_PASSWORD:-owner-local-only}"
+    <<: *hardening
 
   api:
     image: "frappe-api:local"
@@ -34,22 +65,16 @@ services:
         # The just recipes pass the commit; a plain compose build cannot read git.
         REVISION: "${REVISION:-unknown}"
     depends_on:
-      postgres:
-        condition: "service_healthy"
+      migrate:
+        condition: "service_completed_successfully"
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
       Platform__Role: "all"
-      # Anchors cannot be interpolated inside a string, so the defaults are restated here.
-      ConnectionStrings__Frappe: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-frappe};Username=${POSTGRES_USER:-frappe};Password=${POSTGRES_PASSWORD:-frappe-local-only}"
+      ConnectionStrings__Frappe: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-frappe};Username=frappe_app;Password=${FRAPPE_APP_PASSWORD:-app-local-only}"
     ports:
       - "127.0.0.1:${API_PORT:-8080}:8080"
     # No healthcheck: the chiseled image has no shell or HTTP client to probe with.
-    read_only: true
-    tmpfs:
-      # The runtime's diagnostics sockets.
-      - "/tmp"
-    cap_drop: ["ALL"]
-    security_opt: ["no-new-privileges:true"]
+    <<: *hardening
 
 volumes:
   postgres-data:
