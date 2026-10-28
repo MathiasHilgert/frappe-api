@@ -83,6 +83,7 @@ public sealed class DependencyRuleTests
     [InlineData("Frappe.Platform.Hosting")]
     [InlineData("Frappe.Platform.Health")]
     [InlineData("Frappe.Platform.Persistence")]
+    [InlineData("Frappe.Platform.Modularity")]
     public void A_platform_project_depends_on_neither_the_composition_nor_the_host(string project)
     {
         Types()
@@ -107,6 +108,8 @@ public sealed class DependencyRuleTests
             .NotDependOnAny(Types().That().ResideInAssembly(Assembly.Load(other)))
             .Check(_architecture);
     }
+
+    // TODO: the geo PR adds the rule that a module's projects reference other modules only through their Contracts.
 
     // This project references only the Host, so the file is here only when a shipped project
     // references the migrations.

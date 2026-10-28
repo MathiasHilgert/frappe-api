@@ -8,6 +8,7 @@
     <Project Path="src/Platform/Frappe.Platform/Frappe.Platform.csproj" />
     <Project Path="src/Platform/Frappe.Platform.Health/Frappe.Platform.Health.csproj" />
     <Project Path="src/Platform/Frappe.Platform.Hosting/Frappe.Platform.Hosting.csproj" />
+    <Project Path="src/Platform/Frappe.Platform.Modularity/Frappe.Platform.Modularity.csproj" />
     <Project Path="src/Platform/Frappe.Platform.Persistence/Frappe.Platform.Persistence.csproj" />
   </Folder>
   <Folder Name="/tests/">

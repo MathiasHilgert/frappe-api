@@ -50,7 +50,11 @@ One binary runs every process role. Select it with `Platform:Role`, for example 
 | `worker` | Background message processing |
 | `scheduler` | Scheduled jobs |
 
-Every role serves the health endpoints (see Health checks).
+Every role serves the health endpoints (see Health checks); only `all` and `api` serve the module endpoints.
+
+## Modules
+
+Each module implements `IModule` (`Frappe.Platform.Modularity`) and is listed by hand in `Program.cs` with `builder.AddFrappeModules(...)`; no assembly is scanned. Before the host is built, the modules are checked against each other (unique names, schemas, route prefixes and EventId ranges; no platform schema; every subscribed event published by some module), and every violation is reported in one exception. Each module's endpoints live under `/v1/{RoutePrefix}`, tagged with its name.
 
 ## Health checks
 
@@ -120,6 +124,8 @@ src/
     Frappe.Platform/          composes the platform projects into AddFrappePlatform and MapFrappeEndpoints
     Frappe.Platform.Health/   dependency health checks by criticality and the probe endpoints
     Frappe.Platform.Hosting/  process role (Platform:Role)
+    Frappe.Platform.Modularity/
+                              the IModule contract, its boot checks and the /v1 route group per module
     Frappe.Platform.Persistence/
                               PostgreSQL data source, the FrappeDbContext base, PlatformDbContext, their shared options and the critical health check
   Modules/<Name>/             one folder per module, holding that module's projects
@@ -132,7 +138,7 @@ tests/
   Frappe.Migrations.UnitTests/
   Platform/
     Frappe.Platform.UnitTests/         one folder per Platform project, such as Health/
-    Frappe.Platform.IntegrationTests/  Health/ and Persistence/, sharing one migrated database and host
+    Frappe.Platform.IntegrationTests/  Health/, Modularity/ and Persistence/, sharing one migrated database and host
   Modules/<Name>/             Frappe.<Name>.UnitTests and Frappe.<Name>.IntegrationTests
 eng/                          analyzer configuration, banned APIs, code metrics, CI scripts and the PostgreSQL role init script
 .github/                      CI workflows, Dependabot, labels and the pull request template
