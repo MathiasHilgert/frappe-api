@@ -1,8 +1,8 @@
 using Alba;
-using Frappe.Testing;
+using Frappe.TestUtilities;
 using Microsoft.Extensions.Options;
 
-namespace Frappe.Host.Tests;
+namespace Frappe.Host.IntegrationTests;
 
 public sealed class HostRoleTests(FrappeDatabase database)
 {

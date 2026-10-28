@@ -26,6 +26,7 @@ public sealed class PersistenceRegistrationTests(AppFixture app)
         string name = await db
             .Database.SqlQuery<string>($"SELECT current_setting('application_name') AS \"Value\"")
             .SingleAsync(TestContext.Current.CancellationToken);
+        await host.StopAsync(TestContext.Current.CancellationToken);
 
         name.ShouldBe("frappe-worker");
     }

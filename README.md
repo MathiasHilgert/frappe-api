@@ -128,8 +128,10 @@ src/
 tests/
   Directory.Build.props       settings for every test project
   Frappe.ArchitectureTests/   solution-wide architecture rules
-  Host/Frappe.Host.Tests/
+  Frappe.TestUtilities/       fixtures the test projects share, such as the migrated PostgreSQL database
+  Host/Frappe.Host.IntegrationTests/
   Kernel/Frappe.Kernel.UnitTests/
+  Migrations/Frappe.Migrations.UnitTests/
   Platform/                   Frappe.Platform.*.UnitTests and .IntegrationTests
 eng/                          analyzer configuration, banned APIs, code metrics, CI scripts and the PostgreSQL role init script
 .github/                      CI workflows, Dependabot, labels and the pull request template
@@ -140,7 +142,7 @@ The layout follows these rules:
 
 - A grouping folder (`Host`, `Kernel`, `Platform`, `Modules/<Name>`, ...) never holds a `.csproj`; a project never sits inside another project's folder, because the SDK compiles every file below a project.
 - A project's folder name, project name, assembly name and root namespace are the same.
-- `tests/` mirrors `src/` path for path: the tests of `src/<Group>/<Project>` live in `tests/<Group>/<Project>.<Kind>Tests`, named `.UnitTests`, `.IntegrationTests` or `.ArchitectureTests`; only solution-wide tests sit at the root of `tests/`.
+- `tests/` mirrors `src/` path for path: the tests of `src/<Group>/<Project>` live in `tests/<Group>/<Project>.<Kind>Tests`, named `.UnitTests`, `.IntegrationTests` or `.ArchitectureTests`; only solution-wide tests and the shared `Frappe.TestUtilities` library sit at the root of `tests/`.
 - Settings are scoped by subtree: each `Directory.Build.props` below the root imports its parent's with `GetPathOfFileAbove`, so a rule applies to a folder, never to a project name. Package versions live only in the root `Directory.Packages.props`.
 - `Frappe.slnx` solution folders mirror the disk (`/src/Platform/`, `/tests/Platform/`, ...).
 

@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Testcontainers.PostgreSql;
 
-namespace Frappe.Testing;
+namespace Frappe.TestUtilities;
 
 // PostgreSQL as every environment has it: the roles from the init script and every migration applied
 // by the owner. Tests connect as the app role.
