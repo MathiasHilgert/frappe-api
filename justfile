@@ -22,7 +22,7 @@ build: restore
     dotnet build --no-restore
 
 [group('build')]
-[doc('Package the host and the migrations bundle as container images')]
+[doc('Package the host and the migrator as container images')]
 package:
     docker build --build-arg REVISION="$(git rev-parse HEAD 2>/dev/null || echo unknown)" --tag frappe-api:local .
     docker build --build-arg REVISION="$(git rev-parse HEAD 2>/dev/null || echo unknown)" --target migrations --tag frappe-migrations:local .
@@ -53,9 +53,10 @@ lint: restore
     dotnet build --no-restore --no-incremental
 
 [group('quality')]
-[doc('Fail when the model has changes that no migration captures')]
+[doc('Fail when a context has model changes no migration captures, is not migrated, or leaves its schema')]
 migrations-check: restore
-    dotnet ef migrations has-pending-model-changes --project src/Frappe.Migrations --startup-project src/Frappe.Migrations
+    dotnet test --project tests/Frappe.Migrations.UnitTests --no-restore \
+      --filter-class Frappe.Migrations.UnitTests.ContextModelTests
 
 [group('quality')]
 [doc('List vulnerable packages; fail on a high or critical advisory')]
@@ -150,11 +151,14 @@ status:
 # --- db ---
 
 [group('db')]
-[doc('Add a migration to Frappe.Migrations')]
+[doc('Add a migration to one context, in Migrations/<context>: e.g. AddOrders PlatformDbContext')]
 [arg('name', pattern='[A-Z][A-Za-z0-9]*')]
-add-migration name:
+[arg('context', pattern='[A-Z][A-Za-z0-9]*DbContext')]
+add-migration name context:
     dotnet tool restore
-    dotnet ef migrations add {{ name }} --project src/Frappe.Migrations --startup-project src/Frappe.Migrations
+    dotnet ef migrations add {{ name }} --context {{ context }} \
+      --output-dir Migrations/{{ trim_end_match(context, "DbContext") }} \
+      --project src/Frappe.Migrations --startup-project src/Frappe.Migrations
 
 # --- ci ---
 

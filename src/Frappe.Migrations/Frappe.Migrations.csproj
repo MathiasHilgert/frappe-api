@@ -1,9 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <!-- The migrator: applies every context's migrations given a connection argument; never referenced by the host. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Platform/Frappe.Platform.Persistence/Frappe.Platform.Persistence.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Migrations.UnitTests" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Sql/*.sql" LogicalName="%(Filename)%(Extension)" />

@@ -44,7 +44,7 @@ public sealed class BasketDatabase(AppFixture app) : IAsyncLifetime
     private static DbContextOptions<BasketContext> Options(NpgsqlDataSource? dataSource)
     {
         DbContextOptionsBuilder<BasketContext> options = new();
-        options.UseFrappeDatabase(dataSource);
+        options.UseFrappeDatabase(dataSource, BasketContext.Schema);
         return options.Options;
     }
 }

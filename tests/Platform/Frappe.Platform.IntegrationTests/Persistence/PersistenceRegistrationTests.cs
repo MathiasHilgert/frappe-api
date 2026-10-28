@@ -22,7 +22,7 @@ public sealed class PersistenceRegistrationTests(AppFixture app)
         using IHost host = builder.Build();
         await host.StartAsync(TestContext.Current.CancellationToken);
         await using AsyncServiceScope scope = host.Services.CreateAsyncScope();
-        FrappeDbContext db = scope.ServiceProvider.GetRequiredService<FrappeDbContext>();
+        PlatformDbContext db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
 
         string name = await db
             .Database.SqlQuery<string>($"SELECT current_setting('application_name') AS \"Value\"")

@@ -13,7 +13,7 @@ public sealed class FrappeDbContextTests(AppFixture app)
     public async Task The_database_context_connects_to_the_database()
     {
         await using AsyncServiceScope scope = app.Host.Services.CreateAsyncScope();
-        FrappeDbContext db = scope.ServiceProvider.GetRequiredService<FrappeDbContext>();
+        PlatformDbContext db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
 
         bool connected = await db.Database.CanConnectAsync(TestContext.Current.CancellationToken);
 
@@ -24,7 +24,7 @@ public sealed class FrappeDbContextTests(AppFixture app)
     public async Task The_host_connects_as_the_app_role()
     {
         await using AsyncServiceScope scope = app.Host.Services.CreateAsyncScope();
-        FrappeDbContext db = scope.ServiceProvider.GetRequiredService<FrappeDbContext>();
+        PlatformDbContext db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
 
         string user = await db
             .Database.SqlQuery<string>($"SELECT current_user::text AS \"Value\"")
@@ -38,7 +38,7 @@ public sealed class FrappeDbContextTests(AppFixture app)
     {
         Instant sent = Instant.FromUtc(2026, 10, 27, 13, 45, 30).PlusNanoseconds(123_456_000);
         await using AsyncServiceScope scope = app.Host.Services.CreateAsyncScope();
-        FrappeDbContext db = scope.ServiceProvider.GetRequiredService<FrappeDbContext>();
+        PlatformDbContext db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
 
         Instant received = await db
             .Database.SqlQuery<Instant>($"SELECT {sent} AS \"Value\"")
@@ -52,7 +52,7 @@ public sealed class FrappeDbContextTests(AppFixture app)
     {
         const int Answer = 42;
         await using AsyncServiceScope scope = app.Host.Services.CreateAsyncScope();
-        FrappeDbContext db = scope.ServiceProvider.GetRequiredService<FrappeDbContext>();
+        PlatformDbContext db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
 
         NamingProbe probe = await db
             .Database.SqlQuery<NamingProbe>($"SELECT {Answer} AS answer_value")
@@ -74,7 +74,7 @@ public sealed class FrappeDbContextTests(AppFixture app)
                 .UseSetting("ConnectionStrings:Frappe", app.ConnectionString)
         );
         await using AsyncServiceScope scope = host.Services.CreateAsyncScope();
-        FrappeDbContext db = scope.ServiceProvider.GetRequiredService<FrappeDbContext>();
+        PlatformDbContext db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
 
         string name = await db
             .Database.SqlQuery<string>($"SELECT current_setting('application_name') AS \"Value\"")
