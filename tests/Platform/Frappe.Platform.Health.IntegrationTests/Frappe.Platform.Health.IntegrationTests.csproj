@@ -8,6 +8,6 @@
     <Using Include="Shouldly" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../../src/Frappe.Platform.Health/Frappe.Platform.Health.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.Platform.Health/Frappe.Platform.Health.csproj" />
   </ItemGroup>
 </Project>

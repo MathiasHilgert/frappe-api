@@ -6,18 +6,18 @@ ENV DOTNET_NOLOGO=true \
     NUGET_PACKAGES=/nuget/packages
 WORKDIR /source
 
-# Only project and lock files, so the restore layer stays cached until a dependency changes.
+# Only project, lock and subtree Directory.Build.props files, so the restore layer stays cached until a dependency changes.
 FROM sdk AS project-files
 COPY --link src/ src/
-RUN find src -type f ! -name '*.csproj' ! -name 'packages.lock.json' -delete
+RUN find src -type f ! -name '*.csproj' ! -name 'packages.lock.json' ! -name 'Directory.Build.props' -delete
 
 FROM sdk AS sources
 COPY --link Directory.Build.props Directory.Packages.props global.json nuget.config ./
 COPY --link .config/ .config/
 COPY --link --from=project-files /source/src/ src/
 RUN --mount=type=cache,id=nuget,target=/nuget/packages \
-    dotnet restore src/Frappe.Host/Frappe.Host.csproj --locked-mode \
-    && dotnet restore src/Frappe.Migrations/Frappe.Migrations.csproj --locked-mode
+    dotnet restore src/Host/Frappe.Host/Frappe.Host.csproj --locked-mode \
+    && dotnet restore src/Migrations/Frappe.Migrations/Frappe.Migrations.csproj --locked-mode
 
 COPY --link .editorconfig ./
 COPY --link eng/ eng/
@@ -26,7 +26,7 @@ COPY --link src/ src/
 FROM sources AS build
 # No apphost, so one output runs on every architecture's runtime image.
 RUN --mount=type=cache,id=nuget,target=/nuget/packages \
-    dotnet publish src/Frappe.Host/Frappe.Host.csproj \
+    dotnet publish src/Host/Frappe.Host/Frappe.Host.csproj \
         --configuration Release \
         --no-restore \
         --output /app \
@@ -42,13 +42,13 @@ ARG TARGETARCH
 RUN --mount=type=cache,id=nuget,target=/nuget/packages \
     case "$TARGETARCH" in amd64) rid=linux-x64 ;; *) rid="linux-$TARGETARCH" ;; esac \
     && dotnet tool restore \
-    && dotnet build src/Frappe.Migrations/Frappe.Migrations.csproj \
+    && dotnet build src/Migrations/Frappe.Migrations/Frappe.Migrations.csproj \
         --configuration Release \
         --no-restore \
         -p:ContinuousIntegrationBuild=true \
     && dotnet ef migrations bundle \
-        --project src/Frappe.Migrations \
-        --startup-project src/Frappe.Migrations \
+        --project src/Migrations/Frappe.Migrations \
+        --startup-project src/Migrations/Frappe.Migrations \
         --configuration Release \
         --no-build \
         --target-runtime "$rid" \

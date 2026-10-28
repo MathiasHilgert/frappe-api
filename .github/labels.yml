@@ -41,13 +41,13 @@
 # Area: cross-cutting paths.
 - name: area/kernel
   color: "0e8a16"
-  description: "Touches src/Frappe.Kernel"
+  description: "Touches src/Kernel"
 - name: area/platform
   color: "0e8a16"
-  description: "Touches src/Frappe.Platform or src/Frappe.Platform.*"
+  description: "Touches src/Platform or src/Migrations"
 - name: area/host
   color: "0e8a16"
-  description: "Touches src/Frappe.Host"
+  description: "Touches src/Host"
 - name: area/build
   color: "0e8a16"
   description: "Touches root build files or eng/"

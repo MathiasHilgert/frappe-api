@@ -24,13 +24,7 @@
     <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory)eng/Frappe.globalconfig" />
   </ItemGroup>
 
-  <!-- Every Frappe.Platform* source project is Platform; a test project never is, whatever its name. -->
-  <PropertyGroup>
-    <IsPlatformProject
-      Condition="$(MSBuildProjectName.StartsWith('Frappe.Platform')) and $(MSBuildProjectDirectory.StartsWith('$(MSBuildThisFileDirectory)src'))"
-      >true</IsPlatformProject>
-  </PropertyGroup>
-
+  <!-- src/Platform/Directory.Build.props sets IsPlatformProject; every other project, tests included, gets this ban. -->
   <ItemGroup Condition="'$(IsPlatformProject)' != 'true'">
     <AdditionalFiles Include="$(MSBuildThisFileDirectory)eng/BannedSymbols.OutsidePlatform.txt" />
   </ItemGroup>

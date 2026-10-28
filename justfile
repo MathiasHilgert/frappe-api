@@ -55,7 +55,7 @@ lint: restore
 [group('quality')]
 [doc('Fail when the model has changes that no migration captures')]
 migrations-check: restore
-    dotnet ef migrations has-pending-model-changes --project src/Frappe.Migrations --startup-project src/Frappe.Migrations
+    dotnet ef migrations has-pending-model-changes --project src/Migrations/Frappe.Migrations --startup-project src/Migrations/Frappe.Migrations
 
 [group('quality')]
 [doc('List vulnerable packages; fail on a high or critical advisory')]
@@ -115,7 +115,7 @@ test kind="all": build
 [doc('Run the host as a local process: all | api | worker | scheduler')]
 [arg('role', pattern='all|api|worker|scheduler')]
 run role="all": restore
-    dotnet run --project src/Frappe.Host --no-restore -- --Platform:Role {{ role }}
+    dotnet run --project src/Host/Frappe.Host --no-restore -- --Platform:Role {{ role }}
 
 # --- env ---
 
@@ -152,7 +152,7 @@ status:
 [arg('name', pattern='[A-Z][A-Za-z0-9]*')]
 add-migration name:
     dotnet tool restore
-    dotnet ef migrations add {{ name }} --project src/Frappe.Migrations --startup-project src/Frappe.Migrations
+    dotnet ef migrations add {{ name }} --project src/Migrations/Frappe.Migrations --startup-project src/Migrations/Frappe.Migrations
 
 # --- ci ---
 

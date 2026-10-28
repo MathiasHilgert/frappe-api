@@ -4,7 +4,7 @@
     <UserSecretsId>frappe-api-host</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../Frappe.Kernel/Frappe.Kernel.csproj" />
-    <ProjectReference Include="../Frappe.Platform/Frappe.Platform.csproj" />
+    <ProjectReference Include="../../Kernel/Frappe.Kernel/Frappe.Kernel.csproj" />
+    <ProjectReference Include="../../Platform/Frappe.Platform/Frappe.Platform.csproj" />
   </ItemGroup>
 </Project>

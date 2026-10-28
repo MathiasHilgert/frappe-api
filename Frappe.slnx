@@ -1,19 +1,31 @@
 <Solution>
-  <Folder Name="/src/">
-    <Project Path="src/Frappe.Host/Frappe.Host.csproj" />
-    <Project Path="src/Frappe.Kernel/Frappe.Kernel.csproj" />
-    <Project Path="src/Frappe.Migrations/Frappe.Migrations.csproj" />
-    <Project Path="src/Frappe.Platform.Health/Frappe.Platform.Health.csproj" />
-    <Project Path="src/Frappe.Platform.Hosting/Frappe.Platform.Hosting.csproj" />
-    <Project Path="src/Frappe.Platform.Persistence/Frappe.Platform.Persistence.csproj" />
-    <Project Path="src/Frappe.Platform/Frappe.Platform.csproj" />
+  <Folder Name="/src/Host/">
+    <Project Path="src/Host/Frappe.Host/Frappe.Host.csproj" />
+  </Folder>
+  <Folder Name="/src/Kernel/">
+    <Project Path="src/Kernel/Frappe.Kernel/Frappe.Kernel.csproj" />
+  </Folder>
+  <Folder Name="/src/Migrations/">
+    <Project Path="src/Migrations/Frappe.Migrations/Frappe.Migrations.csproj" />
+  </Folder>
+  <Folder Name="/src/Platform/">
+    <Project Path="src/Platform/Frappe.Platform/Frappe.Platform.csproj" />
+    <Project Path="src/Platform/Frappe.Platform.Health/Frappe.Platform.Health.csproj" />
+    <Project Path="src/Platform/Frappe.Platform.Hosting/Frappe.Platform.Hosting.csproj" />
+    <Project Path="src/Platform/Frappe.Platform.Persistence/Frappe.Platform.Persistence.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Frappe.ArchitectureTests/Frappe.ArchitectureTests.csproj" />
-    <Project Path="tests/Frappe.Host.Tests/Frappe.Host.Tests.csproj" />
-    <Project Path="tests/Frappe.Kernel.UnitTests/Frappe.Kernel.UnitTests.csproj" />
-    <Project Path="tests/Frappe.Platform.Health.IntegrationTests/Frappe.Platform.Health.IntegrationTests.csproj" />
-    <Project Path="tests/Frappe.Platform.Health.UnitTests/Frappe.Platform.Health.UnitTests.csproj" />
-    <Project Path="tests/Frappe.Platform.Persistence.IntegrationTests/Frappe.Platform.Persistence.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Host/">
+    <Project Path="tests/Host/Frappe.Host.Tests/Frappe.Host.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Kernel/">
+    <Project Path="tests/Kernel/Frappe.Kernel.UnitTests/Frappe.Kernel.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Platform/">
+    <Project Path="tests/Platform/Frappe.Platform.Health.IntegrationTests/Frappe.Platform.Health.IntegrationTests.csproj" />
+    <Project Path="tests/Platform/Frappe.Platform.Health.UnitTests/Frappe.Platform.Health.UnitTests.csproj" />
+    <Project Path="tests/Platform/Frappe.Platform.Persistence.IntegrationTests/Frappe.Platform.Persistence.IntegrationTests.csproj" />
   </Folder>
 </Solution>

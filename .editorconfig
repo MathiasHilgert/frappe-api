@@ -127,7 +127,7 @@ dotnet_diagnostic.CA1822.severity = none
 dotnet_diagnostic.CA1707.severity = none
 dotnet_naming_rule.async_methods_end_in_async.severity = none
 
-[**/Migrations/**.cs]
+[**/Frappe.Migrations/Migrations/**.cs]
 dotnet_diagnostic.S1192.severity = none
 # EF scaffolds migrations with block namespaces in timestamped files; the generated shape is kept.
 dotnet_diagnostic.IDE0161.severity = none
@@ -138,5 +138,5 @@ dotnet_diagnostic.IDE0005.severity = none
 [{**/*Endpoint.cs,**/*Endpoints.cs}]
 dotnet_diagnostic.S1192.severity = none
 
-[src/Frappe.Kernel/**.cs]
+[src/Kernel/Frappe.Kernel/**.cs]
 dotnet_diagnostic.CS1591.severity = error
