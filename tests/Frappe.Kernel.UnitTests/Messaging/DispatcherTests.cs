@@ -11,25 +11,29 @@ public sealed class DispatcherTests
     [Fact]
     public async Task Invoking_a_command_exposes_its_policy_and_result_type_without_type_arguments()
     {
+        _dispatcher.NextResult = 3;
+
         ErrorOr<int> result = await _dispatcher.InvokeAsync(
             new CountWidgets(),
             TestContext.Current.CancellationToken
         );
 
         _dispatcher.LastPolicy.ShouldBe(CountWidgets.Policy);
-        result.Value.ShouldBe(0);
+        result.Value.ShouldBe(3);
     }
 
     [Fact]
     public async Task Running_a_query_exposes_its_policy_and_result_type_without_type_arguments()
     {
+        _dispatcher.NextResult = "gear";
+
         ErrorOr<string> result = await _dispatcher.QueryAsync(
             new FindWidgetName(),
             TestContext.Current.CancellationToken
         );
 
         _dispatcher.LastPolicy.ShouldBe(FindWidgetName.Policy);
-        result.Value.ShouldBeNull();
+        result.Value.ShouldBe("gear");
     }
 
     [Fact]
@@ -72,6 +76,8 @@ public sealed class DispatcherTests
     {
         public Policy? LastPolicy { get; private set; }
 
+        public object? NextResult { get; set; }
+
         public Task<ErrorOr<TResult>> InvokeAsync<TCommand, TResult>(
             ICommand<TCommand, TResult> command,
             CancellationToken cancellationToken
@@ -79,7 +85,7 @@ public sealed class DispatcherTests
             where TCommand : ICommand<TCommand, TResult>
         {
             LastPolicy = TCommand.Policy;
-            return Task.FromResult<ErrorOr<TResult>>(default(TResult)!);
+            return Task.FromResult<ErrorOr<TResult>>((TResult)NextResult!);
         }
 
         public Task<ErrorOr<TResult>> QueryAsync<TQuery, TResult>(
@@ -89,7 +95,7 @@ public sealed class DispatcherTests
             where TQuery : IQuery<TQuery, TResult>
         {
             LastPolicy = TQuery.Policy;
-            return Task.FromResult<ErrorOr<TResult>>(default(TResult)!);
+            return Task.FromResult<ErrorOr<TResult>>((TResult)NextResult!);
         }
 
         public Task EnqueueAsync<TCommand>(TCommand command, CancellationToken cancellationToken)

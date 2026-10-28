@@ -1,3 +1,4 @@
+using Frappe.Kernel.Authorization;
 using Frappe.Kernel.Messaging;
 using Assembly = System.Reflection.Assembly;
 
@@ -19,25 +20,41 @@ public sealed class MessageRuleTests
     [Fact]
     public void Every_message_names_itself_as_its_self_type()
     {
-        string[] offenders =
+        (Type Message, Type Contract)[] messages =
         [
             .. _frappeAssemblies
                 .SelectMany(static assembly => assembly.GetTypes())
                 .Where(static type => !type.IsInterface)
                 .SelectMany(static type =>
                     type.GetInterfaces()
-                        .Where(contract =>
+                        .Where(static contract =>
                             contract.IsGenericType
                             && (
                                 contract.GetGenericTypeDefinition() == typeof(ICommand<,>)
                                 || contract.GetGenericTypeDefinition() == typeof(IQuery<,>)
                             )
-                            && contract.GenericTypeArguments[0] != type
                         )
-                        .Select(contract => $"{type.FullName} implements {contract}")
+                        .Select(contract => (type, contract))
                 ),
         ];
 
-        Assert.Empty(offenders);
+        // The samples below prove the scan finds messages, so the rule can never pass vacuously.
+        Assert.Contains(messages, static found => found.Message == typeof(SampleCommand));
+        Assert.Contains(messages, static found => found.Message == typeof(SampleQuery));
+        Assert.Empty(
+            messages
+                .Where(static found => found.Contract.GenericTypeArguments[0] != found.Message)
+                .Select(static found => $"{found.Message.FullName} implements {found.Contract}")
+        );
+    }
+
+    private sealed record SampleCommand : ICommand<SampleCommand, int>
+    {
+        public static Policy Policy { get; } = new("sample.run");
+    }
+
+    private sealed record SampleQuery : IQuery<SampleQuery, string>
+    {
+        public static Policy Policy { get; } = new("sample.read");
     }
 }
