@@ -4,7 +4,8 @@ namespace Frappe.Kernel.Domain;
 
 /// <summary>
 /// The entry point of an aggregate: it guards the aggregate's invariants, raises its domain events
-/// and carries its concurrency token.
+/// and carries its concurrency token, which persistence increments on every save that changes the
+/// aggregate, its owned values or its child entities.
 /// </summary>
 /// <typeparam name="TId">The aggregate's strongly typed ID.</typeparam>
 public abstract class AggregateRoot<TId> : Entity<TId>, IAggregateRoot
@@ -36,10 +37,4 @@ public abstract class AggregateRoot<TId> : Entity<TId>, IAggregateRoot
         ArgumentNullException.ThrowIfNull(domainEvent);
         _domainEvents.Add(domainEvent);
     }
-
-    /// <summary>
-    /// Increments <see cref="Revision"/>; every mutating method calls it, so a change to a child
-    /// entity alone still conflicts with a concurrent edit of the same aggregate.
-    /// </summary>
-    protected void Touch() => Revision++;
 }

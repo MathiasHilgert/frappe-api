@@ -8,7 +8,10 @@ public interface IAggregateRoot
     /// <summary>Gets the domain events raised since they were last cleared.</summary>
     public IReadOnlyCollection<IDomainEvent> DomainEvents { get; }
 
-    /// <summary>Gets the concurrency token, which every mutation increments; it is also the ETag.</summary>
+    /// <summary>
+    /// Gets the concurrency token and ETag; persistence increments it once per save that changes the
+    /// aggregate, so domain code never sets it.
+    /// </summary>
     public int Revision { get; }
 
     /// <summary>Discards the raised domain events once they have been handed to the outbox.</summary>

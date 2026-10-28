@@ -12,9 +12,5 @@ internal sealed class Widget : AggregateRoot<WidgetId>
     // Stands in for the persistence layer, which materializes through the parameterless constructor.
     public static Widget Materialized() => new();
 
-    public void Rename()
-    {
-        Touch();
-        Raise(new WidgetRenamed(Id));
-    }
+    public void Rename() => Raise(new WidgetRenamed(Id));
 }

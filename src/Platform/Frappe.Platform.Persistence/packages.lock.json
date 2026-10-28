@@ -226,6 +226,13 @@
         "resolved": "1.2.0.556",
         "contentHash": "zvn9Mqs/ox/83cpYPignI8hJEM2A93s2HkHs8HYMOAQW0PkampyoErAiIyKxgTLqbbad29HX/shv/6LGSjPJNQ=="
       },
+      "frappe.kernel": {
+        "type": "Project",
+        "dependencies": {
+          "ErrorOr": "[2.1.1, )",
+          "NodaTime": "[3.3.6, )"
+        }
+      },
       "frappe.platform.health": {
         "type": "Project"
       },
@@ -235,6 +242,12 @@
           "Microsoft.Extensions.Hosting.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Options.ConfigurationExtensions": "[10.0.14, )"
         }
+      },
+      "ErrorOr": {
+        "type": "CentralTransitive",
+        "requested": "[2.1.1, )",
+        "resolved": "2.1.1",
+        "contentHash": "Y/AhvEZ5DjSi993Db1VrnYpK8YpM4o+tonF4f+AtXDzrIHYvbjWJD7fpip+ugSwW8kMw+XXEnMlJM7E0BKJBWA=="
       },
       "Microsoft.EntityFrameworkCore": {
         "type": "CentralTransitive",
