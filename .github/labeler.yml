@@ -2,17 +2,17 @@
 
 area/kernel:
   - changed-files:
-      - any-glob-to-any-file: src/Kernel/**
+      - any-glob-to-any-file: src/Frappe.Kernel/**
 
 area/platform:
   - changed-files:
       - any-glob-to-any-file:
           - src/Platform/**
-          - src/Migrations/**
+          - src/Frappe.Migrations/**
 
 area/host:
   - changed-files:
-      - any-glob-to-any-file: src/Host/**
+      - any-glob-to-any-file: src/Frappe.Host/**
 
 area/build:
   - changed-files:

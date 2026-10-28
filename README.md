@@ -33,12 +33,12 @@ The host needs the connection string `ConnectionStrings:Frappe` and refuses to s
 
 ```bash
 dotnet user-secrets set ConnectionStrings:Frappe \
-  "Host=localhost;Database=frappe;Username=frappe_app;Password=app-local-only" --project src/Host/Frappe.Host
+  "Host=localhost;Database=frappe;Username=frappe_app;Password=app-local-only" --project src/Frappe.Host
 ```
 
 ```bash
 just run                              # or: just run api | worker | scheduler
-dotnet run --project src/Host/Frappe.Host  # the same without Just
+dotnet run --project src/Frappe.Host  # the same without Just
 ```
 
 One binary runs every process role. Select it with `Platform:Role`, for example `--Platform:Role worker` or the environment variable `Platform__Role=worker`:
@@ -91,14 +91,14 @@ PostgreSQL runs `eng/postgres/init-roles.sh` only when its data volume is empty.
 
 ## Database migrations
 
-EF Core migrations for `FrappeDbContext` live in `src/Migrations/Frappe.Migrations`, which is both the project and the startup project for `dotnet ef` (pinned in `.config/dotnet-tools.json`); no shipped project references it. Its design-time factory builds the same model as the host and holds no connection string, so commands that touch a database take the owner's through `--connection`. The history table is `platform.__ef_migrations_history`.
+EF Core migrations for `FrappeDbContext` live in `src/Frappe.Migrations`, which is both the project and the startup project for `dotnet ef` (pinned in `.config/dotnet-tools.json`); no shipped project references it. Its design-time factory builds the same model as the host and holds no connection string, so commands that touch a database take the owner's through `--connection`. The history table is `platform.__ef_migrations_history`.
 
 ```bash
-just add-migration AddOrders   # dotnet ef migrations add AddOrders --project src/Migrations/Frappe.Migrations --startup-project src/Migrations/Frappe.Migrations
+just add-migration AddOrders   # dotnet ef migrations add AddOrders --project src/Frappe.Migrations --startup-project src/Frappe.Migrations
 just migrations-check          # dotnet ef migrations has-pending-model-changes (same project options)
 ```
 
-Migrations are forward-only: delete the generated `Down` method. Each migration that creates a table grants `frappe_app` exactly the privileges it needs on it, and raw SQL lives in `.sql` files under `src/Migrations/Frappe.Migrations/Sql`, embedded and run with `migrationBuilder.Sql(EmbeddedSql.Read("<file>.sql"))`.
+Migrations are forward-only: delete the generated `Down` method. Each migration that creates a table grants `frappe_app` exactly the privileges it needs on it, and raw SQL lives in `.sql` files under `src/Frappe.Migrations/Sql`, embedded and run with `migrationBuilder.Sql(EmbeddedSql.Read("<file>.sql"))`.
 
 The host never applies migrations. The `migrations` target of the `Dockerfile` builds the image `frappe-migrations:local`, an [EF Core migrations bundle](https://learn.microsoft.com/ef/core/managing-schemas/migrations/applying#bundles) that applies every pending migration and exits; run it as the owner role before starting a new version of the host:
 
@@ -112,11 +112,9 @@ The image runs the host on the chiseled ASP.NET runtime as a non-root user, list
 
 ```text
 src/
-  Directory.Build.props       settings for shipped code only
-  Host/Frappe.Host/           composition root
-  Kernel/Frappe.Kernel/       types shared by every module
-  Migrations/Frappe.Migrations/
-                              EF Core migrations, the model snapshot and the design-time factory; never referenced by the host
+  Frappe.Host/                composition root
+  Frappe.Kernel/              types shared by every module
+  Frappe.Migrations/          EF Core migrations, the model snapshot and the design-time factory; never referenced by the host
   Platform/
     Directory.Build.props     exempts Platform from eng/BannedSymbols.OutsidePlatform.txt
     Frappe.Platform/          composes the platform projects into AddFrappePlatform and MapFrappeEndpoints
@@ -129,9 +127,9 @@ tests/
   Directory.Build.props       settings for every test project
   Frappe.ArchitectureTests/   solution-wide architecture rules
   Frappe.TestUtilities/       fixtures the test projects share, such as the migrated PostgreSQL database
-  Host/Frappe.Host.IntegrationTests/
-  Kernel/Frappe.Kernel.UnitTests/
-  Migrations/Frappe.Migrations.UnitTests/
+  Frappe.Host.IntegrationTests/
+  Frappe.Kernel.UnitTests/
+  Frappe.Migrations.UnitTests/
   Platform/                   Frappe.Platform.*.UnitTests and .IntegrationTests
 eng/                          analyzer configuration, banned APIs, code metrics, CI scripts and the PostgreSQL role init script
 .github/                      CI workflows, Dependabot, labels and the pull request template
@@ -140,11 +138,11 @@ Dockerfile, compose.yaml      host and migrations images, and the local environm
 
 The layout follows these rules:
 
-- A grouping folder (`Host`, `Kernel`, `Platform`, `Modules/<Name>`, ...) never holds a `.csproj`; a project never sits inside another project's folder, because the SDK compiles every file below a project.
+- A grouping folder exists only when it holds two or more projects (`Platform`, `Modules/<Name>`, ...); a lone project sits directly in `src/` or `tests/`. A grouping folder never holds a `.csproj`; a project never sits inside another project's folder, because the SDK compiles every file below a project.
 - A project's folder name, project name, assembly name and root namespace are the same.
-- `tests/` mirrors `src/` path for path: the tests of `src/<Group>/<Project>` live in `tests/<Group>/<Project>.<Kind>Tests`, named `.UnitTests`, `.IntegrationTests` or `.ArchitectureTests`; only solution-wide tests and the shared `Frappe.TestUtilities` library sit at the root of `tests/`.
+- `tests/` mirrors `src/` path for path: the tests of `src/<Group>/<Project>` live in `tests/<Group>/<Project>.<Kind>Tests`, and the tests of `src/<Project>` in `tests/<Project>.<Kind>Tests`, named `.UnitTests`, `.IntegrationTests` or `.ArchitectureTests`; solution-wide tests and the shared `Frappe.TestUtilities` library also sit at the root of `tests/`.
 - Settings are scoped by subtree: each `Directory.Build.props` below the root imports its parent's with `GetPathOfFileAbove`, so a rule applies to a folder, never to a project name. Package versions live only in the root `Directory.Packages.props`.
-- `Frappe.slnx` solution folders mirror the disk (`/src/Platform/`, `/tests/Platform/`, ...).
+- `Frappe.slnx` solution folders mirror the disk (`/src/`, `/src/Platform/`, `/tests/Platform/`, ...).
 
 ## License
 

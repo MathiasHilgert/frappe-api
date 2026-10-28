@@ -1,12 +1,8 @@
 <Solution>
-  <Folder Name="/src/Host/">
-    <Project Path="src/Host/Frappe.Host/Frappe.Host.csproj" />
-  </Folder>
-  <Folder Name="/src/Kernel/">
-    <Project Path="src/Kernel/Frappe.Kernel/Frappe.Kernel.csproj" />
-  </Folder>
-  <Folder Name="/src/Migrations/">
-    <Project Path="src/Migrations/Frappe.Migrations/Frappe.Migrations.csproj" />
+  <Folder Name="/src/">
+    <Project Path="src/Frappe.Host/Frappe.Host.csproj" />
+    <Project Path="src/Frappe.Kernel/Frappe.Kernel.csproj" />
+    <Project Path="src/Frappe.Migrations/Frappe.Migrations.csproj" />
   </Folder>
   <Folder Name="/src/Platform/">
     <Project Path="src/Platform/Frappe.Platform/Frappe.Platform.csproj" />
@@ -16,16 +12,10 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Frappe.ArchitectureTests/Frappe.ArchitectureTests.csproj" />
+    <Project Path="tests/Frappe.Host.IntegrationTests/Frappe.Host.IntegrationTests.csproj" />
+    <Project Path="tests/Frappe.Kernel.UnitTests/Frappe.Kernel.UnitTests.csproj" />
+    <Project Path="tests/Frappe.Migrations.UnitTests/Frappe.Migrations.UnitTests.csproj" />
     <Project Path="tests/Frappe.TestUtilities/Frappe.TestUtilities.csproj" />
-  </Folder>
-  <Folder Name="/tests/Host/">
-    <Project Path="tests/Host/Frappe.Host.IntegrationTests/Frappe.Host.IntegrationTests.csproj" />
-  </Folder>
-  <Folder Name="/tests/Kernel/">
-    <Project Path="tests/Kernel/Frappe.Kernel.UnitTests/Frappe.Kernel.UnitTests.csproj" />
-  </Folder>
-  <Folder Name="/tests/Migrations/">
-    <Project Path="tests/Migrations/Frappe.Migrations.UnitTests/Frappe.Migrations.UnitTests.csproj" />
   </Folder>
   <Folder Name="/tests/Platform/">
     <Project Path="tests/Platform/Frappe.Platform.Health.IntegrationTests/Frappe.Platform.Health.IntegrationTests.csproj" />

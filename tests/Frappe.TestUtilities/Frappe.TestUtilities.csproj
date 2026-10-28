@@ -9,7 +9,7 @@
     <PackageReference Include="xunit.v3.extensibility.core" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../../src/Migrations/Frappe.Migrations/Frappe.Migrations.csproj" />
+    <ProjectReference Include="../../src/Frappe.Migrations/Frappe.Migrations.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None

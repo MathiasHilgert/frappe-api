@@ -1,14 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="Alba" />
     <PackageReference Include="Shouldly" />
     <PackageReference Include="xunit.v3" />
   </ItemGroup>
   <ItemGroup>
+    <Using Include="ErrorOr" />
     <Using Include="Shouldly" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../../../src/Host/Frappe.Host/Frappe.Host.csproj" />
-    <ProjectReference Include="../../Frappe.TestUtilities/Frappe.TestUtilities.csproj" />
+    <ProjectReference Include="../../src/Frappe.Kernel/Frappe.Kernel.csproj" />
   </ItemGroup>
 </Project>

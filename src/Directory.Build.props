@@ -1,4 +1,0 @@
-<Project>
-  <!-- Settings for shipped code only; each subtree's Directory.Build.props chains here, and this file chains to the root. -->
-  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
-</Project>

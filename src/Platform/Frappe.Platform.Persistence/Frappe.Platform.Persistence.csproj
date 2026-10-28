@@ -7,7 +7,7 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../../Kernel/Frappe.Kernel/Frappe.Kernel.csproj" />
+    <ProjectReference Include="../../Frappe.Kernel/Frappe.Kernel.csproj" />
     <ProjectReference Include="../Frappe.Platform.Health/Frappe.Platform.Health.csproj" />
     <ProjectReference Include="../Frappe.Platform.Hosting/Frappe.Platform.Hosting.csproj" />
   </ItemGroup>

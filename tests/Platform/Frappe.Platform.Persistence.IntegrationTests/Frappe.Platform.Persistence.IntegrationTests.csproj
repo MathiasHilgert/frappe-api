@@ -8,7 +8,7 @@
     <Using Include="Shouldly" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../../../src/Host/Frappe.Host/Frappe.Host.csproj" />
+    <ProjectReference Include="../../../src/Frappe.Host/Frappe.Host.csproj" />
     <ProjectReference Include="../../Frappe.TestUtilities/Frappe.TestUtilities.csproj" />
   </ItemGroup>
 </Project>
