@@ -30,12 +30,7 @@ public static class PersistenceExtensions
         // with AddDbContextWithWolverineIntegration.
         builder.Services.AddDbContext<FrappeDbContext>(
             static (services, options) =>
-                options
-                    .UseNpgsql(
-                        services.GetRequiredService<NpgsqlDataSource>(),
-                        static npgsql => npgsql.UseNodaTime()
-                    )
-                    .UseSnakeCaseNamingConvention(),
+                options.UseFrappeDatabase(services.GetRequiredService<NpgsqlDataSource>()),
             optionsLifetime: ServiceLifetime.Singleton
         );
         // Opens a connection from the registered data source and runs SELECT 1, never a business query.

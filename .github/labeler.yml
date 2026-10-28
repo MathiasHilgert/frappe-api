@@ -9,6 +9,7 @@ area/platform:
       - any-glob-to-any-file:
           - src/Frappe.Platform/**
           - src/Frappe.Platform.*/**
+          - src/Frappe.Migrations/**
 
 area/host:
   - changed-files:

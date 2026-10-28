@@ -1,9 +1,10 @@
 using Alba;
+using Frappe.Testing;
 using Microsoft.Extensions.Options;
 
 namespace Frappe.Host.Tests;
 
-public sealed class HostRoleTests(PostgresFixture postgres)
+public sealed class HostRoleTests(FrappeDatabase database)
 {
     [Theory]
     [InlineData("all", "/health/live")]
@@ -24,7 +25,7 @@ public sealed class HostRoleTests(PostgresFixture postgres)
         await using IAlbaHost host = await AlbaHost.For<Program>(builder =>
             builder
                 .UseSetting("Platform:Role", role)
-                .UseSetting("ConnectionStrings:Frappe", postgres.ConnectionString)
+                .UseSetting("ConnectionStrings:Frappe", database.AppConnectionString)
         );
 
         await host.Scenario(scenario =>
@@ -38,7 +39,7 @@ public sealed class HostRoleTests(PostgresFixture postgres)
     public async Task The_host_starts_without_a_role_setting()
     {
         await using IAlbaHost host = await AlbaHost.For<Program>(builder =>
-            builder.UseSetting("ConnectionStrings:Frappe", postgres.ConnectionString)
+            builder.UseSetting("ConnectionStrings:Frappe", database.AppConnectionString)
         );
 
         await host.Scenario(static scenario =>
@@ -55,7 +56,7 @@ public sealed class HostRoleTests(PostgresFixture postgres)
             AlbaHost.For<Program>(builder =>
                 builder
                     .UseSetting("Platform:Role", "web")
-                    .UseSetting("ConnectionStrings:Frappe", postgres.ConnectionString)
+                    .UseSetting("ConnectionStrings:Frappe", database.AppConnectionString)
             )
         );
 
@@ -69,7 +70,7 @@ public sealed class HostRoleTests(PostgresFixture postgres)
             AlbaHost.For<Program>(builder =>
                 builder
                     .UseSetting("Platform:Role", "7")
-                    .UseSetting("ConnectionStrings:Frappe", postgres.ConnectionString)
+                    .UseSetting("ConnectionStrings:Frappe", database.AppConnectionString)
             )
         );
 

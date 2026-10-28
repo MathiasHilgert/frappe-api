@@ -1,25 +1,28 @@
 using Alba;
 using Frappe.Platform.Persistence.IntegrationTests;
-using Testcontainers.PostgreSql;
+using Frappe.Testing;
 
 [assembly: AssemblyFixture(typeof(AppFixture))]
 
 namespace Frappe.Platform.Persistence.IntegrationTests;
 
-// One PostgreSQL container and one host per test assembly; tests only read, so they share both.
+// One migrated database and one host per test assembly; tests only read, so they share both.
 public sealed class AppFixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18.6").Build();
+    private readonly FrappeDatabase _database = new();
     private IAlbaHost? _host;
 
-    public string ConnectionString => _postgres.GetConnectionString();
+    // The app role, as the host connects.
+    public string ConnectionString => _database.AppConnectionString;
+
+    public string OwnerConnectionString => _database.OwnerConnectionString;
 
     public IAlbaHost Host =>
         _host ?? throw new InvalidOperationException("The fixture has not been initialized.");
 
     public async ValueTask InitializeAsync()
     {
-        await _postgres.StartAsync(TestContext.Current.CancellationToken);
+        await _database.InitializeAsync();
         _host = await AlbaHost.For<Program>(builder =>
             builder.UseSetting("ConnectionStrings:Frappe", ConnectionString)
         );
@@ -32,6 +35,6 @@ public sealed class AppFixture : IAsyncLifetime
             await _host.DisposeAsync();
         }
 
-        await _postgres.DisposeAsync();
+        await _database.DisposeAsync();
     }
 }

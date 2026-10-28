@@ -10,5 +10,13 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Frappe.Host/Frappe.Host.csproj" />
+    <ProjectReference Include="../../src/Frappe.Migrations/Frappe.Migrations.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None
+      Include="../../eng/postgres/init-roles.sh"
+      Link="init-roles.sh"
+      CopyToOutputDirectory="PreserveNewest"
+    />
   </ItemGroup>
 </Project>

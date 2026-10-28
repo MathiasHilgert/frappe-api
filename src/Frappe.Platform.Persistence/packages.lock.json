@@ -250,10 +250,7 @@
         "contentHash": "zvn9Mqs/ox/83cpYPignI8hJEM2A93s2HkHs8HYMOAQW0PkampyoErAiIyKxgTLqbbad29HX/shv/6LGSjPJNQ=="
       },
       "frappe.platform.health": {
-        "type": "Project",
-        "dependencies": {
-          "Frappe.Platform.Hosting": "[1.0.0, )"
-        }
+        "type": "Project"
       },
       "frappe.platform.hosting": {
         "type": "Project",
