@@ -41,6 +41,9 @@
           "NodaTime": "[3.3.6, )"
         }
       },
+      "frappe.platform.health": {
+        "type": "Project"
+      },
       "ErrorOr": {
         "type": "CentralTransitive",
         "requested": "[2.1.1, )",

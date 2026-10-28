@@ -4,5 +4,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Frappe.Kernel/Frappe.Kernel.csproj" />
+    <ProjectReference Include="../Frappe.Platform.Health/Frappe.Platform.Health.csproj" />
   </ItemGroup>
 </Project>
