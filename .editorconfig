@@ -138,7 +138,7 @@ dotnet_diagnostic.IDE0005.severity = none
 [{**/*Endpoint.cs,**/*Endpoints.cs}]
 dotnet_diagnostic.S1192.severity = none
 
-[src/Kernel/Frappe.Kernel/**.cs]
+[src/Frappe.Kernel/**.cs]
 dotnet_diagnostic.CS1591.severity = error
 
 [src/Platform/**.cs]
