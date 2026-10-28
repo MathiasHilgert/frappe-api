@@ -25,7 +25,7 @@ public sealed class HealthEndpointTests
     }
 
     [Fact]
-    public async Task A_failing_non_critical_dependency_degrades_readiness_without_failing_it()
+    public async Task A_failing_non_critical_dependency_is_not_run_by_any_probe()
     {
         await using IAlbaHost host = await StartAsync(static checks =>
             checks.AddDependency("cache", Criticality.NonCritical, _failing)

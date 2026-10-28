@@ -25,6 +25,13 @@ public static class HealthExtensions
     /// <summary>The timeout a dependency check gets when <c>AddDependency</c> receives none.</summary>
     public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(2);
 
+    private static readonly string[] _reservedTags =
+    [
+        HealthTags.Live,
+        HealthTags.Critical,
+        HealthTags.NonCritical,
+    ];
+
     /// <summary>
     /// Registers the health check services and the trivial <c>self</c> check tagged <see cref="HealthTags.Live"/>,
     /// so liveness proves only that the process answers.
@@ -52,8 +59,12 @@ public static class HealthExtensions
     /// <see cref="Criticality.NonCritical"/> fails with <c>Degraded</c> and the <see cref="HealthTags.NonCritical"/> tag.
     /// </param>
     /// <param name="timeout">How long the check may run before it reports its failure status; <see cref="DefaultTimeout"/> when null.</param>
-    /// <param name="tags">Extra tags, for example <see cref="HealthTags.Startup"/>; never <see cref="HealthTags.Live"/>.</param>
+    /// <param name="tags">Extra tags, for example <see cref="HealthTags.Startup"/>; never <see cref="HealthTags.Live"/> or a criticality tag.</param>
     /// <returns>The same builder, for chaining.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="criticality"/> is not a defined value.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="tags"/> holds <see cref="HealthTags.Live"/>, <see cref="HealthTags.Critical"/> or <see cref="HealthTags.NonCritical"/>.
+    /// </exception>
     /// <remarks>
     /// A check reports a failure as <c>new HealthCheckResult(context.Registration.FailureStatus)</c>, as community
     /// checks do, or throws; a thrown exception and an exceeded timeout also report the failure status.
@@ -83,9 +94,12 @@ public static class HealthExtensions
     /// </param>
     /// <param name="factory">Builds the check each time it runs, from the request's service provider.</param>
     /// <param name="timeout">How long the check may run before it reports its failure status; <see cref="DefaultTimeout"/> when null.</param>
-    /// <param name="tags">Extra tags, for example <see cref="HealthTags.Startup"/>; never <see cref="HealthTags.Live"/>.</param>
+    /// <param name="tags">Extra tags, for example <see cref="HealthTags.Startup"/>; never <see cref="HealthTags.Live"/> or a criticality tag.</param>
     /// <returns>The same builder, for chaining.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="criticality"/> is not a defined value.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="tags"/> holds <see cref="HealthTags.Live"/>, <see cref="HealthTags.Critical"/> or <see cref="HealthTags.NonCritical"/>.
+    /// </exception>
     /// <remarks>
     /// A check reports a failure as <c>new HealthCheckResult(context.Registration.FailureStatus)</c>, as community
     /// checks do, or throws; a thrown exception and an exceeded timeout also report the failure status.
@@ -101,6 +115,15 @@ public static class HealthExtensions
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(tags);
+        // Registration tags compare ignoring case, so "LIVE" would still reach the liveness probe.
+        if (tags.Any(tag => _reservedTags.Contains(tag, StringComparer.OrdinalIgnoreCase)))
+        {
+            throw new ArgumentException(
+                "Liveness never runs a dependency, and only the criticality sets the criticality tags.",
+                nameof(tags)
+            );
+        }
+
         (HealthStatus failureStatus, string criticalityTag) = criticality switch
         {
             Criticality.Critical => (HealthStatus.Unhealthy, HealthTags.Critical),

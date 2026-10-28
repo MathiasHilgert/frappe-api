@@ -109,6 +109,41 @@ public sealed class DependencyRegistrationTests
     }
 
     [Theory]
+    [InlineData(HealthTags.Live)]
+    [InlineData(HealthTags.Critical)]
+    [InlineData(HealthTags.NonCritical)]
+    public void A_typed_dependency_rejects_a_reserved_tag(string tag)
+    {
+        IHealthChecksBuilder checks = new ServiceCollection().AddHealthChecks();
+
+        Should
+            .Throw<ArgumentException>(() =>
+                checks.AddDependency<HealthyCheck>("database", Criticality.NonCritical, tags: tag)
+            )
+            .ParamName.ShouldBe("tags");
+    }
+
+    [Theory]
+    [InlineData(HealthTags.Live)]
+    [InlineData(HealthTags.Critical)]
+    [InlineData(HealthTags.NonCritical)]
+    public void A_factory_dependency_rejects_a_reserved_tag(string tag)
+    {
+        IHealthChecksBuilder checks = new ServiceCollection().AddHealthChecks();
+
+        Should
+            .Throw<ArgumentException>(() =>
+                checks.AddDependency(
+                    "cache",
+                    Criticality.Critical,
+                    static _ => new HealthyCheck(),
+                    tags: tag
+                )
+            )
+            .ParamName.ShouldBe("tags");
+    }
+
+    [Theory]
     [InlineData(Criticality.Critical, HealthStatus.Unhealthy)]
     [InlineData(Criticality.NonCritical, HealthStatus.Degraded)]
     public async Task A_dependency_that_outlives_its_timeout_reports_its_failure_status_on_time(
