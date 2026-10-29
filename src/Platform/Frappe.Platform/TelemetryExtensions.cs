@@ -2,7 +2,7 @@ using System.Reflection;
 using Frappe.Platform.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
@@ -13,12 +13,16 @@ namespace Frappe.Platform;
 
 // The OpenTelemetry baseline every process shares: traces, metrics and logs over OTLP, sharing one trace id.
 // Adapters add their own sources and meters (Wolverine's in Messaging); OTEL_* variables configure the export.
-internal static class Telemetry
+internal static class TelemetryExtensions
 {
     public const string ServiceName = "frappe";
 
     public static void AddTelemetry(this IHostApplicationBuilder builder)
     {
+        // The OTLP log record carries the trace context itself; as scope attributes it would be sent twice.
+        builder.Logging.Configure(static logging =>
+            logging.ActivityTrackingOptions = ActivityTrackingOptions.None
+        );
         OpenTelemetryBuilder telemetry = builder
             .Services.AddOpenTelemetry()
             .ConfigureResource(resource =>
@@ -26,10 +30,16 @@ internal static class Telemetry
                     .AddService(ServiceName, serviceVersion: Version())
                     .AddAttributes([
                         new("deployment.environment.name", builder.Environment.EnvironmentName),
+                        // Raw, so a bad role reaches the start validation, which fails with the real message.
+                        new(
+                            "frappe.role",
+                            builder
+                                .Configuration[$"{PlatformOptions.SectionName}:Role"]
+                                ?.ToLowerInvariant() ?? "all"
+                        ),
                     ])
-                    .AddDetector(static services => new RoleDetector(
-                        services.GetRequiredService<IOptions<PlatformOptions>>()
-                    ))
+                    // Last, so OTEL_SERVICE_NAME and OTEL_RESOURCE_ATTRIBUTES (a pod's instance id) win.
+                    .AddEnvironmentVariableDetector()
             )
             .WithTracing(static tracing =>
                 tracing
@@ -48,8 +58,8 @@ internal static class Telemetry
                 metrics
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
-                    // The runtime's built-in meter: GC, thread pool, exceptions.
-                    .AddMeter("System.Runtime")
+                    // The runtime's built-in meter (GC, thread pool, exceptions) and Npgsql's connection pool and commands.
+                    .AddMeter("System.Runtime", "Npgsql")
                     // A histogram or counter keeps a sample of the traces it measured, to jump from a spike to them.
                     .SetExemplarFilter(ExemplarFilterType.TraceBased)
             )
@@ -63,6 +73,7 @@ internal static class Telemetry
             );
 
         // Without an endpoint (tests, a plain dotnet run) nothing is exported; compose and every deployment set it.
+        // Only this generic variable switches export on: a per-signal endpoint alone exports nothing.
         if (!string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
         {
             telemetry.UseOtlpExporter();
@@ -75,22 +86,4 @@ internal static class Telemetry
             .GetEntryAssembly()
             ?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
             ?.InformationalVersion;
-
-    private sealed class RoleDetector(IOptions<PlatformOptions> platform) : IResourceDetector
-    {
-        public Resource Detect()
-        {
-            try
-            {
-                return new([new("frappe.role", platform.Value.Role.ToString().ToLowerInvariant())]);
-            }
-            // Resolved while the host builds its logger, before the start validates the options: a role that does
-            // not bind or validate is left out here, and the start then fails with the real message.
-            catch (Exception exception)
-                when (exception is InvalidOperationException or OptionsValidationException)
-            {
-                return Resource.Empty;
-            }
-        }
-    }
 }

@@ -97,7 +97,7 @@ services:
       Platform__Role: "all"
       # Development creates the stream and consumers on start; deployed environments verify them.
       Nats__Url: "nats://nats:4222"
-      # Every trace, metric and log goes to lgtm; Grafana shows them on http://localhost:3000.
+      # Every trace, metric and log goes to lgtm; Grafana shows them on GRAFANA_PORT (3000).
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://lgtm:4317"
       ConnectionStrings__Frappe: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-frappe};Username=frappe_app;Password=${FRAPPE_APP_PASSWORD:-app-local-only}"
     ports:

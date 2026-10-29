@@ -79,29 +79,29 @@ A critical dependency fails with `Unhealthy` and gates readiness and startup; a 
 
 ## Local environment
 
-`compose.yaml` runs PostgreSQL, the migrations and the API image in containers, for local development only.
+`compose.yaml` runs PostgreSQL, NATS, Grafana (otel-lgtm), the migrations and the API image in containers, for local development only.
 
 ```bash
-just start         # build the images, start PostgreSQL, apply pending migrations, then start the API
+just start         # build the images, start PostgreSQL, NATS and Grafana, apply migrations and seeds, then start the API
 just migrate       # apply pending migrations to the running local database
 just status        # each container and its health
-just logs          # follow every container; or: just logs postgres | migrate | api
+just logs          # follow every container; or: just logs postgres | nats | lgtm | migrate | api
 just stop          # stop and remove the containers; the database volume is kept
 ```
 
-The API listens on <http://localhost:8080> (`/health/live`, `/health/startup`, `/health/ready`) and PostgreSQL on `localhost:5432`, both bound to the loopback interface only. The credentials in `compose.yaml` are throwaway local defaults; override `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `FRAPPE_OWNER_PASSWORD`, `FRAPPE_APP_PASSWORD`, `POSTGRES_PORT` or `API_PORT` in an untracked `.env` file. To delete the database as well, run `docker compose down --volumes`.
+The API listens on <http://localhost:8080> (`/health/live`, `/health/startup`, `/health/ready`) and PostgreSQL on `localhost:5432`, both bound to the loopback interface only. The credentials in `compose.yaml` are throwaway local defaults; override `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `FRAPPE_OWNER_PASSWORD`, `FRAPPE_APP_PASSWORD`, `POSTGRES_PORT`, `NATS_PORT`, `API_PORT`, `GRAFANA_PORT` or `OTLP_PORT` in an untracked `.env` file. To delete the database as well, run `docker compose down --volumes`.
 
 PostgreSQL runs `eng/postgres/init-roles.sh` only when its data volume is empty. It creates the two roles every environment needs: `frappe_owner` owns the database and applies migrations, and `frappe_app`, the role the host connects as, cannot bypass row-level security, owns nothing and reaches a table only through the grant of the migration that creates it. The superuser (`POSTGRES_USER`) exists only for that first-time init. A database volume created before the script existed has no such roles; recreate it with `just stop`, then `docker compose down --volumes`, then `just start`.
 
 ## Telemetry
 
-Every process exports traces, metrics and logs over OTLP, sharing one trace id, when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; without it nothing is exported. The standard `OTEL_*` variables configure the export (protocol, headers, sampler). Every signal carries `service.name=frappe`, `service.version` (with the commit), `deployment.environment.name` and `frappe.role`.
+Every process exports traces, metrics and logs over OTLP, sharing one trace id, when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; without it nothing is exported, even if a per-signal endpoint is set. The other standard `OTEL_*` variables tune it (protocol, headers, timeout, `OTEL_TRACES_SAMPLER`), and `OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES` override the resource. Every signal carries `service.name=frappe`, `service.version` (with the commit), `service.instance.id`, `deployment.environment.name` and `frappe.role`. Test hosts never export.
 
-- Automatic: ASP.NET Core requests (not the health probes), HttpClient calls, Npgsql commands inside another span (never Wolverine's background polling), Wolverine messages (a span per handled message), and the runtime, ASP.NET Core, Npgsql and Wolverine metrics. Histograms keep trace exemplars.
+- Automatic: ASP.NET Core requests (the health probes in neither traces nor request metrics), HttpClient calls, Npgsql commands inside another span (never Wolverine's background polling), Wolverine messages (a span per handled message), and the runtime, ASP.NET Core, Npgsql and Wolverine metrics. Histograms keep trace exemplars.
 - A handler that returns an expected error leaves its span `Ok` with `frappe.error.code`; an exception marks it `Error`.
 - A module's business metrics go through its probe: an interface in Application, implemented in Infrastructure by a `<Module>Metrics` singleton built from `IMeterFactory`, its meter registered with `AddMeter`.
 
-Locally, `just start` runs `grafana/otel-lgtm` and points the API at it: Grafana on <http://localhost:3000> (Explore: Tempo for traces, Prometheus for metrics, Loki for logs). `just run` exports to the same container on `localhost:4317` when it is up. Nothing in it persists across restarts.
+Locally, `just start` runs `grafana/otel-lgtm` and points the API at it: Grafana on <http://localhost:3000> (Explore: Tempo for traces, Prometheus for metrics, Loki for logs). `just run` exports to the same container on `localhost:4317` when it is up. Nothing in it persists across restarts. The image is about 1 GB to download, and Grafana answers a few seconds after `just start` returns.
 
 ## Database migrations
 

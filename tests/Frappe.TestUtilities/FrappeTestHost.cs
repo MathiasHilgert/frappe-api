@@ -35,6 +35,8 @@ public static class FrappeTestHost
             new WebApplicationOptions { EnvironmentName = environment ?? Environments.Development }
         );
         builder.Configuration["ConnectionStrings:Frappe"] = connectionString;
+        // A developer's shell may point at a collector; test hosts never export.
+        builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] = "";
         builder.Configuration.AddInMemoryCollection(
             nats?.Settings ?? [new("Nats:Url", "nats://127.0.0.1:4222")]
         );

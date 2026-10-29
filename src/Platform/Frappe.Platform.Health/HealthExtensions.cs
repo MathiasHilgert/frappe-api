@@ -160,16 +160,20 @@ public static class HealthExtensions
     public static WebApplication MapHealthEndpoints(this WebApplication app)
     {
         ArgumentNullException.ThrowIfNull(app);
-        app.MapHealthChecks("/health/live", Selecting(HealthTags.Live));
-        app.MapHealthChecks("/health/startup", Selecting(HealthTags.Startup, HealthTags.Critical));
-        app.MapHealthChecks("/health/ready", Selecting(HealthTags.Critical));
+        // Probes stay out of the request metrics, as telemetry keeps them out of the traces: a kubelet calling every
+        // few seconds would otherwise skew the request rate and latency.
+        app.MapHealthChecks("/health/live", Selecting(HealthTags.Live)).DisableHttpMetrics();
+        app.MapHealthChecks("/health/startup", Selecting(HealthTags.Startup, HealthTags.Critical))
+            .DisableHttpMetrics();
+        app.MapHealthChecks("/health/ready", Selecting(HealthTags.Critical)).DisableHttpMetrics();
         // The detailed report names every dependency, so it stays off deployed environments until it can require authentication.
         if (app.Environment.IsDevelopment())
         {
             app.MapHealthChecks(
-                "/health",
-                new HealthCheckOptions { ResponseWriter = WriteReportAsync }
-            );
+                    "/health",
+                    new HealthCheckOptions { ResponseWriter = WriteReportAsync }
+                )
+                .DisableHttpMetrics();
         }
 
         return app;

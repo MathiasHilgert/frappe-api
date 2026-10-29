@@ -191,7 +191,7 @@ public static class MessagingExtensions
             .WithTracing(static tracing => tracing.AddSource("Wolverine"))
             .WithMetrics(static metrics =>
                 metrics
-                    .AddMeter("Wolverine*", "Npgsql", ErrorOrOutcome.MeterName)
+                    .AddMeter("Wolverine*", ErrorOrOutcome.MeterName)
                     .AddView(static instrument =>
                         instrument.Meter.Name.StartsWith("Wolverine", StringComparison.Ordinal)
                             ? new MetricStreamConfiguration { TagKeys = _wolverineMetricTags }

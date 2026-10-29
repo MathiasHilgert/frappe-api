@@ -64,7 +64,10 @@ public sealed class ErrorOrOutcome
         await context.ClearAllAsync();
         string codes = string.Join(',', result.Errors?.Select(static error => error.Code) ?? []);
         // An expected error is not a failure: Wolverine closes the message's span Ok, and the tag says which one.
-        Activity.Current?.SetTag(ErrorCodeTag, codes);
+        if (codes.Length > 0)
+        {
+            Activity.Current?.SetTag(ErrorCodeTag, codes);
+        }
         if (!invoked)
         {
             string messageType = context.Envelope?.MessageType ?? "unknown";
