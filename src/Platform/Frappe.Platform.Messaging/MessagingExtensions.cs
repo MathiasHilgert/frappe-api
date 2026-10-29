@@ -183,7 +183,7 @@ public static class MessagingExtensions
                 or TimeoutException;
 
     private static void AddTelemetry(IServiceCollection services) =>
-        // TODO: the telemetry PR adds the resource and the OTLP exporter; until then nothing is exported.
+        // Wolverine's sources and meters; Frappe.Platform adds the resource, the exporter and the baseline.
         // Wolverine's meter already gauges the inbox and outbox size; inbox depth and oldest age per local queue
         // and the oldest outbox row need timestamps the 6.56 store tables lack (alerts PR).
         services
@@ -191,7 +191,7 @@ public static class MessagingExtensions
             .WithTracing(static tracing => tracing.AddSource("Wolverine"))
             .WithMetrics(static metrics =>
                 metrics
-                    .AddMeter("Wolverine*", "Npgsql", ErrorOrOutcome.MeterName)
+                    .AddMeter("Wolverine*", ErrorOrOutcome.MeterName)
                     .AddView(static instrument =>
                         instrument.Meter.Name.StartsWith("Wolverine", StringComparison.Ordinal)
                             ? new MetricStreamConfiguration { TagKeys = _wolverineMetricTags }

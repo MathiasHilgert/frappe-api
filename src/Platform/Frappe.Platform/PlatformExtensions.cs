@@ -22,6 +22,7 @@ public static class PlatformExtensions
         where TBuilder : IHostApplicationBuilder
     {
         builder.AddHostRole();
+        builder.AddTelemetry();
         builder.AddHealth();
         // Before persistence, so every context it and the modules register joins the bus's transaction.
         builder.AddMessaging();

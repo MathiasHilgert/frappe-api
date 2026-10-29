@@ -56,6 +56,14 @@ services:
       retries: 10
       start_period: "5s"
 
+  lgtm:
+    # Development only: an OTLP collector with Grafana, Prometheus, Tempo and Loki; nothing persists across restarts.
+    image: "grafana/otel-lgtm:0.36.0"
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+      # OTLP over gRPC, for a host started with just run.
+      - "127.0.0.1:${OTLP_PORT:-4317}:4317"
+
   migrate:
     image: "frappe-migrations:local"
     build:
@@ -89,6 +97,8 @@ services:
       Platform__Role: "all"
       # Development creates the stream and consumers on start; deployed environments verify them.
       Nats__Url: "nats://nats:4222"
+      # Every trace, metric and log goes to lgtm; Grafana shows them on GRAFANA_PORT (3000).
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://lgtm:4317"
       ConnectionStrings__Frappe: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-frappe};Username=frappe_app;Password=${FRAPPE_APP_PASSWORD:-app-local-only}"
     ports:
       - "127.0.0.1:${API_PORT:-8080}:8080"
