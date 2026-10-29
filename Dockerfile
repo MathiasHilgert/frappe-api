@@ -24,6 +24,8 @@ COPY --link eng/ eng/
 COPY --link src/ src/
 
 FROM sources AS build
+# The commit goes into the informational version (1.0.0+<commit>), which telemetry reports as service.version.
+ARG REVISION=unknown
 # No apphost, so one output runs on every architecture's runtime image.
 RUN --mount=type=cache,id=nuget,target=/nuget/packages \
     dotnet publish src/Frappe.Host/Frappe.Host.csproj \
@@ -31,7 +33,8 @@ RUN --mount=type=cache,id=nuget,target=/nuget/packages \
         --no-restore \
         --output /app \
         -p:UseAppHost=false \
-        -p:ContinuousIntegrationBuild=true
+        -p:ContinuousIntegrationBuild=true \
+        -p:SourceRevisionId="${REVISION}"
 
 # The migrator: applies every context's pending migrations, in order, given --connection.
 FROM sources AS migrations-build

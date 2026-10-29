@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Frappe.Platform.Health;
 using Frappe.Platform.Hosting;
 using HealthChecks.NpgSql;
@@ -93,6 +94,15 @@ public static class PersistenceExtensions
         // The pool bounds every in-flight handler and request: Npgsql's default of 100 connections unless
         // the connection string sets Maximum Pool Size, the budget the bus's queue parallelism stays under.
         dataSource.UseNodaTime();
+        // Wolverine polls its store in the background: without this, each poll would be a trace of its own and
+        // bury the real ones. A command traces only inside a request, a message or another span; a physical
+        // connect (the pool filling, mostly outside any span) never does, its time shows in the parent's span.
+        dataSource.ConfigureTracing(static tracing =>
+            tracing
+                .ConfigureCommandFilter(static _ => Activity.Current is not null)
+                .ConfigureBatchFilter(static _ => Activity.Current is not null)
+                .EnablePhysicalOpenTracing(enable: false)
+        );
     }
 
     private static string ApplicationName(HostRole role) =>

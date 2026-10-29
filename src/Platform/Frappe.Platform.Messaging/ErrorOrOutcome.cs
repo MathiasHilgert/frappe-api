@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Microsoft.Extensions.Logging;
 using Wolverine;
@@ -13,6 +14,9 @@ public sealed class ErrorOrOutcome
 {
     /// <summary>The meter the messaging adapter's own instruments belong to.</summary>
     public const string MeterName = "Frappe.Platform.Messaging";
+
+    /// <summary>The span attribute that carries the codes of a handler's expected errors, comma-separated.</summary>
+    public const string ErrorCodeTag = "frappe.error.code";
 
     private readonly ILogger<ErrorOrOutcome> _logger;
 
@@ -58,14 +62,13 @@ public sealed class ErrorOrOutcome
         }
 
         await context.ClearAllAsync();
+        string codes = string.Join(',', result.Errors?.Select(static error => error.Code) ?? []);
+        // An expected error is not a failure: Wolverine closes the message's span Ok, and the tag says which one.
+        Activity.Current?.SetTag(ErrorCodeTag, codes);
         if (!invoked)
         {
             string messageType = context.Envelope?.MessageType ?? "unknown";
-            Log.Rejected(
-                _logger,
-                messageType,
-                string.Join(',', result.Errors?.Select(static error => error.Code) ?? [])
-            );
+            Log.Rejected(_logger, messageType, codes);
             _rejections.Add(
                 1,
                 new KeyValuePair<string, object?>("messaging.message.type", messageType)

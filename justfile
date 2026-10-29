@@ -119,12 +119,13 @@ test kind="all": build
 [arg('role', pattern='all|api|worker|scheduler')]
 run role="all": restore
     Nats__Url="${Nats__Url:-nats://127.0.0.1:${NATS_PORT:-4222}}" \
+    OTEL_EXPORTER_OTLP_ENDPOINT="${OTEL_EXPORTER_OTLP_ENDPOINT:-http://127.0.0.1:${OTLP_PORT:-4317}}" \
       dotnet run --project src/Frappe.Host --no-restore -- --Platform:Role {{ role }}
 
 # --- env ---
 
 [group('env')]
-[doc('Start PostgreSQL and NATS, apply pending migrations and seeds, then start the API, all in containers')]
+[doc('Start PostgreSQL, NATS and Grafana, apply pending migrations and seeds, then start the API, all in containers')]
 start:
     REVISION="$(git rev-parse HEAD 2>/dev/null || echo unknown)" docker compose up --detach --build --wait
 
@@ -139,8 +140,8 @@ stop:
     docker compose down
 
 [group('env')]
-[doc('Follow container logs: all | postgres | nats | migrate | api')]
-[arg('service', pattern='all|postgres|nats|migrate|api')]
+[doc('Follow container logs: all | postgres | nats | lgtm | migrate | api')]
+[arg('service', pattern='all|postgres|nats|lgtm|migrate|api')]
 logs service="all":
     docker compose logs --follow {{ if service == "all" { "" } else { service } }}
 

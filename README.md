@@ -93,6 +93,16 @@ The API listens on <http://localhost:8080> (`/health/live`, `/health/startup`, `
 
 PostgreSQL runs `eng/postgres/init-roles.sh` only when its data volume is empty. It creates the two roles every environment needs: `frappe_owner` owns the database and applies migrations, and `frappe_app`, the role the host connects as, cannot bypass row-level security, owns nothing and reaches a table only through the grant of the migration that creates it. The superuser (`POSTGRES_USER`) exists only for that first-time init. A database volume created before the script existed has no such roles; recreate it with `just stop`, then `docker compose down --volumes`, then `just start`.
 
+## Telemetry
+
+Every process exports traces, metrics and logs over OTLP, sharing one trace id, when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; without it nothing is exported. The standard `OTEL_*` variables configure the export (protocol, headers, sampler). Every signal carries `service.name=frappe`, `service.version` (with the commit), `deployment.environment.name` and `frappe.role`.
+
+- Automatic: ASP.NET Core requests (not the health probes), HttpClient calls, Npgsql commands inside another span (never Wolverine's background polling), Wolverine messages (a span per handled message), and the runtime, ASP.NET Core, Npgsql and Wolverine metrics. Histograms keep trace exemplars.
+- A handler that returns an expected error leaves its span `Ok` with `frappe.error.code`; an exception marks it `Error`.
+- A module's business metrics go through its probe: an interface in Application, implemented in Infrastructure by a `<Module>Metrics` singleton built from `IMeterFactory`, its meter registered with `AddMeter`.
+
+Locally, `just start` runs `grafana/otel-lgtm` and points the API at it: Grafana on <http://localhost:3000> (Explore: Tempo for traces, Prometheus for metrics, Loki for logs). `just run` exports to the same container on `localhost:4317` when it is up. Nothing in it persists across restarts.
+
 ## Database migrations
 
 Each module owns one EF Core context, derived from `FrappeDbContext`, and one PostgreSQL schema: its tables, its migrations and its own history table `<schema>.__ef_migrations_history` live there, and no foreign key crosses schemas. `PlatformDbContext` owns `platform`. Every context's migrations live in `src/Frappe.Migrations`, one folder and one model snapshot per context (`Migrations/Platform/`); that project is both the project and the startup project for `dotnet ef` (pinned in `.config/dotnet-tools.json`); no shipped project references it. Each context has a design-time factory that builds the same model as the host and holds no connection string, so commands that touch a database take the owner's through `--connection`. A new context is added to the ordered list in `MigrationsRunner`, after Platform.

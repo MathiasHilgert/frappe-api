@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Alba;
 using Frappe.Platform.IntegrationTests.Messaging.Audit.Infrastructure;
 using Frappe.Platform.IntegrationTests.Messaging.Billing.Infrastructure;
@@ -12,6 +13,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 
 namespace Frappe.Platform.IntegrationTests.Messaging;
 
@@ -50,6 +52,8 @@ public class MessagingFixture(AppFixture app) : IAsyncLifetime
 
     // The exporter adds from its own thread while a test reads.
     internal LockedCollection<MetricSnapshot> Metrics { get; } = new();
+
+    internal LockedCollection<Activity> Spans { get; } = new();
 
     // The environment of the fixture's own host, or null for a fixture whose tests start their own hosts.
     protected virtual string? HostEnvironment => Environments.Development;
@@ -111,7 +115,8 @@ public class MessagingFixture(AppFixture app) : IAsyncLifetime
                 );
                 builder
                     .Services.AddOpenTelemetry()
-                    .WithMetrics(metrics => metrics.AddInMemoryExporter(Metrics));
+                    .WithMetrics(metrics => metrics.AddInMemoryExporter(Metrics))
+                    .WithTracing(tracing => tracing.AddInMemoryExporter(Spans));
                 configure?.Invoke(builder);
             },
             environment,
