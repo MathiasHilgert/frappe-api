@@ -7,7 +7,7 @@ namespace Frappe.Geo.Infrastructure.OpenApi;
 
 /// <summary>
 /// Describes geo's published value objects as the primitives their converters write, which the generator cannot see:
-/// the codes, the time zone and the locale as strings (with their pattern where it is fixed), the minor unit as an
+/// the codes, the street line, the time zone and the locale as strings (with their pattern where it is fixed), the minor unit as an
 /// integer from 0 to 4.
 /// </summary>
 internal sealed class GeoSchemaTransformer : IOpenApiSchemaTransformer
@@ -18,6 +18,7 @@ internal sealed class GeoSchemaTransformer : IOpenApiSchemaTransformer
         [typeof(CurrencyCode)] = "^[A-Z]{3}$",
         [typeof(SubdivisionCode)] = "^[A-Z]{2}-[A-Z0-9]{1,3}$",
         [typeof(PostalCode)] = null,
+        [typeof(StreetLine)] = null,
         [typeof(TimeZoneId)] = null,
         [typeof(Locale)] = null,
     }.ToFrozenDictionary();

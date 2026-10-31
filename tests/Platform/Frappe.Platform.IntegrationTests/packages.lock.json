@@ -1172,6 +1172,7 @@
       "frappe.geo.domain": {
         "type": "Project",
         "dependencies": {
+          "Frappe.Geo.Contracts": "[1.0.0, )",
           "Frappe.Kernel": "[1.0.0, )"
         }
       },

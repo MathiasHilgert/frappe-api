@@ -139,6 +139,32 @@ public sealed class GeoJsonConvertersTests
     }
 
     [Fact]
+    public void A_StreetLine_is_written_as_its_JSON_primitive()
+    {
+        StreetLine value = StreetLine.Create("Calle 1").Value;
+
+        string json = JsonSerializer.Serialize(value, _options);
+
+        json.ShouldBe("\"Calle 1\"");
+    }
+
+    [Fact]
+    public void A_StreetLine_is_read_from_its_JSON_primitive_through_create()
+    {
+        StreetLine? value = JsonSerializer.Deserialize<StreetLine>("\" Calle 1 \"", _options);
+
+        value.ShouldBe(StreetLine.Create("Calle 1").Value);
+    }
+
+    [Fact]
+    public void An_invalid_StreetLine_JSON_value_is_rejected()
+    {
+        Should.Throw<JsonException>(() =>
+            JsonSerializer.Deserialize<StreetLine>("\" \"", _options)
+        );
+    }
+
+    [Fact]
     public void A_TimeZoneId_is_written_as_its_JSON_primitive()
     {
         TimeZoneId value = TimeZoneId.Create("America/Argentina/Cordoba").Value;

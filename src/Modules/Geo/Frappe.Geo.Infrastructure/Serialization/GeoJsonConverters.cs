@@ -18,6 +18,7 @@ internal static class GeoJsonConverters
         options.Converters.Add(new Text<CurrencyCode>(CurrencyCode.Create));
         options.Converters.Add(new Text<SubdivisionCode>(SubdivisionCode.Create));
         options.Converters.Add(new Text<PostalCode>(PostalCode.Create));
+        options.Converters.Add(new Text<StreetLine>(StreetLine.Create));
         options.Converters.Add(new Text<TimeZoneId>(TimeZoneId.Create));
         options.Converters.Add(new Text<Locale>(Locale.Create));
         options.Converters.Add(new Digits());

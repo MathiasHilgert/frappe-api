@@ -1,6 +1,9 @@
 {
+  "geo.address.city_required": "The address needs a city.",
+  "geo.address.street_line_invalid": "The street line must be 1 to 200 characters, without control characters.",
   "geo.city.not_found": "The city was not found.",
   "geo.city.query_invalid": "The city search must be 2 to 100 characters, without a cursor.",
+  "geo.city.retired": "The city is no longer in use; choose another one.",
   "geo.country.default_currency_undefined": "The country has no default currency.",
   "geo.country.not_found": "The country was not found.",
   "geo.country_code.invalid": "The country code must be two ISO 3166-1 alpha-2 letters.",
@@ -12,7 +15,9 @@
   "geo.locale.invalid": "The locale must be a BCP 47 language tag such as es-AR.",
   "geo.locale.not_found": "The locale is not offered.",
   "geo.minor_unit.invalid": "The minor unit must be between 0 and 4 decimal digits.",
-  "geo.postal_code.invalid": "The postal code must be 1 to 16 letters, digits, spaces or hyphens.",
+  "geo.postal_code.invalid": "The postal code does not match the country's postal code format.",
+  "geo.postal_code.malformed": "The postal code must be 1 to 16 letters, digits, spaces or hyphens.",
+  "geo.postal_code.required": "The country requires a postal code.",
   "geo.subdivision.not_found": "The subdivision was not found.",
   "geo.subdivision_code.invalid": "The subdivision code must be an ISO 3166-2 code such as AR-X.",
   "geo.time_zone_id.invalid": "The time zone must be an IANA time zone id such as America/Argentina/Buenos_Aires."

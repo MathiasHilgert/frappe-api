@@ -16,7 +16,7 @@ public sealed record PostalCode
     private PostalCode(string value) => Value = value;
 
     /// <summary>Gets the error returned for an empty, too long or out-of-alphabet value.</summary>
-    public static Error Invalid { get; } = Error.Validation("geo.postal_code.invalid");
+    public static Error Invalid { get; } = Error.Validation("geo.postal_code.malformed");
 
     /// <summary>Gets the normalized code.</summary>
     public string Value { get; }
