@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using ArchUnitNET.Domain;
 using ArchUnitNET.Fluent;
 using ArchUnitNET.Loader;
@@ -62,6 +63,15 @@ public sealed class RequestRuleTests
 
         public static ErrorOr<OwnerId> From(Guid value) =>
             EntityId.Validate(value).Then(static v => new OwnerId(v));
+
+        public static OwnerId Parse(string s, IFormatProvider? provider) =>
+            EntityId.Parse<OwnerId>(s);
+
+        public static bool TryParse(
+            [NotNullWhen(true)] string? s,
+            IFormatProvider? provider,
+            out OwnerId result
+        ) => EntityId.TryParse(s, out result);
     }
 
     internal sealed record OwnerChangeRequest(OwnerId? OwnerId);
