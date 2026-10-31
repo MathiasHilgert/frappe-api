@@ -77,9 +77,9 @@ public sealed class CityTests(GeoFixture geo)
         JsonElement[] cities = await SearchAsync("cordoba");
 
         cities.Length.ShouldBe(10);
-        cities[..2].Select(Describe).ShouldBe(["Córdoba|AR-X", "Córdoba|AR-X"]);
-        Describe(cities[2]).ShouldBe("Villa Córdoba|AR-W");
-        cities[3..].ShouldAllBe(city => city.GetProperty("subdivisionCode").GetString() == "AR-X");
+        Describe(cities[0]).ShouldBe("Córdoba|AR-X");
+        Describe(cities[1]).ShouldBe("Villa Córdoba|AR-W");
+        cities[2..].ShouldAllBe(city => city.GetProperty("subdivisionCode").GetString() == "AR-X");
     }
 
     [Fact]
@@ -197,6 +197,24 @@ public sealed class CityTests(GeoFixture geo)
             .GetProperty("label")
             .GetString()
             .ShouldBe("Villa María, Córdoba, Argentina");
+    }
+
+    [Fact]
+    public async Task A_search_never_returns_two_items_with_the_same_label()
+    {
+        string[] labels =
+        [
+            .. (await SearchAsync("avellaneda")).Select(static city =>
+                city.GetProperty("label").GetString() ?? ""
+            ),
+        ];
+
+        labels.ShouldNotBeEmpty();
+        labels.Distinct(StringComparer.Ordinal).Count().ShouldBe(labels.Length);
+        // Its entity copy is gone, so the census locality is unique in its province and carries no department.
+        labels
+            .Contains("Avellaneda, Buenos Aires, Argentina", StringComparer.Ordinal)
+            .ShouldBeTrue();
     }
 
     [Theory]

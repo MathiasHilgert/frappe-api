@@ -3410,7 +3410,6 @@ indec_id	name	subdivision_code	department_name	time_zone_id
 0602801011	San Francisco Solano	AR-B	Almirante Brown	America/Argentina/Buenos_Aires
 0602801012	San José	AR-B	Almirante Brown	America/Argentina/Buenos_Aires
 0603501001	Área Reserva Cinturón Ecológico	AR-B	Avellaneda	America/Argentina/Buenos_Aires
-0603501002	Avellaneda	AR-B	Avellaneda	America/Argentina/Buenos_Aires
 0603501003	Crucesita	AR-B	Avellaneda	America/Argentina/Buenos_Aires
 0603501004	Dock Sud	AR-B	Avellaneda	America/Argentina/Buenos_Aires
 0603501005	Gerli	AR-B	Avellaneda	America/Argentina/Buenos_Aires
@@ -3418,12 +3417,10 @@ indec_id	name	subdivision_code	department_name	time_zone_id
 0603501007	Sarandí	AR-B	Avellaneda	America/Argentina/Buenos_Aires
 0603501008	Villa Domínico	AR-B	Avellaneda	America/Argentina/Buenos_Aires
 0603501009	Wilde	AR-B	Avellaneda	America/Argentina/Buenos_Aires
-0605601001	Bahía Blanca	AR-B	Bahía Blanca	America/Argentina/Buenos_Aires
 0605601002	Grünbein	AR-B	Bahía Blanca	America/Argentina/Buenos_Aires
 0605601003	Ingeniero White	AR-B	Bahía Blanca	America/Argentina/Buenos_Aires
 0605601004	Villa Bordeau	AR-B	Bahía Blanca	America/Argentina/Buenos_Aires
 0605601005	Villa Espora	AR-B	Bahía Blanca	America/Argentina/Buenos_Aires
-0609101001	Berazategui	AR-B	Berazategui	America/Argentina/Buenos_Aires
 0609101002	Berazategui Oeste	AR-B	Berazategui	America/Argentina/Buenos_Aires
 0609101003	Carlos Tomás Sourigues	AR-B	Berazategui	America/Argentina/Buenos_Aires
 0609101004	El Pato	AR-B	Berazategui	America/Argentina/Buenos_Aires
@@ -3436,7 +3433,6 @@ indec_id	name	subdivision_code	department_name	time_zone_id
 0609801001	Barrio Banco Provincia	AR-B	Berisso	America/Argentina/Buenos_Aires
 0609801002	Barrio El Carmen Este	AR-B	Berisso	America/Argentina/Buenos_Aires
 0609801003	Barrio Universitario	AR-B	Berisso	America/Argentina/Buenos_Aires
-0609801004	Berisso	AR-B	Berisso	America/Argentina/Buenos_Aires
 0609801005	Los Talas	AR-B	Berisso	America/Argentina/Buenos_Aires
 0609801006	Villa Argüello	AR-B	Berisso	America/Argentina/Buenos_Aires
 0609801007	Villa Dolores	AR-B	Berisso	America/Argentina/Buenos_Aires
@@ -3447,13 +3443,9 @@ indec_id	name	subdivision_code	department_name	time_zone_id
 0609801012	Villa San Carlos	AR-B	Berisso	America/Argentina/Buenos_Aires
 0609801013	Villa Zula	AR-B	Berisso	America/Argentina/Buenos_Aires
 0613405001	Barrio Belgrano	AR-B	Cañuelas	America/Argentina/Buenos_Aires
-0613405002	Máximo Paz	AR-B	Cañuelas	America/Argentina/Buenos_Aires
-0618203001	Punta Alta	AR-B	Coronel de Marina Leonardo Rosales	America/Argentina/Buenos_Aires
 0618203002	Villa del Mar	AR-B	Coronel de Marina Leonardo Rosales	America/Argentina/Buenos_Aires
-0621801001	Chascomús	AR-B	Chascomús	America/Argentina/Buenos_Aires
 0621801003	Barrio San Cayetano	AR-B	Chascomús	America/Argentina/Buenos_Aires
 0624501001	Dique N° 1	AR-B	Ensenada	America/Argentina/Buenos_Aires
-0624501002	Ensenada	AR-B	Ensenada	America/Argentina/Buenos_Aires
 0624501003	Isla Santiago	AR-B	Ensenada	America/Argentina/Buenos_Aires
 0624501004	Punta Lara	AR-B	Ensenada	America/Argentina/Buenos_Aires
 0624501005	Villa Catela	AR-B	Ensenada	America/Argentina/Buenos_Aires
@@ -3490,20 +3482,16 @@ indec_id	name	subdivision_code	department_name	time_zone_id
 0627401010	El Tropezón	AR-B	Florencio Varela	America/Argentina/Buenos_Aires
 0627401011	La Capilla	AR-B	Florencio Varela	America/Argentina/Buenos_Aires
 0631501001	Barrio Kennedy	AR-B	General Juan Madariaga	America/Argentina/Buenos_Aires
-0631501002	General Juan Madariaga	AR-B	General Juan Madariaga	America/Argentina/Buenos_Aires
 0635711001	Camet	AR-B	General Pueyrredón	America/Argentina/Buenos_Aires
 0635711002	Estación Camet	AR-B	General Pueyrredón	America/Argentina/Buenos_Aires
-0635711003	Mar del Plata	AR-B	General Pueyrredón	America/Argentina/Buenos_Aires
 0635711004	Punta Mogotes	AR-B	General Pueyrredón	America/Argentina/Buenos_Aires
 0635711005	Barrio El Casal	AR-B	General Pueyrredón	America/Argentina/Buenos_Aires
 0635712001	Barrio Colinas Verdes	AR-B	General Pueyrredón	America/Argentina/Buenos_Aires
 0635712002	Barrio El Coyunco	AR-B	General Pueyrredón	America/Argentina/Buenos_Aires
 0635712003	Barrio La Gloria	AR-B	General Pueyrredón	America/Argentina/Buenos_Aires
-0635712004	Sierra de los Padres	AR-B	General Pueyrredón	America/Argentina/Buenos_Aires
 0636403001	Barrio Morabo	AR-B	General Rodríguez	America/Argentina/Buenos_Aires
 0636403002	Barrio Ruta 24 Kilómetro 10	AR-B	General Rodríguez	America/Argentina/Buenos_Aires
 0636403003	Country Club Bosque Real	AR-B	General Rodríguez	America/Argentina/Buenos_Aires
-0636403004	General Rodríguez	AR-B	General Rodríguez	America/Argentina/Buenos_Aires
 0637101001	Barrio Parque General San Martín	AR-B	General San Martín	America/Argentina/Buenos_Aires
 0637101002	Billinghurst	AR-B	General San Martín	America/Argentina/Buenos_Aires
 0637101003	Ciudad del Libertador General San Martín	AR-B	General San Martín	America/Argentina/Buenos_Aires
@@ -3531,14 +3519,12 @@ indec_id	name	subdivision_code	department_name	time_zone_id
 0637101025	Villa Parque San Lorenzo	AR-B	General San Martín	America/Argentina/Buenos_Aires
 0637101026	Villa San Andrés	AR-B	General San Martín	America/Argentina/Buenos_Aires
 0637101027	Villa Yapeyú	AR-B	General San Martín	America/Argentina/Buenos_Aires
-0640801001	Hurlingham	AR-B	Hurlingham	America/Argentina/Buenos_Aires
 0640801002	Villa Santos Tesei	AR-B	Hurlingham	America/Argentina/Buenos_Aires
 0640801003	William C. Morris	AR-B	Hurlingham	America/Argentina/Buenos_Aires
 0641001001	Ituzaingó Centro	AR-B	Ituzaingó	America/Argentina/Buenos_Aires
 0641001002	Ituzaingó Sur	AR-B	Ituzaingó	America/Argentina/Buenos_Aires
 0641001003	Villa Gobernador Udadondo	AR-B	Ituzaingó	America/Argentina/Buenos_Aires
 0641201001	Del Viso	AR-B	José C. Paz	America/Argentina/Buenos_Aires
-0641201002	José C. Paz	AR-B	José C. Paz	America/Argentina/Buenos_Aires
 0641201003	Tortuguitas	AR-B	José C. Paz	America/Argentina/Buenos_Aires
 0642004001	Mar del Tuyú	AR-B	La Costa	America/Argentina/Buenos_Aires
 0642004002	Santa Teresita	AR-B	La Costa	America/Argentina/Buenos_Aires
@@ -3577,7 +3563,6 @@ indec_id	name	subdivision_code	department_name	time_zone_id
 0644103012	José Hernández	AR-B	La Plata	America/Argentina/Buenos_Aires
 0644103013	José Melchor Romero	AR-B	La Plata	America/Argentina/Buenos_Aires
 0644103014	La Cumbre	AR-B	La Plata	America/Argentina/Buenos_Aires
-0644103015	La Plata	AR-B	La Plata	America/Argentina/Buenos_Aires
 0644103016	Lisandro Olmos	AR-B	La Plata	America/Argentina/Buenos_Aires
 0644103017	Los Hornos	AR-B	La Plata	America/Argentina/Buenos_Aires
 0644103018	Manuel B. Gonnet	AR-B	La Plata	America/Argentina/Buenos_Aires
@@ -3592,7 +3577,6 @@ indec_id	name	subdivision_code	department_name	time_zone_id
 0644103027	Villa Parque Sicardi	AR-B	La Plata	America/Argentina/Buenos_Aires
 0649001001	Banfield	AR-B	Lomas de Zamora	America/Argentina/Buenos_Aires
 0649001002	Llavallol	AR-B	Lomas de Zamora	America/Argentina/Buenos_Aires
-0649001003	Lomas de Zamora	AR-B	Lomas de Zamora	America/Argentina/Buenos_Aires
 0649001004	Temperley	AR-B	Lomas de Zamora	America/Argentina/Buenos_Aires
 0649001005	Turdera	AR-B	Lomas de Zamora	America/Argentina/Buenos_Aires
 0649001006	Villa Centenario	AR-B	Lomas de Zamora	America/Argentina/Buenos_Aires
@@ -3600,7 +3584,6 @@ indec_id	name	subdivision_code	department_name	time_zone_id
 0649706001	Barrio Las Casuarinas	AR-B	Luján	America/Argentina/Buenos_Aires
 0649706002	Cortines	AR-B	Luján	America/Argentina/Buenos_Aires
 0649706003	Lezica y Torrezuri	AR-B	Luján	America/Argentina/Buenos_Aires
-0649706004	Luján	AR-B	Luján	America/Argentina/Buenos_Aires
 0649706005	Villa Flandria Norte	AR-B	Luján	America/Argentina/Buenos_Aires
 0649706006	Villa Flandria Sur	AR-B	Luján	America/Argentina/Buenos_Aires
 0649706007	Country Club Las Praderas	AR-B	Luján	America/Argentina/Buenos_Aires
@@ -3610,42 +3593,33 @@ indec_id	name	subdivision_code	department_name	time_zone_id
 0651501003	Ingeniero Adolfo Sourdeaux	AR-B	Malvinas Argentinas	America/Argentina/Buenos_Aires
 0651501004	Ingeniero Pablo Nogués	AR-B	Malvinas Argentinas	America/Argentina/Buenos_Aires
 0651501005	Los Polvorines	AR-B	Malvinas Argentinas	America/Argentina/Buenos_Aires
-0651501006	Malvinas Argentinas	AR-B	Malvinas Argentinas	America/Argentina/Buenos_Aires
 0651501007	Tortuguitas	AR-B	Malvinas Argentinas	America/Argentina/Buenos_Aires
 0651501008	Villa de Mayo	AR-B	Malvinas Argentinas	America/Argentina/Buenos_Aires
 0651805001	La Baliza	AR-B	Mar Chiquita	America/Argentina/Buenos_Aires
 0651805002	La Caleta	AR-B	Mar Chiquita	America/Argentina/Buenos_Aires
-0651805003	Mar de Cobo	AR-B	Mar Chiquita	America/Argentina/Buenos_Aires
 0651806001	Atlántida	AR-B	Mar Chiquita	America/Argentina/Buenos_Aires
 0651806002	Camet Norte	AR-B	Mar Chiquita	America/Argentina/Buenos_Aires
 0651806003	Frente Mar	AR-B	Mar Chiquita	America/Argentina/Buenos_Aires
 0651806004	Playa Dorada	AR-B	Mar Chiquita	America/Argentina/Buenos_Aires
-0651806005	Santa Clara del Mar	AR-B	Mar Chiquita	America/Argentina/Buenos_Aires
 0651806006	Santa Elena	AR-B	Mar Chiquita	America/Argentina/Buenos_Aires
 0652502001	Barrio Lisandro de la Torre y Santa Marta	AR-B	Marcos Paz	America/Argentina/Buenos_Aires
-0652502002	Marcos Paz	AR-B	Marcos Paz	America/Argentina/Buenos_Aires
 0653901001	Libertad	AR-B	Merlo	America/Argentina/Buenos_Aires
 0653901002	Mariano Acosta	AR-B	Merlo	America/Argentina/Buenos_Aires
-0653901003	Merlo	AR-B	Merlo	America/Argentina/Buenos_Aires
 0653901004	Pontevedra	AR-B	Merlo	America/Argentina/Buenos_Aires
 0653901005	San Antonio de Padua	AR-B	Merlo	America/Argentina/Buenos_Aires
 0656001001	Cuartel V	AR-B	Moreno	America/Argentina/Buenos_Aires
 0656001002	Francisco Álvarez	AR-B	Moreno	America/Argentina/Buenos_Aires
 0656001003	La Reja	AR-B	Moreno	America/Argentina/Buenos_Aires
-0656001004	Moreno	AR-B	Moreno	America/Argentina/Buenos_Aires
 0656001005	Paso del Rey	AR-B	Moreno	America/Argentina/Buenos_Aires
 0656001006	Trujui	AR-B	Moreno	America/Argentina/Buenos_Aires
 0656801001	Castelar	AR-B	Morón	America/Argentina/Buenos_Aires
 0656801002	El Palomar	AR-B	Morón	America/Argentina/Buenos_Aires
 0656801003	Haedo	AR-B	Morón	America/Argentina/Buenos_Aires
-0656801004	Morón	AR-B	Morón	America/Argentina/Buenos_Aires
 0656801005	Villa Sarmiento	AR-B	Morón	America/Argentina/Buenos_Aires
 0658104001	Necochea	AR-B	Necochea	America/Argentina/Buenos_Aires
 0658104002	Quequén	AR-B	Necochea	America/Argentina/Buenos_Aires
 0658104003	Costa Bonita	AR-B	Necochea	America/Argentina/Buenos_Aires
 0659506001	Colonia Hinojo	AR-B	Olavarría	America/Argentina/Buenos_Aires
-0659506002	Hinojo	AR-B	Olavarría	America/Argentina/Buenos_Aires
-0659511001	Sierras Bayas	AR-B	Olavarría	America/Argentina/Buenos_Aires
 0659511002	Villa Arrieta	AR-B	Olavarría	America/Argentina/Buenos_Aires
 0663804001	Del Viso	AR-B	Pilar	America/Argentina/Buenos_Aires
 0663804002	Fátima	AR-B	Pilar	America/Argentina/Buenos_Aires
@@ -3654,7 +3628,6 @@ indec_id	name	subdivision_code	department_name	time_zone_id
 0663804005	Manzanares	AR-B	Pilar	America/Argentina/Buenos_Aires
 0663804006	Manzone	AR-B	Pilar	America/Argentina/Buenos_Aires
 0663804007	Maquinista F. Savio Oeste	AR-B	Pilar	America/Argentina/Buenos_Aires
-0663804008	Pilar	AR-B	Pilar	America/Argentina/Buenos_Aires
 0663804009	Presidente Derqui	AR-B	Pilar	America/Argentina/Buenos_Aires
 0663804010	Roberto de Vicenzo	AR-B	Pilar	America/Argentina/Buenos_Aires
 0663804011	Santa Teresa	AR-B	Pilar	America/Argentina/Buenos_Aires
@@ -3664,7 +3637,6 @@ indec_id	name	subdivision_code	department_name	time_zone_id
 0663804015	Zelaya	AR-B	Pilar	America/Argentina/Buenos_Aires
 0664401001	Cariló	AR-B	Pinamar	America/Argentina/Buenos_Aires
 0664401002	Ostende	AR-B	Pinamar	America/Argentina/Buenos_Aires
-0664401003	Pinamar	AR-B	Pinamar	America/Argentina/Buenos_Aires
 0664401004	Valeria del Mar	AR-B	Pinamar	America/Argentina/Buenos_Aires
 0664801001	Barrio América Unida	AR-B	Presidente Perón	America/Argentina/Buenos_Aires
 0664801002	Guernica	AR-B	Presidente Perón	America/Argentina/Buenos_Aires
@@ -3673,30 +3645,23 @@ indec_id	name	subdivision_code	department_name	time_zone_id
 0665801003	Don Bosco	AR-B	Quilmes	America/Argentina/Buenos_Aires
 0665801004	Ezpeleta	AR-B	Quilmes	America/Argentina/Buenos_Aires
 0665801005	Ezpeleta Oeste	AR-B	Quilmes	America/Argentina/Buenos_Aires
-0665801006	Quilmes	AR-B	Quilmes	America/Argentina/Buenos_Aires
 0665801007	Quilmes Oeste	AR-B	Quilmes	America/Argentina/Buenos_Aires
 0665801008	San Francisco Solano	AR-B	Quilmes	America/Argentina/Buenos_Aires
 0665801009	Villa La Florida	AR-B	Quilmes	America/Argentina/Buenos_Aires
 0668606001	Barrio Las Margaritas	AR-B	Rojas	America/Argentina/Buenos_Aires
-0668606002	Rojas	AR-B	Rojas	America/Argentina/Buenos_Aires
 0668606003	Villa Parque Cecir	AR-B	Rojas	America/Argentina/Buenos_Aires
-0674901001	San Fernando	AR-B	San Fernando	America/Argentina/Buenos_Aires
 0674901002	Victoria	AR-B	San Fernando	America/Argentina/Buenos_Aires
 0674901003	Virreyes	AR-B	San Fernando	America/Argentina/Buenos_Aires
 0675601001	Acasusso	AR-B	San Isidro	America/Argentina/Buenos_Aires
 0675601002	Béccar	AR-B	San Isidro	America/Argentina/Buenos_Aires
 0675601003	Boulogne Sur Mer	AR-B	San Isidro	America/Argentina/Buenos_Aires
 0675601004	Martínez	AR-B	San Isidro	America/Argentina/Buenos_Aires
-0675601005	San Isidro	AR-B	San Isidro	America/Argentina/Buenos_Aires
 0675601006	Villa Adelina	AR-B	San Isidro	America/Argentina/Buenos_Aires
 0676001001	Bella Vista	AR-B	San Miguel	America/Argentina/Buenos_Aires
 0676001002	Campo de Mayo	AR-B	San Miguel	America/Argentina/Buenos_Aires
 0676001003	Muñiz	AR-B	San Miguel	America/Argentina/Buenos_Aires
-0676001004	San Miguel	AR-B	San Miguel	America/Argentina/Buenos_Aires
 0676305001	Campos Salles	AR-B	San Nicolás	America/Argentina/Buenos_Aires
-0676305002	San Nicolás de los Arroyos	AR-B	San Nicolás	America/Argentina/Buenos_Aires
 0677802001	Alejandro Korn	AR-B	San Vicente	America/Argentina/Buenos_Aires
-0677802002	San Vicente	AR-B	San Vicente	America/Argentina/Buenos_Aires
 0677802003	Domselaar	AR-B	San Vicente	America/Argentina/Buenos_Aires
 0680501001	Benavídez	AR-B	Tigre	America/Argentina/Buenos_Aires
 0680501002	Dique Luján	AR-B	Tigre	America/Argentina/Buenos_Aires
@@ -3707,8 +3672,6 @@ indec_id	name	subdivision_code	department_name	time_zone_id
 0680501007	Troncos del Talar	AR-B	Tigre	America/Argentina/Buenos_Aires
 0680501008	Ricardo Rojas	AR-B	Tigre	America/Argentina/Buenos_Aires
 0680501009	Rincón de Milberg	AR-B	Tigre	America/Argentina/Buenos_Aires
-0680501010	Tigre	AR-B	Tigre	America/Argentina/Buenos_Aires
-0683302001	Claromecó	AR-B	Tres Arroyos	America/Argentina/Buenos_Aires
 0683302002	Dunamar	AR-B	Tres Arroyos	America/Argentina/Buenos_Aires
 0684001001	Caseros	AR-B	Tres de Febrero	America/Argentina/Buenos_Aires
 0684001002	Churruca	AR-B	Tres de Febrero	America/Argentina/Buenos_Aires
@@ -3731,16 +3694,12 @@ indec_id	name	subdivision_code	department_name	time_zone_id
 0686101004	La Lucila	AR-B	Vicente López	America/Argentina/Buenos_Aires
 0686101005	Munro	AR-B	Vicente López	America/Argentina/Buenos_Aires
 0686101006	Olivos	AR-B	Vicente López	America/Argentina/Buenos_Aires
-0686101007	Vicente López	AR-B	Vicente López	America/Argentina/Buenos_Aires
 0686101008	Villa Adelina	AR-B	Vicente López	America/Argentina/Buenos_Aires
 0686101009	Villa Martelli	AR-B	Vicente López	America/Argentina/Buenos_Aires
 0688205001	Barrio Saavedra	AR-B	Zárate	America/Argentina/Buenos_Aires
-0688205002	Zárate	AR-B	Zárate	America/Argentina/Buenos_Aires
 1002105001	Buena Vista	AR-K	Andalgalá	America/Argentina/Catamarca
-1002105002	El Alamito	AR-K	Andalgalá	America/Argentina/Catamarca
 1002106001	Aconquija	AR-K	Andalgalá	America/Argentina/Catamarca
 1002106002	Alto de las Juntas	AR-K	Andalgalá	America/Argentina/Catamarca
-1002106003	El Lindero	AR-K	Andalgalá	America/Argentina/Catamarca
 1002106004	La Mesada	AR-K	Andalgalá	America/Argentina/Catamarca
 1004211001	Los Ángeles Norte	AR-K	Capayán	America/Argentina/Catamarca
 1004211002	Los Ángeles Sur	AR-K	Capayán	America/Argentina/Catamarca
@@ -3749,47 +3708,34 @@ indec_id	name	subdivision_code	department_name	time_zone_id
 1006304003	La Falda de San Antonio	AR-K	Fray Mamerto Esquiú	America/Argentina/Catamarca
 1006304004	La Tercena	AR-K	Fray Mamerto Esquiú	America/Argentina/Catamarca
 1006304005	San Antonio	AR-K	Fray Mamerto Esquiú	America/Argentina/Catamarca
-1006304006	San José	AR-K	Fray Mamerto Esquiú	America/Argentina/Catamarca
-1009103001	Chañar Punco	AR-K	Santa María	America/Argentina/Catamarca
 1009103002	Lampacito	AR-K	Santa María	America/Argentina/Catamarca
 1009103003	Medanitos	AR-K	Santa María	America/Argentina/Catamarca
-1009107001	Famatanca	AR-K	Santa María	America/Argentina/Catamarca
 1009107002	San José Banda	AR-K	Santa María	America/Argentina/Catamarca
 1009111001	El Cerrito	AR-K	Santa María	America/Argentina/Catamarca
-1009111002	Las Mojarras	AR-K	Santa María	America/Argentina/Catamarca
 1009114001	Casa de Piedra	AR-K	Santa María	America/Argentina/Catamarca
 1009114002	La Puntilla	AR-K	Santa María	America/Argentina/Catamarca
 1009114003	Palo Seco	AR-K	Santa María	America/Argentina/Catamarca
 1009114004	San José Norte	AR-K	Santa María	America/Argentina/Catamarca
 1009114005	San José Villa	AR-K	Santa María	America/Argentina/Catamarca
-1010505001	Copacabana	AR-K	Tinogasta	America/Argentina/Catamarca
 1010505002	La Puntilla	AR-K	Tinogasta	America/Argentina/Catamarca
-1010511001	Fiambalá	AR-K	Tinogasta	America/Argentina/Catamarca
 1010511002	La Ramadita	AR-K	Tinogasta	America/Argentina/Catamarca
 1010511003	Pampa Blanca	AR-K	Tinogasta	America/Argentina/Catamarca
 1011204001	El Bañado	AR-K	Valle Viejo	America/Argentina/Catamarca
 1011204002	Polcos	AR-K	Valle Viejo	America/Argentina/Catamarca
 1011204003	Pozo del Mistol	AR-K	Valle Viejo	America/Argentina/Catamarca
-1011204004	San Isidro	AR-K	Valle Viejo	America/Argentina/Catamarca
 1011204005	Santa Rosa	AR-K	Valle Viejo	America/Argentina/Catamarca
 1011204006	Sumalao	AR-K	Valle Viejo	America/Argentina/Catamarca
 1011204007	Villa Dolores	AR-K	Valle Viejo	America/Argentina/Catamarca
-1400712001	Los Molinos	AR-X	Calamuchita	America/Argentina/Cordoba
 1400712002	Villa San Miguel	AR-X	Calamuchita	America/Argentina/Cordoba
 1400721001	Santa Mónica	AR-X	Calamuchita	America/Argentina/Cordoba
-1400721002	Santa Rosa de Calamuchita	AR-X	Calamuchita	America/Argentina/Cordoba
 1400721003	San Ignacio (Loteo Vélez Crespo)	AR-X	Calamuchita	America/Argentina/Cordoba
-1400727001	Villa Ciudad Parque Los Reartes	AR-X	Calamuchita	America/Argentina/Cordoba
 1400727002	Va.Ciudad Pque.Los Reartes (1° Sección)	AR-X	Calamuchita	America/Argentina/Cordoba
 1400727003	Va.Ciudad Pque.Los Reartes (3° Sección)	AR-X	Calamuchita	America/Argentina/Cordoba
 1401401001	Jardín Arenales	AR-X	Capital	America/Argentina/Cordoba
 1401401002	La Floresta	AR-X	Capital	America/Argentina/Cordoba
-1401401003	Córdoba	AR-X	Capital	America/Argentina/Cordoba
 1402115001	Dumesnil	AR-X	Colón	America/Argentina/Cordoba
-1402115002	La Calera	AR-X	Colón	America/Argentina/Cordoba
 1402115003	El Diquecito	AR-X	Colón	America/Argentina/Cordoba
 1402125001	El Pueblito	AR-X	Colón	America/Argentina/Cordoba
-1402125002	Salsipuedes	AR-X	Colón	America/Argentina/Cordoba
 1402131001	Guiñazú Norte	AR-X	Colón	America/Argentina/Cordoba
 1402131002	Parque Norte	AR-X	Colón	America/Argentina/Cordoba
 1402131004	1° de Agosto	AR-X	Colón	America/Argentina/Cordoba
@@ -3798,23 +3744,17 @@ indec_id	name	subdivision_code	department_name	time_zone_id
 1402131007	Villa Pastora	AR-X	Colón	America/Argentina/Cordoba
 1402132001	Juárez Celman	AR-X	Colón	America/Argentina/Cordoba
 1402132002	Villa Los Llanos	AR-X	Colón	America/Argentina/Cordoba
-1409102001	Bialet Massé	AR-X	Punilla	America/Argentina/Cordoba
 1409102002	San Roque del Lago	AR-X	Punilla	America/Argentina/Cordoba
 1413319001	Alto Resbaloso - El Barrial	AR-X	San Javier	America/Argentina/Cordoba
 1413319002	El Pueblito	AR-X	San Javier	America/Argentina/Cordoba
 1413319003	El Valle	AR-X	San Javier	America/Argentina/Cordoba
 1413319004	Las Chacras	AR-X	San Javier	America/Argentina/Cordoba
-1413319005	Villa de las Rosas	AR-X	San Javier	America/Argentina/Cordoba
 1414703001	Barrio Gilbert	AR-X	Santa María	America/Argentina/Cordoba
 1414703002	Tejas Tres	AR-X	Santa María	America/Argentina/Cordoba
 1414719001	Las Quintas	AR-X	Santa María	America/Argentina/Cordoba
-1414719002	Los Cedros	AR-X	Santa María	America/Argentina/Cordoba
 1414731001	Barrio Villa del Parque	AR-X	Santa María	America/Argentina/Cordoba
-1414731002	Villa Ciudad de América	AR-X	Santa María	America/Argentina/Cordoba
-1414732001	Villa del Prado	AR-X	Santa María	America/Argentina/Cordoba
 1414732002	La Donosa	AR-X	Santa María	America/Argentina/Cordoba
 1414735001	Mi Valle	AR-X	Santa María	America/Argentina/Cordoba
-1414735002	Villa Parque Santa Ana	AR-X	Santa María	America/Argentina/Cordoba
 2602103001	Acceso Norte	AR-U	Escalante	America/Argentina/Catamarca
 2602103002	Barrio Caleta Córdova	AR-U	Escalante	America/Argentina/Catamarca
 2602103003	Caleta Olivares	AR-U	Escalante	America/Argentina/Catamarca
@@ -3832,50 +3772,33 @@ indec_id	name	subdivision_code	department_name	time_zone_id
 2602103015	Barrio Sarmiento	AR-U	Escalante	America/Argentina/Catamarca
 2602103016	Barrio 25 de Mayo	AR-U	Escalante	America/Argentina/Catamarca
 2602103017	Barrio Villa S.U.P.E.	AR-U	Escalante	America/Argentina/Catamarca
-2602103018	Comodoro Rivadavia	AR-U	Escalante	America/Argentina/Catamarca
 2602103019	Kilómetro 5 - Presidente Ortíz	AR-U	Escalante	America/Argentina/Catamarca
 2602103020	Kilómetro 8 - Don Bosco	AR-U	Escalante	America/Argentina/Catamarca
 2602103021	Kilómetro 11 - Cuarteles	AR-U	Escalante	America/Argentina/Catamarca
 2602103022	Kilómetro 3 - General Mosconi	AR-U	Escalante	America/Argentina/Catamarca
 3000809001	El Brillante	AR-E	Colón	America/Argentina/Cordoba
 3000809002	El Colorado	AR-E	Colón	America/Argentina/Cordoba
-3000809003	San José	AR-E	Colón	America/Argentina/Cordoba
 3001506001	Benito Legerén	AR-E	Concordia	America/Argentina/Cordoba
 3001506002	Villa Adela	AR-E	Concordia	America/Argentina/Cordoba
 3001506003	Las Tejas	AR-E	Concordia	America/Argentina/Cordoba
-3001506005	Concordia	AR-E	Concordia	America/Argentina/Cordoba
 3001506007	Villa Zorraquín	AR-E	Concordia	America/Argentina/Cordoba
-3002108001	Diamante	AR-E	Diamante	America/Argentina/Cordoba
 3002108002	Strobel	AR-E	Diamante	America/Argentina/Cordoba
 3002115001	Estación Puiggari	AR-E	Diamante	America/Argentina/Cordoba
-3002115002	Villa Libertador San Martín	AR-E	Diamante	America/Argentina/Cordoba
-3008405001	Cerrito	AR-E	Paraná	America/Argentina/Cordoba
 3008405002	Pueblo Moreno	AR-E	Paraná	America/Argentina/Cordoba
-3403501001	Bartolomé de las Casas	AR-P	Patiño	America/Argentina/Cordoba
 3403501002	Comunidad Aborigen Bartolomé de las Casas	AR-P	Patiño	America/Argentina/Cordoba
-3801401001	Aguas Calientes	AR-Y	El Carmen	America/Argentina/Jujuy
 3801401002	Fleming	AR-Y	El Carmen	America/Argentina/Jujuy
 3801401003	Pila Pardo	AR-Y	El Carmen	America/Argentina/Jujuy
 3802107001	Los Nogales	AR-Y	Dr. Manuel Belgrano	America/Argentina/Jujuy
 3802107002	San Pablo de Reyes	AR-Y	Dr. Manuel Belgrano	America/Argentina/Jujuy
-3802107003	Yala	AR-Y	Dr. Manuel Belgrano	America/Argentina/Jujuy
-3803508001	Libertador General San Martín	AR-Y	Ledesma	America/Argentina/Jujuy
 3803508002	Pueblo Ledesma	AR-Y	Ledesma	America/Argentina/Jujuy
-3804204001	Palpalá	AR-Y	Palpalá	America/Argentina/Jujuy
 3804204002	Río Blanco	AR-Y	Palpalá	America/Argentina/Jujuy
-3809401001	Colonia San José	AR-Y	Tilcara	America/Argentina/Jujuy
 3809401002	Yacoraite	AR-Y	Tilcara	America/Argentina/Jujuy
 3811208001	San José	AR-Y	Yavi	America/Argentina/Jujuy
-3811208002	Yavi	AR-Y	Yavi	America/Argentina/Jujuy
-4600701001	Aimogasta	AR-F	Arauco	America/Argentina/La_Rioja
 4600701002	Machigasta	AR-F	Arauco	America/Argentina/La_Rioja
 4600701003	San Antonio	AR-F	Arauco	America/Argentina/La_Rioja
-4602802001	Guandacol	AR-F	General Felipe Varela	America/Argentina/La_Rioja
 4602802002	Santa Clara	AR-F	General Felipe Varela	America/Argentina/La_Rioja
 4602805001	Banda Florida	AR-F	General Felipe Varela	America/Argentina/La_Rioja
-4602805002	Villa Unión	AR-F	General Felipe Varela	America/Argentina/La_Rioja
 4604201001	Anguinán	AR-F	Chilecito	America/Argentina/La_Rioja
-4604201002	Chilecito	AR-F	Chilecito	America/Argentina/La_Rioja
 4604201003	La Puntilla	AR-F	Chilecito	America/Argentina/La_Rioja
 4604201004	Los Sarmientos	AR-F	Chilecito	America/Argentina/La_Rioja
 4604201005	San Miguel	AR-F	Chilecito	America/Argentina/La_Rioja
@@ -3943,55 +3866,37 @@ indec_id	name	subdivision_code	department_name	time_zone_id
 5007006003	General Gutiérrez	AR-M	Maipú	America/Argentina/Mendoza
 5007006004	Luzuriaga	AR-M	Maipú	America/Argentina/Mendoza
 5008407001	Cuadro Ortega	AR-M	Rivadavia	America/Argentina/Mendoza
-5008407002	La Florida	AR-M	Rivadavia	America/Argentina/Mendoza
 5009810001	Palmira	AR-M	San Martín	America/Argentina/Mendoza
-5009810002	San Martín	AR-M	San Martín	America/Argentina/Mendoza
 5010521001	Cuadro Nacional	AR-M	San Rafael	America/Argentina/Mendoza
-5010521002	San Rafael	AR-M	San Rafael	America/Argentina/Mendoza
-5012606001	Tupungato	AR-M	Tupungato	America/Argentina/Mendoza
 5012606002	Villa Bastias	AR-M	Tupungato	America/Argentina/Mendoza
 5401403001	Dos de Mayo Núcleo I	AR-N	Cainguás	America/Argentina/Cordoba
 5401403002	Dos de Mayo Núcleo II	AR-N	Cainguás	America/Argentina/Cordoba
 5811202001	Covunco Centro	AR-Q	Zapala	America/Argentina/Salta
-5811202002	Mariano Moreno	AR-Q	Zapala	America/Argentina/Salta
-6202106001	San Carlos de Bariloche	AR-R	Bariloche	America/Argentina/Salta
 6202106002	Villa Campanario	AR-R	Bariloche	America/Argentina/Salta
 6202106003	Villa Llao Llao	AR-R	Bariloche	America/Argentina/Salta
 6204239001	Barrio Presidente Perón	AR-R	General Roca	America/Argentina/Salta
-6204239002	Cinco Saltos	AR-R	General Roca	America/Argentina/Salta
 6204240001	Barrio La Lor	AR-R	General Roca	America/Argentina/Salta
-6204240002	Cipolletti	AR-R	General Roca	America/Argentina/Salta
 6204245001	Barrio Pino Azul	AR-R	General Roca	America/Argentina/Salta
-6204245002	General Roca	AR-R	General Roca	America/Argentina/Salta
 6602805001	Country Club El Tipal	AR-A	Capital	America/Argentina/Salta
 6602805002	Country Club La Almudena	AR-A	Capital	America/Argentina/Salta
-6602805003	Salta	AR-A	Capital	America/Argentina/Salta
-6605609001	Embarcación	AR-A	General José de San Martín	America/Argentina/Salta
 6605609002	Misión Tierras Fiscales	AR-A	General José de San Martín	America/Argentina/Salta
-6605611001	General Mosconi	AR-A	General José de San Martín	America/Argentina/Salta
 6605611002	Recaredo	AR-A	General José de San Martín	America/Argentina/Salta
-6612602001	Colonia Santa Rosa	AR-A	Orán	America/Argentina/Salta
 6612602002	La Misión	AR-A	Orán	America/Argentina/Salta
 7001402001	Villa El Salvador	AR-J	Angaco	America/Argentina/San_Juan
 7001402002	Villa Sefair	AR-J	Angaco	America/Argentina/San_Juan
 7003504001	Las Talas	AR-J	Caucete	America/Argentina/San_Juan
 7003504002	Los Médanos	AR-J	Caucete	America/Argentina/San_Juan
 7005606002	La Falda	AR-J	Jáchal	America/Argentina/San_Juan
-7005606003	Pampa Vieja	AR-J	Jáchal	America/Argentina/San_Juan
 7007004001	La Rinconada	AR-J	Pocito	America/Argentina/San_Juan
 7007004002	Villa Aberastain	AR-J	Pocito	America/Argentina/San_Juan
 7007005001	Villa Barboza	AR-J	Pocito	America/Argentina/San_Juan
 7007005002	Villa Nacusi	AR-J	Pocito	America/Argentina/San_Juan
 7007701001	El Medanito	AR-J	Rawson	America/Argentina/San_Juan
-7007701002	Rawson	AR-J	Rawson	America/Argentina/San_Juan
 7009801001	Colonia Gutiérrez	AR-J	Santa Lucía	America/Argentina/San_Juan
-7009801002	Santa Lucía	AR-J	Santa Lucía	America/Argentina/San_Juan
 7012603001	La Chimbera	AR-J	25 de Mayo	America/Argentina/San_Juan
 7012603002	Villa Borjas	AR-J	25 de Mayo	America/Argentina/San_Juan
-7013301001	Villa Basilio Nievas	AR-J	Zonda	America/Argentina/San_Juan
 7013301002	Villa Tacú	AR-J	Zonda	America/Argentina/San_Juan
 7403507001	La Ribera	AR-D	General Pedernera	America/Argentina/San_Luis
-7403507002	Villa Mercedes	AR-D	General Pedernera	America/Argentina/San_Luis
 7403508001	Country Club Los Caldenes	AR-D	General Pedernera	America/Argentina/San_Luis
 7403508002	5ta Brigada	AR-D	General Pedernera	America/Argentina/San_Luis
 7405610001	Cerro Colorado	AR-D	Juan Martín de Pueyrredón	America/Argentina/San_Luis
@@ -4000,30 +3905,20 @@ indec_id	name	subdivision_code	department_name	time_zone_id
 7405610004	Las Chacras	AR-D	Juan Martín de Pueyrredón	America/Argentina/San_Luis
 7405610005	San Roque	AR-D	Juan Martín de Pueyrredón	America/Argentina/San_Luis
 8202129001	Estación Presidente Roca	AR-S	Castellanos	America/Argentina/Cordoba
-8202129002	Presidente Roca	AR-S	Castellanos	America/Argentina/Cordoba
-8206303001	Arroyo Leyes	AR-S	La Capital	America/Argentina/Cordoba
 8206303002	Rincón Norte	AR-S	La Capital	America/Argentina/Cordoba
-8206319001	Sauce Viejo	AR-S	La Capital	America/Argentina/Cordoba
 8206319002	Villa Adelina	AR-S	La Capital	America/Argentina/Cordoba
-9001401001	Alderetes	AR-T	Cruz Alta	America/Argentina/Tucuman
 9001401002	El Corte	AR-T	Cruz Alta	America/Argentina/Tucuman
 9001401003	Los Gutiérrez	AR-T	Cruz Alta	America/Argentina/Tucuman
-9001402001	Banda del Río Salí	AR-T	Cruz Alta	America/Argentina/Tucuman
 9001402002	Barrio Aeropuerto	AR-T	Cruz Alta	America/Argentina/Tucuman
 9001402003	Lastenia	AR-T	Cruz Alta	America/Argentina/Tucuman
 9001406001	El Paraíso	AR-T	Cruz Alta	America/Argentina/Tucuman
 9001406002	Ex Ingenio Esperanza	AR-T	Cruz Alta	America/Argentina/Tucuman
 9001406003	Ex Ingenio Luján	AR-T	Cruz Alta	America/Argentina/Tucuman
 9001408001	Ingenio La Florida	AR-T	Cruz Alta	America/Argentina/Tucuman
-9001408002	La Florida	AR-T	Cruz Alta	America/Argentina/Tucuman
 9001410001	Ex Ingenio Los Ralos	AR-T	Cruz Alta	America/Argentina/Tucuman
 9001410002	Villa Recaste	AR-T	Cruz Alta	America/Argentina/Tucuman
 9001410003	Villa Tercera	AR-T	Cruz Alta	America/Argentina/Tucuman
 9002803001	Ex Ingenio Nueva Baviera	AR-T	Famaillá	America/Argentina/Tucuman
-9002803002	Famaillá	AR-T	Famaillá	America/Argentina/Tucuman
 9006302001	Barrio Araujo	AR-T	Lules	America/Argentina/Tucuman
-9006302002	El Manantial	AR-T	Lules	America/Argentina/Tucuman
-9007701001	Aguilares	AR-T	Río Chico	America/Argentina/Tucuman
 9007701002	Ingenio Santa Bárbara	AR-T	Río Chico	America/Argentina/Tucuman
 9011903001	Ex Ingenio San José	AR-T	Yerba Buena	America/Argentina/Tucuman
-9011903002	Yerba Buena - Marcos Paz	AR-T	Yerba Buena	America/Argentina/Tucuman

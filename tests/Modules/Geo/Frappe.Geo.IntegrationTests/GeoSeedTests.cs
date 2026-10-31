@@ -95,8 +95,25 @@ public sealed class GeoSeedTests(GeoFixture geo)
             "SELECT count(*) - count(DISTINCT indec_id) FROM geo.cities"
         );
 
-        active.ShouldBeGreaterThanOrEqualTo(4000);
+        // Georef lists about 4,000 localities, minus the entity copies of census localities.
+        active.ShouldBeGreaterThanOrEqualTo(3900);
         others.ShouldBe(0);
+        repeated.ShouldBe(0);
+    }
+
+    // A census locality and its Georef entity copy share name, province and department; only one is seeded.
+    [Fact]
+    public async Task No_two_active_cities_share_name_province_and_department()
+    {
+        long repeated = await ScalarAsync<long>(
+            """
+            SELECT count(*) FROM (
+                SELECT 1 FROM geo.cities WHERE status = 'Active'
+                GROUP BY search_name, subdivision_code, department_name HAVING count(*) > 1
+            ) AS groups
+            """
+        );
+
         repeated.ShouldBe(0);
     }
 
