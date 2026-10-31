@@ -29,11 +29,15 @@ public static class PlatformExtensions
         builder.AddHealth();
         builder.AddHttp();
         // Responses, Contracts records and messages carry typed ids and NodaTime values.
-        builder.Services.ConfigureHttpJsonOptions(static options =>
-            options.SerializerOptions.AddKernelJson()
+        // Module value objects come from each module's JSON hook, read once the modules are added.
+        IServiceCollection services = builder.Services;
+        builder.Services.ConfigureHttpJsonOptions(options =>
+            options.SerializerOptions.AddKernelJson().Converters.Add(ModuleConverters(services))
         );
         // Before persistence, so every context it and the modules register joins the bus's transaction.
-        builder.AddMessaging(static json => json.AddKernelJson());
+        builder.AddMessaging(json =>
+            json.AddKernelJson().Converters.Add(ModuleConverters(services))
+        );
         builder.AddPersistence();
         return builder;
     }
@@ -67,4 +71,13 @@ public static class PlatformExtensions
         app.MapModuleEndpoints();
         return app;
     }
+
+    // The added modules are the IModule singletons AddFrappeModules registers.
+    private static ModuleJsonConverters ModuleConverters(IServiceCollection services) =>
+        new(() =>
+            services
+                .Where(static service => service.ServiceType == typeof(IModule))
+                .Select(static service => service.ImplementationInstance)
+                .OfType<IModule>()
+        );
 }

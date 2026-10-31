@@ -1,5 +1,6 @@
 using System.Reflection;
 using Alba;
+using Frappe.Migrations;
 using Frappe.Platform.Modularity;
 using Frappe.Platform.Persistence;
 using Frappe.TestUtilities;
@@ -25,6 +26,26 @@ public sealed class ModuleRegistrationTests(FrappeDatabase database, FrappeNats 
             .Select(static module => module.GetType());
 
         added.ShouldBe(ShippedModules(), ignoreOrder: true);
+    }
+
+    // The migrator seeds the modules it lists, so a module the host runs but the migrator misses would serve no data.
+    [Fact]
+    public async Task The_migrator_seeds_every_module_the_host_adds()
+    {
+        await using IAlbaHost host = await AlbaHost.For<Program>(builder =>
+            builder
+                .UseSetting("ConnectionStrings:Frappe", database.AppConnectionString)
+                .UseSetting("Nats:Url", nats.Url)
+        );
+
+        IEnumerable<Type> added = host
+            .Services.GetServices<IModule>()
+            .Select(static module => module.GetType());
+
+        added.ShouldBe(
+            MigrationsRunner.Modules.Select(static module => module.GetType()),
+            ignoreOrder: true
+        );
     }
 
     // A module's context must own its module's schema; vacuous, like the test above, until the first module lands.

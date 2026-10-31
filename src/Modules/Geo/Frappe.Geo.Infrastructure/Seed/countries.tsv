@@ -1,0 +1,250 @@
+country_code	alpha3	numeric_code	default_currency_code	calling_code	name_en	name_es	name_pt
+AD	AND	020	EUR	376	Andorra	Andorra	Andorra
+AE	ARE	784	AED	971	United Arab Emirates	Emiratos Árabes Unidos	Emirados Árabes Unidos
+AF	AFG	004	AFN	93	Afghanistan	Afganistán	Afeganistão
+AG	ATG	028	XCD	1	Antigua & Barbuda	Antigua y Barbuda	Antígua e Barbuda
+AI	AIA	660	XCD	1	Anguilla	Anguila	Anguila
+AL	ALB	008	ALL	355	Albania	Albania	Albânia
+AM	ARM	051	AMD	374	Armenia	Armenia	Armênia
+AO	AGO	024	AOA	244	Angola	Angola	Angola
+AQ	ATA	010			Antarctica	Antártida	Antártida
+AR	ARG	032	ARS	54	Argentina	Argentina	Argentina
+AS	ASM	016	USD	1	American Samoa	Samoa Americana	Samoa Americana
+AT	AUT	040	EUR	43	Austria	Austria	Áustria
+AU	AUS	036	AUD	61	Australia	Australia	Austrália
+AW	ABW	533	AWG	297	Aruba	Aruba	Aruba
+AX	ALA	248	EUR	358	Åland Islands	Islas Aland	Ilhas Aland
+AZ	AZE	031	AZN	994	Azerbaijan	Azerbaiyán	Azerbaijão
+BA	BIH	070	BAM	387	Bosnia & Herzegovina	Bosnia y Herzegovina	Bósnia e Herzegovina
+BB	BRB	052	BBD	1	Barbados	Barbados	Barbados
+BD	BGD	050	BDT	880	Bangladesh	Bangladés	Bangladesh
+BE	BEL	056	EUR	32	Belgium	Bélgica	Bélgica
+BF	BFA	854	XOF	226	Burkina Faso	Burkina Faso	Burquina Faso
+BG	BGR	100	EUR	359	Bulgaria	Bulgaria	Bulgária
+BH	BHR	048	BHD	973	Bahrain	Baréin	Barein
+BI	BDI	108	BIF	257	Burundi	Burundi	Burundi
+BJ	BEN	204	XOF	229	Benin	Benín	Benin
+BL	BLM	652	EUR	590	St. Barthélemy	San Bartolomé	São Bartolomeu
+BM	BMU	060	BMD	1	Bermuda	Bermudas	Bermudas
+BN	BRN	096	BND	673	Brunei	Brunéi	Brunei
+BO	BOL	068	BOB	591	Bolivia	Bolivia	Bolívia
+BQ	BES	535	USD	599	Caribbean Netherlands	Caribe neerlandés	Países Baixos Caribenhos
+BR	BRA	076	BRL	55	Brazil	Brasil	Brasil
+BS	BHS	044	BSD	1	Bahamas	Bahamas	Bahamas
+BT	BTN	064	BTN	975	Bhutan	Bután	Butão
+BV	BVT	074	NOK		Bouvet Island	Isla Bouvet	Ilha Bouvet
+BW	BWA	072	BWP	267	Botswana	Botsuana	Botsuana
+BY	BLR	112	BYN	375	Belarus	Bielorrusia	Bielorrússia
+BZ	BLZ	084	BZD	501	Belize	Belice	Belize
+CA	CAN	124	CAD	1	Canada	Canadá	Canadá
+CC	CCK	166	AUD	61	Cocos (Keeling) Islands	Islas Cocos	Ilhas Cocos (Keeling)
+CD	COD	180	CDF	243	Congo - Kinshasa	República Democrática del Congo	Congo - Kinshasa
+CF	CAF	140	XAF	236	Central African Republic	República Centroafricana	República Centro-Africana
+CG	COG	178	XAF	242	Congo - Brazzaville	Congo	República do Congo
+CH	CHE	756	CHF	41	Switzerland	Suiza	Suíça
+CI	CIV	384	XOF	225	Côte d’Ivoire	Côte d’Ivoire	Costa do Marfim
+CK	COK	184	NZD	682	Cook Islands	Islas Cook	Ilhas Cook
+CL	CHL	152	CLP	56	Chile	Chile	Chile
+CM	CMR	120	XAF	237	Cameroon	Camerún	Camarões
+CN	CHN	156	CNY	86	China	China	China
+CO	COL	170	COP	57	Colombia	Colombia	Colômbia
+CR	CRI	188	CRC	506	Costa Rica	Costa Rica	Costa Rica
+CU	CUB	192	CUP	53	Cuba	Cuba	Cuba
+CV	CPV	132	CVE	238	Cape Verde	Cabo Verde	Cabo Verde
+CW	CUW	531	XCG	599	Curaçao	Curazao	Curaçao
+CX	CXR	162	AUD	61	Christmas Island	Isla de Navidad	Ilha Christmas
+CY	CYP	196	EUR	357	Cyprus	Chipre	Chipre
+CZ	CZE	203	CZK	420	Czechia	Chequia	Tchéquia
+DE	DEU	276	EUR	49	Germany	Alemania	Alemanha
+DJ	DJI	262	DJF	253	Djibouti	Yibuti	Djibuti
+DK	DNK	208	DKK	45	Denmark	Dinamarca	Dinamarca
+DM	DMA	212	XCD	1	Dominica	Dominica	Dominica
+DO	DOM	214	DOP	1	Dominican Republic	República Dominicana	República Dominicana
+DZ	DZA	012	DZD	213	Algeria	Argelia	Argélia
+EC	ECU	218	USD	593	Ecuador	Ecuador	Equador
+EE	EST	233	EUR	372	Estonia	Estonia	Estônia
+EG	EGY	818	EGP	20	Egypt	Egipto	Egito
+EH	ESH	732	MAD	212	Western Sahara	Sáhara Occidental	Saara Ocidental
+ER	ERI	232	ERN	291	Eritrea	Eritrea	Eritreia
+ES	ESP	724	EUR	34	Spain	España	Espanha
+ET	ETH	231	ETB	251	Ethiopia	Etiopía	Etiópia
+FI	FIN	246	EUR	358	Finland	Finlandia	Finlândia
+FJ	FJI	242	FJD	679	Fiji	Fiyi	Fiji
+FK	FLK	238	FKP	500	Falkland Islands	Islas Malvinas	Ilhas Malvinas
+FM	FSM	583	USD	691	Micronesia	Micronesia	Micronésia
+FO	FRO	234	DKK	298	Faroe Islands	Islas Feroe	Ilhas Faroé
+FR	FRA	250	EUR	33	France	Francia	França
+GA	GAB	266	XAF	241	Gabon	Gabón	Gabão
+GB	GBR	826	GBP	44	United Kingdom	Reino Unido	Reino Unido
+GD	GRD	308	XCD	1	Grenada	Granada	Granada
+GE	GEO	268	GEL	995	Georgia	Georgia	Geórgia
+GF	GUF	254	EUR	594	French Guiana	Guayana Francesa	Guiana Francesa
+GG	GGY	831	GBP	44	Guernsey	Guernesey	Guernsey
+GH	GHA	288	GHS	233	Ghana	Ghana	Gana
+GI	GIB	292	GIP	350	Gibraltar	Gibraltar	Gibraltar
+GL	GRL	304	DKK	299	Greenland	Groenlandia	Groenlândia
+GM	GMB	270	GMD	220	Gambia	Gambia	Gâmbia
+GN	GIN	324	GNF	224	Guinea	Guinea	Guiné
+GP	GLP	312	EUR	590	Guadeloupe	Guadalupe	Guadalupe
+GQ	GNQ	226	XAF	240	Equatorial Guinea	Guinea Ecuatorial	Guiné Equatorial
+GR	GRC	300	EUR	30	Greece	Grecia	Grécia
+GS	SGS	239	GBP		South Georgia & South Sandwich Islands	Islas Georgia del Sur y Sandwich del Sur	Ilhas Geórgia do Sul e Sandwich do Sul
+GT	GTM	320	GTQ	502	Guatemala	Guatemala	Guatemala
+GU	GUM	316	USD	1	Guam	Guam	Guam
+GW	GNB	624	XOF	245	Guinea-Bissau	Guinea-Bisáu	Guiné-Bissau
+GY	GUY	328	GYD	592	Guyana	Guyana	Guiana
+HK	HKG	344	HKD	852	Hong Kong SAR China	RAE de Hong Kong (China)	Hong Kong, RAE da China
+HM	HMD	334	AUD		Heard & McDonald Islands	Islas Heard y McDonald	Ilhas Heard e McDonald
+HN	HND	340	HNL	504	Honduras	Honduras	Honduras
+HR	HRV	191	EUR	385	Croatia	Croacia	Croácia
+HT	HTI	332	USD	509	Haiti	Haití	Haiti
+HU	HUN	348	HUF	36	Hungary	Hungría	Hungria
+ID	IDN	360	IDR	62	Indonesia	Indonesia	Indonésia
+IE	IRL	372	EUR	353	Ireland	Irlanda	Irlanda
+IL	ISR	376	ILS	972	Israel	Israel	Israel
+IM	IMN	833	GBP	44	Isle of Man	Isla de Man	Ilha de Man
+IN	IND	356	INR	91	India	India	Índia
+IO	IOT	086	USD	246	British Indian Ocean Territory	Territorio Británico del Océano Índico	Território Britânico do Oceano Índico
+IQ	IRQ	368	IQD	964	Iraq	Irak	Iraque
+IR	IRN	364	IRR	98	Iran	Irán	Irã
+IS	ISL	352	ISK	354	Iceland	Islandia	Islândia
+IT	ITA	380	EUR	39	Italy	Italia	Itália
+JE	JEY	832	GBP	44	Jersey	Jersey	Jersey
+JM	JAM	388	JMD	1	Jamaica	Jamaica	Jamaica
+JO	JOR	400	JOD	962	Jordan	Jordania	Jordânia
+JP	JPN	392	JPY	81	Japan	Japón	Japão
+KE	KEN	404	KES	254	Kenya	Kenia	Quênia
+KG	KGZ	417	KGS	996	Kyrgyzstan	Kirguistán	Quirguistão
+KH	KHM	116	KHR	855	Cambodia	Camboya	Camboja
+KI	KIR	296	AUD	686	Kiribati	Kiribati	Quiribati
+KM	COM	174	KMF	269	Comoros	Comoras	Comores
+KN	KNA	659	XCD	1	St. Kitts & Nevis	San Cristóbal y Nieves	São Cristóvão e Névis
+KP	PRK	408	KPW	850	North Korea	Corea del Norte	Coreia do Norte
+KR	KOR	410	KRW	82	South Korea	Corea del Sur	Coreia do Sul
+KW	KWT	414	KWD	965	Kuwait	Kuwait	Kuwait
+KY	CYM	136	KYD	1	Cayman Islands	Islas Caimán	Ilhas Cayman
+KZ	KAZ	398	KZT	7	Kazakhstan	Kazajistán	Cazaquistão
+LA	LAO	418	LAK	856	Laos	Laos	Laos
+LB	LBN	422	LBP	961	Lebanon	Líbano	Líbano
+LC	LCA	662	XCD	1	St. Lucia	Santa Lucía	Santa Lúcia
+LI	LIE	438	CHF	423	Liechtenstein	Liechtenstein	Liechtenstein
+LK	LKA	144	LKR	94	Sri Lanka	Sri Lanka	Sri Lanka
+LR	LBR	430	LRD	231	Liberia	Liberia	Libéria
+LS	LSO	426	LSL	266	Lesotho	Lesoto	Lesoto
+LT	LTU	440	EUR	370	Lithuania	Lituania	Lituânia
+LU	LUX	442	EUR	352	Luxembourg	Luxemburgo	Luxemburgo
+LV	LVA	428	EUR	371	Latvia	Letonia	Letônia
+LY	LBY	434	LYD	218	Libya	Libia	Líbia
+MA	MAR	504	MAD	212	Morocco	Marruecos	Marrocos
+MC	MCO	492	EUR	377	Monaco	Mónaco	Mônaco
+MD	MDA	498	MDL	373	Moldova	Moldavia	Moldávia
+ME	MNE	499	EUR	382	Montenegro	Montenegro	Montenegro
+MF	MAF	663	EUR	590	St. Martin	San Martín	São Martinho
+MG	MDG	450	MGA	261	Madagascar	Madagascar	Madagascar
+MH	MHL	584	USD	692	Marshall Islands	Islas Marshall	Ilhas Marshall
+MK	MKD	807	MKD	389	North Macedonia	Macedonia del Norte	Macedônia do Norte
+ML	MLI	466	XOF	223	Mali	Mali	Mali
+MM	MMR	104	MMK	95	Myanmar (Burma)	Myanmar (Birmania)	Mianmar (Birmânia)
+MN	MNG	496	MNT	976	Mongolia	Mongolia	Mongólia
+MO	MAC	446	MOP	853	Macao SAR China	RAE de Macao (China)	Macau, RAE da China
+MP	MNP	580	USD	1	Northern Mariana Islands	Islas Marianas del Norte	Ilhas Marianas do Norte
+MQ	MTQ	474	EUR	596	Martinique	Martinica	Martinica
+MR	MRT	478	MRU	222	Mauritania	Mauritania	Mauritânia
+MS	MSR	500	XCD	1	Montserrat	Montserrat	Montserrat
+MT	MLT	470	EUR	356	Malta	Malta	Malta
+MU	MUS	480	MUR	230	Mauritius	Mauricio	Maurício
+MV	MDV	462	MVR	960	Maldives	Maldivas	Maldivas
+MW	MWI	454	MWK	265	Malawi	Malaui	Malaui
+MX	MEX	484	MXN	52	Mexico	México	México
+MY	MYS	458	MYR	60	Malaysia	Malasia	Malásia
+MZ	MOZ	508	MZN	258	Mozambique	Mozambique	Moçambique
+NA	NAM	516	NAD	264	Namibia	Namibia	Namíbia
+NC	NCL	540	XPF	687	New Caledonia	Nueva Caledonia	Nova Caledônia
+NE	NER	562	XOF	227	Niger	Níger	Níger
+NF	NFK	574	AUD	672	Norfolk Island	Isla Norfolk	Ilha Norfolk
+NG	NGA	566	NGN	234	Nigeria	Nigeria	Nigéria
+NI	NIC	558	NIO	505	Nicaragua	Nicaragua	Nicarágua
+NL	NLD	528	EUR	31	Netherlands	Países Bajos	Países Baixos
+NO	NOR	578	NOK	47	Norway	Noruega	Noruega
+NP	NPL	524	NPR	977	Nepal	Nepal	Nepal
+NR	NRU	520	AUD	674	Nauru	Nauru	Nauru
+NU	NIU	570	NZD	683	Niue	Niue	Niue
+NZ	NZL	554	NZD	64	New Zealand	Nueva Zelanda	Nova Zelândia
+OM	OMN	512	OMR	968	Oman	Omán	Omã
+PA	PAN	591	USD	507	Panama	Panamá	Panamá
+PE	PER	604	PEN	51	Peru	Perú	Peru
+PF	PYF	258	XPF	689	French Polynesia	Polinesia Francesa	Polinésia Francesa
+PG	PNG	598	PGK	675	Papua New Guinea	Papúa Nueva Guinea	Papua-Nova Guiné
+PH	PHL	608	PHP	63	Philippines	Filipinas	Filipinas
+PK	PAK	586	PKR	92	Pakistan	Pakistán	Paquistão
+PL	POL	616	PLN	48	Poland	Polonia	Polônia
+PM	SPM	666	EUR	508	St. Pierre & Miquelon	San Pedro y Miquelón	São Pedro e Miquelão
+PN	PCN	612	NZD		Pitcairn Islands	Islas Pitcairn	Ilhas Pitcairn
+PR	PRI	630	USD	1	Puerto Rico	Puerto Rico	Porto Rico
+PS	PSE	275	JOD	970	Palestinian Territories	Territorios Palestinos	Territórios palestinos
+PT	PRT	620	EUR	351	Portugal	Portugal	Portugal
+PW	PLW	585	USD	680	Palau	Palaos	Palau
+PY	PRY	600	PYG	595	Paraguay	Paraguay	Paraguai
+QA	QAT	634	QAR	974	Qatar	Catar	Catar
+RE	REU	638	EUR	262	Réunion	Reunión	Reunião
+RO	ROU	642	RON	40	Romania	Rumanía	Romênia
+RS	SRB	688	RSD	381	Serbia	Serbia	Sérvia
+RU	RUS	643	RUB	7	Russia	Rusia	Rússia
+RW	RWA	646	RWF	250	Rwanda	Ruanda	Ruanda
+SA	SAU	682	SAR	966	Saudi Arabia	Arabia Saudí	Arábia Saudita
+SB	SLB	090	SBD	677	Solomon Islands	Islas Salomón	Ilhas Salomão
+SC	SYC	690	SCR	248	Seychelles	Seychelles	Seicheles
+SD	SDN	729	SDG	249	Sudan	Sudán	Sudão
+SE	SWE	752	SEK	46	Sweden	Suecia	Suécia
+SG	SGP	702	SGD	65	Singapore	Singapur	Singapura
+SH	SHN	654	SHP	290	St. Helena	Santa Elena	Santa Helena
+SI	SVN	705	EUR	386	Slovenia	Eslovenia	Eslovênia
+SJ	SJM	744	NOK	47	Svalbard & Jan Mayen	Svalbard y Jan Mayen	Svalbard e Jan Mayen
+SK	SVK	703	EUR	421	Slovakia	Eslovaquia	Eslováquia
+SL	SLE	694	SLE	232	Sierra Leone	Sierra Leona	Serra Leoa
+SM	SMR	674	EUR	378	San Marino	San Marino	San Marino
+SN	SEN	686	XOF	221	Senegal	Senegal	Senegal
+SO	SOM	706	SOS	252	Somalia	Somalia	Somália
+SR	SUR	740	SRD	597	Suriname	Surinam	Suriname
+SS	SSD	728	SSP	211	South Sudan	Sudán del Sur	Sudão do Sul
+ST	STP	678	STN	239	São Tomé & Príncipe	Santo Tomé y Príncipe	São Tomé e Príncipe
+SV	SLV	222	USD	503	El Salvador	El Salvador	El Salvador
+SX	SXM	534	XCG	1	Sint Maarten	Sint Maarten	Sint Maarten
+SY	SYR	760	SYP	963	Syria	Siria	Síria
+SZ	SWZ	748	SZL	268	Eswatini	Esuatini	Essuatíni
+TC	TCA	796	USD	1	Turks & Caicos Islands	Islas Turcas y Caicos	Ilhas Turcas e Caicos
+TD	TCD	148	XAF	235	Chad	Chad	Chade
+TF	ATF	260	EUR		French Southern Territories	Territorios Australes Franceses	Territórios Franceses do Sul
+TG	TGO	768	XOF	228	Togo	Togo	Togo
+TH	THA	764	THB	66	Thailand	Tailandia	Tailândia
+TJ	TJK	762	TJS	992	Tajikistan	Tayikistán	Tadjiquistão
+TK	TKL	772	NZD	690	Tokelau	Tokelau	Tokelau
+TL	TLS	626	USD	670	Timor-Leste	Timor-Leste	Timor-Leste
+TM	TKM	795	TMT	993	Turkmenistan	Turkmenistán	Turcomenistão
+TN	TUN	788	TND	216	Tunisia	Túnez	Tunísia
+TO	TON	776	TOP	676	Tonga	Tonga	Tonga
+TR	TUR	792	TRY	90	Türkiye	Turquía	Turquia
+TT	TTO	780	TTD	1	Trinidad & Tobago	Trinidad y Tobago	Trinidad e Tobago
+TV	TUV	798	AUD	688	Tuvalu	Tuvalu	Tuvalu
+TW	TWN	158	TWD	886	Taiwan	Taiwán	Taiwan
+TZ	TZA	834	TZS	255	Tanzania	Tanzania	Tanzânia
+UA	UKR	804	UAH	380	Ukraine	Ucrania	Ucrânia
+UG	UGA	800	UGX	256	Uganda	Uganda	Uganda
+UM	UMI	581	USD		U.S. Outlying Islands	Islas menores alejadas de EE. UU.	Ilhas Menores Distantes dos EUA
+US	USA	840	USD	1	United States	Estados Unidos	Estados Unidos
+UY	URY	858	UYU	598	Uruguay	Uruguay	Uruguai
+UZ	UZB	860	UZS	998	Uzbekistan	Uzbekistán	Uzbequistão
+VA	VAT	336	EUR	39	Vatican City	Ciudad del Vaticano	Cidade do Vaticano
+VC	VCT	670	XCD	1	St. Vincent & Grenadines	San Vicente y las Granadinas	São Vicente e Granadinas
+VE	VEN	862	VES	58	Venezuela	Venezuela	Venezuela
+VG	VGB	092	USD	1	British Virgin Islands	Islas Vírgenes Británicas	Ilhas Virgens Britânicas
+VI	VIR	850	USD	1	U.S. Virgin Islands	Islas Vírgenes de EE. UU.	Ilhas Virgens Americanas
+VN	VNM	704	VND	84	Vietnam	Vietnam	Vietnã
+VU	VUT	548	VUV	678	Vanuatu	Vanuatu	Vanuatu
+WF	WLF	876	XPF	681	Wallis & Futuna	Wallis y Futuna	Wallis e Futuna
+WS	WSM	882	WST	685	Samoa	Samoa	Samoa
+YE	YEM	887	YER	967	Yemen	Yemen	Iêmen
+YT	MYT	175	EUR	262	Mayotte	Mayotte	Mayotte
+ZA	ZAF	710	ZAR	27	South Africa	Sudáfrica	África do Sul
+ZM	ZMB	894	ZMW	260	Zambia	Zambia	Zâmbia
+ZW	ZWE	716	ZWG	263	Zimbabwe	Zimbabue	Zimbábue

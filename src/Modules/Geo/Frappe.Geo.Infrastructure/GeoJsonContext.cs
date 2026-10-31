@@ -1,0 +1,14 @@
+using System.Text.Json.Serialization;
+using Frappe.Geo.Application.Countries;
+using Frappe.Geo.Application.Currencies;
+using Frappe.Geo.Application.TimeZones;
+using Frappe.Platform.Http.Paging;
+
+namespace Frappe.Geo.Infrastructure;
+
+/// <summary>Source-generated metadata for the geo responses, chained into the HTTP JSON options.</summary>
+[JsonSerializable(typeof(PageResponse<TimeZoneDto>))]
+[JsonSerializable(typeof(PageResponse<CurrencyDto>))]
+[JsonSerializable(typeof(PageResponse<CountryDto>))]
+[JsonSerializable(typeof(CountryDto))]
+internal sealed partial class GeoJsonContext : JsonSerializerContext;

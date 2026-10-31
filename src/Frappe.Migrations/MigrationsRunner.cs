@@ -1,3 +1,4 @@
+using Frappe.Geo.Infrastructure;
 using Frappe.Platform.Modularity;
 using Frappe.Platform.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -13,12 +14,12 @@ public static class MigrationsRunner
     /// Every context with migrations, in the order they are applied: Platform first, then the modules.
     /// </summary>
     public static IReadOnlyList<IDesignTimeDbContextFactory<FrappeDbContext>> Contexts { get; } =
-    [new PlatformDbContextFactory()];
+    [new PlatformDbContextFactory(), new GeoDbContextFactory()];
 
     /// <summary>
     /// Every module, in the order it seeds: after the modules whose reference data its own rows reference.
     /// </summary>
-    public static IReadOnlyList<IModule> Modules { get; } = [];
+    public static IReadOnlyList<IModule> Modules { get; } = [new GeoModule()];
 
     /// <summary>
     /// Applies the pending migrations of each context in <see cref="Contexts"/> order and returns the IDs

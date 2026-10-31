@@ -123,8 +123,6 @@ public sealed class DependencyRuleTests
             .Check(_architecture);
     }
 
-    // TODO: the geo PR adds the rule that a module's projects reference other modules only through their Contracts.
-
     // This project references only the Host, so the file is here only when a shipped project
     // references the migrations.
     [Fact]

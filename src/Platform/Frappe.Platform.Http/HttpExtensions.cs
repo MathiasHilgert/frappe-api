@@ -40,7 +40,11 @@ public static class HttpExtensions
         ]));
         // TODO: set FallbackPolicy to require an authenticated user when authentication arrives (anonymous
         // endpoints already opt out with AllowAnonymous)
-        services.AddOpenApi(static options => options.AddSchemaTransformer<SchemaTransformers>());
+        services.AddOpenApi(static options =>
+            options
+                .AddSchemaTransformer<SchemaTransformers>()
+                .AddDocumentTransformer<NullableMemberDescriptions>()
+        );
         return builder;
     }
 
