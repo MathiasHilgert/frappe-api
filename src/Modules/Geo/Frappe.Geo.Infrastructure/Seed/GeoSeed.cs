@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.Globalization;
 using Frappe.Geo.Application.Cities;
+using Frappe.Geo.Domain.Addresses;
 using Frappe.Geo.Infrastructure.Catalogues;
 
 namespace Frappe.Geo.Infrastructure.Seed;
@@ -8,12 +9,13 @@ namespace Frappe.Geo.Infrastructure.Seed;
 /// <summary>
 /// Loads the geo reference data from the embedded seed files: per catalogue, upsert the rows and their names (an
 /// unchanged row counts as nothing), then retire the rows the file no longer holds; nothing is ever deleted. Currencies
-/// go first, because countries reference them; subdivisions, cities, locales and holidays follow.
+/// go first, because countries reference them; subdivisions, cities, locales, holidays and address formats follow.
 /// </summary>
 internal static class GeoSeed
 {
     private const string NamePrefix = "name_";
     private const string Codes = "codes";
+    private const string Countries = "countries";
 
     // Cities go in chunks, so one statement never carries every locality's arrays.
     private const int CityChunk = 1_000;
@@ -103,6 +105,16 @@ internal static class GeoSeed
         "name_pt",
     ];
 
+    private static readonly string[] _addressFormatHeader =
+    [
+        "country_code",
+        "postal_code_pattern",
+        "postal_code_examples",
+        "postal_code_required",
+        "required_fields",
+        "subdivision_label",
+    ];
+
     public static async Task<int> SeedAsync(
         DbConnection connection,
         CancellationToken cancellationToken
@@ -114,6 +126,7 @@ internal static class GeoSeed
         changed += await CitiesAsync(connection, cancellationToken);
         changed += await LocalesAsync(connection, cancellationToken);
         changed += await HolidaysAsync(connection, cancellationToken);
+        changed += await AddressFormatsAsync(connection, cancellationToken);
         return changed;
     }
 
@@ -245,7 +258,7 @@ internal static class GeoSeed
             """,
             cancellationToken,
             (Codes, codes),
-            ("countries", Column(rows, 1))
+            (Countries, Column(rows, 1))
         );
         changed += await NamesAsync(
             connection,
@@ -298,7 +311,7 @@ internal static class GeoSeed
                 cancellationToken,
                 ("ids", chunk.Select(static row => CityIds.From(row[0]).Value).ToArray()),
                 ("indecs", Column(chunk, 0)),
-                ("countries", countries),
+                (Countries, countries),
                 ("subdivisions", Column(chunk, 2)),
                 ("names", Column(chunk, 1)),
                 ("departments", OptionalColumn(chunk, 3)),
@@ -422,7 +435,7 @@ internal static class GeoSeed
         IReadOnlyList<string[]> rows = Tsv.Read("holidays.tsv", _holidayHeader);
         (string Name, object Value)[] keys =
         [
-            ("countries", Column(rows, 0)),
+            (Countries, Column(rows, 0)),
             ("subdivisions", OptionalColumn(rows, 1)),
             ("dates", Column(rows, 2)),
             ("keys", Column(rows, 3)),
@@ -464,6 +477,51 @@ internal static class GeoSeed
         return changed;
     }
 
+    // A format is updated in place and never retired: a country left out of the file keeps its last format. List
+    // cells are comma-separated.
+    // TODO: add address formats for another country when Frappé launches there (Argentina only for now)
+    private static Task<int> AddressFormatsAsync(
+        DbConnection connection,
+        CancellationToken cancellationToken
+    )
+    {
+        IReadOnlyList<string[]> rows = Tsv.Read("address-formats.tsv", _addressFormatHeader);
+        // A pattern that does not compile fails the seed here, before it is written and loaded by every host.
+        foreach (string pattern in OptionalColumn(rows, 1).OfType<string>())
+        {
+            _ = PostalCodeFormat.Create(pattern, required: false);
+        }
+
+        return ExecuteAsync(
+            connection,
+            """
+            INSERT INTO geo.address_formats (country_code, postal_code_pattern, postal_code_examples,
+                postal_code_required, required_fields, subdivision_label)
+            SELECT country, pattern, string_to_array(examples, ','), required::boolean, string_to_array(fields, ','),
+                label
+            FROM unnest(@countries::text[], @patterns::text[], @examples::text[], @required::text[], @fields::text[],
+                @labels::text[]) AS seed(country, pattern, examples, required, fields, label)
+            ON CONFLICT (country_code) DO UPDATE
+            SET postal_code_pattern = excluded.postal_code_pattern,
+                postal_code_examples = excluded.postal_code_examples,
+                postal_code_required = excluded.postal_code_required, required_fields = excluded.required_fields,
+                subdivision_label = excluded.subdivision_label
+            WHERE (address_formats.postal_code_pattern, address_formats.postal_code_examples,
+                    address_formats.postal_code_required, address_formats.required_fields,
+                    address_formats.subdivision_label)
+                IS DISTINCT FROM (excluded.postal_code_pattern, excluded.postal_code_examples,
+                    excluded.postal_code_required, excluded.required_fields, excluded.subdivision_label)
+            """,
+            cancellationToken,
+            (Countries, Column(rows, 0)),
+            ("patterns", OptionalColumn(rows, 1)),
+            ("examples", Column(rows, 2)),
+            ("required", Column(rows, 3)),
+            ("fields", Column(rows, 4)),
+            ("labels", Column(rows, 5))
+        );
+    }
+
     // A holiday has no key of its own in the file, so each name finds its row by the holiday's natural key.
     private static Task<int> HolidayNamesAsync(
         DbConnection connection,
@@ -499,7 +557,7 @@ internal static class GeoSeed
             WHERE holiday_names.name IS DISTINCT FROM excluded.name
             """,
             cancellationToken,
-            ("countries", names.Select(name => rows[name.Row][0]).ToArray()),
+            (Countries, names.Select(name => rows[name.Row][0]).ToArray()),
             (
                 "subdivisions",
                 names

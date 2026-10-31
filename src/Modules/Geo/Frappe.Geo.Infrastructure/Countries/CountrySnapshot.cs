@@ -4,6 +4,7 @@ using Frappe.Geo.Application.Countries;
 using Frappe.Geo.Contracts;
 using Frappe.Geo.Contracts.ValueObjects;
 using Frappe.Geo.Domain.Countries;
+using Frappe.Geo.Infrastructure.Addresses;
 using Frappe.Geo.Infrastructure.Catalogues;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,7 +14,9 @@ namespace Frappe.Geo.Infrastructure.Countries;
 /// The country catalogue in memory, loaded once at startup: every row for the ports and the detail, the active rows
 /// for the list, ordered by name once per seeded locale.
 /// </summary>
-internal sealed class CountrySnapshot : ICountryReader, ICountryCatalogue
+internal sealed class CountrySnapshot(AddressFormatSnapshot addressFormats)
+    : ICountryReader,
+        ICountryCatalogue
 {
     private Catalogue? _catalogue;
 
@@ -82,7 +85,7 @@ internal sealed class CountrySnapshot : ICountryReader, ICountryCatalogue
     public Localized<IReadOnlyList<CountryDto>> List(Locale locale) =>
         Labels.Pick(Loaded.Active, locale);
 
-    public Localized<CountryDto>? Find(CountryCode country, Locale locale)
+    public Localized<CountryDetailDto>? Find(CountryCode country, Locale locale)
     {
         if (!Loaded.All.TryGetValue(country.Value, out Country? found))
         {
@@ -90,7 +93,18 @@ internal sealed class CountrySnapshot : ICountryReader, ICountryCatalogue
         }
 
         Localized<string> name = found.Names.Localize(locale);
-        return new Localized<CountryDto>(found.ToDto(name.Value), name.Locale);
+        return new Localized<CountryDetailDto>(
+            new CountryDetailDto(
+                found.Code,
+                found.Alpha3,
+                found.NumericCode,
+                name.Value,
+                found.DefaultCurrency,
+                found.CallingCode,
+                addressFormats.Find(found.Code)
+            ),
+            name.Locale
+        );
     }
 
     public ValueTask<ErrorOr<GeoCountry>> GetCountry(

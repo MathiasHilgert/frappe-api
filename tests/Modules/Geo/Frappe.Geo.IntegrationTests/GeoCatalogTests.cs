@@ -10,6 +10,7 @@ public sealed class GeoCatalogTests(GeoFixture geo)
 {
     private static readonly string[] _selectOnly =
     [
+        "address_formats:SELECT",
         "cities:SELECT",
         "countries:SELECT",
         "country_names:SELECT",
@@ -66,6 +67,25 @@ public sealed class GeoCatalogTests(GeoFixture geo)
         foreignKey.ShouldBe(
             "FOREIGN KEY (subdivision_code) REFERENCES geo.subdivisions(subdivision_code) ON DELETE RESTRICT"
         );
+    }
+
+    // Address suggestions and geocoding wait for a provider, so geo exposes neither.
+    [Fact]
+    public void Geo_maps_no_address_suggestion_or_geocoding_route()
+    {
+        string[] routes =
+        [
+            .. geo
+                .Host.Services.GetRequiredService<EndpointDataSource>()
+                .Endpoints.OfType<RouteEndpoint>()
+                .Select(static endpoint => endpoint.RoutePattern.RawText ?? "")
+                .Where(static route =>
+                    route.Contains("suggestion", StringComparison.OrdinalIgnoreCase)
+                    || route.Contains("geocod", StringComparison.OrdinalIgnoreCase)
+                ),
+        ];
+
+        routes.ShouldBeEmpty();
     }
 
     [Fact]

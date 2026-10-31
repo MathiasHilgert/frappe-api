@@ -15,6 +15,7 @@ namespace Frappe.Geo.Infrastructure;
 [JsonSerializable(typeof(PageResponse<CurrencyDto>))]
 [JsonSerializable(typeof(PageResponse<CountryDto>))]
 [JsonSerializable(typeof(CountryDto))]
+[JsonSerializable(typeof(CountryDetailDto))]
 [JsonSerializable(typeof(PageResponse<SubdivisionDto>))]
 [JsonSerializable(typeof(PageResponse<CityDto>))]
 [JsonSerializable(typeof(PageResponse<LocaleDto>))]

@@ -26,6 +26,7 @@ public sealed class PostalCodeTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
+    [InlineData("@@")]
     [InlineData("C1425#")]
     [InlineData("12_34")]
     [InlineData("CÓDIGO")]
@@ -37,7 +38,7 @@ public sealed class PostalCodeTests
     {
         ErrorOr<PostalCode> result = PostalCode.Create(raw);
 
-        result.FirstError.Code.ShouldBe("geo.postal_code.invalid");
+        result.FirstError.Code.ShouldBe("geo.postal_code.malformed");
     }
 
     [Fact]
