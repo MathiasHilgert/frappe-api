@@ -5,12 +5,18 @@ namespace Frappe.Geo.UnitTests.Cities;
 public sealed class CitySearchTermsTests
 {
     [Fact]
-    public void A_query_folds_and_splits_on_spaces_and_commas()
+    public void A_query_folds_and_splits_on_spaces_and_commas_and_its_plain_form_joins_the_words()
     {
         CitySearchTerms terms = CitySearchTerms.Create("Pilar, Buenos  Aires").Value;
 
-        terms.Plain.ShouldBe("pilar, buenos aires");
+        terms.Plain.ShouldBe("pilar buenos aires");
         terms.Tokens.Select(static token => token.Plain).ShouldBe(["pilar", "buenos", "aires"]);
+    }
+
+    [Fact]
+    public void A_trailing_comma_leaves_the_plain_form_of_the_word_alone()
+    {
+        CitySearchTerms.Create("pilar,").Value.Plain.ShouldBe("pilar");
     }
 
     [Fact]

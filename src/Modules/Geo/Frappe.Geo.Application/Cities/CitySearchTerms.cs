@@ -29,7 +29,7 @@ public sealed record CitySearchTerms
         Tokens = tokens;
     }
 
-    /// <summary>Gets the folded query, such as <c>pilar cordoba</c>.</summary>
+    /// <summary>Gets the folded query's words joined by single spaces, commas dropped, such as <c>pilar cordoba</c>.</summary>
     public string Plain { get; }
 
     /// <summary>Gets the folded query escaped for a <c>LIKE</c> pattern.</summary>
@@ -46,11 +46,14 @@ public sealed record CitySearchTerms
     /// <returns>The terms, or <c>geo.city.query_invalid</c> when the folded query is not 2 to 100 characters or has no word.</returns>
     public static ErrorOr<CitySearchTerms> Create(string? q)
     {
-        string plain = SearchText.Fold(q ?? string.Empty);
+        // Commas only separate words, so a label typed back ("Pilar, Córdoba") reads as its words.
+        string[] words = SearchText
+            .Fold(q ?? string.Empty)
+            .Split(_separators, StringSplitOptions.RemoveEmptyEntries);
+        string plain = string.Join(' ', words);
         CitySearchToken[] tokens =
         [
-            .. plain
-                .Split(_separators, StringSplitOptions.RemoveEmptyEntries)
+            .. words
                 .Take(MaxTokens)
                 .Select(static token => new CitySearchToken(token, Escape(token))),
         ];

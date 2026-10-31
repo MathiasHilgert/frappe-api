@@ -62,6 +62,25 @@ public sealed class CityTests(GeoFixture geo)
         Describe((await SearchAsync("Pilar, Buenos Aires, Argentina"))[0]).ShouldBe("Pilar|AR-B");
     }
 
+    // A label typed back with its commas reaches the exact and prefix buckets like the bare words do.
+    [Fact]
+    public async Task A_typed_back_label_ranks_its_locality_first()
+    {
+        Describe((await SearchAsync(Uri.EscapeDataString("Pilar, Buenos Aires")))[0])
+            .ShouldBe("Pilar|AR-B");
+    }
+
+    [Theory]
+    [InlineData("pilar")]
+    [InlineData("pi")]
+    public async Task A_trailing_comma_does_not_change_the_result(string q)
+    {
+        string[] bare = [.. (await SearchAsync(q)).Select(Describe)];
+        string[] comma = [.. (await SearchAsync(Uri.EscapeDataString(q + ","))).Select(Describe)];
+
+        comma.ShouldBe(bare);
+    }
+
     [Fact]
     public async Task Accents_and_case_do_not_change_the_result()
     {
