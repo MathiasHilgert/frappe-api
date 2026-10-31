@@ -1,0 +1,15 @@
+{
+  "type": "urn:frappe:problem:malformed_request",
+  "title": "The request is malformed.",
+  "status": 405,
+  "instance": "/v1/probes/echoes",
+  "errors": [
+    {
+      "code": "platform.request.method_not_allowed",
+      "pointer": null,
+      "detail": "The HTTP method is not allowed on this resource.",
+      "args": null
+    }
+  ],
+  "traceId": "{traceId}"
+}

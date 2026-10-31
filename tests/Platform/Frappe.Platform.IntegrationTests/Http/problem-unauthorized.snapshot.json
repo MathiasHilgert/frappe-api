@@ -1,0 +1,15 @@
+{
+  "type": "urn:frappe:problem:unauthorized",
+  "title": "Authentication is required.",
+  "status": 401,
+  "instance": "/v1/probes/problems/unauthorized",
+  "errors": [
+    {
+      "code": "probe.session.missing",
+      "pointer": null,
+      "detail": "Authentication is required.",
+      "args": null
+    }
+  ],
+  "traceId": "{traceId}"
+}

@@ -10,6 +10,13 @@
     <Using Include="ErrorOr" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The fake module's projects build on their own; this project only references them. -->
+    <Compile Remove="Fixtures/**" />
+    <None Remove="Fixtures/**" />
+    <EmbeddedResource Remove="Fixtures/**" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="Fixtures/Frappe.Lexicon.Infrastructure/Frappe.Lexicon.Infrastructure.csproj" />
     <ProjectReference Include="../../../src/Frappe.Host/Frappe.Host.csproj" />
     <ProjectReference Include="../../Frappe.TestUtilities/Frappe.TestUtilities.csproj" />
   </ItemGroup>

@@ -8,6 +8,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../../src/Platform/Frappe.Platform.Health/Frappe.Platform.Health.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.Platform.Http/Frappe.Platform.Http.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Platform.Modularity/Frappe.Platform.Modularity.csproj" />
   </ItemGroup>
 </Project>

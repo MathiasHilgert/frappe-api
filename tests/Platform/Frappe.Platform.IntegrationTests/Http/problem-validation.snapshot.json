@@ -1,0 +1,23 @@
+{
+  "type": "urn:frappe:problem:validation",
+  "title": "The request failed validation.",
+  "status": 422,
+  "instance": "/v1/probes/problems/validation",
+  "errors": [
+    {
+      "code": "kernel.entity_id.invalid",
+      "pointer": "/id",
+      "detail": "The identifier must be a non-empty RFC 9562 UUIDv7.",
+      "args": null
+    },
+    {
+      "code": "probe.name.too_long",
+      "pointer": "/name",
+      "detail": "The request is invalid.",
+      "args": {
+        "max": 100
+      }
+    }
+  ],
+  "traceId": "{traceId}"
+}

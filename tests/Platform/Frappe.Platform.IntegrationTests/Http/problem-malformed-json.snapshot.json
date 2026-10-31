@@ -1,0 +1,15 @@
+{
+  "type": "urn:frappe:problem:malformed_request",
+  "title": "The request is malformed.",
+  "status": 400,
+  "instance": "/v1/probes/echoes",
+  "errors": [
+    {
+      "code": "platform.request.malformed",
+      "pointer": "/name",
+      "detail": "The request is malformed.",
+      "args": null
+    }
+  ],
+  "traceId": "{traceId}"
+}

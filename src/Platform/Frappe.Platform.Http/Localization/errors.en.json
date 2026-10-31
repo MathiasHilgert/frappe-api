@@ -1,0 +1,17 @@
+{
+  "kernel.entity_id.invalid": "The identifier must be a non-empty RFC 9562 UUIDv7.",
+  "platform.paging.invalid_cursor": "The cursor is invalid; start again from the first page.",
+  "platform.rate_limit.exceeded": "Too many requests; retry later.",
+  "platform.request.conflict": "The request conflicts with the current state.",
+  "platform.request.failed": "The server failed to complete the request.",
+  "platform.request.forbidden": "The action is not allowed.",
+  "platform.request.invalid": "The request is invalid.",
+  "platform.request.malformed": "The request is malformed.",
+  "platform.request.method_not_allowed": "The HTTP method is not allowed on this resource.",
+  "platform.request.timeout": "The request timed out.",
+  "platform.request.too_large": "The request body is too large.",
+  "platform.request.unauthorized": "Authentication is required.",
+  "platform.request.unsupported_media_type": "The request content type is not supported.",
+  "platform.resource.not_found": "The resource was not found.",
+  "platform.route.not_found": "No resource matches the request path."
+}

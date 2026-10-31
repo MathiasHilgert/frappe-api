@@ -1,10 +1,13 @@
 using Frappe.Platform.Health;
 using Frappe.Platform.Hosting;
+using Frappe.Platform.Http;
 using Frappe.Platform.Messaging;
 using Frappe.Platform.Modularity;
 using Frappe.Platform.Persistence;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Hosting;
+using NodaTime;
+using NodaTime.Serialization.SystemTextJson;
 
 namespace Frappe.Platform;
 
@@ -24,8 +27,9 @@ public static class PlatformExtensions
         builder.AddHostRole();
         builder.AddTelemetry();
         builder.AddHealth();
+        builder.AddHttp();
         // Before persistence, so every context it and the modules register joins the bus's transaction.
-        builder.AddMessaging();
+        builder.AddMessaging(static json => json.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb));
         builder.AddPersistence();
         return builder;
     }
@@ -49,11 +53,12 @@ public static class PlatformExtensions
         where TBuilder : IHostApplicationBuilder => builder.AddModules(modules);
 
     /// <summary>
-    /// Maps the platform endpoints. Health is mapped in every role so every replica can be probed; module endpoints
-    /// only in the roles that serve business endpoints.
+    /// Adds the HTTP middleware, then maps the platform endpoints. Health is mapped in every role so every replica
+    /// can be probed; module endpoints only in the roles that serve business endpoints.
     /// </summary>
     public static WebApplication MapFrappeEndpoints(this WebApplication app)
     {
+        app.UseHttp();
         app.MapHealthEndpoints();
         app.MapModuleEndpoints();
         return app;

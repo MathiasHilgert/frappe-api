@@ -12,6 +12,7 @@
     <ProjectReference Include="../../Frappe.Kernel/Frappe.Kernel.csproj" />
     <ProjectReference Include="../Frappe.Platform.Health/Frappe.Platform.Health.csproj" />
     <ProjectReference Include="../Frappe.Platform.Hosting/Frappe.Platform.Hosting.csproj" />
+    <ProjectReference Include="../Frappe.Platform.Http/Frappe.Platform.Http.csproj" />
     <ProjectReference Include="../Frappe.Platform.Modularity/Frappe.Platform.Modularity.csproj" />
     <ProjectReference Include="../Frappe.Platform.Persistence/Frappe.Platform.Persistence.csproj" />
     <ProjectReference Include="../Frappe.Platform.Messaging/Frappe.Platform.Messaging.csproj" />

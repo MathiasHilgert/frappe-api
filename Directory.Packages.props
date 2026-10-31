@@ -16,6 +16,7 @@
   <ItemGroup Label="Domain">
     <PackageVersion Include="ErrorOr" Version="2.1.1" />
     <PackageVersion Include="NodaTime" Version="3.3.6" />
+    <PackageVersion Include="NodaTime.Serialization.SystemTextJson" Version="1.4.0" />
   </ItemGroup>
 
   <ItemGroup Label="Hosting">
@@ -24,6 +25,11 @@
       Include="Microsoft.Extensions.Options.ConfigurationExtensions"
       Version="10.0.14"
     />
+  </ItemGroup>
+
+  <ItemGroup Label="Http">
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.18.7" />
   </ItemGroup>
 
   <ItemGroup Label="Persistence">

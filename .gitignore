@@ -105,6 +105,7 @@ coverage*.info
 StrykerOutput/
 BenchmarkDotNet.Artifacts/
 *.received.*
+*.received.json
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml

@@ -1,5 +1,6 @@
 using Alba;
 using Frappe.Platform.Health;
+using Frappe.Platform.Http;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Hosting;
 
@@ -67,6 +68,7 @@ public sealed class ModuleEndpointTests
         );
         builder.Configuration["Platform:Role"] = role;
         builder.AddHealth();
+        builder.AddHttp();
         builder.AddFrappeModules(new PingModule());
         return await AlbaHost.For(builder, static app => app.MapFrappeEndpoints());
     }

@@ -1,0 +1,15 @@
+{
+  "type": "urn:frappe:problem:forbidden",
+  "title": "The action is not allowed.",
+  "status": 403,
+  "instance": "/v1/probes/problems/forbidden",
+  "errors": [
+    {
+      "code": "probe.thing.forbidden",
+      "pointer": null,
+      "detail": "The action is not allowed.",
+      "args": null
+    }
+  ],
+  "traceId": "{traceId}"
+}

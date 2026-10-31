@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Frappe.Kernel.Messaging;
 using Frappe.Kernel.Tenancy;
 using Frappe.Platform.Health;
@@ -52,8 +53,14 @@ public static class MessagingExtensions
     /// Registers the bus. Call it before <c>AddPersistence</c>, so every context registered after it, the
     /// platform's and each module's, joins the bus's transaction.
     /// </summary>
+    /// <param name="builder">The application builder.</param>
+    /// <param name="configureJson">Adds converters to the JSON options every message is serialized with.</param>
+    /// <returns>The same builder, for chaining.</returns>
     /// <exception cref="InvalidOperationException">A <see cref="FrappeDbContext"/> is already registered.</exception>
-    public static TBuilder AddMessaging<TBuilder>(this TBuilder builder)
+    public static TBuilder AddMessaging<TBuilder>(
+        this TBuilder builder,
+        Action<JsonSerializerOptions>? configureJson = null
+    )
         where TBuilder : IHostApplicationBuilder
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -77,7 +84,7 @@ public static class MessagingExtensions
         bool development = builder.Environment.IsDevelopment();
         builder.Services.AddWolverine(
             ExtensionDiscovery.ManualOnly,
-            options => Configure(options, development)
+            options => Configure(options, development, configureJson)
         );
         builder
             .Services.AddOptionsWithValidateOnStart<NatsOptions, NatsOptionsValidator>()
@@ -98,9 +105,14 @@ public static class MessagingExtensions
         return builder;
     }
 
-    private static void Configure(WolverineOptions options, bool development)
+    private static void Configure(
+        WolverineOptions options,
+        bool development,
+        Action<JsonSerializerOptions>? configureJson
+    )
     {
         options.ServiceName = ServiceName;
+        options.UseSystemTextJsonForSerialization(json => configureJson?.Invoke(json));
         options.UseRuntimeCompilation();
         // TODO: the container PR switches to TypeLoadMode.Static with pre-generated handlers.
         options.CodeGeneration.TypeLoadMode = TypeLoadMode.Dynamic;

@@ -1,0 +1,17 @@
+{
+  "kernel.entity_id.invalid": "El identificador debe ser un UUIDv7 RFC 9562 no vacío.",
+  "platform.paging.invalid_cursor": "El cursor no es válido; volvé a empezar desde la primera página.",
+  "platform.rate_limit.exceeded": "Demasiadas solicitudes; reintentá más tarde.",
+  "platform.request.conflict": "La solicitud entra en conflicto con el estado actual.",
+  "platform.request.failed": "El servidor no pudo completar la solicitud.",
+  "platform.request.forbidden": "La acción no está permitida.",
+  "platform.request.invalid": "La solicitud no es válida.",
+  "platform.request.malformed": "La solicitud está mal formada.",
+  "platform.request.method_not_allowed": "El método HTTP no está permitido en este recurso.",
+  "platform.request.timeout": "La solicitud superó el tiempo de espera.",
+  "platform.request.too_large": "El cuerpo de la solicitud es demasiado grande.",
+  "platform.request.unauthorized": "Se requiere autenticación.",
+  "platform.request.unsupported_media_type": "El tipo de contenido de la solicitud no está soportado.",
+  "platform.resource.not_found": "No se encontró el recurso.",
+  "platform.route.not_found": "Ningún recurso coincide con la ruta de la solicitud."
+}

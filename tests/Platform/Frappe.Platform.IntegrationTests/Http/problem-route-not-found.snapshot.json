@@ -1,0 +1,15 @@
+{
+  "type": "urn:frappe:problem:not_found",
+  "title": "The resource was not found.",
+  "status": 404,
+  "instance": "/v1/nowhere",
+  "errors": [
+    {
+      "code": "platform.route.not_found",
+      "pointer": null,
+      "detail": "No resource matches the request path.",
+      "args": null
+    }
+  ],
+  "traceId": "{traceId}"
+}

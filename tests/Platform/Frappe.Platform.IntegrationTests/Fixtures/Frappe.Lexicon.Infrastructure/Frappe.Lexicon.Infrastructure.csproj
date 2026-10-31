@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- A fake module's Infrastructure assembly: the IModule, whose Application assembly holds the error texts. -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Remove="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.Lexicon.Application/Frappe.Lexicon.Application.csproj" />
+    <ProjectReference Include="../../../../../src/Platform/Frappe.Platform.Http/Frappe.Platform.Http.csproj" />
+  </ItemGroup>
+</Project>

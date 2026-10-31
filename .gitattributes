@@ -6,3 +6,6 @@
 *.ico binary
 *.pdf binary
 *.zip binary
+
+# Contract snapshots are compared byte for byte, so they stay LF and UTF-8 everywhere.
+*.snapshot.json text eol=lf working-tree-encoding=UTF-8

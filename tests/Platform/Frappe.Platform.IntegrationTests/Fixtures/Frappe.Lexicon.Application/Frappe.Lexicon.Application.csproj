@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- A fake module's Application assembly, so a test sees error texts load from every module assembly. -->
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <Using Remove="Xunit" />
+    <Using Include="ErrorOr" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="ErrorOr" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource
+      Include="Localization/errors.*.json"
+      LogicalName="%(Filename)%(Extension)"
+      WithCulture="false"
+    />
+  </ItemGroup>
+</Project>

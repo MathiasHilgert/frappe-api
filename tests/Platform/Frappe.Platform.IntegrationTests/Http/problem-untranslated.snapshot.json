@@ -1,0 +1,15 @@
+{
+  "type": "urn:frappe:problem:validation",
+  "title": "The request failed validation.",
+  "status": 422,
+  "instance": "/v1/probes/problems/untranslated",
+  "errors": [
+    {
+      "code": "probe.thing.untranslated",
+      "pointer": null,
+      "detail": "La solicitud no es válida.",
+      "args": null
+    }
+  ],
+  "traceId": "{traceId}"
+}
