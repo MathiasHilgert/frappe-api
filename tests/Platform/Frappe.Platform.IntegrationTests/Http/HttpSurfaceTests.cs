@@ -229,6 +229,7 @@ public sealed class HttpSurfaceTests
             [
                 "/v1/rogues/create-rogue: declares no single rate-limit policy",
                 "/v1/rogues/create-rogue: allows anonymous access but is not on the declared list",
+                "/v1/rogues/traces: maps TRACE",
             ],
             ignoreOrder: true
         );

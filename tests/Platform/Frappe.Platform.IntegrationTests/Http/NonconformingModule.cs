@@ -6,7 +6,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace Frappe.Platform.IntegrationTests.Http;
 
-// A fake module whose one endpoint breaks every route rule, so the tests see the standard catch each one.
+// A fake module that breaks every route rule, so the tests see the standard catch each one.
 internal sealed class NonconformingModule : IModule
 {
     public ModuleMetadata Metadata { get; } =
@@ -17,5 +17,8 @@ internal sealed class NonconformingModule : IModule
     public void MapEndpoints(RouteGroupBuilder group)
     {
         group.MapPost("/create-rogue", static () => TypedResults.NoContent()).AllowAnonymous();
+        group
+            .MapMethods("/traces", [HttpMethods.Trace], static () => TypedResults.NoContent())
+            .RequireRateLimiting("public");
     }
 }

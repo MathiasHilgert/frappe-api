@@ -6,8 +6,9 @@ using Microsoft.AspNetCore.Routing;
 namespace Frappe.TestUtilities;
 
 /// <summary>
-/// The security standard every mapped endpoint meets: exactly one rate-limit policy, and anonymous access only when
-/// declared. Health, the OpenAPI document and Scalar are the declared internal endpoints and are exempt.
+/// The security standard every mapped endpoint meets: exactly one rate-limit policy, anonymous access only when
+/// declared, and no TRACE (cross-site tracing). Health, the OpenAPI document and Scalar are the declared internal
+/// endpoints and are exempt.
 /// </summary>
 public static class RouteStandard
 {
@@ -53,6 +54,16 @@ public static class RouteStandard
             )
             {
                 violations.Add($"{route}: allows anonymous access but is not on the declared list");
+            }
+
+            if (
+                metadata
+                    .GetMetadata<HttpMethodMetadata>()
+                    ?.HttpMethods.Contains(HttpMethods.Trace, StringComparer.OrdinalIgnoreCase)
+                == true
+            )
+            {
+                violations.Add($"{route}: maps TRACE");
             }
         }
 
