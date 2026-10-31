@@ -80,6 +80,40 @@ public sealed class GeoSeedTests(GeoFixture geo)
         incomplete.ShouldBe(0);
     }
 
+    [Fact]
+    public async Task A_calendar_the_file_does_not_hold_is_kept_even_in_a_seeded_year()
+    {
+        await ExecuteAsync(
+            "INSERT INTO geo.holidays (holiday_id, country_code, date, holiday_key, class, origin, status) "
+                + "VALUES (uuidv7(), 'UY', '2026-07-18', 'constitution-day', 'Holiday', 'Fixed', 'Active')"
+        );
+        try
+        {
+            await MigrationsRunner.SeedAllAsync(
+                geo.OwnerConnectionString,
+                [new GeoModule()],
+                TestContext.Current.CancellationToken
+            );
+
+            string status = await ScalarAsync<string>(
+                "SELECT status FROM geo.holidays WHERE country_code = 'UY'"
+            );
+            status.ShouldBe("Active");
+        }
+        finally
+        {
+            await ExecuteAsync("DELETE FROM geo.holidays WHERE country_code = 'UY'");
+        }
+    }
+
+    private async Task ExecuteAsync(string sql)
+    {
+        await using NpgsqlConnection connection = new(geo.OwnerConnectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        await using NpgsqlCommand command = new(sql, connection);
+        await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+    }
+
     private async Task<T> ScalarAsync<T>(string sql, string? code = null)
     {
         await using NpgsqlConnection connection = new(geo.OwnerConnectionString);

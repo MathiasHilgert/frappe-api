@@ -199,13 +199,15 @@ internal static class GeoSeed
             [.. keys, ("classes", Column(rows, 4)), ("origins", Column(rows, 5))]
         );
         changed += await HolidayNamesAsync(connection, rows, cancellationToken);
-        // Only the years the file holds: a calendar dropped from the file is kept, not retired.
+        // Only the calendars (country and year) the file holds: a calendar dropped from the file is kept.
         changed += await ExecuteAsync(
             connection,
             """
             UPDATE geo.holidays h SET status = 'Retired'
             WHERE h.status <> 'Retired'
-                AND extract(year FROM h.date)::int IN (SELECT extract(year FROM day::date)::int FROM unnest(@dates::text[]) AS day)
+                AND (h.country_code, extract(year FROM h.date)::int) IN (
+                    SELECT DISTINCT country, extract(year FROM day::date)::int
+                    FROM unnest(@countries::text[], @dates::text[]) AS calendar(country, day))
                 AND NOT EXISTS (
                     SELECT 1 FROM unnest(@countries::text[], @subdivisions::text[], @dates::text[], @keys::text[])
                         AS seed(country, subdivision, day, key)
