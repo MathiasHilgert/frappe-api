@@ -204,8 +204,9 @@ public sealed class ListTimezonesTests(AppFixture app)
             scenario.WithRequestHeader("If-None-Match", "*");
             scenario.StatusCodeShouldBe(500);
         });
+        result.Context.Response.ContentType.ShouldBe("application/problem+json");
         result.Context.Response.Headers.ContainsKey("ETag").ShouldBeFalse();
-        result.Context.Response.Headers.ContainsKey("Cache-Control").ShouldBeFalse();
+        result.Context.Response.Headers.CacheControl.ToString().ShouldBe("no-store");
     }
 
     [Theory]
@@ -319,12 +320,14 @@ public sealed class ListTimezonesTests(AppFixture app)
         await Task.Delay(ShortMaxAge * 1.5, TestContext.Current.CancellationToken);
 
         (await ETagAsync(host)).ShouldBe(etag);
-        await host.Scenario(scenario =>
+        IScenarioResult stale = await host.Scenario(scenario =>
         {
             scenario.Get.Url(Url);
             scenario.WithRequestHeader("If-None-Match", etag);
             scenario.StatusCodeShouldBe(304);
         });
+        // Already past its max-age, so no cache may keep it fresh for another one.
+        stale.Context.Response.Headers.CacheControl.ToString().ShouldBe("public, max-age=0");
     }
 
     [Fact]
@@ -414,8 +417,9 @@ public sealed class ListTimezonesTests(AppFixture app)
             scenario.StatusCodeShouldBe(500);
         });
 
+        result.Context.Response.ContentType.ShouldBe("application/problem+json");
         result.Context.Response.Headers.ContainsKey("Retry-After").ShouldBeFalse();
-        result.Context.Response.Headers.ContainsKey("Cache-Control").ShouldBeFalse();
+        result.Context.Response.Headers.CacheControl.ToString().ShouldBe("no-store");
     }
 
     [Fact]

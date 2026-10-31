@@ -49,12 +49,28 @@ internal sealed class CatalogueSnapshot<TQuery, TItem>(
 
     /// <summary>Answers a GET with the body, or with 304 when <c>If-None-Match</c> names the snapshot's tag.</summary>
     /// <param name="context">The request.</param>
-    /// <returns>The body, 304 with no body, or 503 while a cold replica cannot reach the catalogue.</returns>
+    /// <returns>
+    /// The body, 304 with no body, 503 while a cold replica cannot reach the catalogue, or 500 when the catalogue
+    /// breaks an invariant.
+    /// </returns>
     public async Task<
         Results<FileContentHttpResult, StatusCodeHttpResult, ProblemHttpResult>
     > ServeAsync(HttpContext context)
     {
-        Snapshot? snapshot = await CurrentAsync(context.RequestAborted);
+        Snapshot? snapshot;
+        try
+        {
+            snapshot = await CurrentAsync(context.RequestAborted);
+        }
+        catch (CatalogueInvariantException exception)
+        {
+            Log.InvariantBroken(logger, typeof(TQuery).Name, exception);
+            context.Response.Headers.CacheControl = "no-store";
+            // shortcut: Platform has no house Problem Details mapper yet, so this is the framework's 500 shape
+            // with no house type or errors[] code; route it through the mapper once it lands.
+            return TypedResults.Problem(statusCode: StatusCodes.Status500InternalServerError);
+        }
+
         if (snapshot is null)
         {
             // No snapshot can validate a tag, so even a matching If-None-Match gets no 304.
@@ -65,11 +81,17 @@ internal sealed class CatalogueSnapshot<TQuery, TItem>(
             return TypedResults.Problem(statusCode: StatusCodes.Status503ServiceUnavailable);
         }
 
-        // Set only once the snapshot exists: a failed read throws first, so an error is never publicly cached.
+        // Set only once the snapshot exists: every failure has returned by now, so an error is never publicly cached.
         // No principal and no locale shape the body, so every cache may share it and no Vary is needed.
         ResponseHeaders headers = context.Response.GetTypedHeaders();
         headers.ETag = snapshot.ETag;
-        headers.CacheControl = new CacheControlHeaderValue { Public = true, MaxAge = _maxAge };
+        // A stale snapshot served through a failed refresh is already past its max-age, so caches must not keep
+        // it fresh for another one.
+        headers.CacheControl = new CacheControlHeaderValue
+        {
+            Public = true,
+            MaxAge = snapshot.IsExpired(_maxAge) ? TimeSpan.Zero : _maxAge,
+        };
         bool matches = context
             .Request.GetTypedHeaders()
             .IfNoneMatch.Any(tag =>

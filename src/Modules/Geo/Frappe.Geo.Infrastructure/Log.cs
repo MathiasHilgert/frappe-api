@@ -17,4 +17,15 @@ internal static partial class Log
         "Building the {Catalogue} snapshot failed; answering 503 until it succeeds"
     )]
     public static partial void BuildFailed(ILogger logger, string catalogue, Exception exception);
+
+    [LoggerMessage(
+        1002,
+        LogLevel.Error,
+        "The {Catalogue} catalogue breaks an invariant; answering 500"
+    )]
+    public static partial void InvariantBroken(
+        ILogger logger,
+        string catalogue,
+        Exception exception
+    );
 }
