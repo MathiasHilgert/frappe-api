@@ -172,12 +172,16 @@ public sealed class HolidayTests(GeoFixture geo)
             .ShouldBe(["/locale", "/year", "/subdivisionCode"]);
     }
 
-    [Fact]
-    public async Task A_subdivision_of_another_country_is_rejected_at_its_parameter()
+    [Theory]
+    [InlineData("BR-SP")]
+    [InlineData("AR-ZZ")]
+    public async Task A_subdivision_outside_the_countrys_catalogue_is_rejected_at_its_parameter(
+        string subdivision
+    )
     {
         (IScenarioResult result, JsonElement problem) = await GeoHttp.GetAsync(
             geo.Host,
-            $"{Url}?year=2026&subdivisionCode=BR-SP",
+            $"{Url}?year=2026&subdivisionCode={subdivision}",
             422
         );
 

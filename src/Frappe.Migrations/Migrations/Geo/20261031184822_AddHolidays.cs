@@ -22,6 +22,7 @@ namespace Frappe.Migrations.Migrations.Geo
             migrationBuilder.Sql(EmbeddedSql.Read("AddHolidays.sql"));
 
             CreateHolidays(migrationBuilder);
+            CreateHolidayIndexes(migrationBuilder);
             CreateHolidayNames(migrationBuilder);
 
             migrationBuilder.Sql(EmbeddedSql.Read("AddHolidaysGrants.sql"));
@@ -71,9 +72,20 @@ namespace Frappe.Migrations.Migrations.Geo
                         principalColumn: "country_code",
                         onDelete: ReferentialAction.Restrict
                     );
+                    table.ForeignKey(
+                        name: "fk_holidays_subdivisions_subdivision_code",
+                        column: x => x.subdivision_code,
+                        principalSchema: "geo",
+                        principalTable: "subdivisions",
+                        principalColumn: "subdivision_code",
+                        onDelete: ReferentialAction.Restrict
+                    );
                 }
             );
+        }
 
+        private static void CreateHolidayIndexes(MigrationBuilder migrationBuilder)
+        {
             migrationBuilder
                 .CreateIndex(
                     name: "ix_holidays_country_code_subdivision_code_date_holiday_key",
@@ -83,6 +95,13 @@ namespace Frappe.Migrations.Migrations.Geo
                     unique: true
                 )
                 .Annotation("Npgsql:NullsDistinct", false);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_holidays_subdivision_code",
+                schema: "geo",
+                table: "holidays",
+                column: "subdivision_code"
+            );
         }
 
         private static void CreateHolidayNames(MigrationBuilder migrationBuilder)

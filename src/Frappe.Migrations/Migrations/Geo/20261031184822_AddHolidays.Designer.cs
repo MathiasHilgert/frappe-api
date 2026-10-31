@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Frappe.Migrations.Migrations.Geo
 {
     [DbContext(typeof(GeoDbContext))]
-    [Migration("20261031184516_AddHolidays")]
+    [Migration("20261031184822_AddHolidays")]
     partial class AddHolidays
     {
         /// <inheritdoc />
@@ -319,6 +319,9 @@ namespace Frappe.Migrations.Migrations.Geo
                     b.HasKey("HolidayId")
                         .HasName("pk_holidays");
 
+                    b.HasIndex("SubdivisionCode")
+                        .HasDatabaseName("ix_holidays_subdivision_code");
+
                     b.HasIndex("CountryCode", "SubdivisionCode", "Date", "HolidayKey")
                         .IsUnique()
                         .HasDatabaseName("ix_holidays_country_code_subdivision_code_date_holiday_key");
@@ -518,6 +521,12 @@ namespace Frappe.Migrations.Migrations.Geo
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_holidays_countries_country_code");
+
+                    b.HasOne("Frappe.Geo.Infrastructure.Subdivisions.SubdivisionRow", null)
+                        .WithMany()
+                        .HasForeignKey("SubdivisionCode")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_holidays_subdivisions_subdivision_code");
                 });
 
             modelBuilder.Entity("Frappe.Geo.Infrastructure.Locales.LocaleNameRow", b =>

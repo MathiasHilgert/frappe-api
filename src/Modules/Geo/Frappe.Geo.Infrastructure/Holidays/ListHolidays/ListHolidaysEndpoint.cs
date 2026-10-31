@@ -2,6 +2,7 @@ using System.Globalization;
 using Frappe.Geo.Application;
 using Frappe.Geo.Application.Countries;
 using Frappe.Geo.Application.Holidays;
+using Frappe.Geo.Application.Subdivisions;
 using Frappe.Geo.Contracts.ValueObjects;
 using Frappe.Geo.Domain.Countries;
 using Frappe.Geo.Domain.Holidays;
@@ -45,6 +46,7 @@ internal static class ListHolidaysEndpoint
         string? locale,
         IHolidayReader holidays,
         ICountryReader countries,
+        ISubdivisionReader subdivisions,
         IClock clock,
         HttpContext context
     )
@@ -71,8 +73,14 @@ internal static class ListHolidaysEndpoint
             return new[] { CountryErrors.NotFound }.ToProblem(context);
         }
 
-        // TODO: check that the subdivision exists (once the subdivisions catalogue is seeded)
-        if (subdivision is { } filter && filter.Value.Country != code.Value)
+        // A subdivision of another country is as unknown to this country's calendar as one never catalogued.
+        if (
+            subdivision is { } filter
+            && (
+                filter.Value.Country != code.Value
+                || subdivisions.Find(filter.Value, Locale.English) is null
+            )
+        )
         {
             return new[]
             {
@@ -80,21 +88,7 @@ internal static class ListHolidaysEndpoint
             }.ToProblem(context);
         }
 
-        int effective;
-        if (asked is { } given)
-        {
-            effective = given.Value;
-        }
-        else
-        {
-            // Resolved once here; the caching filter reads the same year to tag the response and cap its max-age.
-            (effective, int maxAge) = HolidayYear.Current(code.Value, clock.GetCurrentInstant());
-            CacheScope.Set(
-                context,
-                new CacheScope(effective.ToString(CultureInfo.InvariantCulture), maxAge)
-            );
-        }
-
+        int effective = asked?.Value ?? DefaultYear(code.Value, clock, context);
         ErrorOr<Localized<IReadOnlyList<HolidayDto>>> list = holidays.List(
             code.Value,
             effective,
@@ -108,6 +102,17 @@ internal static class ListHolidaysEndpoint
 
         BodyLocale.Served(context, list.Value.Locale);
         return TypedResults.Ok(new PageResponse<HolidayDto>(list.Value.Value, NextCursor: null));
+    }
+
+    // Resolved once per request; the caching filter reads the same year to tag the response and cap its max-age.
+    private static int DefaultYear(CountryCode country, IClock clock, HttpContext context)
+    {
+        (int year, int maxAge) = HolidayYear.Current(country, clock.GetCurrentInstant());
+        CacheScope.Set(
+            context,
+            new CacheScope(year.ToString(CultureInfo.InvariantCulture), maxAge)
+        );
+        return year;
     }
 
     private static ErrorOr<int> Year(string year)

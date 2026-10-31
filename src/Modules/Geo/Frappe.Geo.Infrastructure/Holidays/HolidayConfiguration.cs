@@ -1,4 +1,5 @@
 using Frappe.Geo.Infrastructure.Countries;
+using Frappe.Geo.Infrastructure.Subdivisions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -44,11 +45,15 @@ internal sealed class HolidayConfiguration
         builder.Property(static holiday => holiday.Class).HasConversion<string>();
         builder.Property(static holiday => holiday.Origin).HasConversion<string>();
         builder.Property(static holiday => holiday.Status).HasConversion<string>();
-        // TODO: add the subdivisions FK and ix_holidays_subdivision_code (once the subdivisions catalogue is seeded)
         builder
             .HasOne<CountryRow>()
             .WithMany()
             .HasForeignKey(static holiday => holiday.CountryCode)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder
+            .HasOne<SubdivisionRow>()
+            .WithMany()
+            .HasForeignKey(static holiday => holiday.SubdivisionCode)
             .OnDelete(DeleteBehavior.Restrict);
     }
 

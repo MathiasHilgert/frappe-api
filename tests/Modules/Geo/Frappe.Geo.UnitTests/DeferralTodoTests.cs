@@ -24,16 +24,6 @@ public sealed partial class DeferralTodoTests
         malformed.ShouldBeEmpty();
     }
 
-    [Fact]
-    public void The_holiday_mapping_marks_where_the_subdivisions_foreign_key_plugs_in() =>
-        File.ReadAllText(
-                GeoSources()
-                    .Single(static file =>
-                        file.EndsWith("HolidayConfiguration.cs", StringComparison.Ordinal)
-                    )
-            )
-            .ShouldContain("// TODO: add the subdivisions FK and ix_holidays_subdivision_code");
-
     // A TODO with the comment lines that continue it, as one line.
     private static IEnumerable<string> Todos(string[] lines)
     {

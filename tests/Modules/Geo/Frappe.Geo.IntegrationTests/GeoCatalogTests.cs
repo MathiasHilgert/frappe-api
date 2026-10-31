@@ -45,6 +45,30 @@ public sealed class GeoCatalogTests(GeoFixture geo)
     }
 
     [Fact]
+    public async Task A_holidays_subdivision_must_be_a_catalogued_subdivision()
+    {
+        await using NpgsqlConnection connection = new(geo.OwnerConnectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        await using NpgsqlCommand command = new(
+            """
+            SELECT pg_get_constraintdef(c.oid)
+            FROM pg_constraint c
+            WHERE c.conrelid = 'geo.holidays'::regclass AND c.contype = 'f'
+              AND c.confrelid = 'geo.subdivisions'::regclass
+            """,
+            connection
+        );
+
+        object? foreignKey = await command.ExecuteScalarAsync(
+            TestContext.Current.CancellationToken
+        );
+
+        foreignKey.ShouldBe(
+            "FOREIGN KEY (subdivision_code) REFERENCES geo.subdivisions(subdivision_code) ON DELETE RESTRICT"
+        );
+    }
+
+    [Fact]
     public void Geo_maps_only_get_endpoints()
     {
         string[] methods =
