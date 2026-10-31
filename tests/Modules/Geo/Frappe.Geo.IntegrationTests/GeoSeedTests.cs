@@ -59,6 +59,27 @@ public sealed class GeoSeedTests(GeoFixture geo)
         unnamed.ShouldBe(0);
     }
 
+    [Fact]
+    public async Task Holidays_are_seeded_for_argentina_in_2026_and_2027_only()
+    {
+        string seeded = await ScalarAsync<string>(
+            "SELECT string_agg(DISTINCT country_code || ' ' || extract(year FROM date), ', ') FROM geo.holidays"
+        );
+
+        seeded.ShouldBe("AR 2026, AR 2027");
+    }
+
+    [Fact]
+    public async Task Every_holiday_has_a_spanish_english_and_portuguese_name()
+    {
+        long incomplete = await ScalarAsync<long>(
+            "SELECT count(*) FROM geo.holidays h WHERE (SELECT count(*) FROM geo.holiday_names n "
+                + "WHERE n.holiday_id = h.holiday_id AND n.locale IN ('es', 'en', 'pt')) <> 3"
+        );
+
+        incomplete.ShouldBe(0);
+    }
+
     private async Task<T> ScalarAsync<T>(string sql, string? code = null)
     {
         await using NpgsqlConnection connection = new(geo.OwnerConnectionString);

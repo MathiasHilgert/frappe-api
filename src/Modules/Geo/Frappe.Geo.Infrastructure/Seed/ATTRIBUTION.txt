@@ -23,3 +23,11 @@ countries.tsv (eng/geo/refresh_countries.py)
   Copyright (C) 2009 The Libphonenumber Authors. Licensed under the Apache License, Version 2.0:
   https://www.apache.org/licenses/LICENSE-2.0
   https://github.com/google/libphonenumber
+
+holidays.tsv (eng/geo/refresh_holidays.py)
+- vacanza/holidays 0.107, Argentina, public category: national and provincial holidays for 2026 and 2027,
+  Spanish names and their English translations. Class and origin are mapped from the legal category of each
+  national holiday (Law 27.399, the yearly bridge-day decree, DNU 1103/2026).
+  Copyright (c) Vacanza Team and individual contributors. Licensed under the MIT License:
+  https://github.com/vacanza/holidays/blob/v0.107/LICENSE
+- Portuguese names: hand-translated, kept in eng/geo/holiday-names-pt.tsv.

@@ -14,6 +14,8 @@ public sealed class GeoCatalogTests(GeoFixture geo)
         "country_names:SELECT",
         "currencies:SELECT",
         "currency_names:SELECT",
+        "holiday_names:SELECT",
+        "holidays:SELECT",
     ];
 
     [Fact]
