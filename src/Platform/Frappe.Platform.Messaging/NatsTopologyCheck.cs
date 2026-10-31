@@ -18,6 +18,8 @@ internal sealed class NatsTopologyCheck(
     IHostEnvironment environment
 ) : IHostedService
 {
+    private const string ReplySubject = "wolverine.response";
+
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         NatsTransport transport = runtime.Options.Transports.GetOrCreate<NatsTransport>();
@@ -71,8 +73,9 @@ internal sealed class NatsTopologyCheck(
         }
     }
 
-    // A core NATS or buffered endpoint would lose an event on a crash; the reply subject Wolverine adds for
-    // request/reply carries no event.
+    // A core NATS or buffered endpoint would lose an event on a crash; the reply subjects Wolverine adds for
+    // request/reply carry no event. With stubbed transports (a test host without NATS) Wolverine still adds the base
+    // reply endpoint but never marks it IsUsedForReplies, so it is recognized by its subject.
     private void CheckEndpoints(NatsTransport transport)
     {
         string[] unsafeEndpoints =
@@ -82,7 +85,14 @@ internal sealed class NatsTopologyCheck(
                 .OfType<NatsEndpoint>()
                 .Where(endpoint =>
                 {
-                    if (endpoint.IsUsedForReplies)
+                    if (
+                        endpoint.IsUsedForReplies
+                        || string.Equals(
+                            endpoint.EndpointName,
+                            ReplySubject,
+                            StringComparison.Ordinal
+                        )
+                    )
                     {
                         return false;
                     }
