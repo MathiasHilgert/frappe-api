@@ -1,4 +1,6 @@
 {
+  "geo.city.not_found": "No se encontró la ciudad.",
+  "geo.city.query_invalid": "La búsqueda de ciudades debe tener de 2 a 100 caracteres, sin cursor.",
   "geo.country.default_currency_undefined": "El país no tiene una moneda predeterminada.",
   "geo.country.not_found": "No se encontró el país.",
   "geo.country_code.invalid": "El código de país debe ser de dos letras ISO 3166-1 alfa-2.",

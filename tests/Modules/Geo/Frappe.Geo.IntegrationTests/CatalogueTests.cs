@@ -1,5 +1,6 @@
 using Frappe.Geo.Contracts;
 using Frappe.Geo.Contracts.ValueObjects;
+using Frappe.Geo.Infrastructure.Catalogues;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Frappe.Geo.IntegrationTests;
@@ -100,6 +101,43 @@ public sealed class CatalogueTests(GeoFixture geo)
         );
 
         currency.FirstError.Code.ShouldBe("geo.country.default_currency_undefined");
+    }
+
+    [Fact]
+    public async Task A_city_resolves_with_its_province_country_and_zone()
+    {
+        await using AsyncServiceScope scope = geo.Host.Services.CreateAsyncScope();
+        ICityCatalogue cities = scope.ServiceProvider.GetRequiredService<ICityCatalogue>();
+
+        ErrorOr<GeoCity> city = await cities.GetCityAsync(
+            CityIds.From("14042170"),
+            TestContext.Current.CancellationToken
+        );
+
+        city.Value.ShouldBe(
+            new GeoCity(
+                CityIds.From("14042170"),
+                "Villa María",
+                CountryCode.Create("AR").Value,
+                SubdivisionCode.Create("AR-X").Value,
+                TimeZoneId.Create("America/Argentina/Cordoba").Value,
+                ReferenceStatus.Active
+            )
+        );
+    }
+
+    [Fact]
+    public async Task A_city_outside_the_catalogue_is_not_found()
+    {
+        await using AsyncServiceScope scope = geo.Host.Services.CreateAsyncScope();
+        ICityCatalogue cities = scope.ServiceProvider.GetRequiredService<ICityCatalogue>();
+
+        ErrorOr<GeoCity> city = await cities.GetCityAsync(
+            CityId.NewId(),
+            TestContext.Current.CancellationToken
+        );
+
+        city.FirstError.Code.ShouldBe("geo.city.not_found");
     }
 
     [Theory]

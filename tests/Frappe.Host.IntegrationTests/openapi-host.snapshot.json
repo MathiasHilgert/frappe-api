@@ -246,6 +246,97 @@
         }
       }
     },
+    "/v1/geo/cities": {
+      "get": {
+        "tags": [
+          "geo"
+        ],
+        "summary": "Lists the cities (Georef localities), or autocompletes one from a typed query.",
+        "description": "Without q, a cursor-paged list in name order. With q, an accent- and case-insensitive locality autocomplete from 2 characters: at most 10 results, ranked exact name, name prefix, a word in the name, words found in the province or country name, then similar spellings (from 3 characters); every word must appear in the locality or its province or country name, such as 'pilar cordoba' or 'villa maria cordoba'; no cursor, and limit is ignored. Clients should debounce keystrokes (about 250 ms).",
+        "operationId": "ListCities",
+        "parameters": [
+          {
+            "name": "countryCode",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subdivisionCode",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseOfCityDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/geo/locales": {
       "get": {
         "tags": [
@@ -289,6 +380,55 @@
   },
   "components": {
     "schemas": {
+      "CityDto": {
+        "required": [
+          "cityId",
+          "name",
+          "countryCode",
+          "subdivisionCode",
+          "subdivisionName",
+          "label",
+          "timeZoneId"
+        ],
+        "type": "object",
+        "properties": {
+          "cityId": {
+            "description": "The city id other modules store.",
+            "$ref": "#/components/schemas/CityId"
+          },
+          "name": {
+            "type": "string",
+            "description": "The official name, such as Pilar."
+          },
+          "countryCode": {
+            "description": "The ISO 3166-1 alpha-2 code of its country.",
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "subdivisionCode": {
+            "description": "The ISO 3166-2 code of its province.",
+            "$ref": "#/components/schemas/SubdivisionCode"
+          },
+          "subdivisionName": {
+            "type": "string",
+            "description": "The province name in the requested locale."
+          },
+          "label": {
+            "type": "string",
+            "description": "Name, province and country in the requested locale, such as Pilar, Buenos Aires, Argentina; with the department in\nparentheses after the name when another city of the province has the same name."
+          },
+          "timeZoneId": {
+            "description": "The IANA zone of its province.",
+            "$ref": "#/components/schemas/TimeZoneId"
+          }
+        },
+        "additionalProperties": false,
+        "description": "A city: a Georef locality with its official name and ready-made label."
+      },
+      "CityId": {
+        "type": "string",
+        "description": "The identifier of a geo city, the Georef locality other modules store a reference to.",
+        "format": "uuid"
+      },
       "CountryCode": {
         "pattern": "^[A-Z]{2}$",
         "type": "string",
@@ -432,6 +572,31 @@
         "minimum": 0,
         "type": "integer",
         "description": "The number of decimal digits of a currency's minor unit, from 0 (CLP) to 4 (CLF)."
+      },
+      "PageResponseOfCityDto": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CityDto"
+            },
+            "description": "The items of this page."
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The cursor of the next page, or `null` on the last page."
+          }
+        },
+        "additionalProperties": false,
+        "description": "One page of a list."
       },
       "PageResponseOfCountryDto": {
         "required": [

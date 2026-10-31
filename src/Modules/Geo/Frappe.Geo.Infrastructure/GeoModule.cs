@@ -1,5 +1,6 @@
 using System.Data.Common;
 using System.Text.Json;
+using Frappe.Geo.Application.Cities;
 using Frappe.Geo.Application.Countries;
 using Frappe.Geo.Application.Currencies;
 using Frappe.Geo.Application.Locales;
@@ -7,6 +8,8 @@ using Frappe.Geo.Application.Subdivisions;
 using Frappe.Geo.Application.TimeZones;
 using Frappe.Geo.Contracts;
 using Frappe.Geo.Infrastructure.Catalogues;
+using Frappe.Geo.Infrastructure.Cities;
+using Frappe.Geo.Infrastructure.Cities.ListCities;
 using Frappe.Geo.Infrastructure.Countries;
 using Frappe.Geo.Infrastructure.Countries.GetCountry;
 using Frappe.Geo.Infrastructure.Countries.ListCountries;
@@ -78,6 +81,14 @@ public sealed class GeoModule : IModule
         services.AddSingleton<ILocaleCatalogue>(static provider =>
             provider.GetRequiredService<LocaleSnapshot>()
         );
+        // Cities are searched in the database, so their reader lives as long as the context.
+        services.AddScoped<CityQueryService>();
+        services.AddScoped<ICityReader>(static provider =>
+            provider.GetRequiredService<CityQueryService>()
+        );
+        services.AddScoped<ICityCatalogue>(static provider =>
+            provider.GetRequiredService<CityQueryService>()
+        );
         services.AddSingleton<GeoCatalogueLoader>();
         services.AddHostedService(static provider =>
             provider.GetRequiredService<GeoCatalogueLoader>()
@@ -108,6 +119,7 @@ public sealed class GeoModule : IModule
         ListCountriesEndpoint.Map(group);
         GetCountryEndpoint.Map(group);
         ListSubdivisionsEndpoint.Map(group);
+        ListCitiesEndpoint.Map(group);
         ListLocalesEndpoint.Map(group);
     }
 

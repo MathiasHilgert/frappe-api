@@ -1,4 +1,6 @@
 {
+  "geo.city.not_found": "The city was not found.",
+  "geo.city.query_invalid": "The city search must be 2 to 100 characters, without a cursor.",
   "geo.country.default_currency_undefined": "The country has no default currency.",
   "geo.country.not_found": "The country was not found.",
   "geo.country_code.invalid": "The country code must be two ISO 3166-1 alpha-2 letters.",

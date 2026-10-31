@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Frappe.Geo.Application.Cities;
 using Frappe.Geo.Application.Countries;
 using Frappe.Geo.Application.Currencies;
 using Frappe.Geo.Application.Locales;
@@ -14,5 +15,6 @@ namespace Frappe.Geo.Infrastructure;
 [JsonSerializable(typeof(PageResponse<CountryDto>))]
 [JsonSerializable(typeof(CountryDto))]
 [JsonSerializable(typeof(PageResponse<SubdivisionDto>))]
+[JsonSerializable(typeof(PageResponse<CityDto>))]
 [JsonSerializable(typeof(PageResponse<LocaleDto>))]
 internal sealed partial class GeoJsonContext : JsonSerializerContext;
