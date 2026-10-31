@@ -12,10 +12,19 @@ public sealed class TimezoneQueryService(GeoDbContext db) : IListTimezonesQueryS
     private const int PageCap = 1000;
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<TimezoneDto>> ListAsync(CancellationToken cancellationToken) =>
-        await db
+    public async Task<IReadOnlyList<TimezoneDto>> ListAsync(CancellationToken cancellationToken)
+    {
+        // One row past the cap tells a full page from a truncated one.
+        List<TimezoneDto> zones = await db
             .Timezones.OrderBy(static zone => zone.Name)
-            .Take(PageCap)
+            .Take(PageCap + 1)
             .Select(static zone => new TimezoneDto(zone.Name, zone.CanonicalName))
             .ToListAsync(cancellationToken);
+        // Rows are never deleted, so past the cap the one page would drop zones while reporting no next page.
+        return zones.Count <= PageCap
+            ? zones
+            : throw new InvalidOperationException(
+                $"The timezone catalogue holds more than {PageCap} zones, the single-page cap; page it by cursor."
+            );
+    }
 }

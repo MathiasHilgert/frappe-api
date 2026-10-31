@@ -1,5 +1,6 @@
 using Frappe.Geo.Infrastructure;
 using Frappe.Migrations;
+using Frappe.TestUtilities;
 using NodaTime.TimeZones;
 using Npgsql;
 
@@ -49,6 +50,41 @@ public sealed class TimezoneSeedTests(AppFixture app)
     }
 
     [Fact]
+    public async Task A_retained_alias_of_a_zone_that_became_an_alias_is_re_pointed_at_its_canonical_zone()
+    {
+        await using FrappeDatabase database = new();
+        await database.InitializeAsync();
+        // A zone an older release listed as an alias of America/Cordoba, which this release lists as an alias.
+        await ScalarAsync<string>(
+            database.OwnerConnectionString,
+            """
+            INSERT INTO geo.timezones (name, canonical_name) VALUES ('Test/Retired', 'America/Cordoba')
+            RETURNING name
+            """
+        );
+
+        int changed = await MigrationsRunner.SeedAllAsync(
+            database.OwnerConnectionString,
+            [new GeoModule()],
+            TestContext.Current.CancellationToken
+        );
+        int changedAgain = await MigrationsRunner.SeedAllAsync(
+            database.OwnerConnectionString,
+            [new GeoModule()],
+            TestContext.Current.CancellationToken
+        );
+
+        changed.ShouldBe(1);
+        changedAgain.ShouldBe(0);
+        (
+            await ScalarAsync<string>(
+                database.OwnerConnectionString,
+                "SELECT canonical_name FROM geo.timezones WHERE name = 'Test/Retired'"
+            )
+        ).ShouldBe("America/Argentina/Cordoba");
+    }
+
+    [Fact]
     public async Task The_app_role_can_only_read_the_catalogue()
     {
         bool[] privileges = await ScalarAsync<bool[]>(
@@ -64,14 +100,9 @@ public sealed class TimezoneSeedTests(AppFixture app)
         privileges.ShouldBe([true, false, false, false]);
     }
 
-    private Task<string[]> RowsAsync() =>
-        ScalarAsync<string[]>(
-            "SELECT array_agg(name || '=' || coalesce(canonical_name, '') ORDER BY name) FROM geo.timezones"
-        );
-
-    private async Task<T> ScalarAsync<T>(string sql)
+    private static async Task<T> ScalarAsync<T>(string connectionString, string sql)
     {
-        await using NpgsqlConnection connection = new(app.OwnerConnectionString);
+        await using NpgsqlConnection connection = new(connectionString);
         await connection.OpenAsync(TestContext.Current.CancellationToken);
         await using NpgsqlCommand command = new(sql, connection);
         object? value = await command.ExecuteScalarAsync(TestContext.Current.CancellationToken);
@@ -79,4 +110,11 @@ public sealed class TimezoneSeedTests(AppFixture app)
             ? typed
             : throw new InvalidOperationException($"The query returned {value ?? "null"}.");
     }
+
+    private Task<T> ScalarAsync<T>(string sql) => ScalarAsync<T>(app.OwnerConnectionString, sql);
+
+    private Task<string[]> RowsAsync() =>
+        ScalarAsync<string[]>(
+            "SELECT array_agg(name || '=' || coalesce(canonical_name, '') ORDER BY name) FROM geo.timezones"
+        );
 }

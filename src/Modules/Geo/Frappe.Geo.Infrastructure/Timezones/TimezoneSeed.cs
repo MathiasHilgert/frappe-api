@@ -8,12 +8,16 @@ namespace Frappe.Geo.Infrastructure.Timezones;
 internal static class TimezoneSeed
 {
     // One statement: the self-referencing FK is checked at its end, so an alias may arrive before its canonical
-    // zone. Rows the release no longer lists are kept, so a stored reference to a retired id still resolves.
+    // zone. Rows the release no longer lists are kept, so a stored reference to a retired id still resolves; the
+    // UPDATE re-points a kept alias whose zone this release made an alias, so no alias ever points at an alias.
     private const string Upsert = """
         INSERT INTO geo.timezones (name, canonical_name)
         SELECT name, canonical_name FROM unnest(@names, @canonical_names) AS source (name, canonical_name)
         ON CONFLICT (name) DO UPDATE SET canonical_name = excluded.canonical_name
-        WHERE timezones.canonical_name IS DISTINCT FROM excluded.canonical_name
+        WHERE timezones.canonical_name IS DISTINCT FROM excluded.canonical_name;
+        UPDATE geo.timezones AS alias SET canonical_name = target.canonical_name
+        FROM geo.timezones AS target
+        WHERE target.name = alias.canonical_name AND target.canonical_name IS NOT NULL
         """;
 
     public static async Task<int> UpsertAsync(

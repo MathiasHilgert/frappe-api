@@ -18,6 +18,8 @@ public sealed class AppFixture : IAsyncLifetime
 
     public string OwnerConnectionString => _database.OwnerConnectionString;
 
+    public string AppConnectionString => _database.AppConnectionString;
+
     public IAlbaHost Host =>
         _host ?? throw new InvalidOperationException("The fixture has not been initialized.");
 
