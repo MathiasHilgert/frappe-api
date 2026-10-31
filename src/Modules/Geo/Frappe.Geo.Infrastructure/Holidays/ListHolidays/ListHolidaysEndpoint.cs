@@ -5,6 +5,7 @@ using Frappe.Geo.Application.Holidays;
 using Frappe.Geo.Contracts.ValueObjects;
 using Frappe.Geo.Domain.Countries;
 using Frappe.Geo.Domain.Holidays;
+using Frappe.Geo.Domain.Subdivisions;
 using Frappe.Geo.Infrastructure.Catalogues;
 using Frappe.Kernel;
 using Frappe.Platform.Http.Paging;
@@ -50,7 +51,6 @@ internal static class ListHolidaysEndpoint
     {
         ErrorOr<Locale> requested = BodyLocale.Of(locale);
         ErrorOr<int>? asked = year is null ? (ErrorOr<int>?)null : Year(year);
-        // TODO: link holidays to subdivisions (FK + existence check) once T4 lands
         ErrorOr<SubdivisionCode>? subdivision = subdivisionCode is null
             ? (ErrorOr<SubdivisionCode>?)null
             : SubdivisionCode.Create(subdivisionCode).WithPointer(SubdivisionPointer);
@@ -69,6 +69,15 @@ internal static class ListHolidaysEndpoint
         if (code.IsError || countries.Find(code.Value, Locale.English) is null)
         {
             return new[] { CountryErrors.NotFound }.ToProblem(context);
+        }
+
+        // TODO: check that the subdivision exists (once the subdivisions catalogue is seeded)
+        if (subdivision is { } filter && filter.Value.Country != code.Value)
+        {
+            return new[]
+            {
+                UnknownFilter.Of(SubdivisionErrors.NotFound, SubdivisionPointer),
+            }.ToProblem(context);
         }
 
         int effective;

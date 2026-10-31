@@ -173,6 +173,21 @@ public sealed class HolidayTests(GeoFixture geo)
     }
 
     [Fact]
+    public async Task A_subdivision_of_another_country_is_rejected_at_its_parameter()
+    {
+        (IScenarioResult result, JsonElement problem) = await GeoHttp.GetAsync(
+            geo.Host,
+            $"{Url}?year=2026&subdivisionCode=BR-SP",
+            422
+        );
+
+        JsonElement error = GeoHttp.FirstError(problem);
+        error.GetProperty("code").GetString().ShouldBe("geo.subdivision.not_found");
+        error.GetProperty("pointer").GetString().ShouldBe("/subdivisionCode");
+        result.Context.Response.Headers.CacheControl.ToString().ShouldBe("no-store");
+    }
+
+    [Fact]
     public async Task An_unseeded_year_is_unavailable_rather_than_empty_and_never_stored()
     {
         (IScenarioResult result, JsonElement problem) = await GeoHttp.GetAsync(

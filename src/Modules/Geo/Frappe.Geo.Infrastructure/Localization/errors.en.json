@@ -10,6 +10,7 @@
   "geo.locale.invalid": "The locale must be a BCP 47 language tag such as es-AR.",
   "geo.minor_unit.invalid": "The minor unit must be between 0 and 4 decimal digits.",
   "geo.postal_code.invalid": "The postal code must be 1 to 16 letters, digits, spaces or hyphens.",
+  "geo.subdivision.not_found": "The subdivision was not found.",
   "geo.subdivision_code.invalid": "The subdivision code must be an ISO 3166-2 code such as AR-X.",
   "geo.time_zone_id.invalid": "The time zone must be an IANA time zone id such as America/Argentina/Buenos_Aires."
 }
