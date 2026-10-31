@@ -1,3 +1,4 @@
+using System.Data;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
@@ -7,6 +8,8 @@ using Frappe.Geo.Infrastructure.Currencies;
 using Frappe.Geo.Infrastructure.Holidays;
 using Frappe.Geo.Infrastructure.Locales;
 using Frappe.Geo.Infrastructure.Subdivisions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -41,6 +44,12 @@ internal sealed class GeoCatalogueLoader(
     {
         await using AsyncServiceScope scope = scopes.CreateAsyncScope();
         GeoDbContext db = scope.ServiceProvider.GetRequiredService<GeoDbContext>();
+        // One snapshot for every load, so a seed committing meanwhile never splits a row from its names.
+        await using IDbContextTransaction snapshot = await db.Database.BeginTransactionAsync(
+            IsolationLevel.RepeatableRead,
+            cancellationToken
+        );
+        await db.Database.ExecuteSqlAsync($"SET TRANSACTION READ ONLY", cancellationToken);
         LoadedCatalogue loadedCurrencies = await currencies.LoadAsync(db, cancellationToken);
         Log.CatalogueLoaded(logger, "currencies", loadedCurrencies.Rows);
         LoadedCatalogue loadedCountries = await countries.LoadAsync(db, cancellationToken);
@@ -56,6 +65,7 @@ internal sealed class GeoCatalogueLoader(
             cancellationToken
         );
         Log.CatalogueLoaded(logger, "address formats", loadedAddressFormats.Rows);
+        await snapshot.RollbackAsync(cancellationToken);
         _datasetTag = Tag(
             [
                 .. loadedCurrencies.Lines,
