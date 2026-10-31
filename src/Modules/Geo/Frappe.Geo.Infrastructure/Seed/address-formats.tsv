@@ -1,2 +1,2 @@
 country_code	postal_code_pattern	postal_code_examples	postal_code_required	required_fields	subdivision_label
-AR	[A-HJ-NP-Z]\d{4}[A-Z]{3}|\d{4}	C1070AAM,C1000WAM,B1000TBU,X5187XAB	false	street_line,city	province
+AR	([A-HJ-NP-Z])?\d{4}([A-Z]{3})?	C1070AAM,C1000WAM,B1000TBU,X5187XAB	false	street_line,city	province

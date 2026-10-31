@@ -45,7 +45,7 @@ public sealed class AddressTests(GeoFixture geo) : IAsyncLifetime
         format
             .GetProperty("postalCodePattern")
             .GetString()
-            .ShouldBe(@"[A-HJ-NP-Z]\d{4}[A-Z]{3}|\d{4}");
+            .ShouldBe(@"([A-HJ-NP-Z])?\d{4}([A-Z]{3})?");
         Strings(format.GetProperty("postalCodeExamples"))
             .ShouldBe(["C1070AAM", "C1000WAM", "B1000TBU", "X5187XAB"]);
         format.GetProperty("postalCodeRequired").GetBoolean().ShouldBeFalse();
@@ -76,6 +76,9 @@ public sealed class AddressTests(GeoFixture geo) : IAsyncLifetime
     [InlineData("C1425DQF")]
     [InlineData("c1425dqf")]
     [InlineData("1425")]
+    [InlineData("B1629")]
+    [InlineData("X5000")]
+    [InlineData("1425DQF")]
     public async Task An_argentine_cpa_or_legacy_code_is_valid(string raw)
     {
         ErrorOr<Success> result = await ValidatePostalCodeAsync("AR", raw);
@@ -86,6 +89,8 @@ public sealed class AddressTests(GeoFixture geo) : IAsyncLifetime
     [Theory]
     [InlineData("ABC")]
     [InlineData("C1425DQFXYZ")]
+    [InlineData("I1425")]
+    [InlineData("C1425DQ")]
     public async Task An_argentine_code_off_the_pattern_is_invalid(string raw)
     {
         ErrorOr<Success> result = await ValidatePostalCodeAsync("AR", raw);

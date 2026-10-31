@@ -5,13 +5,18 @@ namespace Frappe.Geo.UnitTests.Addresses;
 
 public sealed class PostalCodeFormatTests
 {
-    private const string Argentina = @"[A-HJ-NP-Z]\d{4}[A-Z]{3}|\d{4}";
+    private const string Argentina = @"([A-HJ-NP-Z])?\d{4}([A-Z]{3})?";
 
     [Theory]
     [InlineData("C1425DQF")]
     [InlineData("c1425dqf")]
     [InlineData("1425")]
-    public void An_argentine_cpa_or_legacy_four_digit_code_is_valid(string raw)
+    [InlineData("B1629")]
+    [InlineData("X5000")]
+    [InlineData("1425DQF")]
+    public void An_argentine_cpa_or_legacy_code_with_or_without_its_province_letter_is_valid(
+        string raw
+    )
     {
         var format = PostalCodeFormat.Create(Argentina, required: false);
 
@@ -24,7 +29,8 @@ public sealed class PostalCodeFormatTests
     [Theory]
     [InlineData("ABC")]
     [InlineData("C1425DQFXYZ")]
-    [InlineData("X1425")]
+    [InlineData("I1425")]
+    [InlineData("C1425DQ")]
     [InlineData("14250")]
     [InlineData("I1425DQF")]
     public void A_code_the_whole_pattern_does_not_match_is_invalid(string raw)
