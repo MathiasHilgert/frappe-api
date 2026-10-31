@@ -128,6 +128,8 @@ dotnet_diagnostic.CA1707.severity = none
 dotnet_naming_rule.async_methods_end_in_async.severity = none
 
 [**/Frappe.Migrations/Migrations/**.cs]
+# EF scaffolds these files; analyzers treat them as generated code, so the shape EF writes is kept.
+generated_code = true
 dotnet_diagnostic.S1192.severity = none
 # EF scaffolds migrations with block namespaces in timestamped files; the generated shape is kept.
 dotnet_diagnostic.IDE0161.severity = none
