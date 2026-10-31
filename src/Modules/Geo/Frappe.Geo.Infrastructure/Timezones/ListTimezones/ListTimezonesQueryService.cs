@@ -1,4 +1,5 @@
 using Frappe.Geo.Application.Timezones.ListTimezones;
+using Frappe.Geo.Infrastructure.Catalogues;
 using Microsoft.EntityFrameworkCore;
 
 namespace Frappe.Geo.Infrastructure.Timezones.ListTimezones;
@@ -23,7 +24,7 @@ public sealed class ListTimezonesQueryService(GeoDbContext db) : IListTimezonesQ
         // Rows are never deleted, so past the cap the one page would drop zones while reporting no next page.
         return zones.Count <= PageCap
             ? zones
-            : throw new InvalidOperationException(
+            : throw new CatalogueInvariantException(
                 $"The timezone catalogue holds more than {PageCap} zones, the single-page cap; page it by cursor."
             );
     }

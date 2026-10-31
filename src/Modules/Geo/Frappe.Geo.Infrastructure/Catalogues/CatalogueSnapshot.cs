@@ -1,4 +1,3 @@
-using System.Data.Common;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
@@ -35,6 +34,9 @@ internal sealed class CatalogueSnapshot<TQuery, TItem>(
 {
     private const string ContentType = "application/json; charset=utf-8";
 
+    // How long a client waits before retrying a cold replica that could not build its snapshot.
+    private const string ColdRetryAfter = "5";
+
     // How long a replica serves its stale snapshot after a failed refresh before one request tries again.
     private static readonly TimeSpan _retryAfter = TimeSpan.FromSeconds(30);
 
@@ -42,17 +44,27 @@ internal sealed class CatalogueSnapshot<TQuery, TItem>(
     private readonly JsonSerializerOptions _json = json.Value.SerializerOptions;
     private readonly Lock _gate = new();
     private Snapshot? _snapshot;
-    private Task<Snapshot>? _refresh;
+    private Task<Snapshot?>? _refresh;
     private long _failedAt;
 
     /// <summary>Answers a GET with the body, or with 304 when <c>If-None-Match</c> names the snapshot's tag.</summary>
     /// <param name="context">The request.</param>
-    /// <returns>The body, or 304 with no body.</returns>
-    public async Task<Results<FileContentHttpResult, StatusCodeHttpResult>> ServeAsync(
-        HttpContext context
-    )
+    /// <returns>The body, 304 with no body, or 503 while a cold replica cannot reach the catalogue.</returns>
+    public async Task<
+        Results<FileContentHttpResult, StatusCodeHttpResult, ProblemHttpResult>
+    > ServeAsync(HttpContext context)
     {
-        Snapshot snapshot = await CurrentAsync(context.RequestAborted);
+        Snapshot? snapshot = await CurrentAsync(context.RequestAborted);
+        if (snapshot is null)
+        {
+            // No snapshot can validate a tag, so even a matching If-None-Match gets no 304.
+            context.Response.Headers.RetryAfter = ColdRetryAfter;
+            context.Response.Headers.CacheControl = "no-store";
+            // shortcut: Platform has no house Problem Details mapper yet, so this is the framework's 503 shape
+            // with no house type or errors[] code; route it through the mapper once it lands.
+            return TypedResults.Problem(statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+
         // Set only once the snapshot exists: a failed read throws first, so an error is never publicly cached.
         // No principal and no locale shape the body, so every cache may share it and no Vary is needed.
         ResponseHeaders headers = context.Response.GetTypedHeaders();
@@ -69,7 +81,7 @@ internal sealed class CatalogueSnapshot<TQuery, TItem>(
             : TypedResults.Bytes(snapshot.Body, ContentType);
     }
 
-    private async Task<Snapshot> CurrentAsync(CancellationToken cancellationToken)
+    private async Task<Snapshot?> CurrentAsync(CancellationToken cancellationToken)
     {
         Snapshot? snapshot = Volatile.Read(ref _snapshot);
         if (IsServable(snapshot))
@@ -79,7 +91,7 @@ internal sealed class CatalogueSnapshot<TQuery, TItem>(
 
         // Single flight: requests that find the snapshot cold or expired share one refresh instead of each reading
         // the catalogue. The refresh runs on the host's token, so a caller that leaves only stops its own wait.
-        Task<Snapshot> refresh;
+        Task<Snapshot?> refresh;
         lock (_gate)
         {
             snapshot = _snapshot;
@@ -102,7 +114,7 @@ internal sealed class CatalogueSnapshot<TQuery, TItem>(
             || Stopwatch.GetElapsedTime(Interlocked.Read(ref _failedAt)) < _retryAfter
         );
 
-    private async Task<Snapshot> RefreshAsync()
+    private async Task<Snapshot?> RefreshAsync()
     {
         Snapshot? stale = Volatile.Read(ref _snapshot);
         try
@@ -111,12 +123,24 @@ internal sealed class CatalogueSnapshot<TQuery, TItem>(
             Volatile.Write(ref _snapshot, snapshot);
             return snapshot;
         }
-        // Only a database failure is an outage worth riding out on the stale snapshot; anything else, such as the
-        // catalogue outgrowing its page cap, is a bug that must fail every request until it is fixed.
-        catch (DbException exception) when (stale is not null)
+        // A breached invariant is a bug that must fail every request until it is fixed, and a stopping host is no
+        // outage. Any other failure is the database or the path to it, however wrapped, so it is ridden out on
+        // the stale snapshot, or answered 503 while there is none.
+        catch (Exception exception)
+            when (exception is not CatalogueInvariantException
+                && !lifetime.ApplicationStopping.IsCancellationRequested
+            )
         {
             Interlocked.Exchange(ref _failedAt, Stopwatch.GetTimestamp());
-            Log.RefreshFailed(logger, typeof(TQuery).Name, exception);
+            if (stale is null)
+            {
+                Log.BuildFailed(logger, typeof(TQuery).Name, exception);
+            }
+            else
+            {
+                Log.RefreshFailed(logger, typeof(TQuery).Name, exception);
+            }
+
             return stale;
         }
         finally
@@ -139,7 +163,7 @@ internal sealed class CatalogueSnapshot<TQuery, TItem>(
         // A catalogue query has no expected failure, so an error here is a bug, not a response.
         if (items.IsError)
         {
-            throw new InvalidOperationException(
+            throw new CatalogueInvariantException(
                 $"{typeof(TQuery).Name} failed: {items.FirstError.Code}."
             );
         }

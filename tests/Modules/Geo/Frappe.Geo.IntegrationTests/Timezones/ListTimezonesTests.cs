@@ -22,6 +22,10 @@ public sealed class ListTimezonesTests(AppFixture app)
     // Fails every later read of the catalogue, as a database outage would.
     private const string RevokeRead = "REVOKE SELECT ON geo.timezones FROM frappe_app";
 
+    // A zone a later release retired is kept, so the rows differ from what this host's release lists.
+    private const string RetireZone =
+        "INSERT INTO geo.timezones (name, canonical_name) VALUES ('Test/Retired', NULL)";
+
     // The shortest snapshot life the options accept, so a test can outlive it.
     private static TimeSpan ShortMaxAge => TimeSpan.FromSeconds(1);
 
@@ -135,6 +139,19 @@ public sealed class ListTimezonesTests(AppFixture app)
     }
 
     [Fact]
+    public async Task The_tag_stays_while_the_snapshot_is_fresh()
+    {
+        await using FrappeDatabase database = new();
+        await database.InitializeAsync();
+        await using IAlbaHost host = await StartAsync(database);
+        string seeded = await ETagAsync(host);
+
+        await ExecuteAsync(database, RetireZone);
+
+        (await ETagAsync(host)).ShouldBe(seeded);
+    }
+
+    [Fact]
     public async Task The_tag_follows_the_rows_served_once_the_snapshot_expires()
     {
         await using FrappeDatabase database = new();
@@ -142,13 +159,8 @@ public sealed class ListTimezonesTests(AppFixture app)
         await using IAlbaHost host = await StartAsync(database, ShortMaxAge);
         string seeded = await ETagAsync(host);
 
-        // A zone a later release retired is kept, so the rows differ from what this host's release lists.
-        await ExecuteAsync(
-            database,
-            "INSERT INTO geo.timezones (name, canonical_name) VALUES ('Test/Retired', NULL)"
-        );
+        await ExecuteAsync(database, RetireZone);
 
-        (await ETagAsync(host)).ShouldBe(seeded);
         await Task.Delay(ShortMaxAge * 1.5, TestContext.Current.CancellationToken);
         string changed = await ETagAsync(host);
         changed.ShouldNotBe(seeded, StringComparer.Ordinal);
@@ -287,6 +299,35 @@ public sealed class ListTimezonesTests(AppFixture app)
     }
 
     [Fact]
+    public async Task A_refresh_that_fails_with_a_wrapped_database_error_serves_the_snapshot_it_had()
+    {
+        await using FrappeDatabase database = new();
+        await database.InitializeAsync();
+        FailingRead failing = new();
+        await using IAlbaHost host = await StartAsync(
+            database,
+            ShortMaxAge,
+            builder =>
+                builder.Services.ConfigureDbContext<GeoDbContext>(
+                    options => options.AddInterceptors(failing),
+                    ServiceLifetime.Singleton
+                )
+        );
+        string etag = await ETagAsync(host);
+
+        failing.Start();
+        await Task.Delay(ShortMaxAge * 1.5, TestContext.Current.CancellationToken);
+
+        (await ETagAsync(host)).ShouldBe(etag);
+        await host.Scenario(scenario =>
+        {
+            scenario.Get.Url(Url);
+            scenario.WithRequestHeader("If-None-Match", etag);
+            scenario.StatusCodeShouldBe(304);
+        });
+    }
+
+    [Fact]
     public async Task A_failed_refresh_is_not_retried_by_every_request()
     {
         await using FrappeDatabase database = new();
@@ -314,11 +355,36 @@ public sealed class ListTimezonesTests(AppFixture app)
     }
 
     [Fact]
-    public async Task A_cold_snapshot_with_the_database_failing_is_an_uncacheable_error()
+    public async Task A_cold_snapshot_with_the_database_failing_is_an_uncacheable_503()
     {
         await using FrappeDatabase database = new();
         await database.InitializeAsync();
         await ExecuteAsync(database, RevokeRead);
+        await using IAlbaHost host = await StartAsync(database);
+
+        // No snapshot can validate a tag, so even a matching If-None-Match gets no 304.
+        IScenarioResult result = await host.Scenario(static scenario =>
+        {
+            scenario.Get.Url(Url);
+            scenario.WithRequestHeader("If-None-Match", "*");
+            scenario.StatusCodeShouldBe(503);
+        });
+
+        result.Context.Response.ContentType.ShouldBe("application/problem+json");
+        result.Context.Response.Headers.RetryAfter.ToString().ShouldBe("5");
+        result.Context.Response.Headers.CacheControl.ToString().ShouldBe("no-store");
+        result.Context.Response.Headers.ContainsKey("ETag").ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task A_cold_catalogue_past_the_page_cap_is_still_a_500()
+    {
+        await using var database = FrappeDatabase.WithoutSeed();
+        await database.InitializeAsync();
+        await ExecuteAsync(
+            database,
+            "INSERT INTO geo.timezones (name) SELECT 'Test/Zone' || n FROM generate_series(1, 1001) AS n"
+        );
         await using IAlbaHost host = await StartAsync(database);
 
         IScenarioResult result = await host.Scenario(static scenario =>
@@ -327,7 +393,7 @@ public sealed class ListTimezonesTests(AppFixture app)
             scenario.StatusCodeShouldBe(500);
         });
 
-        result.Context.Response.Headers.ContainsKey("ETag").ShouldBeFalse();
+        result.Context.Response.Headers.ContainsKey("Retry-After").ShouldBeFalse();
         result.Context.Response.Headers.ContainsKey("Cache-Control").ShouldBeFalse();
     }
 
@@ -408,6 +474,24 @@ public sealed class ListTimezonesTests(AppFixture app)
             },
             nats: NatsScope.On(app.Nats)
         );
+
+    // Fails every read once set, with an error that is no DbException, as a wrapped database failure would be.
+    private sealed class FailingRead : DbCommandInterceptor
+    {
+        private volatile bool _failing;
+
+        public void Start() => _failing = true;
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default
+        ) =>
+            _failing
+                ? throw new TimeoutException("The database did not answer.")
+                : ValueTask.FromResult(result);
+    }
 
     // Holds the first read until the test releases it, so a caller can cancel while the refresh is in flight.
     private sealed class HeldRead : DbCommandInterceptor

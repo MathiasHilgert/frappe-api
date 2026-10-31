@@ -26,5 +26,6 @@ internal static class ListTimezonesEndpoint
             .Produces<CataloguePage<TimezoneDto>>()
             .Produces(StatusCodes.Status304NotModified)
             .ProducesProblem(StatusCodes.Status500InternalServerError)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
             .AllowAnonymous();
 }

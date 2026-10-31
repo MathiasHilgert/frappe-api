@@ -28,7 +28,11 @@ public sealed class GeoModule : IModule
         builder.Services.AddFrappeDbContext<GeoDbContext>(Metadata.Schema);
         builder
             .Services.AddOptionsWithValidateOnStart<GeoOptions, GeoOptionsValidator>()
-            .BindConfiguration(GeoOptions.SectionName);
+            // An unknown key, such as the TimezonesMaxAge this option replaced, fails the start instead of being ignored.
+            .BindConfiguration(
+                GeoOptions.SectionName,
+                static binder => binder.ErrorOnUnknownConfiguration = true
+            );
         builder.Services.AddScoped<IListTimezonesQueryService, ListTimezonesQueryService>();
         builder.Services.AddSingleton<CatalogueSnapshot<ListTimezonesQuery, TimezoneDto>>();
         // Critical: without the catalogue no branch's zone resolves, so the replica must not take traffic.
