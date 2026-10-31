@@ -6,6 +6,9 @@ namespace Frappe.Geo.Domain.Addresses;
 /// <summary>A country's postal-code rule: a pattern the whole code must match, and whether a code is required.</summary>
 public sealed class PostalCodeFormat
 {
+    private const RegexOptions Options =
+        RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture;
+
     private static readonly TimeSpan _matchTimeout = TimeSpan.FromMilliseconds(100);
 
     private readonly Regex? _pattern;
@@ -24,17 +27,21 @@ public sealed class PostalCodeFormat
     /// <param name="pattern">The pattern, anchored here at both ends; <see langword="null"/> accepts any code.</param>
     /// <param name="required">Whether an address must carry a postal code.</param>
     /// <returns>The rule.</returns>
-    public static PostalCodeFormat Create(string? pattern, bool required) =>
-        new(
-            pattern is null
-                ? null
-                : new Regex(
-                    $@"\A(?:{pattern})\z",
-                    RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
-                    _matchTimeout
-                ),
+    /// <exception cref="ArgumentException">The pattern is not a whole regular expression on its own.</exception>
+    public static PostalCodeFormat Create(string? pattern, bool required)
+    {
+        if (pattern is null)
+        {
+            return new PostalCodeFormat(null, required);
+        }
+
+        // Parsed alone first: "1)|(2" is unbalanced alone but balanced inside the anchors, where it escapes them.
+        _ = new Regex(pattern, Options, _matchTimeout);
+        return new PostalCodeFormat(
+            new Regex($@"\A(?:{pattern})\z", Options, _matchTimeout),
             required
         );
+    }
 
     /// <summary>Checks a postal code against the rule.</summary>
     /// <param name="postalCode">The code, or <see langword="null"/> when the address carries none.</param>

@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.Globalization;
 using Frappe.Geo.Application.Cities;
+using Frappe.Geo.Domain.Addresses;
 using Frappe.Geo.Infrastructure.Catalogues;
 
 namespace Frappe.Geo.Infrastructure.Seed;
@@ -485,6 +486,12 @@ internal static class GeoSeed
     )
     {
         IReadOnlyList<string[]> rows = Tsv.Read("address-formats.tsv", _addressFormatHeader);
+        // A pattern that does not compile fails the seed here, before it is written and loaded by every host.
+        foreach (string pattern in OptionalColumn(rows, 1).OfType<string>())
+        {
+            _ = PostalCodeFormat.Create(pattern, required: false);
+        }
+
         return ExecuteAsync(
             connection,
             """

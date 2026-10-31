@@ -46,6 +46,16 @@ public sealed class PostalCodeFormatTests
         result.FirstError.Code.ShouldBe("geo.postal_code.invalid");
     }
 
+    // Wrapped in the anchors, "1)|(2" would compile as an unanchored alternation, so a pattern must stand alone.
+    [Theory]
+    [InlineData("1)|(2")]
+    [InlineData("(1")]
+    [InlineData("1)")]
+    public void A_pattern_that_is_not_a_whole_regex_is_refused(string pattern)
+    {
+        Should.Throw<ArgumentException>(() => PostalCodeFormat.Create(pattern, required: false));
+    }
+
     [Fact]
     public void Without_a_pattern_any_code_is_valid()
     {
