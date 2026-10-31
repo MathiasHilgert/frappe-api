@@ -44,7 +44,7 @@ internal sealed class CurrencySnapshot : ICurrencyReader, ICurrencyCatalogue
                 row.NumericCode,
                 row.MinorUnit is { } digits ? MinorUnit.Create(digits).Value : null,
                 row.Status,
-                labels[row.CurrencyCode]
+                Labels.Of(labels, "currency", row.CurrencyCode)
             )),
         ];
         _catalogue = new Catalogue(

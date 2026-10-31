@@ -13,7 +13,7 @@ internal static class Tsv
         return Parse(reader, fileName, header);
     }
 
-    /// <summary>Parses seed rows; a different header or a row with another field count fails the seed.</summary>
+    /// <summary>Parses seed rows; a different header or a row with another field count or no row at all fails the seed.</summary>
     public static IReadOnlyList<string[]> Parse(
         TextReader reader,
         string fileName,
@@ -50,6 +50,9 @@ internal static class Tsv
             rows.Add(fields);
         }
 
-        return rows;
+        // The seed retires every row a file leaves out, so a file without rows would retire its whole catalogue.
+        return rows.Count > 0
+            ? rows
+            : throw new InvalidDataException($"{fileName} holds a header but no rows.");
     }
 }

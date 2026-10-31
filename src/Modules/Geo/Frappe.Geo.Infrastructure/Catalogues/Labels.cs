@@ -78,6 +78,20 @@ internal sealed class Labels(FrozenDictionary<string, string> names)
                 StringComparer.Ordinal
             );
 
+    /// <summary>Returns the names of one row; a row without names cannot be served, so the load fails naming it.</summary>
+    /// <param name="labels">The names by row key, from <see cref="ByKey"/>.</param>
+    /// <param name="catalogue">What the row is, such as currency, for the failure message.</param>
+    /// <param name="key">The key of the row.</param>
+    public static Labels Of(
+        FrozenDictionary<string, Labels> labels,
+        string catalogue,
+        string key
+    ) =>
+        labels.GetValueOrDefault(key)
+        ?? throw new InvalidOperationException(
+            $"The {catalogue} {key} has no names, so it cannot be served."
+        );
+
     /// <summary>Returns the name in <paramref name="locale"/>, else the first one along its fallback chain.</summary>
     public string Resolve(Locale locale) => Localize(locale).Value;
 

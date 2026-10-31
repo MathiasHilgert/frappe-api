@@ -55,10 +55,7 @@ internal sealed class HolidaySnapshot(CountrySnapshot countries) : IHolidayReade
                     ? SubdivisionCode.Create(subdivision).Value
                     : null,
                 row.HolidayKey,
-                labels.GetValueOrDefault(row.HolidayId.ToString())
-                    ?? throw new InvalidOperationException(
-                        $"The holiday {row.HolidayId} has no names, so it cannot be served."
-                    )
+                Labels.Of(labels, "holiday", row.HolidayId.ToString())
             ))
             .GroupBy(
                 static holiday => CalendarKey(holiday.Country, holiday.Date.Year),
