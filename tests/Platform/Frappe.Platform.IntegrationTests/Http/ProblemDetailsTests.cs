@@ -77,6 +77,24 @@ public sealed class ProblemDetailsTests
         await ShouldBeProblemAsync(result, "problem-returned-500");
     }
 
+    // The worst class wins: one server error among client errors still hides every producer error.
+    [Fact]
+    public async Task A_server_error_among_client_errors_is_a_500_that_hides_them_all()
+    {
+        await using IAlbaHost host = await HttpHost.StartAsync(new ProbeModule());
+
+        IScenarioResult result = await host.Scenario(static scenario =>
+        {
+            scenario.Get.Url("/v1/probes/problems/mixed");
+            scenario.StatusCodeShouldBe(500);
+        });
+
+        string body = await result.ReadAsTextAsync();
+        body.ShouldNotContain("SECRET");
+        body.ShouldNotContain("probe.");
+        await ShouldBeProblemAsync(result, "problem-mixed-500");
+    }
+
     // A code shipped without a text must not leak its English description, which may hold internals.
     [Fact]
     public async Task A_code_without_a_text_gets_the_generic_text_of_its_type()

@@ -100,6 +100,19 @@ internal sealed class ProbeModule : IModule
                     "Constraint SECRET-CONSTRAINT failed."
                 ),
             ],
+            "mixed" =>
+            [
+                Error.Validation("probe.name.too_long", "The name is too long."),
+                Error.Unexpected(
+                    "probe.thing.unexpected",
+                    "SECRET-INTERNAL",
+                    new Dictionary<string, object>(StringComparer.Ordinal)
+                    {
+                        [Errors.PointerKey] = "/SECRET-POINTER",
+                        ["table"] = "SECRET-TABLE",
+                    }
+                ),
+            ],
             _ => [Error.Unexpected("probe.thing.unexpected", "SECRET-INTERNAL")],
         };
         return errors.ToProblem(context);

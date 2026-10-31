@@ -7,7 +7,10 @@ namespace Frappe.Platform.Http.Localization;
 
 /// <summary>
 /// The translated error texts, keyed by error code: every <c>errors.&lt;locale&gt;.json</c> resource embedded in
-/// the platform and in each module assembly. Built once at startup, so a broken resource fails the start.
+/// the platform and in each module assembly. Built on the first error response; DI does not cache a singleton
+/// whose factory threw, so a broken resource fails every error response (re-reading the assemblies each time,
+/// and ending as an empty-body 500 on the exception-handler path). The architecture tests load every shipped
+/// resource, so CI catches it before a deploy.
 /// </summary>
 public sealed class ErrorTexts
 {

@@ -59,7 +59,9 @@ public static class ProblemMapper
         }.ToFrozenDictionary();
 
     /// <summary>Maps the errors of a failed result to the house problem response.</summary>
-    /// <param name="errors">The errors, at least one; the first decides the status.</param>
+    /// <param name="errors">
+    /// The errors, at least one; any server error makes it a 500, otherwise the first decides the status.
+    /// </param>
     /// <param name="context">The current request, for its locale and services.</param>
     /// <returns>The problem result to return from the endpoint.</returns>
     public static ProblemHttpResult ToProblem(this IReadOnlyList<Error> errors, HttpContext context)
@@ -71,7 +73,13 @@ public static class ProblemMapper
             throw new ArgumentException("A problem needs at least one error.", nameof(errors));
         }
 
-        (int status, string type) = StatusOf(errors[0]);
+        // The worst class wins: one server error anywhere makes the whole answer a 500 that hides every error.
+        (int status, string type) = errors
+            .Select(StatusOf)
+            .FirstOrDefault(
+                static found => found.Status == StatusCodes.Status500InternalServerError,
+                StatusOf(errors[0])
+            );
         if (status == StatusCodes.Status500InternalServerError)
         {
             Log.ServerErrorReturned(

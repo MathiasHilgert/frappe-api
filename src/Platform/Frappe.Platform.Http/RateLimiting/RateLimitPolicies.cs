@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Net;
+using System.Net.Sockets;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -14,7 +16,7 @@ namespace Frappe.Platform.Http.RateLimiting;
 /// </summary>
 public static class RateLimitPolicies
 {
-    /// <summary>Anonymous reads: a fixed window per client IP.</summary>
+    /// <summary>Anonymous reads: a fixed window per client IPv4 address or IPv6 /64.</summary>
     public const string Public = "public";
 
     internal static void Add(IServiceCollection services)
@@ -37,9 +39,8 @@ public static class RateLimitPolicies
                         .Value;
                     // TODO: partition by the client IP from trusted forwarded headers (deferred: infrastructure;
                     // behind a proxy every caller shares one partition until then)
-                    string clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
                     return RateLimitPartition.GetFixedWindowLimiter(
-                        clientIp,
+                        ClientPartition(context.Connection.RemoteIpAddress),
                         _ => new FixedWindowRateLimiterOptions
                         {
                             PermitLimit = limits.PublicPermitLimit,
@@ -50,6 +51,30 @@ public static class RateLimitPolicies
                 }
             );
         });
+    }
+
+    // An IPv6 client is usually given a whole /64, so it shares one partition across it; IPv4 stays per address.
+    private static string ClientPartition(IPAddress? address)
+    {
+        if (address is null)
+        {
+            return "unknown";
+        }
+
+        if (address.IsIPv4MappedToIPv6)
+        {
+            return address.MapToIPv4().ToString();
+        }
+
+        if (address.AddressFamily != AddressFamily.InterNetworkV6)
+        {
+            return address.ToString();
+        }
+
+        Span<byte> bytes = stackalloc byte[16];
+        address.TryWriteBytes(bytes, out _);
+        bytes[8..].Clear();
+        return $"{new IPAddress(bytes)}/64";
     }
 
     // The 429 body is the house problem every bodiless status gets; the rejection only says when to retry.
