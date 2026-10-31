@@ -10,12 +10,17 @@ public sealed class GeoCatalogTests(GeoFixture geo)
 {
     private static readonly string[] _selectOnly =
     [
+        "cities:SELECT",
         "countries:SELECT",
         "country_names:SELECT",
         "currencies:SELECT",
         "currency_names:SELECT",
         "holiday_names:SELECT",
         "holidays:SELECT",
+        "locale_names:SELECT",
+        "locales:SELECT",
+        "subdivision_names:SELECT",
+        "subdivisions:SELECT",
     ];
 
     [Fact]

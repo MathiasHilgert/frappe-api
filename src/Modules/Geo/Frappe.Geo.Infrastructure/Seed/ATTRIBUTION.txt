@@ -24,6 +24,32 @@ countries.tsv (eng/geo/refresh_countries.py)
   https://www.apache.org/licenses/LICENSE-2.0
   https://github.com/google/libphonenumber
 
+subdivisions.tsv (eng/geo/refresh_subdivisions.py)
+- Debian iso-codes v4.20.1: data/iso_3166-2.json (ISO 3166-2 codes and English names) and iso_3166-2/es.po,
+  iso_3166-2/pt.po (Spanish and Portuguese names). Argentina only.
+  Copyright (C) the iso-codes contributors. iso-codes is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by the Free Software Foundation; either
+  version 2.1 of the License, or (at your option) any later version. It is distributed WITHOUT ANY WARRANTY;
+  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser
+  General Public License for more details: https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
+  The source of iso-codes, from which subdivisions.tsv is derived, is published at
+  https://salsa.debian.org/iso-codes-team/iso-codes (tag v4.20.1); subdivisions.tsv is regenerated from it by
+  eng/geo/refresh_subdivisions.py.
+
+cities.tsv (eng/geo/refresh_cities.py)
+- Fuente: Servicio de Normalización de Datos Geográficos de Argentina (Georef), INDEC. localidades.csv and
+  provincias.csv from https://infra.datos.gob.ar/georef/ (published without a version; retrieved 2026-10-31).
+  INDEC ids, official names, provinces and departments. Licensed under Creative Commons Attribution 4.0:
+  https://creativecommons.org/licenses/by/4.0/
+- The time zone of each locality comes from its province, mapped in eng/geo/ar-province-zones.tsv after the
+  IANA tzdb zone.tab (public domain).
+
+locales.tsv (eng/geo/refresh_locales.py)
+- Unicode CLDR 48 (cldr-json 48.0.0): coverageLevels (the locales with modern coverage), language, script,
+  territory and variant display names and the locale display pattern in each locale and in en, es and pt, and
+  layout (text direction).
+  Copyright (c) 1991-2025 Unicode, Inc. Licensed under the Unicode License v3:
+  https://www.unicode.org/license.txt
 holidays.tsv (eng/geo/refresh_holidays.py)
 - vacanza/holidays 0.107, Argentina, public category: national and provincial holidays for 2026 and 2027,
   Spanish names and their English translations. Class and origin are mapped from the legal category of each

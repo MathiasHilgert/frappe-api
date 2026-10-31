@@ -24,6 +24,92 @@ namespace Frappe.Migrations.Migrations.Geo
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Frappe.Geo.Infrastructure.Cities.CityRow", b =>
+                {
+                    b.Property<Guid>("CityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("city_id");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("country_code");
+
+                    b.Property<string>("DepartmentName")
+                        .HasColumnType("text")
+                        .HasColumnName("department_name");
+
+                    b.Property<string>("IndecId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("indec_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<string>("SearchName")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("search_name")
+                        .UseCollation("C");
+
+                    b.Property<string>("SearchText")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("search_text")
+                        .UseCollation("C");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("status");
+
+                    b.Property<string>("SubdivisionCode")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("subdivision_code");
+
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("time_zone_id");
+
+                    b.HasKey("CityId")
+                        .HasName("pk_cities");
+
+                    b.HasIndex("IndecId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_cities_indec_id");
+
+                    b.HasIndex("SearchText")
+                        .HasDatabaseName("ix_cities_search_text_trgm");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("SearchText"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("SearchText"), new[] { "gin_trgm_ops" });
+
+                    b.HasIndex("SearchName", "IndecId")
+                        .HasDatabaseName("ix_cities_search");
+
+                    b.HasIndex("CountryCode", "SearchName", "IndecId")
+                        .HasDatabaseName("ix_cities_country_search");
+
+                    b.HasIndex("SubdivisionCode", "SearchName", "IndecId")
+                        .HasDatabaseName("ix_cities_subdivision_search");
+
+                    b.ToTable("cities", "geo", t =>
+                        {
+                            t.HasCheckConstraint("ck_cities_indec_id", "indec_id ~ '^[0-9]+$'");
+
+                            t.HasCheckConstraint("ck_cities_name", "name <> ''");
+
+                            t.HasCheckConstraint("ck_cities_status", "status IN ('Active', 'Retired')");
+
+                            t.HasCheckConstraint("ck_cities_time_zone_id", "time_zone_id <> ''");
+                        });
+                });
+
             modelBuilder.Entity("Frappe.Geo.Infrastructure.Countries.CountryNameRow", b =>
                 {
                     b.Property<string>("CountryCode")
@@ -250,6 +336,138 @@ namespace Frappe.Migrations.Migrations.Geo
                         });
                 });
 
+            modelBuilder.Entity("Frappe.Geo.Infrastructure.Locales.LocaleNameRow", b =>
+                {
+                    b.Property<string>("LocaleTag")
+                        .HasColumnType("text")
+                        .HasColumnName("locale_tag");
+
+                    b.Property<string>("Locale")
+                        .HasColumnType("text")
+                        .HasColumnName("locale");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.HasKey("LocaleTag", "Locale")
+                        .HasName("pk_locale_names");
+
+                    b.ToTable("locale_names", "geo", t =>
+                        {
+                            t.HasCheckConstraint("ck_locale_names_name", "name <> ''");
+                        });
+                });
+
+            modelBuilder.Entity("Frappe.Geo.Infrastructure.Locales.LocaleRow", b =>
+                {
+                    b.Property<string>("LocaleTag")
+                        .HasColumnType("text")
+                        .HasColumnName("locale_tag");
+
+                    b.Property<string>("Endonym")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("endonym");
+
+                    b.Property<string>("LanguageCode")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("language_code");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TextDirection")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("text_direction");
+
+                    b.HasKey("LocaleTag")
+                        .HasName("pk_locales");
+
+                    b.ToTable("locales", "geo", t =>
+                        {
+                            t.HasCheckConstraint("ck_locales_status", "status IN ('Active', 'Retired')");
+
+                            t.HasCheckConstraint("ck_locales_text_direction", "text_direction IN ('ltr', 'rtl')");
+                        });
+                });
+
+            modelBuilder.Entity("Frappe.Geo.Infrastructure.Subdivisions.SubdivisionNameRow", b =>
+                {
+                    b.Property<string>("SubdivisionCode")
+                        .HasColumnType("text")
+                        .HasColumnName("subdivision_code");
+
+                    b.Property<string>("Locale")
+                        .HasColumnType("text")
+                        .HasColumnName("locale");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.HasKey("SubdivisionCode", "Locale")
+                        .HasName("pk_subdivision_names");
+
+                    b.ToTable("subdivision_names", "geo", t =>
+                        {
+                            t.HasCheckConstraint("ck_subdivision_names_name", "name <> ''");
+                        });
+                });
+
+            modelBuilder.Entity("Frappe.Geo.Infrastructure.Subdivisions.SubdivisionRow", b =>
+                {
+                    b.Property<string>("SubdivisionCode")
+                        .HasColumnType("text")
+                        .HasColumnName("subdivision_code");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("country_code");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("status");
+
+                    b.HasKey("SubdivisionCode")
+                        .HasName("pk_subdivisions");
+
+                    b.HasIndex("CountryCode")
+                        .HasDatabaseName("ix_subdivisions_country_code");
+
+                    b.ToTable("subdivisions", "geo", t =>
+                        {
+                            t.HasCheckConstraint("ck_subdivisions_status", "status IN ('Active', 'Retired')");
+
+                            t.HasCheckConstraint("ck_subdivisions_subdivision_code", "subdivision_code ~ '^[A-Z]{2}-[A-Z0-9]{1,3}$'");
+                        });
+                });
+
+            modelBuilder.Entity("Frappe.Geo.Infrastructure.Cities.CityRow", b =>
+                {
+                    b.HasOne("Frappe.Geo.Infrastructure.Countries.CountryRow", null)
+                        .WithMany()
+                        .HasForeignKey("CountryCode")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_cities_countries_country_code");
+
+                    b.HasOne("Frappe.Geo.Infrastructure.Subdivisions.SubdivisionRow", null)
+                        .WithMany()
+                        .HasForeignKey("SubdivisionCode")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_cities_subdivisions_subdivision_code");
+                });
+
             modelBuilder.Entity("Frappe.Geo.Infrastructure.Countries.CountryNameRow", b =>
                 {
                     b.HasOne("Frappe.Geo.Infrastructure.Countries.CountryRow", null)
@@ -297,6 +515,36 @@ namespace Frappe.Migrations.Migrations.Geo
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_holidays_countries_country_code");
+                });
+
+            modelBuilder.Entity("Frappe.Geo.Infrastructure.Locales.LocaleNameRow", b =>
+                {
+                    b.HasOne("Frappe.Geo.Infrastructure.Locales.LocaleRow", null)
+                        .WithMany()
+                        .HasForeignKey("LocaleTag")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_locale_names_locales_locale_tag");
+                });
+
+            modelBuilder.Entity("Frappe.Geo.Infrastructure.Subdivisions.SubdivisionNameRow", b =>
+                {
+                    b.HasOne("Frappe.Geo.Infrastructure.Subdivisions.SubdivisionRow", null)
+                        .WithMany()
+                        .HasForeignKey("SubdivisionCode")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_subdivision_names_subdivisions_subdivision_code");
+                });
+
+            modelBuilder.Entity("Frappe.Geo.Infrastructure.Subdivisions.SubdivisionRow", b =>
+                {
+                    b.HasOne("Frappe.Geo.Infrastructure.Countries.CountryRow", null)
+                        .WithMany()
+                        .HasForeignKey("CountryCode")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_subdivisions_countries_country_code");
                 });
 #pragma warning restore 612, 618
         }

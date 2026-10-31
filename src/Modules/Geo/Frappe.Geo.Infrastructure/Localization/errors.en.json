@@ -1,4 +1,6 @@
 {
+  "geo.city.not_found": "The city was not found.",
+  "geo.city.query_invalid": "The city search must be 2 to 100 characters, without a cursor.",
   "geo.country.default_currency_undefined": "The country has no default currency.",
   "geo.country.not_found": "The country was not found.",
   "geo.country_code.invalid": "The country code must be two ISO 3166-1 alpha-2 letters.",
@@ -8,6 +10,7 @@
   "geo.holiday.year_invalid": "The year must be a whole number from 1 to 9999.",
   "geo.holiday.year_unavailable": "The holiday calendar of that year is not available.",
   "geo.locale.invalid": "The locale must be a BCP 47 language tag such as es-AR.",
+  "geo.locale.not_found": "The locale is not offered.",
   "geo.minor_unit.invalid": "The minor unit must be between 0 and 4 decimal digits.",
   "geo.postal_code.invalid": "The postal code must be 1 to 16 letters, digits, spaces or hyphens.",
   "geo.subdivision.not_found": "The subdivision was not found.",
