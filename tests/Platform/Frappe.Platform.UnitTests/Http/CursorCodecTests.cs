@@ -1,7 +1,8 @@
+using System.Buffers.Text;
+using System.Text;
 using ErrorOr;
 using Frappe.Kernel;
 using Frappe.Platform.Http.Paging;
-using Microsoft.AspNetCore.DataProtection;
 
 namespace Frappe.Platform.UnitTests.Http;
 
@@ -9,14 +10,12 @@ public sealed class CursorCodecTests
 {
     private const string Scope = "name:asc|countryCode=AR";
 
-    private readonly CursorCodec _codec = new(new EphemeralDataProtectionProvider());
-
     [Fact]
     public void A_cursor_round_trips_its_keyset_values()
     {
-        string cursor = _codec.Encode(["pilar", "06638040"], Scope);
+        string cursor = CursorCodec.Encode(["pilar", "06638040"], Scope);
 
-        ErrorOr<IReadOnlyList<string>> keys = _codec.Decode(cursor, Scope);
+        ErrorOr<IReadOnlyList<string>> keys = CursorCodec.Decode(cursor, Scope);
 
         keys.Value.ShouldBe(["pilar", "06638040"]);
         cursor.ShouldNotContain("pilar");
@@ -25,18 +24,18 @@ public sealed class CursorCodecTests
     [Fact]
     public void A_tampered_cursor_is_invalid()
     {
-        string cursor = _codec.Encode(["pilar"], Scope);
+        string cursor = CursorCodec.Encode(["pilar"], Scope);
         string tampered = cursor[..^2] + (cursor[^2] == 'A' ? "B" : "A") + cursor[^1];
 
-        ShouldBeInvalid(_codec.Decode(tampered, Scope));
+        ShouldBeInvalid(CursorCodec.Decode(tampered, Scope));
     }
 
     [Fact]
     public void A_cursor_from_another_sort_or_filter_is_invalid()
     {
-        string cursor = _codec.Encode(["pilar"], Scope);
+        string cursor = CursorCodec.Encode(["pilar"], Scope);
 
-        ShouldBeInvalid(_codec.Decode(cursor, "name:asc|countryCode=UY"));
+        ShouldBeInvalid(CursorCodec.Decode(cursor, "name:asc|countryCode=UY"));
     }
 
     [Theory]
@@ -45,18 +44,31 @@ public sealed class CursorCodecTests
     [InlineData(null)]
     public void A_cursor_that_does_not_decode_is_invalid(string? cursor)
     {
-        ShouldBeInvalid(_codec.Decode(cursor, Scope));
+        ShouldBeInvalid(CursorCodec.Decode(cursor, Scope));
     }
 
     [Fact]
-    public void A_cursor_from_another_key_ring_is_invalid()
+    public void A_cursor_with_a_null_keyset_value_is_invalid()
     {
-        string cursor = new CursorCodec(new EphemeralDataProtectionProvider()).Encode(
-            ["pilar"],
-            Scope
-        );
+        string cursor = CursorCodec.Encode(["pilar"], Scope);
+        string json = Encoding
+            .UTF8.GetString(Base64Url.DecodeFromChars(cursor))
+            .Replace("\"pilar\"", "null", StringComparison.Ordinal);
 
-        ShouldBeInvalid(_codec.Decode(cursor, Scope));
+        ShouldBeInvalid(
+            CursorCodec.Decode(Base64Url.EncodeToString(Encoding.UTF8.GetBytes(json)), Scope)
+        );
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("[]")]
+    [InlineData("[1,2]")]
+    public void A_cursor_that_is_not_a_scoped_keyset_is_invalid(string json)
+    {
+        ShouldBeInvalid(
+            CursorCodec.Decode(Base64Url.EncodeToString(Encoding.UTF8.GetBytes(json)), Scope)
+        );
     }
 
     private static void ShouldBeInvalid(ErrorOr<IReadOnlyList<string>> result)

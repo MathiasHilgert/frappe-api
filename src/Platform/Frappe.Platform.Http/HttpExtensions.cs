@@ -1,6 +1,5 @@
 using Frappe.Platform.Http.Localization;
 using Frappe.Platform.Http.OpenApi;
-using Frappe.Platform.Http.Paging;
 using Frappe.Platform.Http.Problems;
 using Frappe.Platform.Http.RateLimiting;
 using Frappe.Platform.Modularity;
@@ -40,10 +39,6 @@ public static class HttpExtensions
         ]));
         // Loads the texts at start, so a broken resource fails the boot instead of the first error response.
         services.AddHostedService<ErrorTextsCheck>();
-        // TODO: persist the data-protection key ring (deferred: infrastructure; until then a cursor fails after a
-        // restart or on another instance)
-        services.AddDataProtection();
-        services.AddSingleton<CursorCodec>();
         // TODO: set FallbackPolicy to require an authenticated user when authentication arrives (anonymous
         // endpoints already opt out with AllowAnonymous)
         OpenApiExtensions.AddFrappeOpenApi(services);
