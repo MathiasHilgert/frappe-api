@@ -83,7 +83,11 @@ public sealed class UnnamedRowTests(GeoFixture geo)
             "country" => () => countries.LoadAsync(db, cancellationToken),
             "subdivision" => () => new SubdivisionSnapshot().LoadAsync(db, cancellationToken),
             "locale" => () => new LocaleSnapshot().LoadAsync(db, cancellationToken),
-            _ => () => new HolidaySnapshot(countries).LoadAsync(db, cancellationToken),
+            _ => () =>
+                new HolidaySnapshot(countries, new SubdivisionSnapshot()).LoadAsync(
+                    db,
+                    cancellationToken
+                ),
         };
 
         InvalidOperationException failure = await Should.ThrowAsync<InvalidOperationException>(

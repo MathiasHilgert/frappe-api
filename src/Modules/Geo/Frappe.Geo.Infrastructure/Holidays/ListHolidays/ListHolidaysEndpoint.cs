@@ -73,14 +73,7 @@ internal static class ListHolidaysEndpoint
             return new[] { CountryErrors.NotFound }.ToProblem(context);
         }
 
-        // A subdivision of another country is as unknown to this country's calendar as one never catalogued.
-        if (
-            subdivision is { } filter
-            && (
-                filter.Value.Country != code.Value
-                || subdivisions.Find(filter.Value, Locale.English) is null
-            )
-        )
+        if (subdivision is { } filter && !subdivisions.BelongsTo(filter.Value, code.Value))
         {
             return new[]
             {

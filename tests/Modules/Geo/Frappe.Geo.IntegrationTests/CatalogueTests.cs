@@ -220,6 +220,29 @@ public sealed class CatalogueTests(GeoFixture geo)
         year.Value[0].Date.ShouldBe(new LocalDate(2026, 1, 1));
     }
 
+    // Only Argentine subdivisions are catalogued, so the cross-country case asks Uruguay for an Argentine province.
+    [Theory]
+    [InlineData("AR", "AR-ZZ")]
+    [InlineData("UY", "AR-B")]
+    public async Task An_unknown_or_foreign_subdivision_is_an_invalid_field(
+        string country,
+        string subdivision
+    )
+    {
+        IHolidayCatalogue holidays = geo.Host.Services.GetRequiredService<IHolidayCatalogue>();
+
+        ErrorOr<IReadOnlyList<GeoHoliday>> result = await holidays.HolidaysFor(
+            CountryCode.Create(country).Value,
+            2026,
+            SubdivisionCode.Create(subdivision).Value,
+            Locale.English,
+            TestContext.Current.CancellationToken
+        );
+
+        result.FirstError.Code.ShouldBe("geo.subdivision.not_found");
+        result.FirstError.Type.ShouldBe(ErrorType.Validation);
+    }
+
     [Theory]
     [InlineData("AR", 2031, "geo.holiday.year_unavailable")]
     [InlineData("ZZ", 2026, "geo.country.not_found")]
