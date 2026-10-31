@@ -377,6 +377,27 @@ public sealed class ListTimezonesTests(AppFixture app)
     }
 
     [Fact]
+    public async Task A_snapshot_built_after_a_failure_still_expires_on_its_max_age()
+    {
+        await using FrappeDatabase database = new();
+        await database.InitializeAsync();
+        await ExecuteAsync(database, RevokeRead);
+        await using IAlbaHost host = await StartAsync(database, ShortMaxAge);
+        await host.Scenario(static scenario =>
+        {
+            scenario.Get.Url(Url);
+            scenario.StatusCodeShouldBe(503);
+        });
+        await ExecuteAsync(database, "GRANT SELECT ON geo.timezones TO frappe_app");
+        string recovered = await ETagAsync(host);
+
+        await ExecuteAsync(database, RetireZone);
+        await Task.Delay(ShortMaxAge * 1.5, TestContext.Current.CancellationToken);
+
+        (await ETagAsync(host)).ShouldNotBe(recovered, StringComparer.Ordinal);
+    }
+
+    [Fact]
     public async Task A_cold_catalogue_past_the_page_cap_is_still_a_500()
     {
         await using var database = FrappeDatabase.WithoutSeed();

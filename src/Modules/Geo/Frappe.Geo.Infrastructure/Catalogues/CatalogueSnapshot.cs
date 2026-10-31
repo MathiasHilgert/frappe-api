@@ -120,6 +120,8 @@ internal sealed class CatalogueSnapshot<TQuery, TItem>(
         try
         {
             Snapshot snapshot = await BuildAsync(lifetime.ApplicationStopping);
+            // A recovered database ends the back-off, so the new snapshot expires on its own max-age.
+            Interlocked.Exchange(ref _failedAt, 0);
             Volatile.Write(ref _snapshot, snapshot);
             return snapshot;
         }
