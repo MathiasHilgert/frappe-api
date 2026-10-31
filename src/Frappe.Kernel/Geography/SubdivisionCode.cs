@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Text;
 
 namespace Frappe.Kernel.Geography;
 
@@ -37,7 +38,13 @@ public sealed record SubdivisionCode
     /// <returns>The code, or <see cref="Invalid"/>.</returns>
     public static ErrorOr<SubdivisionCode> Create(string? value)
     {
-        string code = value?.Trim().ToUpperInvariant() ?? string.Empty;
+        string code = value?.Trim() ?? string.Empty;
+        if (!Ascii.IsValid(code))
+        {
+            return Invalid;
+        }
+
+        code = code.ToUpperInvariant();
         return IsValid(code) ? new SubdivisionCode(code) : Invalid;
     }
 

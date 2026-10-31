@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Text;
 
 namespace Frappe.Kernel.Geography;
 
@@ -24,16 +25,21 @@ public sealed record PostalCode
     /// <summary>Gets the normalized code.</summary>
     public string Value { get; }
 
-    /// <summary>Builds a postal code from untrusted input: trimmed, inner whitespace collapsed to one space, upper-cased.</summary>
+    /// <summary>Builds a postal code from untrusted input: trimmed, inner whitespace collapsed to one space, then upper-cased once it is ASCII.</summary>
     /// <param name="value">The raw value.</param>
     /// <returns>The code, or <see cref="Invalid"/>.</returns>
     public static ErrorOr<PostalCode> Create(string? value)
     {
         string code = string.Join(
-                ' ',
-                (value ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
-            )
-            .ToUpperInvariant();
+            ' ',
+            (value ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+        );
+        if (!Ascii.IsValid(code))
+        {
+            return Invalid;
+        }
+
+        code = code.ToUpperInvariant();
         return code.Length is > 0 and <= MaxLength && !code.AsSpan().ContainsAnyExcept(_alphabet)
             ? new PostalCode(code)
             : Invalid;

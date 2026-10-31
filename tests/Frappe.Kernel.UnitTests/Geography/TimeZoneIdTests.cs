@@ -16,13 +16,24 @@ public sealed class TimeZoneIdTests
     }
 
     [Theory]
-    [InlineData("Europe/Kiev", "Europe/Kyiv")]
-    [InlineData("america/buenos_aires", "America/Argentina/Buenos_Aires")]
-    public void An_alias_is_stored_as_its_canonical_id(string raw, string expected)
+    [InlineData("Europe/Oslo")]
+    [InlineData("Atlantic/Reykjavik")]
+    [InlineData("Europe/Amsterdam")]
+    [InlineData("Asia/Kuala_Lumpur")]
+    [InlineData("Europe/Kiev")]
+    public void A_linked_id_keeps_its_own_id(string raw)
     {
         ErrorOr<TimeZoneId> result = TimeZoneId.Create(raw);
 
-        result.Value.Value.ShouldBe(expected);
+        result.Value.Value.ShouldBe(raw);
+    }
+
+    [Fact]
+    public void A_lower_case_id_is_stored_with_its_tzdb_casing()
+    {
+        ErrorOr<TimeZoneId> result = TimeZoneId.Create("america/argentina/buenos_aires");
+
+        result.Value.Value.ShouldBe("America/Argentina/Buenos_Aires");
     }
 
     [Theory]
@@ -39,13 +50,13 @@ public sealed class TimeZoneIdTests
     }
 
     [Fact]
-    public void An_alias_equals_its_canonical_id()
+    public void A_linked_id_is_not_equal_to_its_target()
     {
-        TimeZoneId alias = TimeZoneId.Create("Europe/Kiev").Value;
+        TimeZoneId oslo = TimeZoneId.Create("Europe/Oslo").Value;
 
-        TimeZoneId canonical = TimeZoneId.Create("Europe/Kyiv").Value;
+        TimeZoneId berlin = TimeZoneId.Create("Europe/Berlin").Value;
 
-        alias.ShouldBe(canonical);
+        oslo.ShouldNotBe(berlin);
     }
 
     [Fact]

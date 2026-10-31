@@ -24,6 +24,9 @@ public sealed class CurrencyCodeTests
     [InlineData("AR5")]
     [InlineData("032")]
     [InlineData("ÅRS")]
+    [InlineData("u\u017Fd")]
+    [InlineData("\u0131ls")]
+    [InlineData("\u212Arw")]
     public void A_value_that_is_not_three_ASCII_letters_is_rejected(string? raw)
     {
         ErrorOr<CurrencyCode> result = CurrencyCode.Create(raw);

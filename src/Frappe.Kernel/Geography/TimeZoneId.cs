@@ -1,14 +1,16 @@
 using System.Collections.Frozen;
-using NodaTime.TimeZones;
+using NodaTime;
 
 namespace Frappe.Kernel.Geography;
 
-/// <summary>An IANA time zone id known to the bundled tzdb, in its canonical form, such as <c>America/Argentina/Cordoba</c>.</summary>
+/// <summary>An IANA time zone id known to the bundled tzdb, with its tzdb casing, such as <c>America/Argentina/Cordoba</c>.</summary>
+/// <remarks>The id is kept as chosen: a link such as <c>Europe/Oslo</c> is never replaced by its target, which belongs to another country.</remarks>
 public sealed record TimeZoneId
 {
-    // Every tzdb id, aliases included, to its canonical id, so a rename such as Europe/Kiev is stored as Europe/Kyiv.
-    private static readonly FrozenDictionary<string, string> _canonicalIds =
-        TzdbDateTimeZoneSource.Default.CanonicalIdMap.ToFrozenDictionary(
+    // Every tzdb id, links included, keyed case-insensitively to its own tzdb casing.
+    private static readonly FrozenDictionary<string, string> _ids =
+        DateTimeZoneProviders.Tzdb.Ids.ToFrozenDictionary(
+            static id => id,
             StringComparer.OrdinalIgnoreCase
         );
 
@@ -21,15 +23,15 @@ public sealed record TimeZoneId
             "The time zone must be an IANA time zone id such as America/Argentina/Buenos_Aires."
         );
 
-    /// <summary>Gets the canonical tzdb id.</summary>
+    /// <summary>Gets the tzdb id.</summary>
     public string Value { get; }
 
     /// <summary>Builds a time zone id from untrusted input, trimmed and matched case-insensitively.</summary>
     /// <param name="value">The raw value.</param>
-    /// <returns>The canonical id, or <see cref="Invalid"/>.</returns>
+    /// <returns>The id with its tzdb casing, or <see cref="Invalid"/>.</returns>
     public static ErrorOr<TimeZoneId> Create(string? value) =>
-        _canonicalIds.TryGetValue(value?.Trim() ?? string.Empty, out string? canonical)
-            ? new TimeZoneId(canonical)
+        _ids.TryGetValue(value?.Trim() ?? string.Empty, out string? id)
+            ? new TimeZoneId(id)
             : Invalid;
 
     /// <inheritdoc />

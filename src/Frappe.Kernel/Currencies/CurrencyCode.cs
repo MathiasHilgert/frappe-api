@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Frappe.Kernel.Currencies;
 
 /// <summary>An ISO 4217 alphabetic currency code in upper case, such as <c>ARS</c>.</summary>
@@ -23,7 +25,13 @@ public sealed record CurrencyCode
     /// <returns>The code, or <see cref="Invalid"/>.</returns>
     public static ErrorOr<CurrencyCode> Create(string? value)
     {
-        string code = value?.Trim().ToUpperInvariant() ?? string.Empty;
+        string code = value?.Trim() ?? string.Empty;
+        if (!Ascii.IsValid(code))
+        {
+            return Invalid;
+        }
+
+        code = code.ToUpperInvariant();
         return code.Length == Length && code.All(char.IsAsciiLetterUpper)
             ? new CurrencyCode(code)
             : Invalid;

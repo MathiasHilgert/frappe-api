@@ -55,11 +55,51 @@ public sealed class AddressTests
     [InlineData("   ")]
     [InlineData("Av. Corrientes\n1234")]
     [InlineData("Av. Corrientes\u00071234")]
-    public void An_empty_street_line_or_one_with_control_characters_is_rejected(string? streetLine)
+    [InlineData("Calle \u202E4321")]
+    [InlineData("a\u200Bb")]
+    [InlineData("a\u2028b")]
+    [InlineData("a\u2029b")]
+    [InlineData("a\uFEFFb")]
+    public void An_empty_street_line_or_one_with_control_format_or_separator_characters_is_rejected(
+        string? streetLine
+    )
     {
         ErrorOr<Address> result = Address.Create(CityId.NewId(), streetLine, postalCode: null);
 
         result.FirstError.Code.ShouldBe("kernel.address.street_line_invalid");
+    }
+
+    // A lone surrogate cannot travel through InlineData: test discovery replaces it with U+FFFD.
+    [Fact]
+    public void A_street_line_with_a_lone_surrogate_is_rejected()
+    {
+        const string LoneHighSurrogate = "Calle \uD800 1234";
+
+        ErrorOr<Address> result = Address.Create(
+            CityId.NewId(),
+            LoneHighSurrogate,
+            postalCode: null
+        );
+
+        result.FirstError.Code.ShouldBe("kernel.address.street_line_invalid");
+    }
+
+    [Fact]
+    public void An_address_without_a_city_is_rejected()
+    {
+        ErrorOr<Address> result = Address.Create(default, "Av. Corrientes 1234", postalCode: null);
+
+        result.FirstError.Code.ShouldBe("kernel.address.city_required");
+    }
+
+    [Fact]
+    public void A_missing_city_and_an_invalid_street_line_are_reported_together()
+    {
+        ErrorOr<Address> result = Address.Create(default, "", postalCode: null);
+
+        result
+            .Errors.Select(static e => e.Code)
+            .ShouldBe(["kernel.address.city_required", "kernel.address.street_line_invalid"]);
     }
 
     [Fact]

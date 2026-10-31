@@ -32,6 +32,9 @@ public sealed class SubdivisionCodeTests
     [InlineData("1R-X")]
     [InlineData("AR-X-1")]
     [InlineData("AR-Ñ")]
+    [InlineData("AR-\u017F")]
+    [InlineData("\u0131t-RM")]
+    [InlineData("AR-\u212A")]
     public void A_malformed_value_is_rejected(string? raw)
     {
         ErrorOr<SubdivisionCode> result = SubdivisionCode.Create(raw);

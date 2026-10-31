@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Frappe.Kernel.Geography;
 
 /// <summary>An ISO 3166-1 alpha-2 country code in upper case, such as <c>AR</c>.</summary>
@@ -23,7 +25,13 @@ public sealed record CountryCode
     /// <returns>The code, or <see cref="Invalid"/>.</returns>
     public static ErrorOr<CountryCode> Create(string? value)
     {
-        string code = value?.Trim().ToUpperInvariant() ?? string.Empty;
+        string code = value?.Trim() ?? string.Empty;
+        if (!Ascii.IsValid(code))
+        {
+            return Invalid;
+        }
+
+        code = code.ToUpperInvariant();
         return IsValid(code) ? new CountryCode(code) : Invalid;
     }
 

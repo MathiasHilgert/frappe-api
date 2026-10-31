@@ -29,6 +29,9 @@ public sealed class PostalCodeTests
     [InlineData("C1425#")]
     [InlineData("12_34")]
     [InlineData("CÓDIGO")]
+    [InlineData("C1425D\u017FF")]
+    [InlineData("\u01311425")]
+    [InlineData("\u212A1425")]
     [InlineData("ABCDEFGHIJ1234567")]
     public void An_empty_too_long_or_out_of_alphabet_value_is_rejected(string? raw)
     {

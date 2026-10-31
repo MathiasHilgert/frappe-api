@@ -24,6 +24,9 @@ public sealed class CountryCodeTests
     [InlineData("A1")]
     [InlineData("A-")]
     [InlineData("ÄR")]
+    [InlineData("u\u017F")]
+    [InlineData("\u0131t")]
+    [InlineData("\u212Ar")]
     public void A_value_that_is_not_two_ASCII_letters_is_rejected(string? raw)
     {
         ErrorOr<CountryCode> result = CountryCode.Create(raw);
