@@ -85,7 +85,7 @@ public sealed class TimezoneSeedTests(AppFixture app)
     }
 
     [Fact]
-    public async Task The_app_role_can_only_read_the_catalogue()
+    public async Task The_app_role_can_only_read_the_catalogue_through_an_explicit_grant()
     {
         bool[] privileges = await ScalarAsync<bool[]>(
             """
@@ -93,11 +93,15 @@ public sealed class TimezoneSeedTests(AppFixture app)
                 has_table_privilege('frappe_app', 'geo.timezones', 'SELECT'),
                 has_table_privilege('frappe_app', 'geo.timezones', 'INSERT'),
                 has_table_privilege('frappe_app', 'geo.timezones', 'UPDATE'),
-                has_table_privilege('frappe_app', 'geo.timezones', 'DELETE')]
+                has_table_privilege('frappe_app', 'geo.timezones', 'DELETE'),
+                EXISTS (
+                    SELECT FROM pg_default_acl acl
+                    JOIN pg_namespace schema ON schema.oid = acl.defaclnamespace
+                    WHERE schema.nspname = 'geo')]
             """
         );
 
-        privileges.ShouldBe([true, false, false, false]);
+        privileges.ShouldBe([true, false, false, false, false]);
     }
 
     private static async Task<T> ScalarAsync<T>(string connectionString, string sql)

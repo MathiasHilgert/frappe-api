@@ -10,7 +10,7 @@ public sealed class GeoOptionsTests(AppFixture app)
     [Theory]
     [InlineData("00:00:00")]
     [InlineData("366.00:00:00")]
-    public async Task An_out_of_range_timezones_max_age_fails_the_start(string maxAge)
+    public async Task An_out_of_range_catalogue_max_age_fails_the_start(string maxAge)
     {
         OptionsValidationException exception = await Should.ThrowAsync<OptionsValidationException>(
             async () =>
@@ -19,12 +19,12 @@ public sealed class GeoOptionsTests(AppFixture app)
                     app.AppConnectionString,
                     [new GeoModule()],
                     configure: builder =>
-                        builder.Configuration[$"{GeoOptions.SectionName}:TimezonesMaxAge"] = maxAge
+                        builder.Configuration[$"{GeoOptions.SectionName}:CatalogueMaxAge"] = maxAge
                 );
             }
         );
 
         exception.OptionsType.ShouldBe(typeof(GeoOptions));
-        exception.Message.ShouldContain(nameof(GeoOptions.TimezonesMaxAge));
+        exception.Message.ShouldContain(nameof(GeoOptions.CatalogueMaxAge));
     }
 }

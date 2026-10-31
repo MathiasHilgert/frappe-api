@@ -1,5 +1,6 @@
 using System.Data.Common;
 using Frappe.Geo.Application.Timezones.ListTimezones;
+using Frappe.Geo.Infrastructure.Catalogues;
 using Frappe.Geo.Infrastructure.Timezones;
 using Frappe.Geo.Infrastructure.Timezones.ListTimezones;
 using Frappe.Platform.Health;
@@ -28,7 +29,8 @@ public sealed class GeoModule : IModule
         builder
             .Services.AddOptionsWithValidateOnStart<GeoOptions, GeoOptionsValidator>()
             .BindConfiguration(GeoOptions.SectionName);
-        builder.Services.AddScoped<IListTimezonesQueryService, TimezoneQueryService>();
+        builder.Services.AddScoped<IListTimezonesQueryService, ListTimezonesQueryService>();
+        builder.Services.AddSingleton<CatalogueSnapshot<ListTimezonesQuery, TimezoneDto>>();
         // Critical: without the catalogue no branch's zone resolves, so the replica must not take traffic.
         builder
             .Services.AddHealthChecks()

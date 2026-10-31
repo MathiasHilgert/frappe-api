@@ -54,6 +54,9 @@ namespace Frappe.Migrations.Migrations.Geo
                 table: "timezones",
                 column: "canonical_name"
             );
+
+            // A forgotten grant fails closed: the app role reads only what a migration names.
+            migrationBuilder.Sql("GRANT SELECT ON geo.timezones TO frappe_app;");
         }
     }
 }

@@ -6,7 +6,8 @@ internal sealed class GeoOptions
 {
     public const string SectionName = "Geo";
 
-    // The catalogue changes only when a deployment ships a new TZDB release, which also changes its ETag.
+    // How long clients may cache a catalogue and a replica serves its snapshot before reading it again. The
+    // catalogues change only when a deployment seeds new reference data, which also changes their ETag.
     [Range(typeof(TimeSpan), "00:00:01", "365.00:00:00")]
-    public TimeSpan TimezonesMaxAge { get; init; } = TimeSpan.FromDays(1);
+    public TimeSpan CatalogueMaxAge { get; init; } = TimeSpan.FromDays(1);
 }

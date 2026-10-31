@@ -6,7 +6,7 @@ namespace Frappe.Geo.Infrastructure.Timezones.ListTimezones;
 /// <summary>Reads the timezone catalogue from the <c>geo</c> schema.</summary>
 /// <param name="db">The module's context.</param>
 // Public because Wolverine's generated handler code constructs it; internal implementations are unproven there.
-public sealed class TimezoneQueryService(GeoDbContext db) : IListTimezonesQueryService
+public sealed class ListTimezonesQueryService(GeoDbContext db) : IListTimezonesQueryService
 {
     // A small catalogue is one page capped at this size; the TZDB lists about 600 ids.
     private const int PageCap = 1000;

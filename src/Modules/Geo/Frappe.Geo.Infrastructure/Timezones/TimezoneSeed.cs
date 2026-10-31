@@ -1,5 +1,4 @@
 using System.Data.Common;
-using Frappe.Geo.Domain.Timezones;
 using NodaTime.TimeZones;
 
 namespace Frappe.Geo.Infrastructure.Timezones;
@@ -25,17 +24,24 @@ internal static class TimezoneSeed
         CancellationToken cancellationToken
     )
     {
-        IReadOnlyList<Timezone> zones = Timezone.FromTzdb(TzdbDateTimeZoneSource.Default);
+        // The map sends every id to its canonical id, so a canonical zone maps to itself and gets no canonical name.
+        KeyValuePair<string, string>[] zones = [.. TzdbDateTimeZoneSource.Default.CanonicalIdMap];
         await using DbCommand upsert = connection.CreateCommand();
         upsert.CommandText = Upsert;
         upsert.Parameters.Add(
-            Parameter(upsert, "names", [.. zones.Select(static zone => zone.Name)])
+            Parameter(upsert, "names", [.. zones.Select(static zone => zone.Key)])
         );
         upsert.Parameters.Add(
             Parameter(
                 upsert,
                 "canonical_names",
-                [.. zones.Select(static zone => zone.CanonicalName)]
+                [
+                    .. zones.Select(static zone =>
+                        string.Equals(zone.Key, zone.Value, StringComparison.Ordinal)
+                            ? null
+                            : zone.Value
+                    ),
+                ]
             )
         );
         return await upsert.ExecuteNonQueryAsync(cancellationToken);
