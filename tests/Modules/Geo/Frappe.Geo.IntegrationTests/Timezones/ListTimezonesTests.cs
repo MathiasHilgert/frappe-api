@@ -7,7 +7,6 @@ using Alba;
 using Frappe.Geo.Infrastructure;
 using Frappe.TestUtilities;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using NodaTime.TimeZones;
