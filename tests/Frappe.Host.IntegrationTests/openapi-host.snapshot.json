@@ -96,6 +96,7 @@
           "geo"
         ],
         "summary": "Lists the ISO 3166-1 countries, by their name in the requested locale.",
+        "description": "Lists active countries only; a retired country is still served by GET /countries/{countryCode}.",
         "operationId": "ListCountries",
         "parameters": [
           {
@@ -136,6 +137,7 @@
           "geo"
         ],
         "summary": "Gets one ISO 3166-1 country by its alpha-2 code, with its name in the requested locale and its address format.",
+        "description": "Serves retired countries too, codes ISO 3166-1 withdrew, with status retired, so a stored code still resolves; the country list shows active countries only.",
         "operationId": "GetCountry",
         "parameters": [
           {
@@ -567,7 +569,8 @@
           "name",
           "defaultCurrencyCode",
           "callingCode",
-          "addressFormat"
+          "addressFormat",
+          "status"
         ],
         "type": "object",
         "properties": {
@@ -617,10 +620,14 @@
               }
             ],
             "description": "The rules for capturing an address in the country, or null when none is held, so any postal code is accepted."
+          },
+          "status": {
+            "description": "Active, or retired for a code ISO 3166-1 withdrew, which no list shows but stored references still resolve.",
+            "$ref": "#/components/schemas/ReferenceStatus"
           }
         },
         "additionalProperties": false,
-        "description": "An ISO 3166-1 country with its address format."
+        "description": "An ISO 3166-1 country with its address format and status; a retired country is still served."
       },
       "CountryDto": {
         "required": [
@@ -1043,6 +1050,14 @@
           }
         },
         "additionalProperties": false
+      },
+      "ReferenceStatus": {
+        "enum": [
+          "active",
+          "retired"
+        ],
+        "type": "string",
+        "description": "Whether a reference row is in use upstream; a withdrawn row is retired, never deleted."
       },
       "SubdivisionCode": {
         "pattern": "^[A-Z]{2}-[A-Z0-9]{1,3}$",

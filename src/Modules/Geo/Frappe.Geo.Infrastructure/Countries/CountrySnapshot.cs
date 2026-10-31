@@ -101,7 +101,8 @@ internal sealed class CountrySnapshot(AddressFormatSnapshot addressFormats)
                 name.Value,
                 found.DefaultCurrency,
                 found.CallingCode,
-                addressFormats.Find(found.Code)
+                addressFormats.Find(found.Code),
+                found.Status
             ),
             name.Locale
         );
