@@ -3,6 +3,8 @@ using System.Security.Cryptography;
 using System.Text;
 using Frappe.Geo.Infrastructure.Countries;
 using Frappe.Geo.Infrastructure.Currencies;
+using Frappe.Geo.Infrastructure.Locales;
+using Frappe.Geo.Infrastructure.Subdivisions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -20,6 +22,8 @@ internal sealed class GeoCatalogueLoader(
     IServiceScopeFactory scopes,
     CurrencySnapshot currencies,
     CountrySnapshot countries,
+    SubdivisionSnapshot subdivisions,
+    LocaleSnapshot locales,
     ILogger<GeoCatalogueLoader> logger
 ) : IHostedLifecycleService
 {
@@ -37,8 +41,17 @@ internal sealed class GeoCatalogueLoader(
         Log.CatalogueLoaded(logger, "currencies", loadedCurrencies.Rows);
         LoadedCatalogue loadedCountries = await countries.LoadAsync(db, cancellationToken);
         Log.CatalogueLoaded(logger, "countries", loadedCountries.Rows);
+        LoadedCatalogue loadedSubdivisions = await subdivisions.LoadAsync(db, cancellationToken);
+        Log.CatalogueLoaded(logger, "subdivisions", loadedSubdivisions.Rows);
+        LoadedCatalogue loadedLocales = await locales.LoadAsync(db, cancellationToken);
+        Log.CatalogueLoaded(logger, "locales", loadedLocales.Rows);
         _datasetTag = Tag(
-            [.. loadedCurrencies.Lines, .. loadedCountries.Lines],
+            [
+                .. loadedCurrencies.Lines,
+                .. loadedCountries.Lines,
+                .. loadedSubdivisions.Lines,
+                .. loadedLocales.Lines,
+            ],
             Assembly
                 .GetEntryAssembly()
                 ?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()

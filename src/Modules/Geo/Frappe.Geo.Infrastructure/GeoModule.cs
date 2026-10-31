@@ -1,18 +1,27 @@
 using System.Data.Common;
 using System.Text.Json;
+using Frappe.Geo.Application.Cities;
 using Frappe.Geo.Application.Countries;
 using Frappe.Geo.Application.Currencies;
+using Frappe.Geo.Application.Locales;
+using Frappe.Geo.Application.Subdivisions;
 using Frappe.Geo.Application.TimeZones;
 using Frappe.Geo.Contracts;
 using Frappe.Geo.Infrastructure.Catalogues;
+using Frappe.Geo.Infrastructure.Cities;
+using Frappe.Geo.Infrastructure.Cities.ListCities;
 using Frappe.Geo.Infrastructure.Countries;
 using Frappe.Geo.Infrastructure.Countries.GetCountry;
 using Frappe.Geo.Infrastructure.Countries.ListCountries;
 using Frappe.Geo.Infrastructure.Currencies;
 using Frappe.Geo.Infrastructure.Currencies.ListCurrencies;
+using Frappe.Geo.Infrastructure.Locales;
+using Frappe.Geo.Infrastructure.Locales.ListLocales;
 using Frappe.Geo.Infrastructure.OpenApi;
 using Frappe.Geo.Infrastructure.Seed;
 using Frappe.Geo.Infrastructure.Serialization;
+using Frappe.Geo.Infrastructure.Subdivisions;
+using Frappe.Geo.Infrastructure.Subdivisions.ListSubdivisions;
 using Frappe.Geo.Infrastructure.TimeZones;
 using Frappe.Geo.Infrastructure.TimeZones.ListTimeZones;
 using Frappe.Platform.Http.OpenApi;
@@ -28,8 +37,8 @@ using Microsoft.Extensions.Hosting;
 namespace Frappe.Geo.Infrastructure;
 
 /// <summary>
-/// The geo module: the platform's seeded reference catalogues (time zones, currencies, countries), read-only at
-/// runtime, served as anonymous cacheable reads and to other modules through the geo Contracts.
+/// The geo module: the platform's seeded reference catalogues (time zones, currencies, countries, subdivisions,
+/// cities, locales), read-only at runtime, served as anonymous cacheable reads and to other modules through the geo Contracts.
 /// </summary>
 public sealed class GeoModule : IModule
 {
@@ -61,6 +70,25 @@ public sealed class GeoModule : IModule
         services.AddSingleton<ICountryCatalogue>(static provider =>
             provider.GetRequiredService<CountrySnapshot>()
         );
+        services.AddSingleton<SubdivisionSnapshot>();
+        services.AddSingleton<ISubdivisionReader>(static provider =>
+            provider.GetRequiredService<SubdivisionSnapshot>()
+        );
+        services.AddSingleton<LocaleSnapshot>();
+        services.AddSingleton<ILocaleReader>(static provider =>
+            provider.GetRequiredService<LocaleSnapshot>()
+        );
+        services.AddSingleton<ILocaleCatalogue>(static provider =>
+            provider.GetRequiredService<LocaleSnapshot>()
+        );
+        // Cities are searched in the database, so their reader lives as long as the context.
+        services.AddScoped<CityQueryService>();
+        services.AddScoped<ICityReader>(static provider =>
+            provider.GetRequiredService<CityQueryService>()
+        );
+        services.AddScoped<ICityCatalogue>(static provider =>
+            provider.GetRequiredService<CityQueryService>()
+        );
         services.AddSingleton<GeoCatalogueLoader>();
         services.AddHostedService(static provider =>
             provider.GetRequiredService<GeoCatalogueLoader>()
@@ -90,6 +118,9 @@ public sealed class GeoModule : IModule
         ListCurrenciesEndpoint.Map(group);
         ListCountriesEndpoint.Map(group);
         GetCountryEndpoint.Map(group);
+        ListSubdivisionsEndpoint.Map(group);
+        ListCitiesEndpoint.Map(group);
+        ListLocalesEndpoint.Map(group);
     }
 
     /// <inheritdoc />
