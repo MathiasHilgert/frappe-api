@@ -27,7 +27,13 @@ internal sealed class ExceptionHandler(
             BadHttpRequestException bad => (
                 bad.StatusCode,
                 ProblemTypes.MalformedRequest,
-                WithPointer(PlatformErrors.Malformed, bad.InnerException as JsonException)
+                bad.StatusCode switch
+                {
+                    StatusCodes.Status413PayloadTooLarge => PlatformErrors.TooLarge,
+                    StatusCodes.Status415UnsupportedMediaType =>
+                        PlatformErrors.UnsupportedMediaType,
+                    _ => WithPointer(PlatformErrors.Malformed, bad.InnerException as JsonException),
+                }
             ),
             _ => (
                 StatusCodes.Status500InternalServerError,

@@ -1,7 +1,9 @@
 using System.Globalization;
-using System.Text.Json.Nodes;
+using System.Text;
 using Alba;
 using Frappe.Platform.IntegrationTests.Messaging;
+using Frappe.TestUtilities;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Timeouts;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,31 +11,16 @@ using Microsoft.Extensions.Logging;
 
 namespace Frappe.Platform.IntegrationTests.Http;
 
+// Every problem body is a contract, compared whole with its snapshot next to this file.
 public sealed class ProblemDetailsTests
 {
-    private static readonly Dictionary<string, string> _expected = new(StringComparer.Ordinal)
-    {
-        ["validation"] =
-            "{\"type\":\"urn:frappe:problem:validation\",\"title\":\"The request failed validation.\",\"status\":422,\"instance\":\"/v1/probes/problems/validation\",\"errors\":[{\"code\":\"kernel.country_code.invalid\",\"pointer\":\"/countryCode\",\"detail\":\"The country code must be two ISO 3166-1 alpha-2 letters.\",\"args\":null},{\"code\":\"probe.name.too_long\",\"pointer\":\"/name\",\"detail\":\"The name must be at most 100 characters.\",\"args\":{\"max\":100}}]}",
-        ["not-found"] =
-            "{\"type\":\"urn:frappe:problem:not_found\",\"title\":\"The resource was not found.\",\"status\":404,\"instance\":\"/v1/probes/problems/not-found\",\"errors\":[{\"code\":\"probe.thing.not_found\",\"pointer\":null,\"detail\":\"The thing was not found.\",\"args\":null}]}",
-        ["conflict"] =
-            "{\"type\":\"urn:frappe:problem:conflict\",\"title\":\"The request conflicts with the current state.\",\"status\":409,\"instance\":\"/v1/probes/problems/conflict\",\"errors\":[{\"code\":\"probe.thing.closed\",\"pointer\":null,\"detail\":\"The thing is closed.\",\"args\":null}]}",
-        ["forbidden"] =
-            "{\"type\":\"urn:frappe:problem:forbidden\",\"title\":\"The action is not allowed.\",\"status\":403,\"instance\":\"/v1/probes/problems/forbidden\",\"errors\":[{\"code\":\"probe.thing.forbidden\",\"pointer\":null,\"detail\":\"The thing is not yours.\",\"args\":null}]}",
-        ["malformed"] =
-            "{\"type\":\"urn:frappe:problem:malformed_request\",\"title\":\"The request is malformed.\",\"status\":400,\"instance\":\"/v1/probes/problems/malformed\",\"errors\":[{\"code\":\"platform.paging.invalid_cursor\",\"pointer\":null,\"detail\":\"The cursor is invalid; start again from the first page.\",\"args\":null}]}",
-        ["unexpected"] =
-            "{\"type\":\"urn:frappe:problem:internal\",\"title\":\"The server failed to complete the request.\",\"status\":500,\"instance\":\"/v1/probes/problems/unexpected\",\"errors\":[{\"code\":\"probe.thing.unexpected\",\"pointer\":null,\"detail\":\"The thing broke.\",\"args\":null}]}",
-    };
-
     [Theory]
     [InlineData("validation", 422)]
     [InlineData("not-found", 404)]
     [InlineData("conflict", 409)]
     [InlineData("forbidden", 403)]
+    [InlineData("unauthorized", 401)]
     [InlineData("malformed", 400)]
-    [InlineData("unexpected", 500)]
     public async Task An_error_result_is_answered_with_the_house_problem_of_its_type(
         string kind,
         int status
@@ -47,7 +34,62 @@ public sealed class ProblemDetailsTests
             scenario.StatusCodeShouldBe(status);
         });
 
-        ShouldBeProblem(result, await result.ReadAsTextAsync(), _expected[kind]);
+        await ShouldBeProblemAsync(result, $"problem-{kind}");
+    }
+
+    [Fact]
+    public async Task An_unauthorized_problem_asks_for_authentication()
+    {
+        await using IAlbaHost host = await HttpHost.StartAsync(new ProbeModule());
+
+        IScenarioResult result = await host.Scenario(static scenario =>
+        {
+            scenario.Get.Url("/v1/probes/problems/unauthorized");
+            scenario.StatusCodeShouldBe(401);
+        });
+
+        result.Context.Response.Headers.WWWAuthenticate.ToString().ShouldBe("Bearer");
+        (await result.ReadAsTextAsync()).ShouldNotContain("SECRET");
+    }
+
+    // A failure the caller cannot fix speaks only of the platform: the producer's code and text stay in the log.
+    [Fact]
+    public async Task A_returned_server_error_hides_its_errors_and_logs_them_once()
+    {
+        LogCapture logs = new();
+        await using IAlbaHost host = await HttpHost.StartAsync(
+            new ProbeModule(),
+            builder => builder.Logging.AddProvider(logs)
+        );
+
+        IScenarioResult result = await host.Scenario(static scenario =>
+        {
+            scenario.Get.Url("/v1/probes/problems/unexpected");
+            scenario.StatusCodeShouldBe(500);
+        });
+
+        (await result.ReadAsTextAsync()).ShouldNotContain("SECRET");
+        LogCapture.Record logged = logs
+            .Records.Where(static record => record.Level >= LogLevel.Error)
+            .ShouldHaveSingleItem();
+        logged.EventId.Id.ShouldBe(202);
+        logged.State["ErrorCodes"].ShouldBe("probe.thing.unexpected");
+        await ShouldBeProblemAsync(result, "problem-returned-500");
+    }
+
+    // A code shipped without a text must not leak its English description, which may hold internals.
+    [Fact]
+    public async Task A_code_without_a_text_gets_the_generic_text_of_its_type()
+    {
+        await using IAlbaHost host = await HttpHost.StartAsync(new ProbeModule());
+
+        IScenarioResult result = await host.Scenario(static scenario =>
+        {
+            scenario.Get.Url("/v1/probes/problems/untranslated?locale=es");
+            scenario.StatusCodeShouldBe(422);
+        });
+
+        await ShouldBeProblemAsync(result, "problem-untranslated");
     }
 
     // The body locale comes from ?locale= first, so an error speaks the language the client asked the body in.
@@ -79,11 +121,7 @@ public sealed class ProblemDetailsTests
             scenario.StatusCodeShouldBe(400);
         });
 
-        ShouldBeProblem(
-            result,
-            await result.ReadAsTextAsync(),
-            "{\"type\":\"urn:frappe:problem:malformed_request\",\"title\":\"The request is malformed.\",\"status\":400,\"instance\":\"/v1/probes/echoes\",\"errors\":[{\"code\":\"platform.request.malformed\",\"pointer\":\"/name\",\"detail\":\"The request is malformed.\",\"args\":null}]}"
-        );
+        await ShouldBeProblemAsync(result, "problem-malformed-json");
     }
 
     [Fact]
@@ -117,16 +155,11 @@ public sealed class ProblemDetailsTests
             scenario.StatusCodeShouldBe(500);
         });
 
-        string body = await result.ReadAsTextAsync();
-        body.ShouldNotContain("s3cret");
+        (await result.ReadAsTextAsync()).ShouldNotContain("s3cret");
         logs.Records.Where(static record => record.Level >= LogLevel.Error)
             .Select(static record => record.EventId.Id)
             .ShouldBe([201]);
-        ShouldBeProblem(
-            result,
-            body,
-            "{\"type\":\"urn:frappe:problem:internal\",\"title\":\"The server failed to complete the request.\",\"status\":500,\"instance\":\"/v1/probes/failures\",\"errors\":[{\"code\":\"platform.request.failed\",\"pointer\":null,\"detail\":\"The server failed to complete the request.\",\"args\":null}]}"
-        );
+        await ShouldBeProblemAsync(result, "problem-unhandled-500");
     }
 
     [Fact]
@@ -151,11 +184,7 @@ public sealed class ProblemDetailsTests
             scenario.StatusCodeShouldBe(504);
         });
 
-        ShouldBeProblem(
-            result,
-            await result.ReadAsTextAsync(),
-            "{\"type\":\"urn:frappe:problem:timeout\",\"title\":\"The request timed out.\",\"status\":504,\"instance\":\"/v1/probes/waits\",\"errors\":[{\"code\":\"platform.request.timeout\",\"pointer\":null,\"detail\":\"The request timed out.\",\"args\":null}]}"
-        );
+        await ShouldBeProblemAsync(result, "problem-timeout");
     }
 
     [Fact]
@@ -182,15 +211,69 @@ public sealed class ProblemDetailsTests
                 CultureInfo.InvariantCulture
             )
             .ShouldBeInRange(1, 60);
-        ShouldBeProblem(
-            result,
-            await result.ReadAsTextAsync(),
-            "{\"type\":\"urn:frappe:problem:rate_limited\",\"title\":\"Too many requests.\",\"status\":429,\"instance\":\"/v1/probes/problems/conflict\",\"errors\":[{\"code\":\"platform.rate_limit.exceeded\",\"pointer\":null,\"detail\":\"Too many requests; retry later.\",\"args\":null}]}"
+        await ShouldBeProblemAsync(result, "problem-rate-limited");
+    }
+
+    [Theory]
+    [InlineData("GET", "/v1/nowhere", null, 404, "problem-route-not-found")]
+    [InlineData("GET", "/v1/probes/things/not-a-guid", null, 404, "problem-route-constraint")]
+    [InlineData("DELETE", "/v1/probes/echoes", null, 405, "problem-method-not-allowed")]
+    [InlineData("POST", "/v1/probes/echoes", "text/plain", 415, "problem-unsupported-media-type")]
+    public async Task A_request_no_endpoint_answers_gets_the_house_problem(
+        string method,
+        string url,
+        string? contentType,
+        int status,
+        string snapshot
+    )
+    {
+        await using IAlbaHost host = await HttpHost.StartAsync(new ProbeModule());
+
+        IScenarioResult result = await host.Scenario(scenario =>
+        {
+            scenario.ConfigureHttpContext(context =>
+            {
+                context.Request.Method = method;
+                context.Request.Path = url;
+                if (contentType is not null)
+                {
+                    context.Request.ContentType = contentType;
+                    context.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("{}"));
+                }
+            });
+            scenario.StatusCodeShouldBe(status);
+        });
+
+        await ShouldBeProblemAsync(result, snapshot);
+    }
+
+    // Kestrel enforces the endpoint's size limit while the body is read, so this runs on a real server.
+    [Fact]
+    public async Task A_body_over_the_size_limit_is_a_413_problem()
+    {
+        await using WebApplication app = await HttpHost.StartKestrelAsync(new ProbeModule());
+        using HttpClient client = new() { BaseAddress = new Uri(app.Urls.First()) };
+
+        using HttpResponseMessage response = await client.PostAsync(
+            new Uri("/v1/probes/uploads", UriKind.Relative),
+            new StringContent(
+                $"{{\"name\":\"{new string('x', 100)}\"}}",
+                Encoding.UTF8,
+                "application/json"
+            ),
+            TestContext.Current.CancellationToken
+        );
+
+        ((int)response.StatusCode).ShouldBe(413);
+        response.Content.Headers.ContentType?.MediaType.ShouldBe("application/problem+json");
+        response.Headers.CacheControl?.NoStore.ShouldBe(true);
+        Snapshot.ShouldMatch(
+            await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken),
+            "problem-too-large"
         );
     }
 
-    // The whole body is the contract: every member but the per-request trace id is compared.
-    private static void ShouldBeProblem(IScenarioResult result, string body, string expected)
+    private static async Task ShouldBeProblemAsync(IScenarioResult result, string snapshot)
     {
         HttpResponse response = result.Context.Response;
         response.ContentType.ShouldBe("application/problem+json");
@@ -199,9 +282,8 @@ public sealed class ProblemDetailsTests
             .Headers.CacheControl.ToString()
             .Split(',')
             .ShouldContain("no-store", StringComparer.Ordinal);
-        JsonObject problem = JsonNode.Parse(body).ShouldBeOfType<JsonObject>();
-        problem["traceId"].ShouldNotBeNull().GetValue<string>().ShouldMatch("^[0-9a-f]{32}$");
-        problem.Remove("traceId");
-        problem.ToJsonString().ShouldBe(expected);
+        string body = await result.ReadAsTextAsync();
+        body.ShouldMatch("\"traceId\":\"[0-9a-f]{32}\"");
+        Snapshot.ShouldMatch(body, snapshot);
     }
 }

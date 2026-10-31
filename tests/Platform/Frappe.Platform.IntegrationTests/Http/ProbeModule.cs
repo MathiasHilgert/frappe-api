@@ -6,6 +6,7 @@ using Frappe.Platform.Modularity;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Hosting;
 using NodaTime;
@@ -34,6 +35,17 @@ internal sealed class ProbeModule : IModule
             .WithSummary("Answers the request with every wire form.")
             .RequireRateLimiting(RateLimitPolicies.Public)
             .ProducesProblem(StatusCodes.Status400BadRequest);
+        group
+            .MapGet("/things/{thingId:guid}", static (Guid thingId) => TypedResults.Ok(thingId))
+            .WithName("GetThing")
+            .WithSummary("Answers a thing by its id.")
+            .RequireRateLimiting(RateLimitPolicies.Public);
+        group
+            .MapPost("/uploads", static (EchoRequest request) => TypedResults.Ok(Echo(request)))
+            .WithName("CreateUpload")
+            .WithSummary("Accepts a body of at most 64 bytes.")
+            .RequireRateLimiting(RateLimitPolicies.Public)
+            .WithMetadata(new RequestSizeLimitAttribute(64));
         group
             .MapGet(
                 "/failures",
@@ -77,7 +89,18 @@ internal sealed class ProbeModule : IModule
             "conflict" => [Error.Conflict("probe.thing.closed", "The thing is closed.")],
             "forbidden" => [Error.Forbidden("probe.thing.forbidden", "The thing is not yours.")],
             "malformed" => [PlatformErrors.InvalidCursor],
-            _ => [Error.Unexpected("probe.thing.unexpected", "The thing broke.")],
+            "unauthorized" =>
+            [
+                Error.Unauthorized("probe.session.missing", "No session SECRET-SESSION-ID."),
+            ],
+            "untranslated" =>
+            [
+                Error.Validation(
+                    "probe.thing.untranslated",
+                    "Constraint SECRET-CONSTRAINT failed."
+                ),
+            ],
+            _ => [Error.Unexpected("probe.thing.unexpected", "SECRET-INTERNAL")],
         };
         return errors.ToProblem(context);
     }

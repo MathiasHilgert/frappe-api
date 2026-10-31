@@ -8,6 +8,8 @@ using Frappe.Platform.Serialization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using NodaTime;
+using NodaTime.Serialization.SystemTextJson;
 
 namespace Frappe.Platform;
 
@@ -33,7 +35,9 @@ public static class PlatformExtensions
             options.SerializerOptions.AddKernelValueObjectConverters()
         );
         // Before persistence, so every context it and the modules register joins the bus's transaction.
-        builder.AddMessaging(static json => json.AddKernelValueObjectConverters());
+        builder.AddMessaging(static json =>
+            json.AddKernelValueObjectConverters().ConfigureForNodaTime(DateTimeZoneProviders.Tzdb)
+        );
         builder.AddPersistence();
         return builder;
     }

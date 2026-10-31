@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Alba;
+using Frappe.Lexicon.Infrastructure;
 using Frappe.Platform.Http;
+using Frappe.Platform.Http.Localization;
 using Frappe.Platform.IntegrationTests.Messaging;
 using Frappe.TestUtilities;
 using Microsoft.AspNetCore.Builder;
@@ -81,6 +83,43 @@ public sealed class HttpSurfaceTests
         policy.ShouldNotBeNull().Timeout.ShouldBe(TimeSpan.FromSeconds(30));
     }
 
+    // A module keeps its error catalog in its Application assembly, so its texts must load from there too.
+    [Fact]
+    public async Task Error_texts_load_from_every_assembly_of_a_module()
+    {
+        await using IAlbaHost host = await HttpHost.StartAsync(new LexiconModule());
+
+        IScenarioResult result = await host.Scenario(static scenario =>
+        {
+            scenario.Get.Url("/v1/lexicons/words/zzz");
+            scenario.StatusCodeShouldBe(404);
+        });
+
+        (await result.ReadAsTextAsync()).ShouldContain(
+            "\"code\":\"lexicon.word.unknown\",\"pointer\":null,\"detail\":\"The lexicon has no such word.\""
+        );
+    }
+
+    // The texts load when the host starts, so a broken resource fails the boot, not the first error response.
+    [Fact]
+    public async Task Error_texts_that_fail_to_load_fail_the_start()
+    {
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder(
+            new HostApplicationBuilderSettings { DisableDefaults = true }
+        );
+        builder.AddHttp();
+        builder.Services.AddSingleton<ErrorTexts>(static _ =>
+            throw new InvalidOperationException("errors.json is misnamed.")
+        );
+        using IHost host = builder.Build();
+
+        InvalidOperationException error = await Should.ThrowAsync<InvalidOperationException>(() =>
+            host.StartAsync(TestContext.Current.CancellationToken)
+        );
+
+        error.Message.ShouldBe("errors.json is misnamed.");
+    }
+
     [Fact]
     public async Task A_rate_limit_out_of_range_fails_the_start()
     {
@@ -96,6 +135,15 @@ public sealed class HttpSurfaceTests
         );
 
         error.Message.ShouldContain("PublicPermitLimit");
+    }
+
+    // The document is the contract clients generate from, so every change to it shows in review.
+    [Fact]
+    public async Task The_openapi_document_matches_its_snapshot()
+    {
+        await using IAlbaHost host = await HttpHost.StartAsync(new ProbeModule());
+
+        Snapshot.ShouldMatch((await OpenApiAsync(host)).GetRawText(), "openapi-probe");
     }
 
     [Fact]

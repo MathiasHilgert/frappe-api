@@ -1,0 +1,15 @@
+{
+  "type": "urn:frappe:problem:internal",
+  "title": "The server failed to complete the request.",
+  "status": 500,
+  "instance": "/v1/probes/problems/unexpected",
+  "errors": [
+    {
+      "code": "platform.request.failed",
+      "pointer": null,
+      "detail": "The server failed to complete the request.",
+      "args": null
+    }
+  ],
+  "traceId": "{traceId}"
+}

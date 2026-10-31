@@ -1,0 +1,15 @@
+{
+  "type": "urn:frappe:problem:malformed_request",
+  "title": "The request is malformed.",
+  "status": 413,
+  "instance": "/v1/probes/uploads",
+  "errors": [
+    {
+      "code": "platform.request.too_large",
+      "pointer": null,
+      "detail": "The request body is too large.",
+      "args": null
+    }
+  ],
+  "traceId": "{traceId}"
+}

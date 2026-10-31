@@ -6,6 +6,7 @@ using Frappe.TestUtilities;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using NodaTime;
 using Wolverine.Runtime;
 using HttpJsonOptions = Microsoft.AspNetCore.Http.Json.JsonOptions;
 
@@ -33,16 +34,16 @@ public sealed class HttpSurfaceTests(FrappeDatabase database, FrappeNats nats)
     }
 
     [Fact]
-    public async Task Messages_write_kernel_value_objects_as_their_primitive()
+    public async Task Messages_write_kernel_value_objects_and_dates_as_their_primitive()
     {
         await using IAlbaHost host = await StartAsync();
         IWolverineRuntime runtime = host.Services.GetRequiredService<IWolverineRuntime>();
 
         byte[] message = runtime.Options.DefaultSerializer.WriteMessage(
-            new CountryNoted(CountryCode.Create("ar").Value)
+            new CountryNoted(CountryCode.Create("ar").Value, new LocalDate(2026, 4, 2))
         );
 
-        Encoding.UTF8.GetString(message).ShouldBe("{\"country\":\"AR\"}");
+        Encoding.UTF8.GetString(message).ShouldBe("{\"country\":\"AR\",\"on\":\"2026-04-02\"}");
     }
 
     [Fact]
@@ -59,7 +60,7 @@ public sealed class HttpSurfaceTests(FrappeDatabase database, FrappeNats nats)
     }
 
     [Fact]
-    public async Task The_host_openapi_document_is_fully_described()
+    public async Task The_host_openapi_document_is_fully_described_and_matches_its_snapshot()
     {
         await using IAlbaHost host = await StartAsync();
 
@@ -69,8 +70,10 @@ public sealed class HttpSurfaceTests(FrappeDatabase database, FrappeNats nats)
             scenario.StatusCodeShouldBeOk();
         });
 
-        using var document = JsonDocument.Parse(await result.ReadAsTextAsync());
+        string body = await result.ReadAsTextAsync();
+        using var document = JsonDocument.Parse(body);
         OpenApiStandard.Violations(document.RootElement).ShouldBeEmpty();
+        Snapshot.ShouldMatch(body, "openapi-host");
     }
 
     private Task<IAlbaHost> StartAsync() =>
@@ -80,5 +83,5 @@ public sealed class HttpSurfaceTests(FrappeDatabase database, FrappeNats nats)
                 .UseSetting("Nats:Url", nats.Url)
         );
 
-    private sealed record CountryNoted(CountryCode Country);
+    private sealed record CountryNoted(CountryCode Country, LocalDate On);
 }

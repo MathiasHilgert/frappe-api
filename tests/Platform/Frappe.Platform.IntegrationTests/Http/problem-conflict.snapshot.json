@@ -1,0 +1,15 @@
+{
+  "type": "urn:frappe:problem:conflict",
+  "title": "The request conflicts with the current state.",
+  "status": 409,
+  "instance": "/v1/probes/problems/conflict",
+  "errors": [
+    {
+      "code": "probe.thing.closed",
+      "pointer": null,
+      "detail": "The request conflicts with the current state.",
+      "args": null
+    }
+  ],
+  "traceId": "{traceId}"
+}

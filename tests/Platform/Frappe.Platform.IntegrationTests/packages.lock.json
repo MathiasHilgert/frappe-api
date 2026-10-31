@@ -1170,6 +1170,19 @@
           "NodaTime": "[3.3.6, )"
         }
       },
+      "frappe.lexicon.application": {
+        "type": "Project",
+        "dependencies": {
+          "ErrorOr": "[2.1.1, )"
+        }
+      },
+      "frappe.lexicon.infrastructure": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Lexicon.Application": "[1.0.0, )",
+          "Frappe.Platform.Http": "[1.0.0, )"
+        }
+      },
       "frappe.migrations": {
         "type": "Project",
         "dependencies": {
@@ -1209,6 +1222,7 @@
           "Frappe.Kernel": "[1.0.0, )",
           "Frappe.Platform.Modularity": "[1.0.0, )",
           "Microsoft.AspNetCore.OpenApi": "[10.0.14, )",
+          "NodaTime.Serialization.SystemTextJson": "[1.4.0, )",
           "Scalar.AspNetCore": "[2.18.7, )"
         }
       },
@@ -1438,6 +1452,15 @@
         "requested": "[3.3.6, )",
         "resolved": "3.3.6",
         "contentHash": "vAjAdOvqu5hqgDVgzJxFPhSVy4EM5/tmSHJn/k0lLDIn4637OReqJgvR49fzFzj+5uZfebdJEFbI6LOLazWXog=="
+      },
+      "NodaTime.Serialization.SystemTextJson": {
+        "type": "CentralTransitive",
+        "requested": "[1.4.0, )",
+        "resolved": "1.4.0",
+        "contentHash": "jGe0WLNAoRb3efOgsa5iecmMuzP+LNdtw2Rs4N9+2pS4YN+kg8e9Z48Jk47WWebcpqF81YdWT2KNInbXZXTS7w==",
+        "dependencies": {
+          "NodaTime": "[3.0.0, 4.0.0)"
+        }
       },
       "Npgsql.DependencyInjection": {
         "type": "CentralTransitive",

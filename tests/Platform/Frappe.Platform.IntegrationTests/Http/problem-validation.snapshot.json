@@ -1,0 +1,23 @@
+{
+  "type": "urn:frappe:problem:validation",
+  "title": "The request failed validation.",
+  "status": 422,
+  "instance": "/v1/probes/problems/validation",
+  "errors": [
+    {
+      "code": "kernel.country_code.invalid",
+      "pointer": "/countryCode",
+      "detail": "The country code must be two ISO 3166-1 alpha-2 letters.",
+      "args": null
+    },
+    {
+      "code": "probe.name.too_long",
+      "pointer": "/name",
+      "detail": "The request is invalid.",
+      "args": {
+        "max": 100
+      }
+    }
+  ],
+  "traceId": "{traceId}"
+}

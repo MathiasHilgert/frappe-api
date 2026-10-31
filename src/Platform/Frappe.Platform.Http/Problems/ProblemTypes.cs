@@ -23,10 +23,13 @@ public static class ProblemTypes
     /// <summary>The caller may not perform the action (403).</summary>
     public const string Forbidden = "urn:frappe:problem:forbidden";
 
+    /// <summary>The caller is not authenticated (401).</summary>
+    public const string Unauthorized = "urn:frappe:problem:unauthorized";
+
     /// <summary>The caller sent too many requests (429).</summary>
     public const string RateLimited = "urn:frappe:problem:rate_limited";
 
-    /// <summary>The request is not well formed (400, 413 or 415).</summary>
+    /// <summary>The request is not well formed (400, 405, 413 or 415).</summary>
     public const string MalformedRequest = "urn:frappe:problem:malformed_request";
 
     /// <summary>The request ran out of time (504).</summary>
@@ -42,6 +45,7 @@ public static class ProblemTypes
             NotFound => "The resource was not found.",
             Conflict => "The request conflicts with the current state.",
             Forbidden => "The action is not allowed.",
+            Unauthorized => "Authentication is required.",
             RateLimited => "Too many requests.",
             MalformedRequest => "The request is malformed.",
             Timeout => "The request timed out.",

@@ -36,8 +36,10 @@ public static class HttpExtensions
         RateLimitPolicies.Add(services);
         services.AddSingleton(static provider => new ErrorTexts([
             typeof(HttpExtensions).Assembly,
-            .. provider.GetServices<IModule>().Select(static module => module.GetType().Assembly),
+            .. provider.GetServices<IModule>().SelectMany(ModuleTypes.Assemblies),
         ]));
+        // Loads the texts at start, so a broken resource fails the boot instead of the first error response.
+        services.AddHostedService<ErrorTextsCheck>();
         // TODO: persist the data-protection key ring (deferred: infrastructure; until then a cursor fails after a
         // restart or on another instance)
         services.AddDataProtection();
@@ -49,7 +51,7 @@ public static class HttpExtensions
     }
 
     /// <summary>
-    /// Adds the HTTP middleware in order (exception handler, request timeouts, rate limiter) and maps the OpenAPI
+    /// Adds the HTTP middleware in order (exception handler, status code problems, request timeouts, rate limiter) and maps the OpenAPI
     /// document and Scalar in Development; call it before mapping any endpoint.
     /// </summary>
     /// <param name="app">The application.</param>
@@ -58,6 +60,8 @@ public static class HttpExtensions
     {
         ArgumentNullException.ThrowIfNull(app);
         app.UseExceptionHandler();
+        // Routing and body reading answer 404, 405, 413 and 415 without a body; these write the house problem.
+        app.UseStatusCodePages(StatusCodeProblems.WriteAsync);
         app.UseRequestTimeouts();
         app.UseRateLimiter();
         OpenApiExtensions.MapFrappeOpenApi(app);
