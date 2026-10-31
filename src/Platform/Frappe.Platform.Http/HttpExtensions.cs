@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Scalar.AspNetCore;
 
 namespace Frappe.Platform.Http;
 
@@ -37,11 +38,9 @@ public static class HttpExtensions
             typeof(HttpExtensions).Assembly,
             .. provider.GetServices<IModule>().SelectMany(ModuleTypes.Assemblies),
         ]));
-        // Loads the texts at start, so a broken resource fails the boot instead of the first error response.
-        services.AddHostedService<ErrorTextsCheck>();
         // TODO: set FallbackPolicy to require an authenticated user when authentication arrives (anonymous
         // endpoints already opt out with AllowAnonymous)
-        OpenApiExtensions.AddFrappeOpenApi(services);
+        services.AddOpenApi(static options => options.AddSchemaTransformer<SchemaTransformers>());
         return builder;
     }
 
@@ -59,7 +58,13 @@ public static class HttpExtensions
         app.UseStatusCodePages();
         app.UseRequestTimeouts();
         app.UseRateLimiter();
-        OpenApiExtensions.MapFrappeOpenApi(app);
+        // The document is the API's attack map, so deployed environments never publish it.
+        if (app.Environment.IsDevelopment())
+        {
+            app.MapOpenApi();
+            app.MapScalarApiReference();
+        }
+
         return app;
     }
 }
