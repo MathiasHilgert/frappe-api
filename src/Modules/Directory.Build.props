@@ -1,0 +1,8 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!-- Module code reaches the database only through interpolated, parameterized SQL and its own query filters. -->
+  <ItemGroup>
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)../../eng/BannedSymbols.Modules.txt" />
+  </ItemGroup>
+</Project>

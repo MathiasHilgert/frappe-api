@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Alba" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="ErrorOr" />
+    <Using Include="Shouldly" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../../src/Modules/Geo/Frappe.Geo.Infrastructure/Frappe.Geo.Infrastructure.csproj" />
+    <ProjectReference Include="../../../Frappe.TestUtilities/Frappe.TestUtilities.csproj" />
+  </ItemGroup>
+</Project>

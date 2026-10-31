@@ -162,6 +162,14 @@ add-migration name context:
       --output-dir Migrations/{{ trim_end_match(context, "DbContext") }} \
       --project src/Frappe.Migrations --startup-project src/Frappe.Migrations
 
+# --- geo ---
+
+[group('geo')]
+[doc('Regenerate one geo seed file from its pinned sources, offline: currencies | countries')]
+[arg('source', pattern='currencies|countries')]
+geo-refresh source:
+    python3 eng/geo/refresh_{{ source }}.py
+
 # --- ci ---
 
 [group('ci')]

@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Text.Json;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Hosting;
 
@@ -30,6 +31,14 @@ public interface IModule
 
     // TODO: the jobs PR adds the module's recurring schedules here as a default interface method, so a module
     // without schedules implements nothing; registered only in the roles that run schedules.
+
+    /// <summary>
+    /// Adds the JSON converters of the module's published value objects to the options every response, Contracts
+    /// record and message is written with, so each travels as its primitive. A module without value objects on the
+    /// wire implements nothing.
+    /// </summary>
+    /// <param name="options">The HTTP or message serializer options.</param>
+    void ConfigureJson(JsonSerializerOptions options) { }
 
     /// <summary>
     /// Loads the module's reference data and returns the rows it changed. The migrator runs it as the owner role

@@ -9,5 +9,449 @@
       "url": "http://localhost/"
     }
   ],
-  "paths": {}
+  "paths": {
+    "/v1/geo/time-zones": {
+      "get": {
+        "tags": [
+          "geo"
+        ],
+        "summary": "Lists the IANA time zones a branch can run in, optionally of one country.",
+        "operationId": "ListTimeZones",
+        "parameters": [
+          {
+            "name": "countryCode",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseOfTimeZoneDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/geo/currencies": {
+      "get": {
+        "tags": [
+          "geo"
+        ],
+        "summary": "Lists the ISO 4217 currencies in use, by their name in the requested locale.",
+        "operationId": "ListCurrencies",
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseOfCurrencyDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/geo/countries": {
+      "get": {
+        "tags": [
+          "geo"
+        ],
+        "summary": "Lists the ISO 3166-1 countries, by their name in the requested locale.",
+        "operationId": "ListCountries",
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseOfCountryDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/geo/countries/{countryCode}": {
+      "get": {
+        "tags": [
+          "geo"
+        ],
+        "summary": "Gets one ISO 3166-1 country by its alpha-2 code, with its name in the requested locale.",
+        "operationId": "GetCountry",
+        "parameters": [
+          {
+            "name": "countryCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountryDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CountryCode": {
+        "pattern": "^[A-Z]{2}$",
+        "type": "string",
+        "description": "An ISO 3166-1 alpha-2 country code in upper case, such as `AR`."
+      },
+      "CountryDto": {
+        "required": [
+          "countryCode",
+          "alpha3",
+          "numericCode",
+          "name",
+          "defaultCurrencyCode",
+          "callingCode"
+        ],
+        "type": "object",
+        "properties": {
+          "countryCode": {
+            "description": "The ISO 3166-1 alpha-2 code, such as AR.",
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "alpha3": {
+            "type": "string",
+            "description": "The ISO 3166-1 alpha-3 code, such as ARG."
+          },
+          "numericCode": {
+            "type": "string",
+            "description": "The ISO 3166-1 three-digit numeric code, such as 032."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name in the requested locale, or the nearest one along its fallback chain."
+          },
+          "defaultCurrencyCode": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "The ISO 4217 code of the current tender, or null for a country without one.",
+                "$ref": "#/components/schemas/CurrencyCode"
+              }
+            ],
+            "description": "The ISO 4217 code of the current tender, or null for a country without one."
+          },
+          "callingCode": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The international calling code in digits without a plus sign, such as 54, or null when the country has none."
+          }
+        },
+        "additionalProperties": false,
+        "description": "An ISO 3166-1 country."
+      },
+      "CurrencyCode": {
+        "pattern": "^[A-Z]{3}$",
+        "type": "string",
+        "description": "An ISO 4217 alphabetic currency code in upper case, such as `ARS`."
+      },
+      "CurrencyDto": {
+        "required": [
+          "currencyCode",
+          "numericCode",
+          "minorUnit",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "currencyCode": {
+            "description": "The ISO 4217 alphabetic code, such as ARS.",
+            "$ref": "#/components/schemas/CurrencyCode"
+          },
+          "numericCode": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The ISO 4217 three-digit numeric code, such as 032, or null when ISO assigns none."
+          },
+          "minorUnit": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "The decimal digits of an amount, 0 to 4, or null for a currency without a minor unit.",
+                "$ref": "#/components/schemas/MinorUnit"
+              }
+            ],
+            "description": "The decimal digits of an amount, 0 to 4, or null for a currency without a minor unit."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name in the requested locale, or the nearest one along its fallback chain."
+          }
+        },
+        "additionalProperties": false,
+        "description": "An ISO 4217 currency in use."
+      },
+      "MinorUnit": {
+        "maximum": 4,
+        "minimum": 0,
+        "type": "integer",
+        "description": "The number of decimal digits of a currency's minor unit, from 0 (CLP) to 4 (CLF)."
+      },
+      "PageResponseOfCountryDto": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CountryDto"
+            },
+            "description": "The items of this page."
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The cursor of the next page, or `null` on the last page."
+          }
+        },
+        "additionalProperties": false,
+        "description": "One page of a list."
+      },
+      "PageResponseOfCurrencyDto": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CurrencyDto"
+            },
+            "description": "The items of this page."
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The cursor of the next page, or `null` on the last page."
+          }
+        },
+        "additionalProperties": false,
+        "description": "One page of a list."
+      },
+      "PageResponseOfTimeZoneDto": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimeZoneDto"
+            },
+            "description": "The items of this page."
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The cursor of the next page, or `null` on the last page."
+          }
+        },
+        "additionalProperties": false,
+        "description": "One page of a list."
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The stable URN of the problem category, such as urn:frappe:problem:validation."
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The fixed English title of the problem type."
+          },
+          "status": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "description": "The HTTP status code.",
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "Not used; each entry of errors carries its own localized detail."
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The request path."
+          }
+        },
+        "additionalProperties": false
+      },
+      "TimeZoneDto": {
+        "required": [
+          "timeZoneId",
+          "countryCode"
+        ],
+        "type": "object",
+        "properties": {
+          "timeZoneId": {
+            "description": "The tzdb id, such as America/Argentina/Cordoba.",
+            "$ref": "#/components/schemas/TimeZoneId"
+          },
+          "countryCode": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "The ISO 3166-1 alpha-2 code of the zone's country, or null for a zone of no country.",
+                "$ref": "#/components/schemas/CountryCode"
+              }
+            ],
+            "description": "The ISO 3166-1 alpha-2 code of the zone's country, or null for a zone of no country."
+          }
+        },
+        "additionalProperties": false,
+        "description": "An IANA time zone a branch can run in."
+      },
+      "TimeZoneId": {
+        "type": "string",
+        "description": "An IANA time zone id known to the bundled tzdb, with its tzdb casing, such as `America/Argentina/Cordoba`."
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "geo"
+    }
+  ]
 }

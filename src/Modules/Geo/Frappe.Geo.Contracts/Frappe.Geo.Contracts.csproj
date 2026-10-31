@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../../../Frappe.Kernel/Frappe.Kernel.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="ErrorOr" />
+  </ItemGroup>
+</Project>

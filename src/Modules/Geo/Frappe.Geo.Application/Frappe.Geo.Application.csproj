@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.Geo.Contracts/Frappe.Geo.Contracts.csproj" />
+    <ProjectReference Include="../Frappe.Geo.Domain/Frappe.Geo.Domain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="ErrorOr" />
+  </ItemGroup>
+</Project>

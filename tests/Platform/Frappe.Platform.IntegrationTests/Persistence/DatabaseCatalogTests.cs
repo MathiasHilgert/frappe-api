@@ -97,6 +97,75 @@ public sealed class DatabaseCatalogTests(AppFixture app)
         privileges.ShouldBe([true, false]);
     }
 
+    // Modules link across schemas by plain values, never by a foreign key.
+    [Fact]
+    public async Task No_foreign_key_crosses_schemas()
+    {
+        string[] crossing = await ScalarAsync<string[]>(
+            """
+            SELECT coalesce(array_agg(c.conname::text ORDER BY c.conname), '{}')
+            FROM pg_constraint c
+            JOIN pg_class referencing ON referencing.oid = c.conrelid
+            JOIN pg_class referenced ON referenced.oid = c.confrelid
+            WHERE c.contype = 'f' AND referencing.relnamespace <> referenced.relnamespace
+            """
+        );
+
+        crossing.ShouldBeEmpty();
+    }
+
+    // Postgres does not index referencing columns, so an unindexed foreign key makes a parent delete scan the child.
+    // Checked in the schemas our contexts own (each keeps its migrations history); the bus's vendored store is not.
+    [Fact]
+    public async Task Every_foreign_key_has_an_index_leading_with_its_columns()
+    {
+        string[] uncovered = await ScalarAsync<string[]>(
+            """
+            SELECT coalesce(array_agg(c.conname::text ORDER BY c.conname), '{}')
+            FROM pg_constraint c
+            WHERE c.contype = 'f' AND c.connamespace IN (SELECT relnamespace FROM pg_class WHERE relname = '__ef_migrations_history')
+              AND NOT EXISTS (
+                SELECT 1 FROM pg_index i
+                WHERE i.indrelid = c.conrelid
+                  AND (i.indkey::int2[])[0:array_length(c.conkey, 1) - 1] = c.conkey)
+            """
+        );
+
+        uncovered.ShouldBeEmpty();
+    }
+
+    // A failed concurrent build leaves an invalid index that every write still maintains.
+    [Fact]
+    public async Task No_index_is_invalid()
+    {
+        string[] invalid = await ScalarAsync<string[]>(
+            """
+            SELECT coalesce(array_agg(i.indexrelid::regclass::text ORDER BY 1), '{}')
+            FROM pg_index i
+            WHERE NOT i.indisvalid
+            """
+        );
+
+        invalid.ShouldBeEmpty();
+    }
+
+    // Only an aggregate root cascades to its own children; every other delete of a referenced row must fail. No
+    // root-to-children cascade is declared yet. Checked in the schemas our contexts own, as above.
+    [Fact]
+    public async Task Every_foreign_key_restricts_deletes()
+    {
+        string[] notRestrict = await ScalarAsync<string[]>(
+            """
+            SELECT coalesce(array_agg(c.conname::text ORDER BY c.conname), '{}')
+            FROM pg_constraint c
+            WHERE c.contype = 'f' AND c.confdeltype <> 'r'
+              AND c.connamespace IN (SELECT relnamespace FROM pg_class WHERE relname = '__ef_migrations_history')
+            """
+        );
+
+        notRestrict.ShouldBeEmpty();
+    }
+
     private async Task<T> ScalarAsync<T>(string sql)
     {
         await using NpgsqlConnection connection = new(app.OwnerConnectionString);

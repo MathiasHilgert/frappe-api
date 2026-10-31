@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.Geo.Application/Frappe.Geo.Application.csproj" />
+    <ProjectReference Include="../Frappe.Geo.Contracts/Frappe.Geo.Contracts.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Platform.Http/Frappe.Platform.Http.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Platform.Modularity/Frappe.Platform.Modularity.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Platform.Persistence/Frappe.Platform.Persistence.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="ErrorOr" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Each assembly ships its error texts as errors.<locale>.json; the locale must not make satellite assemblies. -->
+    <EmbeddedResource
+      Include="Localization/errors.*.json"
+      LogicalName="%(Filename)%(Extension)"
+      WithCulture="false"
+    />
+    <EmbeddedResource Include="Seed/*.tsv" LogicalName="%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Geo.UnitTests" />
+    <InternalsVisibleTo Include="Frappe.Geo.IntegrationTests" />
+  </ItemGroup>
+</Project>

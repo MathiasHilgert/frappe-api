@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Frappe.Kernel/Frappe.Kernel.csproj" />
+    <ProjectReference Include="../Modules/Geo/Frappe.Geo.Infrastructure/Frappe.Geo.Infrastructure.csproj" />
     <ProjectReference Include="../Platform/Frappe.Platform/Frappe.Platform.csproj" />
   </ItemGroup>
 </Project>

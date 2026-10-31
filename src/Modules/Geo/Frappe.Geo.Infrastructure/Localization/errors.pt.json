@@ -1,0 +1,13 @@
+{
+  "geo.country.default_currency_undefined": "O país não tem uma moeda padrão.",
+  "geo.country.not_found": "O país não foi encontrado.",
+  "geo.country_code.invalid": "O código do país deve ter duas letras ISO 3166-1 alfa-2.",
+  "geo.currency.minor_unit_undefined": "A moeda não tem unidade menor, então não pode expressar um valor.",
+  "geo.currency.not_found": "A moeda não foi encontrada.",
+  "geo.currency_code.invalid": "O código da moeda deve ter três letras ISO 4217.",
+  "geo.locale.invalid": "O idioma deve ser uma etiqueta BCP 47 como es-AR.",
+  "geo.minor_unit.invalid": "A unidade menor deve ter entre 0 e 4 casas decimais.",
+  "geo.postal_code.invalid": "O código postal deve ter de 1 a 16 letras, dígitos, espaços ou hífens.",
+  "geo.subdivision_code.invalid": "O código da subdivisão deve ser um código ISO 3166-2 como AR-X.",
+  "geo.time_zone_id.invalid": "O fuso horário deve ser um id de fuso IANA como America/Argentina/Buenos_Aires."
+}
