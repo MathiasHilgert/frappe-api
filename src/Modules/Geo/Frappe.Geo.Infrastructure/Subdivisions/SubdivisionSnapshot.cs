@@ -42,7 +42,7 @@ internal sealed class SubdivisionSnapshot : ISubdivisionReader
             .. rows.Select(row => new Subdivision(
                 SubdivisionCode.Create(row.SubdivisionCode).Value,
                 row.Status,
-                labels[row.SubdivisionCode]
+                Labels.Of(labels, "subdivision", row.SubdivisionCode)
             )),
         ];
         _catalogue = new Catalogue(

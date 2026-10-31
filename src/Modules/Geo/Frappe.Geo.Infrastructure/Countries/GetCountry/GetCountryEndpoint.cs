@@ -20,6 +20,10 @@ internal static class GetCountryEndpoint
             .WithSummary(
                 "Gets one ISO 3166-1 country by its alpha-2 code, with its name in the requested locale and its address format."
             )
+            .WithDescription(
+                "Serves retired countries too, codes ISO 3166-1 withdrew, with status retired, so a stored code "
+                    + "still resolves; the country list shows active countries only."
+            )
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 

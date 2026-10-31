@@ -19,6 +19,9 @@ internal static class ListCountriesEndpoint
             .AllowAnonymous()
             .WithName("ListCountries")
             .WithSummary("Lists the ISO 3166-1 countries, by their name in the requested locale.")
+            .WithDescription(
+                "Lists active countries only; a retired country is still served by GET /countries/{countryCode}."
+            )
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
     private static Results<Ok<PageResponse<CountryDto>>, ProblemHttpResult> List(

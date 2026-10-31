@@ -5,6 +5,8 @@ namespace Frappe.Geo.Contracts;
 /// <summary>
 /// Validates the parts of an address another module captures against the catalogue: its city and its postal code;
 /// the street line is checked when its value object is built. Geo stores no address; each module keeps its own.
+/// Every failure is a validation error, an unknown code included, so a caller can return them for its own input
+/// fields as they are.
 /// </summary>
 public interface IAddressValidator
 {
@@ -13,8 +15,8 @@ public interface IAddressValidator
     /// <param name="postalCode">The postal code.</param>
     /// <param name="cancellationToken">Cancels the check.</param>
     /// <returns>
-    /// Success, <c>geo.country.not_found</c> or <c>geo.postal_code.invalid</c>; a country without an address format
-    /// accepts any code.
+    /// Success, or the validation error <c>geo.country.not_found</c> or <c>geo.postal_code.invalid</c>; a country
+    /// without an address format accepts any code.
     /// </returns>
     ValueTask<ErrorOr<Success>> ValidatePostalCode(
         CountryCode country,
@@ -31,7 +33,7 @@ public interface IAddressValidator
     /// <param name="currentCity">The city the address holds now, which stays valid after it is retired; null for a new address.</param>
     /// <param name="cancellationToken">Cancels the check.</param>
     /// <returns>
-    /// Success, or the errors among <c>geo.address.city_required</c>, <c>geo.city.not_found</c>,
+    /// Success, or the validation errors among <c>geo.address.city_required</c>, <c>geo.city.not_found</c>,
     /// <c>geo.city.retired</c>, <c>geo.postal_code.invalid</c> and <c>geo.postal_code.required</c>.
     /// </returns>
     ValueTask<ErrorOr<Success>> ValidateAsync(

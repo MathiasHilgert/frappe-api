@@ -10,7 +10,7 @@ public interface ICountryReader
     /// <returns>The countries, with the locale their names resolved to.</returns>
     Localized<IReadOnlyList<CountryDto>> List(Locale locale);
 
-    /// <summary>Finds one country with its address format, retired ones included.</summary>
+    /// <summary>Finds one country with its address format and status, retired ones included.</summary>
     /// <param name="country">The country.</param>
     /// <param name="locale">The requested locale of the name.</param>
     /// <returns>The country with the locale its name resolved to, or <see langword="null"/> when not held.</returns>

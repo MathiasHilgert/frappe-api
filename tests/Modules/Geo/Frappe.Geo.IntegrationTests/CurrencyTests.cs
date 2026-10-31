@@ -30,12 +30,14 @@ public sealed class CurrencyTests(GeoFixture geo)
     }
 
     [Fact]
-    public async Task A_currency_without_a_minor_unit_lists_it_as_null()
+    public async Task Only_the_peso_dollar_euro_and_real_are_listed()
     {
         (_, JsonElement page) = await GeoHttp.GetAsync(geo.Host, "/v1/geo/currencies", 200);
 
-        JsonElement gold = GeoHttp.Item(page, "currencyCode", "XAU");
-        gold.GetProperty("minorUnit").ValueKind.ShouldBe(JsonValueKind.Null);
+        GeoHttp
+            .Codes(page, "currencyCode")
+            .Order(StringComparer.Ordinal)
+            .ShouldBe(["ARS", "BRL", "EUR", "USD"]);
     }
 
     [Theory]

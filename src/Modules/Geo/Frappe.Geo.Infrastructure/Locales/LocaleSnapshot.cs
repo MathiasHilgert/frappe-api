@@ -47,7 +47,7 @@ internal sealed class LocaleSnapshot : ILocaleReader, ILocaleCatalogue
                         ? TextDirection.Rtl
                         : TextDirection.Ltr,
                     row.Endonym,
-                    labels[row.LocaleTag]
+                    Labels.Of(labels, "locale", row.LocaleTag)
                 )),
         ];
         _catalogue = new Catalogue(

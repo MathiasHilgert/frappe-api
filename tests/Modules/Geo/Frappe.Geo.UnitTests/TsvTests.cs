@@ -31,4 +31,17 @@ public sealed class TsvTests
 
         Should.Throw<InvalidDataException>(() => Tsv.Parse(file, "test.tsv", _header));
     }
+
+    // An empty file would retire every row of its catalogue on the next seed.
+    [Theory]
+    [InlineData("code\tname_en\n")]
+    [InlineData("code\tname_en\n\n")]
+    public void A_file_without_rows_is_rejected(string content)
+    {
+        using StringReader file = new(content);
+
+        Should
+            .Throw<InvalidDataException>(() => Tsv.Parse(file, "test.tsv", _header))
+            .Message.ShouldContain("test.tsv");
+    }
 }

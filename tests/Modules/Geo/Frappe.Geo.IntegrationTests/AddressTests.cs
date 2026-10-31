@@ -107,11 +107,12 @@ public sealed class AddressTests(GeoFixture geo) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task A_postal_code_of_an_unknown_country_is_not_found()
+    public async Task A_postal_code_of_an_unknown_country_is_an_invalid_field()
     {
         ErrorOr<Success> result = await ValidatePostalCodeAsync("ZZ", "1425");
 
         result.FirstError.Code.ShouldBe("geo.country.not_found");
+        result.FirstError.Type.ShouldBe(ErrorType.Validation);
     }
 
     [Theory]
@@ -144,12 +145,14 @@ public sealed class AddressTests(GeoFixture geo) : IAsyncLifetime
         result.Errors.Select(static error => error.Code).ShouldBe(["geo.address.city_required"]);
     }
 
+    // A consumer passes the errors through for its own body fields, so an unknown city is invalid input, not a 404.
     [Fact]
-    public async Task An_unknown_city_is_not_found()
+    public async Task An_unknown_city_is_an_invalid_field()
     {
         ErrorOr<Success> result = await ValidateAsync(CityIds.From("88888888"), "Calle 1", null);
 
         result.FirstError.Code.ShouldBe("geo.city.not_found");
+        result.FirstError.Type.ShouldBe(ErrorType.Validation);
     }
 
     [Fact]

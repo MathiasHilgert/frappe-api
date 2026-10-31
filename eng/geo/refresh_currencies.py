@@ -11,6 +11,9 @@ Sources:
 - CLDR 48 supplemental currencyData fractions for the minor unit of List Three currencies, which List Three does not
   carry (DEFAULT is 2 digits).
 
+Only the ACTIVE codes are seeded Active; every other List One code is seeded Retired, so it is kept but neither
+listed nor selectable.
+
 The output is deterministic: rows sorted by code, LF line ends, no timestamps.
 """
 
@@ -25,6 +28,8 @@ OUTPUT = (
     pathlib.Path(__file__).resolve().parents[2]
     / "src/Modules/Geo/Frappe.Geo.Infrastructure/Seed/currencies.tsv"
 )
+# TODO: activate more currencies (when Frappé launches in another country or a business needs one)
+ACTIVE = {"ARS", "BRL", "EUR", "USD"}
 HEADER = ["currency_code", "numeric_code", "minor_unit", "status", "name_en", "name_es", "name_pt"]
 
 
@@ -55,7 +60,13 @@ def main() -> None:
         if not code or code in rows:
             continue
         minor = text(entry, "CcyMnrUnts")
-        rows[code] = [code, text(entry, "CcyNbr"), "" if minor == "N.A." else minor, "Active", text(entry, "CcyNm")]
+        rows[code] = [
+            code,
+            text(entry, "CcyNbr"),
+            "" if minor == "N.A." else minor,
+            "Active" if code in ACTIVE else "Retired",
+            text(entry, "CcyNm"),
+        ]
 
     # The latest withdrawal of a code names it; List Three dates sort as text (YYYY-MM).
     historic = sorted(

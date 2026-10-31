@@ -267,6 +267,21 @@ public sealed class CityTests(GeoFixture geo)
 
     [Theory]
     [InlineData("subdivisionCode=AR-ZZ", "geo.subdivision.not_found", "/subdivisionCode")]
+    [InlineData(
+        "countryCode=UY&subdivisionCode=AR-B",
+        "geo.subdivision.not_found",
+        "/subdivisionCode"
+    )]
+    [InlineData(
+        "countryCode=AR&subdivisionCode=BR-SP",
+        "geo.subdivision.not_found",
+        "/subdivisionCode"
+    )]
+    [InlineData(
+        "countryCode=UY&subdivisionCode=AR-B&q=pilar",
+        "geo.subdivision.not_found",
+        "/subdivisionCode"
+    )]
     [InlineData("countryCode=ZZ", "geo.country.not_found", "/countryCode")]
     [InlineData("subdivisionCode=nope", "geo.subdivision_code.invalid", "/subdivisionCode")]
     [InlineData("countryCode=A", "geo.country_code.invalid", "/countryCode")]

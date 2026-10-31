@@ -51,7 +51,7 @@ internal sealed class CountrySnapshot(AddressFormatSnapshot addressFormats)
                     : null,
                 row.CallingCode,
                 row.Status,
-                labels[row.CountryCode]
+                Labels.Of(labels, "country", row.CountryCode)
             )),
         ];
         _catalogue = new Catalogue(
@@ -101,7 +101,8 @@ internal sealed class CountrySnapshot(AddressFormatSnapshot addressFormats)
                 name.Value,
                 found.DefaultCurrency,
                 found.CallingCode,
-                addressFormats.Find(found.Code)
+                addressFormats.Find(found.Code),
+                found.Status
             ),
             name.Locale
         );

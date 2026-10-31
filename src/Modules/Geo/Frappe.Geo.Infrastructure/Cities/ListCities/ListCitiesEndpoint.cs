@@ -68,7 +68,11 @@ internal static class ListCitiesEndpoint
             .FailIf(
                 query =>
                     query.Subdivision is { } subdivision
-                    && subdivisions.Find(subdivision, Locale.English) is null,
+                    && (
+                        query.Country is { } country
+                            ? !subdivisions.BelongsTo(subdivision, country)
+                            : subdivisions.Find(subdivision, Locale.English) is null
+                    ),
                 UnknownFilter.Of(SubdivisionErrors.NotFound, SubdivisionPointer)
             );
         if (query.IsError)

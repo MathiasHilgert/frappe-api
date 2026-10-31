@@ -174,15 +174,38 @@ public sealed class CatalogueTests(GeoFixture geo)
     }
 
     [Fact]
-    public async Task A_years_holidays_hold_every_subdivision_in_the_asked_locale()
+    public async Task Without_a_subdivision_a_years_holidays_are_national_only()
     {
         IHolidayCatalogue holidays = geo.Host.Services.GetRequiredService<IHolidayCatalogue>();
 
         ErrorOr<IReadOnlyList<GeoHoliday>> year = await holidays.HolidaysFor(
             CountryCode.Create("AR").Value,
             2026,
+            subdivision: null,
+            Locale.English,
+            TestContext.Current.CancellationToken
+        );
+
+        year.Value.ShouldNotBeEmpty();
+        year.Value.ShouldAllBe(holiday => holiday.Subdivision == null);
+    }
+
+    [Fact]
+    public async Task A_subdivision_adds_only_its_own_holidays_in_the_asked_locale()
+    {
+        IHolidayCatalogue holidays = geo.Host.Services.GetRequiredService<IHolidayCatalogue>();
+        SubdivisionCode cordoba = SubdivisionCode.Create("AR-X").Value;
+
+        ErrorOr<IReadOnlyList<GeoHoliday>> year = await holidays.HolidaysFor(
+            CountryCode.Create("AR").Value,
+            2026,
+            cordoba,
             Locale.Create("fr").Value,
             TestContext.Current.CancellationToken
+        );
+
+        year.Value.ShouldAllBe(holiday =>
+            holiday.Subdivision == null || holiday.Subdivision == cordoba
         );
 
         year.Value.ShouldContain(
@@ -195,6 +218,47 @@ public sealed class CatalogueTests(GeoFixture geo)
             )
         );
         year.Value[0].Date.ShouldBe(new LocalDate(2026, 1, 1));
+    }
+
+    // The caller names the country, so one outside the catalogue is an invalid field, not a 404.
+    [Fact]
+    public async Task An_unknown_country_is_an_invalid_field_for_holidays()
+    {
+        IHolidayCatalogue holidays = geo.Host.Services.GetRequiredService<IHolidayCatalogue>();
+
+        ErrorOr<IReadOnlyList<GeoHoliday>> result = await holidays.HolidaysFor(
+            CountryCode.Create("ZZ").Value,
+            2026,
+            subdivision: null,
+            Locale.English,
+            TestContext.Current.CancellationToken
+        );
+
+        result.FirstError.Code.ShouldBe("geo.country.not_found");
+        result.FirstError.Type.ShouldBe(ErrorType.Validation);
+    }
+
+    // Only Argentine subdivisions are catalogued, so the cross-country case asks Uruguay for an Argentine province.
+    [Theory]
+    [InlineData("AR", "AR-ZZ")]
+    [InlineData("UY", "AR-B")]
+    public async Task An_unknown_or_foreign_subdivision_is_an_invalid_field(
+        string country,
+        string subdivision
+    )
+    {
+        IHolidayCatalogue holidays = geo.Host.Services.GetRequiredService<IHolidayCatalogue>();
+
+        ErrorOr<IReadOnlyList<GeoHoliday>> result = await holidays.HolidaysFor(
+            CountryCode.Create(country).Value,
+            2026,
+            SubdivisionCode.Create(subdivision).Value,
+            Locale.English,
+            TestContext.Current.CancellationToken
+        );
+
+        result.FirstError.Code.ShouldBe("geo.subdivision.not_found");
+        result.FirstError.Type.ShouldBe(ErrorType.Validation);
     }
 
     [Theory]
@@ -211,6 +275,7 @@ public sealed class CatalogueTests(GeoFixture geo)
         ErrorOr<IReadOnlyList<GeoHoliday>> result = await holidays.HolidaysFor(
             CountryCode.Create(country).Value,
             year,
+            subdivision: null,
             Locale.English,
             TestContext.Current.CancellationToken
         );

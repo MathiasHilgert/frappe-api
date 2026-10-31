@@ -16,6 +16,7 @@ public sealed class CountryTests(GeoFixture geo)
         country.GetProperty("name").GetString().ShouldBe("Argentina");
         country.GetProperty("defaultCurrencyCode").GetString().ShouldBe("ARS");
         country.GetProperty("callingCode").GetString().ShouldBe("54");
+        country.GetProperty("status").GetString().ShouldBe("active");
     }
 
     [Fact]

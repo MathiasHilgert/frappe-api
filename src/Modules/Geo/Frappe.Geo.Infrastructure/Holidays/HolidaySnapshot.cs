@@ -6,8 +6,10 @@ using Frappe.Geo.Contracts;
 using Frappe.Geo.Contracts.ValueObjects;
 using Frappe.Geo.Domain.Countries;
 using Frappe.Geo.Domain.Holidays;
+using Frappe.Geo.Domain.Subdivisions;
 using Frappe.Geo.Infrastructure.Catalogues;
 using Frappe.Geo.Infrastructure.Countries;
+using Frappe.Geo.Infrastructure.Subdivisions;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
@@ -18,7 +20,10 @@ namespace Frappe.Geo.Infrastructure.Holidays;
 /// ordered once per seeded locale by date, national before subdivision ones, then by name.
 /// </summary>
 /// <param name="countries">The country catalogue, which tells an unknown country from an unseeded year.</param>
-internal sealed class HolidaySnapshot(CountrySnapshot countries) : IHolidayReader, IHolidayCatalogue
+/// <param name="subdivisions">The subdivision catalogue, which rejects a subdivision outside the country.</param>
+internal sealed class HolidaySnapshot(CountrySnapshot countries, SubdivisionSnapshot subdivisions)
+    : IHolidayReader,
+        IHolidayCatalogue
 {
     private FrozenDictionary<
         string,
@@ -55,10 +60,7 @@ internal sealed class HolidaySnapshot(CountrySnapshot countries) : IHolidayReade
                     ? SubdivisionCode.Create(subdivision).Value
                     : null,
                 row.HolidayKey,
-                labels.GetValueOrDefault(row.HolidayId.ToString())
-                    ?? throw new InvalidOperationException(
-                        $"The holiday {row.HolidayId} has no names, so it cannot be served."
-                    )
+                Labels.Of(labels, "holiday", row.HolidayId.ToString())
             ))
             .GroupBy(
                 static holiday => CalendarKey(holiday.Country, holiday.Date.Year),
@@ -117,44 +119,34 @@ internal sealed class HolidaySnapshot(CountrySnapshot countries) : IHolidayReade
         };
     }
 
+    // The same checks, list and subdivision rule as the endpoint; the caller's country and subdivision are input
+    // fields, so one outside the catalogue is invalid (never a 404).
     public ValueTask<ErrorOr<IReadOnlyList<GeoHoliday>>> HolidaysFor(
         CountryCode country,
         int year,
+        SubdivisionCode? subdivision,
         Locale locale,
         CancellationToken cancellationToken
-    )
-    {
-        if (countries.Find(country, Locale.English) is null)
-        {
-            return ValueTask.FromResult<ErrorOr<IReadOnlyList<GeoHoliday>>>(CountryErrors.NotFound);
-        }
-
-        if (
-            !Loaded.TryGetValue(
-                CalendarKey(country.Value, year),
-                out FrozenDictionary<string, IReadOnlyList<HolidayDto>>? calendar
-            )
-        )
-        {
-            return ValueTask.FromResult<ErrorOr<IReadOnlyList<GeoHoliday>>>(
-                HolidayErrors.YearUnavailable
-            );
-        }
-
-        IReadOnlyList<GeoHoliday> holidays =
-        [
-            .. Labels
-                .Pick(calendar, locale)
-                .Value.Select(static holiday => new GeoHoliday(
-                    holiday.Date,
-                    holiday.Class,
-                    holiday.Origin,
-                    holiday.SubdivisionCode,
-                    holiday.Name
-                )),
-        ];
-        return ValueTask.FromResult<ErrorOr<IReadOnlyList<GeoHoliday>>>(holidays.ToErrorOr());
-    }
+    ) =>
+        ValueTask.FromResult(
+            countries.Find(country, Locale.English) is null
+                ? UnknownFilter.Field(CountryErrors.NotFound)
+            : subdivision is { } filter && !subdivisions.BelongsTo(filter, country)
+                ? UnknownFilter.Field(SubdivisionErrors.NotFound)
+            : List(country, year, subdivision, locale)
+                .Then(static list =>
+                    (IReadOnlyList<GeoHoliday>)
+                        [
+                            .. list.Value.Select(static holiday => new GeoHoliday(
+                                holiday.Date,
+                                holiday.Class,
+                                holiday.Origin,
+                                holiday.SubdivisionCode,
+                                holiday.Name
+                            )),
+                        ]
+                )
+        );
 
     private static string CalendarKey(string country, int year) =>
         string.Create(CultureInfo.InvariantCulture, $"{country}|{year}");
