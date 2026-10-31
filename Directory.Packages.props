@@ -26,6 +26,11 @@
     />
   </ItemGroup>
 
+  <ItemGroup Label="Http">
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.18.7" />
+  </ItemGroup>
+
   <ItemGroup Label="Persistence">
     <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
     <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />

@@ -1,0 +1,17 @@
+{
+  "kernel.address.city_required": "La dirección debe tener una ciudad.",
+  "kernel.address.street_line_invalid": "La calle debe tener de 1 a 200 caracteres, sin caracteres de control, de formato, separadores ni mal formados.",
+  "kernel.country_code.invalid": "El código de país debe ser de dos letras ISO 3166-1 alfa-2.",
+  "kernel.currency_code.invalid": "El código de moneda debe ser de tres letras ISO 4217.",
+  "kernel.entity_id.invalid": "El identificador debe ser un UUIDv7 RFC 9562 no vacío.",
+  "kernel.locale.invalid": "El idioma debe ser una etiqueta BCP 47 como es-AR.",
+  "kernel.minor_unit.invalid": "La unidad menor debe tener entre 0 y 4 decimales.",
+  "kernel.postal_code.invalid": "El código postal debe tener de 1 a 16 letras, dígitos, espacios o guiones.",
+  "kernel.subdivision_code.invalid": "El código de subdivisión debe ser un código ISO 3166-2 como AR-X.",
+  "kernel.time_zone_id.invalid": "La zona horaria debe ser un id de zona IANA como America/Argentina/Buenos_Aires.",
+  "platform.paging.invalid_cursor": "El cursor no es válido; volvé a empezar desde la primera página.",
+  "platform.rate_limit.exceeded": "Demasiadas solicitudes; reintentá más tarde.",
+  "platform.request.failed": "El servidor no pudo completar la solicitud.",
+  "platform.request.malformed": "La solicitud está mal formada.",
+  "platform.request.timeout": "La solicitud superó el tiempo de espera."
+}
