@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+using System.Reflection;
 using System.Text.RegularExpressions;
 
 namespace Frappe.Geo.UnitTests;
@@ -57,15 +57,20 @@ public sealed partial class DeferralTodoTests
         }
     }
 
-    private static IEnumerable<string> GeoSources([CallerFilePath] string testFile = "") =>
-        Directory
+    // From the test project directory recorded at build time: CallerFilePath is path-mapped in CI builds.
+    private static IEnumerable<string> GeoSources()
+    {
+        string project =
+            typeof(DeferralTodoTests)
+                .Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+                .Single(static entry =>
+                    string.Equals(entry.Key, "SnapshotRoot", StringComparison.Ordinal)
+                )
+                .Value
+            ?? "";
+        return Directory
             .EnumerateFiles(
-                Path.GetFullPath(
-                    Path.Combine(
-                        Path.GetDirectoryName(testFile) ?? "",
-                        "../../../../src/Modules/Geo"
-                    )
-                ),
+                Path.GetFullPath(Path.Combine(project, "../../../../src/Modules/Geo")),
                 "*.cs",
                 SearchOption.AllDirectories
             )
@@ -73,6 +78,7 @@ public sealed partial class DeferralTodoTests
                 !file.Contains("/obj/", StringComparison.Ordinal)
                 && !file.Contains("/bin/", StringComparison.Ordinal)
             );
+    }
 
     [GeneratedRegex(@"\bT[0-9]+\b", RegexOptions.None, matchTimeoutMilliseconds: 1000)]
     private static partial Regex TaskId();
