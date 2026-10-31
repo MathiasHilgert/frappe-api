@@ -7,7 +7,9 @@ using Frappe.Platform.Persistence;
 using Frappe.Platform.Serialization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using NodaTime;
 
 namespace Frappe.Platform;
 
@@ -39,6 +41,8 @@ public static class PlatformExtensions
             json.AddKernelJson().Converters.Add(ModuleConverters(services))
         );
         builder.AddPersistence();
+        // The only source of "now"; tests replace it with a fake clock.
+        services.TryAddSingleton<IClock>(SystemClock.Instance);
         return builder;
     }
 
