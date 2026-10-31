@@ -3,7 +3,7 @@ using Frappe.Geo.Contracts.ValueObjects;
 
 namespace Frappe.Geo.Infrastructure.Catalogues;
 
-// A subdivision of another country is as unknown to a country's calendar as one never catalogued.
+// A subdivision of another country is as unknown to a country's filters as one never catalogued.
 internal static class SubdivisionFilter
 {
     public static bool BelongsTo(

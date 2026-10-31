@@ -65,13 +65,13 @@ internal static class ListCitiesEndpoint
                     query.Country is { } country && countries.Find(country, Locale.English) is null,
                 UnknownFilter.Of(CountryErrors.NotFound, CountryPointer)
             )
-            // A subdivision of another country than the filtered one is as unknown as one never catalogued.
             .FailIf(
                 query =>
                     query.Subdivision is { } subdivision
                     && (
-                        (query.Country is { } country && subdivision.Country != country)
-                        || subdivisions.Find(subdivision, Locale.English) is null
+                        query.Country is { } country
+                            ? !subdivisions.BelongsTo(subdivision, country)
+                            : subdivisions.Find(subdivision, Locale.English) is null
                     ),
                 UnknownFilter.Of(SubdivisionErrors.NotFound, SubdivisionPointer)
             );
