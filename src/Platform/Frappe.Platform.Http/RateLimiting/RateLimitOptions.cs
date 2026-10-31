@@ -8,7 +8,10 @@ public sealed class RateLimitOptions
     /// <summary>The configuration section the options bind from.</summary>
     public const string SectionName = "RateLimiting";
 
-    /// <summary>Gets how many requests one client IP may make per <see cref="PublicWindow"/> on a <c>public</c> endpoint.</summary>
+    /// <summary>
+    /// Gets how many requests one client IPv4 address or IPv6 /64 may make per <see cref="PublicWindow"/> on a
+    /// <c>public</c> endpoint.
+    /// </summary>
     [Range(1, 100_000)]
     public int PublicPermitLimit { get; init; } = 300;
 

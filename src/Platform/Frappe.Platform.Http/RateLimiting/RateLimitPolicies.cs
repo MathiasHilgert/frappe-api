@@ -16,7 +16,7 @@ namespace Frappe.Platform.Http.RateLimiting;
 /// </summary>
 public static class RateLimitPolicies
 {
-    /// <summary>Anonymous reads: a fixed window per client IP.</summary>
+    /// <summary>Anonymous reads: a fixed window per client IPv4 address or IPv6 /64.</summary>
     public const string Public = "public";
 
     internal static void Add(IServiceCollection services)
