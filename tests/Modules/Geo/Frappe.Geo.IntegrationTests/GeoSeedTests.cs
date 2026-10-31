@@ -227,6 +227,49 @@ public sealed class GeoSeedTests(GeoFixture geo)
         }
     }
 
+    [Fact]
+    public async Task Address_formats_are_seeded_for_argentina_only()
+    {
+        string seeded = await ScalarAsync<string>(
+            "SELECT string_agg(country_code, ', ' ORDER BY country_code) FROM geo.address_formats"
+        );
+
+        seeded.ShouldBe("AR");
+    }
+
+    // A format has no status: the seed rewrites a changed one in place and counts it.
+    [Fact]
+    public async Task A_changed_address_format_is_rewritten_and_counted_by_the_next_seed()
+    {
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        await using NpgsqlConnection connection = new(geo.OwnerConnectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync(
+            cancellationToken
+        );
+        await using (
+            NpgsqlCommand stale = new(
+                "UPDATE geo.address_formats SET postal_code_examples = '{}', required_fields = '{city}' "
+                    + "WHERE country_code = 'AR'",
+                connection
+            )
+        )
+        {
+            await stale.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        int changed = await new GeoModule().SeedAsync(connection, cancellationToken);
+        await using NpgsqlCommand read = new(
+            "SELECT array_to_string(required_fields, ',') FROM geo.address_formats WHERE country_code = 'AR'",
+            connection
+        );
+        object? fields = await read.ExecuteScalarAsync(cancellationToken);
+        await transaction.RollbackAsync(cancellationToken);
+
+        changed.ShouldBe(1);
+        fields.ShouldBe("street_line,city");
+    }
+
     // Runs the statements in one transaction, so other hosts never see them half applied.
     private async Task ExecuteAsync(params string[] statements)
     {

@@ -57,3 +57,10 @@ holidays.tsv (eng/geo/refresh_holidays.py)
   Copyright (c) Vacanza Team and individual contributors. Licensed under the MIT License:
   https://github.com/vacanza/holidays/blob/v0.107/LICENSE
 - Portuguese names: hand-translated, kept in eng/geo/holiday-names-pt.tsv.
+
+address-formats.tsv (hand-written)
+- Google libaddressinput address metadata for AR (https://chromium-i18n.appspot.com/ssl-address/data/AR,
+  retrieved 2026-10-31): the postal-code pattern (zip) and examples (zipex); the required parts and the
+  subdivision label are the libaddressinput defaults (require AC, state_name_type province). The legacy
+  four-digit Argentine postal code is added to the pattern. Licensed under Creative Commons Attribution 4.0:
+  https://creativecommons.org/licenses/by/4.0/

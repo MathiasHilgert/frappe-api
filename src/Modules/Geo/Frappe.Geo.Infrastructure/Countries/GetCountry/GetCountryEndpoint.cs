@@ -18,12 +18,12 @@ internal static class GetCountryEndpoint
             .AllowAnonymous()
             .WithName("GetCountry")
             .WithSummary(
-                "Gets one ISO 3166-1 country by its alpha-2 code, with its name in the requested locale."
+                "Gets one ISO 3166-1 country by its alpha-2 code, with its name in the requested locale and its address format."
             )
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
-    private static Results<Ok<CountryDto>, ProblemHttpResult> Get(
+    private static Results<Ok<CountryDetailDto>, ProblemHttpResult> Get(
         string countryCode,
         string? locale,
         ICountryReader countries,

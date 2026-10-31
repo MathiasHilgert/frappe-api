@@ -24,6 +24,48 @@ namespace Frappe.Migrations.Migrations.Geo
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Frappe.Geo.Infrastructure.Addresses.AddressFormatRow", b =>
+                {
+                    b.Property<string>("CountryCode")
+                        .HasColumnType("text")
+                        .HasColumnName("country_code");
+
+                    b.PrimitiveCollection<string[]>("PostalCodeExamples")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("postal_code_examples");
+
+                    b.Property<string>("PostalCodePattern")
+                        .HasColumnType("text")
+                        .HasColumnName("postal_code_pattern");
+
+                    b.Property<bool>("PostalCodeRequired")
+                        .HasColumnType("boolean")
+                        .HasColumnName("postal_code_required");
+
+                    b.PrimitiveCollection<string[]>("RequiredFields")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("required_fields");
+
+                    b.Property<string>("SubdivisionLabel")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("subdivision_label");
+
+                    b.HasKey("CountryCode")
+                        .HasName("pk_address_formats");
+
+                    b.ToTable("address_formats", "geo", t =>
+                        {
+                            t.HasCheckConstraint("ck_address_formats_postal_code_pattern", "postal_code_pattern <> ''");
+
+                            t.HasCheckConstraint("ck_address_formats_required_fields", "required_fields <@ ARRAY['street_line', 'city', 'subdivision', 'postal_code']");
+
+                            t.HasCheckConstraint("ck_address_formats_subdivision_label", "subdivision_label IN ('area', 'county', 'department', 'district', 'do_si', 'emirate', 'island', 'oblast', 'parish', 'prefecture', 'province', 'state')");
+                        });
+                });
+
             modelBuilder.Entity("Frappe.Geo.Infrastructure.Cities.CityRow", b =>
                 {
                     b.Property<Guid>("CityId")
@@ -452,6 +494,16 @@ namespace Frappe.Migrations.Migrations.Geo
 
                             t.HasCheckConstraint("ck_subdivisions_subdivision_code", "subdivision_code ~ '^[A-Z]{2}-[A-Z0-9]{1,3}$'");
                         });
+                });
+
+            modelBuilder.Entity("Frappe.Geo.Infrastructure.Addresses.AddressFormatRow", b =>
+                {
+                    b.HasOne("Frappe.Geo.Infrastructure.Countries.CountryRow", null)
+                        .WithOne()
+                        .HasForeignKey("Frappe.Geo.Infrastructure.Addresses.AddressFormatRow", "CountryCode")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_address_formats_countries_country_code");
                 });
 
             modelBuilder.Entity("Frappe.Geo.Infrastructure.Cities.CityRow", b =>

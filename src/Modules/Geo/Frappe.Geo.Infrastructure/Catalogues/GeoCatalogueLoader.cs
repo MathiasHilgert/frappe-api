@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using Frappe.Geo.Infrastructure.Addresses;
 using Frappe.Geo.Infrastructure.Countries;
 using Frappe.Geo.Infrastructure.Currencies;
 using Frappe.Geo.Infrastructure.Holidays;
@@ -26,6 +27,7 @@ internal sealed class GeoCatalogueLoader(
     SubdivisionSnapshot subdivisions,
     LocaleSnapshot locales,
     HolidaySnapshot holidays,
+    AddressFormatSnapshot addressFormats,
     ILogger<GeoCatalogueLoader> logger
 ) : IHostedLifecycleService
 {
@@ -49,6 +51,11 @@ internal sealed class GeoCatalogueLoader(
         Log.CatalogueLoaded(logger, "locales", loadedLocales.Rows);
         LoadedCatalogue loadedHolidays = await holidays.LoadAsync(db, cancellationToken);
         Log.CatalogueLoaded(logger, "holidays", loadedHolidays.Rows);
+        LoadedCatalogue loadedAddressFormats = await addressFormats.LoadAsync(
+            db,
+            cancellationToken
+        );
+        Log.CatalogueLoaded(logger, "address formats", loadedAddressFormats.Rows);
         _datasetTag = Tag(
             [
                 .. loadedCurrencies.Lines,
@@ -56,6 +63,7 @@ internal sealed class GeoCatalogueLoader(
                 .. loadedSubdivisions.Lines,
                 .. loadedLocales.Lines,
                 .. loadedHolidays.Lines,
+                .. loadedAddressFormats.Lines,
             ],
             Assembly
                 .GetEntryAssembly()

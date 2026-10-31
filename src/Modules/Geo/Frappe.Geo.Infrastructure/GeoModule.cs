@@ -8,6 +8,7 @@ using Frappe.Geo.Application.Locales;
 using Frappe.Geo.Application.Subdivisions;
 using Frappe.Geo.Application.TimeZones;
 using Frappe.Geo.Contracts;
+using Frappe.Geo.Infrastructure.Addresses;
 using Frappe.Geo.Infrastructure.Catalogues;
 using Frappe.Geo.Infrastructure.Cities;
 using Frappe.Geo.Infrastructure.Cities.ListCities;
@@ -41,8 +42,8 @@ namespace Frappe.Geo.Infrastructure;
 
 /// <summary>
 /// The geo module: the platform's seeded reference catalogues (time zones, currencies, countries, subdivisions,
-/// cities, locales, holidays), read-only at runtime, served as anonymous cacheable reads and to other modules through
-/// the geo Contracts.
+/// cities, locales, holidays, address formats), read-only at runtime, served as anonymous cacheable reads and to
+/// other modules through the geo Contracts.
 /// </summary>
 public sealed class GeoModule : IModule
 {
@@ -59,47 +60,7 @@ public sealed class GeoModule : IModule
         services.ConfigureHttpJsonOptions(static options =>
             options.SerializerOptions.TypeInfoResolverChain.Insert(0, GeoJsonContext.Default)
         );
-        services.AddSingleton<ITimeZoneReader, TimeZoneSnapshot>();
-        services.AddSingleton<CurrencySnapshot>();
-        services.AddSingleton<ICurrencyReader>(static provider =>
-            provider.GetRequiredService<CurrencySnapshot>()
-        );
-        services.AddSingleton<ICurrencyCatalogue>(static provider =>
-            provider.GetRequiredService<CurrencySnapshot>()
-        );
-        services.AddSingleton<CountrySnapshot>();
-        services.AddSingleton<ICountryReader>(static provider =>
-            provider.GetRequiredService<CountrySnapshot>()
-        );
-        services.AddSingleton<ICountryCatalogue>(static provider =>
-            provider.GetRequiredService<CountrySnapshot>()
-        );
-        services.AddSingleton<SubdivisionSnapshot>();
-        services.AddSingleton<ISubdivisionReader>(static provider =>
-            provider.GetRequiredService<SubdivisionSnapshot>()
-        );
-        services.AddSingleton<LocaleSnapshot>();
-        services.AddSingleton<ILocaleReader>(static provider =>
-            provider.GetRequiredService<LocaleSnapshot>()
-        );
-        services.AddSingleton<ILocaleCatalogue>(static provider =>
-            provider.GetRequiredService<LocaleSnapshot>()
-        );
-        // Cities are searched in the database, so their reader lives as long as the context.
-        services.AddScoped<CityQueryService>();
-        services.AddScoped<ICityReader>(static provider =>
-            provider.GetRequiredService<CityQueryService>()
-        );
-        services.AddScoped<ICityCatalogue>(static provider =>
-            provider.GetRequiredService<CityQueryService>()
-        );
-        services.AddSingleton<HolidaySnapshot>();
-        services.AddSingleton<IHolidayReader>(static provider =>
-            provider.GetRequiredService<HolidaySnapshot>()
-        );
-        services.AddSingleton<IHolidayCatalogue>(static provider =>
-            provider.GetRequiredService<HolidaySnapshot>()
-        );
+        AddCatalogues(services);
         services.AddSingleton<GeoCatalogueLoader>();
         services.AddHostedService(static provider =>
             provider.GetRequiredService<GeoCatalogueLoader>()
@@ -138,4 +99,52 @@ public sealed class GeoModule : IModule
     /// <inheritdoc />
     public Task<int> SeedAsync(DbConnection connection, CancellationToken cancellationToken) =>
         GeoSeed.SeedAsync(connection, cancellationToken);
+
+    private static void AddCatalogues(IServiceCollection services)
+    {
+        services.AddSingleton<ITimeZoneReader, TimeZoneSnapshot>();
+        services.AddSingleton<CurrencySnapshot>();
+        services.AddSingleton<ICurrencyReader>(static provider =>
+            provider.GetRequiredService<CurrencySnapshot>()
+        );
+        services.AddSingleton<ICurrencyCatalogue>(static provider =>
+            provider.GetRequiredService<CurrencySnapshot>()
+        );
+        services.AddSingleton<AddressFormatSnapshot>();
+        services.AddSingleton<CountrySnapshot>();
+        services.AddSingleton<ICountryReader>(static provider =>
+            provider.GetRequiredService<CountrySnapshot>()
+        );
+        services.AddSingleton<ICountryCatalogue>(static provider =>
+            provider.GetRequiredService<CountrySnapshot>()
+        );
+        services.AddSingleton<SubdivisionSnapshot>();
+        services.AddSingleton<ISubdivisionReader>(static provider =>
+            provider.GetRequiredService<SubdivisionSnapshot>()
+        );
+        services.AddSingleton<LocaleSnapshot>();
+        services.AddSingleton<ILocaleReader>(static provider =>
+            provider.GetRequiredService<LocaleSnapshot>()
+        );
+        services.AddSingleton<ILocaleCatalogue>(static provider =>
+            provider.GetRequiredService<LocaleSnapshot>()
+        );
+        // Cities are searched in the database, so their reader lives as long as the context.
+        services.AddScoped<CityQueryService>();
+        services.AddScoped<ICityReader>(static provider =>
+            provider.GetRequiredService<CityQueryService>()
+        );
+        services.AddScoped<ICityCatalogue>(static provider =>
+            provider.GetRequiredService<CityQueryService>()
+        );
+        // Address validation reads cities, so it lives as long as the context too.
+        services.AddScoped<IAddressValidator, AddressValidator>();
+        services.AddSingleton<HolidaySnapshot>();
+        services.AddSingleton<IHolidayReader>(static provider =>
+            provider.GetRequiredService<HolidaySnapshot>()
+        );
+        services.AddSingleton<IHolidayCatalogue>(static provider =>
+            provider.GetRequiredService<HolidaySnapshot>()
+        );
+    }
 }

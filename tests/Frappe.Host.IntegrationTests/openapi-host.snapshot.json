@@ -135,7 +135,7 @@
         "tags": [
           "geo"
         ],
-        "summary": "Gets one ISO 3166-1 country by its alpha-2 code, with its name in the requested locale.",
+        "summary": "Gets one ISO 3166-1 country by its alpha-2 code, with its name in the requested locale and its address format.",
         "operationId": "GetCountry",
         "parameters": [
           {
@@ -160,7 +160,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CountryDto"
+                  "$ref": "#/components/schemas/CountryDetailDto"
                 }
               }
             }
@@ -452,6 +452,59 @@
   },
   "components": {
     "schemas": {
+      "AddressField": {
+        "enum": [
+          "street_line",
+          "city",
+          "subdivision",
+          "postal_code"
+        ],
+        "type": "string",
+        "description": "A part of an address that geo validates and a country may require."
+      },
+      "AddressFormatDto": {
+        "required": [
+          "postalCodePattern",
+          "postalCodeExamples",
+          "postalCodeRequired",
+          "requiredFields",
+          "subdivisionLabel"
+        ],
+        "type": "object",
+        "properties": {
+          "postalCodePattern": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The regular expression a whole postal code must match, or null when any code is accepted."
+          },
+          "postalCodeExamples": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Valid postal codes, such as C1070AAM."
+          },
+          "postalCodeRequired": {
+            "type": "boolean",
+            "description": "Whether an address must carry a postal code."
+          },
+          "requiredFields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddressField"
+            },
+            "description": "The address parts the country requires, such as street_line and city."
+          },
+          "subdivisionLabel": {
+            "description": "What the country calls its first-level subdivision, such as province.",
+            "$ref": "#/components/schemas/SubdivisionLabel"
+          }
+        },
+        "additionalProperties": false,
+        "description": "A country's rules for capturing an address, after Google's libaddressinput metadata."
+      },
       "CityDto": {
         "required": [
           "cityId",
@@ -505,6 +558,69 @@
         "pattern": "^[A-Z]{2}$",
         "type": "string",
         "description": "An ISO 3166-1 alpha-2 country code in upper case, such as `AR`."
+      },
+      "CountryDetailDto": {
+        "required": [
+          "countryCode",
+          "alpha3",
+          "numericCode",
+          "name",
+          "defaultCurrencyCode",
+          "callingCode",
+          "addressFormat"
+        ],
+        "type": "object",
+        "properties": {
+          "countryCode": {
+            "description": "The ISO 3166-1 alpha-2 code, such as AR.",
+            "$ref": "#/components/schemas/CountryCode"
+          },
+          "alpha3": {
+            "type": "string",
+            "description": "The ISO 3166-1 alpha-3 code, such as ARG."
+          },
+          "numericCode": {
+            "type": "string",
+            "description": "The ISO 3166-1 three-digit numeric code, such as 032."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name in the requested locale, or the nearest one along its fallback chain."
+          },
+          "defaultCurrencyCode": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "The ISO 4217 code of the current tender, or null for a country without one.",
+                "$ref": "#/components/schemas/CurrencyCode"
+              }
+            ],
+            "description": "The ISO 4217 code of the current tender, or null for a country without one."
+          },
+          "callingCode": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The international calling code in digits without a plus sign, such as 54, or null when the country has none."
+          },
+          "addressFormat": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "The rules for capturing an address in the country, or null when none is held, so any postal code is accepted.",
+                "$ref": "#/components/schemas/AddressFormatDto"
+              }
+            ],
+            "description": "The rules for capturing an address in the country, or null when none is held, so any postal code is accepted."
+          }
+        },
+        "additionalProperties": false,
+        "description": "An ISO 3166-1 country with its address format."
       },
       "CountryDto": {
         "required": [
@@ -951,6 +1067,24 @@
         },
         "additionalProperties": false,
         "description": "An ISO 3166-2 subdivision, such as an Argentine province."
+      },
+      "SubdivisionLabel": {
+        "enum": [
+          "area",
+          "county",
+          "department",
+          "district",
+          "do_si",
+          "emirate",
+          "island",
+          "oblast",
+          "parish",
+          "prefecture",
+          "province",
+          "state"
+        ],
+        "type": "string",
+        "description": "What a country calls its first-level subdivision: the state_name_type keys of Google's libaddressinput."
       },
       "TextDirection": {
         "enum": [
