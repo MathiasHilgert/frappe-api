@@ -16,11 +16,7 @@ public static class EntityId
     private const int RfcVariant = 0b1000;
 
     /// <summary>Gets the error returned for a value that is empty or not a UUIDv7.</summary>
-    public static Error Invalid { get; } =
-        Error.Validation(
-            "kernel.entity_id.invalid",
-            "The identifier must be a non-empty RFC 9562 UUIDv7."
-        );
+    public static Error Invalid { get; } = Error.Validation("kernel.entity_id.invalid");
 
     /// <summary>Accepts only non-empty RFC 9562 UUIDv7 values.</summary>
     /// <param name="value">The raw value.</param>
