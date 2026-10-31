@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Frappe.Geo.Infrastructure.Countries;
 using Frappe.Geo.Infrastructure.Currencies;
+using Frappe.Geo.Infrastructure.Holidays;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -20,6 +21,7 @@ internal sealed class GeoCatalogueLoader(
     IServiceScopeFactory scopes,
     CurrencySnapshot currencies,
     CountrySnapshot countries,
+    HolidaySnapshot holidays,
     ILogger<GeoCatalogueLoader> logger
 ) : IHostedLifecycleService
 {
@@ -37,8 +39,10 @@ internal sealed class GeoCatalogueLoader(
         Log.CatalogueLoaded(logger, "currencies", loadedCurrencies.Rows);
         LoadedCatalogue loadedCountries = await countries.LoadAsync(db, cancellationToken);
         Log.CatalogueLoaded(logger, "countries", loadedCountries.Rows);
+        LoadedCatalogue loadedHolidays = await holidays.LoadAsync(db, cancellationToken);
+        Log.CatalogueLoaded(logger, "holidays", loadedHolidays.Rows);
         _datasetTag = Tag(
-            [.. loadedCurrencies.Lines, .. loadedCountries.Lines],
+            [.. loadedCurrencies.Lines, .. loadedCountries.Lines, .. loadedHolidays.Lines],
             Assembly
                 .GetEntryAssembly()
                 ?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()

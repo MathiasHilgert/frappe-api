@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Frappe.Geo.Application.Countries;
 using Frappe.Geo.Application.Currencies;
+using Frappe.Geo.Application.Holidays;
 using Frappe.Geo.Application.TimeZones;
 using Frappe.Platform.Http.Paging;
 
@@ -11,4 +12,5 @@ namespace Frappe.Geo.Infrastructure;
 [JsonSerializable(typeof(PageResponse<CurrencyDto>))]
 [JsonSerializable(typeof(PageResponse<CountryDto>))]
 [JsonSerializable(typeof(CountryDto))]
+[JsonSerializable(typeof(PageResponse<HolidayDto>))]
 internal sealed partial class GeoJsonContext : JsonSerializerContext;

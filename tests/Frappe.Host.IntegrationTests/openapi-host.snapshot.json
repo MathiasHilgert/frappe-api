@@ -187,6 +187,78 @@
           }
         }
       }
+    },
+    "/v1/geo/countries/{countryCode}/holidays": {
+      "get": {
+        "tags": [
+          "geo"
+        ],
+        "summary": "Lists the public holidays of a country for one year (the current year in the country when absent): the national ones, plus those of one subdivision when asked.",
+        "operationId": "ListHolidays",
+        "parameters": [
+          {
+            "name": "countryCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subdivisionCode",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseOfHolidayDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -291,6 +363,70 @@
         "additionalProperties": false,
         "description": "An ISO 4217 currency in use."
       },
+      "HolidayClass": {
+        "enum": [
+          "holiday",
+          "non_working_day"
+        ],
+        "type": "string",
+        "description": "Whether a public holiday is a paid day off or a day each employer decides to work."
+      },
+      "HolidayDto": {
+        "required": [
+          "date",
+          "class",
+          "origin",
+          "subdivisionCode",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "description": "The day, such as 2026-05-25.",
+            "$ref": "#/components/schemas/LocalDate"
+          },
+          "class": {
+            "description": "holiday (feriado) or non_working_day (día no laborable).",
+            "$ref": "#/components/schemas/HolidayClass"
+          },
+          "origin": {
+            "description": "fixed (inamovible), movable (trasladable), bridge (feriado puente) or decreed (a one-off day by decree).",
+            "$ref": "#/components/schemas/HolidayOrigin"
+          },
+          "subdivisionCode": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "description": "The ISO 3166-2 subdivision it applies to, or null for a national holiday.",
+                "$ref": "#/components/schemas/SubdivisionCode"
+              }
+            ],
+            "description": "The ISO 3166-2 subdivision it applies to, or null for a national holiday."
+          },
+          "name": {
+            "type": "string",
+            "description": "The name in the requested locale, or the nearest one along its fallback chain."
+          }
+        },
+        "additionalProperties": false,
+        "description": "A public holiday."
+      },
+      "HolidayOrigin": {
+        "enum": [
+          "fixed",
+          "movable",
+          "bridge",
+          "decreed"
+        ],
+        "type": "string",
+        "description": "How a public holiday got its date."
+      },
+      "LocalDate": {
+        "type": "string",
+        "format": "date"
+      },
       "MinorUnit": {
         "maximum": 4,
         "minimum": 0,
@@ -333,6 +469,31 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CurrencyDto"
+            },
+            "description": "The items of this page."
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The cursor of the next page, or `null` on the last page."
+          }
+        },
+        "additionalProperties": false,
+        "description": "One page of a list."
+      },
+      "PageResponseOfHolidayDto": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HolidayDto"
             },
             "description": "The items of this page."
           },
@@ -415,6 +576,11 @@
           }
         },
         "additionalProperties": false
+      },
+      "SubdivisionCode": {
+        "pattern": "^[A-Z]{2}-[A-Z0-9]{1,3}$",
+        "type": "string",
+        "description": "An ISO 3166-2 subdivision code in upper case, such as `AR-X`."
       },
       "TimeZoneDto": {
         "required": [

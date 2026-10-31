@@ -1,6 +1,7 @@
 using Frappe.Geo.Contracts;
 using Frappe.Geo.Contracts.ValueObjects;
 using Microsoft.Extensions.DependencyInjection;
+using NodaTime;
 
 namespace Frappe.Geo.IntegrationTests;
 
@@ -100,5 +101,50 @@ public sealed class CatalogueTests(GeoFixture geo)
         );
 
         currency.FirstError.Code.ShouldBe("geo.country.default_currency_undefined");
+    }
+
+    [Fact]
+    public async Task A_years_holidays_hold_every_subdivision_in_the_asked_locale()
+    {
+        IHolidayCatalogue holidays = geo.Host.Services.GetRequiredService<IHolidayCatalogue>();
+
+        ErrorOr<IReadOnlyList<GeoHoliday>> year = await holidays.HolidaysFor(
+            CountryCode.Create("AR").Value,
+            2026,
+            Locale.Create("fr").Value,
+            TestContext.Current.CancellationToken
+        );
+
+        year.Value.ShouldContain(
+            new GeoHoliday(
+                new LocalDate(2026, 11, 10),
+                HolidayClass.Holiday,
+                HolidayOrigin.Decreed,
+                SubdivisionCode.Create("AR-X").Value,
+                "Visit of His Holiness Pope Leo XIV"
+            )
+        );
+        year.Value[0].Date.ShouldBe(new LocalDate(2026, 1, 1));
+    }
+
+    [Theory]
+    [InlineData("AR", 2031, "geo.holiday.year_unavailable")]
+    [InlineData("ZZ", 2026, "geo.country.not_found")]
+    public async Task An_unseeded_year_or_an_unknown_country_has_no_holidays(
+        string country,
+        int year,
+        string error
+    )
+    {
+        IHolidayCatalogue holidays = geo.Host.Services.GetRequiredService<IHolidayCatalogue>();
+
+        ErrorOr<IReadOnlyList<GeoHoliday>> result = await holidays.HolidaysFor(
+            CountryCode.Create(country).Value,
+            year,
+            Locale.English,
+            TestContext.Current.CancellationToken
+        );
+
+        result.FirstError.Code.ShouldBe(error);
     }
 }

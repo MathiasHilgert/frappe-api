@@ -5,6 +5,8 @@
   "geo.currency.minor_unit_undefined": "The currency has no minor unit, so it cannot carry an amount.",
   "geo.currency.not_found": "The currency was not found.",
   "geo.currency_code.invalid": "The currency code must be three ISO 4217 letters.",
+  "geo.holiday.year_invalid": "The year must be a whole number from 1 to 9999.",
+  "geo.holiday.year_unavailable": "The holiday calendar of that year is not available.",
   "geo.locale.invalid": "The locale must be a BCP 47 language tag such as es-AR.",
   "geo.minor_unit.invalid": "The minor unit must be between 0 and 4 decimal digits.",
   "geo.postal_code.invalid": "The postal code must be 1 to 16 letters, digits, spaces or hyphens.",

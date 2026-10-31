@@ -1,0 +1,152 @@
+{
+  "items": [
+    {
+      "date": "2026-01-01",
+      "class": "holiday",
+      "origin": "fixed",
+      "subdivisionCode": null,
+      "name": "Año Nuevo"
+    },
+    {
+      "date": "2026-02-16",
+      "class": "holiday",
+      "origin": "fixed",
+      "subdivisionCode": null,
+      "name": "Lunes de Carnaval"
+    },
+    {
+      "date": "2026-02-17",
+      "class": "holiday",
+      "origin": "fixed",
+      "subdivisionCode": null,
+      "name": "Martes de Carnaval"
+    },
+    {
+      "date": "2026-03-23",
+      "class": "holiday",
+      "origin": "bridge",
+      "subdivisionCode": null,
+      "name": "Feriado con fines turísticos"
+    },
+    {
+      "date": "2026-03-24",
+      "class": "holiday",
+      "origin": "fixed",
+      "subdivisionCode": null,
+      "name": "Día Nacional de la Memoria por la Verdad y la Justicia"
+    },
+    {
+      "date": "2026-04-02",
+      "class": "holiday",
+      "origin": "fixed",
+      "subdivisionCode": null,
+      "name": "Día del Veterano y de los Caidos en la Guerra de Malvinas"
+    },
+    {
+      "date": "2026-04-02",
+      "class": "non_working_day",
+      "origin": "fixed",
+      "subdivisionCode": null,
+      "name": "Jueves Santo"
+    },
+    {
+      "date": "2026-04-03",
+      "class": "holiday",
+      "origin": "fixed",
+      "subdivisionCode": null,
+      "name": "Viernes Santo"
+    },
+    {
+      "date": "2026-05-01",
+      "class": "holiday",
+      "origin": "fixed",
+      "subdivisionCode": null,
+      "name": "Día del Trabajo"
+    },
+    {
+      "date": "2026-05-25",
+      "class": "holiday",
+      "origin": "fixed",
+      "subdivisionCode": null,
+      "name": "Día de la Revolución de Mayo"
+    },
+    {
+      "date": "2026-06-15",
+      "class": "holiday",
+      "origin": "movable",
+      "subdivisionCode": null,
+      "name": "Paso a la Inmortalidad del General Don Martín Miguel de Güemes"
+    },
+    {
+      "date": "2026-06-20",
+      "class": "holiday",
+      "origin": "fixed",
+      "subdivisionCode": null,
+      "name": "Paso a la Inmortalidad del General Don Manuel Belgrano"
+    },
+    {
+      "date": "2026-07-09",
+      "class": "holiday",
+      "origin": "fixed",
+      "subdivisionCode": null,
+      "name": "Día de la Independencia"
+    },
+    {
+      "date": "2026-07-10",
+      "class": "holiday",
+      "origin": "bridge",
+      "subdivisionCode": null,
+      "name": "Feriado con fines turísticos"
+    },
+    {
+      "date": "2026-08-17",
+      "class": "holiday",
+      "origin": "movable",
+      "subdivisionCode": null,
+      "name": "Paso a la Inmortalidad del General Don José de San Martín"
+    },
+    {
+      "date": "2026-10-12",
+      "class": "holiday",
+      "origin": "movable",
+      "subdivisionCode": null,
+      "name": "Día del Respeto a la Diversidad Cultural"
+    },
+    {
+      "date": "2026-11-09",
+      "class": "holiday",
+      "origin": "decreed",
+      "subdivisionCode": null,
+      "name": "Visita de Su Santidad el Papa León XIV"
+    },
+    {
+      "date": "2026-11-23",
+      "class": "holiday",
+      "origin": "movable",
+      "subdivisionCode": null,
+      "name": "Día de la Soberanía Nacional"
+    },
+    {
+      "date": "2026-12-07",
+      "class": "holiday",
+      "origin": "bridge",
+      "subdivisionCode": null,
+      "name": "Feriado con fines turísticos"
+    },
+    {
+      "date": "2026-12-08",
+      "class": "holiday",
+      "origin": "fixed",
+      "subdivisionCode": null,
+      "name": "Inmaculada Concepción de María"
+    },
+    {
+      "date": "2026-12-25",
+      "class": "holiday",
+      "origin": "fixed",
+      "subdivisionCode": null,
+      "name": "Navidad"
+    }
+  ],
+  "nextCursor": null
+}

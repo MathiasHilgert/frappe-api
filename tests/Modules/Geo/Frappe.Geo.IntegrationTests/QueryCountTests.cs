@@ -11,6 +11,7 @@ public sealed class QueryCountTests(GeoFixture geo)
     [InlineData("/v1/geo/currencies?locale=es")]
     [InlineData("/v1/geo/countries?locale=pt")]
     [InlineData("/v1/geo/countries/AR")]
+    [InlineData("/v1/geo/countries/AR/holidays?year=2026&subdivisionCode=AR-B")]
     public async Task A_catalogue_read_sends_no_command_to_the_database(string url)
     {
         CommandCounter counter = new();
