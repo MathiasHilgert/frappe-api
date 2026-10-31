@@ -6,11 +6,12 @@ namespace Frappe.Geo.Contracts;
 public interface IHolidayCatalogue
 {
     /// <summary>
-    /// Returns the holidays of one year of a country, national and of every subdivision, by date, national before
-    /// subdivision ones, then by name.
+    /// Returns the holidays of one year of a country, national plus those of <paramref name="subdivision"/>, by date,
+    /// national before subdivision ones, then by name.
     /// </summary>
     /// <param name="country">The country.</param>
     /// <param name="year">The calendar year.</param>
+    /// <param name="subdivision">The subdivision whose holidays are added, or null for national holidays only.</param>
     /// <param name="locale">The locale of the names; the nearest one along its fallback chain when not seeded.</param>
     /// <param name="cancellationToken">Cancels the read.</param>
     /// <returns>
@@ -20,6 +21,7 @@ public interface IHolidayCatalogue
     ValueTask<ErrorOr<IReadOnlyList<GeoHoliday>>> HolidaysFor(
         CountryCode country,
         int year,
+        SubdivisionCode? subdivision,
         Locale locale,
         CancellationToken cancellationToken
     );

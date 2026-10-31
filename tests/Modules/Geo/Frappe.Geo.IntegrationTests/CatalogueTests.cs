@@ -174,15 +174,38 @@ public sealed class CatalogueTests(GeoFixture geo)
     }
 
     [Fact]
-    public async Task A_years_holidays_hold_every_subdivision_in_the_asked_locale()
+    public async Task Without_a_subdivision_a_years_holidays_are_national_only()
     {
         IHolidayCatalogue holidays = geo.Host.Services.GetRequiredService<IHolidayCatalogue>();
 
         ErrorOr<IReadOnlyList<GeoHoliday>> year = await holidays.HolidaysFor(
             CountryCode.Create("AR").Value,
             2026,
+            subdivision: null,
+            Locale.English,
+            TestContext.Current.CancellationToken
+        );
+
+        year.Value.ShouldNotBeEmpty();
+        year.Value.ShouldAllBe(holiday => holiday.Subdivision == null);
+    }
+
+    [Fact]
+    public async Task A_subdivision_adds_only_its_own_holidays_in_the_asked_locale()
+    {
+        IHolidayCatalogue holidays = geo.Host.Services.GetRequiredService<IHolidayCatalogue>();
+        SubdivisionCode cordoba = SubdivisionCode.Create("AR-X").Value;
+
+        ErrorOr<IReadOnlyList<GeoHoliday>> year = await holidays.HolidaysFor(
+            CountryCode.Create("AR").Value,
+            2026,
+            cordoba,
             Locale.Create("fr").Value,
             TestContext.Current.CancellationToken
+        );
+
+        year.Value.ShouldAllBe(holiday =>
+            holiday.Subdivision == null || holiday.Subdivision == cordoba
         );
 
         year.Value.ShouldContain(
@@ -211,6 +234,7 @@ public sealed class CatalogueTests(GeoFixture geo)
         ErrorOr<IReadOnlyList<GeoHoliday>> result = await holidays.HolidaysFor(
             CountryCode.Create(country).Value,
             year,
+            subdivision: null,
             Locale.English,
             TestContext.Current.CancellationToken
         );
