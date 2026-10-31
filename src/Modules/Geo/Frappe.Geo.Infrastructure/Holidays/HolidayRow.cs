@@ -10,7 +10,6 @@ internal sealed class HolidayRow
 
     public string CountryCode { get; init; } = null!;
 
-    // TODO: link holidays to subdivisions (FK + existence check) once T4 lands
     public string? SubdivisionCode { get; init; }
 
     public LocalDate Date { get; init; }

@@ -44,6 +44,7 @@ internal sealed class HolidayConfiguration
         builder.Property(static holiday => holiday.Class).HasConversion<string>();
         builder.Property(static holiday => holiday.Origin).HasConversion<string>();
         builder.Property(static holiday => holiday.Status).HasConversion<string>();
+        // TODO: add the subdivisions FK and ix_holidays_subdivision_code (once the subdivisions catalogue is seeded)
         builder
             .HasOne<CountryRow>()
             .WithMany()
