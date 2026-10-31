@@ -101,4 +101,36 @@ public sealed class CatalogueTests(GeoFixture geo)
 
         currency.FirstError.Code.ShouldBe("geo.country.default_currency_undefined");
     }
+
+    [Theory]
+    [InlineData("es-AR")]
+    [InlineData("es")]
+    [InlineData("ca-ES-valencia")]
+    public async Task A_listed_locale_exists(string tag)
+    {
+        ILocaleCatalogue locales = geo.Host.Services.GetRequiredService<ILocaleCatalogue>();
+
+        ErrorOr<Success> exists = await locales.Exists(
+            Locale.Create(tag).Value,
+            TestContext.Current.CancellationToken
+        );
+
+        exists.IsError.ShouldBeFalse();
+    }
+
+    // Only the exact canonical tag counts: es is listed, es-XK is not, and it does not fall back to es.
+    [Theory]
+    [InlineData("es-XK")]
+    [InlineData("tlh")]
+    public async Task A_locale_that_is_not_listed_exactly_is_not_found(string tag)
+    {
+        ILocaleCatalogue locales = geo.Host.Services.GetRequiredService<ILocaleCatalogue>();
+
+        ErrorOr<Success> exists = await locales.Exists(
+            Locale.Create(tag).Value,
+            TestContext.Current.CancellationToken
+        );
+
+        exists.FirstError.Code.ShouldBe("geo.locale.not_found");
+    }
 }

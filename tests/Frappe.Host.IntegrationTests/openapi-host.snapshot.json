@@ -187,6 +187,104 @@
           }
         }
       }
+    },
+    "/v1/geo/countries/{countryCode}/subdivisions": {
+      "get": {
+        "tags": [
+          "geo"
+        ],
+        "summary": "Lists the ISO 3166-2 subdivisions of a country, such as the Argentine provinces, by their name in the requested locale.",
+        "operationId": "ListSubdivisions",
+        "parameters": [
+          {
+            "name": "countryCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "locale",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseOfSubdivisionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/geo/locales": {
+      "get": {
+        "tags": [
+          "geo"
+        ],
+        "summary": "Lists the CLDR locales with modern coverage, by their name in the requested locale.",
+        "operationId": "ListLocales",
+        "parameters": [
+          {
+            "name": "locale",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResponseOfLocaleDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -291,6 +389,44 @@
         "additionalProperties": false,
         "description": "An ISO 4217 currency in use."
       },
+      "Locale": {
+        "type": "string",
+        "description": "A BCP 47 language tag in canonical case, such as `es-AR` or `zh-Hant-TW`: language, optional script,\noptional region and variants; extensions and private use are not supported."
+      },
+      "LocaleDto": {
+        "required": [
+          "localeTag",
+          "languageCode",
+          "textDirection",
+          "endonym",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "localeTag": {
+            "description": "The canonical BCP 47 tag, such as es-AR.",
+            "$ref": "#/components/schemas/Locale"
+          },
+          "languageCode": {
+            "description": "The primary language subtag, such as es.",
+            "$ref": "#/components/schemas/Locale"
+          },
+          "textDirection": {
+            "description": "The direction its script is written in.",
+            "$ref": "#/components/schemas/TextDirection"
+          },
+          "endonym": {
+            "type": "string",
+            "description": "The locale's name in itself, such as español (Argentina)."
+          },
+          "name": {
+            "type": "string",
+            "description": "The locale's name in the requested locale, or the nearest one along its fallback chain."
+          }
+        },
+        "additionalProperties": false,
+        "description": "A CLDR locale with modern coverage, such as es-AR."
+      },
       "MinorUnit": {
         "maximum": 4,
         "minimum": 0,
@@ -333,6 +469,56 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CurrencyDto"
+            },
+            "description": "The items of this page."
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The cursor of the next page, or `null` on the last page."
+          }
+        },
+        "additionalProperties": false,
+        "description": "One page of a list."
+      },
+      "PageResponseOfLocaleDto": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LocaleDto"
+            },
+            "description": "The items of this page."
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "description": "The cursor of the next page, or `null` on the last page."
+          }
+        },
+        "additionalProperties": false,
+        "description": "One page of a list."
+      },
+      "PageResponseOfSubdivisionDto": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubdivisionDto"
             },
             "description": "The items of this page."
           },
@@ -415,6 +601,38 @@
           }
         },
         "additionalProperties": false
+      },
+      "SubdivisionCode": {
+        "pattern": "^[A-Z]{2}-[A-Z0-9]{1,3}$",
+        "type": "string",
+        "description": "An ISO 3166-2 subdivision code in upper case, such as `AR-X`."
+      },
+      "SubdivisionDto": {
+        "required": [
+          "subdivisionCode",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "subdivisionCode": {
+            "description": "The ISO 3166-2 code, such as AR-X.",
+            "$ref": "#/components/schemas/SubdivisionCode"
+          },
+          "name": {
+            "type": "string",
+            "description": "The name in the requested locale, or the nearest one along its fallback chain."
+          }
+        },
+        "additionalProperties": false,
+        "description": "An ISO 3166-2 subdivision, such as an Argentine province."
+      },
+      "TextDirection": {
+        "enum": [
+          "ltr",
+          "rtl"
+        ],
+        "type": "string",
+        "description": "The direction a locale's script is written in."
       },
       "TimeZoneDto": {
         "required": [
