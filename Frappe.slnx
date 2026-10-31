@@ -4,6 +4,13 @@
     <Project Path="src/Frappe.Kernel/Frappe.Kernel.csproj" />
     <Project Path="src/Frappe.Migrations/Frappe.Migrations.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Geo/">
+    <Project Path="src/Modules/Geo/Frappe.Geo.Application/Frappe.Geo.Application.csproj" />
+    <Project Path="src/Modules/Geo/Frappe.Geo.Contracts/Frappe.Geo.Contracts.csproj" />
+    <Project Path="src/Modules/Geo/Frappe.Geo.Domain/Frappe.Geo.Domain.csproj" />
+    <Project Path="src/Modules/Geo/Frappe.Geo.Infrastructure/Frappe.Geo.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/src/Platform/">
     <Project Path="src/Platform/Frappe.Platform/Frappe.Platform.csproj" />
     <Project Path="src/Platform/Frappe.Platform.Health/Frappe.Platform.Health.csproj" />
@@ -18,6 +25,11 @@
     <Project Path="tests/Frappe.Kernel.UnitTests/Frappe.Kernel.UnitTests.csproj" />
     <Project Path="tests/Frappe.Migrations.UnitTests/Frappe.Migrations.UnitTests.csproj" />
     <Project Path="tests/Frappe.TestUtilities/Frappe.TestUtilities.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/" />
+  <Folder Name="/tests/Modules/Geo/">
+    <Project Path="tests/Modules/Geo/Frappe.Geo.IntegrationTests/Frappe.Geo.IntegrationTests.csproj" />
+    <Project Path="tests/Modules/Geo/Frappe.Geo.UnitTests/Frappe.Geo.UnitTests.csproj" />
   </Folder>
   <Folder Name="/tests/Platform/">
     <Project Path="tests/Platform/Frappe.Platform.IntegrationTests/Frappe.Platform.IntegrationTests.csproj" />

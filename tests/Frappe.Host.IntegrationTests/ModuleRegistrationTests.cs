@@ -27,7 +27,7 @@ public sealed class ModuleRegistrationTests(FrappeDatabase database, FrappeNats 
         added.ShouldBe(ShippedModules(), ignoreOrder: true);
     }
 
-    // A module's context must own its module's schema; vacuous, like the test above, until the first module lands.
+    // A module's context must own its module's schema, or its migrations would land in another one.
     [Fact]
     public async Task Each_module_context_owns_its_module_schema()
     {
@@ -54,7 +54,7 @@ public sealed class ModuleRegistrationTests(FrappeDatabase database, FrappeNats 
         }
     }
 
-    // Every Frappé assembly next to the Host, except the test projects; empty until the first module lands.
+    // Every Frappé assembly next to the Host, except the test projects.
     private static IEnumerable<Type> ShippedModules() =>
         Directory
             .GetFiles(AppContext.BaseDirectory, "Frappe.*.dll")

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.Geo.Application/Frappe.Geo.Application.csproj" />
+    <ProjectReference Include="../Frappe.Geo.Contracts/Frappe.Geo.Contracts.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Platform.Health/Frappe.Platform.Health.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Platform.Modularity/Frappe.Platform.Modularity.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Platform.Persistence/Frappe.Platform.Persistence.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="ErrorOr" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Geo.IntegrationTests" />
+  </ItemGroup>
+</Project>

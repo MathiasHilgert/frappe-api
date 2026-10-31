@@ -5,12 +5,14 @@ using Testcontainers.PostgreSql;
 
 namespace Frappe.TestUtilities;
 
-// PostgreSQL as every environment has it: the roles from the init script and every migration applied
-// by the owner. Tests connect as the app role.
+// PostgreSQL as every environment has it: the roles from the init script, then every migration and every
+// module's reference data applied by the owner, as the migrator does. Tests connect as the app role.
 public sealed class FrappeDatabase : IAsyncLifetime
 {
     private const string OwnerPassword = "owner-test-only";
     private const string AppPassword = "app-test-only";
+
+    private readonly bool _seeded;
 
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18.6")
         .WithDatabase("frappe")
@@ -23,9 +25,17 @@ public sealed class FrappeDatabase : IAsyncLifetime
         )
         .Build();
 
+    public FrappeDatabase()
+        : this(seeded: true) { }
+
+    private FrappeDatabase(bool seeded) => _seeded = seeded;
+
     public string OwnerConnectionString => ConnectAs("frappe_owner", OwnerPassword);
 
     public string AppConnectionString => ConnectAs("frappe_app", AppPassword);
+
+    // Migrated but never seeded, as a deployment whose seed has not run yet.
+    public static FrappeDatabase WithoutSeed() => new(seeded: false);
 
     public async ValueTask InitializeAsync()
     {
@@ -34,6 +44,14 @@ public sealed class FrappeDatabase : IAsyncLifetime
             OwnerConnectionString,
             TestContext.Current.CancellationToken
         );
+        if (_seeded)
+        {
+            await MigrationsRunner.SeedAllAsync(
+                OwnerConnectionString,
+                MigrationsRunner.Modules,
+                TestContext.Current.CancellationToken
+            );
+        }
     }
 
     public ValueTask DisposeAsync() => _postgres.DisposeAsync();

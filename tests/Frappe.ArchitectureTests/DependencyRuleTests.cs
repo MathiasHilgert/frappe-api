@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using ArchUnitNET.Domain;
 using ArchUnitNET.Fluent.Syntax.Elements.Types;
 using ArchUnitNET.Loader;
@@ -9,7 +10,7 @@ using Assembly = System.Reflection.Assembly;
 
 namespace Frappe.ArchitectureTests;
 
-public sealed class DependencyRuleTests
+public sealed partial class DependencyRuleTests
 {
     // Layers are selected by assembly: the Host's top-level Program lives in the global namespace.
     private static readonly Assembly _kernel = Assembly.Load("Frappe.Kernel");
@@ -26,9 +27,29 @@ public sealed class DependencyRuleTests
             .Select(static file => Assembly.Load(Path.GetFileNameWithoutExtension(file))),
     ];
 
+    // Every module project the Host ships, Frappe.<Module>.<Layer>, found by file so a new module is covered at once.
+    private static readonly Assembly[] _moduleProjects =
+    [
+        .. Directory
+            .GetFiles(AppContext.BaseDirectory, "Frappe.*.dll")
+            .Select(static file => Path.GetFileNameWithoutExtension(file))
+            .Where(static name => ModuleProject().IsMatch(name))
+            .Order(StringComparer.Ordinal)
+            .Select(static name => Assembly.Load(name)),
+    ];
+
     private static readonly Architecture _architecture = new ArchLoader()
-        .LoadAssemblies([_kernel, _host, .. _platformProjects])
+        .LoadAssemblies([_kernel, _host, .. _platformProjects, .. _moduleProjects])
         .Build();
+
+    public static TheoryData<string> Modules =>
+        [
+            .. _moduleProjects
+                .Select(static assembly =>
+                    ModuleProject().Match(assembly.GetName().Name ?? "").Groups["module"].Value
+                )
+                .Distinct(StringComparer.Ordinal),
+        ];
 
     [Theory]
     [InlineData(@"^Microsoft\.AspNetCore(\..+)?$")]
@@ -123,7 +144,72 @@ public sealed class DependencyRuleTests
             .Check(_architecture);
     }
 
-    // TODO: the geo PR adds the rule that a module's projects reference other modules only through their Contracts.
+    [Fact]
+    public void The_module_rules_see_the_shipped_modules()
+    {
+        Assert.Contains(
+            "Frappe.Geo.Infrastructure",
+            _moduleProjects.Select(static assembly => assembly.GetName().Name),
+            StringComparer.Ordinal
+        );
+    }
+
+    [Theory]
+    [InlineData("Domain", @"^Microsoft\.AspNetCore(\..+)?$")]
+    [InlineData("Domain", @"^Microsoft\.EntityFrameworkCore(\..+)?$")]
+    [InlineData("Domain", @"^Npgsql(\..+)?$")]
+    [InlineData("Domain", @"^Wolverine(\..+)?$")]
+    [InlineData("Domain", @"^Quartz(\..+)?$")]
+    [InlineData("Domain", @"^Frappe\.Platform(\..+)?$")]
+    [InlineData("Application", @"^Microsoft\.AspNetCore(\..+)?$")]
+    [InlineData("Application", @"^Microsoft\.EntityFrameworkCore(\..+)?$")]
+    [InlineData("Application", @"^Npgsql(\..+)?$")]
+    [InlineData("Application", @"^Wolverine(\..+)?$")]
+    [InlineData("Application", @"^Quartz(\..+)?$")]
+    [InlineData("Application", @"^Frappe\.Platform(\..+)?$")]
+    [InlineData("Infrastructure", @"^Wolverine(\..+)?$")]
+    [InlineData("Infrastructure", @"^Quartz(\..+)?$")]
+    public void A_module_layer_depends_on_no_library_outside_it(
+        string layer,
+        string forbiddenNamespace
+    )
+    {
+        FrappeTypes()
+            .ResideInAssembly(Layer(layer)[0], Layer(layer)[1..])
+            .Should()
+            .NotDependOnAnyTypesThat()
+            .ResideInNamespaceMatching(forbiddenNamespace)
+            .Check(_architecture);
+    }
+
+    // Domain is the core, Application builds on it, and Infrastructure on both; never the other way around.
+    [Theory]
+    [InlineData("Domain", "Application")]
+    [InlineData("Domain", "Infrastructure")]
+    [InlineData("Application", "Infrastructure")]
+    public void An_inner_module_layer_does_not_depend_on_an_outer_one(string inner, string outer)
+    {
+        FrappeTypes()
+            .ResideInAssembly(Layer(inner)[0], Layer(inner)[1..])
+            .Should()
+            .NotDependOnAny(Types().That().ResideInAssembly(Layer(outer)[0], Layer(outer)[1..]))
+            .Check(_architecture);
+    }
+
+    // Contracts are a module's only public surface; the Kernel's Frappe.Kernel.Domain is not a module.
+    [Theory]
+    [MemberData(nameof(Modules))]
+    public void A_module_depends_on_another_module_only_through_its_contracts(string module)
+    {
+        FrappeTypes()
+            .ResideInNamespaceMatching($@"^Frappe\.{module}(\..+)?$")
+            .Should()
+            .NotDependOnAnyTypesThat()
+            .ResideInNamespaceMatching(
+                $@"^Frappe\.(?!{module}\.|Kernel\.|Platform\.)[A-Za-z0-9]+\.(Domain|Application|Infrastructure)(\..+)?$"
+            )
+            .Check(_architecture);
+    }
 
     // This project references only the Host, so the file is here only when a shipped project
     // references the migrations.
@@ -154,4 +240,18 @@ public sealed class DependencyRuleTests
     // every boundary, so the rules leave that generated namespace out.
     private static GivenTypesThat FrappeTypes() =>
         Types().That().DoNotResideInNamespace("JasperFx.Generated").And();
+
+    private static Assembly[] Layer(string layer) =>
+        [
+            .. _moduleProjects.Where(assembly =>
+                (assembly.GetName().Name ?? "").EndsWith($".{layer}", StringComparison.Ordinal)
+            ),
+        ];
+
+    [GeneratedRegex(
+        @"^Frappe\.(?<module>[A-Z][A-Za-z0-9]*)\.(Domain|Application|Infrastructure|Contracts)\z",
+        RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
+        matchTimeoutMilliseconds: 100
+    )]
+    private static partial Regex ModuleProject();
 }

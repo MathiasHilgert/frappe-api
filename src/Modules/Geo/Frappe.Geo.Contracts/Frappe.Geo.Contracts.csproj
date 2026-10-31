@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The module's only surface for other modules; empty until a consumer needs a read port or an event. -->
+</Project>
