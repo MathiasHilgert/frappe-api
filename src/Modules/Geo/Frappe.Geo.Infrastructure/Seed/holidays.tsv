@@ -1,0 +1,122 @@
+country_code	subdivision_code	date	holiday_key	class	origin	name_en	name_es	name_pt
+AR		2026-01-01	new-year-s-day	Holiday	Fixed	New Year's Day	Año Nuevo	Ano-Novo
+AR	AR-E	2026-02-03	commemoration-of-the-battle-of-caseros	Holiday	Fixed	Commemoration of the Battle of Caseros	Conmemoración de la Batalla de Caseros	Comemoração da Batalha de Caseros
+AR		2026-02-16	carnival-monday	Holiday	Fixed	Carnival Monday	Lunes de Carnaval	Segunda-feira de Carnaval
+AR	AR-F	2026-02-16	day-of-the-death-of-juan-facundo-quiroga	Holiday	Fixed	Day of the Death of Juan Facundo Quiroga	Día del fallecimiento de Juan Facundo Quiroga	Dia da morte de Juan Facundo Quiroga
+AR		2026-02-17	carnival-tuesday	Holiday	Fixed	Carnival Tuesday	Martes de Carnaval	Terça-feira de Carnaval
+AR	AR-A	2026-02-20	anniversary-of-the-battle-of-salta	Holiday	Fixed	Anniversary of the Battle of Salta	Aniversario de la Batalla de Salta	Aniversário da Batalha de Salta
+AR	AR-F	2026-03-01	provincial-autonomy-day	Holiday	Fixed	Provincial Autonomy Day	Día de la Autonomía Provincial	Dia da Autonomia Provincial
+AR		2026-03-23	bridge-public-holiday	Holiday	Bridge	Bridge Public Holiday	Feriado con fines turísticos	Feriado ponte com fins turísticos
+AR		2026-03-24	national-day-of-remembrance-for-truth-and-justice	Holiday	Fixed	National Day of Remembrance for Truth and Justice	Día Nacional de la Memoria por la Verdad y la Justicia	Dia Nacional da Memória pela Verdade e Justiça
+AR	AR-E	2026-03-24	provincial-day-of-remembrance-for-truth-and-justice	Holiday	Fixed	Provincial Day of Remembrance for Truth and Justice	Día Provincial de la Memoria por la Verdad y la Justicia	Dia Provincial da Memória pela Verdade e Justiça
+AR	AR-F	2026-03-24	day-of-remembrance-for-truth-and-justice	Holiday	Fixed	Day of Remembrance for Truth and Justice	Día de la Memoria por la Verdad y la Justicia	Dia da Memória pela Verdade e Justiça
+AR		2026-04-02	maundy-thursday	NonWorkingDay	Fixed	Maundy Thursday	Jueves Santo	Quinta-feira Santa
+AR		2026-04-02	veteran-s-day-and-the-fallen-in-the-malvinas-war	Holiday	Fixed	Veteran's Day and the Fallen in the Malvinas War	Día del Veterano y de los Caidos en la Guerra de Malvinas	Dia do Veterano e dos Caídos na Guerra das Malvinas
+AR		2026-04-03	good-friday	Holiday	Fixed	Good Friday	Viernes Santo	Sexta-feira Santa
+AR	AR-Y	2026-04-27	great-day-of-jujuy	Holiday	Fixed	Great Day of Jujuy	Día Grande de Jujuy	Grande Dia de Jujuy
+AR	AR-U	2026-04-30	plebiscite-1902-trevelin	Holiday	Fixed	Plebiscite 1902 Trevelin	Plebiscito 1902 Trevelin	Plebiscito de 1902 em Trevelin
+AR		2026-05-01	labor-day	Holiday	Fixed	Labor Day	Día del Trabajo	Dia do Trabalho
+AR	AR-D	2026-05-03	exaltation-of-the-holy-cross-day	Holiday	Fixed	Exaltation of the Holy Cross Day	Día de la Exaltación de la Santa Cruz	Dia da Exaltação da Santa Cruz
+AR	AR-K	2026-05-11	birthday-of-mamerto-esquiu	Holiday	Fixed	Birthday of Mamerto Esquiú	Natalicio de Fray Mamerto Esquiú	Nascimento de Frei Mamerto Esquiú
+AR	AR-F	2026-05-20	la-rioja-foundation-day	Holiday	Fixed	La Rioja Foundation Day	Día de la fundación de La Rioja	Dia da fundação de La Rioja
+AR		2026-05-25	may-revolution-day	Holiday	Fixed	May Revolution Day	Día de la Revolución de Mayo	Dia da Revolução de Maio
+AR	AR-V	2026-06-01	day-of-the-province-of-tierra-del-fuego-antarctica-and-the-south-atlantic-islands	Holiday	Fixed	Day of the Province of Tierra del Fuego, Antarctica and the South Atlantic Islands	Día de la Provincia de Tierra del Fuego, Antártida e Islas del Atlántico Sur	Dia da Província da Terra do Fogo, Antártida e Ilhas do Atlântico Sul
+AR		2026-06-15	pass-to-the-immortality-of-general-don-martin-miguel-de-guemes	Holiday	Movable	Pass to the Immortality of General Don Martín Miguel de Güemes	Paso a la Inmortalidad del General Don Martín Miguel de Güemes	Passagem para a Imortalidade do General Martín Miguel de Güemes
+AR	AR-A	2026-06-17	day-of-memory-of-general-don-martin-miguel-de-guemes	Holiday	Fixed	Day of Memory of General Don Martín Miguel de Güemes	Dia de la memoria del Guerrero de la Independencia y Gobernador de la Provincia de Salta General Don Martín Miguel de Güemes	Dia da memória do General Martín Miguel de Güemes
+AR		2026-06-20	pass-to-the-immortality-of-general-don-manuel-belgrano	Holiday	Fixed	Pass to the Immortality of General Don Manuel Belgrano	Paso a la Inmortalidad del General Don Manuel Belgrano	Passagem para a Imortalidade do General Manuel Belgrano
+AR	AR-W	2026-06-20	anniversary-of-the-death-of-general-manuel-belgrano	Holiday	Fixed	Anniversary of the Death of General Manuel Belgrano	Día del Aniversario del Fallecimiento del General Manuel José Joaquín del Corazón de Jesús Belgrano	Aniversário da morte do General Manuel Belgrano
+AR	AR-E	2026-06-27	state-worker-s-day	Holiday	Fixed	State Worker's Day	Día del Trabajador Estatal	Dia do Trabalhador Estatal
+AR		2026-07-09	independence-day	Holiday	Fixed	Independence Day	Día de la Independencia	Dia da Independência
+AR		2026-07-10	bridge-public-holiday	Holiday	Bridge	Bridge Public Holiday	Feriado con fines turísticos	Feriado ponte com fins turísticos
+AR	AR-M	2026-07-25	saint-james-day	Holiday	Fixed	Saint James' Day	Día del Apóstol Santiago	Dia do Apóstolo Santiago
+AR	AR-U	2026-07-28	anniversary-of-the-arrival-of-the-first-welsh-settlers	Holiday	Fixed	Anniversary of the arrival of the first Welsh settlers	Aniversario del arribo de los primeros colonizadores galeses	Aniversário da chegada dos primeiros colonos galeses
+AR	AR-Y	2026-08-01	pachamama-day	Holiday	Fixed	Pachamama Day	Día de la Pachamama	Dia da Pachamama
+AR	AR-F	2026-08-04	anniversary-of-the-death-of-enrique-angelelli	Holiday	Fixed	Anniversary of the Death of Enrique Angelelli	Día del Aniversario del Fallecimiento de Monseñor Enrique Angelelli	Aniversário da morte de Dom Enrique Angelelli
+AR	AR-Z	2026-08-16	saint-john-bosco-s-day	Holiday	Fixed	Saint John Bosco's Day	Homenaje al Patrono de la Provincia San Juan Bosco	Homenagem ao Padroeiro da Província, São João Bosco
+AR		2026-08-17	pass-to-the-immortality-of-general-don-jose-de-san-martin	Holiday	Movable	Pass to the Immortality of General Don José de San Martín	Paso a la Inmortalidad del General Don José de San Martín	Passagem para a Imortalidade do General José de San Martín
+AR	AR-W	2026-08-17	anniversary-of-the-death-of-general-jose-francisco-de-san-martin	Holiday	Fixed	Anniversary of the Death of General José Francisco de San Martín	Día del Aniversario del Fallecimiento del General José Francisco de San Martín	Aniversário da morte do General José Francisco de San Martín
+AR	AR-Y	2026-08-23	jujuy-exodus-day	Holiday	Fixed	Jujuy Exodus Day	Día del Éxodo Jujeño	Dia do Êxodo Jujenho
+AR	AR-D	2026-08-25	saint-louis-the-king-of-france-s-day	Holiday	Fixed	Saint Louis the King of France's Day	Día de San Luis Rey de Francia	Dia de São Luís, Rei da França
+AR	AR-K	2026-08-25	catamarca-autonomy-day	Holiday	Fixed	Catamarca Autonomy Day	Autonomía de Catamarca	Dia da Autonomia de Catamarca
+AR	AR-K	2026-09-07	miracle-day	Holiday	Fixed	Miracle Day	Día del Milagro	Dia do Milagre
+AR	AR-J	2026-09-11	teacher-s-day	Holiday	Fixed	Teacher's Day	Día del Maestro	Dia do Professor
+AR	AR-A	2026-09-13	feasts-of-the-lord-and-the-virgin-of-miracle	Holiday	Fixed	Feasts of the Lord and the Virgin of Miracle	Festividades del Señor y de la Virgen del Milagro	Festas do Senhor e da Virgem do Milagre
+AR	AR-A	2026-09-14	feasts-of-the-lord-and-the-virgin-of-miracle	Holiday	Fixed	Feasts of the Lord and the Virgin of Miracle	Festividades del Señor y de la Virgen del Milagro	Festas do Senhor e da Virgem do Milagre
+AR	AR-A	2026-09-15	feasts-of-the-lord-and-the-virgin-of-miracle	Holiday	Fixed	Feasts of the Lord and the Virgin of Miracle	Festividades del Señor y de la Virgen del Milagro	Festas do Senhor e da Virgem do Milagre
+AR	AR-T	2026-09-24	anniversary-of-the-battle-of-tucuman	Holiday	Fixed	Anniversary of the Battle of Tucumán	Aniversario de la Batalla de Tucumán	Aniversário da Batalha de Tucumán
+AR	AR-E	2026-09-29	saint-michael-the-archangel-s-day	Holiday	Fixed	Saint Michael the Archangel's Day	San Miguel Arcángel	São Miguel Arcanjo
+AR	AR-Y	2026-10-07	day-of-the-virgin-of-the-rosary-of-rio-blanco-and-paypaya	Holiday	Fixed	Day of the Virgin of the Rosary of Río Blanco and Paypaya	Día de la Virgen del Rosario de Río Blanco y Paypaya	Dia da Virgem do Rosário de Río Blanco e Paypaya
+AR		2026-10-12	respect-for-cultural-diversity-day	Holiday	Movable	Respect for Cultural Diversity Day	Día del Respeto a la Diversidad Cultural	Dia do Respeito à Diversidade Cultural
+AR	AR-Z	2026-10-27	anniversary-of-the-death-of-nestor-carlos-kirchner	Holiday	Fixed	Anniversary of the Death of Néstor Carlos Kirchner	Día del Aniversario del Fallecimiento del ex Presidente de la Nación Doctor Néstor Carlos Kirchner	Aniversário da morte de Néstor Carlos Kirchner
+AR	AR-U	2026-11-03	tehuelches-and-mapuches-declare-loyalty-to-the-argentine-flag	Holiday	Fixed	Tehuelches and Mapuches declare loyalty to the Argentine flag	Tehuelches y Mapuches declaran lealtad a la bandera Argentina	Tehuelches e Mapuches declaram lealdade à bandeira argentina
+AR		2026-11-09	visit-of-his-holiness-pope-leo-xiv	Holiday	Decreed	Visit of His Holiness Pope Leo XIV	Visita de Su Santidad el Papa León XIV	Visita de Sua Santidade o Papa Leão XIV
+AR	AR-C	2026-11-10	visit-of-his-holiness-pope-leo-xiv	Holiday	Decreed	Visit of His Holiness Pope Leo XIV	Visita de Su Santidad el Papa León XIV	Visita de Sua Santidade o Papa Leão XIV
+AR	AR-X	2026-11-10	visit-of-his-holiness-pope-leo-xiv	Holiday	Decreed	Visit of His Holiness Pope Leo XIV	Visita de Su Santidad el Papa León XIV	Visita de Sua Santidade o Papa Leão XIV
+AR	AR-B	2026-11-11	visit-of-his-holiness-pope-leo-xiv	Holiday	Decreed	Visit of His Holiness Pope Leo XIV	Visita de Su Santidad el Papa León XIV	Visita de Sua Santidade o Papa Leão XIV
+AR	AR-F	2026-11-12	anniversary-of-the-death-of-angel-vicente-penaloza	Holiday	Fixed	Anniversary of the Death of Ángel Vicente Peñaloza	Día del Aniversario del Fallecimiento de Ángel Vicente Peñaloza	Aniversário da morte de Ángel Vicente Peñaloza
+AR	AR-Y	2026-11-18	jujuy-political-autonomy-day	Holiday	Fixed	Jujuy Political Autonomy Day	Autonomía Política de Jujuy	Dia da Autonomia Política de Jujuy
+AR		2026-11-23	national-sovereignty-day	Holiday	Movable	National Sovereignty Day	Día de la Soberanía Nacional	Dia da Soberania Nacional
+AR	AR-V	2026-11-25	selk-nam-genocide-day	Holiday	Fixed	Selk'Nam Genocide Day	Día del Genocidio Selk'Nam	Dia do Genocídio Selk'nam
+AR		2026-12-07	bridge-public-holiday	Holiday	Bridge	Bridge Public Holiday	Feriado con fines turísticos	Feriado ponte com fins turísticos
+AR	AR-Z	2026-12-07	commemoration-of-the-workers-shot-in-the-patagonian-strikes	Holiday	Fixed	Commemoration of the workers shot in the Patagonian Strikes	Conmemoración a los obreros fusilados en las Huelgas Patagónicas	Comemoração dos operários fuzilados nas Greves Patagônicas
+AR		2026-12-08	immaculate-conception	Holiday	Fixed	Immaculate Conception	Inmaculada Concepción de María	Imaculada Conceição
+AR	AR-U	2026-12-13	national-petroleum-day	Holiday	Fixed	National Petroleum Day	Día del Petróleo Nacional	Dia Nacional do Petróleo
+AR		2026-12-25	christmas-day	Holiday	Fixed	Christmas Day	Navidad	Natal
+AR	AR-F	2026-12-31	tinkunaco-festival	Holiday	Fixed	Tinkunaco Festival	Día del Tinkunaco Riojano	Dia do Tinkunaco Riojano
+AR		2027-01-01	new-year-s-day	Holiday	Fixed	New Year's Day	Año Nuevo	Ano-Novo
+AR	AR-E	2027-02-03	commemoration-of-the-battle-of-caseros	Holiday	Fixed	Commemoration of the Battle of Caseros	Conmemoración de la Batalla de Caseros	Comemoração da Batalha de Caseros
+AR		2027-02-08	carnival-monday	Holiday	Fixed	Carnival Monday	Lunes de Carnaval	Segunda-feira de Carnaval
+AR		2027-02-09	carnival-tuesday	Holiday	Fixed	Carnival Tuesday	Martes de Carnaval	Terça-feira de Carnaval
+AR	AR-F	2027-02-16	day-of-the-death-of-juan-facundo-quiroga	Holiday	Fixed	Day of the Death of Juan Facundo Quiroga	Día del fallecimiento de Juan Facundo Quiroga	Dia da morte de Juan Facundo Quiroga
+AR	AR-A	2027-02-20	anniversary-of-the-battle-of-salta	Holiday	Fixed	Anniversary of the Battle of Salta	Aniversario de la Batalla de Salta	Aniversário da Batalha de Salta
+AR	AR-F	2027-03-01	provincial-autonomy-day	Holiday	Fixed	Provincial Autonomy Day	Día de la Autonomía Provincial	Dia da Autonomia Provincial
+AR		2027-03-24	national-day-of-remembrance-for-truth-and-justice	Holiday	Fixed	National Day of Remembrance for Truth and Justice	Día Nacional de la Memoria por la Verdad y la Justicia	Dia Nacional da Memória pela Verdade e Justiça
+AR	AR-E	2027-03-24	provincial-day-of-remembrance-for-truth-and-justice	Holiday	Fixed	Provincial Day of Remembrance for Truth and Justice	Día Provincial de la Memoria por la Verdad y la Justicia	Dia Provincial da Memória pela Verdade e Justiça
+AR	AR-F	2027-03-24	day-of-remembrance-for-truth-and-justice	Holiday	Fixed	Day of Remembrance for Truth and Justice	Día de la Memoria por la Verdad y la Justicia	Dia da Memória pela Verdade e Justiça
+AR		2027-03-25	maundy-thursday	NonWorkingDay	Fixed	Maundy Thursday	Jueves Santo	Quinta-feira Santa
+AR		2027-03-26	good-friday	Holiday	Fixed	Good Friday	Viernes Santo	Sexta-feira Santa
+AR		2027-04-02	veteran-s-day-and-the-fallen-in-the-malvinas-war	Holiday	Fixed	Veteran's Day and the Fallen in the Malvinas War	Día del Veterano y de los Caidos en la Guerra de Malvinas	Dia do Veterano e dos Caídos na Guerra das Malvinas
+AR	AR-Y	2027-04-27	great-day-of-jujuy	Holiday	Fixed	Great Day of Jujuy	Día Grande de Jujuy	Grande Dia de Jujuy
+AR	AR-U	2027-04-30	plebiscite-1902-trevelin	Holiday	Fixed	Plebiscite 1902 Trevelin	Plebiscito 1902 Trevelin	Plebiscito de 1902 em Trevelin
+AR		2027-05-01	labor-day	Holiday	Fixed	Labor Day	Día del Trabajo	Dia do Trabalho
+AR	AR-D	2027-05-03	exaltation-of-the-holy-cross-day	Holiday	Fixed	Exaltation of the Holy Cross Day	Día de la Exaltación de la Santa Cruz	Dia da Exaltação da Santa Cruz
+AR	AR-K	2027-05-11	birthday-of-mamerto-esquiu	Holiday	Fixed	Birthday of Mamerto Esquiú	Natalicio de Fray Mamerto Esquiú	Nascimento de Frei Mamerto Esquiú
+AR	AR-F	2027-05-20	la-rioja-foundation-day	Holiday	Fixed	La Rioja Foundation Day	Día de la fundación de La Rioja	Dia da fundação de La Rioja
+AR		2027-05-25	may-revolution-day	Holiday	Fixed	May Revolution Day	Día de la Revolución de Mayo	Dia da Revolução de Maio
+AR	AR-V	2027-06-01	day-of-the-province-of-tierra-del-fuego-antarctica-and-the-south-atlantic-islands	Holiday	Fixed	Day of the Province of Tierra del Fuego, Antarctica and the South Atlantic Islands	Día de la Provincia de Tierra del Fuego, Antártida e Islas del Atlántico Sur	Dia da Província da Terra do Fogo, Antártida e Ilhas do Atlântico Sul
+AR	AR-A	2027-06-17	day-of-memory-of-general-don-martin-miguel-de-guemes	Holiday	Fixed	Day of Memory of General Don Martín Miguel de Güemes	Dia de la memoria del Guerrero de la Independencia y Gobernador de la Provincia de Salta General Don Martín Miguel de Güemes	Dia da memória do General Martín Miguel de Güemes
+AR		2027-06-20	pass-to-the-immortality-of-general-don-manuel-belgrano	Holiday	Fixed	Pass to the Immortality of General Don Manuel Belgrano	Paso a la Inmortalidad del General Don Manuel Belgrano	Passagem para a Imortalidade do General Manuel Belgrano
+AR	AR-W	2027-06-20	anniversary-of-the-death-of-general-manuel-belgrano	Holiday	Fixed	Anniversary of the Death of General Manuel Belgrano	Día del Aniversario del Fallecimiento del General Manuel José Joaquín del Corazón de Jesús Belgrano	Aniversário da morte do General Manuel Belgrano
+AR		2027-06-21	pass-to-the-immortality-of-general-don-martin-miguel-de-guemes	Holiday	Movable	Pass to the Immortality of General Don Martín Miguel de Güemes	Paso a la Inmortalidad del General Don Martín Miguel de Güemes	Passagem para a Imortalidade do General Martín Miguel de Güemes
+AR	AR-E	2027-06-27	state-worker-s-day	Holiday	Fixed	State Worker's Day	Día del Trabajador Estatal	Dia do Trabalhador Estatal
+AR		2027-07-09	independence-day	Holiday	Fixed	Independence Day	Día de la Independencia	Dia da Independência
+AR	AR-M	2027-07-25	saint-james-day	Holiday	Fixed	Saint James' Day	Día del Apóstol Santiago	Dia do Apóstolo Santiago
+AR	AR-U	2027-07-28	anniversary-of-the-arrival-of-the-first-welsh-settlers	Holiday	Fixed	Anniversary of the arrival of the first Welsh settlers	Aniversario del arribo de los primeros colonizadores galeses	Aniversário da chegada dos primeiros colonos galeses
+AR	AR-Y	2027-08-01	pachamama-day	Holiday	Fixed	Pachamama Day	Día de la Pachamama	Dia da Pachamama
+AR	AR-F	2027-08-04	anniversary-of-the-death-of-enrique-angelelli	Holiday	Fixed	Anniversary of the Death of Enrique Angelelli	Día del Aniversario del Fallecimiento de Monseñor Enrique Angelelli	Aniversário da morte de Dom Enrique Angelelli
+AR		2027-08-16	pass-to-the-immortality-of-general-don-jose-de-san-martin	Holiday	Movable	Pass to the Immortality of General Don José de San Martín	Paso a la Inmortalidad del General Don José de San Martín	Passagem para a Imortalidade do General José de San Martín
+AR	AR-Z	2027-08-16	saint-john-bosco-s-day	Holiday	Fixed	Saint John Bosco's Day	Homenaje al Patrono de la Provincia San Juan Bosco	Homenagem ao Padroeiro da Província, São João Bosco
+AR	AR-W	2027-08-17	anniversary-of-the-death-of-general-jose-francisco-de-san-martin	Holiday	Fixed	Anniversary of the Death of General José Francisco de San Martín	Día del Aniversario del Fallecimiento del General José Francisco de San Martín	Aniversário da morte do General José Francisco de San Martín
+AR	AR-Y	2027-08-23	jujuy-exodus-day	Holiday	Fixed	Jujuy Exodus Day	Día del Éxodo Jujeño	Dia do Êxodo Jujenho
+AR	AR-D	2027-08-25	saint-louis-the-king-of-france-s-day	Holiday	Fixed	Saint Louis the King of France's Day	Día de San Luis Rey de Francia	Dia de São Luís, Rei da França
+AR	AR-K	2027-08-25	catamarca-autonomy-day	Holiday	Fixed	Catamarca Autonomy Day	Autonomía de Catamarca	Dia da Autonomia de Catamarca
+AR	AR-K	2027-09-07	miracle-day	Holiday	Fixed	Miracle Day	Día del Milagro	Dia do Milagre
+AR	AR-J	2027-09-11	teacher-s-day	Holiday	Fixed	Teacher's Day	Día del Maestro	Dia do Professor
+AR	AR-A	2027-09-13	feasts-of-the-lord-and-the-virgin-of-miracle	Holiday	Fixed	Feasts of the Lord and the Virgin of Miracle	Festividades del Señor y de la Virgen del Milagro	Festas do Senhor e da Virgem do Milagre
+AR	AR-A	2027-09-14	feasts-of-the-lord-and-the-virgin-of-miracle	Holiday	Fixed	Feasts of the Lord and the Virgin of Miracle	Festividades del Señor y de la Virgen del Milagro	Festas do Senhor e da Virgem do Milagre
+AR	AR-A	2027-09-15	feasts-of-the-lord-and-the-virgin-of-miracle	Holiday	Fixed	Feasts of the Lord and the Virgin of Miracle	Festividades del Señor y de la Virgen del Milagro	Festas do Senhor e da Virgem do Milagre
+AR	AR-T	2027-09-24	anniversary-of-the-battle-of-tucuman	Holiday	Fixed	Anniversary of the Battle of Tucumán	Aniversario de la Batalla de Tucumán	Aniversário da Batalha de Tucumán
+AR	AR-E	2027-09-29	saint-michael-the-archangel-s-day	Holiday	Fixed	Saint Michael the Archangel's Day	San Miguel Arcángel	São Miguel Arcanjo
+AR	AR-Y	2027-10-07	day-of-the-virgin-of-the-rosary-of-rio-blanco-and-paypaya	Holiday	Fixed	Day of the Virgin of the Rosary of Río Blanco and Paypaya	Día de la Virgen del Rosario de Río Blanco y Paypaya	Dia da Virgem do Rosário de Río Blanco e Paypaya
+AR		2027-10-11	respect-for-cultural-diversity-day	Holiday	Movable	Respect for Cultural Diversity Day	Día del Respeto a la Diversidad Cultural	Dia do Respeito à Diversidade Cultural
+AR	AR-Z	2027-10-27	anniversary-of-the-death-of-nestor-carlos-kirchner	Holiday	Fixed	Anniversary of the Death of Néstor Carlos Kirchner	Día del Aniversario del Fallecimiento del ex Presidente de la Nación Doctor Néstor Carlos Kirchner	Aniversário da morte de Néstor Carlos Kirchner
+AR	AR-U	2027-11-03	tehuelches-and-mapuches-declare-loyalty-to-the-argentine-flag	Holiday	Fixed	Tehuelches and Mapuches declare loyalty to the Argentine flag	Tehuelches y Mapuches declaran lealtad a la bandera Argentina	Tehuelches e Mapuches declaram lealdade à bandeira argentina
+AR	AR-F	2027-11-12	anniversary-of-the-death-of-angel-vicente-penaloza	Holiday	Fixed	Anniversary of the Death of Ángel Vicente Peñaloza	Día del Aniversario del Fallecimiento de Ángel Vicente Peñaloza	Aniversário da morte de Ángel Vicente Peñaloza
+AR	AR-Y	2027-11-18	jujuy-political-autonomy-day	Holiday	Fixed	Jujuy Political Autonomy Day	Autonomía Política de Jujuy	Dia da Autonomia Política de Jujuy
+AR		2027-11-20	national-sovereignty-day	Holiday	Movable	National Sovereignty Day	Día de la Soberanía Nacional	Dia da Soberania Nacional
+AR	AR-V	2027-11-25	selk-nam-genocide-day	Holiday	Fixed	Selk'Nam Genocide Day	Día del Genocidio Selk'Nam	Dia do Genocídio Selk'nam
+AR	AR-Z	2027-12-07	commemoration-of-the-workers-shot-in-the-patagonian-strikes	Holiday	Fixed	Commemoration of the workers shot in the Patagonian Strikes	Conmemoración a los obreros fusilados en las Huelgas Patagónicas	Comemoração dos operários fuzilados nas Greves Patagônicas
+AR		2027-12-08	immaculate-conception	Holiday	Fixed	Immaculate Conception	Inmaculada Concepción de María	Imaculada Conceição
+AR	AR-U	2027-12-13	national-petroleum-day	Holiday	Fixed	National Petroleum Day	Día del Petróleo Nacional	Dia Nacional do Petróleo
+AR		2027-12-25	christmas-day	Holiday	Fixed	Christmas Day	Navidad	Natal
+AR	AR-F	2027-12-31	tinkunaco-festival	Holiday	Fixed	Tinkunaco Festival	Día del Tinkunaco Riojano	Dia do Tinkunaco Riojano

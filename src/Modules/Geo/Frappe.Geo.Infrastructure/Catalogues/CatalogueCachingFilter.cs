@@ -7,7 +7,8 @@ namespace Frappe.Geo.Infrastructure.Catalogues;
 /// <summary>
 /// Conditional GET for the catalogue reads. The dataset changes only with a deployment, so one tag covers every
 /// response: the endpoint runs first, and only a 200 whose request already holds the tag becomes a 304, so a 404 or
-/// 422 is never masked; a 200 is cacheable for a day, and anything else is never stored.
+/// 422 is never masked; a 200 is cacheable for a day, or less when its endpoint set a <see cref="CacheScope"/>, and
+/// anything else is never stored.
 /// </summary>
 /// <param name="catalogues">The loader, which fixes the dataset tag at startup.</param>
 internal sealed class CatalogueCachingFilter(GeoCatalogueLoader catalogues) : IEndpointFilter
@@ -32,9 +33,15 @@ internal sealed class CatalogueCachingFilter(GeoCatalogueLoader catalogues) : IE
             return result;
         }
 
-        EntityTagHeaderValue tag = catalogues.DatasetTag;
+        var scope = CacheScope.Of(http);
+        EntityTagHeaderValue tag = scope is null
+            ? catalogues.DatasetTag
+            : new($"{catalogues.DatasetTag.Tag.ToString()[..^1]}-{scope.TagSuffix}\"");
         http.Response.Headers.ETag = tag.ToString();
-        http.Response.Headers.CacheControl = _cacheable;
+        http.Response.Headers.CacheControl =
+            scope is null || scope.MaxAge >= CacheMaxAge
+                ? _cacheable
+                : string.Create(CultureInfo.InvariantCulture, $"public, max-age={scope.MaxAge}");
         return Matches(http.Request.GetTypedHeaders().IfNoneMatch, tag)
             ? TypedResults.StatusCode(StatusCodes.Status304NotModified)
             : result;

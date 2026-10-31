@@ -15,6 +15,8 @@ public sealed class GeoCatalogTests(GeoFixture geo)
         "country_names:SELECT",
         "currencies:SELECT",
         "currency_names:SELECT",
+        "holiday_names:SELECT",
+        "holidays:SELECT",
         "locale_names:SELECT",
         "locales:SELECT",
         "subdivision_names:SELECT",
@@ -40,6 +42,30 @@ public sealed class GeoCatalogTests(GeoFixture geo)
         object? granted = await command.ExecuteScalarAsync(TestContext.Current.CancellationToken);
 
         granted.ShouldBe(_selectOnly);
+    }
+
+    [Fact]
+    public async Task A_holidays_subdivision_must_be_a_catalogued_subdivision()
+    {
+        await using NpgsqlConnection connection = new(geo.OwnerConnectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        await using NpgsqlCommand command = new(
+            """
+            SELECT pg_get_constraintdef(c.oid)
+            FROM pg_constraint c
+            WHERE c.conrelid = 'geo.holidays'::regclass AND c.contype = 'f'
+              AND c.confrelid = 'geo.subdivisions'::regclass
+            """,
+            connection
+        );
+
+        object? foreignKey = await command.ExecuteScalarAsync(
+            TestContext.Current.CancellationToken
+        );
+
+        foreignKey.ShouldBe(
+            "FOREIGN KEY (subdivision_code) REFERENCES geo.subdivisions(subdivision_code) ON DELETE RESTRICT"
+        );
     }
 
     [Fact]

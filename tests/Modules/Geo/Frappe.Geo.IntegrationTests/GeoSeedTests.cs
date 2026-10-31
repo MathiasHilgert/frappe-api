@@ -173,6 +173,77 @@ public sealed class GeoSeedTests(GeoFixture geo)
         searchText.ShouldBe("villa maria cordoba argentina");
     }
 
+    [Fact]
+    public async Task Holidays_are_seeded_for_argentina_in_2026_and_2027_only()
+    {
+        string seeded = await ScalarAsync<string>(
+            "SELECT string_agg(DISTINCT country_code || ' ' || extract(year FROM date), ', ') FROM geo.holidays"
+        );
+
+        seeded.ShouldBe("AR 2026, AR 2027");
+    }
+
+    [Fact]
+    public async Task Every_holiday_has_a_spanish_english_and_portuguese_name()
+    {
+        long incomplete = await ScalarAsync<long>(
+            "SELECT count(*) FROM geo.holidays h WHERE (SELECT count(*) FROM geo.holiday_names n "
+                + "WHERE n.holiday_id = h.holiday_id AND n.locale IN ('es', 'en', 'pt')) <> 3"
+        );
+
+        incomplete.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task A_calendar_the_file_does_not_hold_is_kept_even_in_a_seeded_year()
+    {
+        // With its names, in one transaction: a host starting meanwhile in another test loads it like any holiday.
+        await ExecuteAsync(
+            "INSERT INTO geo.holidays (holiday_id, country_code, date, holiday_key, class, origin, status) "
+                + "VALUES (uuidv7(), 'UY', '2026-07-18', 'constitution-day', 'Holiday', 'Fixed', 'Active')",
+            "INSERT INTO geo.holiday_names (holiday_id, locale, name) "
+                + "SELECT holiday_id, 'en', 'Constitution Day' FROM geo.holidays WHERE country_code = 'UY'"
+        );
+        try
+        {
+            await MigrationsRunner.SeedAllAsync(
+                geo.OwnerConnectionString,
+                [new GeoModule()],
+                TestContext.Current.CancellationToken
+            );
+
+            string status = await ScalarAsync<string>(
+                "SELECT status FROM geo.holidays WHERE country_code = 'UY'"
+            );
+            status.ShouldBe("Active");
+        }
+        finally
+        {
+            await ExecuteAsync(
+                "DELETE FROM geo.holiday_names WHERE holiday_id IN "
+                    + "(SELECT holiday_id FROM geo.holidays WHERE country_code = 'UY')",
+                "DELETE FROM geo.holidays WHERE country_code = 'UY'"
+            );
+        }
+    }
+
+    // Runs the statements in one transaction, so other hosts never see them half applied.
+    private async Task ExecuteAsync(params string[] statements)
+    {
+        await using NpgsqlConnection connection = new(geo.OwnerConnectionString);
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync(
+            TestContext.Current.CancellationToken
+        );
+        foreach (string sql in statements)
+        {
+            await using NpgsqlCommand command = new(sql, connection, transaction);
+            await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+
+        await transaction.CommitAsync(TestContext.Current.CancellationToken);
+    }
+
     private async Task<T> ScalarAsync<T>(string sql, string? code = null)
     {
         await using NpgsqlConnection connection = new(geo.OwnerConnectionString);

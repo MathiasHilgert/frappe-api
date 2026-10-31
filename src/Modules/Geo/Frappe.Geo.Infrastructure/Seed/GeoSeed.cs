@@ -8,7 +8,7 @@ namespace Frappe.Geo.Infrastructure.Seed;
 /// <summary>
 /// Loads the geo reference data from the embedded seed files: per catalogue, upsert the rows and their names (an
 /// unchanged row counts as nothing), then retire the rows the file no longer holds; nothing is ever deleted. Currencies
-/// go first, because countries reference them; subdivisions, cities and locales follow.
+/// go first, because countries reference them; subdivisions, cities, locales and holidays follow.
 /// </summary>
 internal static class GeoSeed
 {
@@ -90,6 +90,19 @@ internal static class GeoSeed
         "name_pt",
     ];
 
+    private static readonly string[] _holidayHeader =
+    [
+        "country_code",
+        "subdivision_code",
+        "date",
+        "holiday_key",
+        "class",
+        "origin",
+        "name_en",
+        "name_es",
+        "name_pt",
+    ];
+
     public static async Task<int> SeedAsync(
         DbConnection connection,
         CancellationToken cancellationToken
@@ -100,6 +113,7 @@ internal static class GeoSeed
         changed += await SubdivisionsAsync(connection, cancellationToken);
         changed += await CitiesAsync(connection, cancellationToken);
         changed += await LocalesAsync(connection, cancellationToken);
+        changed += await HolidaysAsync(connection, cancellationToken);
         return changed;
     }
 
@@ -398,6 +412,106 @@ internal static class GeoSeed
                     .ToArray(),
             StringComparer.Ordinal
         );
+
+    // TODO: generate the 2028 holiday calendar before 2027-12-01 (holidays are seeded per year, one year ahead)
+    private static async Task<int> HolidaysAsync(
+        DbConnection connection,
+        CancellationToken cancellationToken
+    )
+    {
+        IReadOnlyList<string[]> rows = Tsv.Read("holidays.tsv", _holidayHeader);
+        (string Name, object Value)[] keys =
+        [
+            ("countries", Column(rows, 0)),
+            ("subdivisions", OptionalColumn(rows, 1)),
+            ("dates", Column(rows, 2)),
+            ("keys", Column(rows, 3)),
+        ];
+        int changed = await ExecuteAsync(
+            connection,
+            """
+            INSERT INTO geo.holidays (holiday_id, country_code, subdivision_code, date, holiday_key, class, origin, status)
+            SELECT uuidv7(), country, subdivision, day::date, key, class, origin, 'Active'
+            FROM unnest(@countries::text[], @subdivisions::text[], @dates::text[], @keys::text[], @classes::text[],
+                @origins::text[]) AS seed(country, subdivision, day, key, class, origin)
+            ON CONFLICT (country_code, subdivision_code, date, holiday_key) DO UPDATE
+            SET class = excluded.class, origin = excluded.origin, status = excluded.status
+            WHERE (holidays.class, holidays.origin, holidays.status)
+                IS DISTINCT FROM (excluded.class, excluded.origin, excluded.status)
+            """,
+            cancellationToken,
+            [.. keys, ("classes", Column(rows, 4)), ("origins", Column(rows, 5))]
+        );
+        changed += await HolidayNamesAsync(connection, rows, cancellationToken);
+        // Only the calendars (country and year) the file holds: a calendar dropped from the file is kept.
+        changed += await ExecuteAsync(
+            connection,
+            """
+            UPDATE geo.holidays h SET status = 'Retired'
+            WHERE h.status <> 'Retired'
+                AND (h.country_code, extract(year FROM h.date)::int) IN (
+                    SELECT DISTINCT country, extract(year FROM day::date)::int
+                    FROM unnest(@countries::text[], @dates::text[]) AS calendar(country, day))
+                AND NOT EXISTS (
+                    SELECT 1 FROM unnest(@countries::text[], @subdivisions::text[], @dates::text[], @keys::text[])
+                        AS seed(country, subdivision, day, key)
+                    WHERE seed.country = h.country_code AND seed.subdivision IS NOT DISTINCT FROM h.subdivision_code
+                        AND seed.day::date = h.date AND seed.key = h.holiday_key)
+            """,
+            cancellationToken,
+            keys
+        );
+        return changed;
+    }
+
+    // A holiday has no key of its own in the file, so each name finds its row by the holiday's natural key.
+    private static Task<int> HolidayNamesAsync(
+        DbConnection connection,
+        IReadOnlyList<string[]> rows,
+        CancellationToken cancellationToken
+    )
+    {
+        (int Row, string Locale, string Name)[] names =
+        [
+            .. rows.SelectMany(
+                (row, index) =>
+                    _holidayHeader
+                        .Index()
+                        .Where(column =>
+                            column.Item.StartsWith(NamePrefix, StringComparison.Ordinal)
+                            && row[column.Index].Length > 0
+                        )
+                        .Select(column =>
+                            (index, column.Item[NamePrefix.Length..], row[column.Index])
+                        )
+            ),
+        ];
+        return ExecuteAsync(
+            connection,
+            """
+            INSERT INTO geo.holiday_names (holiday_id, locale, name)
+            SELECT h.holiday_id, n.locale, n.name
+            FROM unnest(@countries::text[], @subdivisions::text[], @dates::text[], @keys::text[], @locales::text[],
+                @names::text[]) AS n(country, subdivision, day, key, locale, name)
+            JOIN geo.holidays h ON h.country_code = n.country AND h.subdivision_code IS NOT DISTINCT FROM n.subdivision
+                AND h.date = n.day::date AND h.holiday_key = n.key
+            ON CONFLICT (holiday_id, locale) DO UPDATE SET name = excluded.name
+            WHERE holiday_names.name IS DISTINCT FROM excluded.name
+            """,
+            cancellationToken,
+            ("countries", names.Select(name => rows[name.Row][0]).ToArray()),
+            (
+                "subdivisions",
+                names
+                    .Select(name => rows[name.Row][1].Length == 0 ? null : rows[name.Row][1])
+                    .ToArray()
+            ),
+            ("dates", names.Select(name => rows[name.Row][2]).ToArray()),
+            ("keys", names.Select(name => rows[name.Row][3]).ToArray()),
+            ("locales", names.Select(static name => name.Locale).ToArray()),
+            ("names", names.Select(static name => name.Name).ToArray())
+        );
+    }
 
     // Every name_<locale> column becomes one row per non-empty name, keyed by the row's first column.
     private static Task<int> NamesAsync(

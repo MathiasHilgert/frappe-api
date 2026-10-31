@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Frappe.Geo.Application.Cities;
 using Frappe.Geo.Application.Countries;
 using Frappe.Geo.Application.Currencies;
+using Frappe.Geo.Application.Holidays;
 using Frappe.Geo.Application.Locales;
 using Frappe.Geo.Application.Subdivisions;
 using Frappe.Geo.Application.TimeZones;
@@ -17,4 +18,5 @@ namespace Frappe.Geo.Infrastructure;
 [JsonSerializable(typeof(PageResponse<SubdivisionDto>))]
 [JsonSerializable(typeof(PageResponse<CityDto>))]
 [JsonSerializable(typeof(PageResponse<LocaleDto>))]
+[JsonSerializable(typeof(PageResponse<HolidayDto>))]
 internal sealed partial class GeoJsonContext : JsonSerializerContext;

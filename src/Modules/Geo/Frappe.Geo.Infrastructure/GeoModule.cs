@@ -3,6 +3,7 @@ using System.Text.Json;
 using Frappe.Geo.Application.Cities;
 using Frappe.Geo.Application.Countries;
 using Frappe.Geo.Application.Currencies;
+using Frappe.Geo.Application.Holidays;
 using Frappe.Geo.Application.Locales;
 using Frappe.Geo.Application.Subdivisions;
 using Frappe.Geo.Application.TimeZones;
@@ -15,6 +16,8 @@ using Frappe.Geo.Infrastructure.Countries.GetCountry;
 using Frappe.Geo.Infrastructure.Countries.ListCountries;
 using Frappe.Geo.Infrastructure.Currencies;
 using Frappe.Geo.Infrastructure.Currencies.ListCurrencies;
+using Frappe.Geo.Infrastructure.Holidays;
+using Frappe.Geo.Infrastructure.Holidays.ListHolidays;
 using Frappe.Geo.Infrastructure.Locales;
 using Frappe.Geo.Infrastructure.Locales.ListLocales;
 using Frappe.Geo.Infrastructure.OpenApi;
@@ -38,7 +41,8 @@ namespace Frappe.Geo.Infrastructure;
 
 /// <summary>
 /// The geo module: the platform's seeded reference catalogues (time zones, currencies, countries, subdivisions,
-/// cities, locales), read-only at runtime, served as anonymous cacheable reads and to other modules through the geo Contracts.
+/// cities, locales, holidays), read-only at runtime, served as anonymous cacheable reads and to other modules through
+/// the geo Contracts.
 /// </summary>
 public sealed class GeoModule : IModule
 {
@@ -89,6 +93,13 @@ public sealed class GeoModule : IModule
         services.AddScoped<ICityCatalogue>(static provider =>
             provider.GetRequiredService<CityQueryService>()
         );
+        services.AddSingleton<HolidaySnapshot>();
+        services.AddSingleton<IHolidayReader>(static provider =>
+            provider.GetRequiredService<HolidaySnapshot>()
+        );
+        services.AddSingleton<IHolidayCatalogue>(static provider =>
+            provider.GetRequiredService<HolidaySnapshot>()
+        );
         services.AddSingleton<GeoCatalogueLoader>();
         services.AddHostedService(static provider =>
             provider.GetRequiredService<GeoCatalogueLoader>()
@@ -121,6 +132,7 @@ public sealed class GeoModule : IModule
         ListSubdivisionsEndpoint.Map(group);
         ListCitiesEndpoint.Map(group);
         ListLocalesEndpoint.Map(group);
+        ListHolidaysEndpoint.Map(group);
     }
 
     /// <inheritdoc />

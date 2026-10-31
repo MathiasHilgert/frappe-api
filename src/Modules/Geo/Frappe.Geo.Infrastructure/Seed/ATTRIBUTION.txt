@@ -50,3 +50,10 @@ locales.tsv (eng/geo/refresh_locales.py)
   layout (text direction).
   Copyright (c) 1991-2025 Unicode, Inc. Licensed under the Unicode License v3:
   https://www.unicode.org/license.txt
+holidays.tsv (eng/geo/refresh_holidays.py)
+- vacanza/holidays 0.107, Argentina, public category: national and provincial holidays for 2026 and 2027,
+  Spanish names and their English translations. Class and origin are mapped from the legal category of each
+  national holiday (Law 27.399, the yearly bridge-day decree, DNU 1103/2026).
+  Copyright (c) Vacanza Team and individual contributors. Licensed under the MIT License:
+  https://github.com/vacanza/holidays/blob/v0.107/LICENSE
+- Portuguese names: hand-translated, kept in eng/geo/holiday-names-pt.tsv.

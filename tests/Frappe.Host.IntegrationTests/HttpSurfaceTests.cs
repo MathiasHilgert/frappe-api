@@ -25,6 +25,7 @@ public sealed class HttpSurfaceTests(FrappeDatabase database, FrappeNats nats)
         "/v1/geo/countries/{countryCode}/subdivisions",
         "/v1/geo/cities",
         "/v1/geo/locales",
+        "/v1/geo/countries/{countryCode}/holidays",
     };
 
     [Fact]
