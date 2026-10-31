@@ -17,7 +17,10 @@ namespace Frappe.Platform.Http;
 /// </summary>
 public static class HttpExtensions
 {
-    /// <summary>Registers the HTTP services; <c>RateLimiting</c> is validated when the host starts.</summary>
+    /// <summary>
+    /// Registers the HTTP services; <c>RateLimiting</c> is validated when the host starts, the error texts load on
+    /// the first error response.
+    /// </summary>
     /// <param name="builder">The application builder.</param>
     /// <returns>The same builder, for chaining.</returns>
     public static TBuilder AddHttp<TBuilder>(this TBuilder builder)
