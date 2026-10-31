@@ -1,0 +1,430 @@
+locale_tag	language_code	text_direction	endonym	name_en	name_es	name_pt
+af	af	ltr	Afrikaans	Afrikaans	afrikáans	africâner
+af-NA	af	ltr	Afrikaans (Namibië)	Afrikaans (Namibia)	afrikáans (Namibia)	africâner (Namíbia)
+ak	ak	ltr	Akan	Akan	akan	akan
+am	am	ltr	አማርኛ	Amharic	amárico	amárico
+ar	ar	rtl	العربية	Arabic	árabe	árabe
+ar-AE	ar	rtl	العربية (الإمارات العربية المتحدة)	Arabic (United Arab Emirates)	árabe (Emiratos Árabes Unidos)	árabe (Emirados Árabes Unidos)
+ar-BH	ar	rtl	العربية (البحرين)	Arabic (Bahrain)	árabe (Baréin)	árabe (Barein)
+ar-DJ	ar	rtl	العربية (جيبوتي)	Arabic (Djibouti)	árabe (Yibuti)	árabe (Djibuti)
+ar-DZ	ar	rtl	العربية (الجزائر)	Arabic (Algeria)	árabe (Argelia)	árabe (Argélia)
+ar-EG	ar	rtl	العربية (مصر)	Arabic (Egypt)	árabe (Egipto)	árabe (Egito)
+ar-EH	ar	rtl	العربية (الصحراء الغربية)	Arabic (Western Sahara)	árabe (Sáhara Occidental)	árabe (Saara Ocidental)
+ar-ER	ar	rtl	العربية (إريتريا)	Arabic (Eritrea)	árabe (Eritrea)	árabe (Eritreia)
+ar-IL	ar	rtl	العربية (إسرائيل)	Arabic (Israel)	árabe (Israel)	árabe (Israel)
+ar-IQ	ar	rtl	العربية (العراق)	Arabic (Iraq)	árabe (Irak)	árabe (Iraque)
+ar-JO	ar	rtl	العربية (الأردن)	Arabic (Jordan)	árabe (Jordania)	árabe (Jordânia)
+ar-KM	ar	rtl	العربية (جزر القمر)	Arabic (Comoros)	árabe (Comoras)	árabe (Comores)
+ar-KW	ar	rtl	العربية (الكويت)	Arabic (Kuwait)	árabe (Kuwait)	árabe (Kuwait)
+ar-LB	ar	rtl	العربية (لبنان)	Arabic (Lebanon)	árabe (Líbano)	árabe (Líbano)
+ar-LY	ar	rtl	العربية (ليبيا)	Arabic (Libya)	árabe (Libia)	árabe (Líbia)
+ar-MA	ar	rtl	العربية (المغرب)	Arabic (Morocco)	árabe (Marruecos)	árabe (Marrocos)
+ar-MR	ar	rtl	العربية (موريتانيا)	Arabic (Mauritania)	árabe (Mauritania)	árabe (Mauritânia)
+ar-OM	ar	rtl	العربية (عُمان)	Arabic (Oman)	árabe (Omán)	árabe (Omã)
+ar-PS	ar	rtl	العربية (الأراضي الفلسطينية)	Arabic (Palestinian Territories)	árabe (Territorios Palestinos)	árabe (Territórios palestinos)
+ar-QA	ar	rtl	العربية (قطر)	Arabic (Qatar)	árabe (Catar)	árabe (Catar)
+ar-SA	ar	rtl	العربية (المملكة العربية السعودية)	Arabic (Saudi Arabia)	árabe (Arabia Saudí)	árabe (Arábia Saudita)
+ar-SD	ar	rtl	العربية (السودان)	Arabic (Sudan)	árabe (Sudán)	árabe (Sudão)
+ar-SO	ar	rtl	العربية (الصومال)	Arabic (Somalia)	árabe (Somalia)	árabe (Somália)
+ar-SS	ar	rtl	العربية (جنوب السودان)	Arabic (South Sudan)	árabe (Sudán del Sur)	árabe (Sudão do Sul)
+ar-SY	ar	rtl	العربية (سوريا)	Arabic (Syria)	árabe (Siria)	árabe (Síria)
+ar-TD	ar	rtl	العربية (تشاد)	Arabic (Chad)	árabe (Chad)	árabe (Chade)
+ar-TN	ar	rtl	العربية (تونس)	Arabic (Tunisia)	árabe (Túnez)	árabe (Tunísia)
+ar-YE	ar	rtl	العربية (اليمن)	Arabic (Yemen)	árabe (Yemen)	árabe (Iêmen)
+as	as	ltr	অসমীয়া	Assamese	asamés	assamês
+az	az	ltr	azərbaycan	Azerbaijani	azerbaiyano	azerbaijano
+az-Latn	az	ltr	azərbaycan (latın)	Azerbaijani (Latin)	azerbaiyano (latino)	azerbaijano (latim)
+ba	ba	ltr	башҡорт	Bashkir	baskir	bashkir
+be	be	ltr	беларуская	Belarusian	bielorruso	bielorrusso
+be-tarask	be	ltr	беларуская (Taraskievica orthography)	Belarusian (Taraskievica orthography)	bielorruso (Taraskievica orthography)	bielorrusso (ortografia taraskievica)
+bg	bg	ltr	български	Bulgarian	búlgaro	búlgaro
+bn	bn	ltr	বাংলা	Bangla	bengalí	bengali
+bn-IN	bn	ltr	বাংলা (ভারত)	Bangla (India)	bengalí (India)	bengali (Índia)
+bs	bs	ltr	bosanski	Bosnian	bosnio	bósnio
+bs-Latn	bs	ltr	bosanski (latinica)	Bosnian (Latin)	bosnio (latino)	bósnio (latim)
+ca	ca	ltr	català	Catalan	catalán	catalão
+ca-AD	ca	ltr	català (Andorra)	Catalan (Andorra)	catalán (Andorra)	catalão (Andorra)
+ca-ES-valencia	ca	ltr	català (Espanya, valencià)	Catalan (Spain, Valencian)	catalán (España, Valenciano)	catalão (Espanha, valenciano)
+ca-FR	ca	ltr	català (França)	Catalan (France)	catalán (Francia)	catalão (França)
+ca-IT	ca	ltr	català (Itàlia)	Catalan (Italy)	catalán (Italia)	catalão (Itália)
+chr	chr	ltr	ᏣᎳᎩ	Cherokee	cheroqui	cheroqui
+cs	cs	ltr	čeština	Czech	checo	tcheco
+cv	cv	ltr	чӑваш чӗлхи	Chuvash	chuvasio	tchuvache
+cy	cy	ltr	Cymraeg	Welsh	galés	galês
+da	da	ltr	dansk	Danish	danés	dinamarquês
+da-GL	da	ltr	dansk (Grønland)	Danish (Greenland)	danés (Groenlandia)	dinamarquês (Groenlândia)
+de	de	ltr	Deutsch	German	alemán	alemão
+de-AT	de	ltr	Österreichisches Deutsch	Austrian German	alemán austríaco	alemão (Áustria)
+de-BE	de	ltr	Deutsch (Belgien)	German (Belgium)	alemán (Bélgica)	alemão (Bélgica)
+de-CH	de	ltr	Schweizer Hochdeutsch	Swiss High German	alto alemán suizo	alto alemão (Suíça)
+de-IT	de	ltr	Deutsch (Italien)	German (Italy)	alemán (Italia)	alemão (Itália)
+de-LI	de	ltr	Deutsch (Liechtenstein)	German (Liechtenstein)	alemán (Liechtenstein)	alemão (Liechtenstein)
+de-LU	de	ltr	Deutsch (Luxemburg)	German (Luxembourg)	alemán (Luxemburgo)	alemão (Luxemburgo)
+dsb	dsb	ltr	dolnoserbšćina	Lower Sorbian	bajo sorbio	baixo sorábio
+el	el	ltr	Ελληνικά	Greek	griego	grego
+el-CY	el	ltr	Ελληνικά (Κύπρος)	Greek (Cyprus)	griego (Chipre)	grego (Chipre)
+el-polyton	el	ltr	Ἑλληνικά (Πολυτονικό)	Greek (Polytonic)	griego (Politónico)	grego (politônico)
+en	en	ltr	English	English	inglés	inglês
+en-001	en	ltr	English (world)	English (world)	inglés (Mundo)	inglês (Mundo)
+en-150	en	ltr	English (Europe)	English (Europe)	inglés (Europa)	inglês (Europa)
+en-AE	en	ltr	English (United Arab Emirates)	English (United Arab Emirates)	inglés (Emiratos Árabes Unidos)	inglês (Emirados Árabes Unidos)
+en-AG	en	ltr	English (Antigua & Barbuda)	English (Antigua & Barbuda)	inglés (Antigua y Barbuda)	inglês (Antígua e Barbuda)
+en-AI	en	ltr	English (Anguilla)	English (Anguilla)	inglés (Anguila)	inglês (Anguila)
+en-AS	en	ltr	English (American Samoa)	English (American Samoa)	inglés (Samoa Americana)	inglês (Samoa Americana)
+en-AT	en	ltr	English (Austria)	English (Austria)	inglés (Austria)	inglês (Áustria)
+en-AU	en	ltr	Australian English	Australian English	inglés australiano	inglês (Austrália)
+en-BB	en	ltr	English (Barbados)	English (Barbados)	inglés (Barbados)	inglês (Barbados)
+en-BE	en	ltr	English (Belgium)	English (Belgium)	inglés (Bélgica)	inglês (Bélgica)
+en-BI	en	ltr	English (Burundi)	English (Burundi)	inglés (Burundi)	inglês (Burundi)
+en-BM	en	ltr	English (Bermuda)	English (Bermuda)	inglés (Bermudas)	inglês (Bermudas)
+en-BS	en	ltr	English (Bahamas)	English (Bahamas)	inglés (Bahamas)	inglês (Bahamas)
+en-BW	en	ltr	English (Botswana)	English (Botswana)	inglés (Botsuana)	inglês (Botsuana)
+en-BZ	en	ltr	English (Belize)	English (Belize)	inglés (Belice)	inglês (Belize)
+en-CA	en	ltr	Canadian English	Canadian English	inglés canadiense	inglês (Canadá)
+en-CC	en	ltr	English (Cocos (Keeling) Islands)	English (Cocos (Keeling) Islands)	inglés (Islas Cocos)	inglês (Ilhas Cocos (Keeling))
+en-CH	en	ltr	English (Switzerland)	English (Switzerland)	inglés (Suiza)	inglês (Suíça)
+en-CK	en	ltr	English (Cook Islands)	English (Cook Islands)	inglés (Islas Cook)	inglês (Ilhas Cook)
+en-CM	en	ltr	English (Cameroon)	English (Cameroon)	inglés (Camerún)	inglês (Camarões)
+en-CX	en	ltr	English (Christmas Island)	English (Christmas Island)	inglés (Isla de Navidad)	inglês (Ilha Christmas)
+en-CY	en	ltr	English (Cyprus)	English (Cyprus)	inglés (Chipre)	inglês (Chipre)
+en-CZ	en	ltr	English (Czechia)	English (Czechia)	inglés (Chequia)	inglês (Tchéquia)
+en-DE	en	ltr	English (Germany)	English (Germany)	inglés (Alemania)	inglês (Alemanha)
+en-DG	en	ltr	English (Diego Garcia)	English (Diego Garcia)	inglés (Diego García)	inglês (Diego Garcia)
+en-DK	en	ltr	English (Denmark)	English (Denmark)	inglés (Dinamarca)	inglês (Dinamarca)
+en-DM	en	ltr	English (Dominica)	English (Dominica)	inglés (Dominica)	inglês (Dominica)
+en-EE	en	ltr	English (Estonia)	English (Estonia)	inglés (Estonia)	inglês (Estônia)
+en-ER	en	ltr	English (Eritrea)	English (Eritrea)	inglés (Eritrea)	inglês (Eritreia)
+en-ES	en	ltr	English (Spain)	English (Spain)	inglés (España)	inglês (Espanha)
+en-FI	en	ltr	English (Finland)	English (Finland)	inglés (Finlandia)	inglês (Finlândia)
+en-FJ	en	ltr	English (Fiji)	English (Fiji)	inglés (Fiyi)	inglês (Fiji)
+en-FK	en	ltr	English (Falkland Islands)	English (Falkland Islands)	inglés (Islas Malvinas)	inglês (Ilhas Malvinas)
+en-FM	en	ltr	English (Micronesia)	English (Micronesia)	inglés (Micronesia)	inglês (Micronésia)
+en-FR	en	ltr	English (France)	English (France)	inglés (Francia)	inglês (França)
+en-GB	en	ltr	British English	British English	inglés británico	inglês (Reino Unido)
+en-GD	en	ltr	English (Grenada)	English (Grenada)	inglés (Granada)	inglês (Granada)
+en-GE	en	ltr	English (Georgia)	English (Georgia)	inglés (Georgia)	inglês (Geórgia)
+en-GG	en	ltr	English (Guernsey)	English (Guernsey)	inglés (Guernesey)	inglês (Guernsey)
+en-GH	en	ltr	English (Ghana)	English (Ghana)	inglés (Ghana)	inglês (Gana)
+en-GI	en	ltr	English (Gibraltar)	English (Gibraltar)	inglés (Gibraltar)	inglês (Gibraltar)
+en-GM	en	ltr	English (Gambia)	English (Gambia)	inglés (Gambia)	inglês (Gâmbia)
+en-GS	en	ltr	English (South Georgia & South Sandwich Islands)	English (South Georgia & South Sandwich Islands)	inglés (Islas Georgia del Sur y Sandwich del Sur)	inglês (Ilhas Geórgia do Sul e Sandwich do Sul)
+en-GU	en	ltr	English (Guam)	English (Guam)	inglés (Guam)	inglês (Guam)
+en-GY	en	ltr	English (Guyana)	English (Guyana)	inglés (Guyana)	inglês (Guiana)
+en-HK	en	ltr	English (Hong Kong SAR China)	English (Hong Kong SAR China)	inglés (RAE de Hong Kong (China))	inglês (Hong Kong, RAE da China)
+en-HU	en	ltr	English (Hungary)	English (Hungary)	inglés (Hungría)	inglês (Hungria)
+en-ID	en	ltr	English (Indonesia)	English (Indonesia)	inglés (Indonesia)	inglês (Indonésia)
+en-IE	en	ltr	English (Ireland)	English (Ireland)	inglés (Irlanda)	inglês (Irlanda)
+en-IL	en	ltr	English (Israel)	English (Israel)	inglés (Israel)	inglês (Israel)
+en-IM	en	ltr	English (Isle of Man)	English (Isle of Man)	inglés (Isla de Man)	inglês (Ilha de Man)
+en-IN	en	ltr	English (India)	English (India)	inglés (India)	inglês (Índia)
+en-IO	en	ltr	English (British Indian Ocean Territory)	English (British Indian Ocean Territory)	inglés (Territorio Británico del Océano Índico)	inglês (Território Britânico do Oceano Índico)
+en-IT	en	ltr	English (Italy)	English (Italy)	inglés (Italia)	inglês (Itália)
+en-JE	en	ltr	English (Jersey)	English (Jersey)	inglés (Jersey)	inglês (Jersey)
+en-JM	en	ltr	English (Jamaica)	English (Jamaica)	inglés (Jamaica)	inglês (Jamaica)
+en-JP	en	ltr	English (Japan)	English (Japan)	inglés (Japón)	inglês (Japão)
+en-KE	en	ltr	English (Kenya)	English (Kenya)	inglés (Kenia)	inglês (Quênia)
+en-KI	en	ltr	English (Kiribati)	English (Kiribati)	inglés (Kiribati)	inglês (Quiribati)
+en-KN	en	ltr	English (St Kitts & Nevis)	English (St. Kitts & Nevis)	inglés (San Cristóbal y Nieves)	inglês (São Cristóvão e Névis)
+en-KY	en	ltr	English (Cayman Islands)	English (Cayman Islands)	inglés (Islas Caimán)	inglês (Ilhas Cayman)
+en-LC	en	ltr	English (St Lucia)	English (St. Lucia)	inglés (Santa Lucía)	inglês (Santa Lúcia)
+en-LR	en	ltr	English (Liberia)	English (Liberia)	inglés (Liberia)	inglês (Libéria)
+en-LS	en	ltr	English (Lesotho)	English (Lesotho)	inglés (Lesoto)	inglês (Lesoto)
+en-LT	en	ltr	English (Lithuania)	English (Lithuania)	inglés (Lituania)	inglês (Lituânia)
+en-LV	en	ltr	English (Latvia)	English (Latvia)	inglés (Letonia)	inglês (Letônia)
+en-MG	en	ltr	English (Madagascar)	English (Madagascar)	inglés (Madagascar)	inglês (Madagascar)
+en-MH	en	ltr	English (Marshall Islands)	English (Marshall Islands)	inglés (Islas Marshall)	inglês (Ilhas Marshall)
+en-MO	en	ltr	English (Macao SAR China)	English (Macao SAR China)	inglés (RAE de Macao (China))	inglês (Macau, RAE da China)
+en-MP	en	ltr	English (Northern Mariana Islands)	English (Northern Mariana Islands)	inglés (Islas Marianas del Norte)	inglês (Ilhas Marianas do Norte)
+en-MS	en	ltr	English (Montserrat)	English (Montserrat)	inglés (Montserrat)	inglês (Montserrat)
+en-MT	en	ltr	English (Malta)	English (Malta)	inglés (Malta)	inglês (Malta)
+en-MU	en	ltr	English (Mauritius)	English (Mauritius)	inglés (Mauricio)	inglês (Maurício)
+en-MV	en	ltr	English (Maldives)	English (Maldives)	inglés (Maldivas)	inglês (Maldivas)
+en-MW	en	ltr	English (Malawi)	English (Malawi)	inglés (Malaui)	inglês (Malaui)
+en-MY	en	ltr	English (Malaysia)	English (Malaysia)	inglés (Malasia)	inglês (Malásia)
+en-NA	en	ltr	English (Namibia)	English (Namibia)	inglés (Namibia)	inglês (Namíbia)
+en-NF	en	ltr	English (Norfolk Island)	English (Norfolk Island)	inglés (Isla Norfolk)	inglês (Ilha Norfolk)
+en-NG	en	ltr	English (Nigeria)	English (Nigeria)	inglés (Nigeria)	inglês (Nigéria)
+en-NL	en	ltr	English (Netherlands)	English (Netherlands)	inglés (Países Bajos)	inglês (Países Baixos)
+en-NO	en	ltr	English (Norway)	English (Norway)	inglés (Noruega)	inglês (Noruega)
+en-NR	en	ltr	English (Nauru)	English (Nauru)	inglés (Nauru)	inglês (Nauru)
+en-NU	en	ltr	English (Niue)	English (Niue)	inglés (Niue)	inglês (Niue)
+en-NZ	en	ltr	English (New Zealand)	English (New Zealand)	inglés (Nueva Zelanda)	inglês (Nova Zelândia)
+en-PG	en	ltr	English (Papua New Guinea)	English (Papua New Guinea)	inglés (Papúa Nueva Guinea)	inglês (Papua-Nova Guiné)
+en-PH	en	ltr	English (Philippines)	English (Philippines)	inglés (Filipinas)	inglês (Filipinas)
+en-PK	en	ltr	English (Pakistan)	English (Pakistan)	inglés (Pakistán)	inglês (Paquistão)
+en-PL	en	ltr	English (Poland)	English (Poland)	inglés (Polonia)	inglês (Polônia)
+en-PN	en	ltr	English (Pitcairn Islands)	English (Pitcairn Islands)	inglés (Islas Pitcairn)	inglês (Ilhas Pitcairn)
+en-PR	en	ltr	English (Puerto Rico)	English (Puerto Rico)	inglés (Puerto Rico)	inglês (Porto Rico)
+en-PT	en	ltr	English (Portugal)	English (Portugal)	inglés (Portugal)	inglês (Portugal)
+en-PW	en	ltr	English (Palau)	English (Palau)	inglés (Palaos)	inglês (Palau)
+en-RO	en	ltr	English (Romania)	English (Romania)	inglés (Rumanía)	inglês (Romênia)
+en-RW	en	ltr	English (Rwanda)	English (Rwanda)	inglés (Ruanda)	inglês (Ruanda)
+en-SB	en	ltr	English (Solomon Islands)	English (Solomon Islands)	inglés (Islas Salomón)	inglês (Ilhas Salomão)
+en-SC	en	ltr	English (Seychelles)	English (Seychelles)	inglés (Seychelles)	inglês (Seicheles)
+en-SD	en	ltr	English (Sudan)	English (Sudan)	inglés (Sudán)	inglês (Sudão)
+en-SE	en	ltr	English (Sweden)	English (Sweden)	inglés (Suecia)	inglês (Suécia)
+en-SG	en	ltr	English (Singapore)	English (Singapore)	inglés (Singapur)	inglês (Singapura)
+en-SH	en	ltr	English (St Helena)	English (St. Helena)	inglés (Santa Elena)	inglês (Santa Helena)
+en-SI	en	ltr	English (Slovenia)	English (Slovenia)	inglés (Eslovenia)	inglês (Eslovênia)
+en-SK	en	ltr	English (Slovakia)	English (Slovakia)	inglés (Eslovaquia)	inglês (Eslováquia)
+en-SL	en	ltr	English (Sierra Leone)	English (Sierra Leone)	inglés (Sierra Leona)	inglês (Serra Leoa)
+en-SS	en	ltr	English (South Sudan)	English (South Sudan)	inglés (Sudán del Sur)	inglês (Sudão do Sul)
+en-SX	en	ltr	English (Sint Maarten)	English (Sint Maarten)	inglés (Sint Maarten)	inglês (Sint Maarten)
+en-SZ	en	ltr	English (Eswatini)	English (Eswatini)	inglés (Esuatini)	inglês (Essuatíni)
+en-TC	en	ltr	English (Turks & Caicos Islands)	English (Turks & Caicos Islands)	inglés (Islas Turcas y Caicos)	inglês (Ilhas Turcas e Caicos)
+en-TK	en	ltr	English (Tokelau)	English (Tokelau)	inglés (Tokelau)	inglês (Tokelau)
+en-TO	en	ltr	English (Tonga)	English (Tonga)	inglés (Tonga)	inglês (Tonga)
+en-TT	en	ltr	English (Trinidad & Tobago)	English (Trinidad & Tobago)	inglés (Trinidad y Tobago)	inglês (Trinidad e Tobago)
+en-TV	en	ltr	English (Tuvalu)	English (Tuvalu)	inglés (Tuvalu)	inglês (Tuvalu)
+en-TZ	en	ltr	English (Tanzania)	English (Tanzania)	inglés (Tanzania)	inglês (Tanzânia)
+en-UA	en	ltr	English (Ukraine)	English (Ukraine)	inglés (Ucrania)	inglês (Ucrânia)
+en-UG	en	ltr	English (Uganda)	English (Uganda)	inglés (Uganda)	inglês (Uganda)
+en-UM	en	ltr	English (U.S. Outlying Islands)	English (U.S. Outlying Islands)	inglés (Islas menores alejadas de EE. UU.)	inglês (Ilhas Menores Distantes dos EUA)
+en-VC	en	ltr	English (St Vincent & the Grenadines)	English (St. Vincent & Grenadines)	inglés (San Vicente y las Granadinas)	inglês (São Vicente e Granadinas)
+en-VG	en	ltr	English (British Virgin Islands)	English (British Virgin Islands)	inglés (Islas Vírgenes Británicas)	inglês (Ilhas Virgens Britânicas)
+en-VI	en	ltr	English (U.S. Virgin Islands)	English (U.S. Virgin Islands)	inglés (Islas Vírgenes de EE. UU.)	inglês (Ilhas Virgens Americanas)
+en-VU	en	ltr	English (Vanuatu)	English (Vanuatu)	inglés (Vanuatu)	inglês (Vanuatu)
+en-WS	en	ltr	English (Samoa)	English (Samoa)	inglés (Samoa)	inglês (Samoa)
+en-ZA	en	ltr	English (South Africa)	English (South Africa)	inglés (Sudáfrica)	inglês (África do Sul)
+en-ZM	en	ltr	English (Zambia)	English (Zambia)	inglés (Zambia)	inglês (Zâmbia)
+en-ZW	en	ltr	English (Zimbabwe)	English (Zimbabwe)	inglés (Zimbabue)	inglês (Zimbábue)
+es	es	ltr	español	Spanish	español	espanhol
+es-419	es	ltr	español latinoamericano	Latin American Spanish	español latinoamericano	espanhol (América Latina)
+es-AR	es	ltr	español (Argentina)	Spanish (Argentina)	español (Argentina)	espanhol (Argentina)
+es-BO	es	ltr	español (Bolivia)	Spanish (Bolivia)	español (Bolivia)	espanhol (Bolívia)
+es-BR	es	ltr	español (Brasil)	Spanish (Brazil)	español (Brasil)	espanhol (Brasil)
+es-BZ	es	ltr	español (Belice)	Spanish (Belize)	español (Belice)	espanhol (Belize)
+es-CL	es	ltr	español (Chile)	Spanish (Chile)	español (Chile)	espanhol (Chile)
+es-CO	es	ltr	español (Colombia)	Spanish (Colombia)	español (Colombia)	espanhol (Colômbia)
+es-CR	es	ltr	español (Costa Rica)	Spanish (Costa Rica)	español (Costa Rica)	espanhol (Costa Rica)
+es-CU	es	ltr	español (Cuba)	Spanish (Cuba)	español (Cuba)	espanhol (Cuba)
+es-DO	es	ltr	español (República Dominicana)	Spanish (Dominican Republic)	español (República Dominicana)	espanhol (República Dominicana)
+es-EA	es	ltr	español (Ceuta y Melilla)	Spanish (Ceuta & Melilla)	español (Ceuta y Melilla)	espanhol (Ceuta e Melilla)
+es-EC	es	ltr	español (Ecuador)	Spanish (Ecuador)	español (Ecuador)	espanhol (Equador)
+es-GQ	es	ltr	español (Guinea Ecuatorial)	Spanish (Equatorial Guinea)	español (Guinea Ecuatorial)	espanhol (Guiné Equatorial)
+es-GT	es	ltr	español (Guatemala)	Spanish (Guatemala)	español (Guatemala)	espanhol (Guatemala)
+es-HN	es	ltr	español (Honduras)	Spanish (Honduras)	español (Honduras)	espanhol (Honduras)
+es-IC	es	ltr	español (Canarias)	Spanish (Canary Islands)	español (Canarias)	espanhol (Ilhas Canárias)
+es-MX	es	ltr	español de México	Mexican Spanish	español de México	espanhol (México)
+es-NI	es	ltr	español (Nicaragua)	Spanish (Nicaragua)	español (Nicaragua)	espanhol (Nicarágua)
+es-PA	es	ltr	español (Panamá)	Spanish (Panama)	español (Panamá)	espanhol (Panamá)
+es-PE	es	ltr	español (Perú)	Spanish (Peru)	español (Perú)	espanhol (Peru)
+es-PH	es	ltr	español (Filipinas)	Spanish (Philippines)	español (Filipinas)	espanhol (Filipinas)
+es-PR	es	ltr	español (Puerto Rico)	Spanish (Puerto Rico)	español (Puerto Rico)	espanhol (Porto Rico)
+es-PY	es	ltr	español (Paraguay)	Spanish (Paraguay)	español (Paraguay)	espanhol (Paraguai)
+es-SV	es	ltr	español (El Salvador)	Spanish (El Salvador)	español (El Salvador)	espanhol (El Salvador)
+es-US	es	ltr	español (Estados Unidos)	Spanish (United States)	español (Estados Unidos)	espanhol (Estados Unidos)
+es-UY	es	ltr	español (Uruguay)	Spanish (Uruguay)	español (Uruguay)	espanhol (Uruguai)
+es-VE	es	ltr	español (Venezuela)	Spanish (Venezuela)	español (Venezuela)	espanhol (Venezuela)
+et	et	ltr	eesti	Estonian	estonio	estoniano
+eu	eu	ltr	euskara	Basque	euskera	basco
+fa	fa	rtl	فارسی	Persian	persa	persa
+fa-AF	fa	rtl	دری	Dari	darí	dari
+fi	fi	ltr	suomi	Finnish	finés	finlandês
+fil	fil	ltr	Filipino	Filipino	filipino	filipino
+fr	fr	ltr	français	French	francés	francês
+fr-BE	fr	ltr	français (Belgique)	French (Belgium)	francés (Bélgica)	francês (Bélgica)
+fr-BF	fr	ltr	français (Burkina Faso)	French (Burkina Faso)	francés (Burkina Faso)	francês (Burquina Faso)
+fr-BI	fr	ltr	français (Burundi)	French (Burundi)	francés (Burundi)	francês (Burundi)
+fr-BJ	fr	ltr	français (Bénin)	French (Benin)	francés (Benín)	francês (Benin)
+fr-BL	fr	ltr	français (Saint-Barthélemy)	French (St. Barthélemy)	francés (San Bartolomé)	francês (São Bartolomeu)
+fr-CA	fr	ltr	français canadien	Canadian French	francés canadiense	francês (Canadá)
+fr-CD	fr	ltr	français (Congo-Kinshasa)	French (Congo - Kinshasa)	francés (República Democrática del Congo)	francês (Congo - Kinshasa)
+fr-CF	fr	ltr	français (République centrafricaine)	French (Central African Republic)	francés (República Centroafricana)	francês (República Centro-Africana)
+fr-CG	fr	ltr	français (Congo-Brazzaville)	French (Congo - Brazzaville)	francés (Congo)	francês (República do Congo)
+fr-CH	fr	ltr	français suisse	Swiss French	francés suizo	francês (Suíça)
+fr-CI	fr	ltr	français (Côte d’Ivoire)	French (Côte d’Ivoire)	francés (Côte d’Ivoire)	francês (Costa do Marfim)
+fr-CM	fr	ltr	français (Cameroun)	French (Cameroon)	francés (Camerún)	francês (Camarões)
+fr-DJ	fr	ltr	français (Djibouti)	French (Djibouti)	francés (Yibuti)	francês (Djibuti)
+fr-DZ	fr	ltr	français (Algérie)	French (Algeria)	francés (Argelia)	francês (Argélia)
+fr-GA	fr	ltr	français (Gabon)	French (Gabon)	francés (Gabón)	francês (Gabão)
+fr-GF	fr	ltr	français (Guyane française)	French (French Guiana)	francés (Guayana Francesa)	francês (Guiana Francesa)
+fr-GN	fr	ltr	français (Guinée)	French (Guinea)	francés (Guinea)	francês (Guiné)
+fr-GP	fr	ltr	français (Guadeloupe)	French (Guadeloupe)	francés (Guadalupe)	francês (Guadalupe)
+fr-GQ	fr	ltr	français (Guinée équatoriale)	French (Equatorial Guinea)	francés (Guinea Ecuatorial)	francês (Guiné Equatorial)
+fr-HT	fr	ltr	français (Haïti)	French (Haiti)	francés (Haití)	francês (Haiti)
+fr-KM	fr	ltr	français (Comores)	French (Comoros)	francés (Comoras)	francês (Comores)
+fr-LU	fr	ltr	français (Luxembourg)	French (Luxembourg)	francés (Luxemburgo)	francês (Luxemburgo)
+fr-MA	fr	ltr	français (Maroc)	French (Morocco)	francés (Marruecos)	francês (Marrocos)
+fr-MC	fr	ltr	français (Monaco)	French (Monaco)	francés (Mónaco)	francês (Mônaco)
+fr-MF	fr	ltr	français (Saint-Martin)	French (St. Martin)	francés (San Martín)	francês (São Martinho)
+fr-MG	fr	ltr	français (Madagascar)	French (Madagascar)	francés (Madagascar)	francês (Madagascar)
+fr-ML	fr	ltr	français (Mali)	French (Mali)	francés (Mali)	francês (Mali)
+fr-MQ	fr	ltr	français (Martinique)	French (Martinique)	francés (Martinica)	francês (Martinica)
+fr-MR	fr	ltr	français (Mauritanie)	French (Mauritania)	francés (Mauritania)	francês (Mauritânia)
+fr-MU	fr	ltr	français (Maurice)	French (Mauritius)	francés (Mauricio)	francês (Maurício)
+fr-NC	fr	ltr	français (Nouvelle-Calédonie)	French (New Caledonia)	francés (Nueva Caledonia)	francês (Nova Caledônia)
+fr-NE	fr	ltr	français (Niger)	French (Niger)	francés (Níger)	francês (Níger)
+fr-PF	fr	ltr	français (Polynésie française)	French (French Polynesia)	francés (Polinesia Francesa)	francês (Polinésia Francesa)
+fr-PM	fr	ltr	français (Saint-Pierre-et-Miquelon)	French (St. Pierre & Miquelon)	francés (San Pedro y Miquelón)	francês (São Pedro e Miquelão)
+fr-RE	fr	ltr	français (La Réunion)	French (Réunion)	francés (Reunión)	francês (Reunião)
+fr-RW	fr	ltr	français (Rwanda)	French (Rwanda)	francés (Ruanda)	francês (Ruanda)
+fr-SC	fr	ltr	français (Seychelles)	French (Seychelles)	francés (Seychelles)	francês (Seicheles)
+fr-SN	fr	ltr	français (Sénégal)	French (Senegal)	francés (Senegal)	francês (Senegal)
+fr-SY	fr	ltr	français (Syrie)	French (Syria)	francés (Siria)	francês (Síria)
+fr-TD	fr	ltr	français (Tchad)	French (Chad)	francés (Chad)	francês (Chade)
+fr-TG	fr	ltr	français (Togo)	French (Togo)	francés (Togo)	francês (Togo)
+fr-TN	fr	ltr	français (Tunisie)	French (Tunisia)	francés (Túnez)	francês (Tunísia)
+fr-VU	fr	ltr	français (Vanuatu)	French (Vanuatu)	francés (Vanuatu)	francês (Vanuatu)
+fr-WF	fr	ltr	français (Wallis-et-Futuna)	French (Wallis & Futuna)	francés (Wallis y Futuna)	francês (Wallis e Futuna)
+fr-YT	fr	ltr	français (Mayotte)	French (Mayotte)	francés (Mayotte)	francês (Mayotte)
+ga	ga	ltr	Gaeilge	Irish	irlandés	irlandês
+ga-GB	ga	ltr	Gaeilge (an Ríocht Aontaithe)	Irish (United Kingdom)	irlandés (Reino Unido)	irlandês (Reino Unido)
+gd	gd	ltr	Gàidhlig	Scottish Gaelic	gaélico escocés	gaélico escocês
+gl	gl	ltr	galego	Galician	gallego	galego
+gu	gu	ltr	ગુજરાતી	Gujarati	guyaratí	guzerate
+ha	ha	ltr	Hausa	Hausa	hausa	hauçá
+ha-GH	ha	ltr	Hausa (Gana)	Hausa (Ghana)	hausa (Ghana)	hauçá (Gana)
+ha-NE	ha	ltr	Hausa (Nijar)	Hausa (Niger)	hausa (Níger)	hauçá (Níger)
+he	he	rtl	עברית	Hebrew	hebreo	hebraico
+hi	hi	ltr	हिन्दी	Hindi	hindi	hindi
+hi-Latn	hi	ltr	Hindi (Latin)	Hindi (Latin)	hindi (latino)	hindi (latim)
+hr	hr	ltr	hrvatski	Croatian	croata	croata
+hr-BA	hr	ltr	hrvatski (Bosna i Hercegovina)	Croatian (Bosnia & Herzegovina)	croata (Bosnia y Herzegovina)	croata (Bósnia e Herzegovina)
+hsb	hsb	ltr	hornjoserbšćina	Upper Sorbian	alto sorbio	alto sorábio
+ht	ht	ltr	Kreyòl Ayisyen	Haitian Creole	criollo haitiano	haitiano
+hu	hu	ltr	magyar	Hungarian	húngaro	húngaro
+hy	hy	ltr	հայերեն	Armenian	armenio	armênio
+id	id	ltr	Indonesia	Indonesian	indonesio	indonésio
+ig	ig	ltr	Igbo	Igbo	igbo	igbo
+is	is	ltr	íslenska	Icelandic	islandés	islandês
+it	it	ltr	italiano	Italian	italiano	italiano
+it-CH	it	ltr	italiano (Svizzera)	Italian (Switzerland)	italiano (Suiza)	italiano (Suíça)
+it-SM	it	ltr	italiano (San Marino)	Italian (San Marino)	italiano (San Marino)	italiano (San Marino)
+it-VA	it	ltr	italiano (Città del Vaticano)	Italian (Vatican City)	italiano (Ciudad del Vaticano)	italiano (Cidade do Vaticano)
+ja	ja	ltr	日本語	Japanese	japonés	japonês
+jv	jv	ltr	Jawa	Javanese	javanés	javanês
+ka	ka	ltr	ქართული	Georgian	georgiano	georgiano
+kk	kk	ltr	қазақ тілі	Kazakh	kazajo	cazaque
+kk-Arab	kk	rtl	قازاق ءتىلى (توتە)	Kazakh (Arabic)	kazajo (árabe)	cazaque (árabe)
+kk-Cyrl	kk	ltr	қазақ тілі (кирилл жазуы)	Kazakh (Cyrillic)	kazajo (cirílico)	cazaque (cirílico)
+kk-KZ	kk	ltr	қазақ тілі (Қазақстан)	Kazakh (Kazakhstan)	kazajo (Kazajistán)	cazaque (Cazaquistão)
+km	km	ltr	ខ្មែរ	Khmer	jemer	khmer
+kn	kn	ltr	ಕನ್ನಡ	Kannada	canarés	canarim
+ko	ko	ltr	한국어	Korean	coreano	coreano
+ko-CN	ko	ltr	한국어(중국)	Korean (China)	coreano (China)	coreano (China)
+ko-KP	ko	ltr	한국어(조선민주주의인민공화국)	Korean (North Korea)	coreano (Corea del Norte)	coreano (Coreia do Norte)
+kok	kok	ltr	कोंकणी	Konkani	konkaní	concani
+kok-Deva	kok	ltr	कोंकणी (देवनागरी)	Konkani (Devanagari)	konkaní (devanagari)	concani (devanágari)
+ky	ky	ltr	кыргызча	Kyrgyz	kirguís	quirguiz
+lo	lo	ltr	ລາວ	Lao	lao	laosiano
+lt	lt	ltr	lietuvių	Lithuanian	lituano	lituano
+lv	lv	ltr	latviešu	Latvian	letón	letão
+mk	mk	ltr	македонски	Macedonian	macedonio	macedônio
+ml	ml	ltr	മലയാളം	Malayalam	malayálam	malaiala
+mn	mn	ltr	монгол	Mongolian	mongol	mongol
+mr	mr	ltr	मराठी	Marathi	maratí	marati
+ms	ms	ltr	Melayu	Malay	malayo	malaio
+ms-BN	ms	ltr	Melayu (Brunei)	Malay (Brunei)	malayo (Brunéi)	malaio (Brunei)
+ms-ID	ms	ltr	Melayu (Indonesia)	Malay (Indonesia)	malayo (Indonesia)	malaio (Indonésia)
+ms-SG	ms	ltr	Melayu (Singapura)	Malay (Singapore)	malayo (Singapur)	malaio (Singapura)
+my	my	ltr	မြန်မာ	Burmese	birmano	birmanês
+nb	nb	ltr	norsk bokmål	Norwegian Bokmål	noruego bokmal	bokmål norueguês
+nb-SJ	nb	ltr	norsk bokmål (Svalbard og Jan Mayen)	Norwegian Bokmål (Svalbard & Jan Mayen)	noruego bokmal (Svalbard y Jan Mayen)	bokmål norueguês (Svalbard e Jan Mayen)
+ne	ne	ltr	नेपाली	Nepali	nepalí	nepalês
+ne-IN	ne	ltr	नेपाली (भारत)	Nepali (India)	nepalí (India)	nepalês (Índia)
+nl	nl	ltr	Nederlands	Dutch	neerlandés	holandês
+nl-AW	nl	ltr	Nederlands (Aruba)	Dutch (Aruba)	neerlandés (Aruba)	holandês (Aruba)
+nl-BE	nl	ltr	Vlaams	Flemish	flamenco	flamengo
+nl-BQ	nl	ltr	Nederlands (Caribisch Nederland)	Dutch (Caribbean Netherlands)	neerlandés (Caribe neerlandés)	holandês (Países Baixos Caribenhos)
+nl-CW	nl	ltr	Nederlands (Curaçao)	Dutch (Curaçao)	neerlandés (Curazao)	holandês (Curaçao)
+nl-SR	nl	ltr	Nederlands (Suriname)	Dutch (Suriname)	neerlandés (Surinam)	holandês (Suriname)
+nl-SX	nl	ltr	Nederlands (Sint-Maarten)	Dutch (Sint Maarten)	neerlandés (Sint Maarten)	holandês (Sint Maarten)
+nn	nn	ltr	norsk nynorsk	Norwegian Nynorsk	noruego nynorsk	nynorsk norueguês
+no	no	ltr	norsk	Norwegian	noruego	norueguês
+or	or	ltr	ଓଡ଼ିଆ	Odia	oriya	oriá
+pa	pa	ltr	ਪੰਜਾਬੀ	Punjabi	punyabí	panjabi
+pa-Guru	pa	ltr	ਪੰਜਾਬੀ (ਗੁਰਮੁਖੀ)	Punjabi (Gurmukhi)	punyabí (gurmuji)	panjabi (gurmuqui)
+pcm	pcm	ltr	Naijíriá Píjin	Nigerian Pidgin	pidgin de Nigeria	pidgin nigeriano
+pl	pl	ltr	polski	Polish	polaco	polonês
+ps	ps	rtl	پښتو	Pashto	pastún	pashto
+ps-PK	ps	rtl	پښتو (پاکستان)	Pashto (Pakistan)	pastún (Pakistán)	pashto (Paquistão)
+pt	pt	ltr	português	Portuguese	portugués	português
+pt-AO	pt	ltr	português (Angola)	Portuguese (Angola)	portugués (Angola)	português (Angola)
+pt-CH	pt	ltr	português (Suíça)	Portuguese (Switzerland)	portugués (Suiza)	português (Suíça)
+pt-CV	pt	ltr	português (Cabo Verde)	Portuguese (Cape Verde)	portugués (Cabo Verde)	português (Cabo Verde)
+pt-GQ	pt	ltr	português (Guiné Equatorial)	Portuguese (Equatorial Guinea)	portugués (Guinea Ecuatorial)	português (Guiné Equatorial)
+pt-GW	pt	ltr	português (Guiné-Bissau)	Portuguese (Guinea-Bissau)	portugués (Guinea-Bisáu)	português (Guiné-Bissau)
+pt-LU	pt	ltr	português (Luxemburgo)	Portuguese (Luxembourg)	portugués (Luxemburgo)	português (Luxemburgo)
+pt-MO	pt	ltr	português (Macau, RAE da China)	Portuguese (Macao SAR China)	portugués (RAE de Macao (China))	português (Macau, RAE da China)
+pt-MZ	pt	ltr	português (Moçambique)	Portuguese (Mozambique)	portugués (Mozambique)	português (Moçambique)
+pt-PT	pt	ltr	português europeu	European Portuguese	portugués de Portugal	português (Portugal)
+pt-ST	pt	ltr	português (São Tomé e Príncipe)	Portuguese (São Tomé & Príncipe)	portugués (Santo Tomé y Príncipe)	português (São Tomé e Príncipe)
+pt-TL	pt	ltr	português (Timor-Leste)	Portuguese (Timor-Leste)	portugués (Timor-Leste)	português (Timor-Leste)
+qu	qu	ltr	Runasimi	Quechua	quechua	quíchua
+qu-BO	qu	ltr	Runasimi (Bolivia)	Quechua (Bolivia)	quechua (Bolivia)	quíchua (Bolívia)
+qu-EC	qu	ltr	Runasimi (Ecuador)	Quechua (Ecuador)	quechua (Ecuador)	quíchua (Equador)
+rm	rm	ltr	rumantsch	Romansh	romanche	romanche
+ro	ro	ltr	română	Romanian	rumano	romeno
+ro-MD	ro	ltr	română (Republica Moldova)	Moldavian	moldavo	moldávio
+ru	ru	ltr	русский	Russian	ruso	russo
+ru-BY	ru	ltr	русский (Беларусь)	Russian (Belarus)	ruso (Bielorrusia)	russo (Bielorrússia)
+ru-KG	ru	ltr	русский (Киргизия)	Russian (Kyrgyzstan)	ruso (Kirguistán)	russo (Quirguistão)
+ru-KZ	ru	ltr	русский (Казахстан)	Russian (Kazakhstan)	ruso (Kazajistán)	russo (Cazaquistão)
+ru-MD	ru	ltr	русский (Молдова)	Russian (Moldova)	ruso (Moldavia)	russo (Moldávia)
+ru-UA	ru	ltr	русский (Украина)	Russian (Ukraine)	ruso (Ucrania)	russo (Ucrânia)
+sd	sd	rtl	سنڌي	Sindhi	sindi	sindi
+sd-Arab	sd	rtl	سنڌي (عربي)	Sindhi (Arabic)	sindi (árabe)	sindi (árabe)
+shn	shn	ltr	တႆး	Shan	shan	shan
+shn-TH	shn	ltr	တႆး (မိူင်းထႆး)	Shan (Thailand)	shan (Tailandia)	shan (Tailândia)
+si	si	ltr	සිංහල	Sinhala	cingalés	cingalês
+sk	sk	ltr	slovenčina	Slovak	eslovaco	eslovaco
+sl	sl	ltr	slovenščina	Slovenian	esloveno	esloveno
+so	so	ltr	Soomaali	Somali	somalí	somali
+so-DJ	so	ltr	Soomaali (Jabuuti)	Somali (Djibouti)	somalí (Yibuti)	somali (Djibuti)
+so-ET	so	ltr	Soomaali (Itoobiya)	Somali (Ethiopia)	somalí (Etiopía)	somali (Etiópia)
+so-KE	so	ltr	Soomaali (Kenya)	Somali (Kenya)	somalí (Kenia)	somali (Quênia)
+sq	sq	ltr	shqip	Albanian	albanés	albanês
+sq-MK	sq	ltr	shqip (Maqedonia e Veriut)	Albanian (North Macedonia)	albanés (Macedonia del Norte)	albanês (Macedônia do Norte)
+sq-XK	sq	ltr	shqip (Kosovë)	Albanian (Kosovo)	albanés (Kosovo)	albanês (Kosovo)
+sr	sr	ltr	српски	Serbian	serbio	sérvio
+sr-Cyrl	sr	ltr	српски (ћирилица)	Serbian (Cyrillic)	serbio (cirílico)	sérvio (cirílico)
+sr-Cyrl-BA	sr	ltr	српски (ћирилица, Босна и Херцеговина)	Serbian (Cyrillic, Bosnia & Herzegovina)	serbio (cirílico, Bosnia y Herzegovina)	sérvio (cirílico, Bósnia e Herzegovina)
+sr-Cyrl-ME	sr	ltr	српски (ћирилица, Црна Гора)	Serbian (Cyrillic, Montenegro)	serbio (cirílico, Montenegro)	sérvio (cirílico, Montenegro)
+sr-Cyrl-XK	sr	ltr	српски (ћирилица, Косово)	Serbian (Cyrillic, Kosovo)	serbio (cirílico, Kosovo)	sérvio (cirílico, Kosovo)
+sr-Latn	sr	ltr	srpski (latinica)	Serbian (Latin)	serbio (latino)	sérvio (latim)
+sr-Latn-BA	sr	ltr	srpski (latinica, Bosna i Hercegovina)	Serbian (Latin, Bosnia & Herzegovina)	serbio (latino, Bosnia y Herzegovina)	sérvio (latim, Bósnia e Herzegovina)
+sr-Latn-ME	sr	ltr	srpski (latinica, Crna Gora)	Serbian (Latin, Montenegro)	serbio (latino, Montenegro)	sérvio (latim, Montenegro)
+sr-Latn-XK	sr	ltr	srpski (latinica, Kosovo)	Serbian (Latin, Kosovo)	serbio (latino, Kosovo)	sérvio (latim, Kosovo)
+sv	sv	ltr	svenska	Swedish	sueco	sueco
+sv-AX	sv	ltr	svenska (Åland)	Swedish (Åland Islands)	sueco (Islas Aland)	sueco (Ilhas Aland)
+sv-FI	sv	ltr	svenska (Finland)	Swedish (Finland)	sueco (Finlandia)	sueco (Finlândia)
+sw	sw	ltr	Kiswahili	Swahili	suajili	suaíli
+sw-CD	sw	ltr	Kiswahili (Kongo - Kinshasa)	Congo Swahili	suajili del Congo	suaíli do Congo
+sw-KE	sw	ltr	Kiswahili (Kenya)	Swahili (Kenya)	suajili (Kenia)	suaíli (Quênia)
+sw-UG	sw	ltr	Kiswahili (Uganda)	Swahili (Uganda)	suajili (Uganda)	suaíli (Uganda)
+ta	ta	ltr	தமிழ்	Tamil	tamil	tâmil
+ta-LK	ta	ltr	தமிழ் (இலங்கை)	Tamil (Sri Lanka)	tamil (Sri Lanka)	tâmil (Sri Lanka)
+ta-MY	ta	ltr	தமிழ் (மலேசியா)	Tamil (Malaysia)	tamil (Malasia)	tâmil (Malásia)
+ta-SG	ta	ltr	தமிழ் (சிங்கப்பூர்)	Tamil (Singapore)	tamil (Singapur)	tâmil (Singapura)
+te	te	ltr	తెలుగు	Telugu	telugu	télugo
+th	th	ltr	ไทย	Thai	tailandés	tailandês
+ti	ti	ltr	ትግርኛ	Tigrinya	tigriña	tigrínia
+ti-ER	ti	ltr	ትግርኛ (ኤርትራ)	Tigrinya (Eritrea)	tigriña (Eritrea)	tigrínia (Eritreia)
+tk	tk	ltr	türkmen dili	Turkmen	turcomano	turcomeno
+tr	tr	ltr	Türkçe	Turkish	turco	turco
+tr-CY	tr	ltr	Türkçe (Kıbrıs)	Turkish (Cyprus)	turco (Chipre)	turco (Chipre)
+uk	uk	ltr	українська	Ukrainian	ucraniano	ucraniano
+ur	ur	rtl	اردو	Urdu	urdu	urdu
+ur-IN	ur	rtl	اردو (بھارت)	Urdu (India)	urdu (India)	urdu (Índia)
+uz	uz	ltr	o‘zbek	Uzbek	uzbeko	uzbeque
+uz-Latn	uz	ltr	o‘zbek (lotin)	Uzbek (Latin)	uzbeko (latino)	uzbeque (latim)
+vi	vi	ltr	Tiếng Việt	Vietnamese	vietnamita	vietnamita
+yo	yo	ltr	Èdè Yorùbá	Yoruba	yoruba	iorubá
+yo-BJ	yo	ltr	Èdè Yorùbá (Bɛ̀nɛ̀)	Yoruba (Benin)	yoruba (Benín)	iorubá (Benin)
+yue	yue	ltr	粵語	Cantonese	cantonés	cantonês
+yue-Hans	yue	ltr	粤语 (简体)	Cantonese (Simplified)	cantonés (simplificado)	cantonês (simplificado)
+yue-Hant	yue	ltr	粵語 (繁體)	Cantonese (Traditional)	cantonés (tradicional)	cantonês (tradicional)
+yue-Hant-CN	yue	ltr	粵語 (繁體，中國)	Cantonese (Traditional, China)	cantonés (tradicional, China)	cantonês (tradicional, China)
+yue-Hant-MO	yue	ltr	粵語 (繁體，中國澳門特別行政區)	Cantonese (Traditional, Macao SAR China)	cantonés (tradicional, RAE de Macao (China))	cantonês (tradicional, Macau, RAE da China)
+zh	zh	ltr	中文	Chinese	chino	chinês
+zh-Hans	zh	ltr	简体中文	Simplified Chinese	chino simplificado	chinês simplificado
+zh-Hans-HK	zh	ltr	简体中文（中国香港特别行政区）	Simplified Chinese (Hong Kong SAR China)	chino simplificado (RAE de Hong Kong (China))	chinês simplificado (Hong Kong, RAE da China)
+zh-Hans-MO	zh	ltr	简体中文（中国澳门特别行政区）	Simplified Chinese (Macao SAR China)	chino simplificado (RAE de Macao (China))	chinês simplificado (Macau, RAE da China)
+zh-Hans-MY	zh	ltr	简体中文（马来西亚）	Simplified Chinese (Malaysia)	chino simplificado (Malasia)	chinês simplificado (Malásia)
+zh-Hans-SG	zh	ltr	简体中文（新加坡）	Simplified Chinese (Singapore)	chino simplificado (Singapur)	chinês simplificado (Singapura)
+zh-Hant	zh	ltr	繁體中文	Traditional Chinese	chino tradicional	chinês tradicional
+zh-Hant-HK	zh	ltr	繁體中文（中國香港特別行政區）	Traditional Chinese (Hong Kong SAR China)	chino tradicional (RAE de Hong Kong (China))	chinês tradicional (Hong Kong, RAE da China)
+zh-Hant-MO	zh	ltr	繁體中文（中國澳門特別行政區）	Traditional Chinese (Macao SAR China)	chino tradicional (RAE de Macao (China))	chinês tradicional (Macau, RAE da China)
+zh-Hant-MY	zh	ltr	繁體中文（馬來西亞）	Traditional Chinese (Malaysia)	chino tradicional (Malasia)	chinês tradicional (Malásia)
+zu	zu	ltr	isiZulu	Zulu	zulú	zulu

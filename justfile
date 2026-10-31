@@ -165,8 +165,8 @@ add-migration name context:
 # --- geo ---
 
 [group('geo')]
-[doc('Regenerate one geo seed file from its pinned sources, offline: currencies | countries')]
-[arg('source', pattern='currencies|countries')]
+[doc('Regenerate one geo seed file from its pinned sources, offline: currencies | countries | subdivisions | cities | locales')]
+[arg('source', pattern='currencies|countries|subdivisions|cities|locales')]
 geo-refresh source:
     python3 eng/geo/refresh_{{ source }}.py
 
