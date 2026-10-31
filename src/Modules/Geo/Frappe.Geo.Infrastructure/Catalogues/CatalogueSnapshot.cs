@@ -1,4 +1,6 @@
+using System.Data.Common;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Frappe.Kernel.Messaging;
@@ -6,6 +8,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Headers;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
 using HttpJsonOptions = Microsoft.AspNetCore.Http.Json.JsonOptions;
@@ -23,16 +27,23 @@ namespace Frappe.Geo.Infrastructure.Catalogues;
 internal sealed class CatalogueSnapshot<TQuery, TItem>(
     IServiceScopeFactory scopes,
     IOptions<GeoOptions> options,
-    IOptions<HttpJsonOptions> json
-) : IDisposable
+    IOptions<HttpJsonOptions> json,
+    IHostApplicationLifetime lifetime,
+    ILogger<CatalogueSnapshot<TQuery, TItem>> logger
+)
     where TQuery : IQuery<TQuery, IReadOnlyList<TItem>>, new()
 {
     private const string ContentType = "application/json; charset=utf-8";
 
+    // How long a replica serves its stale snapshot after a failed refresh before one request tries again.
+    private static readonly TimeSpan _retryAfter = TimeSpan.FromSeconds(30);
+
     private readonly TimeSpan _maxAge = options.Value.CatalogueMaxAge;
     private readonly JsonSerializerOptions _json = json.Value.SerializerOptions;
-    private readonly SemaphoreSlim _refresh = new(1, 1);
+    private readonly Lock _gate = new();
     private Snapshot? _snapshot;
+    private Task<Snapshot>? _refresh;
+    private long _failedAt;
 
     /// <summary>Answers a GET with the body, or with 304 when <c>If-None-Match</c> names the snapshot's tag.</summary>
     /// <param name="context">The request.</param>
@@ -58,35 +69,62 @@ internal sealed class CatalogueSnapshot<TQuery, TItem>(
             : TypedResults.Bytes(snapshot.Body, ContentType);
     }
 
-    /// <inheritdoc />
-    public void Dispose() => _refresh.Dispose();
-
-    private async ValueTask<Snapshot> CurrentAsync(CancellationToken cancellationToken)
+    private async Task<Snapshot> CurrentAsync(CancellationToken cancellationToken)
     {
         Snapshot? snapshot = Volatile.Read(ref _snapshot);
-        if (snapshot is not null && !snapshot.IsExpired(_maxAge))
+        if (IsServable(snapshot))
         {
             return snapshot;
         }
 
-        // Single flight: requests that find the snapshot cold or expired wait for one refresh instead of each
-        // reading the catalogue.
-        await _refresh.WaitAsync(cancellationToken);
-        try
+        // Single flight: requests that find the snapshot cold or expired share one refresh instead of each reading
+        // the catalogue. The refresh runs on the host's token, so a caller that leaves only stops its own wait.
+        Task<Snapshot> refresh;
+        lock (_gate)
         {
             snapshot = _snapshot;
-            if (snapshot is not null && !snapshot.IsExpired(_maxAge))
+            if (IsServable(snapshot))
             {
                 return snapshot;
             }
 
-            snapshot = await BuildAsync(cancellationToken);
+            refresh = _refresh ??= Task.Run(RefreshAsync, CancellationToken.None);
+        }
+
+        return await refresh.WaitAsync(cancellationToken);
+    }
+
+    // Fresh, or stale while a failed refresh backs off.
+    private bool IsServable([NotNullWhen(true)] Snapshot? snapshot) =>
+        snapshot is not null
+        && (
+            !snapshot.IsExpired(_maxAge)
+            || Stopwatch.GetElapsedTime(Interlocked.Read(ref _failedAt)) < _retryAfter
+        );
+
+    private async Task<Snapshot> RefreshAsync()
+    {
+        Snapshot? stale = Volatile.Read(ref _snapshot);
+        try
+        {
+            Snapshot snapshot = await BuildAsync(lifetime.ApplicationStopping);
             Volatile.Write(ref _snapshot, snapshot);
             return snapshot;
         }
+        // Only a database failure is an outage worth riding out on the stale snapshot; anything else, such as the
+        // catalogue outgrowing its page cap, is a bug that must fail every request until it is fixed.
+        catch (DbException exception) when (stale is not null)
+        {
+            Interlocked.Exchange(ref _failedAt, Stopwatch.GetTimestamp());
+            Log.RefreshFailed(logger, typeof(TQuery).Name, exception);
+            return stale;
+        }
         finally
         {
-            _refresh.Release();
+            lock (_gate)
+            {
+                _refresh = null;
+            }
         }
     }
 

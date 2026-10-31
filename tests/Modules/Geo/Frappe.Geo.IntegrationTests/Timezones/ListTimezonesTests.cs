@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -7,6 +8,7 @@ using Frappe.Geo.Infrastructure;
 using Frappe.TestUtilities;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using NodaTime.TimeZones;
 using Npgsql;
@@ -17,8 +19,14 @@ public sealed class ListTimezonesTests(AppFixture app)
 {
     private const string Url = "/v1/geo/timezones";
 
+    // Fails every later read of the catalogue, as a database outage would.
+    private const string RevokeRead = "REVOKE SELECT ON geo.timezones FROM frappe_app";
+
     // The shortest snapshot life the options accept, so a test can outlive it.
     private static TimeSpan ShortMaxAge => TimeSpan.FromSeconds(1);
+
+    // Bounds a wait that a regression would otherwise hang.
+    private static TimeSpan Patience => TimeSpan.FromSeconds(30);
 
     [Fact]
     public async Task The_list_is_one_page_of_every_zone_ordered_by_id()
@@ -246,6 +254,122 @@ public sealed class ListTimezonesTests(AppFixture app)
         commands.Count.ShouldBe(1);
     }
 
+    [Fact]
+    public async Task A_failed_refresh_serves_the_snapshot_it_had_with_its_tag()
+    {
+        await using FrappeDatabase database = new();
+        await database.InitializeAsync();
+        await using IAlbaHost host = await StartAsync(database, ShortMaxAge);
+        IScenarioResult fresh = await host.Scenario(static scenario =>
+        {
+            scenario.Get.Url(Url);
+            scenario.StatusCodeShouldBeOk();
+        });
+        string body = await fresh.ReadAsTextAsync();
+        string etag = fresh.Context.Response.Headers.ETag.ToString();
+
+        await ExecuteAsync(database, RevokeRead);
+        await Task.Delay(ShortMaxAge * 1.5, TestContext.Current.CancellationToken);
+
+        IScenarioResult stale = await host.Scenario(static scenario =>
+        {
+            scenario.Get.Url(Url);
+            scenario.StatusCodeShouldBeOk();
+        });
+        (await stale.ReadAsTextAsync()).ShouldBe(body);
+        stale.Context.Response.Headers.ETag.ToString().ShouldBe(etag);
+        await host.Scenario(scenario =>
+        {
+            scenario.Get.Url(Url);
+            scenario.WithRequestHeader("If-None-Match", etag);
+            scenario.StatusCodeShouldBe(304);
+        });
+    }
+
+    [Fact]
+    public async Task A_failed_refresh_is_not_retried_by_every_request()
+    {
+        await using FrappeDatabase database = new();
+        await database.InitializeAsync();
+        CommandCounter commands = new();
+        await using IAlbaHost host = await StartAsync(
+            database,
+            ShortMaxAge,
+            builder =>
+                builder.Services.ConfigureDbContext<GeoDbContext>(
+                    options => options.AddInterceptors(commands),
+                    ServiceLifetime.Singleton
+                )
+        );
+        await ETagAsync(host);
+
+        await ExecuteAsync(database, RevokeRead);
+        await Task.Delay(ShortMaxAge * 1.5, TestContext.Current.CancellationToken);
+        for (int i = 0; i < 5; i++)
+        {
+            await ETagAsync(host);
+        }
+
+        commands.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task A_cold_snapshot_with_the_database_failing_is_an_uncacheable_error()
+    {
+        await using FrappeDatabase database = new();
+        await database.InitializeAsync();
+        await ExecuteAsync(database, RevokeRead);
+        await using IAlbaHost host = await StartAsync(database);
+
+        IScenarioResult result = await host.Scenario(static scenario =>
+        {
+            scenario.Get.Url(Url);
+            scenario.StatusCodeShouldBe(500);
+        });
+
+        result.Context.Response.Headers.ContainsKey("ETag").ShouldBeFalse();
+        result.Context.Response.Headers.ContainsKey("Cache-Control").ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task A_caller_that_cancels_does_not_cancel_the_refresh_another_caller_waits_on()
+    {
+        await using var database = FrappeDatabase.WithoutSeed();
+        await database.InitializeAsync();
+        await ExecuteAsync(database, "INSERT INTO geo.timezones (name) VALUES ('Test/Zone')");
+        CommandCounter commands = new();
+        HeldRead held = new();
+        await using IAlbaHost host = await StartAsync(
+            database,
+            configure: builder =>
+                builder.Services.ConfigureDbContext<GeoDbContext>(
+                    options => options.AddInterceptors(commands, held),
+                    ServiceLifetime.Singleton
+                )
+        );
+        using HttpClient client = host.Server.CreateClient();
+        using CancellationTokenSource first = new();
+
+        Task<HttpResponseMessage> cancelled = client.GetAsync(Url, first.Token);
+        await held.Entered.Task.WaitAsync(TestContext.Current.CancellationToken);
+        Task<HttpResponseMessage> waiting = client.GetAsync(
+            Url,
+            TestContext.Current.CancellationToken
+        );
+        await first.CancelAsync();
+        held.Release.SetResult();
+
+        using HttpResponseMessage response = await waiting.WaitAsync(
+            Patience,
+            TestContext.Current.CancellationToken
+        );
+        response.StatusCode.ShouldBe(System.Net.HttpStatusCode.OK);
+        commands.Count.ShouldBe(1);
+        await Should.ThrowAsync<OperationCanceledException>(
+            cancelled.WaitAsync(Patience, TestContext.Current.CancellationToken)
+        );
+    }
+
     private static async Task<string> ETagAsync(IAlbaHost host)
     {
         IScenarioResult result = await host.Scenario(static scenario =>
@@ -284,4 +408,32 @@ public sealed class ListTimezonesTests(AppFixture app)
             },
             nats: NatsScope.On(app.Nats)
         );
+
+    // Holds the first read until the test releases it, so a caller can cancel while the refresh is in flight.
+    private sealed class HeldRead : DbCommandInterceptor
+    {
+        private int _reads;
+
+        public TaskCompletionSource Entered { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Release { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default
+        )
+        {
+            if (Interlocked.Increment(ref _reads) == 1)
+            {
+                Entered.SetResult();
+                await Release.Task;
+            }
+
+            return result;
+        }
+    }
 }

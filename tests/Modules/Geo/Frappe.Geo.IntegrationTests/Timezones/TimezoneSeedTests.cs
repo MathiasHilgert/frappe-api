@@ -85,6 +85,45 @@ public sealed class TimezoneSeedTests(AppFixture app)
     }
 
     [Fact]
+    public async Task A_chain_of_retained_aliases_is_resolved_to_its_canonical_zone_in_one_seed()
+    {
+        await using FrappeDatabase database = new();
+        await database.InitializeAsync();
+        // Two hops: Test/Older -> Test/Retired -> America/Cordoba, which this release lists as an alias.
+        await ScalarAsync<string>(
+            database.OwnerConnectionString,
+            """
+            INSERT INTO geo.timezones (name, canonical_name)
+            VALUES ('Test/Retired', 'America/Cordoba'), ('Test/Older', 'Test/Retired')
+            RETURNING name
+            """
+        );
+
+        int changed = await MigrationsRunner.SeedAllAsync(
+            database.OwnerConnectionString,
+            [new GeoModule()],
+            TestContext.Current.CancellationToken
+        );
+        int changedAgain = await MigrationsRunner.SeedAllAsync(
+            database.OwnerConnectionString,
+            [new GeoModule()],
+            TestContext.Current.CancellationToken
+        );
+
+        changed.ShouldBe(2);
+        changedAgain.ShouldBe(0);
+        (
+            await ScalarAsync<string[]>(
+                database.OwnerConnectionString,
+                """
+                SELECT array_agg(canonical_name ORDER BY name) FROM geo.timezones
+                WHERE name IN ('Test/Older', 'Test/Retired')
+                """
+            )
+        ).ShouldBe(["America/Argentina/Cordoba", "America/Argentina/Cordoba"]);
+    }
+
+    [Fact]
     public async Task The_app_role_can_only_read_the_catalogue_through_an_explicit_grant()
     {
         bool[] privileges = await ScalarAsync<bool[]>(
