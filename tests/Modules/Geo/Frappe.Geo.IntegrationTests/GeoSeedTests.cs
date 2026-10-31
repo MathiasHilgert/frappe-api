@@ -34,6 +34,22 @@ public sealed class GeoSeedTests(GeoFixture geo)
         stored.ShouldBe(status);
     }
 
+    // Every other ISO 4217 code is kept as retired, so stored references still resolve.
+    [Fact]
+    public async Task Only_the_peso_dollar_euro_and_real_are_active_currencies()
+    {
+        string active = await ScalarAsync<string>(
+            "SELECT string_agg(currency_code, ', ' ORDER BY currency_code) FROM geo.currencies "
+                + "WHERE status = 'Active'"
+        );
+        long retired = await ScalarAsync<long>(
+            "SELECT count(*) FROM geo.currencies WHERE status = 'Retired' AND currency_code IN ('CLP', 'XAU', 'BGN')"
+        );
+
+        active.ShouldBe("ARS, BRL, EUR, USD");
+        retired.ShouldBe(3);
+    }
+
     [Fact]
     public async Task Every_iso_3166_1_country_is_active()
     {
