@@ -83,9 +83,12 @@ public sealed class GeoSeedTests(GeoFixture geo)
     [Fact]
     public async Task A_calendar_the_file_does_not_hold_is_kept_even_in_a_seeded_year()
     {
+        // With its names, in one transaction: a host starting meanwhile in another test loads it like any holiday.
         await ExecuteAsync(
             "INSERT INTO geo.holidays (holiday_id, country_code, date, holiday_key, class, origin, status) "
-                + "VALUES (uuidv7(), 'UY', '2026-07-18', 'constitution-day', 'Holiday', 'Fixed', 'Active')"
+                + "VALUES (uuidv7(), 'UY', '2026-07-18', 'constitution-day', 'Holiday', 'Fixed', 'Active')",
+            "INSERT INTO geo.holiday_names (holiday_id, locale, name) "
+                + "SELECT holiday_id, 'en', 'Constitution Day' FROM geo.holidays WHERE country_code = 'UY'"
         );
         try
         {
@@ -102,16 +105,29 @@ public sealed class GeoSeedTests(GeoFixture geo)
         }
         finally
         {
-            await ExecuteAsync("DELETE FROM geo.holidays WHERE country_code = 'UY'");
+            await ExecuteAsync(
+                "DELETE FROM geo.holiday_names WHERE holiday_id IN "
+                    + "(SELECT holiday_id FROM geo.holidays WHERE country_code = 'UY')",
+                "DELETE FROM geo.holidays WHERE country_code = 'UY'"
+            );
         }
     }
 
-    private async Task ExecuteAsync(string sql)
+    // Runs the statements in one transaction, so other hosts never see them half applied.
+    private async Task ExecuteAsync(params string[] statements)
     {
         await using NpgsqlConnection connection = new(geo.OwnerConnectionString);
         await connection.OpenAsync(TestContext.Current.CancellationToken);
-        await using NpgsqlCommand command = new(sql, connection);
-        await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync(
+            TestContext.Current.CancellationToken
+        );
+        foreach (string sql in statements)
+        {
+            await using NpgsqlCommand command = new(sql, connection, transaction);
+            await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+
+        await transaction.CommitAsync(TestContext.Current.CancellationToken);
     }
 
     private async Task<T> ScalarAsync<T>(string sql, string? code = null)
