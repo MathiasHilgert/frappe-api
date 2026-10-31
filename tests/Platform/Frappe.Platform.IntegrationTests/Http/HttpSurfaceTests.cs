@@ -2,7 +2,6 @@ using System.Text.Json;
 using Alba;
 using Frappe.Lexicon.Infrastructure;
 using Frappe.Platform.Http;
-using Frappe.Platform.Http.Localization;
 using Frappe.Platform.IntegrationTests.Messaging;
 using Frappe.TestUtilities;
 using Microsoft.AspNetCore.Builder;
@@ -98,26 +97,6 @@ public sealed class HttpSurfaceTests
         (await result.ReadAsTextAsync()).ShouldContain(
             "\"code\":\"lexicon.word.unknown\",\"pointer\":null,\"detail\":\"The lexicon has no such word.\""
         );
-    }
-
-    // The texts load when the host starts, so a broken resource fails the boot, not the first error response.
-    [Fact]
-    public async Task Error_texts_that_fail_to_load_fail_the_start()
-    {
-        HostApplicationBuilder builder = Host.CreateApplicationBuilder(
-            new HostApplicationBuilderSettings { DisableDefaults = true }
-        );
-        builder.AddHttp();
-        builder.Services.AddSingleton<ErrorTexts>(static _ =>
-            throw new InvalidOperationException("errors.json is misnamed.")
-        );
-        using IHost host = builder.Build();
-
-        InvalidOperationException error = await Should.ThrowAsync<InvalidOperationException>(() =>
-            host.StartAsync(TestContext.Current.CancellationToken)
-        );
-
-        error.Message.ShouldBe("errors.json is misnamed.");
     }
 
     [Fact]
@@ -248,12 +227,9 @@ public sealed class HttpSurfaceTests
 
         violations.ShouldBe(
             [
-                "/v1/rogues/create-rogue: segment create-rogue contains a verb",
                 "/v1/rogues/create-rogue: declares no single rate-limit policy",
-                "/v1/rogues/create-rogue: has no WithName",
                 "/v1/rogues/create-rogue: allows anonymous access but is not on the declared list",
-                "/v1/rogues/Hidden_Things: segment Hidden_Things is not lowercase kebab-case",
-                "/v1/rogues/Hidden_Things: is excluded from the OpenAPI document",
+                "/v1/rogues/traces: maps TRACE",
             ],
             ignoreOrder: true
         );

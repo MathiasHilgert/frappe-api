@@ -1,7 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using NodaTime;
-using NodaTime.Serialization.SystemTextJson;
 
 namespace Frappe.Platform.Http;
 
@@ -17,7 +15,6 @@ internal static class JsonOptions
         // Responses keep their shape: null is written, never dropped.
         json.DefaultIgnoreCondition = JsonIgnoreCondition.Never;
         json.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower));
-        // Instants in UTC with Z, LocalDate as yyyy-MM-dd: the official NodaTime converters.
-        json.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+        // The Kernel and NodaTime converters come from AddKernelJson in the composition root.
     }
 }

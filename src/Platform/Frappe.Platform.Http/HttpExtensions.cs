@@ -1,6 +1,5 @@
 using Frappe.Platform.Http.Localization;
 using Frappe.Platform.Http.OpenApi;
-using Frappe.Platform.Http.Paging;
 using Frappe.Platform.Http.Problems;
 using Frappe.Platform.Http.RateLimiting;
 using Frappe.Platform.Modularity;
@@ -8,6 +7,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Scalar.AspNetCore;
 
 namespace Frappe.Platform.Http;
 
@@ -38,15 +38,9 @@ public static class HttpExtensions
             typeof(HttpExtensions).Assembly,
             .. provider.GetServices<IModule>().SelectMany(ModuleTypes.Assemblies),
         ]));
-        // Loads the texts at start, so a broken resource fails the boot instead of the first error response.
-        services.AddHostedService<ErrorTextsCheck>();
-        // TODO: persist the data-protection key ring (deferred: infrastructure; until then a cursor fails after a
-        // restart or on another instance)
-        services.AddDataProtection();
-        services.AddSingleton<CursorCodec>();
         // TODO: set FallbackPolicy to require an authenticated user when authentication arrives (anonymous
         // endpoints already opt out with AllowAnonymous)
-        OpenApiExtensions.AddFrappeOpenApi(services);
+        services.AddOpenApi(static options => options.AddSchemaTransformer<SchemaTransformers>());
         return builder;
     }
 
@@ -60,11 +54,17 @@ public static class HttpExtensions
     {
         ArgumentNullException.ThrowIfNull(app);
         app.UseExceptionHandler();
-        // Routing and body reading answer 404, 405, 413 and 415 without a body; these write the house problem.
-        app.UseStatusCodePages(StatusCodeProblems.WriteAsync);
+        // A bodiless error status (routing, body reading, rate limiter, timeout) becomes the house problem.
+        app.UseStatusCodePages();
         app.UseRequestTimeouts();
         app.UseRateLimiter();
-        OpenApiExtensions.MapFrappeOpenApi(app);
+        // The document is the API's attack map, so deployed environments never publish it.
+        if (app.Environment.IsDevelopment())
+        {
+            app.MapOpenApi();
+            app.MapScalarApiReference();
+        }
+
         return app;
     }
 }

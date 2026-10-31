@@ -1060,6 +1060,7 @@
           "Frappe.Platform.Messaging": "[1.0.0, )",
           "Frappe.Platform.Modularity": "[1.0.0, )",
           "Frappe.Platform.Persistence": "[1.0.0, )",
+          "NodaTime.Serialization.SystemTextJson": "[1.4.0, )",
           "Npgsql.OpenTelemetry": "[10.0.3, )",
           "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.19.1, )",
           "OpenTelemetry.Instrumentation.AspNetCore": "[1.19.0, )",
@@ -1082,7 +1083,6 @@
           "Frappe.Kernel": "[1.0.0, )",
           "Frappe.Platform.Modularity": "[1.0.0, )",
           "Microsoft.AspNetCore.OpenApi": "[10.0.14, )",
-          "NodaTime.Serialization.SystemTextJson": "[1.4.0, )",
           "Scalar.AspNetCore": "[2.18.7, )"
         }
       },

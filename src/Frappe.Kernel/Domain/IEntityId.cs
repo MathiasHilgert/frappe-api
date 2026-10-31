@@ -1,10 +1,12 @@
 namespace Frappe.Kernel.Domain;
 
 /// <summary>
-/// A strongly typed, time-ordered (UUIDv7) entity identifier.
+/// A strongly typed, time-ordered (UUIDv7) entity identifier. It is <see cref="IParsable{TSelf}"/> so a route or
+/// query parameter binds it; implement both members with <see cref="EntityId.Parse{TId}"/> and
+/// <see cref="EntityId.TryParse{TId}"/>.
 /// </summary>
 /// <typeparam name="TSelf">The implementing ID type.</typeparam>
-public interface IEntityId<TSelf> : IEquatable<TSelf>
+public interface IEntityId<TSelf> : IEquatable<TSelf>, IParsable<TSelf>
     where TSelf : struct, IEntityId<TSelf>
 {
     /// <summary>Gets the underlying UUIDv7 value.</summary>
