@@ -26,7 +26,7 @@ public sealed class EntityIdRuleTests
     ];
 
     private static readonly JsonSerializerOptions _json =
-        new JsonSerializerOptions().AddKernelValueObjectConverters();
+        new JsonSerializerOptions().AddKernelJson();
 
     private static readonly MethodInfo _roundTrip =
         typeof(EntityIdRuleTests).GetMethod(

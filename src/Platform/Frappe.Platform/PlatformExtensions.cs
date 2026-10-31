@@ -4,10 +4,10 @@ using Frappe.Platform.Http;
 using Frappe.Platform.Messaging;
 using Frappe.Platform.Modularity;
 using Frappe.Platform.Persistence;
+using Frappe.Platform.Serialization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using NodaTime;
-using NodaTime.Serialization.SystemTextJson;
 
 namespace Frappe.Platform;
 
@@ -28,8 +28,12 @@ public static class PlatformExtensions
         builder.AddTelemetry();
         builder.AddHealth();
         builder.AddHttp();
+        // Responses, Contracts records and messages carry typed ids and NodaTime values.
+        builder.Services.ConfigureHttpJsonOptions(static options =>
+            options.SerializerOptions.AddKernelJson()
+        );
         // Before persistence, so every context it and the modules register joins the bus's transaction.
-        builder.AddMessaging(static json => json.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb));
+        builder.AddMessaging(static json => json.AddKernelJson());
         builder.AddPersistence();
         return builder;
     }
