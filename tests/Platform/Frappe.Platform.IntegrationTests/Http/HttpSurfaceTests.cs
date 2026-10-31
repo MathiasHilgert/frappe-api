@@ -31,7 +31,7 @@ public sealed class HttpSurfaceTests
         });
 
         (await result.ReadAsTextAsync()).ShouldBe(
-            "{\"name\":\"Pilar\",\"countryCode\":\"AR\",\"date\":\"2026-04-02\",\"color\":\"dark_red\",\"note\":null}"
+            "{\"name\":\"Pilar\",\"date\":\"2026-04-02\",\"color\":\"dark_red\",\"note\":null}"
         );
     }
 
@@ -157,12 +157,11 @@ public sealed class HttpSurfaceTests
 
         string.Join(
                 " | ",
-                Compact(schemas.GetProperty("CountryCode")),
                 Compact(schemas.GetProperty("LocalDate")),
                 Compact(schemas.GetProperty("EchoColor"))
             )
             .ShouldBe(
-                "{\"pattern\":\"^[A-Z]{2}$\",\"type\":\"string\",\"description\":\"An ISO 3166-1 alpha-2 country code in upper case, such as \\u0060AR\\u0060.\"} | {\"type\":\"string\",\"format\":\"date\"} | {\"enum\":[\"dark_red\"],\"type\":\"string\"}"
+                "{\"type\":\"string\",\"format\":\"date\"} | {\"enum\":[\"dark_red\"],\"type\":\"string\"}"
             );
     }
 

@@ -1,5 +1,5 @@
 using Frappe.Kernel;
-using Frappe.Kernel.Geography;
+using Frappe.Kernel.Domain;
 using Frappe.Platform.Http.Problems;
 using Frappe.Platform.Http.RateLimiting;
 using Frappe.Platform.Modularity;
@@ -74,7 +74,7 @@ internal sealed class ProbeModule : IModule
         {
             "validation" =>
             [
-                .. CountryCode.Create("ARG").WithPointer("/countryCode").Errors,
+                .. EntityId.Validate(Guid.Empty).WithPointer("/id").Errors,
                 Error.Validation(
                     "probe.name.too_long",
                     "The name must be at most {max} characters.",
@@ -106,11 +106,5 @@ internal sealed class ProbeModule : IModule
     }
 
     private static EchoResponse Echo(EchoRequest request) =>
-        new(
-            request.Name,
-            CountryCode.Create("ar").Value,
-            new LocalDate(2026, 4, 2),
-            EchoColor.DarkRed,
-            null
-        );
+        new(request.Name, new LocalDate(2026, 4, 2), EchoColor.DarkRed, null);
 }

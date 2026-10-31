@@ -2,7 +2,6 @@ using System.Collections.Frozen;
 using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
-using Frappe.Kernel.Localization;
 
 namespace Frappe.Platform.Http.Localization;
 
@@ -36,7 +35,7 @@ public sealed class ErrorTexts
                 continue;
             }
 
-            Locale locale = LocaleOf(name);
+            ErrorLocale locale = LocaleOf(name);
             Dictionary<string, string> target = byLocale.TryGetValue(
                 locale.Value,
                 out Dictionary<string, string>? existing
@@ -65,22 +64,22 @@ public sealed class ErrorTexts
         && texts.ContainsKey(code);
 
     /// <summary>
-    /// Writes the text of <paramref name="code"/> in the first locale of <see cref="Locale.FallbackChain"/> that
+    /// Writes the text of <paramref name="code"/> in the first locale of <see cref="ErrorLocale.FallbackChain"/> that
     /// translates it; each <c>{name}</c> is replaced by that argument.
     /// </summary>
     /// <param name="code">The error code.</param>
     /// <param name="locale">The requested locale.</param>
     /// <param name="args">The arguments the text refers to, or <see langword="null"/>.</param>
     /// <returns>The text, or <see langword="null"/> when no locale of the chain translates the code.</returns>
-    public string? Render(
+    internal string? Render(
         string code,
-        Locale locale,
+        ErrorLocale locale,
         IReadOnlyDictionary<string, object>? args = null
     )
     {
         ArgumentNullException.ThrowIfNull(locale);
         string? text = null;
-        foreach (Locale candidate in locale.FallbackChain())
+        foreach (ErrorLocale candidate in locale.FallbackChain())
         {
             if (
                 _byLocale.TryGetValue(candidate.Value, out FrozenDictionary<string, string>? texts)
@@ -132,16 +131,15 @@ public sealed class ErrorTexts
     }
 
     // errors.pt-br.json serves pt-BR: the tag is canonicalized like any request locale.
-    private static Locale LocaleOf(string name)
+    private static ErrorLocale LocaleOf(string name)
     {
         int start = Prefix.Length + 1;
         string tag =
             name.Length > start + Suffix.Length && name[Prefix.Length] == '.'
                 ? name[start..^Suffix.Length]
                 : "";
-        return Locale.Create(tag) is { IsError: false, Value: var locale }
-            ? locale
-            : throw new InvalidOperationException(
+        return ErrorLocale.Parse(tag)
+            ?? throw new InvalidOperationException(
                 $"Error texts resource {name} must be named errors.<locale>.json with a BCP 47 locale, "
                     + "such as errors.es.json."
             );

@@ -1,14 +1,11 @@
 using System.Text;
 using System.Text.Json;
 using Alba;
-using Frappe.Kernel.Geography;
 using Frappe.TestUtilities;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using NodaTime;
 using Wolverine.Runtime;
-using HttpJsonOptions = Microsoft.AspNetCore.Http.Json.JsonOptions;
 
 namespace Frappe.Host.IntegrationTests;
 
@@ -18,32 +15,16 @@ public sealed class HttpSurfaceTests(FrappeDatabase database, FrappeNats nats)
     private static readonly HashSet<string> _anonymousRoutes = new(StringComparer.Ordinal);
 
     [Fact]
-    public async Task Responses_write_kernel_value_objects_as_their_primitive()
-    {
-        await using IAlbaHost host = await StartAsync();
-        HttpJsonOptions options = host
-            .Services.GetRequiredService<IOptions<HttpJsonOptions>>()
-            .Value;
-
-        string json = JsonSerializer.Serialize(
-            CountryCode.Create("ar").Value,
-            options.SerializerOptions
-        );
-
-        json.ShouldBe("\"AR\"");
-    }
-
-    [Fact]
-    public async Task Messages_write_kernel_value_objects_and_dates_as_their_primitive()
+    public async Task Messages_write_dates_as_their_primitive()
     {
         await using IAlbaHost host = await StartAsync();
         IWolverineRuntime runtime = host.Services.GetRequiredService<IWolverineRuntime>();
 
         byte[] message = runtime.Options.DefaultSerializer.WriteMessage(
-            new CountryNoted(CountryCode.Create("ar").Value, new LocalDate(2026, 4, 2))
+            new DateNoted(new LocalDate(2026, 4, 2))
         );
 
-        Encoding.UTF8.GetString(message).ShouldBe("{\"country\":\"AR\",\"on\":\"2026-04-02\"}");
+        Encoding.UTF8.GetString(message).ShouldBe("{\"on\":\"2026-04-02\"}");
     }
 
     [Fact]
@@ -83,5 +64,5 @@ public sealed class HttpSurfaceTests(FrappeDatabase database, FrappeNats nats)
                 .UseSetting("Nats:Url", nats.Url)
         );
 
-    private sealed record CountryNoted(CountryCode Country, LocalDate On);
+    private sealed record DateNoted(LocalDate On);
 }

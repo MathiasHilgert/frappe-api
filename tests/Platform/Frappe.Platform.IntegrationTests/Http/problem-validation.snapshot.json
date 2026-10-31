@@ -5,9 +5,9 @@
   "instance": "/v1/probes/problems/validation",
   "errors": [
     {
-      "code": "kernel.country_code.invalid",
-      "pointer": "/countryCode",
-      "detail": "The country code must be two ISO 3166-1 alpha-2 letters.",
+      "code": "kernel.entity_id.invalid",
+      "pointer": "/id",
+      "detail": "The identifier must be a non-empty RFC 9562 UUIDv7.",
       "args": null
     },
     {

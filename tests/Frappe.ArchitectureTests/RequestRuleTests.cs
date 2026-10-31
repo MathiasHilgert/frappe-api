@@ -2,8 +2,8 @@ using ArchUnitNET.Domain;
 using ArchUnitNET.Fluent;
 using ArchUnitNET.Loader;
 using ArchUnitNET.xUnitV3;
+using ErrorOr;
 using Frappe.Kernel.Domain;
-using Frappe.Kernel.Geography;
 using static ArchUnitNET.Fluent.ArchRuleDefinition;
 using Assembly = System.Reflection.Assembly;
 
@@ -17,13 +17,7 @@ public sealed class RequestRuleTests
         .That()
         .HaveNameEndingWith("Request")
         .Should()
-        .NotDependOnAny(
-            Types()
-                .That()
-                .ResideInNamespaceMatching(@"^Frappe\.Kernel\.(Geography|Currencies|Localization)$")
-                .Or()
-                .ImplementInterface(typeof(IEntityId<>))
-        )
+        .NotDependOnAny(Types().That().ImplementInterface(typeof(IEntityId<>)))
         // Vacuous until the first module ships a request; the fixture test below proves the rule bites.
         .WithoutRequiringPositiveResults();
 
@@ -48,15 +42,27 @@ public sealed class RequestRuleTests
     }
 
     [Fact]
-    public void The_rule_catches_a_request_with_a_value_object_member()
+    public void The_rule_catches_a_request_with_a_typed_id_member()
     {
         Architecture fixture = new ArchLoader()
-            .LoadAssemblies(typeof(RequestRuleTests).Assembly, typeof(CountryCode).Assembly)
+            .LoadAssemblies(typeof(RequestRuleTests).Assembly, typeof(IEntityId<>).Assembly)
             .Build();
 
         Assert.False(_requestsStayPrimitive.HasNoViolations(fixture));
     }
 
-    // Fixture for the rule above: a request that binds a value object.
-    internal sealed record CountryChangeRequest(CountryCode? CountryCode);
+    // Fixtures for the rule above: a typed id and a request that binds it.
+    internal readonly record struct OwnerId : IEntityId<OwnerId>
+    {
+        private OwnerId(Guid value) => Value = value;
+
+        public Guid Value { get; }
+
+        public static OwnerId NewId() => new(Guid.CreateVersion7());
+
+        public static ErrorOr<OwnerId> From(Guid value) =>
+            EntityId.Validate(value).Then(static v => new OwnerId(v));
+    }
+
+    internal sealed record OwnerChangeRequest(OwnerId? OwnerId);
 }

@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using Frappe.Kernel;
-using Frappe.Kernel.Localization;
 using Frappe.Platform.Http.Localization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -61,7 +60,7 @@ public static class ProblemMapper
     )
     {
         ErrorTexts texts = context.RequestServices.GetRequiredService<ErrorTexts>();
-        Locale locale = RequestLocale.Of(context.Request);
+        ErrorLocale locale = RequestLocale.Of(context.Request);
         return new ProblemDetails
         {
             Status = status,
@@ -120,7 +119,7 @@ public static class ProblemMapper
             _ => PlatformErrors.Failed,
         };
 
-    private static ProblemError ToEntry(Error error, ErrorTexts texts, Locale locale)
+    private static ProblemError ToEntry(Error error, ErrorTexts texts, ErrorLocale locale)
     {
         var args = error
             .Metadata?.Where(static entry =>

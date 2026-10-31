@@ -1,8 +1,7 @@
 using System.Text;
-using Frappe.Kernel.Geography;
-using Frappe.Kernel.Localization;
 using Frappe.Platform.Http;
 using Frappe.Platform.Http.Localization;
+using Frappe.Platform.Http.Problems;
 
 namespace Frappe.Platform.UnitTests.Http;
 
@@ -13,24 +12,27 @@ public sealed class ErrorTextsTests
     [Fact]
     public void A_regional_locale_falls_back_to_its_language()
     {
-        string? text = _texts.Render(CountryCode.Invalid.Code, Locale.Create("es-AR").Value);
+        string? text = _texts.Render(
+            PlatformErrors.InvalidCursor.Code,
+            ErrorLocale.Parse("es-AR")!
+        );
 
-        text.ShouldBe("El código de país debe ser de dos letras ISO 3166-1 alfa-2.");
+        text.ShouldBe("El cursor no es válido; volvé a empezar desde la primera página.");
     }
 
     [Fact]
     public void A_locale_without_texts_falls_back_to_english()
     {
-        string? text = _texts.Render(CountryCode.Invalid.Code, Locale.Create("fr").Value);
+        string? text = _texts.Render(PlatformErrors.InvalidCursor.Code, ErrorLocale.Parse("fr")!);
 
-        text.ShouldBe("The country code must be two ISO 3166-1 alpha-2 letters.");
+        text.ShouldBe("The cursor is invalid; start again from the first page.");
     }
 
     // The caller decides what replaces a missing text; the description is never a silent fallback.
     [Fact]
     public void A_code_without_texts_has_no_text()
     {
-        _texts.Render("test.thing.invalid", Locale.Create("pt").Value).ShouldBeNull();
+        _texts.Render("test.thing.invalid", ErrorLocale.Parse("pt")!).ShouldBeNull();
     }
 
     [Fact]
@@ -42,7 +44,7 @@ public sealed class ErrorTextsTests
 
         string? text = texts.Render(
             "test.thing.too_long",
-            Locale.English,
+            ErrorLocale.English,
             new Dictionary<string, object>(StringComparer.Ordinal) { ["max"] = 100 }
         );
 

@@ -106,7 +106,7 @@ public sealed class ProblemDetailsTests
         });
 
         string body = await result.ReadAsTextAsync();
-        body.ShouldContain("El código de país debe ser de dos letras ISO 3166-1 alfa-2.");
+        body.ShouldContain("El identificador debe ser un UUIDv7 RFC 9562 no vacío.");
     }
 
     [Fact]

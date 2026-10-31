@@ -2,10 +2,8 @@ using Alba;
 using Frappe.Platform.Health;
 using Frappe.Platform.Http;
 using Frappe.Platform.Modularity;
-using Frappe.Platform.Serialization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Frappe.Platform.IntegrationTests.Http;
 
@@ -41,9 +39,6 @@ internal static class HttpHost
         );
         builder.AddHealth();
         builder.AddHttp();
-        builder.Services.ConfigureHttpJsonOptions(static options =>
-            options.SerializerOptions.AddKernelValueObjectConverters()
-        );
         builder.AddFrappeModules(module);
         return builder;
     }

@@ -1,8 +1,5 @@
 using System.Collections.Frozen;
-using Frappe.Kernel.Currencies;
 using Frappe.Kernel.Domain;
-using Frappe.Kernel.Geography;
-using Frappe.Kernel.Localization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
@@ -11,8 +8,8 @@ using NodaTime;
 namespace Frappe.Platform.Http.OpenApi;
 
 /// <summary>
-/// Describes the types whose JSON form comes from a converter, which the generator cannot see: dates, typed ids and
-/// the Kernel value objects, each as the primitive it is written as; enums get their string type and the house
+/// Describes the types whose JSON form comes from a converter, which the generator cannot see: dates and typed ids,
+/// each as the primitive it is written as; enums get their string type and the house
 /// problem its member descriptions.
 /// </summary>
 internal sealed class SchemaTransformers : IOpenApiSchemaTransformer
@@ -22,12 +19,6 @@ internal sealed class SchemaTransformers : IOpenApiSchemaTransformer
         new Dictionary<Type, (string?, string?)>
         {
             [typeof(LocalDate)] = ("date", null),
-            [typeof(CountryCode)] = (null, "^[A-Z]{2}$"),
-            [typeof(CurrencyCode)] = (null, "^[A-Z]{3}$"),
-            [typeof(SubdivisionCode)] = (null, "^[A-Z]{2}-[A-Z0-9]{1,3}$"),
-            [typeof(PostalCode)] = (null, null),
-            [typeof(TimeZoneId)] = (null, null),
-            [typeof(Locale)] = (null, null),
         }.ToFrozenDictionary();
 
     private static readonly FrozenDictionary<string, string> _problemMembers = new Dictionary<
@@ -54,16 +45,6 @@ internal sealed class SchemaTransformers : IOpenApiSchemaTransformer
         {
             AsString(schema, text.Format, text.Pattern);
         }
-        else if (type == typeof(MinorUnit))
-        {
-            Reset(schema, JsonSchemaType.Integer);
-            schema.Minimum = "0";
-            schema.Maximum = "4";
-        }
-        else if (type == typeof(Address))
-        {
-            AsAddress(schema);
-        }
         else if (type.IsEnum)
         {
             // The generator lists the snake_case values but leaves out their type.
@@ -87,18 +68,6 @@ internal sealed class SchemaTransformers : IOpenApiSchemaTransformer
             static contract =>
                 contract.IsGenericType && contract.GetGenericTypeDefinition() == typeof(IEntityId<>)
         );
-
-    private static void AsAddress(OpenApiSchema schema)
-    {
-        Reset(schema, JsonSchemaType.Object);
-        schema.Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
-        {
-            ["streetLine"] = new OpenApiSchema { Type = JsonSchemaType.String },
-            ["cityId"] = new OpenApiSchema { Type = JsonSchemaType.String, Format = "uuid" },
-            ["postalCode"] = new OpenApiSchema { Type = JsonSchemaType.String },
-        };
-        schema.Required = new HashSet<string>(StringComparer.Ordinal) { "streetLine", "cityId" };
-    }
 
     // The framework type carries no XML docs, so the house problem members are described here.
     private static void Describe(OpenApiSchema problem)
