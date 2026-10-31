@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Threading.RateLimiting;
-using Frappe.Platform.Http.Problems;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
@@ -26,7 +25,7 @@ public static class RateLimitPolicies
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-            options.OnRejected = WriteRejectionAsync;
+            options.OnRejected = SetRetryAfterAsync;
             // TODO: add the per-tenant GlobalLimiter ceiling when authentication provides a tenant (no session
             // exists yet)
             options.AddPolicy(
@@ -53,31 +52,18 @@ public static class RateLimitPolicies
         });
     }
 
-    private static async ValueTask WriteRejectionAsync(
+    // The 429 body is the house problem every bodiless status gets; the rejection only says when to retry.
+    private static ValueTask SetRetryAfterAsync(
         OnRejectedContext rejected,
         CancellationToken cancellationToken
     )
     {
-        HttpContext context = rejected.HttpContext;
         if (rejected.Lease.TryGetMetadata(MetadataName.RetryAfter, out TimeSpan retryAfter))
         {
-            context.Response.Headers.RetryAfter = Math.Ceiling(retryAfter.TotalSeconds)
+            rejected.HttpContext.Response.Headers.RetryAfter = Math.Ceiling(retryAfter.TotalSeconds)
                 .ToString(CultureInfo.InvariantCulture);
         }
 
-        await context
-            .RequestServices.GetRequiredService<IProblemDetailsService>()
-            .WriteAsync(
-                new ProblemDetailsContext
-                {
-                    HttpContext = context,
-                    ProblemDetails = ProblemMapper.Create(
-                        context,
-                        StatusCodes.Status429TooManyRequests,
-                        ProblemTypes.RateLimited,
-                        [PlatformErrors.RateLimitExceeded]
-                    ),
-                }
-            );
+        return ValueTask.CompletedTask;
     }
 }

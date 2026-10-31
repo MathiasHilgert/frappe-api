@@ -60,8 +60,8 @@ public static class HttpExtensions
     {
         ArgumentNullException.ThrowIfNull(app);
         app.UseExceptionHandler();
-        // Routing and body reading answer 404, 405, 413 and 415 without a body; these write the house problem.
-        app.UseStatusCodePages(StatusCodeProblems.WriteAsync);
+        // A bodiless error status (routing, body reading, rate limiter, timeout) becomes the house problem.
+        app.UseStatusCodePages();
         app.UseRequestTimeouts();
         app.UseRateLimiter();
         OpenApiExtensions.MapFrappeOpenApi(app);

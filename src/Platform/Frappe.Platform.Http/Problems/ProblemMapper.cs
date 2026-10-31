@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Diagnostics;
 using Frappe.Kernel;
 using Frappe.Platform.Http.Localization;
@@ -17,6 +18,45 @@ namespace Frappe.Platform.Http.Problems;
 public static class ProblemMapper
 {
     private const string BearerChallenge = "Bearer";
+    private const string ErrorsKey = "errors";
+    private const string TraceIdKey = "traceId";
+
+    // The house problem of each status an answer can carry without a body.
+    private static readonly FrozenDictionary<int, (string Type, Error Error)> _byStatus =
+        new Dictionary<int, (string, Error)>
+        {
+            [StatusCodes.Status400BadRequest] = (
+                ProblemTypes.MalformedRequest,
+                PlatformErrors.Malformed
+            ),
+            [StatusCodes.Status401Unauthorized] = (
+                ProblemTypes.Unauthorized,
+                PlatformErrors.Unauthorized
+            ),
+            [StatusCodes.Status403Forbidden] = (ProblemTypes.Forbidden, PlatformErrors.Forbidden),
+            [StatusCodes.Status404NotFound] = (ProblemTypes.NotFound, PlatformErrors.RouteNotFound),
+            [StatusCodes.Status405MethodNotAllowed] = (
+                ProblemTypes.MalformedRequest,
+                PlatformErrors.MethodNotAllowed
+            ),
+            [StatusCodes.Status413PayloadTooLarge] = (
+                ProblemTypes.MalformedRequest,
+                PlatformErrors.TooLarge
+            ),
+            [StatusCodes.Status415UnsupportedMediaType] = (
+                ProblemTypes.MalformedRequest,
+                PlatformErrors.UnsupportedMediaType
+            ),
+            [StatusCodes.Status429TooManyRequests] = (
+                ProblemTypes.RateLimited,
+                PlatformErrors.RateLimitExceeded
+            ),
+            [StatusCodes.Status500InternalServerError] = (
+                ProblemTypes.Internal,
+                PlatformErrors.Failed
+            ),
+            [StatusCodes.Status504GatewayTimeout] = (ProblemTypes.Timeout, PlatformErrors.Timeout),
+        }.ToFrozenDictionary();
 
     /// <summary>Maps the errors of a failed result to the house problem response.</summary>
     /// <param name="errors">The errors, at least one; the first decides the status.</param>
@@ -57,29 +97,47 @@ public static class ProblemMapper
         int status,
         string type,
         IEnumerable<Error> errors
-    )
-    {
-        ErrorTexts texts = context.RequestServices.GetRequiredService<ErrorTexts>();
-        ErrorLocale locale = RequestLocale.Of(context.Request);
-        return new ProblemDetails
+    ) =>
+        new()
         {
             Status = status,
             Type = type,
             Title = ProblemTypes.TitleOf(type),
-            Extensions =
-            {
-                ["errors"] = errors.Select(error => ToEntry(error, texts, locale)).ToArray(),
-            },
+            Extensions = { [ErrorsKey] = Entries(context, errors) },
         };
-    }
 
-    // Applied to every problem the app writes, whoever builds it.
+    // Applied to every problem the app writes, whoever builds it. A problem without errors comes from a bodiless
+    // status (routing, body reading, the rate limiter, the request timeout) and gets the house problem of it.
     internal static void Customize(ProblemDetailsContext context)
     {
-        context.ProblemDetails.Instance = context.HttpContext.Request.Path;
-        context.ProblemDetails.Extensions["traceId"] =
-            Activity.Current?.TraceId.ToHexString() ?? context.HttpContext.TraceIdentifier;
-        context.HttpContext.Response.Headers.CacheControl = "no-store";
+        ProblemDetails problem = context.ProblemDetails;
+        HttpContext http = context.HttpContext;
+        int status = problem.Status ?? http.Response.StatusCode;
+        if (
+            !problem.Extensions.ContainsKey(ErrorsKey)
+            && _byStatus.TryGetValue(status, out (string Type, Error Error) found)
+        )
+        {
+            problem.Type = found.Type;
+            problem.Title = ProblemTypes.TitleOf(found.Type);
+            // A new dictionary, so errors precede the traceId the framework defaults already added.
+            problem.Extensions = new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                [ErrorsKey] = Entries(http, [found.Error]),
+            };
+        }
+
+        problem.Instance = http.Request.Path;
+        problem.Extensions[TraceIdKey] =
+            Activity.Current?.TraceId.ToHexString() ?? http.TraceIdentifier;
+        http.Response.Headers.CacheControl = "no-store";
+    }
+
+    private static ProblemError[] Entries(HttpContext context, IEnumerable<Error> errors)
+    {
+        ErrorTexts texts = context.RequestServices.GetRequiredService<ErrorTexts>();
+        ErrorLocale locale = RequestLocale.Of(context.Request);
+        return [.. errors.Select(error => ToEntry(error, texts, locale))];
     }
 
     private static (int Status, string Type) StatusOf(Error error) =>
