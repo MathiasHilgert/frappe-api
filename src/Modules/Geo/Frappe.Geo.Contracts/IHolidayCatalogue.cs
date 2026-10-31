@@ -15,9 +15,9 @@ public interface IHolidayCatalogue
     /// <param name="locale">The locale of the names; the nearest one along its fallback chain when not seeded.</param>
     /// <param name="cancellationToken">Cancels the read.</param>
     /// <returns>
-    /// The holidays, <c>geo.country.not_found</c>, the validation error <c>geo.subdivision.not_found</c> for a
-    /// subdivision not catalogued in the country, or <c>geo.holiday.year_unavailable</c> for a year the catalogue
-    /// holds no calendar of.
+    /// The holidays; the validation error <c>geo.country.not_found</c> for a country outside the catalogue or
+    /// <c>geo.subdivision.not_found</c> for a subdivision not catalogued in the country; or
+    /// <c>geo.holiday.year_unavailable</c> for a year the catalogue holds no calendar of.
     /// </returns>
     ValueTask<ErrorOr<IReadOnlyList<GeoHoliday>>> HolidaysFor(
         CountryCode country,

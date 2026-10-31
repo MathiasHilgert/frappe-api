@@ -3,6 +3,7 @@ using Frappe.Geo.Contracts.ValueObjects;
 using Frappe.Geo.Domain.Addresses;
 using Frappe.Geo.Domain.Cities;
 using Frappe.Geo.Domain.Countries;
+using Frappe.Geo.Infrastructure.Catalogues;
 using Frappe.Geo.Infrastructure.Countries;
 
 namespace Frappe.Geo.Infrastructure.Addresses;
@@ -21,7 +22,7 @@ internal sealed class AddressValidator(
     ) =>
         ValueTask.FromResult(
             countries.Find(country, Locale.English) is null
-                ? Field(CountryErrors.NotFound)
+                ? UnknownFilter.Field(CountryErrors.NotFound)
                 : formats.PostalCodeFormatOf(country).Validate(postalCode)
         );
 
@@ -42,7 +43,7 @@ internal sealed class AddressValidator(
         ErrorOr<GeoCity> found = await cities.GetCityAsync(city, cancellationToken);
         if (found.IsError)
         {
-            return found.Errors.ConvertAll(Field);
+            return found.Errors.ConvertAll(UnknownFilter.Field);
         }
 
         List<Error> errors = [];
@@ -61,8 +62,4 @@ internal sealed class AddressValidator(
 
         return errors.Count == 0 ? Result.Success : errors;
     }
-
-    // The caller's input names the code, so a code outside the catalogue is an invalid field (422), never a 404.
-    private static Error Field(Error error) =>
-        error.Type == ErrorType.NotFound ? Error.Validation(error.Code) : error;
 }

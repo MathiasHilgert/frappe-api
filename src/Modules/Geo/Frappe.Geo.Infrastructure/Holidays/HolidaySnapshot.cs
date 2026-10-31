@@ -119,8 +119,8 @@ internal sealed class HolidaySnapshot(CountrySnapshot countries, SubdivisionSnap
         };
     }
 
-    // The same checks, list and subdivision rule as the endpoint; the caller's subdivision is an input field, so one
-    // outside the country is invalid (never a 404).
+    // The same checks, list and subdivision rule as the endpoint; the caller's country and subdivision are input
+    // fields, so one outside the catalogue is invalid (never a 404).
     public ValueTask<ErrorOr<IReadOnlyList<GeoHoliday>>> HolidaysFor(
         CountryCode country,
         int year,
@@ -129,9 +129,10 @@ internal sealed class HolidaySnapshot(CountrySnapshot countries, SubdivisionSnap
         CancellationToken cancellationToken
     ) =>
         ValueTask.FromResult(
-            countries.Find(country, Locale.English) is null ? CountryErrors.NotFound
+            countries.Find(country, Locale.English) is null
+                ? UnknownFilter.Field(CountryErrors.NotFound)
             : subdivision is { } filter && !subdivisions.BelongsTo(filter, country)
-                ? Error.Validation(SubdivisionErrors.NotFound.Code)
+                ? UnknownFilter.Field(SubdivisionErrors.NotFound)
             : List(country, year, subdivision, locale)
                 .Then(static list =>
                     (IReadOnlyList<GeoHoliday>)
