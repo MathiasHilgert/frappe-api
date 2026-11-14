@@ -17,14 +17,14 @@ WORKDIR /source
 COPY global.json Directory.Build.props Directory.Packages.props NuGet.config .editorconfig ./
 COPY eng/CodeMetricsConfig.txt eng/
 COPY --from=projects /source/src/ src/
-RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
-    for host in Api Worker Migrator; do \
+# The packages stay in this layer (no cache mount): when the layer is reused from the build cache, a cache mount would
+# come back empty on a fresh runner and the publish below, which does not restore, would find no packages.
+RUN for host in Api Worker Migrator; do \
       dotnet restore "src/Hosts/Frappe.$host/Frappe.$host.csproj" -a "$TARGETARCH" -p:PublishReadyToRun=true --locked-mode || exit 1; \
     done
 
 COPY src/ src/
-RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
-    for host in Api Worker Migrator; do \
+RUN for host in Api Worker Migrator; do \
       dotnet publish "src/Hosts/Frappe.$host/Frappe.$host.csproj" -c Release -a "$TARGETARCH" --no-restore \
         -p:PublishReadyToRun=true -p:DebugType=none -o "/app/$(echo $host | tr '[:upper:]' '[:lower:]')" || exit 1; \
     done
