@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
 
-namespace Frappe.Api;
+namespace Frappe.Api.OpenApi;
 
 /// <summary>
 /// Declares the <c>Location</c> header of every <c>201 Created</c> (the new resource) and <c>202 Accepted</c> (where to

@@ -1,7 +1,7 @@
 using System.Net;
 using Microsoft.Extensions.Options;
 
-namespace Frappe.Api;
+namespace Frappe.Api.TrustedProxies;
 
 /// <summary>Fails at startup, naming the key and the entry, on a proxy address or network that does not parse.</summary>
 public sealed class TrustedProxyOptionsValidator : IValidateOptions<TrustedProxyOptions>

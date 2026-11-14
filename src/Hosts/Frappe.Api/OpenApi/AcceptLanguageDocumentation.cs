@@ -3,7 +3,7 @@ using Frappe.Localization;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
 
-namespace Frappe.Api;
+namespace Frappe.Api.OpenApi;
 
 /// <summary>
 /// Declares the <c>Accept-Language</c> header on every operation that negotiates the language, and the

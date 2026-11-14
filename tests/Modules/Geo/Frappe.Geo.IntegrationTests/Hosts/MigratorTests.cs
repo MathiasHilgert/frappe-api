@@ -1,6 +1,8 @@
 using Frappe.Geo.IntegrationTests.Persistence;
 using Frappe.Migrator;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -166,5 +168,36 @@ public sealed class MigratorTests(PostgresServer server)
             await DatabaseMigration.RunAsync(Configuration("Host=unreachable.invalid", without: key), NullLogger.Instance, CancellationToken.None));
 
         await Assert.That(failure!.Message).Contains($"Configuration '{key}'");
+    }
+
+    [Test]
+    public async Task The_host_exits_with_0_after_migrating_and_has_stopped_by_then()
+    {
+        using var host = MigratorHost(Configuration(await EmptyDatabaseAsync()));
+
+        var exitCode = await host.RunMigrationAsync();
+
+        await Assert.That(exitCode).IsEqualTo(0);
+        await Assert.That(host.Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopped.IsCancellationRequested).IsTrue();
+    }
+
+    [Test]
+    public async Task The_host_exits_with_1_when_the_migration_fails_and_has_stopped_by_then()
+    {
+        using var host = MigratorHost(Configuration("Host=unreachable.invalid", without: "ConnectionStrings:Owner"));
+
+        var exitCode = await host.RunMigrationAsync();
+
+        await Assert.That(exitCode).IsEqualTo(1);
+        await Assert.That(host.Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopped.IsCancellationRequested).IsTrue();
+    }
+
+    /// <summary>The Migrator's host as <c>Program</c> builds it, reading only the given configuration.</summary>
+    private static IHost MigratorHost(IConfiguration configuration)
+    {
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true });
+        builder.Configuration.AddConfiguration(configuration);
+        builder.AddFrappeMigrator();
+        return builder.Build();
     }
 }
