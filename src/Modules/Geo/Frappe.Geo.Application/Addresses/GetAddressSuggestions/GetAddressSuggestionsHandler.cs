@@ -9,9 +9,10 @@ namespace Frappe.Geo.Application.Addresses.GetAddressSuggestions;
 
 /// <summary>
 /// Input is validated first, the country against the countries Geo knows (so <c>XX</c> is no filter): a malformed request
-/// is the client's error whether or not a provider is configured, and only a valid one reaches the provider.
+/// is the client's error whether or not a provider is configured, and only a valid one reaches the provider. A session's
+/// first answered suggestion opens it and counts it as started (S15).
 /// </summary>
-internal sealed class GetAddressSuggestionsHandler(IAddressProvider provider, ICountryCatalog countries)
+internal sealed class GetAddressSuggestionsHandler(IAddressProvider provider, ICountryCatalog countries, IAddressSessions sessions, GeoMetrics metrics)
     : IQueryHandler<GetAddressSuggestions, IReadOnlyList<AddressSuggestion>>
 {
     /// <summary>The longest text searched: an address, not a document.</summary>
@@ -25,12 +26,18 @@ internal sealed class GetAddressSuggestionsHandler(IAddressProvider provider, IC
             return Result.Failure<IReadOnlyList<AddressSuggestion>>(search.Errors);
         }
 
-        var found = await new AddressProviderCalls(provider).RunAsync(
+        var found = await new AddressProviderCalls(provider, metrics).RunAsync(
+            AddressOperation.Suggest,
             async p => (IReadOnlyList<ProviderSuggestion>?)await p.SuggestAsync(search.Value, cancellationToken),
             GeoErrors.AddressNotFound);
         if (!found.IsSuccess)
         {
             return Result.Failure<IReadOnlyList<AddressSuggestion>>(found.Errors);
+        }
+
+        if (await sessions.OpenAsync(provider.Name, search.Value.Session, provider.SessionLifetime, cancellationToken))
+        {
+            metrics.AddressSessionStarted(provider.Name);
         }
 
         return Result.Success<IReadOnlyList<AddressSuggestion>>([.. found.Value.Select(ToSuggestion)]);

@@ -56,6 +56,7 @@ public static class GeoModule
         services.AddScoped<IEffectiveCalendars, CachedEffectiveCalendars>();
         services.AddScoped<ISubdivisionNames, EfSubdivisionNames>();
         services.TryAddSingleton<IAddressProvider, UnconfiguredAddressProvider>();
+        services.TryAddSingleton<IAddressSessions, CachedAddressSessions>();
         services.AddGeoQueries();
         services.AddHandlers(typeof(ICountryCatalog).Assembly);
         return services;

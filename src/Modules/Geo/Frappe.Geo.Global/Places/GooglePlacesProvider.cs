@@ -37,6 +37,18 @@ internal sealed partial class GooglePlacesProvider(HttpClient http, IOptions<Goo
 
     public string Name => ProviderName;
 
+    /// <summary>
+    /// Google publishes no session token lifetime: a session "begins with a call to Autocomplete (New), and concludes with
+    /// a call to Place Details (New) or Address Validation", or is abandoned
+    /// (https://developers.google.com/maps/documentation/places/web-service/place-session-tokens, checked 2026-11-14).
+    /// 15 minutes is a conservative wait: a slow user's resolution still closes the session; a later one can only
+    /// count a session as abandoned, never as completed twice.
+    /// </summary>
+    public TimeSpan SessionLifetime => TimeSpan.FromMinutes(15);
+
+    public double EstimatedCostUsd(AddressOperation operation) =>
+        operation == AddressOperation.Suggest ? GooglePlacesPricing.AutocompleteRequest : GooglePlacesPricing.PlaceDetailsEssentials;
+
     public async Task<IReadOnlyList<ProviderSuggestion>> SuggestAsync(AddressSearch search, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(search);

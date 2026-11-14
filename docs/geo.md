@@ -95,9 +95,6 @@ shown. The 6 November sector rule cites CCT 18/75, art. 50. Provincial rows keep
 links (`saij.gob.ar/view-document?guid=123456789-0abc-...`) look made up but are SAIJ's own id format (read backwards,
 `...-230-5000avorpyel` is `leyprova 0005-032`, Salta's Ley 5.032).
 
-The Migrator brings the catalog to the embedded snapshot after every migration, as a diff: a country or currency the
-snapshot drops is retired, never deleted, so a code another module stored keeps resolving.
-
 ## Configuration
 
 Every key is validated when the host starts; a missing or invalid one stops it naming the key. Crons are Quartz
@@ -149,8 +146,8 @@ source ids, scopes, outcomes and error codes.
 | Metric | Type, unit | Tags | Reported by |
 |--------|------------|------|-------------|
 | `frappe.geo.sync.runs` | Counter, `{run}` | `frappe.geo.source`, `frappe.outcome` (`applied`, `unchanged`, `not_published`, `refused`, `failed`) | Worker |
-| `frappe.geo.sync.last_success.age` | Observable gauge, `s` | `frappe.geo.source` | Worker |
 | `frappe.geo.sync.override_conflicts` | Counter, `{conflict}` | `frappe.geo.source` | Worker |
+| `frappe.geo.sync.last_success.age` | Observable gauge, `s` | `frappe.geo.source` | Worker |
 | `frappe.geo.holidays.covered_through` | Observable gauge, `{year}` | `frappe.geo.country`, `frappe.geo.calendar.scope` | Worker |
 | `frappe.geo.holidays.not_covered` | Counter, `{request}` | `frappe.geo.country`, `frappe.error.code` | Api (HTTP) and any host serving `IGeoQueries` |
 
@@ -165,6 +162,8 @@ source ids, scopes, outcomes and error codes.
 - **Cache effectiveness.** FusionCache's own instrumentation (meter `ZiggyCreatures.Caching.Fusion`, enabled by the
   platform) counts `fusioncache.cache.hit` and `fusioncache.cache.miss`: the hit ratio of the whole shared cache, of
   which Geo's calendars are one user (Geo adds no cache instrument of its own).
+- **Addresses.** Provider volume, latency, estimated cost, unmapped addresses and abandoned search sessions
+  (`frappe.geo.addresses.sessions.started` minus `.completed`) are described under [Addresses](#addresses).
 
 ## Addresses
 
@@ -197,14 +196,37 @@ subdivision.
   `InvalidReference` or `InvalidLanguage` the same way.
 - **Subdivision codes.** Places answers province names, never ISO 3166-2 codes. Geo maps the name
   through its subdivision names and aliases (imported and manual); an unmapped one comes back as
-  `null`.
+  `null` and is counted.
 - **Storage.** Geo stores no address. The validation answer is the snapshot the consuming module
   stores. Google Places' terms restrict storing Places content; reviewing that storage with legal
   counsel before production is the operator's responsibility. If needed, a provider whose terms
   allow storing the result (such as the Geocoding API) can replace this one without changing callers.
-- **Privacy.** No log carries what the user typed or the resolved address. Place Details puts the place id in its path,
+- **Metrics.** `frappe.geo.addresses.provider.requests`, `.duration` and `.estimated_cost` (an
+  upper bound from list prices, for trends), `frappe.geo.addresses.unmapped`, and
+  `frappe.geo.addresses.sessions.started` and `.completed` (see below). No tag or log
+  carries what the user typed or the resolved address. Place Details puts the place id in its path,
   so its HttpClient span shows `url.full` as `.../v1/places/REDACTED` (the Api registers
   `OutgoingRequestTelemetry.Redact` as the HttpClient instrumentation's enrichment).
+- **Abandoned sessions.** A session's first answered suggestion counts it in
+  `frappe.geo.addresses.sessions.started`; an answered validation of that session within the
+  provider's session lifetime counts it in `.completed` (both `{session}`, tagged only with
+  `frappe.geo.address.provider`). Abandoned sessions are `started - completed`, read as
+  `increase(started[1h]) - increase(completed[1h])` or over any window much longer than the
+  lifetime; a short window shows open sessions as abandoned. They matter for cost: Google bills
+  each autocomplete request of an abandoned session on its own. To tell which sessions are open,
+  Geo keeps a marker per session in the platform cache (provider and session UUID, no address, no
+  typed text) that expires with the lifetime. Google publishes no session-token lifetime
+  (<https://developers.google.com/maps/documentation/places/web-service/place-session-tokens>), so
+  Geo waits a conservative 15 minutes; a validation after that leaves the session counted as
+  abandoned. A validation with no suggestions before it, such as `IGeoQueries.ResolveAddressAsync`,
+  counts in neither; a session whose validation answers not found or fails is not completed (it
+  stays counted as abandoned). Known limits: the check and the write of a marker are not atomic, so two
+  replicas answering a session's first suggestions at the same moment can count it as started
+  twice, and two validations of one session at the same moment (or before the backplane has
+  evicted another replica's memory copy of the marker) can count it as completed twice; both are
+  rare, as clients debounce typing and validate once. While Valkey is down the markers live in each
+  replica's memory, so a session whose suggestions and validation reach different replicas
+  counts as abandoned.
 
 ## Adding a country
 
