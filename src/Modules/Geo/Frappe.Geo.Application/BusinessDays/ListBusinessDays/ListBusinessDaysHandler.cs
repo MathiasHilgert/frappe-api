@@ -1,6 +1,7 @@
 using Frappe.Geo.Application.Countries;
 using Frappe.Geo.Application.Holidays;
 using Frappe.Geo.Application.Territory;
+using Frappe.Geo.Contracts.Queries;
 using Frappe.Geo.Domain.Holidays;
 using Frappe.Results;
 using Frappe.UseCases;
@@ -16,7 +17,7 @@ internal sealed class ListBusinessDaysHandler(ICalendarRulesCatalog rules, IEffe
     : IQueryHandler<ListBusinessDays, BusinessDaysView>
 {
     /// <summary>About three months of business days: enough for any deadline, and at most two calendar years read.</summary>
-    public const int MaxCount = 60;
+    public const int MaxCount = IGeoQueries.MaxBusinessDays;
 
     public async Task<Result<BusinessDaysView>> HandleAsync(ListBusinessDays query, CancellationToken cancellationToken)
     {

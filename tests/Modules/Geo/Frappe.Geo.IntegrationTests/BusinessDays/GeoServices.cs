@@ -11,7 +11,7 @@ namespace Frappe.Geo.IntegrationTests.BusinessDays;
 
 /// <summary>
 /// Geo's services as another module in the Api or the Worker gets them, over the same database and cache as
-/// <see cref="GeoApi"/>: the calendar cache's eviction, driven here without NATS.
+/// <see cref="GeoApi"/>: the public queries and the calendar cache's eviction, driven here without NATS.
 /// </summary>
 internal static class GeoServices
 {

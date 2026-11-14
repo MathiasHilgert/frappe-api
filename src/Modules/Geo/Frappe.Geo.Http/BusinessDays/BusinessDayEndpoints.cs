@@ -2,6 +2,7 @@ using Frappe.Geo.Application.BusinessDays;
 using Frappe.Geo.Application.BusinessDays.GetBusinessDay;
 using Frappe.Geo.Application.BusinessDays.ListBusinessDays;
 using Frappe.Geo.Application.Holidays;
+using Frappe.Geo.Contracts.Queries;
 using Frappe.Geo.Http.Holidays;
 using Frappe.Http;
 using Frappe.UseCases;
@@ -17,9 +18,6 @@ namespace Frappe.Geo.Http.BusinessDays;
 /// <summary>Whether a date is a business day, and the next business days, in a country or subdivision under a policy.</summary>
 internal static class BusinessDayEndpoints
 {
-    /// <summary>The most business days one answer lists.</summary>
-    private const int MaxBusinessDays = 60;
-
     private const string Policy =
         "policy (required) is banking (settlements and payments), labor (payroll: read kind, the day's strongest observance) "
         + "or commercial (suppliers and deadlines). Each country declares what its policies close: its weekend, the kinds of "
@@ -56,7 +54,7 @@ internal static class BusinessDayEndpoints
     }
 
     private static string Next =>
-        $"The first count (1 to {MaxBusinessDays}; 400 geo.business_day_count.invalid when not digits, .out_of_range outside) business days from the date from (YYYY-MM-DD, included); a year on the way that Geo does not cover answers 404, never fewer days. ";
+        $"The first count (1 to {IGeoQueries.MaxBusinessDays}; 400 geo.business_day_count.invalid when not digits, .out_of_range outside) business days from the date from (YYYY-MM-DD, included); a year on the way that Geo does not cover answers 404, never fewer days. ";
 
     private static Task<Results<Ok<BusinessDayResponse>, ErrorsProblemHttpResult>> GetCountryDayAsync(
         string countryCode, string date, [FromQuery, DocumentedParameter(Required = true, Values = ["banking", "labor", "commercial"])] string? policy, IQueryHandler<GetBusinessDay, BusinessDayView> handler, CancellationToken cancellationToken) =>
@@ -68,14 +66,14 @@ internal static class BusinessDayEndpoints
 
     private static Task<Results<Ok<BusinessDaysResponse>, ErrorsProblemHttpResult>> ListCountryBusinessDaysAsync(
         string countryCode, [FromQuery, DocumentedParameter(Required = true, Format = ParameterFormat.Date)] string? from,
-        [FromQuery, DocumentedParameter(Required = true, Format = ParameterFormat.WholeNumber, Minimum = 1, Maximum = MaxBusinessDays)] string? count,
+        [FromQuery, DocumentedParameter(Required = true, Format = ParameterFormat.WholeNumber, Minimum = 1, Maximum = IGeoQueries.MaxBusinessDays)] string? count,
         [FromQuery, DocumentedParameter(Required = true, Values = ["banking", "labor", "commercial"])] string? policy,
         IQueryHandler<ListBusinessDays, BusinessDaysView> handler, CancellationToken cancellationToken) =>
         ListAsync(new ListBusinessDays(countryCode, from, count, policy), handler, cancellationToken);
 
     private static Task<Results<Ok<BusinessDaysResponse>, ErrorsProblemHttpResult>> ListSubdivisionBusinessDaysAsync(
         string subdivisionCode, [FromQuery, DocumentedParameter(Required = true, Format = ParameterFormat.Date)] string? from,
-        [FromQuery, DocumentedParameter(Required = true, Format = ParameterFormat.WholeNumber, Minimum = 1, Maximum = MaxBusinessDays)] string? count,
+        [FromQuery, DocumentedParameter(Required = true, Format = ParameterFormat.WholeNumber, Minimum = 1, Maximum = IGeoQueries.MaxBusinessDays)] string? count,
         [FromQuery, DocumentedParameter(Required = true, Values = ["banking", "labor", "commercial"])] string? policy,
         IQueryHandler<ListBusinessDays, BusinessDaysView> handler, CancellationToken cancellationToken) =>
         ListAsync(new ListBusinessDays(subdivisionCode, from, count, policy), handler, cancellationToken);

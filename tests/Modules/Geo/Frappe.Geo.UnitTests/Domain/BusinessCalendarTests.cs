@@ -1,6 +1,8 @@
 using Frappe.Geo.Domain.BusinessDays;
 using Frappe.Geo.Domain.Holidays;
 using NodaTime;
+using ContractKind = Frappe.Geo.Contracts.Queries.DayKind;
+using ContractPolicy = Frappe.Geo.Contracts.Queries.BusinessDayPolicy;
 
 namespace Frappe.Geo.UnitTests.Domain;
 
@@ -91,5 +93,14 @@ public sealed class BusinessCalendarTests
         await Assert.That(commercial.BusinessDaysFrom(new LocalDate(2026, 11, 6)).Take(2)).IsEquivalentTo([new LocalDate(2026, 11, 6), new LocalDate(2026, 11, 10)]);
         await Assert.That(commercial.BusinessDaysFrom(new LocalDate(2026, 12, 31)).ToArray()).IsEquivalentTo([new LocalDate(2026, 12, 31)]);
         await Assert.That(commercial.BusinessDaysFrom(new LocalDate(2025, 12, 30)).First()).IsEqualTo(new LocalDate(2026, 1, 1));
+    }
+
+    [Test]
+    public async Task The_contract_enums_mirror_the_domain_ones_value_for_value()
+    {
+        await Assert.That(Enum.GetValues<BusinessDayPolicy>().Select(p => (p.ToString(), (int)p)))
+            .IsEquivalentTo(Enum.GetValues<ContractPolicy>().Select(p => (p.ToString(), (int)p)));
+        await Assert.That(Enum.GetValues<ObservanceKind>().Select(k => (k.ToString(), (int)k)))
+            .IsEquivalentTo(Enum.GetValues<ContractKind>().Select(k => (k.ToString(), (int)k)));
     }
 }
