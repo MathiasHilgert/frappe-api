@@ -1,5 +1,7 @@
 # Releases come from the Conventional Commits on main: release-please keeps a release pull request with the next
 # version and its changelog; merging it tags the release, and the image is published to GHCR with its provenance.
+# Versions stay 0.x (from 0.1.0; a feat bumps the minor, a fix the patch) until the first product version, which is
+# a deliberate 1.0.0 (a "Release-As: 1.0.0" footer), never an automatic one.
 name: Release
 
 on:
