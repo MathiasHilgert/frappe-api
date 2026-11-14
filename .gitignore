@@ -1,0 +1,259 @@
+# =============================================================================
+# .NET / C#
+# =============================================================================
+
+# Build output
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+artifacts/
+publish/
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+*.dll
+*.exe
+*.pdb
+*.cache
+*.ilk
+*.obj
+*.tlog
+*.binlog
+*.rsp
+*.tmp
+*.tmp_proj
+*_wpftmp.csproj
+
+# Roslyn / generated
+*.g.cs
+*.g.i.cs
+generated/
+[Gg]enerated[Ff]iles/
+
+# NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.fragment.lock.json
+.nuget/
+nuget.exe
+
+# Test results & coverage
+[Tt]est[Rr]esult*/
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+coverage/
+coverage*.json
+coverage*.xml
+coverage*.info
+coverage.cobertura.xml
+lcov.info
+*.opencover.xml
+coverage-report/
+StrykerOutput/
+BenchmarkDotNet.Artifacts/
+
+# Dotnet tooling
+.dotnet/
+.store/
+*.svclog
+dotnet-dump-*
+*.nettrace
+*.gcdump
+*.dmp
+core.*
+
+# =============================================================================
+# Secrets & local configuration
+# =============================================================================
+
+.env
+.env.*
+!.env.example
+*.env.local
+appsettings.Local.json
+appsettings.*.Local.json
+appsettings.*.local.json
+secrets.json
+*.pfx
+*.p12
+*.key
+*.pem
+!**/certs/README.md
+docker-compose.override.yml
+compose.override.yaml
+compose.override.yml
+
+# =============================================================================
+# Docker / runtime data
+# =============================================================================
+
+.docker-data/
+volumes/
+data/postgres/
+data/valkey/
+data/nats/
+data/grafana/
+data/loki/
+data/tempo/
+data/mimir/
+data/prometheus/
+
+# =============================================================================
+# IDEs & editors
+# =============================================================================
+
+# Visual Studio
+.vs/
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+*.userprefs
+*.vspscc
+*.vssscc
+*.ncb
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.VC.opendb
+ipch/
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+.fleet/
+
+# VS Code (keep shared settings only)
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.history/
+
+# Vim / Neovim / Emacs
+*.swp
+*.swo
+*~
+.netrwhist
+Session.vim
+.nvim.lua
+.nvimrc
+.exrc
+\#*\#
+.\#*
+
+# =============================================================================
+# OS
+# =============================================================================
+
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.directory
+.Trash-*
+.nfs*
+
+# =============================================================================
+# AI tooling, agents & assistants
+# =============================================================================
+
+# Claude / Anthropic
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+.mcp.json
+
+# OpenAI Codex
+.codex/
+AGENTS.md
+AGENTS.override.md
+
+# Google Gemini
+.gemini/
+GEMINI.md
+
+# GitHub Copilot
+.github/copilot-instructions.md
+.github/instructions/
+.github/prompts/
+.github/chatmodes/
+.copilot/
+
+# Cursor / Windsurf / Zed / Kiro / Trae
+.cursor/
+.cursorrules
+.cursorignore
+.cursorindexingignore
+.windsurf/
+.windsurfrules
+.codeium/
+.zed/
+.kiro/
+.trae/
+
+# Aider / Continue / Cline / Roo / Junie / Amazon Q / Tabnine / Augment
+.aider*
+.continue/
+.cline/
+.clinerules
+.roo/
+.roomodes
+.junie/
+.amazonq/
+.tabnine/
+.augment/
+.augmentignore
+
+# OpenCode / Pi / Crush / Goose / Warp / Qwen / Kilo
+.opencode/
+opencode.json
+.pi/
+.crush/
+CRUSH.md
+.goose/
+.goosehints
+WARP.md
+.qwen/
+QWEN.md
+.kilocode/
+
+# Agent harnesses, memory & code indexes
+.atl/
+.engram/
+.codegraph/
+.gentle-ai/
+.serena/
+.specstory/
+.sdd/
+openspec/
+.memory/
+.mem0/
+
+# Organic Driven Development (ODD)
+odd/
+.odd/

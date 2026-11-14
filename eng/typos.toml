@@ -1,0 +1,34 @@
+# Spell checking (Code quality workflow). Data and text in other languages are not English prose.
+[files]
+# .github/ (CONTRIBUTING.md, the workflows) and the dotfiles are checked too; hidden paths are skipped by default.
+ignore-hidden = false
+extend-exclude = [
+  ".git/",
+  "**/packages.lock.json",
+  "**/Migrations/**",
+  "docs/api/**",
+  "**/Resources/Messages/**",
+  "**/Fixtures/**",
+  "tools/seeds/**",
+  "deploy/observability/**",
+  "tools/bruno/**",
+]
+
+[default]
+extend-ignore-re = [
+  # W3C trace context ids (traceparent) are hex.
+  "[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}",
+  # A sed bracket expression: [Cc]ontent.
+  "\\[Cc\\]ontent",
+]
+
+# Spanish words in test data and messages.
+[default.extend-words]
+ser = "ser"
+sur = "sur"
+caracteres = "caracteres"
+informe = "informe"
+oficial = "oficial"
+limite = "limite"
+componente = "componente"
+

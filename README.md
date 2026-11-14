@@ -1,0 +1,58 @@
+# Frappé API
+
+[![License: proprietary](https://img.shields.io/badge/license-proprietary-lightgrey)](LICENSE)
+
+The backend of Frappé, the operating system for restaurants and cafés in Latin America.
+
+## About
+
+Frappé is a modular monolith on .NET 11: one codebase and one deployable image, split into business modules
+that own their data and talk to each other through integration events. Each module is a hexagon (domain, application, infrastructure, HTTP adapter) with CQRS,
+and the cross-cutting work (persistence, messaging, caching, scheduling, localization, observability, health)
+lives once in a shared platform layer.
+
+**Status: foundation.** This repository holds the build settings only; the platform layer and the modules arrive in
+the next changes.
+
+## Tech stack
+
+| Area | Choice |
+|------|--------|
+| Runtime | .NET 11, ASP.NET Core, OpenAPI with a [Scalar](https://scalar.com/) reference |
+| Data | PostgreSQL, EF Core (Npgsql), NodaTime |
+| Messaging | NATS JetStream, CloudEvents |
+| Caching | FusionCache over Valkey |
+| Scheduling | Quartz.NET |
+| Observability | OpenTelemetry into Grafana's LGTM stack (Loki, Grafana, Tempo, Mimir) |
+| Testing | TUnit, Testcontainers, WireMock, NetArchTest |
+| Tooling | Docker Compose, [just](https://github.com/casey/just), Renovate, release-please |
+
+## Getting started
+
+### Prerequisites
+
+- The .NET 11 SDK pinned in [`global.json`](global.json)
+- [just](https://github.com/casey/just#installation)
+
+### Build
+
+```bash
+just build             # dotnet build Frappe.slnx, warnings are errors
+```
+
+`just` alone lists every command.
+
+## Conventions
+
+| Topic | Rule |
+|-------|------|
+| Commits and PR titles | [Conventional Commits](https://www.conventionalcommits.org/) with a mandatory scope: `feat(platform): add a health probe` |
+| Branches | `<type>/<kebab-topic>`, with the type of the title |
+| Merging | Squash only: the PR title becomes the commit on `main` |
+| Code quality | Warnings are errors; every method stays within cognitive complexity 15 and cyclomatic complexity 10 |
+
+## License
+
+Copyright © 2026 Nülled Software. All rights reserved. This repository is publicly visible, but it is **not open
+source**: the source code is proprietary, and no right to use, copy, modify or distribute it is granted without
+written permission. See [LICENSE](LICENSE).

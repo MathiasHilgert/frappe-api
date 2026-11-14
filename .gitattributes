@@ -1,0 +1,8 @@
+# Every text file is stored and checked out with LF, whatever the platform.
+* text=auto eol=lf
+
+# Generated files: collapsed in GitHub's diffs and left out of the language statistics. Their diffs stay readable.
+**/packages.lock.json linguist-generated=true
+**/Migrations/*.Designer.cs linguist-generated=true
+**/Migrations/*ModelSnapshot.cs linguist-generated=true
+docs/api/**/*.json linguist-generated=true

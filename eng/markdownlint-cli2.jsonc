@@ -1,0 +1,16 @@
+// Markdown lint (Code quality workflow).
+{
+  "config": {
+    "default": true,
+    // Prose is wrapped by the editor, not at a fixed width.
+    "MD013": false,
+    // The pull request template starts with an HTML comment and uses <details>.
+    "MD033": false,
+    "MD041": false,
+    // Repeated headings are fine in different sections (Summary, Risk, ...).
+    "MD024": { "siblings_only": true },
+    // Compact tables (|---|) are the repository's style.
+    "MD060": false
+  },
+  "ignores": ["**/bin/**", "**/obj/**", "odd/**", "CHANGELOG.md"]
+}

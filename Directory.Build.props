@@ -1,0 +1,45 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Docs are not required on every public member (CS1591), but every cref that exists must resolve. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <Deterministic>true</Deterministic>
+    <!-- Reproducible restores: every project has a packages.lock.json, and CI restores in locked mode. The lock records
+         the runtime packs of the image's platforms, so a Docker restore with -a x64|arm64 matches it too. -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
+    <RuntimeIdentifiers>linux-x64;linux-arm64</RuntimeIdentifiers>
+    <!-- Known vulnerabilities in direct and transitive packages are reported on restore. They stay warnings here, so a
+         new advisory does not break every local build; the Security workflow fails on them. -->
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <RootNamespace>$(MSBuildProjectName)</RootNamespace>
+    <!-- Runtime Async (.NET 11): async methods run on the runtime's own suspension and resumption instead of
+         compiler-generated state machines, like the .NET libraries themselves. ExecutionContext (and with it
+         Activity.Current and every AsyncLocal) still flows across awaits; TraceFlowTests and WorkerHostTests pin that. -->
+    <Features>$(Features);runtime-async=on</Features>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Error messages per language (ICU MessageFormat), read by Frappe.Http's ErrorMessageCatalog. -->
+    <EmbeddedResource Include="Resources/Messages/*.json" LogicalName="frappe.messages/%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Analyzer only, never a dependency of what we ship. Its rules are off except where .editorconfig enables them. -->
+    <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+    <!-- Analyzer only. Sonar's default rule set plus cognitive complexity (S3776), configured in .editorconfig. -->
+    <PackageReference Include="SonarAnalyzer.CSharp" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Thresholds of the code metrics rules (CA1502 cyclomatic complexity). -->
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)eng/CodeMetricsConfig.txt" Link="CodeMetricsConfig.txt" />
+  </ItemGroup>
+</Project>

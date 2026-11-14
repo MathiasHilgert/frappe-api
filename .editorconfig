@@ -1,0 +1,112 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{json,yaml,yml,xml,csproj,props,targets,slnx}]
+indent_size = 2
+
+[*.cs]
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_prefer_primary_constructors = true:suggestion
+csharp_using_directive_placement = outside_namespace:warning
+dotnet_sort_system_directives_first = true
+dotnet_style_qualification_for_field = false:warning
+# Private constants and static readonly fields are PascalCase; only instance fields take the underscore.
+dotnet_naming_rule.private_constants_pascal.symbols = private_constants
+dotnet_naming_rule.private_constants_pascal.style = pascal_case
+dotnet_naming_rule.private_constants_pascal.severity = warning
+dotnet_naming_symbols.private_constants.applicable_kinds = field
+dotnet_naming_symbols.private_constants.applicable_accessibilities = private
+dotnet_naming_symbols.private_constants.required_modifiers = const
+dotnet_naming_rule.private_static_readonly_pascal.symbols = private_static_readonly
+dotnet_naming_rule.private_static_readonly_pascal.style = pascal_case
+dotnet_naming_rule.private_static_readonly_pascal.severity = warning
+dotnet_naming_symbols.private_static_readonly.applicable_kinds = field
+dotnet_naming_symbols.private_static_readonly.applicable_accessibilities = private
+dotnet_naming_symbols.private_static_readonly.required_modifiers = static, readonly
+dotnet_naming_style.pascal_case.capitalization = pascal_case
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel
+dotnet_naming_rule.private_fields_underscore.severity = warning
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+dotnet_naming_style.underscore_camel.required_prefix = _
+
+# CA1848: LoggerMessage source generators are used where logging is hot; not enforced everywhere.
+dotnet_diagnostic.CA1848.severity = suggestion
+# CA1716: identifiers like "Error" are intentional domain names.
+dotnet_diagnostic.CA1716.severity = suggestion
+# CA1062: nullable reference types already guard public arguments.
+dotnet_diagnostic.CA1062.severity = none
+# CA1040: empty marker interfaces (ICommand<T>, IQuery<T>, IDomainEvent, IIntegrationEvent) are deliberate:
+# they bind a request to its result type, or name a role, at compile time.
+dotnet_diagnostic.CA1040.severity = none
+# IDE0005 needs GenerateDocumentationFile to run in build; keep it as an IDE hint.
+dotnet_diagnostic.IDE0005.severity = suggestion
+# StyleCop.Analyzers is referenced only for one-type-per-file (SA1402/SA1649, enabled per folder below): every
+# StyleCop category is off here, so no other StyleCop rule (nor a stylecop.json) is required.
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.SpecialRules.severity = none
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.DocumentationRules.severity = none
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.LayoutRules.severity = none
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.MaintainabilityRules.severity = none
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.NamingRules.severity = none
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.OrderingRules.severity = none
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.ReadabilityRules.severity = none
+dotnet_analyzer_diagnostic.category-StyleCop.CSharp.SpacingRules.severity = none
+# IDE0130: a file's namespace matches its folder (RootNamespace + folder path).
+dotnet_diagnostic.IDE0130.severity = warning
+# Complexity budget per method. S3776: cognitive complexity above 15 (Sonar's default threshold). CA1502: cyclomatic
+# complexity above 10 (threshold in eng/CodeMetricsConfig.txt). Both are off by default; a method over budget fails the build.
+dotnet_diagnostic.S3776.severity = warning
+dotnet_diagnostic.CA1502.severity = warning
+
+[{src/Modules,tests/Modules,tests/Frappe.EndToEnd.Tests}/**.cs]
+# SA1402: one type per file; SA1649: the file is named after its first type.
+dotnet_diagnostic.SA1402.severity = warning
+dotnet_diagnostic.SA1649.severity = warning
+
+# The outbox and inbox entities keep namespace Frappe.Messaging although they live in Outbox/ and Inbox/: EF Core
+# names an entity type by its CLR full name, and every module's model snapshot records "Frappe.Messaging.OutboxMessage"
+# and "Frappe.Messaging.InboxMessage". Moving them would make every module add a migration.
+[src/Platform/Frappe.Messaging/Outbox/OutboxMessage.cs]
+dotnet_diagnostic.IDE0130.severity = none
+
+[src/Platform/Frappe.Messaging/Inbox/InboxMessage.cs]
+dotnet_diagnostic.IDE0130.severity = none
+
+[src/Platform/Frappe.Messaging/{Outbox/OutboxMessage,Inbox/InboxMessage}.cs]
+# S1144/S3453: EF Core materializes these entities through their private constructor and private setters.
+dotnet_diagnostic.S1144.severity = none
+dotnet_diagnostic.S3453.severity = none
+
+[src/Platform/Frappe.UseCases/Messaging.cs]
+# S2326: ICommand<TResult> and IQuery<TResult> bind a request to its result type at compile time (see CA1040 above).
+dotnet_diagnostic.S2326.severity = none
+
+[tests/**.cs]
+# CA1707: test names use underscores for readability.
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA2007.severity = none
+# CA1861: inline arrays keep test data next to the assertion.
+dotnet_diagnostic.CA1861.severity = none
+# A test reads top to bottom as one scenario; the complexity budget applies to production code.
+dotnet_diagnostic.S3776.severity = none
+dotnet_diagnostic.CA1502.severity = none
+# Tests talk to local containers and fakes: fixed URIs, loopback IPs, plain http and throwaway passwords are fixtures.
+dotnet_diagnostic.S1075.severity = none
+dotnet_diagnostic.S1313.severity = none
+dotnet_diagnostic.S5332.severity = none
+dotnet_diagnostic.S2068.severity = none
+
+[**/Migrations/*.cs]
+# EF Core migrations are generated by dotnet-ef; analyzers do not apply to generated code.
+generated_code = true
