@@ -14,8 +14,20 @@
     <Project Path="src/Platform/Frappe.Scheduling/Frappe.Scheduling.csproj" />
     <Project Path="src/Platform/Frappe.UseCases/Frappe.UseCases.csproj" />
   </Folder>
+  <Folder Name="/src/Hosts/">
+    <Project Path="src/Hosts/Frappe.Api/Frappe.Api.csproj" />
+    <Project Path="src/Hosts/Frappe.Migrator/Frappe.Migrator.csproj" />
+    <Project Path="src/Hosts/Frappe.Worker/Frappe.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Frappe.Architecture.Tests/Frappe.Architecture.Tests.csproj" />
+    <Project Path="tests/Frappe.EndToEnd.Tests/Frappe.EndToEnd.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/Platform/">
     <Project Path="tests/Platform/Frappe.Platform.Tests/Frappe.Platform.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Shared/">
+    <Project Path="tests/Shared/Frappe.Testing/Frappe.Testing.csproj" />
   </Folder>
   <Folder Name="/Solution Items/">
     <File Path="global.json" />

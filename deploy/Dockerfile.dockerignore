@@ -1,0 +1,21 @@
+# Read by `docker build -f deploy/Dockerfile .` (BuildKit looks for <Dockerfile>.dockerignore next to the Dockerfile).
+# Only what the image build needs: sources, build props and the solution. Paths are relative to the context (the root).
+**/bin/
+**/obj/
+**/TestResults/
+.git/
+.codegraph/
+.vs/
+.vscode/
+.idea/
+odd/
+docs/
+tests/
+**/*.user
+# Only appsettings.json ships: environment-specific and local settings, and secrets, stay out.
+**/appsettings.*.json
+**/.env
+**/.env.*
+**/*.pfx
+**/*.key
+deploy/

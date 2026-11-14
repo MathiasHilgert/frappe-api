@@ -6,8 +6,16 @@ set working-directory := "../.."
 policies := "--maximum-failed-tests 10 --results-directory-layout per-module"
 
 # Every suite
-all: platform
+all: platform architecture
 
 # Platform capabilities (no containers)
 platform:
     timeout 240 dotnet test --project tests/Platform/Frappe.Platform.Tests --timeout 3m {{ policies }}
+
+# Layering rules on the compiled assemblies
+architecture:
+    timeout 120 dotnet test --project tests/Frappe.Architecture.Tests --timeout 1m {{ policies }}
+
+# The real image end to end: builds it, then runs Migrator, Api and Worker (needs Docker; not part of `all`)
+e2e:
+    timeout 900 dotnet test --project tests/Frappe.EndToEnd.Tests --timeout 12m {{ policies }}
