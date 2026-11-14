@@ -1,0 +1,4 @@
+{
+  "geo.holiday_year.out_of_range": "El año debe estar entre {min} y {max}.",
+  "geo.country_code.invalid_length": "El código de país debe tener {length} caracteres."
+}
