@@ -45,5 +45,69 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Set up .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+      - name: Run platform tests with coverage
+        run: >-
+          dotnet test --project tests/Platform/Frappe.Platform.Tests --timeout 5m --maximum-failed-tests 10 --results-directory-layout per-module
+          --results-directory "$RUNNER_TEMP/results" --
+          --coverage --coverage-output-format cobertura --coverage-output platform.cobertura.xml
       - name: Run convention tests
         run: node --test .github/scripts/*.test.mjs
+      - name: Upload coverage
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-unit
+          path: ${{ runner.temp }}/results/**/*.cobertura.xml
+          retention-days: 7
+
+  coverage:
+    name: Changed lines are covered
+    needs: [unit]
+    # Explicit results, not the implicit success(): when the detection fails the suites still run, and their coverage
+    # must still be checked. Skipped suites (nothing they test changed) skip this job too, which reports as passing.
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.unit.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code with the base branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Download coverage
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: coverage-*
+          path: ${{ runner.temp }}/coverage
+          merge-multiple: true
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - name: Install diff-cover
+        run: pip install --require-hashes --no-deps -r .github/requirements/diff-cover.txt
+      - name: Enforce 80% coverage on changed production lines
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        # Each report sits in its test app's own directory (--results-directory-layout per-module), at any depth.
+        run: |
+          mapfile -t reports < <(find "$RUNNER_TEMP/coverage" -name '*.cobertura.xml')
+          diff-cover "${reports[@]}" \
+            --compare-branch "origin/$BASE_REF" \
+            --exclude "tests/*" "*/Migrations/*" "tools/**" \
+            --fail-under 80 \
+            --format "markdown:$RUNNER_TEMP/diff-cover.md"
+      - name: Publish the coverage report
+        if: always()
+        run: cat "$RUNNER_TEMP/diff-cover.md" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true

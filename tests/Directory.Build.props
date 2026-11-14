@@ -1,0 +1,18 @@
+<Project>
+  <!-- Everything the repository root sets (analyzers, warnings as errors, lock files, net11.0) applies to tests too. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!-- A test project is named *Tests and is a TUnit app (Microsoft.Testing.Platform runs it as an executable). The
+       shared helpers under Shared/ are plain libraries: no TUnit, so they hold no tests and are never run. -->
+  <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('Tests'))">
+    <OutputType>Exe</OutputType>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup Condition="$(MSBuildProjectName.EndsWith('Tests'))">
+    <PackageReference Include="TUnit" />
+  </ItemGroup>
+</Project>
