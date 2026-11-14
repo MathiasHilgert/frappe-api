@@ -7,8 +7,9 @@ docs:
   content: |-
     # Geo
 
-    The read side of `/v1/geo`: the CLDR catalogue of countries and currencies. Answers are cached: each one carries an
-    `ETag` and `Cache-Control`.
+    The read side of `/v1/geo`: the CLDR catalogue of countries and currencies and Argentina's territory (Georef).
+    Territory exists only after the Worker synced it (it runs every source once when it starts), so run the Worker
+    before this folder. Answers are cached: each one carries an `ETag` and `Cache-Control`.
 
-    The requests use Argentina (`AR`). See `docs/geo.md`.
+    The requests use Argentina (`AR`) and Córdoba (`AR-X`). See `docs/geo.md`.
   type: text/markdown

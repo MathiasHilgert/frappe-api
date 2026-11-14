@@ -2,5 +2,15 @@
   "geo.country_code.invalid_format": "“{value}” is not an ISO 3166-1 alpha-2 country code.",
   "geo.country.not_found": "The country {countryCode} does not exist.",
   "geo.currency_code.invalid_format": "“{value}” is not an ISO 4217 currency code.",
-  "geo.currency.not_found": "The currency {currencyCode} does not exist or is not in use."
+  "geo.currency.not_found": "The currency {currencyCode} does not exist or is not in use.",
+  "geo.subdivision_code.invalid_format": "“{value}” is not an ISO 3166-2 subdivision code (such as AR-B).",
+  "geo.subdivision.not_found": "The subdivision {subdivisionCode} does not exist.",
+  "geo.area.not_found": "The administrative area {areaId} does not exist.",
+  "geo.area_level.out_of_range": "The level “{value}” must be a whole number from {min} to {max}.",
+  "geo.area_level.invalid": "The level “{value}” is not a whole number: use one from {min} to {max}.",
+  "geo.locality.not_found": "The locality {localityId} does not exist.",
+  "geo.territory.not_covered": "Geo has no territory data of {countryCode}: it does not know its subdivisions.",
+  "geo.page_limit.out_of_range": "The limit “{value}” must be a whole number from {min} to {max}.",
+  "geo.page_limit.invalid": "The limit “{value}” is not a whole number: use one from {min} to {max}.",
+  "geo.page_cursor.invalid": "The cursor is not valid: use the nextCursor of a previous page of the same search."
 }

@@ -19,7 +19,7 @@ docs:
     or Stack) before sending.
 
     - **Health:** the three Kubernetes probes.
-    - **Geo:** countries and currencies.
+    - **Geo:** countries, currencies and territory.
     - **HTTP Conventions:** unknown routes.
     - **OpenAPI:** the machine-readable contract (`/openapi/v1.json`); the human one is Scalar at `{{baseUrl}}/docs/`.
 

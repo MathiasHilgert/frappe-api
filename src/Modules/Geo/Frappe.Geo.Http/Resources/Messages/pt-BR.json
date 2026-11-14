@@ -2,5 +2,15 @@
   "geo.country_code.invalid_format": "“{value}” não é um código de país ISO 3166-1 alfa-2.",
   "geo.country.not_found": "O país {countryCode} não existe.",
   "geo.currency_code.invalid_format": "“{value}” não é um código de moeda ISO 4217.",
-  "geo.currency.not_found": "A moeda {currencyCode} não existe ou não está em uso."
+  "geo.currency.not_found": "A moeda {currencyCode} não existe ou não está em uso.",
+  "geo.subdivision_code.invalid_format": "“{value}” não é um código de subdivisão ISO 3166-2 (como AR-B).",
+  "geo.subdivision.not_found": "A subdivisão {subdivisionCode} não existe.",
+  "geo.area.not_found": "A área administrativa {areaId} não existe.",
+  "geo.area_level.out_of_range": "O nível “{value}” deve ser um número inteiro de {min} a {max}.",
+  "geo.area_level.invalid": "O nível “{value}” não é um número inteiro: use um de {min} a {max}.",
+  "geo.locality.not_found": "A localidade {localityId} não existe.",
+  "geo.territory.not_covered": "O Geo não tem dados territoriais de {countryCode}: não conhece suas subdivisões.",
+  "geo.page_limit.out_of_range": "O limite “{value}” deve ser um número inteiro de {min} a {max}.",
+  "geo.page_limit.invalid": "O limite “{value}” não é um número inteiro: use um de {min} a {max}.",
+  "geo.page_cursor.invalid": "O cursor não é válido: use o nextCursor de uma página anterior da mesma busca."
 }

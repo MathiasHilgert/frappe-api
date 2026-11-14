@@ -18,7 +18,7 @@ and the cross-cutting work (persistence, messaging, caching, scheduling, localiz
 lives once in a shared platform layer.
 
 **Status: early.** The platform and the Geo module are in place (see [docs/geo.md](docs/geo.md)); Geo serves its
-country and currency catalog and syncs Argentina's territory so far. Version 1 of the HTTP API has anonymous reads.
+country and currency catalog and Argentina's territory so far. Version 1 of the HTTP API has anonymous reads.
 
 Every response is localized (English, Spanish and Portuguese variants), errors follow one
 [Problem Details](https://www.rfc-editor.org/rfc/rfc9457) contract, and successful answers are cacheable with
