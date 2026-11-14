@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Quartz.Extensions.Hosting" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.Health/Frappe.Health.csproj" />
+  </ItemGroup>
+</Project>
