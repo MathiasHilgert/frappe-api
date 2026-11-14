@@ -1,0 +1,169 @@
+# Does it break anyone? The HTTP and event contracts (docs/api/, kept current by the test suites) are diffed against
+# the base branch, and a breaking change needs "!" in the title. New migrations are linted for locks and data loss, and
+# the database is upgraded from the base branch's schema with the real Migrator.
+name: Compatibility
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  OASDIFF_VERSION: "1.37.0"
+
+jobs:
+  changes:
+    name: Changes
+    # Pull requests only: any other event runs every job, because a skipped "changes" leaves the outputs empty.
+    if: github.event_name == 'pull_request'
+    # The self-repository form ($/) is what zizmor prefers, but actionlint 1.7.12 cannot parse it yet.
+    uses: ./.github/workflows/changes.yml # zizmor: ignore[self-repository]
+    permissions:
+      contents: read
+      pull-requests: read
+
+  api:
+    name: API has no unmarked breaking changes
+    needs: changes
+    # Skipped (reported as passing) only when the change provably cannot affect it; see .github/scripts/changes.mjs.
+    if: ${{ !cancelled() && needs.changes.outputs.contracts != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code with the base branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Install oasdiff
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/install-oasdiff.sh "$OASDIFF_VERSION" "$RUNNER_TEMP/bin"
+      - name: Compare the HTTP contract with the base branch
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BASE_REF: ${{ github.base_ref }}
+        run: PATH="$RUNNER_TEMP/bin:$PATH" .github/scripts/breaking-changes.sh docs/api/openapi/v1.json "$BASE_REF"
+
+  events:
+    name: Events have no unmarked breaking changes
+    needs: changes
+    # Skipped (reported as passing) only when the change provably cannot affect it; see .github/scripts/changes.mjs.
+    if: ${{ !cancelled() && needs.changes.outputs.contracts != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code with the base branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Install oasdiff
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/install-oasdiff.sh "$OASDIFF_VERSION" "$RUNNER_TEMP/bin"
+      - name: Compare the event contract with the base branch
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BASE_REF: ${{ github.base_ref }}
+        run: PATH="$RUNNER_TEMP/bin:$PATH" .github/scripts/breaking-changes.sh docs/api/events/v1.json "$BASE_REF"
+
+  migrations:
+    name: Database migrations are safe
+    needs: changes
+    # Skipped (reported as passing) only when the change provably cannot affect it; see .github/scripts/changes.mjs.
+    if: ${{ !cancelled() && needs.changes.outputs.migrations != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code with the base branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Set up .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+      - name: Restore the EF Core tools
+        run: dotnet tool restore
+      - name: Check that every model change has its migration
+        run: |
+          dotnet build Frappe.slnx
+          grep -rl --include='*.cs' 'IDesignTimeDbContextFactory' src | while read -r factory; do
+            project=$(dirname "$factory")
+            while [ ! -f "$project/$(basename "$project").csproj" ]; do project=$(dirname "$project"); done
+            dotnet ef migrations has-pending-model-changes --project "$project" --no-build
+          done
+      - name: Generate the SQL of the new migrations
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: .github/scripts/migration-sql.sh "$BASE_REF" "$RUNNER_TEMP/migrations"
+      - name: Lint the SQL of the new migrations
+        env:
+          # Escape hatch for a deliberate risky change (a blocking index, a dropped column): a reviewer adds the label.
+          APPROVED: ${{ contains(github.event.pull_request.labels.*.name, 'risky migration approved') }}
+        run: |
+          shopt -s nullglob
+          files=("$RUNNER_TEMP"/migrations/*.sql)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No new migrations." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          for file in "${files[@]}"; do
+            { echo "### $(basename "$file")"; echo '```sql'; cat "$file"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          done
+          if npx --yes squawk-cli@2.72.0 --config eng/squawk.toml "${files[@]}"; then
+            exit 0
+          fi
+          if [ "$APPROVED" = "true" ]; then
+            echo "::warning::Risky migration statements, approved with the 'risky migration approved' label"
+            exit 0
+          fi
+          echo "::error::Risky migration statements (locks or data loss). Make them safe, or have a reviewer add the 'risky migration approved' label"
+          exit 1
+      - name: Upgrade the base branch's database with this branch's Migrator
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          COMPOSE_PROJECT_NAME: frappe-upgrade
+        run: |
+          # Throwaway credentials for every required variable of deploy/.env.example, written where compose reads them.
+          sed -E "s/^([A-Z_]+)=$/\1=ci-$(openssl rand -hex 12)/" deploy/.env.example > deploy/.env
+          git worktree add "$RUNNER_TEMP/base" "origin/$BASE_REF"
+          # The base branch may predate deploy/ (compose.yaml and .env.example at the root): use its own layout.
+          base_compose=$([ -f "$RUNNER_TEMP/base/deploy/compose.yaml" ] && echo deploy || echo .)
+          cp deploy/.env "$RUNNER_TEMP/base/$base_compose/.env"
+          (cd "$RUNNER_TEMP/base/$base_compose" && docker compose up --detach --wait postgres && docker compose run --rm --build migrator)
+          docker compose -f deploy/compose.yaml run --rm --build migrator
+      - name: Stop the database
+        if: always()
+        env:
+          COMPOSE_PROJECT_NAME: frappe-upgrade
+        run: docker compose -f deploy/compose.yaml down --volumes || true

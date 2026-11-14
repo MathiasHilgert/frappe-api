@@ -17,7 +17,7 @@ mod test "eng/just/test.just"
 mod docker "eng/just/docker.just"
 # Packages: just deps lock | audit
 mod deps "eng/just/deps.just"
-# GitHub: just github conventions (the tests of the CI's conventions and change detection)
+# GitHub: just github conventions | protect (conventions also runs the tests of the CI's change detection)
 mod github "eng/just/github.just"
 
 # List the commands
