@@ -1,7 +1,17 @@
 <Solution>
+  <Folder Name="/src/Platform/">
+    <Project Path="src/Platform/Frappe.Aggregates/Frappe.Aggregates.csproj" />
+    <Project Path="src/Platform/Frappe.Localization/Frappe.Localization.csproj" />
+    <Project Path="src/Platform/Frappe.Results/Frappe.Results.csproj" />
+    <Project Path="src/Platform/Frappe.UseCases/Frappe.UseCases.csproj" />
+  </Folder>
+  <Folder Name="/tests/Platform/">
+    <Project Path="tests/Platform/Frappe.Platform.Tests/Frappe.Platform.Tests.csproj" />
+  </Folder>
   <Folder Name="/Solution Items/">
     <File Path="global.json" />
     <File Path="Directory.Build.props" />
+    <File Path="tests/Directory.Build.props" />
     <File Path="Directory.Packages.props" />
     <File Path=".editorconfig" />
     <File Path="NuGet.config" />

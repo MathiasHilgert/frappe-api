@@ -13,8 +13,8 @@ that own their data and talk to each other through integration events. Each modu
 and the cross-cutting work (persistence, messaging, caching, scheduling, localization, observability, health)
 lives once in a shared platform layer.
 
-**Status: foundation.** This repository holds the build settings only; the platform layer and the modules arrive in
-the next changes.
+**Status: early.** The platform layer is being built: results, use cases, localization and aggregates are in place.
+The modules arrive after it.
 
 ## Tech stack
 
@@ -43,6 +43,14 @@ just build             # dotnet build Frappe.slnx, warnings are errors
 ```
 
 `just` alone lists every command.
+
+## Testing
+
+```bash
+just test all        # every suite
+```
+
+`tests/` mirrors `src/`. The platform suite (`tests/Platform/Frappe.Platform.Tests`) runs in process.
 
 ## Conventions
 

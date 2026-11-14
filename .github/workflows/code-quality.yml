@@ -51,6 +51,8 @@ jobs:
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
       - name: Set up just
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
         with:
@@ -104,6 +106,8 @@ jobs:
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
       - name: Restore packages from the lock files
         run: dotnet restore Frappe.slnx --locked-mode
       - name: Build with every warning as an error
@@ -131,6 +135,8 @@ jobs:
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
       - name: Measure every method
         # Warnings stay warnings here, so this job reports every method over budget, not only the first error.
         run: dotnet build Frappe.slnx --no-incremental -p:TreatWarningsAsErrors=false -clp:NoSummary -flp:"logfile=$RUNNER_TEMP/build.log;verbosity=normal"
