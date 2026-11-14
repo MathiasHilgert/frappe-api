@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Telemetry wiring for the hosts only: modules never reference it (S22). No ASP.NET Core here, so the Worker stays
+       on the base runtime (S4); the Api adds its own ASP.NET Core instrumentation. -->
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.Observability/Frappe.Observability.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Process" />
+    <PackageReference Include="Npgsql.OpenTelemetry" />
+    <PackageReference Include="ZiggyCreatures.FusionCache.OpenTelemetry" />
+  </ItemGroup>
+</Project>
