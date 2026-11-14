@@ -8,7 +8,7 @@ every pull request must pass.
 
 1. Branch from `main` as `<type>/<kebab-topic>`, for example `feat/health-probes`.
 2. Make the change with its tests; run `just build` and `just test all`.
-3. If you changed an endpoint on purpose, run `just contracts update` and commit the result.
+3. If you changed an endpoint or an integration event on purpose, run `just contracts update` and commit the result.
 4. Open a pull request titled `<type>(<scope>): <summary>` and fill in the
    [template](pull_request_template.md).
 5. Wait for every required check to pass; `main` is squash-merged.
@@ -22,7 +22,7 @@ the workflows and the `.justfile` point it.
 .config/dotnet-tools.json   local .NET tools (dotnet-ef), found by `dotnet tool restore`
 .github/                    workflows, their scripts, Renovate (renovate.json5), this guide, the PR template
 deploy/                     Dockerfile (+ Dockerfile.dockerignore), compose.yaml, .env.example, observability/
-docs/                       documentation; api/ holds the committed OpenAPI contract, adr/ the decisions
+docs/                       documentation; api/ holds the committed OpenAPI and event contracts, adr/ the decisions
 eng/                        build and lint inputs: just modules, CodeMetricsConfig.txt, typos, markdownlint, hadolint, squawk
 src/                        Platform/, Modules/<Module>/, Hosts/
 tests/                      mirrors src/: Platform/, Modules/<Module>/ (UnitTests, IntegrationTests), plus the
@@ -48,7 +48,7 @@ Commands are `just <area> <action>`; `just` lists them all.
 | `run` | `api` (on port 5080), `worker`: the hosts on this machine against the compose infrastructure |
 | `test` | `all` (`platform`, `architecture` and `geo`), `platform`, `architecture`, `geo` (`geo-unit` then `geo-integration`), `geo-unit` (no Docker, seconds), `geo-integration` (needs Docker for Testcontainers), `e2e` (not in `all`: builds the image and runs it end to end, a few minutes) |
 | `docker` | `image`: the one image for the Api, the Worker and the Migrator |
-| `contracts` | `update`: regenerate `docs/api/` (the HTTP contract) after a deliberate change |
+| `contracts` | `update`: regenerate `docs/api/` (the HTTP and event contracts) after a deliberate change |
 | `deps` | `lock`: rewrite every `packages.lock.json` after changing a package or the SDK; `audit`: list vulnerable packages |
 | `github` | `conventions`: test the title, commit and branch rules; `protect`: apply the repository settings and the ruleset of `main` |
 
@@ -92,8 +92,8 @@ The [Bruno collection](../tools/bruno/README.md) exercises a running Api from th
 - **Complexity budget.** Every production method stays at cognitive complexity 15 or less (Sonar S3776) and cyclomatic
   complexity 10 or less (CA1502). Both are analyzer rules, so a method over budget fails the build on your machine too.
   Warnings are errors.
-- **Contracts.** `docs/api/openapi/v1.json` is generated from the code and a test fails
-  when it is stale (`just contracts update`). CI compares it with the base branch through oasdiff: a breaking
+- **Contracts.** `docs/api/openapi/v1.json` and `docs/api/events/v1.json` are generated from the code and a test fails
+  when they are stale (`just contracts update`). CI compares them with the base branch through oasdiff: a breaking
   change needs `!` in the title.
 - **Migrations.** A model change without its migration fails; the SQL of new migrations is linted by Squawk for locks
   and data loss (a deliberate risky change needs the `risky migration approved` label); and the base branch's database

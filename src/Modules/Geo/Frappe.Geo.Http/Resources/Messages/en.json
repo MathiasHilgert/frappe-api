@@ -12,5 +12,14 @@
   "geo.territory.not_covered": "Geo has no territory data of {countryCode}: it does not know its subdivisions.",
   "geo.page_limit.out_of_range": "The limit “{value}” must be a whole number from {min} to {max}.",
   "geo.page_limit.invalid": "The limit “{value}” is not a whole number: use one from {min} to {max}.",
-  "geo.page_cursor.invalid": "The cursor is not valid: use the nextCursor of a previous page of the same search."
+  "geo.page_cursor.invalid": "The cursor is not valid: use the nextCursor of a previous page of the same search.",
+  "geo.holiday_year.invalid": "The year “{value}” must be a whole number from {min} to {max}.",
+  "geo.holiday_year.out_of_range": "The year {value} is out of range: it must be from {min} to {max}.",
+  "geo.calendar_scope.invalid": "“{value}” is not a calendar scope of {countryCode}: use {scopes}.",
+  "geo.holidays.not_covered": "Geo has no holiday calendar of {jurisdiction} for {year} (scope “{scope}”).",
+  "geo.observance.date_outside_year": "The date {date} is not in {year}.",
+  "geo.observance.duplicate": "The calendar already has “{name}” on {date}.",
+  "geo.observance.invalid": "The observance on {date} is not valid: {reason, select, date_invalid {the date is not in the form YYYY-MM-DD} name_empty {its name is empty} name_too_long {its name has more than {max} characters} kind_unknown {“{value}” is not a kind of observance: use “holiday”, “tourist_non_working_day”, “non_working_day” or “community_non_working_day”} moved_from_invalid {movedFrom “{value}” is not a date in the form YYYY-MM-DD} moved_from_not_allowed {only a holiday moves, and within its year} community_missing {a community non-working day needs its community} community_not_allowed {only a community non-working day has a community} community_too_long {its community has more than {max} characters} community_unknown {“{value}” is not a community of the country: use {communities}} citation_empty {its legal basis needs a citation} citation_too_long {the citation of its legal basis has more than {max} characters} url_invalid {the address of its legal basis is not an absolute http or https URL} url_too_long {the address of its legal basis has more than {max} characters} other {“{reason}”}}.",
+  "geo.observance.not_in_source": "The source calendar of {jurisdiction} has no “{name}” on {date}: only an observance the source publishes can be suppressed.",
+  "geo.holiday_calendar.changed_concurrently": "Someone else changed this calendar at the same time: read it again and retry."
 }

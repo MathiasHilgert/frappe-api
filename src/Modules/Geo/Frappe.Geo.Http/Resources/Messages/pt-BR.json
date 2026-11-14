@@ -12,5 +12,14 @@
   "geo.territory.not_covered": "O Geo não tem dados territoriais de {countryCode}: não conhece suas subdivisões.",
   "geo.page_limit.out_of_range": "O limite “{value}” deve ser um número inteiro de {min} a {max}.",
   "geo.page_limit.invalid": "O limite “{value}” não é um número inteiro: use um de {min} a {max}.",
-  "geo.page_cursor.invalid": "O cursor não é válido: use o nextCursor de uma página anterior da mesma busca."
+  "geo.page_cursor.invalid": "O cursor não é válido: use o nextCursor de uma página anterior da mesma busca.",
+  "geo.holiday_year.invalid": "O ano “{value}” deve ser um número inteiro de {min} a {max}.",
+  "geo.holiday_year.out_of_range": "O ano {value} está fora do intervalo: deve ser de {min} a {max}.",
+  "geo.calendar_scope.invalid": "“{value}” não é um escopo de calendário de {countryCode}: use {scopes}.",
+  "geo.holidays.not_covered": "O Geo não tem o calendário de feriados de {jurisdiction} para {year} (escopo “{scope}”).",
+  "geo.observance.date_outside_year": "A data {date} não pertence a {year}.",
+  "geo.observance.duplicate": "O calendário já tem “{name}” em {date}.",
+  "geo.observance.invalid": "A data comemorativa de {date} não é válida: {reason, select, date_invalid {a data não está no formato AAAA-MM-DD} name_empty {o nome está vazio} name_too_long {o nome tem mais de {max} caracteres} kind_unknown {“{value}” não é um tipo de data comemorativa: use “holiday”, “tourist_non_working_day”, “non_working_day” ou “community_non_working_day”} moved_from_invalid {movedFrom “{value}” não é uma data no formato AAAA-MM-DD} moved_from_not_allowed {só um feriado é transferido, e dentro do seu ano} community_missing {um dia não útil de uma comunidade precisa da sua comunidade} community_not_allowed {só um dia não útil de uma comunidade tem comunidade} community_too_long {a comunidade tem mais de {max} caracteres} community_unknown {“{value}” não é uma comunidade do país: use {communities}} citation_empty {a base legal precisa de uma citação} citation_too_long {a citação da base legal tem mais de {max} caracteres} url_invalid {o endereço da base legal não é uma URL http ou https absoluta} url_too_long {o endereço da base legal tem mais de {max} caracteres} other {“{reason}”}}.",
+  "geo.observance.not_in_source": "O calendário da fonte de {jurisdiction} não tem “{name}” em {date}: só é possível suprimir uma data comemorativa que a fonte publica.",
+  "geo.holiday_calendar.changed_concurrently": "Outra pessoa alterou este calendário ao mesmo tempo: leia-o novamente e tente de novo."
 }

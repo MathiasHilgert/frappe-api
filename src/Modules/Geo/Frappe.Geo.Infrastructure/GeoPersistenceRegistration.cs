@@ -1,5 +1,7 @@
 using Frappe.Geo.Application.Catalog;
+using Frappe.Geo.Infrastructure.Messaging;
 using Frappe.Geo.Infrastructure.Persistence;
+using Frappe.Messaging.Outbox;
 using Frappe.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,14 +24,15 @@ public static class GeoPersistenceRegistration
             .AddUnitOfWork<GeoDbContext>(GeoDbContext.Module);
 
     /// <summary>
-    /// The one place that says how a Geo context is built: Postgres in schema <c>geo</c>, plus the
+    /// The one place that says how a Geo context is built: Postgres in schema <c>geo</c> and its outbox, plus the
     /// <paramref name="seed"/> its migrations apply (only the host that migrates passes one).
     /// </summary>
     public static TBuilder Configure<TBuilder>(TBuilder options, string connectionString, IClock clock, ICatalogSeed? seed = null)
         where TBuilder : DbContextOptionsBuilder
     {
         options
-            .UseModulePostgres(connectionString, GeoDbContext.Schema);
+            .UseModulePostgres(connectionString, GeoDbContext.Schema)
+            .UseOutbox(GeoDbContext.Module, new GeoIntegrationEvents(), clock);
         return seed is null ? options : options.UseGeoSeeding(seed, clock);
     }
 }

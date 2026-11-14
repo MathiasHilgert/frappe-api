@@ -1865,6 +1865,394 @@
           }
         }
       }
+    },
+    "/v1/geo/countries/{countryCode}/holidays": {
+      "get": {
+        "tags": [
+          "Geo"
+        ],
+        "summary": "Holidays of a country",
+        "description": "A country's national observances in a year, by date; 404 when Geo has no calendar of it for that year. year is 1900 to 2100, the current one by default (400 geo.holiday_year.invalid when not digits, .out_of_range outside). scope is general by default, or a sector's calendar the country declares (banking: the source's facts as published, credited in attributions); 400 geo.calendar_scope.invalid for any other. 404 geo.holidays.not_covered names the calendar actually missing (the country's for a subdivision without it). Names are served as the source writes them, so no Content-Language is declared.",
+        "operationId": "GetCountryHolidays",
+        "parameters": [
+          {
+            "name": "countryCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "schema": {
+              "maximum": 2100,
+              "minimum": 1900,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "ETags of the copies the client holds (or *): when one matches, the answer is 304 without a body.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages Frappé's own texts in the response are written in; absent when it holds none, only proper nouns, identifiers and source data (names and categories as their source publishes them).",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=300 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HolidayCalendarResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: If-None-Match matched the current ETag, so the client's copy is still current.",
+            "headers": {
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=300 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/geo/subdivisions/{subdivisionCode}/holidays": {
+      "get": {
+        "tags": [
+          "Geo"
+        ],
+        "summary": "Holidays of a subdivision",
+        "description": "The observances in a subdivision in a year: its country's, and its own where Geo has them (see covers). year is 1900 to 2100, the current one by default (400 geo.holiday_year.invalid when not digits, .out_of_range outside). scope is general by default, or a sector's calendar the country declares (banking: the source's facts as published, credited in attributions); 400 geo.calendar_scope.invalid for any other. 404 geo.holidays.not_covered names the calendar actually missing (the country's for a subdivision without it). Names are served as the source writes them, so no Content-Language is declared.",
+        "operationId": "GetSubdivisionHolidays",
+        "parameters": [
+          {
+            "name": "subdivisionCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "schema": {
+              "maximum": 2100,
+              "minimum": 1900,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "ETags of the copies the client holds (or *): when one matches, the answer is 304 without a body.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages Frappé's own texts in the response are written in; absent when it holds none, only proper nouns, identifiers and source data (names and categories as their source publishes them).",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=300 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HolidayCalendarResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: If-None-Match matched the current ETag, so the client's copy is still current.",
+            "headers": {
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=300 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1927,6 +2315,30 @@
           }
         },
         "description": "An administrative area below the first level: its level (2, 3, ...), its category as the source writes it, and whether it is a local government."
+      },
+      "AttributionResponse": {
+        "required": [
+          "name",
+          "url",
+          "license"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "license": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "A source to credit: its name, a working link to it and its license, when it names one."
       },
       "CentroidResponse": {
         "required": [
@@ -2032,6 +2444,68 @@
         },
         "description": "A currency: ISO 4217 code, CLDR name and standard symbol (same language), and its minor unit digits."
       },
+      "HolidayCalendarResponse": {
+        "required": [
+          "jurisdiction",
+          "year",
+          "scope",
+          "covers",
+          "attributions",
+          "observances"
+        ],
+        "type": "object",
+        "properties": {
+          "jurisdiction": {
+            "type": "string"
+          },
+          "year": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "covers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "attributions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttributionResponse"
+            }
+          },
+          "observances": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ObservanceResponse"
+            }
+          }
+        },
+        "description": "The observances that apply in a jurisdiction in a year, by date. `covers` names the calendars they come from:\nthe country's, then the subdivision's own when Geo has it. `attributions` credits the sources of those\ncalendars, as their terms ask: show it wherever the observances are shown. `scope` is the calendars' scope\n(`general`, or a sector's such as `banking`, which lists its source's facts as published)."
+      },
+      "LegalBasisResponse": {
+        "required": [
+          "citation",
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "citation": {
+            "type": "string"
+          },
+          "url": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uri"
+          }
+        },
+        "description": "The norm that establishes an observance (`citation`), and the address of its text (`url`) when known."
+      },
       "LocalityPageResponse": {
         "required": [
           "localities",
@@ -2102,6 +2576,51 @@
           }
         },
         "description": "A populated place, with the ids of its level-2 area and of its local government when the source knows them."
+      },
+      "ObservanceResponse": {
+        "required": [
+          "date",
+          "name",
+          "kind",
+          "movedFrom",
+          "community",
+          "legalBasis"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "movedFrom": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "community": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "legalBasis": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LegalBasisResponse"
+              }
+            ]
+          }
+        },
+        "description": "One reason a date is not an ordinary day. `kind` is `holiday`, `tourist_non_working_day`,\n`non_working_day` or `community_non_working_day` (with its `community`); `movedFrom` is the\noriginal date of a moved holiday; `legalBasis` cites its norm and links its text (`url`) when known."
       },
       "Problem": {
         "examples": [

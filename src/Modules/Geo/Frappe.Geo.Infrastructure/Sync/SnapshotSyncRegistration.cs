@@ -1,5 +1,7 @@
+using Frappe.Geo.Application.Holidays;
 using Frappe.Geo.Application.Sync;
 using Frappe.Geo.Application.Territory;
+using Frappe.Geo.Infrastructure.Holidays;
 using Frappe.Geo.Infrastructure.Territory;
 using Frappe.Scheduling;
 using Microsoft.Extensions.DependencyInjection;
@@ -78,6 +80,13 @@ public static class SnapshotSyncRegistration
         {
             services.TryAddScoped<ISnapshotTarget<TerritorySnapshot>, TerritoryTarget>();
             return Add<TerritorySnapshot, TSource>(key, section, defaultCron);
+        }
+
+        public IGeoSources Holidays<TSource>(string key, string section, string defaultCron)
+            where TSource : class, ISnapshotSource<HolidaySnapshot>
+        {
+            services.TryAddScoped<ISnapshotTarget<HolidaySnapshot>, HolidayTarget>();
+            return Add<HolidaySnapshot, TSource>(key, section, defaultCron);
         }
 
         private GeoSources Add<TSnapshot, TSource>(string key, string section, string defaultCron)

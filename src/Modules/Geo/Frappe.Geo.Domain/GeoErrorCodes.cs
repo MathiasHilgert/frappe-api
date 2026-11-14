@@ -17,4 +17,13 @@ public static class GeoErrorCodes
     public const string PageLimitOutOfRange = "geo.page_limit.out_of_range";
     public const string PageLimitInvalid = "geo.page_limit.invalid";
     public const string PageCursorInvalid = "geo.page_cursor.invalid";
+    public const string HolidayYearInvalid = "geo.holiday_year.invalid";
+    public const string HolidayYearOutOfRange = "geo.holiday_year.out_of_range";
+    public const string CalendarScopeInvalid = "geo.calendar_scope.invalid";
+    public const string HolidaysNotCovered = "geo.holidays.not_covered";
+    public const string ObservanceDateOutsideYear = "geo.observance.date_outside_year";
+    public const string ObservanceDuplicate = "geo.observance.duplicate";
+    public const string ObservanceInvalid = "geo.observance.invalid";
+    public const string ObservanceNotInSource = "geo.observance.not_in_source";
+    public const string HolidayCalendarChangedConcurrently = "geo.holiday_calendar.changed_concurrently";
 }

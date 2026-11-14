@@ -1,6 +1,7 @@
 using Frappe.Caching;
 using Frappe.Geo.Countries.Argentina;
 using Frappe.Geo.Infrastructure;
+using Frappe.Geo.Infrastructure.Messaging;
 using Frappe.Geo.Infrastructure.Sync;
 using Frappe.Health;
 using Frappe.Messaging;
@@ -35,7 +36,8 @@ public static class WorkerComposition
             .AddGeoCore()
             .AddGeoSyncs(geo => geo.AddArgentina())
             .AddJetStream("frappe-worker")
-            .AddFrappeScheduling(quartz => quartz.AddGeoSyncJobs())
+            .AddGeoMessaging()
+            .AddFrappeScheduling(quartz => quartz.AddGeoSyncJobs().AddGeoMessagePurgeJob())
             .AddTcpHealthProbes();
 
         return builder;

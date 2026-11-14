@@ -1,3 +1,4 @@
+using Frappe.Geo.Application;
 using Frappe.Geo.Application.Sync;
 using Frappe.Geo.Domain.ReferenceData;
 using Frappe.Geo.Infrastructure.Persistence;
@@ -182,7 +183,19 @@ internal sealed partial class SnapshotSync<TSnapshot, TSource>(
         }
 
         db.Add(run);
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConcurrentChangeException exception)
+        {
+            // An administrator changed a calendar the run applied to while it ran: the run applies nothing and is
+            // recorded as failed; the next one reads the calendar again.
+            await DiscardAsync(states, cancellationToken);
+            (run.Outcome, run.Error, run.Inserted, run.Updated, run.Retired, run.Revived) = (SyncOutcome.Failed, Truncate(exception.Message), 0, 0, 0, 0);
+            run.Conflicts.Clear();
+            await RecordAsync(run, states, cancellationToken);
+        }
     }
 
     /// <summary>

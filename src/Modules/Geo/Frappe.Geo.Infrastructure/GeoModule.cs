@@ -1,10 +1,12 @@
 using Frappe.Geo.Application;
 using Frappe.Geo.Application.Countries;
 using Frappe.Geo.Application.Currencies;
+using Frappe.Geo.Application.Holidays;
 using Frappe.Geo.Application.Territory;
 using Frappe.Geo.Infrastructure.Configuration;
 using Frappe.Geo.Infrastructure.Countries;
 using Frappe.Geo.Infrastructure.Currencies;
+using Frappe.Geo.Infrastructure.Holidays;
 using Frappe.Geo.Infrastructure.Territory;
 using Frappe.Health;
 using Frappe.Observability;
@@ -41,6 +43,7 @@ public static class GeoModule
         services.AddScoped<ICountryCatalog, EfCountryCatalog>();
         services.AddScoped<ICurrencyCatalog, EfCurrencyCatalog>();
         services.AddScoped<ITerritoryDirectory, EfTerritoryDirectory>();
+        services.AddScoped<IHolidayCalendars, EfHolidayCalendars>();
         services.AddHandlers(typeof(ICountryCatalog).Assembly);
         return services;
     }
