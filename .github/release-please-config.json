@@ -19,7 +19,8 @@
   ],
   "packages": {
     ".": {
-      "package-name": "frappe-api"
+      "package-name": "frappe-api",
+      "initial-version": "0.1.0"
     }
   }
 }
