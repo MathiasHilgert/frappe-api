@@ -1,4 +1,4 @@
-namespace Frappe.Migrator;
+namespace Frappe.Migrator.Settings;
 
 /// <summary>A module's login role, bound from <c>Roles:&lt;module&gt;</c>.</summary>
 public sealed class ModuleRoleOptions

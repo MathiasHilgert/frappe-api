@@ -1,6 +1,6 @@
 using System.Net;
 
-namespace Frappe.Api;
+namespace Frappe.Api.TrustedProxies;
 
 /// <summary>
 /// The proxies trusted to send <c>X-Forwarded-For</c> and <c>X-Forwarded-Proto</c>: addresses in

@@ -3,7 +3,7 @@ using Frappe.Http;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
 
-namespace Frappe.Api;
+namespace Frappe.Api.OpenApi;
 
 /// <summary>
 /// Declares the HTTP caching of each operation: for a cacheable one (<see cref="CacheableMetadata"/>) <c>ETag</c> and

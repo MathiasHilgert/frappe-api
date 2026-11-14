@@ -1,5 +1,6 @@
 using Frappe.Geo.Global.Cldr;
 using Frappe.Geo.Infrastructure.Persistence;
+using Frappe.Migrator.Settings;
 using Frappe.Persistence;
 using Frappe.Scheduling;
 using Microsoft.Extensions.Configuration;

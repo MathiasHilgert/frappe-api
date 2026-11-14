@@ -1,4 +1,4 @@
-namespace Frappe.Migrator;
+namespace Frappe.Migrator.Settings;
 
 /// <summary>
 /// What the Migrator needs: the owner's connection string (<c>ConnectionStrings:Owner</c>) and the password of each

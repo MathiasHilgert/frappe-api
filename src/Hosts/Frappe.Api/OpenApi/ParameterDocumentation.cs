@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
 
-namespace Frappe.Api;
+namespace Frappe.Api.OpenApi;
 
 /// <summary>
 /// Types the query parameters an endpoint documents with <see cref="DocumentedParameterAttribute"/>: they bind as text

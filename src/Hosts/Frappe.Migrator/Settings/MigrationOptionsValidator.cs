@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Options;
 
-namespace Frappe.Migrator;
+namespace Frappe.Migrator.Settings;
 
 /// <summary>Fails, naming each missing key, when the owner's connection string or a module role's password is missing.</summary>
 /// <param name="roles">The names, under <c>Roles</c>, of the module roles that must have a password.</param>

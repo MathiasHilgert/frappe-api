@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using Frappe.Api.OpenApi;
+using Frappe.Api.TrustedProxies;
 using Frappe.Caching;
 using Frappe.Geo.Countries.Argentina;
 using Frappe.Geo.Global.Places;

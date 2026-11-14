@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
 
-namespace Frappe.Api;
+namespace Frappe.Api.OpenApi;
 
 /// <summary>
 /// Types every enum schema as a string: the API writes enums by name (<c>JsonStringEnumConverter</c>), but the

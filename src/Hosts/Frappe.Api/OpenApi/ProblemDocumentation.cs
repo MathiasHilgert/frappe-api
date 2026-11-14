@@ -4,7 +4,7 @@ using Frappe.Http;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
 
-namespace Frappe.Api;
+namespace Frappe.Api.OpenApi;
 
 /// <summary>
 /// Describes the Problem Details every error really answers (RFC 9457 with a category as <c>type</c>, plus Frappé's

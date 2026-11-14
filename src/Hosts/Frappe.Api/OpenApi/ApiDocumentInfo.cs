@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
 
-namespace Frappe.Api;
+namespace Frappe.Api.OpenApi;
 
 /// <summary>The document's <c>info</c>: what the API is, for whom, and its version.</summary>
 internal sealed class ApiDocumentInfo : IOpenApiDocumentTransformer
