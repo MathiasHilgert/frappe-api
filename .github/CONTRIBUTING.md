@@ -127,9 +127,12 @@ see **Path-aware checks** below.
   list or a failed detection, and on `main`, Nightly, Release and the weekly security scan.
 - **Nightly** rebuilds everything without caches.
 - **Release** keeps a release pull request (release-please) from the Conventional Commits; merging it tags the
-  version and publishes the image to GHCR with SBOM and build provenance. Add a `RELEASE_PLEASE_TOKEN` secret
-  (fine-grained token: contents and pull requests, write) so the release pull request gets its checks; without it, a
-  pull request opened by `GITHUB_TOKEN` triggers no workflow and an admin merges it through the ruleset's bypass.
+  version and publishes the image to GHCR with SBOM and build provenance. Versions stay 0.x until a deliberate
+  1.0.0. The release pull request gets its checks only when a GitHub App opens it (a pull request opened by
+  `GITHUB_TOKEN` triggers no workflow): create an app owned by you, with repository permissions Contents, Pull requests
+  and Issues set to read and write and no webhook, install it on this repository only, then set the repository
+  variable `RELEASE_APP_CLIENT_ID` to its client ID and the secret `RELEASE_APP_PRIVATE_KEY` to a private key it
+  generates. Without the app, an admin merges the release pull request through the ruleset's bypass.
 - **Dependencies** are updated by Renovate (`.github/renovate.json5`), lock files included, once the Renovate app is installed.
   After changing a package or the SDK by hand, run `just deps lock`.
 - Planned: mutation testing. Stryker.NET 5.0.0 cannot analyze `net11.0` projects yet.
