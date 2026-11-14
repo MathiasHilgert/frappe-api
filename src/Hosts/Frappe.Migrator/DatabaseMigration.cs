@@ -36,11 +36,7 @@ public static partial class DatabaseMigration
         await connection.OpenAsync(cancellationToken);
 
         // Two Migrators started together (two replicas of a deployment) run one after the other, never interleaved.
-        await using (var lockCommand = new NpgsqlCommand("SELECT pg_advisory_lock(@key)", connection))
-        {
-            lockCommand.Parameters.AddWithValue("key", MigrationLockKey);
-            await lockCommand.ExecuteNonQueryAsync(cancellationToken);
-        }
+        await AcquireMigrationLockAsync(connection, cancellationToken);
 
         try
         {
@@ -73,6 +69,25 @@ public static partial class DatabaseMigration
 
     /// <summary>Session-level advisory lock held for the whole run.</summary>
     private const long MigrationLockKey = 0x46524150504531; // "FRAPPE1"
+
+    /// <summary>How long a Migrator waits before trying the lock again while another one holds it.</summary>
+    private static readonly TimeSpan MigrationLockRetryDelay = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>
+    /// Takes the migration lock by trying it until it is free, never by blocking on it. A session blocked inside
+    /// <c>pg_advisory_lock</c> keeps a transaction open while it waits, and a migration that builds an index
+    /// <c>CONCURRENTLY</c> waits for every open transaction to end: the Migrator holding the lock and the one waiting for
+    /// it would wait for each other forever. Between tries this session holds no transaction.
+    /// </summary>
+    private static async Task AcquireMigrationLockAsync(NpgsqlConnection connection, CancellationToken cancellationToken)
+    {
+        await using var command = new NpgsqlCommand("SELECT pg_try_advisory_lock(@key)", connection);
+        command.Parameters.AddWithValue("key", MigrationLockKey);
+        while (await command.ExecuteScalarAsync(cancellationToken) is not true)
+        {
+            await Task.Delay(MigrationLockRetryDelay, cancellationToken);
+        }
+    }
 
     /// <summary>The Migrator's settings, bound and validated; anything missing fails with an <see cref="OptionsValidationException"/> naming the keys.</summary>
     private static MigrationOptions Bind(IConfiguration configuration)
