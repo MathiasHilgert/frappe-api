@@ -46,6 +46,7 @@ public static class GeoModule
         services.AddScoped<ITerritoryDirectory, EfTerritoryDirectory>();
         services.AddScoped<IHolidayCalendars, EfHolidayCalendars>();
         services.AddScoped<IHolidaySyncs, EfHolidaySyncs>();
+        services.AddScoped<ISubdivisionAliases, EfSubdivisionAliases>();
         services.AddHandlers(typeof(ICountryCatalog).Assembly);
         return services;
     }

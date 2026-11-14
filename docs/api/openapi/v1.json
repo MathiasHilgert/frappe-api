@@ -3635,6 +3635,467 @@
           }
         }
       }
+    },
+    "/v1/geo/subdivisions/{subdivisionCode}/aliases": {
+      "get": {
+        "tags": [
+          "Geo"
+        ],
+        "summary": "Aliases of a subdivision",
+        "description": "Every other name of the subdivision, with its origin: source or manual. Never cached (no-store).",
+        "operationId": "ListSubdivisionAliases",
+        "parameters": [
+          {
+            "name": "subdivisionCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages Frappé's own texts in the response are written in; absent when it holds none, only proper nouns, identifiers and source data (names and categories as their source publishes them).",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "no-store: no cache may keep the answer, and it carries no validator.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubdivisionAliasListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Geo"
+        ],
+        "summary": "Add an alias to a subdivision",
+        "description": "Adds a manual alias, which the territory sync never removes, and answers its absolute path in Location. An alias has letters, digits, spaces and . , ' ’ - ( ) & only, at least one letter or digit (400 geo.subdivision_alias.invalid). 409 geo.subdivision_alias.duplicate when the subdivision is already known by it (its name, its code's suffix or an alias, ignoring case and accents); 409 geo.subdivision_alias.taken when another subdivision of the country is.",
+        "operationId": "AddSubdivisionAlias",
+        "parameters": [
+          {
+            "name": "subdivisionCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubdivisionAliasRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "headers": {
+              "Cache-Control": {
+                "description": "no-store: no cache may keep the answer, and it carries no validator.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Location": {
+                "description": "The URL of the resource created.",
+                "required": true,
+                "schema": {
+                  "type": "string",
+                  "format": "uri-reference"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubdivisionAliasResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type: the body is not in a media type the operation reads (see its requestBody).",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/geo/subdivisions/{subdivisionCode}/aliases/{alias}": {
+      "delete": {
+        "tags": [
+          "Geo"
+        ],
+        "summary": "Remove a manual alias of a subdivision",
+        "description": "Removes a manual alias, named as added or differing only by case and accents; 409 geo.subdivision_alias.imported for one of the source's (they change only with the source), 404 geo.subdivision_alias.not_found for one the subdivision does not have.",
+        "operationId": "RemoveSubdivisionAlias",
+        "parameters": [
+          {
+            "name": "subdivisionCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "alias",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content",
+            "headers": {
+              "Cache-Control": {
+                "description": "no-store: no cache may keep the answer, and it carries no validator.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4373,6 +4834,52 @@
           }
         },
         "description": "One error: its stable code, the values it was raised with and its text in the response language."
+      },
+      "SubdivisionAliasListResponse": {
+        "required": [
+          "aliases"
+        ],
+        "type": "object",
+        "properties": {
+          "aliases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubdivisionAliasResponse"
+            }
+          }
+        },
+        "description": "A subdivision's aliases, the source's and the manual ones, by alias."
+      },
+      "SubdivisionAliasRequest": {
+        "required": [
+          "alias"
+        ],
+        "type": "object",
+        "properties": {
+          "alias": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "Another name a subdivision is known by, up to 200 characters."
+      },
+      "SubdivisionAliasResponse": {
+        "required": [
+          "alias",
+          "origin"
+        ],
+        "type": "object",
+        "properties": {
+          "alias": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "string"
+          }
+        },
+        "description": "An alias of a subdivision and its `origin`: `source` (the territory sync keeps it) or `manual` (added by hand)."
       },
       "SubdivisionListResponse": {
         "required": [

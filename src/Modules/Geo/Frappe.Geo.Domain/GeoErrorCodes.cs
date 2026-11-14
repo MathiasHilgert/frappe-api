@@ -30,4 +30,9 @@ public static class GeoErrorCodes
     public const string HolidayOverrideNotFound = "geo.holiday_override.not_found";
     public const string HolidayCalendarChangedConcurrently = "geo.holiday_calendar.changed_concurrently";
     public const string HolidaySyncNotFound = "geo.holiday_sync.not_found";
+    public const string SubdivisionAliasInvalid = "geo.subdivision_alias.invalid";
+    public const string SubdivisionAliasDuplicate = "geo.subdivision_alias.duplicate";
+    public const string SubdivisionAliasNotFound = "geo.subdivision_alias.not_found";
+    public const string SubdivisionAliasTaken = "geo.subdivision_alias.taken";
+    public const string SubdivisionAliasImported = "geo.subdivision_alias.imported";
 }

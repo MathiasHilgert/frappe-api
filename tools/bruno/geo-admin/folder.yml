@@ -7,11 +7,12 @@ docs:
   content: |-
     # Geo administration
 
-    Manual corrections of the holiday calendars and the holiday syncs. **Not authenticated
+    Manual corrections of the holiday calendars, the holiday syncs and subdivision aliases. **Not authenticated
     yet** (`TODO(auth)` in the code): never expose these routes publicly until authentication lands.
 
     The requests run in pairs that leave the data as they found it: an override of the made-up observance
     "Bruno check" on 2026-12-24 and its removal, a suppression of an observance the source publishes (Christmas in
-    the national banking calendar, the papal visit of 2026-11-10 in Córdoba's) and its removal. Suppressing "Bruno check" is refused with 422, since the source does not publish it. Running a
+    the national banking calendar, the papal visit of 2026-11-10 in Córdoba's) and its removal, and the alias
+    `bruno-check` and its removal. Suppressing "Bruno check" is refused with 422, since the source does not publish it. Running a
     source now downloads from the real source, so this folder asks only for the national calendar.
   type: text/markdown

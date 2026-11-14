@@ -20,7 +20,7 @@ docs:
 
     - **Health:** the three Kubernetes probes.
     - **Geo:** countries, currencies, territory and holidays.
-    - **Geo administration:** manual calendar corrections and holiday syncs.
+    - **Geo administration:** manual calendar corrections, holiday syncs and subdivision aliases.
     - **HTTP Conventions:** unknown routes.
     - **OpenAPI:** the machine-readable contract (`/openapi/v1.json`); the human one is Scalar at `{{baseUrl}}/docs/`.
 

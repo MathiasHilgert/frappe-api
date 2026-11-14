@@ -7,7 +7,7 @@ What the Geo module answers, where its data comes from, how it is configured and
 | [What Geo answers](#what-geo-answers) | Countries, currencies, territory and holidays, over HTTP |
 | [Sources](#sources) | Where each kind of data comes from, its terms and its sync schedule |
 | [Configuration](#configuration) | Source locations and cron schedules |
-| [Administration](#administration) | Manual corrections, sync history and runs |
+| [Administration](#administration) | Manual corrections, sync history and runs, subdivision aliases |
 | [Metrics](#metrics) | Freshness, coverage and "not covered" requests |
 | [Adding a country](#adding-a-country) | What a country package declares and where the hosts compose it |
 
@@ -116,6 +116,8 @@ publicly until authentication lands.
 | `GET holiday-syncs` | Every holiday source that ran, with its last outcome. |
 | `GET holiday-syncs/{sourceId}/runs` | A source's latest 50 runs, with the override conflicts each found. |
 | `POST holiday-syncs/{sourceId}/runs` | Asks for a run now: 202 with a `requestId` and `Location` to the source's runs. Requests made before the run starts share one run, which the Worker starts within `Geo:SyncRequests:Cron`. |
+| `GET`, `POST subdivisions/{code}/aliases` | A subdivision's aliases; adds a manual one (201 with `Location`), which the territory sync never removes. An alias holds letters, digits, spaces and `' . , - ( ) &` (400 `geo.subdivision_alias.invalid`); one this subdivision already has by search form is 409 `geo.subdivision_alias.duplicate`, and one another subdivision of the country is known by is 409 `geo.subdivision_alias.taken`. Two administrators adding the same alias to two subdivisions of a country at once: a unique index on the country's manual aliases lets the first in, and the second gets the same 409 `geo.subdivision_alias.taken`. The index also counts a retired subdivision's manual aliases, so one of them answers the same 409 naming the retired code until an administrator removes it (`DELETE` accepts a retired subdivision's code for this). Not guarded by the database: an addition racing a territory sync that brings the same alias, or a subdivision's name or code, to another subdivision; source aliases may repeat across subdivisions. |
+| `DELETE subdivisions/{code}/aliases/{alias}` | Removes a manual alias, matched ignoring case and accents; a source alias answers 409 `geo.subdivision_alias.imported`. |
 
 `...` is `countries/{code}` or `subdivisions/{code}`. Corrections apply only to a calendar Geo holds (404
 `geo.holidays.not_covered` otherwise) and win over later syncs; a sync that changes an overridden observance records a
