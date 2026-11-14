@@ -1,0 +1,81 @@
+# Which checks can this pull request's changes affect? Called by the workflows that own gated checks; the mapping lives
+# in .github/scripts/changes.mjs. Every output is "true" unless the changed files prove otherwise, and a caller runs a
+# check unless the output is exactly "false", so a failed or skipped detection runs everything.
+name: Changes
+
+on:
+  workflow_call:
+    outputs:
+      dotnet:
+        description: The .NET build, its format, its complexity and CodeQL
+        value: ${{ jobs.detect.outputs.dotnet }}
+      tests:
+        description: The suites and the coverage of the changed lines
+        value: ${{ jobs.detect.outputs.tests }}
+      image:
+        description: The image, its scan, the end-to-end test and the dependency audit
+        value: ${{ jobs.detect.outputs.image }}
+      migrations:
+        description: The migration checks
+        value: ${{ jobs.detect.outputs.migrations }}
+      contracts:
+        description: The HTTP and event contract diffs
+        value: ${{ jobs.detect.outputs.contracts }}
+
+permissions: {}
+
+jobs:
+  detect:
+    name: Detect what the changes affect
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      dotnet: ${{ steps.decide.outputs.dotnet }}
+      tests: ${{ steps.decide.outputs.tests }}
+      image: ${{ steps.decide.outputs.image }}
+      migrations: ${{ steps.decide.outputs.migrations }}
+      contracts: ${{ steps.decide.outputs.contracts }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the change map
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - name: Decide which checks run
+        id: decide
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { pathToFileURL } = require('node:url');
+            const { decide, runEverything } = await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/.github/scripts/changes.mjs`));
+            const pr = context.payload.pull_request;
+            let result;
+            if (!pr) {
+              result = runEverything(`${context.eventName} is not a pull request`);
+            } else {
+              try {
+                // The API lists at most 3000 files: fewer than the pull request's count means the list is incomplete.
+                const files = await github.paginate(github.rest.pulls.listFiles, { ...context.repo, pull_number: pr.number, per_page: 100 });
+                const paths = files.flatMap((file) => [file.filename, file.previous_filename].filter(Boolean));
+                result = decide(paths, { complete: files.length === pr.changed_files });
+              } catch (error) {
+                core.warning(`Could not list the changed files, so every check runs: ${error.message}`);
+                result = runEverything(`the changed files could not be listed (${error.message})`);
+              }
+            }
+            const rows = Object.entries(result.checks).map(([check, runs]) => {
+              core.setOutput(check, String(runs));
+              return [check, runs ? 'runs' : 'skipped'];
+            });
+            await core.summary
+              .addHeading('Checks this change can affect', 3)
+              .addRaw(`Why: ${result.reason}.`, true)
+              .addTable([[{ data: 'Group', header: true }, { data: 'Outcome', header: true }], ...rows])
+              .write();

@@ -1,0 +1,174 @@
+# Is the pull request well formed? Title, commits and branch follow the conventions in .github/scripts/conventions.mjs,
+# and the pull request is assigned and labelled. The title matters most: main is squash-merged, so it becomes the commit.
+name: Pull request
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  title:
+    name: Title follows Conventional Commits
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the conventions
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - name: Validate the title and reject AI attribution in title and description
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { pathToFileURL } = require('node:url');
+            const { checkHeader, findAiAttribution } = await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/.github/scripts/conventions.mjs`));
+            const { title, body } = context.payload.pull_request;
+            const problems = [...checkHeader(title).problems];
+            for (const line of findAiAttribution(`${title}\n${body ?? ''}`)) {
+              problems.push(`AI attribution is not allowed in the title or description: "${line}"`);
+            }
+            if (problems.length > 0) {
+              core.setFailed(problems.join('\n'));
+            }
+
+  commits:
+    name: Commits follow Conventional Commits
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the conventions
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - name: Validate every commit message and reject AI attribution
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { pathToFileURL } = require('node:url');
+            const { checkCommitMessage } = await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/.github/scripts/conventions.mjs`));
+            const commits = await github.paginate(github.rest.pulls.listCommits, {
+              ...context.repo,
+              pull_number: context.payload.pull_request.number,
+              per_page: 100,
+            });
+            const failures = commits
+              .filter((commit) => commit.parents.length < 2) // merge commits from "Update branch" are GitHub's, not ours
+              .map((commit) => ({ sha: commit.sha.slice(0, 7), problems: checkCommitMessage(commit.commit.message) }))
+              .filter((commit) => commit.problems.length > 0);
+            for (const { sha, problems } of failures) {
+              core.error(`${sha}: ${problems.join('; ')}`);
+            }
+            if (failures.length > 0) {
+              core.setFailed(`${failures.length} commit(s) break the conventions; reword them (git rebase -i) and push again`);
+            }
+
+  branch:
+    name: Branch name is valid
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the conventions
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - name: Validate the branch name and match its type to the title
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { pathToFileURL } = require('node:url');
+            const { checkBranch, checkHeader } = await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/.github/scripts/conventions.mjs`));
+            const { title, head } = context.payload.pull_request;
+            const problems = checkBranch(head.ref, checkHeader(title).type);
+            if (problems.length > 0) {
+              core.setFailed(problems.join('\n'));
+            }
+
+  triage:
+    name: Assignee and labels set
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    # A pull request from a fork gets a read-only token: there is nothing to label with, so the job is skipped.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the conventions
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - name: Label by path
+        uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7.0.0
+        with:
+          sync-labels: true
+      - name: Assign the author, and label by type and size
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { pathToFileURL } = require('node:url');
+            const { checkHeader } = await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/.github/scripts/conventions.mjs`));
+            const pr = context.payload.pull_request;
+            const issue = { ...context.repo, issue_number: pr.number };
+
+            if (pr.assignees.length === 0 && pr.user.type !== 'Bot') {
+              await github.rest.issues.addAssignees({ ...issue, assignees: [pr.user.login] });
+            }
+
+            // Authored lines only: lock files, committed contracts and EF's generated migration files do not count.
+            const generated = [/(^|\/)packages\.lock\.json$/, /^docs\/api\/.*\.json$/, /\/Migrations\/.*\.Designer\.cs$/, /\/Migrations\/.*ModelSnapshot\.cs$/];
+            const files = await github.paginate(github.rest.pulls.listFiles, { ...context.repo, pull_number: pr.number, per_page: 100 });
+            const changed = files
+              .filter((file) => !generated.some((pattern) => pattern.test(file.filename)))
+              .reduce((sum, file) => sum + file.additions + file.deletions, 0);
+            const size = changed < 10 ? 'XS' : changed < 100 ? 'S' : changed < 400 ? 'M' : changed < 1000 ? 'L' : 'XL';
+
+            const { type, breaking } = checkHeader(pr.title);
+            const wanted = [`size: ${size}`];
+            if (type) wanted.push(`type: ${type}`);
+            if (breaking) wanted.push('breaking change');
+
+            const managed = (name) => name.startsWith('size: ') || name.startsWith('type: ') || name === 'breaking change';
+            const { data: current } = await github.rest.issues.listLabelsOnIssue({ ...issue, per_page: 100 });
+            for (const label of current.map((l) => l.name).filter((name) => managed(name) && !wanted.includes(name))) {
+              try {
+                await github.rest.issues.removeLabel({ ...issue, name: label });
+              } catch (error) {
+                if (error.status !== 404) throw error; // removed meanwhile by another run
+              }
+            }
+            await github.rest.issues.addLabels({ ...issue, labels: wanted });
+            await core.summary.addRaw(`Size ${size}: ${changed} authored lines changed. Labels: ${wanted.join(', ')}.`).write();
