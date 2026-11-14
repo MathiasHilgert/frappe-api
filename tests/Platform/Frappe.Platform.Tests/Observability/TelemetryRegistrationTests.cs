@@ -41,6 +41,7 @@ public sealed class TelemetryRegistrationTests
         meter.CreateCounter<long>("frappe.any_module.things").Add(3);
         host.Services.GetRequiredService<MeterProvider>().ForceFlush();
         await host.StopAsync();
+        host.Dispose(); // Stops the provider exporting, so spans of tests running alongside cannot change the list being read.
 
         await Assert.That(spans.Select(s => s.DisplayName)).Contains("module work");
         await Assert.That(metrics.Select(m => m.Name)).Contains("frappe.any_module.things");
@@ -59,6 +60,7 @@ public sealed class TelemetryRegistrationTests
         }
 
         await host.StopAsync();
+        host.Dispose(); // Stops the provider exporting, so spans of tests running alongside cannot change the list being read.
 
         // Frappé's own sources are process-wide, so spans of tests running alongside may reach this provider too.
         await Assert.That(spans.Where(s => s.Source.Name == "SomeLibrary")).IsEmpty();
