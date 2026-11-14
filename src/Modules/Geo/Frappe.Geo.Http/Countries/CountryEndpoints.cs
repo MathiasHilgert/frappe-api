@@ -1,3 +1,4 @@
+using Frappe.Geo.Application.BusinessDays;
 using Frappe.Geo.Application.Countries;
 using Frappe.Geo.Application.Countries.GetCountry;
 using Frappe.Geo.Application.Countries.ListCountries;
@@ -27,9 +28,9 @@ internal static class CountryEndpoints
 
         geo.MapGet("/countries/{countryCode}", GetCountryAsync)
             .WithName("GetCountry")
-            .CacheFor(CacheLifetimes.ReferenceData)
+            .CacheFor(CacheLifetimes.Calendars)
             .WithSummary("One country")
-            .WithDescription("A country by its ISO 3166-1 alpha-2 code (case-insensitive). " + NamesInLanguage)
+            .WithDescription("A country by its ISO 3166-1 alpha-2 code (case-insensitive), with capabilities: the years of each holiday calendar Geo holds for it, the business-day policies it answers and its reference time zone. " + NamesInLanguage)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound);
     }
@@ -45,14 +46,24 @@ internal static class CountryEndpoints
         });
     }
 
-    private static async Task<Results<Ok<CountryResponse>, ErrorsProblemHttpResult>> GetCountryAsync(
-        string countryCode, HttpContext httpContext, IQueryHandler<GetCountry, CountrySummary> handler, CancellationToken cancellationToken)
+    private static async Task<Results<Ok<CountryDetailResponse>, ErrorsProblemHttpResult>> GetCountryAsync(
+        string countryCode, HttpContext httpContext, IQueryHandler<GetCountry, CountryDetail> handler, CancellationToken cancellationToken)
     {
         var result = await handler.HandleAsync(new GetCountry(countryCode, ServedLanguages.LanguageOf(httpContext)), cancellationToken);
-        return result.ToTypedHttpResult(country =>
+        return result.ToTypedHttpResult(detail =>
         {
+            var (country, capabilities) = (detail.Country, detail.Capabilities);
             ServedLanguages.Declare(httpContext, [country.NameLanguage]);
-            return TypedResults.Ok(ToResponse(country));
+            return TypedResults.Ok(new CountryDetailResponse(
+                country.Code,
+                country.Alpha3,
+                country.Numeric,
+                country.Name,
+                country.CurrencyCodes,
+                new CapabilitiesResponse(
+                    [.. capabilities.Holidays.Select(h => new HolidayCoverageResponse(h.Scope, h.Years))],
+                    [.. capabilities.BusinessDayPolicies.Select(BusinessDayPolicies.NameOf)],
+                    capabilities.TimeZone)));
         });
     }
 

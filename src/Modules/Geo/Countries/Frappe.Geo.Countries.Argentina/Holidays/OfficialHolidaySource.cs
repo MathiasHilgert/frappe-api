@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Frappe.Geo.Application.Holidays;
 using Frappe.Geo.Application.Sync;
+using Frappe.Geo.Countries.Argentina.Calendar;
 using Frappe.Geo.Domain.Countries;
 using Frappe.Geo.Domain.Holidays;
 using Frappe.Results;
@@ -110,9 +111,9 @@ internal sealed partial class OfficialHolidaySource(IOptions<OfficialHolidaysOpt
     {
         ("inamovible" or "trasladable", _) => (ObservanceKind.Holiday, null),
         ("turistico", _) => (ObservanceKind.TouristNonWorkingDay, null),
-        ("no_laborable", "a") => (ObservanceKind.CommunityNonWorkingDay, "armenian"),
-        ("no_laborable", "b") => (ObservanceKind.CommunityNonWorkingDay, "jewish"),
-        ("no_laborable", "c") => (ObservanceKind.CommunityNonWorkingDay, "islamic"),
+        ("no_laborable", "a") => (ObservanceKind.CommunityNonWorkingDay, ArgentineCalendarRules.Armenian),
+        ("no_laborable", "b") => (ObservanceKind.CommunityNonWorkingDay, ArgentineCalendarRules.Jewish),
+        ("no_laborable", "c") => (ObservanceKind.CommunityNonWorkingDay, ArgentineCalendarRules.Islamic),
         ("no_laborable", _) => (ObservanceKind.NonWorkingDay, null),
         _ => throw new FormatException($"Unknown holiday type '{type}'."),
     };

@@ -103,6 +103,7 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
             .WithEnvironment("Geo__Argentina__Georef__BaseUrl", "http://georef.invalid/")
             .WithEnvironment("Geo__Argentina__Holidays__BaseUrl", "http://holidays.invalid/")
             .WithEnvironment("Geo__Argentina__ProvincialHolidays__BaseUrl", "http://calendarios.invalid/")
+            .WithEnvironment("Geo__Argentina__BankingHolidays__BaseUrl", "http://bcra.invalid/")
             .Build());
 
         try

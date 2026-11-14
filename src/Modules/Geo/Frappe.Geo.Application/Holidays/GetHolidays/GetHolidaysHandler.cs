@@ -1,3 +1,4 @@
+using Frappe.Geo.Application.BusinessDays;
 using Frappe.Geo.Application.Countries;
 using Frappe.Geo.Application.Territory;
 using Frappe.Geo.Domain;
@@ -10,7 +11,7 @@ namespace Frappe.Geo.Application.Holidays.GetHolidays;
 
 /// <summary>Reads storage directly (no cache): an override must show in the next answer.</summary>
 internal sealed class GetHolidaysHandler(
-    IHolidayCalendars calendars, ICountryCatalog countries, ITerritoryDirectory territory, IClock clock, GeoMetrics metrics)
+    IHolidayCalendars calendars, ICountryCatalog countries, ITerritoryDirectory territory, ICalendarRulesCatalog rules, IClock clock, GeoMetrics metrics)
     : IQueryHandler<GetHolidays, HolidayCalendarView>
 {
     public async Task<Result<HolidayCalendarView>> HandleAsync(GetHolidays query, CancellationToken cancellationToken)
@@ -28,7 +29,7 @@ internal sealed class GetHolidaysHandler(
         }
 
         var place = jurisdiction.Value;
-        var scope = CalendarScopes.Resolve(query.Scope, place);
+        var scope = CalendarScopes.Resolve(query.Scope, place, rules);
         if (!scope.IsSuccess)
         {
             return Result.Failure<HolidayCalendarView>(scope.Errors);

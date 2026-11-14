@@ -34,6 +34,7 @@ public static class WorkerComposition
         builder.Services
             .AddFrappeCaching()
             .AddGeoCore()
+            .AddArgentinaCalendar()
             .AddGeoSyncs(geo => geo.AddArgentina())
             .AddJetStream("frappe-worker")
             .AddGeoMessaging()

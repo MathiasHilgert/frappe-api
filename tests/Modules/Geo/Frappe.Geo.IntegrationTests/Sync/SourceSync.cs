@@ -3,6 +3,7 @@ using Frappe.Geo.Application;
 using Frappe.Geo.Application.Holidays;
 using Frappe.Geo.Application.Sync;
 using Frappe.Geo.Application.Territory;
+using Frappe.Geo.Countries.Argentina.Banking;
 using Frappe.Geo.Countries.Argentina.Holidays;
 using Frappe.Geo.Countries.Argentina.Territory;
 using Frappe.Geo.Infrastructure.Holidays;
@@ -39,6 +40,20 @@ internal static class SourceSync
 
     public static Task<SyncOutcome> ProvincialHolidaysAsync(GeoDatabase database, SourceServer calendarios) =>
         RunAsync(database, calendarios, new ProvincialHolidaySource(Options.Create(new ProvincialHolidaysOptions()), In2026), db => new HolidayTarget(new EfHolidayCalendars(db)));
+
+    public static Task<SyncOutcome> BankingHolidaysAsync(GeoDatabase database, SourceServer bcra, SyncMetrics? metrics = null) =>
+        RunAsync(database, bcra, new BankingHolidaySource(Options.Create(new BankingHolidaysOptions()), In2026), db => new HolidayTarget(new EfHolidayCalendars(db)), metrics);
+
+    /// <summary>The path of the BCRA's 2026 banking holidays page, as the server answers it.</summary>
+    public const string BcraPage2026 = "consulta-feriados-bancarios-2026/";
+
+    /// <summary>The BCRA's 2026 banking holidays page (the real, trimmed one of the fixture folder); 2027 is not published.</summary>
+    public static SourceServer Bcra()
+    {
+        var server = new SourceServer("bcra");
+        server.Add(BcraPage2026, File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "bcra", "consulta-feriados-bancarios-2026.html")));
+        return server;
+    }
 
     /// <summary>
     /// Calendarios Nacionales' 2026 provincial files: the trimmed real ones of the fixture folder, and for every other

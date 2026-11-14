@@ -20,9 +20,12 @@ runtime:
       value: '"ARG"'
     - expression: res.body.currencies
       operator: isArray
+    - expression: res.body.capabilities
+      operator: isDefined
 
 settings:
   encodeUrl: true
 
 docs: |-
-  `GET /v1/geo/countries/{countryCode}`: one country (case-insensitive code).
+  `GET /v1/geo/countries/{countryCode}`: one country (case-insensitive code) and what Geo covers for it
+  (`capabilities`: holiday years per scope, business-day policies, time zone).

@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Frappe.Caching;
+using Frappe.Geo.Countries.Argentina;
 using Frappe.Geo.Http;
 using Frappe.Geo.Infrastructure;
 using Frappe.Http;
@@ -41,6 +42,7 @@ public static class ApiComposition
             .AddFrappeHttp()
             .AddFrappeCaching()
             .AddGeoCore()
+            .AddArgentinaCalendar()
             .AddGeoHttp()
             .AddOpenApi("v1", options => options
                 .AddDocumentTransformer<ApiDocumentInfo>()
