@@ -1,0 +1,28 @@
+info:
+  name: Suppress subdivision observance
+  type: http
+  seq: 8
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/v1/geo/subdivisions/AR-X/holidays/suppressions"
+  body:
+    type: json
+    data: |-
+      {
+        "date": "2026-11-10",
+        "name": "Visita oficial de Su Santidad el Papa León XIV"
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "204"
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `PUT /v1/geo/subdivisions/{subdivisionCode}/holidays/suppressions?scope=`: here Córdoba's own holiday for the papal
+  visit, which its provincial source publishes; the next request undoes it. TODO(auth).

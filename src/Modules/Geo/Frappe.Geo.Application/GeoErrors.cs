@@ -24,12 +24,24 @@ internal static class GeoErrors
     /// <summary>Geo holds no subdivisions of a known country: no data, never "no subdivisions" (as holidays, S6).</summary>
     public static NotFoundError TerritoryNotCovered(string countryCode) => new(GeoErrorCodes.TerritoryNotCovered, ("countryCode", countryCode));
 
+    /// <summary>A required parameter (query, route or body field) is absent or blank.</summary>
+    public static InvalidValueError ParameterRequired(string parameter) => Error.InvalidValue(GeoErrorCodes.ParameterRequired, ("parameter", parameter));
+
+    /// <summary>The value, or <see cref="ParameterRequired"/> when it is absent or blank.</summary>
+    public static Result<string> Required(string? raw, string parameter) =>
+        string.IsNullOrWhiteSpace(raw) ? ParameterRequired(parameter) : raw;
+
     /// <summary>
     /// A scope the country does not declare (<paramref name="scopes"/> are those it does): unknown and malformed alike,
     /// since only a declared one has a calendar.
     /// </summary>
     public static InvalidValueError CalendarScopeInvalid(string? value, string countryCode, IEnumerable<string> scopes) =>
         Error.InvalidValue(GeoErrorCodes.CalendarScopeInvalid, ("value", value), ("max", CalendarScope.MaxLength), ("countryCode", countryCode), ("scopes", scopes.ToArray()));
+
+    public static NotFoundError HolidayOverrideNotFound(string jurisdiction, string date, string name) =>
+        new(GeoErrorCodes.HolidayOverrideNotFound, ("jurisdiction", jurisdiction), ("date", date), ("name", name));
+
+    public static NotFoundError HolidaySyncNotFound(string sourceId) => new(GeoErrorCodes.HolidaySyncNotFound, ("sourceId", sourceId));
 
     public static InvalidValueError AreaLevelOutOfRange(string? value) =>
         Error.InvalidValue(GeoErrorCodes.AreaLevelOutOfRange, ("value", value), ("min", 2), ("max", 9));

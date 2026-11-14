@@ -1,0 +1,40 @@
+info:
+  name: Set override (not covered, 404)
+  type: http
+  seq: 11
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/v1/geo/countries/UY/holidays/overrides"
+  body:
+    type: json
+    data: |-
+      {
+        "date": "2026-12-24",
+        "name": "Bruno check",
+        "kind": "non_working_day",
+        "movedFrom": null,
+        "community": null,
+        "legalBasis": null
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "404"
+    - expression: res.headers['content-type']
+      operator: startsWith
+      value: '"application/problem+json"'
+    - expression: res.body.type
+      operator: eq
+      value: '"urn:frappe:problem:not-found"'
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"geo.holidays.not_covered"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  A correction never opens a calendar: 404 `geo.holidays.not_covered` for one Geo does not hold.

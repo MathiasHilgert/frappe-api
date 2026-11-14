@@ -2,6 +2,7 @@ using Frappe.Geo.Application.Holidays;
 using Frappe.Geo.Application.Sync;
 using Frappe.Geo.Application.Territory;
 using Frappe.Geo.Infrastructure.Holidays;
+using Frappe.Geo.Infrastructure.Persistence;
 using Frappe.Geo.Infrastructure.Territory;
 using Frappe.Scheduling;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,7 +35,8 @@ public static class SnapshotSyncRegistration
     }
 
     /// <summary>
-    /// Every registered source's sync as a durable job, once as the host starts and then on its schedule.
+    /// Every registered source's sync as a durable job, once as the host starts and then on its schedule; and job
+    /// <c>sync-requests</c>, which starts the runs asked for by hand (<c>Geo:SyncRequests:Cron</c>, every 15 seconds).
     /// </summary>
     public static IQuartzBuilder AddGeoSyncJobs(this IQuartzBuilder quartz)
     {
@@ -43,10 +45,17 @@ public static class SnapshotSyncRegistration
         {
             registration(quartz);
         }
+
+        quartz.Services.TryAddScoped(provider => new SyncRequestDispatch(
+            provider.GetRequiredService<GeoDbContext>(),
+            JobsOf(quartz.Services).ToDictionary(job => job.SourceId(provider), job => job.Name, StringComparer.Ordinal)));
+        quartz.AddCronJob<SyncRequestJob>(new JobKey("sync-requests", JobGroup), "Geo:SyncRequests", "0/15 * * * * ?");
         return quartz;
     }
 
     private static List<Action<IQuartzBuilder>> RegistrationsOf(IServiceCollection services) => SourceJobsOf(services).Jobs;
+
+    private static List<SourceJob> JobsOf(IServiceCollection services) => SourceJobsOf(services).Sources;
 
     private static SourceJobs SourceJobsOf(IServiceCollection services)
     {

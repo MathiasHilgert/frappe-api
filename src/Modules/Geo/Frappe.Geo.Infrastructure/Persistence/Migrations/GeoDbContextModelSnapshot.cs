@@ -18,7 +18,7 @@ partial class GeoDbContextModelSnapshot : ModelSnapshot
     // If you encounter a merge conflict in the line below, it means you need to
     // discard one of the migration branches and recreate its migrations on top of
     // the other branch. See https://aka.ms/efcore-docs-migrations-conflicts for more info.
-    public override string LastMigrationId => "20261114130253_AddHolidayCalendars";
+    public override string LastMigrationId => "20261114132923_AddSyncRequests";
 
     protected override void BuildModel(ModelBuilder modelBuilder)
     {
@@ -132,6 +132,28 @@ partial class GeoDbContextModelSnapshot : ModelSnapshot
                 b.HasKey("Code");
 
                 b.ToTable("currencies", "geo");
+            });
+
+        modelBuilder.Entity("Frappe.Geo.Infrastructure.Sync.SyncRequestRow", b =>
+            {
+                b.Property<Guid>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("uuid")
+                    .HasColumnName("id");
+
+                b.Property<Instant>("RequestedAt")
+                    .HasColumnType("timestamp with time zone")
+                    .HasColumnName("requested_at");
+
+                b.Property<string>("SourceId")
+                    .IsRequired()
+                    .HasMaxLength(64)
+                    .HasColumnType("character varying(64)")
+                    .HasColumnName("source_id");
+
+                b.HasKey("Id");
+
+                b.ToTable("sync_requests", "geo");
             });
 
         modelBuilder.Entity("Frappe.Geo.Infrastructure.Sync.SyncResourceRow", b =>

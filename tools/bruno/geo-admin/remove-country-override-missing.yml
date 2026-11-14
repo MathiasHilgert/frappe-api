@@ -1,0 +1,29 @@
+info:
+  name: Remove country override (none, 404)
+  type: http
+  seq: 3
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/v1/geo/countries/AR/holidays/overrides?date=2026-12-24&name=Bruno check"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "404"
+    - expression: res.headers['content-type']
+      operator: startsWith
+      value: '"application/problem+json"'
+    - expression: res.body.type
+      operator: eq
+      value: '"urn:frappe:problem:not-found"'
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"geo.holiday_override.not_found"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  Nothing to remove any more: 404 `geo.holiday_override.not_found`.

@@ -1,0 +1,20 @@
+info:
+  name: Remove subdivision override
+  type: http
+  seq: 7
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/v1/geo/subdivisions/AR-X/holidays/overrides?date=2026-12-24&name=Bruno check"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "204"
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `DELETE /v1/geo/subdivisions/{subdivisionCode}/holidays/overrides?date=&name=&scope=`. TODO(auth).

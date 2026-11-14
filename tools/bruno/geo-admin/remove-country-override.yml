@@ -1,0 +1,21 @@
+info:
+  name: Remove country override
+  type: http
+  seq: 2
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/v1/geo/countries/AR/holidays/overrides?date=2026-12-24&name=Bruno check"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "204"
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `DELETE /v1/geo/countries/{countryCode}/holidays/overrides?date=&name=&scope=`: removes an override or a
+  suppression, so the source's observance counts again. TODO(auth).

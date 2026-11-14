@@ -7,6 +7,7 @@ What the Geo module answers, where its data comes from, how it is configured and
 | [What Geo answers](#what-geo-answers) | Countries, currencies, territory and holidays, over HTTP |
 | [Sources](#sources) | Where each kind of data comes from, its terms and its sync schedule |
 | [Configuration](#configuration) | Source locations and cron schedules |
+| [Administration](#administration) | Manual corrections, sync history and runs |
 | [Metrics](#metrics) | Freshness, coverage and "not covered" requests |
 | [Adding a country](#adding-a-country) | What a country package declares and where the hosts compose it |
 
@@ -45,9 +46,17 @@ Errors follow [`http-api.md`](http-api.md): a stable code in `errors[].code`, it
 the request at once where they can be found together. Codes are never renamed; a new distinction gets a new code. For
 parameters (query, route or body field) the rule is:
 
+- absent or blank and required: `geo.parameter.required`, naming it in `parameter`;
 - present but unreadable (not a code, not digits): the parameter's `.invalid` or `.invalid_format` code;
 - a readable number outside its bounds: its `.out_of_range` code (`holiday_year`, `area_level`, `page_limit`; each also
   has its `.invalid`).
+
+An invalid observance (`geo.observance.invalid`) names its `date` (ISO `yyyy-MM-dd`, or the value given when it is not
+a date) and a stable `reason` each language translates: `date_invalid`, `name_empty`, `name_too_long`, `kind_unknown`,
+`moved_from_invalid`, `moved_from_not_allowed`, `community_missing`, `community_not_allowed`, `community_too_long`,
+`community_unknown`, `citation_empty`, `citation_too_long`, `url_invalid`, `url_too_long` (with `max`, `value` or
+`communities` where they explain it). Codes and other values in messages are quoted parameters, never words of the
+sentence.
 
 ## Sources
 
@@ -91,7 +100,29 @@ expressions, seconds first. In environment variables, `:` becomes `__` (`Geo__Ar
 | `Geo:Argentina:ProvincialHolidays:Cron` | `0 30 5 ? * MON` | Provincial holiday sync; keep it weekly (the source's terms). |
 | `Geo:Argentina:BankingHolidays:BaseUrl` | `https://www.bcra.gob.ar/` | BCRA banking holiday pages. |
 | `Geo:Argentina:BankingHolidays:Cron` | `0 15 5 * * ?` | Banking holiday sync. |
+| `Geo:SyncRequests:Cron` | `0/15 * * * * ?` | How often the Worker starts the runs requested through the API. |
 | `Geo:MessagePurge:Cron` | `0 30 3 * * ?` | Purge of Geo's old outbox and inbox rows ([operations](operations.md#message-retention)). |
+
+## Administration
+
+These endpoints are **not authenticated yet**: each carries a `TODO(auth)` in the code, and they must not be exposed
+publicly until authentication lands.
+
+| Endpoint | What it does |
+|----------|--------------|
+| `PUT .../holidays/overrides?scope=` | Sets an observance by hand (`date`, `name`, `kind` required; `movedFrom`, `community` and `legalBasis` optional, with `legalBasis.citation` required in a basis and `legalBasis.url` optional), or replaces the source's of the same date and name. Every problem of the body comes at once, also when the date itself cannot be read. |
+| `PUT .../holidays/suppressions?scope=` | Leaves the source's observance of `date` and `name` out, whatever the source says later; 422 `geo.observance.not_in_source` when the source has none (a hand-added one is removed with `DELETE`). |
+| `DELETE .../holidays/overrides?date=&name=&scope=` | Removes an override or a suppression, so the source's observance counts again. |
+| `GET holiday-syncs` | Every holiday source that ran, with its last outcome. |
+| `GET holiday-syncs/{sourceId}/runs` | A source's latest 50 runs, with the override conflicts each found. |
+| `POST holiday-syncs/{sourceId}/runs` | Asks for a run now: 202 with a `requestId` and `Location` to the source's runs. Requests made before the run starts share one run, which the Worker starts within `Geo:SyncRequests:Cron`. |
+
+`...` is `countries/{code}` or `subdivisions/{code}`. Corrections apply only to a calendar Geo holds (404
+`geo.holidays.not_covered` otherwise) and win over later syncs; a sync that changes an overridden observance records a
+conflict. Two writers on one calendar: the second gets 409 `geo.holiday_calendar.changed_concurrently`. A
+`community` must be one the country declares (Argentina: `armenian`, `jewish`, `islamic`); a `legalBasis` needs a
+`citation` (up to 200 characters) and its `url` is an absolute `http(s)` address (up to 500). Unknown JSON fields are
+ignored, as everywhere in the API (the platform has no convention to reject them).
 
 ## Metrics
 
@@ -103,6 +134,7 @@ source ids, scopes, outcomes and error codes.
 |--------|------------|------|-------------|
 | `frappe.geo.sync.runs` | Counter, `{run}` | `frappe.geo.source`, `frappe.outcome` (`applied`, `unchanged`, `not_published`, `refused`, `failed`) | Worker |
 | `frappe.geo.sync.last_success.age` | Observable gauge, `s` | `frappe.geo.source` | Worker |
+| `frappe.geo.sync.override_conflicts` | Counter, `{conflict}` | `frappe.geo.source` | Worker |
 | `frappe.geo.holidays.covered_through` | Observable gauge, `{year}` | `frappe.geo.country`, `frappe.geo.calendar.scope` | Worker |
 | `frappe.geo.holidays.not_covered` | Counter, `{request}` | `frappe.geo.country`, `frappe.error.code` | Api (HTTP) |
 
