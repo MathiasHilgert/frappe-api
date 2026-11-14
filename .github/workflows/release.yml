@@ -31,16 +31,27 @@ jobs:
         uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: audit
+      # Pull requests opened with GITHUB_TOKEN trigger no workflows, so the release pull request would never get its
+      # required checks. The release app (variable RELEASE_APP_CLIENT_ID, secret RELEASE_APP_PRIVATE_KEY) opens it
+      # instead, with a token that lives one hour and can only write contents, pull requests and issues (labels) of
+      # this repository. Without the app, GITHUB_TOKEN opens it and an admin merges it through the ruleset's bypass.
+      - name: Mint a token of the release app
+        id: app-token
+        if: vars.RELEASE_APP_CLIENT_ID != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
       - name: Update the release pull request, or tag the release
         id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           config-file: .github/release-please-config.json
           manifest-file: .github/release-please-manifest.json
-          # Pull requests opened with GITHUB_TOKEN trigger no workflows, so the release pull request would never get
-          # its required checks. With a RELEASE_PLEASE_TOKEN secret (fine-grained: contents and pull requests, write)
-          # the checks run; without it, an admin merges the release pull request through the ruleset's bypass.
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          token: ${{ steps.app-token.outputs.token || github.token }}
 
   publish:
     name: Image is published
