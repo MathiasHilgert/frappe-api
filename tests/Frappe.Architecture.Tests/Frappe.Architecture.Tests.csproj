@@ -1,6 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="../../src/Hosts/Frappe.Worker/Frappe.Worker.csproj" />
+    <ProjectReference Include="../../src/Modules/Geo/Frappe.Geo.Http/Frappe.Geo.Http.csproj" />
+    <ProjectReference Include="../../src/Modules/Geo/Frappe.Geo.Infrastructure/Frappe.Geo.Infrastructure.csproj" />
+    <ProjectReference Include="../../src/Modules/Geo/Frappe.Geo.Global/Frappe.Geo.Global.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="NetArchTest.Rules" />

@@ -83,6 +83,10 @@
             "integration_id": 15368
           },
           {
+            "context": "Integration tests pass",
+            "integration_id": 15368
+          },
+          {
             "context": "Changed lines are covered",
             "integration_id": 15368
           },

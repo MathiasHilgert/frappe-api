@@ -29,6 +29,7 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
     private static readonly Action<IWaitStrategy> Bounded = wait => wait.WithTimeout(TimeSpan.FromMinutes(2));
 
     private readonly string _ownerPassword = Secret();
+    private readonly string _geoPassword = Secret();
     private readonly string _schedulerPassword = Secret();
     private readonly List<IContainer> _containers = [];
 
@@ -85,6 +86,7 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
 
         _api = Track(new ContainerBuilder(_image)
             .WithNetwork(_network)
+            .WithEnvironment("ConnectionStrings__Geo", GeoConnectionString())
             .WithEnvironment("ConnectionStrings__Valkey", "valkey:6379")
             .WithPortBinding(8080, true)
             .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => r.ForPort(8080).ForPath("/health/live"), Bounded))
@@ -116,6 +118,7 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
             .WithNetwork(_network!)
             .WithEntrypoint("/app/migrator/Frappe.Migrator")
             .WithEnvironment("ConnectionStrings__Owner", $"Host=postgres;Database=frappe;Username=frappe_owner;Password={_ownerPassword}")
+            .WithEnvironment("Roles__Geo__Password", _geoPassword)
             .WithEnvironment("Roles__Scheduler__Password", _schedulerPassword)
             .Build());
         try
@@ -159,6 +162,8 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
 
         return text.ToString();
     }
+
+    private string GeoConnectionString() => $"Host=postgres;Database=frappe;Username=frappe_geo;Password={_geoPassword}";
 
     private T Track<T>(T container)
         where T : IContainer

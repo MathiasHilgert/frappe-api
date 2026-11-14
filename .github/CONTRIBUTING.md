@@ -8,9 +8,10 @@ every pull request must pass.
 
 1. Branch from `main` as `<type>/<kebab-topic>`, for example `feat/health-probes`.
 2. Make the change with its tests; run `just build` and `just test all`.
-3. Open a pull request titled `<type>(<scope>): <summary>` and fill in the
+3. If you changed an endpoint on purpose, run `just contracts update` and commit the result.
+4. Open a pull request titled `<type>(<scope>): <summary>` and fill in the
    [template](pull_request_template.md).
-4. Wait for every required check to pass; `main` is squash-merged.
+5. Wait for every required check to pass; `main` is squash-merged.
 
 ## Repository layout
 
@@ -21,11 +22,12 @@ the workflows and the `.justfile` point it.
 .config/dotnet-tools.json   local .NET tools (dotnet-ef), found by `dotnet tool restore`
 .github/                    workflows, their scripts, Renovate (renovate.json5), this guide, the PR template
 deploy/                     Dockerfile (+ Dockerfile.dockerignore), compose.yaml, .env.example, observability/
-docs/                       documentation; adr/ holds the decisions
+docs/                       documentation; api/ holds the committed OpenAPI contract, adr/ the decisions
 eng/                        build and lint inputs: just modules, CodeMetricsConfig.txt, typos, markdownlint, hadolint, squawk
 src/                        Platform/, Modules/<Module>/, Hosts/
 tests/                      mirrors src/: Platform/, Modules/<Module>/ (UnitTests, IntegrationTests), plus the
                             cross-cutting Architecture and EndToEnd suites and Shared/ (helpers, no tests)
+tools/                      seeds/ (reference data generators) and bruno/ (a collection that exercises the API)
 .justfile                   the `just <area> <action>` entry point
 Directory.Build.props       build settings and analyzers for every project
 Directory.Packages.props    every package version (central package management)
@@ -44,8 +46,9 @@ Commands are `just <area> <action>`; `just` lists them all.
 | `infra` | `up`: only the infrastructure and LGTM, to run the hosts from here or the IDE |
 | `db` | `migrate`: roles, migrations, Quartz tables and grants |
 | `run` | `api` (on port 5080), `worker`: the hosts on this machine against the compose infrastructure |
-| `test` | `all` (`platform` and `architecture`), `platform`, `architecture`, `e2e` (not in `all`: builds the image and runs it end to end, a few minutes) |
+| `test` | `all` (`platform`, `architecture` and `geo`), `platform`, `architecture`, `geo` (`geo-unit` then `geo-integration`), `geo-unit` (no Docker, seconds), `geo-integration` (needs Docker for Testcontainers), `e2e` (not in `all`: builds the image and runs it end to end, a few minutes) |
 | `docker` | `image`: the one image for the Api, the Worker and the Migrator |
+| `contracts` | `update`: regenerate `docs/api/` (the HTTP contract) after a deliberate change |
 | `deps` | `lock`: rewrite every `packages.lock.json` after changing a package or the SDK; `audit`: list vulnerable packages |
 | `github` | `conventions`: test the title, commit and branch rules; `protect`: apply the repository settings and the ruleset of `main` |
 
@@ -57,6 +60,8 @@ Commands are `just <area> <action>`; `just` lists them all.
 |-------|---------|---------|-------|
 | Platform capabilities | `tests/Platform/Frappe.Platform.Tests` | `just test platform` | Nothing |
 | Architecture rules | `tests/Frappe.Architecture.Tests` | `just test architecture` | Nothing |
+| Geo unit | `tests/Modules/Geo/Frappe.Geo.UnitTests` | `just test geo-unit` | Nothing; runs in seconds |
+| Geo integration | `tests/Modules/Geo/Frappe.Geo.IntegrationTests` | `just test geo-integration` | Docker (Testcontainers: Postgres, Valkey) |
 | End to end | `tests/Frappe.EndToEnd.Tests` | `just test e2e` | Docker; a few minutes |
 
 `just test all` runs every suite but the end-to-end one. Each suite runs under a timeout.
@@ -73,6 +78,8 @@ them (`Frappe.<Module>.Testing`); helpers any suite may use (`RepositoryRoot`, `
 `just test e2e` tests what gets deployed: it builds the image from `deploy/Dockerfile` (BuildKit) and runs Postgres, NATS,
 Valkey, the Migrator, the Api and the Worker as containers, wired like `deploy/compose.yaml`.
 
+The [Bruno collection](../tools/bruno/README.md) exercises a running Api from the outside, request by request.
+
 ## Conventions
 
 - **Titles and commits.** `main` is squash-merged, so the pull request title becomes the commit:
@@ -85,6 +92,9 @@ Valkey, the Migrator, the Api and the Worker as containers, wired like `deploy/c
 - **Complexity budget.** Every production method stays at cognitive complexity 15 or less (Sonar S3776) and cyclomatic
   complexity 10 or less (CA1502). Both are analyzer rules, so a method over budget fails the build on your machine too.
   Warnings are errors.
+- **Contracts.** `docs/api/openapi/v1.json` is generated from the code and a test fails
+  when it is stale (`just contracts update`). CI compares it with the base branch through oasdiff: a breaking
+  change needs `!` in the title.
 - **Migrations.** A model change without its migration fails; the SQL of new migrations is linted by Squawk for locks
   and data loss (a deliberate risky change needs the `risky migration approved` label); and the base branch's database
   is upgraded with this branch's Migrator.
@@ -102,7 +112,7 @@ see **Path-aware checks** below.
 |----------|--------|
 | Pull request | Title follows Conventional Commits · Commits follow Conventional Commits · Branch name is valid · Assignee and labels set |
 | Code quality | Code is formatted · Code compiles without warnings · Complexity is within limits |
-| Tests | Unit tests pass · Architecture rules hold · Changed lines are covered · App starts and responds |
+| Tests | Unit tests pass · Architecture rules hold · Integration tests pass · Changed lines are covered · App starts and responds |
 | Compatibility | API has no unmarked breaking changes · Events have no unmarked breaking changes · Database migrations are safe |
 | Security | No vulnerable dependencies · No leaked secrets · Code has no known vulnerabilities · Workflows are secure · Container image is clean |
 

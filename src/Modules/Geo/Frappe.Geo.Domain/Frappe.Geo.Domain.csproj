@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../../../Platform/Frappe.Results/Frappe.Results.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Localization/Frappe.Localization.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Aggregates/Frappe.Aggregates.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="NodaTime" />
+  </ItemGroup>
+</Project>

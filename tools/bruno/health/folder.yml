@@ -1,0 +1,17 @@
+info:
+  name: Health
+  type: folder
+  seq: 1
+
+docs:
+  content: |-
+    # Health
+
+    The three Kubernetes probes of the Api, outside `/v1` (no rate limit, no language). Each answers 200 or 503
+    with the overall `status` and every check by name.
+
+    - **Live:** only the process, so a dependency outage never restarts it.
+    - **Ready:** the critical dependencies (Postgres for the Api); one down takes it out of traffic. Valkey is
+      optional: down, it reports `Degraded` with a 200 and reads fall back to the database.
+    - **Startup:** the host finished starting.
+  type: text/markdown

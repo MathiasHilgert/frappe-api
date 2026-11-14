@@ -1,0 +1,29 @@
+info:
+  name: Get OpenAPI document
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{baseUrl}}/openapi/v1.json"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.openapi
+      operator: startsWith
+      value: '"3."'
+    - expression: res.body.info.version
+      operator: isString
+    - expression: res.body.paths
+      operator: isDefined
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `GET /openapi/v1.json`: the OpenAPI document of every `/v1` endpoint, with descriptions, parameters, the
+  `Accept-Language` header and the Problem Details each one can answer. Import it in any tool, or read it rendered
+  at `/docs/`.

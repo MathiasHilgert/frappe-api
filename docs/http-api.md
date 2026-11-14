@@ -1,7 +1,8 @@
 # HTTP API conventions
 
 What every endpoint of the Api shares. The endpoints themselves, with their parameters and responses, are
-described by the OpenAPI document: `/openapi/v1.json` on a running Api, browsable at `/docs/`.
+described by the OpenAPI document: `/openapi/v1.json` on a running Api, browsable at `/docs/`, and committed as
+[`docs/api/openapi/v1.json`](api/openapi/v1.json).
 
 | Topic | Rule |
 |-------|------|

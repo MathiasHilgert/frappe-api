@@ -1,0 +1,14 @@
+info:
+  name: Geo
+  type: folder
+  seq: 2
+
+docs:
+  content: |-
+    # Geo
+
+    The read side of `/v1/geo`: the CLDR catalogue of countries and currencies. Answers are cached: each one carries an
+    `ETag` and `Cache-Control`.
+
+    The requests use Argentina (`AR`). See `docs/geo.md`.
+  type: text/markdown
