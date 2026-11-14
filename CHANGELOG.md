@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/MathiasHilgert/frappe-api/compare/v0.1.0...v0.1.1) (2026-11-14)
+
+
+### Refactoring
+
+* **hosts:** group host files by concern ([#37](https://github.com/MathiasHilgert/frappe-api/issues/37)) ([bf40fbf](https://github.com/MathiasHilgert/frappe-api/commit/bf40fbf2bba90119e7e38e4b04eb4f743fe6a45c))
+
 ## 0.1.0 (2026-11-14)
 
 
