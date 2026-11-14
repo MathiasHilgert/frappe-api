@@ -43,6 +43,23 @@ internal static class GeoErrors
 
     public static NotFoundError HolidaySyncNotFound(string sourceId) => new(GeoErrorCodes.HolidaySyncNotFound, ("sourceId", sourceId));
 
+    public static NotFoundError SubdivisionAliasNotFound(string subdivisionCode, string alias) =>
+        new(GeoErrorCodes.SubdivisionAliasNotFound, ("subdivisionCode", subdivisionCode), ("alias", alias));
+
+    public static ConflictError SubdivisionAliasDuplicate(string subdivisionCode, string alias) =>
+        new(GeoErrorCodes.SubdivisionAliasDuplicate, ("subdivisionCode", subdivisionCode), ("alias", alias));
+
+    /// <summary>409: another current subdivision of the same country is already known by the alias.</summary>
+    public static ConflictError SubdivisionAliasTaken(string subdivisionCode, string alias, string otherSubdivisionCode) =>
+        new(GeoErrorCodes.SubdivisionAliasTaken, ("subdivisionCode", subdivisionCode), ("alias", alias), ("otherSubdivisionCode", otherSubdivisionCode));
+
+    /// <summary>409: the alias is the source's, which changes only with the source.</summary>
+    public static ConflictError SubdivisionAliasImported(string subdivisionCode, string alias) =>
+        new(GeoErrorCodes.SubdivisionAliasImported, ("subdivisionCode", subdivisionCode), ("alias", alias));
+
+    public static InvalidValueError SubdivisionAliasInvalid(string? alias, int max) =>
+        Error.InvalidValue(GeoErrorCodes.SubdivisionAliasInvalid, ("value", alias), ("max", max));
+
     public static InvalidValueError AreaLevelOutOfRange(string? value) =>
         Error.InvalidValue(GeoErrorCodes.AreaLevelOutOfRange, ("value", value), ("min", 2), ("max", 9));
 

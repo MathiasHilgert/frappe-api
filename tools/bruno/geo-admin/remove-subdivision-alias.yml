@@ -1,0 +1,22 @@
+info:
+  name: Remove subdivision alias
+  type: http
+  seq: 17
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/v1/geo/subdivisions/AR-X/aliases/bruno-check"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "204"
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `DELETE /v1/geo/subdivisions/{subdivisionCode}/aliases/{alias}`: removes a manual alias, named as added or
+  differing only by case and accents; 409 `geo.subdivision_alias.imported` for one of the source's, 404
+  `geo.subdivision_alias.not_found` for one the subdivision does not have. TODO(auth).

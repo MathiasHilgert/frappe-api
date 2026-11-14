@@ -24,5 +24,10 @@
   "geo.observance.not_in_source": "El calendario de la fuente de {jurisdiction} no tiene “{name}” el {date}: solo se puede suprimir una conmemoración que la fuente publica.",
   "geo.holiday_override.not_found": "El calendario de {jurisdiction} no tiene una corrección manual de “{name}” el {date}.",
   "geo.holiday_calendar.changed_concurrently": "Otra persona modificó este calendario al mismo tiempo: vuelva a leerlo e intente de nuevo.",
-  "geo.holiday_sync.not_found": "No existe la fuente de feriados {sourceId}."
+  "geo.holiday_sync.not_found": "No existe la fuente de feriados {sourceId}.",
+  "geo.subdivision_alias.invalid": "El alias “{value}” debe tener entre 1 y {max} caracteres, al menos una letra o un dígito, y solo letras, dígitos, espacios, apóstrofos y . , - ( ) &.",
+  "geo.subdivision_alias.duplicate": "La subdivisión {subdivisionCode} ya se conoce como “{alias}”.",
+  "geo.subdivision_alias.not_found": "La subdivisión {subdivisionCode} no tiene el alias manual “{alias}”.",
+  "geo.subdivision_alias.taken": "La subdivisión {otherSubdivisionCode} ya se conoce como “{alias}”, así que no puede nombrar también a {subdivisionCode}.",
+  "geo.subdivision_alias.imported": "El alias “{alias}” de {subdivisionCode} proviene de la fuente: solo cambia con la fuente."
 }

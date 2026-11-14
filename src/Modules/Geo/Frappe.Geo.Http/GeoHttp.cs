@@ -31,6 +31,7 @@ public static class GeoHttp
         var administration = geo.MapGroup(string.Empty).NoStore();
         administration.MapHolidayOverrideEndpoints();
         administration.MapHolidaySyncEndpoints();
+        administration.MapSubdivisionAliasEndpoints();
         return routes;
     }
 }

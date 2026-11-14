@@ -1,0 +1,36 @@
+info:
+  name: Add subdivision alias
+  type: http
+  seq: 15
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/geo/subdivisions/AR-X/aliases"
+  body:
+    type: json
+    data: |-
+      {
+        "alias": "bruno-check"
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "201"
+    - expression: res.body.alias
+      operator: eq
+      value: '"bruno-check"'
+    - expression: res.headers.location
+      operator: eq
+      value: '"/v1/geo/subdivisions/AR-X/aliases/bruno-check"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `POST /v1/geo/subdivisions/{subdivisionCode}/aliases`: adds a manual alias, which the territory sync never
+  removes; `Location` is the absolute path that removes it. Letters, digits, spaces and `. , ' ’ - ( ) &` only, at
+  least one letter or digit (400 `geo.subdivision_alias.invalid`); 409 `geo.subdivision_alias.duplicate` when the
+  subdivision is already known by it (name, code suffix or alias, ignoring case and accents), 409
+  `geo.subdivision_alias.taken` when another subdivision of the country is. TODO(auth).

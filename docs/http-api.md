@@ -14,7 +14,7 @@ described by the OpenAPI document: `/openapi/v1.json` on a running Api, browsabl
 ## Access
 
 Version 1 is anonymous, under `/v1` (rate limited per client). Most of it reads; the administration endpoints also
-write (holiday overrides and sync requests) and are not authenticated yet: they are open until Frappé
+write (holiday overrides, sync requests, subdivision aliases) and are not authenticated yet: they are open until Frappé
 has authentication (`TODO(auth)` on each route). The OpenAPI document describes the real problem body (`Problem`) on
 every 4xx and 5xx, the `Content-Language`, `ETag`, `Cache-Control`, `Location` and `Retry-After` headers, and every
 query parameter's type and whether it is required. Every `GET` route, the OpenAPI document and the Scalar reference included, also answers `HEAD`
