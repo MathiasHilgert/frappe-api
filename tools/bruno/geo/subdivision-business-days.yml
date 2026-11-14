@@ -1,0 +1,26 @@
+info:
+  name: Subdivision business days
+  type: http
+  seq: 20
+
+http:
+  method: GET
+  url: "{{baseUrl}}/v1/geo/subdivisions/AR-X/business-days?from=2026-11-06&count=3&policy=commercial"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.jurisdiction
+      operator: eq
+      value: '"AR-X"'
+    - expression: res.body.dates.length
+      operator: eq
+      value: "3"
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `GET /v1/geo/subdivisions/{subdivisionCode}/business-days?from=&count=&policy=`: the same in a subdivision.

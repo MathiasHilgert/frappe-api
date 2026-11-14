@@ -20,7 +20,7 @@ namespace Frappe.Geo.Countries.Argentina.Banking;
 /// Each row's legal basis is the Comunicaciones the page says the year's list follows (it names them for the whole list,
 /// not per row), linked to the first one's text; a page that names none leaves the rows without a basis rather than
 /// guessing one. Where the general calendar names the same day, business-day answers show the general observance (its
-/// kind and basis), not this row (<c>BusinessCalendar</c>, with business days).
+/// kind and basis), not this row (<see cref="Domain.BusinessDays.BusinessCalendar"/>).
 /// </summary>
 internal sealed class BankingHolidaySource(IOptions<BankingHolidaysOptions> options, IClock clock) : ISnapshotSource<HolidaySnapshot>
 {

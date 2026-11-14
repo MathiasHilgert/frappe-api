@@ -4,11 +4,11 @@ What the Geo module answers, where its data comes from, how it is configured and
 
 | Topic | Summary |
 |-------|---------|
-| [What Geo answers](#what-geo-answers) | Countries, currencies, territory and holidays, over HTTP |
+| [What Geo answers](#what-geo-answers) | Countries, currencies, territory, holidays and business days, over HTTP |
 | [Sources](#sources) | Where each kind of data comes from, its terms and its sync schedule |
 | [Configuration](#configuration) | Source locations and cron schedules |
 | [Administration](#administration) | Manual corrections, sync history and runs, subdivision aliases |
-| [Metrics](#metrics) | Freshness, coverage and "not covered" requests |
+| [Metrics](#metrics) | Freshness, coverage, "not covered" requests and cache effectiveness |
 | [Adding a country](#adding-a-country) | What a country package declares and where the hosts compose it |
 
 ## What Geo answers
@@ -23,7 +23,7 @@ caching follow [`http-api.md`](http-api.md).
 - **Territory.** A covered country's subdivisions (ISO 3166-2), their administrative areas and localities:
   `countries/{code}/subdivisions`, `subdivisions/{code}`, `subdivisions/{code}/areas?level=`, `areas/{id}`,
   `subdivisions/{code}/localities?q=&limit=&cursor=`, `localities/{id}`. A known country Geo holds no territory of
-  answers 404 `geo.territory.not_covered`, never an empty list: an empty list would read as "this country
+  answers 404 `geo.territory.not_covered`, never an empty list, as holidays do: an empty list would read as "this country
   has no subdivisions". A flag on the list would have said the same, but in a second, easy to ignore, way. A
   subdivision of such a country (`subdivisions/US-CA`, its areas, its localities) is 404 `geo.territory.not_covered`
   too, never "does not exist"; an unknown subdivision of a covered country is 404 `geo.subdivision.not_found`.
@@ -31,14 +31,25 @@ caching follow [`http-api.md`](http-api.md).
   `subdivisions/{code}`), with the calendars it covers (`covers`) and the credit their sources require
   (`attributions`). `scope` is `general` by default, or a sector calendar the country declares (Argentina: `banking`);
   a sector's calendar lists its source's facts as published (the BCRA's rows, all `holiday`), since two sources' fields
-  are never merged.
+  are never merged: reconciling them with the general calendar is what `calendar/{date}` answers.
+- **Business days.** Whether a date is a business day (`.../calendar/{date}?policy=`) and the next ones
+  (`.../business-days?from=&count=&policy=`, at most 60). The `policy` is `banking`, `labor` or `commercial`; which
+  observances each treats as non-working is the country's rule. Both answers carry `covers` and `attributions` like
+  holiday answers, for every calendar read (the next business days may read two years): Calendarios Nacionales' terms
+  require the link in every answer that uses its data.
 
 Geo keeps holidays only for countries with explicit coverage. Any other country, or a year Geo holds no calendar for,
-answers 404 `geo.holidays.not_covered`, never "no holidays". The error names the calendar actually missing
-(`jurisdiction`, `year`, `scope`): for a subdivision, the country's when that is the one Geo lacks. A scope the country
-does not declare is 400 `geo.calendar_scope.invalid` (with the `scopes` it does), never "not covered", since no
-calendar of it can exist. Other modules learn about calendar changes from the `HolidaysChanged` integration event.
-Holiday listings (`.../holidays`) read storage directly and are never stale.
+answers 404 `geo.holidays.not_covered` (or `geo.business_days.not_covered` when the country has no rules for the
+policy), never "no holidays". The error names the calendar actually missing (`jurisdiction`, `year`, `scope`): for a
+subdivision, the country's when that is the one Geo lacks. A scope the country does not declare is 400
+`geo.calendar_scope.invalid` (with the `scopes` it does), never "not covered", since no calendar of it can exist. Other modules
+learn about calendar changes from the `HolidaysChanged` integration event.
+
+Calendar and business-day answers are cached (memory, then Valkey); clients may reuse an answer for five minutes
+(`max-age=300`). A calendar change evicts its entries in every replica about a second after it commits while messaging
+is up: the outbox relays `HolidaysChanged` through NATS, the Worker consumes it and the cache backplane carries the
+eviction. While NATS or the Worker is down, eviction waits for them, so business-day answers may be stale for up to the
+cache entry's lifetime (10 minutes, the platform default); the event waits in the outbox and evicts once they are back. Holiday listings (`.../holidays`) read storage directly and are never stale.
 
 ### Errors
 
@@ -47,9 +58,9 @@ the request at once where they can be found together. Codes are never renamed; a
 parameters (query, route or body field) the rule is:
 
 - absent or blank and required: `geo.parameter.required`, naming it in `parameter`;
-- present but unreadable (not a code, not digits): the parameter's `.invalid` or `.invalid_format` code;
-- a readable number outside its bounds: its `.out_of_range` code (`holiday_year`, `area_level`, `page_limit`; each also
-  has its `.invalid`).
+- present but unreadable (not a date, not digits): the parameter's `.invalid` or `.invalid_format` code;
+- a readable number outside its bounds: its `.out_of_range` code (`holiday_year`, `business_day_count`, `area_level`,
+  `page_limit`; each also has its `.invalid`).
 
 An invalid observance (`geo.observance.invalid`) names its `date` (ISO `yyyy-MM-dd`, or the value given when it is not
 a date) and a stable `reason` each language translates: `date_invalid`, `name_empty`, `name_too_long`, `kind_unknown`,
@@ -76,8 +87,10 @@ Next year's holiday file is optional until it is published; the current year's i
 
 The BCRA's page names the Comunicaciones its year's list follows for the list as a whole, not per row (2026: C 101352,
 amended by C 102390 and A 8487), so every row cites them all (`BCRA, Comunicaciones C 101352, C 102390 y A 8487`) and
-links the first one's text; a page that names none leaves the rows without a legal basis rather than guessing one. The
-6 November sector rule cites CCT 18/75, art. 50. Provincial rows keep the source's link to their norm: SAIJ
+links the first one's text; a page that names none leaves the rows without a legal basis rather than guessing one. On
+a day the general calendar also names, business-day answers show the general observance, with its kind and legal
+basis; when that observance was suppressed by hand, the general calendar no longer names the day and the BCRA's row is
+shown. The 6 November sector rule cites CCT 18/75, art. 50. Provincial rows keep the source's link to their norm: SAIJ
 links (`saij.gob.ar/view-document?guid=123456789-0abc-...`) look made up but are SAIJ's own id format (read backwards,
 `...-230-5000avorpyel` is `leyprova 0005-032`, Salta's Ley 5.032).
 
@@ -148,6 +161,9 @@ source ids, scopes, outcomes and error codes.
 - **Gaps in coverage.** `not_covered` counts questions answered "not covered" by country: requests for countries or
   years Geo does not cover yet.
 - The gauges read the database at most once a minute; when it cannot be read they report nothing for that collection.
+- **Cache effectiveness.** FusionCache's own instrumentation (meter `ZiggyCreatures.Caching.Fusion`, enabled by the
+  platform) counts `fusioncache.cache.hit` and `fusioncache.cache.miss`: the hit ratio of the whole shared cache, of
+  which Geo's calendars are one user (Geo adds no cache instrument of its own).
 
 ## Adding a country
 

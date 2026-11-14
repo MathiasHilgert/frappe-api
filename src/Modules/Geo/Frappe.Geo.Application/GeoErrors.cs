@@ -38,6 +38,19 @@ internal static class GeoErrors
     public static InvalidValueError CalendarScopeInvalid(string? value, string countryCode, IEnumerable<string> scopes) =>
         Error.InvalidValue(GeoErrorCodes.CalendarScopeInvalid, ("value", value), ("max", CalendarScope.MaxLength), ("countryCode", countryCode), ("scopes", scopes.ToArray()));
 
+    public static NotFoundError BusinessDaysNotCovered(string jurisdiction, string policy) =>
+        new(GeoErrorCodes.BusinessDaysNotCovered, ("jurisdiction", jurisdiction), ("policy", policy));
+
+    public static InvalidValueError DateInvalidFormat(string? value) => Error.InvalidValue(GeoErrorCodes.DateInvalidFormat, ("value", value));
+
+    public static InvalidValueError BusinessDayPolicyInvalid(string? value) => Error.InvalidValue(GeoErrorCodes.BusinessDayPolicyInvalid, ("value", value));
+
+    public static InvalidValueError BusinessDayCountOutOfRange(string? value, int max) =>
+        Error.InvalidValue(GeoErrorCodes.BusinessDayCountOutOfRange, ("value", value), ("min", 1), ("max", max));
+
+    public static InvalidValueError BusinessDayCountInvalid(string? value, int max) =>
+        Error.InvalidValue(GeoErrorCodes.BusinessDayCountInvalid, ("value", value), ("min", 1), ("max", max));
+
     public static NotFoundError HolidayOverrideNotFound(string jurisdiction, string date, string name) =>
         new(GeoErrorCodes.HolidayOverrideNotFound, ("jurisdiction", jurisdiction), ("date", date), ("name", name));
 

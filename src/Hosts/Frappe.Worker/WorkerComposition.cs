@@ -16,7 +16,8 @@ namespace Frappe.Worker;
 
 /// <summary>
 /// Everything the Worker runs: scheduled jobs, the outbox relays and message retention, each registered by a module.
-/// Geo syncs the reference data of the countries composed here (<c>AddGeoSyncs</c>), each source on its own schedule.
+/// Geo syncs the reference data of the countries composed here (<c>AddGeoSyncs</c>), each source on its own schedule,
+/// and consumes its own <c>HolidaysChanged</c> to evict the cached calendars (the backplane reaches the Api).
 /// Every setting is bound to an options type and validated when the host starts, before it serves anything: a missing
 /// or invalid one fails naming its configuration key. <c>Caching:InstanceName</c> (default <c>frappe</c>) and
 /// <c>Messaging:Namespace</c> (default none) isolate several Workers sharing one Valkey or NATS.
@@ -38,6 +39,7 @@ public static class WorkerComposition
             .AddGeoSyncs(geo => geo.AddArgentina())
             .AddJetStream("frappe-worker")
             .AddGeoMessaging()
+            .AddGeoCalendarCacheInvalidation()
             .AddFrappeScheduling(quartz => quartz.AddGeoSyncJobs().AddGeoMessagePurgeJob())
             .AddTcpHealthProbes();
 

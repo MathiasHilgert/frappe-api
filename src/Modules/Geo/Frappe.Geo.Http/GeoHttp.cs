@@ -1,3 +1,4 @@
+using Frappe.Geo.Http.BusinessDays;
 using Frappe.Geo.Http.Countries;
 using Frappe.Geo.Http.Currencies;
 using Frappe.Geo.Http.Holidays;
@@ -26,6 +27,7 @@ public static class GeoHttp
         geo.MapCurrencyEndpoints();
         geo.MapTerritoryEndpoints();
         geo.MapHolidayEndpoints();
+        geo.MapBusinessDayEndpoints();
 
         // Administration answers must show the latest state, so no cache keeps them.
         var administration = geo.MapGroup(string.Empty).NoStore();
