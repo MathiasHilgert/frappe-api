@@ -1,9 +1,11 @@
 using Frappe.Geo.Application;
 using Frappe.Geo.Application.Countries;
 using Frappe.Geo.Application.Currencies;
+using Frappe.Geo.Application.Territory;
 using Frappe.Geo.Infrastructure.Configuration;
 using Frappe.Geo.Infrastructure.Countries;
 using Frappe.Geo.Infrastructure.Currencies;
+using Frappe.Geo.Infrastructure.Territory;
 using Frappe.Health;
 using Frappe.Observability;
 using Frappe.Persistence;
@@ -38,6 +40,7 @@ public static class GeoModule
         services.TryAddSingleton<GeoMetrics>();
         services.AddScoped<ICountryCatalog, EfCountryCatalog>();
         services.AddScoped<ICurrencyCatalog, EfCurrencyCatalog>();
+        services.AddScoped<ITerritoryDirectory, EfTerritoryDirectory>();
         services.AddHandlers(typeof(ICountryCatalog).Assembly);
         return services;
     }

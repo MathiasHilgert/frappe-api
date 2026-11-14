@@ -4,7 +4,7 @@ What the Geo module answers, where its data comes from, how it is configured and
 
 | Topic | Summary |
 |-------|---------|
-| [What Geo answers](#what-geo-answers) | Countries and currencies, over HTTP |
+| [What Geo answers](#what-geo-answers) | Countries, currencies and territory, over HTTP |
 | [Sources](#sources) | Where each kind of data comes from, its terms and its sync schedule |
 | [Configuration](#configuration) | Source locations and cron schedules |
 | [Metrics](#metrics) | Freshness of each source and the outcome of its runs |
@@ -18,13 +18,23 @@ caching follow [`http-api.md`](http-api.md).
 
 - **Catalogue.** The 249 ISO 3166-1 countries and the ISO 4217 currencies in use: `countries`, `countries/{code}`,
   `countries/{code}/currencies`, `currencies`, `currencies/{code}`.
+- **Territory.** A covered country's subdivisions (ISO 3166-2), their administrative areas and localities:
+  `countries/{code}/subdivisions`, `subdivisions/{code}`, `subdivisions/{code}/areas?level=`, `areas/{id}`,
+  `subdivisions/{code}/localities?q=&limit=&cursor=`, `localities/{id}`. A known country Geo holds no territory of
+  answers 404 `geo.territory.not_covered`, never an empty list: an empty list would read as "this country
+  has no subdivisions". A flag on the list would have said the same, but in a second, easy to ignore, way. A
+  subdivision of such a country (`subdivisions/US-CA`, its areas, its localities) is 404 `geo.territory.not_covered`
+  too, never "does not exist"; an unknown subdivision of a covered country is 404 `geo.subdivision.not_found`.
 
 ### Errors
 
 Errors follow [`http-api.md`](http-api.md): a stable code in `errors[].code`, its facts in `parameters`, every problem of
-the request at once where they can be found together. Codes are never renamed; a new distinction gets a new code. A
-code Geo cannot read (`ARG` as a country) is the parameter's `.invalid_format` code; a well-formed one Geo does not know
-is the resource's `.not_found` code.
+the request at once where they can be found together. Codes are never renamed; a new distinction gets a new code. For
+parameters (query, route or body field) the rule is:
+
+- present but unreadable (not a code, not digits): the parameter's `.invalid` or `.invalid_format` code;
+- a readable number outside its bounds: its `.out_of_range` code (`area_level`, `page_limit`; each also has its
+  `.invalid`).
 
 ## Sources
 

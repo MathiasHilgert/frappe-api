@@ -7,7 +7,7 @@ and response shape; error requests assert the Problem Details category (`type`) 
 | Folder | Covers |
 |--------|--------|
 | Health | `/health/live`, `/health/ready`, `/health/startup` |
-| Geo | Every read endpoint of `/v1/geo`: the catalogue of countries and currencies |
+| Geo | Every read endpoint of `/v1/geo`: catalogue and territory |
 | HTTP Conventions | The 404 Problem Details of an unknown route |
 | OpenAPI | `/openapi/v1.json` |
 
@@ -29,7 +29,8 @@ Both define the same variables, so a request works the same against either.
 | Stack | `http://localhost:8080` | `just stack up` (if you moved `API_PORT` in `deploy/.env`, change `baseUrl`) |
 
 The other variable is `language` (`es-AR`), sent as `Accept-Language` by every request. The Api is anonymous, so
-there are no secrets.
+there are no secrets. The Geo folders need the data the Worker syncs (`just run worker`, or the stack): it runs every
+source once when it starts.
 
 ## Run it from the command line
 

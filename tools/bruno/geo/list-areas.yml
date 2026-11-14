@@ -1,0 +1,29 @@
+info:
+  name: List areas
+  type: http
+  seq: 9
+
+http:
+  method: GET
+  url: "{{baseUrl}}/v1/geo/subdivisions/AR-X/areas"
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        bru.setVar('areaId', res.body.areas[0].id);
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.areas
+      operator: isArray
+    - expression: res.body.areas[0].id
+      operator: isString
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `GET /v1/geo/subdivisions/{subdivisionCode}/areas`: the administrative areas below the subdivision, ordered by
+  level then name; `?level=` keeps one level. Stores the first id as `areaId` for the next request.

@@ -1,5 +1,6 @@
 using Frappe.Geo.Http.Countries;
 using Frappe.Geo.Http.Currencies;
+using Frappe.Geo.Http.Territory;
 using Frappe.Http;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -22,6 +23,7 @@ public static class GeoHttp
         var geo = routes.MapGroup("/geo").WithTags("Geo").AnswerHead();
         geo.MapCountryEndpoints();
         geo.MapCurrencyEndpoints();
+        geo.MapTerritoryEndpoints();
         return routes;
     }
 }

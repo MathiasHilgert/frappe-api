@@ -1,0 +1,29 @@
+info:
+  name: Search localities
+  type: http
+  seq: 11
+
+http:
+  method: GET
+  url: "{{baseUrl}}/v1/geo/subdivisions/AR-X/localities?q=cordoba&limit=5"
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        bru.setVar('localityId', res.body.localities[0].id);
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.localities
+      operator: isArray
+    - expression: res.body.localities[0].id
+      operator: isString
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `GET /v1/geo/subdivisions/{subdivisionCode}/localities?q=&limit=&cursor=`: populated places, searched ignoring
+  case and accents, a page at a time (`nextCursor`). Stores the first id as `localityId`.
