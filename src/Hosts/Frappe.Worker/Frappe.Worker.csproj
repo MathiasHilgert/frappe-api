@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+  <ItemGroup>
+    <ProjectReference Include="../../Platform/Frappe.Caching/Frappe.Caching.csproj" />
+    <ProjectReference Include="../../Platform/Frappe.Observability/Frappe.Observability.csproj" />
+    <ProjectReference Include="../../Platform/Frappe.Observability.Hosting/Frappe.Observability.Hosting.csproj" />
+    <ProjectReference Include="../../Platform/Frappe.Messaging/Frappe.Messaging.csproj" />
+    <ProjectReference Include="../../Platform/Frappe.Scheduling/Frappe.Scheduling.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+</Project>

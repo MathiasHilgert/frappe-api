@@ -65,6 +65,33 @@ jobs:
           path: ${{ runner.temp }}/results/**/*.cobertura.xml
           retention-days: 7
 
+  architecture:
+    name: Architecture rules hold
+    needs: changes
+    # Skipped (reported as passing) only when the change provably cannot affect it; see .github/scripts/changes.mjs.
+    if: ${{ !cancelled() && needs.changes.outputs.tests != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+      - name: Run architecture tests
+        run: dotnet test --project tests/Frappe.Architecture.Tests --timeout 3m --maximum-failed-tests 10 --results-directory-layout per-module
+
   coverage:
     name: Changed lines are covered
     needs: [unit]
@@ -111,3 +138,30 @@ jobs:
       - name: Publish the coverage report
         if: always()
         run: cat "$RUNNER_TEMP/diff-cover.md" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+
+  e2e:
+    name: App starts and responds
+    needs: changes
+    # Skipped (reported as passing) only when the change provably cannot affect it; see .github/scripts/changes.mjs.
+    if: ${{ !cancelled() && needs.changes.outputs.image != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+      - name: Build the image and run Migrator, Api and Worker end to end
+        run: dotnet test --project tests/Frappe.EndToEnd.Tests --timeout 20m --maximum-failed-tests 10 --results-directory-layout per-module

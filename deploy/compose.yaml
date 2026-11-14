@@ -1,0 +1,158 @@
+# Frappé locally: the three hosts from one image, their infrastructure and the LGTM observability stack.
+# Usage: cp deploy/.env.example deploy/.env (fill it in), then `just stack up` (or `docker compose -f deploy/compose.yaml
+# up -d --build`). Every port is published on the host; each one can be moved in deploy/.env when it is taken.
+name: frappe
+
+x-frappe-image: &frappe-image
+  image: frappe-api:local
+  build:
+    context: ..
+    dockerfile: deploy/Dockerfile
+
+x-otel: &otel
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+  OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+
+services:
+  postgres:
+    image: postgis/postgis:18-3.7-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: frappe
+      POSTGRES_USER: ${POSTGRES_OWNER_USER:?set it in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_OWNER_PASSWORD:?set it in .env}
+    ports: ["${POSTGRES_PORT:-5432}:5432"]
+    volumes: [postgres-data:/var/lib/postgresql]
+    healthcheck:
+      # Over TCP: while the image initializes the database it runs a temporary server on the Unix socket only, which
+      # pg_isready would report as ready before the real server accepts connections.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d frappe"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  nats:
+    image: nats:2.11-alpine
+    restart: unless-stopped
+    command: ["--jetstream", "--store_dir", "/data", "--http_port", "8222"]
+    ports: ["${NATS_PORT:-4222}:4222", "${NATS_MONITOR_PORT:-8222}:8222"]
+    volumes: [nats-data:/data]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz?js-enabled-only=true"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    restart: unless-stopped
+    ports: ["${VALKEY_PORT:-6379}:6379"]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrator:
+    <<: *frappe-image
+    entrypoint: ["/app/migrator/Frappe.Migrator"]
+    restart: "no"
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      <<: *otel
+      OTEL_SERVICE_NAME: frappe-migrator
+      ConnectionStrings__Owner: Host=postgres;Database=frappe;Username=${POSTGRES_OWNER_USER:?set it in .env};Password=${POSTGRES_OWNER_PASSWORD:?set it in .env}
+      Roles__Scheduler__Password: ${FRAPPE_SCHEDULER_PASSWORD:?set it in .env}
+
+  api:
+    <<: *frappe-image
+    restart: unless-stopped
+    depends_on:
+      migrator: { condition: service_completed_successfully }
+      valkey: { condition: service_healthy }
+    ports: ["${API_PORT:-8080}:8080"]
+    healthcheck:
+      # The chiseled image has no curl: the binary itself checks /health/ready.
+      test: ["CMD", "/app/api/Frappe.Api", "--probe", "http://localhost:8080/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    environment:
+      <<: *otel
+      OTEL_SERVICE_NAME: frappe-api
+      ConnectionStrings__Valkey: valkey:6379
+
+  worker:
+    <<: *frappe-image
+    entrypoint: ["/app/worker/Frappe.Worker"]
+    restart: unless-stopped
+    depends_on:
+      migrator: { condition: service_completed_successfully }
+      nats: { condition: service_healthy }
+      valkey: { condition: service_healthy }
+    environment:
+      <<: *otel
+      OTEL_SERVICE_NAME: frappe-worker
+      ConnectionStrings__Scheduler: Host=postgres;Database=frappe;Username=frappe_scheduler;Password=${FRAPPE_SCHEDULER_PASSWORD:?set it in .env}
+      ConnectionStrings__Valkey: valkey:6379
+      ConnectionStrings__Nats: nats://nats:4222
+    healthcheck:
+      # The Worker serves no HTTP: its readiness port (8082) is open only while every critical dependency answers.
+      test: ["CMD", "/app/worker/Frappe.Worker", "--probe", "tcp://localhost:8082"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # Observability: OpenTelemetry Collector → Loki (logs), Tempo (traces), Mimir (metrics) → Grafana.
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.163.2
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes: ["./observability/otel-collector.yaml:/etc/otelcol/config.yaml:ro"]
+    ports: ["${OTLP_GRPC_PORT:-4317}:4317", "${OTLP_HTTP_PORT:-4318}:4318"]
+    depends_on: [loki, tempo, mimir]
+
+  loki:
+    image: grafana/loki:3.7.9
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/config.yaml"]
+    volumes: ["./observability/loki.yaml:/etc/loki/config.yaml:ro", "loki-data:/loki"]
+    ports: ["${LOKI_PORT:-3100}:3100"]
+
+  tempo:
+    image: grafana/tempo:3.1.1
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo/config.yaml"]
+    volumes: ["./observability/tempo.yaml:/etc/tempo/config.yaml:ro", "tempo-data:/var/tempo"]
+    ports: ["${TEMPO_PORT:-3200}:3200"]
+
+  mimir:
+    image: grafana/mimir:3.2.3
+    restart: unless-stopped
+    command: ["-config.file=/etc/mimir/config.yaml"]
+    volumes: ["./observability/mimir.yaml:/etc/mimir/config.yaml:ro", "mimir-data:/data"]
+    ports: ["${MIMIR_PORT:-9009}:9009"]
+
+  grafana:
+    image: grafana/grafana:13.2.4
+    restart: unless-stopped
+    depends_on: [loki, tempo, mimir]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?set it in .env}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set it in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports: ["${GRAFANA_PORT:-3000}:3000"]
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+
+volumes:
+  postgres-data:
+  nats-data:
+  loki-data:
+  tempo-data:
+  mimir-data:
+  grafana-data:
