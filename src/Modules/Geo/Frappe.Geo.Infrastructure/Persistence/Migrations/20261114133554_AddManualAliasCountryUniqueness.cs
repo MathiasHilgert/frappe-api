@@ -33,16 +33,22 @@ public partial class AddManualAliasCountryUniqueness : Migration
                 END IF;
             END
             $$;
+            """);
 
-            CREATE UNIQUE INDEX ux_subdivision_aliases_manual_country_search_form
+        // Built concurrently, outside the migration's transaction, so writes to the aliases are never blocked while it
+        // builds. A failed build leaves an invalid index behind: drop it and run the migration again.
+        migrationBuilder.Sql(
+            """
+            CREATE UNIQUE INDEX CONCURRENTLY ux_subdivision_aliases_manual_country_search_form
                 ON geo.subdivision_aliases (split_part(subdivision_code, '-', 1), search_form)
                 WHERE manual;
-            """);
+            """,
+            suppressTransaction: true);
     }
 
     /// <inheritdoc />
     protected override void Down(MigrationBuilder migrationBuilder)
     {
-        migrationBuilder.Sql("DROP INDEX geo.ux_subdivision_aliases_manual_country_search_form;");
+        migrationBuilder.Sql("DROP INDEX CONCURRENTLY geo.ux_subdivision_aliases_manual_country_search_form;", suppressTransaction: true);
     }
 }
