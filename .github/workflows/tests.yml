@@ -1,0 +1,49 @@
+# Does it work? Every suite, the lines the pull request changes covered by them, and the real image end to end.
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  changes:
+    name: Changes
+    # Pull requests only: any other event runs every job, because a skipped "changes" leaves the outputs empty.
+    if: github.event_name == 'pull_request'
+    # The self-repository form ($/) is what zizmor prefers, but actionlint 1.7.12 cannot parse it yet.
+    uses: ./.github/workflows/changes.yml # zizmor: ignore[self-repository]
+    permissions:
+      contents: read
+      pull-requests: read
+
+  unit:
+    name: Unit tests pass
+    needs: changes
+    # Skipped (reported as passing) only when the change provably cannot affect it; see .github/scripts/changes.mjs.
+    if: ${{ !cancelled() && needs.changes.outputs.tests != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run convention tests
+        run: node --test .github/scripts/*.test.mjs

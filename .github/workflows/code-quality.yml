@@ -1,0 +1,159 @@
+# Is the code sound? Formatted as .editorconfig says, compiling with every analyzer rule as an error, and every
+# production method within the complexity budget (cognitive S3776 ≤ 15, cyclomatic CA1502 ≤ 10).
+name: Code quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  changes:
+    name: Changes
+    # Pull requests only: any other event runs every job, because a skipped "changes" leaves the outputs empty.
+    if: github.event_name == 'pull_request'
+    # The self-repository form ($/) is what zizmor prefers, but actionlint 1.7.12 cannot parse it yet.
+    uses: ./.github/workflows/changes.yml # zizmor: ignore[self-repository]
+    permissions:
+      contents: read
+      pull-requests: read
+
+  format:
+    name: Code is formatted
+    needs: changes
+    # Always runs: spelling, Markdown and links can break with any file. Only the dotnet format steps are gated.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET
+        if: needs.changes.outputs.dotnet != 'false'
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+      - name: Set up just
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: "1.59.0"
+      - name: Check C# whitespace
+        if: needs.changes.outputs.dotnet != 'false'
+        run: dotnet format whitespace Frappe.slnx --verify-no-changes
+      - name: Check C# code style
+        if: needs.changes.outputs.dotnet != 'false'
+        run: dotnet format style Frappe.slnx --verify-no-changes
+      - name: Check justfile formatting
+        run: |
+          for file in .justfile eng/just/*.just; do
+            just --unstable --fmt --check --justfile "$file"
+          done
+      - name: Check spelling
+        uses: crate-ci/typos@4c8b7f51ca60df14e3c5ca82770dfbbe6c3dae85 # v1.52.0
+        with:
+          config: eng/typos.toml
+      - name: Lint Markdown
+        uses: DavidAnson/markdownlint-cli2-action@696eb3f2509270d7b882d2aa68347bc676e7af34 # v25.0.0
+        with:
+          config: eng/markdownlint-cli2.jsonc
+          globs: "**/*.md"
+      - name: Check links between documents
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          # --hidden: .github/ holds CONTRIBUTING.md and the PR template, which the glob skips otherwise.
+          args: --offline --no-progress --hidden --include-fragments "**/*.md"
+          fail: true
+
+  build:
+    name: Code compiles without warnings
+    needs: changes
+    # Skipped (reported as passing) only when the change provably cannot affect it; see .github/scripts/changes.mjs.
+    if: ${{ !cancelled() && needs.changes.outputs.dotnet != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+      - name: Restore packages from the lock files
+        run: dotnet restore Frappe.slnx --locked-mode
+      - name: Build with every warning as an error
+        run: dotnet build Frappe.slnx --no-restore
+
+  complexity:
+    name: Complexity is within limits
+    needs: changes
+    # Skipped (reported as passing) only when the change provably cannot affect it; see .github/scripts/changes.mjs.
+    if: ${{ !cancelled() && needs.changes.outputs.dotnet != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+      - name: Measure every method
+        # Warnings stay warnings here, so this job reports every method over budget, not only the first error.
+        run: dotnet build Frappe.slnx --no-incremental -p:TreatWarningsAsErrors=false -clp:NoSummary -flp:"logfile=$RUNNER_TEMP/build.log;verbosity=normal"
+      - name: Report methods over the complexity budget
+        run: |
+          # MSBuild prefixes lines with its node ("1>") and reports a warning once per pass: strip and deduplicate.
+          { grep -oE '[^ >]+\.cs\([0-9]+,[0-9]+\): warning (S3776|CA1502): [^[]*' "$RUNNER_TEMP/build.log" || true; } \
+            | sed -E "s|^$GITHUB_WORKSPACE/||; s/ +$//" | sort -u > "$RUNNER_TEMP/over-budget.txt"
+          count=$(wc -l < "$RUNNER_TEMP/over-budget.txt")
+          {
+            echo "### Complexity budget"
+            echo "Cognitive complexity (S3776) ≤ 15 and cyclomatic complexity (CA1502) ≤ 10 per production method."
+            echo
+            if [ "$count" -eq 0 ]; then
+              echo "Every method is within budget."
+            else
+              echo "| Location | Rule | Finding |"
+              echo "|---|---|---|"
+              tick=$(printf '\x60')
+              sed -E "s/^(.+\.cs\([0-9]+,[0-9]+\)): warning ([A-Z0-9]+): (.*)\$/| ${tick}\1${tick} | \2 | \3 |/" "$RUNNER_TEMP/over-budget.txt"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$count" -gt 0 ]; then
+            echo "::error::$count method(s) over the complexity budget; split them (see the job summary)"
+            exit 1
+          fi

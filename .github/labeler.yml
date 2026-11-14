@@ -1,0 +1,31 @@
+# Area labels by changed path, applied by the "Pull request" workflow (actions/labeler).
+"area: geo":
+  - changed-files:
+      - any-glob-to-any-file: ["src/Modules/Geo/**", "tests/Modules/Geo/**"]
+"area: platform":
+  - changed-files:
+      - any-glob-to-any-file: ["src/Platform/**", "tests/Platform/**"]
+"area: hosts":
+  - changed-files:
+      - any-glob-to-any-file: ["src/Hosts/**"]
+"area: database":
+  - changed-files:
+      - any-glob-to-any-file: ["**/Migrations/**"]
+"area: contracts":
+  - changed-files:
+      - any-glob-to-any-file: ["docs/api/**", "src/Modules/*/*.Contracts/**"]
+"area: tests":
+  - changed-files:
+      - any-glob-to-any-file: ["tests/**"]
+"area: infrastructure":
+  - changed-files:
+      - any-glob-to-any-file: ["deploy/**", ".justfile", "eng/just/**"]
+"area: ci":
+  - changed-files:
+      - any-glob-to-any-file: [".github/**"]
+"area: dependencies":
+  - changed-files:
+      - any-glob-to-any-file: ["Directory.Packages.props", "**/packages.lock.json", "global.json", ".config/dotnet-tools.json", "NuGet.config"]
+"area: docs":
+  - changed-files:
+      - any-glob-to-any-file: ["docs/**", "tools/bruno/**", "**/*.md"]

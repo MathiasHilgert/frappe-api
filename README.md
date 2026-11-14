@@ -1,5 +1,7 @@
 # Frappé API
 
+[![Tests](https://github.com/MathiasHilgert/frappe-api/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/MathiasHilgert/frappe-api/actions/workflows/tests.yml)
+[![Code quality](https://github.com/MathiasHilgert/frappe-api/actions/workflows/code-quality.yml/badge.svg?branch=main)](https://github.com/MathiasHilgert/frappe-api/actions/workflows/code-quality.yml)
 [![License: proprietary](https://img.shields.io/badge/license-proprietary-lightgrey)](LICENSE)
 
 The backend of Frappé, the operating system for restaurants and cafés in Latin America.
@@ -50,6 +52,7 @@ just build             # dotnet build Frappe.slnx, warnings are errors
 | Branches | `<type>/<kebab-topic>`, with the type of the title |
 | Merging | Squash only: the PR title becomes the commit on `main` |
 | Code quality | Warnings are errors; every method stays within cognitive complexity 15 and cyclomatic complexity 10 |
+| CI | Every required check is named after what it guarantees, such as "Code compiles without warnings" |
 
 ## License
 

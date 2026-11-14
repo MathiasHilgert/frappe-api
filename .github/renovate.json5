@@ -1,0 +1,19 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:best-practices", ":semanticCommitTypeAll(build)", ":semanticCommitScope(deps)"],
+  "labels": ["dependencies"],
+  "schedule": ["before 6am on monday"],
+  "lockFileMaintenance": { "enabled": true },
+  "packageRules": [
+    {
+      "description": "Analyzer bumps can add rules that fail the build; review them alone.",
+      "matchPackageNames": ["SonarAnalyzer.CSharp", "StyleCop.Analyzers"],
+      "groupName": "analyzers"
+    },
+    {
+      "description": "GitHub Actions stay pinned by SHA; group their updates.",
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions"
+    }
+  ]
+}
