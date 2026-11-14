@@ -657,6 +657,7 @@
         "dependencies": {
           "Frappe.Caching": "[1.0.0, )",
           "Frappe.Geo.Countries.Argentina": "[1.0.0, )",
+          "Frappe.Geo.Global": "[1.0.0, )",
           "Frappe.Geo.Http": "[1.0.0, )",
           "Frappe.Geo.Infrastructure": "[1.0.0, )",
           "Frappe.Http": "[1.0.0, )",

@@ -34,5 +34,11 @@
   "geo.subdivision_alias.duplicate": "La subdivisión {subdivisionCode} ya se conoce como “{alias}”.",
   "geo.subdivision_alias.not_found": "La subdivisión {subdivisionCode} no tiene el alias manual “{alias}”.",
   "geo.subdivision_alias.taken": "La subdivisión {otherSubdivisionCode} ya se conoce como “{alias}”, así que no puede nombrar también a {subdivisionCode}.",
-  "geo.subdivision_alias.imported": "El alias “{alias}” de {subdivisionCode} proviene de la fuente: solo cambia con la fuente."
+  "geo.subdivision_alias.imported": "El alias “{alias}” de {subdivisionCode} proviene de la fuente: solo cambia con la fuente.",
+  "geo.address_query.invalid": "La dirección a buscar debe tener de {min} a {max} caracteres.",
+  "geo.address_session.invalid": "La sesión de búsqueda debe ser un UUID que genera el cliente (como 5b1c1a5e-3f5d-4e0b-9f53-4d1c2b9e8a10) y envía con cada sugerencia y con la selección.",
+  "geo.address_reference.invalid": "El identificador de dirección no es válido: use el de una sugerencia o de una dirección resuelta.",
+  "geo.address.not_found": "La dirección no existe o ya no está disponible.",
+  "geo.addresses.unavailable": "La búsqueda de direcciones no está disponible en este momento. Inténtelo más tarde.",
+  "geo.addresses.not_configured": "La búsqueda de direcciones no está configurada en este servidor."
 }

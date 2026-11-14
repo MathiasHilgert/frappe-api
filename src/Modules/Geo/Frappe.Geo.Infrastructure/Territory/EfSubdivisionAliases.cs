@@ -8,7 +8,7 @@ namespace Frappe.Geo.Infrastructure.Territory;
 /// <summary>
 /// A subdivision's aliases in <c>geo.subdivision_aliases</c>: the manual ones are flagged, and the territory sync
 /// (<see cref="SubdivisionRow.CopyFrom"/>) only ever replaces the others. Every comparison is by search form
-/// (<see cref="SearchText"/>), as the address lookup (<c>EfSubdivisionNames</c>) maps names to codes.
+/// (<see cref="SearchText"/>), as <see cref="Addresses.EfSubdivisionNames"/> maps names to codes.
 /// </summary>
 internal sealed class EfSubdivisionAliases(GeoDbContext db) : ISubdivisionAliases
 {

@@ -1,8 +1,10 @@
 using Frappe.Geo.Application;
+using Frappe.Geo.Application.Addresses;
 using Frappe.Geo.Application.Countries;
 using Frappe.Geo.Application.Currencies;
 using Frappe.Geo.Application.Holidays;
 using Frappe.Geo.Application.Territory;
+using Frappe.Geo.Infrastructure.Addresses;
 using Frappe.Geo.Infrastructure.Calendars;
 using Frappe.Geo.Infrastructure.Configuration;
 using Frappe.Geo.Infrastructure.Countries;
@@ -29,7 +31,8 @@ public static class GeoModule
     /// (<see cref="GeoDatabaseOptions"/>), with its readiness check, and <c>IGeoQueries</c> for other modules. Shared by
     /// every host that runs Geo. A missing connection string fails at startup naming the key. Business-day reads go
     /// through the platform cache (<c>AddFrappeCaching</c>), and answer only for the countries whose rules the host
-    /// composes (for example <c>AddArgentinaCalendar</c>).
+    /// composes (for example <c>AddArgentinaCalendar</c>). Addresses answer unavailable until the host composes a provider
+    /// from a source package.
     /// </summary>
     public static IServiceCollection AddGeoCore(this IServiceCollection services)
     {
@@ -51,6 +54,8 @@ public static class GeoModule
         services.AddScoped<IHolidaySyncs, EfHolidaySyncs>();
         services.AddScoped<ISubdivisionAliases, EfSubdivisionAliases>();
         services.AddScoped<IEffectiveCalendars, CachedEffectiveCalendars>();
+        services.AddScoped<ISubdivisionNames, EfSubdivisionNames>();
+        services.TryAddSingleton<IAddressProvider, UnconfiguredAddressProvider>();
         services.AddGeoQueries();
         services.AddHandlers(typeof(ICountryCatalog).Assembly);
         return services;

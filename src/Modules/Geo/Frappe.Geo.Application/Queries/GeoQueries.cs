@@ -1,3 +1,5 @@
+using Frappe.Geo.Application.Addresses;
+using Frappe.Geo.Application.Addresses.ResolveAddress;
 using Frappe.Geo.Application.BusinessDays;
 using Frappe.Geo.Application.BusinessDays.GetBusinessDay;
 using Frappe.Geo.Application.BusinessDays.ListBusinessDays;
@@ -21,7 +23,8 @@ internal sealed class GeoQueries(
     IQueryHandler<GetCountry, CountryDetail> countries,
     IQueryHandler<GetSubdivision, SubdivisionView> subdivisions,
     IQueryHandler<GetBusinessDay, BusinessDayView> days,
-    IQueryHandler<ListBusinessDays, BusinessDaysView> businessDays) : IGeoQueries
+    IQueryHandler<ListBusinessDays, BusinessDaysView> businessDays,
+    IQueryHandler<ResolveAddress, AddressSnapshot> addresses) : IGeoQueries
 {
     private static readonly LanguageTag English = LanguageTag.Create("en").Value;
 
@@ -76,6 +79,44 @@ internal sealed class GeoQueries(
         return result.IsSuccess
             ? new DayKindAnswer(CalendarStatus.Covered, KindOf(result.Value), result.Value.Day.IsWeekend)
             : new DayKindAnswer(StatusOf(result.Errors), null, false);
+    }
+
+    /// <summary>A resolution of its own session: no suggestions precede it.</summary>
+    public async Task<AddressAnswer> ResolveAddressAsync(string reference, string? language, CancellationToken cancellationToken)
+    {
+        var result = await addresses.HandleAsync(new ResolveAddress(reference, AddressSession.New().Value, language, English), cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return new AddressAnswer(AddressStatusOf(result.Errors, language), null);
+        }
+
+        var a = result.Value;
+        return new AddressAnswer(
+            AddressStatus.Resolved,
+            new GeoAddress(
+                a.Reference, a.FormattedAddress, a.Street, a.StreetNumber, a.PostalCode, a.Locality, a.CountryCode, a.SubdivisionCode,
+                a.Coordinates is { } point ? new GeoCoordinates(point.Latitude, point.Longitude) : null));
+    }
+
+    /// <summary>
+    /// The provider's answer first; then what the caller sent wrong, the reference before the language when both are.
+    /// </summary>
+    private static AddressStatus AddressStatusOf(IReadOnlyList<Error> errors, string? language)
+    {
+        var codes = errors.Select(e => e.Code).ToHashSet(StringComparer.Ordinal);
+        if (errors.Any(e => e is UnavailableError))
+        {
+            return AddressStatus.Unavailable;
+        }
+
+        if (codes.Contains(GeoErrorCodes.AddressNotFound))
+        {
+            return AddressStatus.NotFound;
+        }
+
+        return codes.Contains(GeoErrorCodes.AddressReferenceInvalid) || language is null || LanguageTag.Create(language).IsSuccess
+            ? AddressStatus.InvalidReference
+            : AddressStatus.InvalidLanguage;
     }
 
     private static string Iso(DateOnly date) => LocalDatePattern.Iso.Format(LocalDate.FromDateOnly(date));

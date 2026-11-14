@@ -1,0 +1,35 @@
+{
+  "suggestions": [
+    {
+      "placePrediction": {
+        "place": "places/ChIJ3S-JXmauEmsRUcIaWtf4MzE",
+        "placeId": "ChIJ3S-JXmauEmsRUcIaWtf4MzE",
+        "text": {
+          "text": "Avenida Corrientes 1234, Buenos Aires, Argentina",
+          "matches": [{ "endOffset": 17 }]
+        },
+        "structuredFormat": {
+          "mainText": { "text": "Avenida Corrientes 1234", "matches": [{ "endOffset": 17 }] },
+          "secondaryText": { "text": "Buenos Aires, Argentina" }
+        },
+        "types": ["street_address", "geocode"]
+      }
+    },
+    {
+      "placePrediction": {
+        "place": "places/EjJBdmVuaWRhIENvcnJpZW50ZXMsIEPDs3Jkb2Jh",
+        "placeId": "EjJBdmVuaWRhIENvcnJpZW50ZXMsIEPDs3Jkb2Jh",
+        "text": { "text": "Avenida Corrientes, Córdoba" },
+        "structuredFormat": {
+          "mainText": { "text": "Avenida Corrientes" }
+        },
+        "types": ["route", "geocode"]
+      }
+    },
+    {
+      "queryPrediction": {
+        "text": { "text": "corrientes pizza" }
+      }
+    }
+  ]
+}

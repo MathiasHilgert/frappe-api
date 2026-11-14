@@ -47,7 +47,8 @@ Errors are RFC 9457 Problem Details with one contract:
   available. Once the input is valid, 503 outranks every other error found by the same use case.
 - `errors` lists every error with its stable `code` (`http.not_found`, `http.method_not_allowed`, `http.bad_request`,
   `http.unsupported_media_type`, ...), its `parameters` and its translated `message`. A dependency that is not
-  configured and one that is not answering have different codes.
+  configured and one that is not answering have different codes (`geo.addresses.not_configured`,
+  `geo.addresses.unavailable`).
 - `title` is the category's text; `detail` is the error's message, or how many errors there are when there are
   several; both translated. `instance` is the path and `traceId` the request's trace.
 
@@ -81,7 +82,8 @@ Every endpoint declares its lifetime (RFC 9111) in `Cache-Control`, and the Open
 - Cacheable answers (reference data, calendars) are `public, max-age=...` and carry a strong `ETag` of their
   representation, language included; a request whose `If-None-Match` matches it (or is `*`) gets `304 Not Modified`
   without a body.
-- Answers no cache may keep (personal data; administration reads, which must show the latest state) are `no-store`, with no validator.
+- Answers no cache may keep (addresses, which are personal; administration reads, which must show the latest state)
+  are `no-store`, with no validator.
 
 Errors, 429s and health are never cached. The OpenAPI document (`/openapi/v1.json`) and the reference (`/docs/`) carry
 no caching headers or validators: they change only when the Api is deployed.
