@@ -1,0 +1,8 @@
+name: Stack
+variables:
+  - name: baseUrl
+    value: http://localhost:8080
+    description: The Api container from `just stack up` (port 8080, or API_PORT from deploy/.env).
+  - name: language
+    value: es-AR
+    description: Accept-Language of every request (en, es, es-AR, es-MX or pt-BR).

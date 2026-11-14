@@ -1,0 +1,6 @@
+{
+  "geo.country_code.invalid_format": "“{value}” não é um código de país ISO 3166-1 alfa-2.",
+  "geo.country.not_found": "O país {countryCode} não existe.",
+  "geo.currency_code.invalid_format": "“{value}” não é um código de moeda ISO 4217.",
+  "geo.currency.not_found": "A moeda {currencyCode} não existe ou não está em uso."
+}

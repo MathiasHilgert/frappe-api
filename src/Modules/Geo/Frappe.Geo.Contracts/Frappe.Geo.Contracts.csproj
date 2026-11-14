@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The only Geo project other modules may reference: query contracts and integration events. -->
+  <ItemGroup>
+    <ProjectReference Include="../../../Platform/Frappe.IntegrationEvents/Frappe.IntegrationEvents.csproj" />
+  </ItemGroup>
+</Project>

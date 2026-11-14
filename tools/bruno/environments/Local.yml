@@ -1,0 +1,8 @@
+name: Local
+variables:
+  - name: baseUrl
+    value: http://localhost:5080
+    description: The Api from `just run api` (port 5080).
+  - name: language
+    value: es-AR
+    description: Accept-Language of every request (en, es, es-AR, es-MX or pt-BR).

@@ -1,0 +1,1006 @@
+{
+  "openapi": "3.2.0",
+  "info": {
+    "title": "Frappé API",
+    "description": "The operating system for restaurants and cafés in Latin America. Version 1 is anonymous and rate limited per client; its administration writes are not authenticated yet. Texts follow Accept-Language and Content-Language names the languages served; every endpoint declares its caching, and cacheable answers carry strong ETags; every error is an RFC 9457 Problem Details with a stable code.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost"
+    }
+  ],
+  "paths": {
+    "/v1/geo/countries": {
+      "get": {
+        "tags": [
+          "Geo"
+        ],
+        "summary": "Countries",
+        "description": "Every ISO 3166-1 country, ordered by code, with its codes, its name and its currencies in use. Names answer in the language of Accept-Language: the requested tag, then its base language, any Portuguese in pt-BR, then English. Content-Language names the languages served.",
+        "operationId": "ListCountries",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "ETags of the copies the client holds (or *): when one matches, the answer is 304 without a body.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages Frappé's own texts in the response are written in; absent when it holds none, only proper nouns, identifiers and source data (names and categories as their source publishes them).",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=86400 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountryListResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: If-None-Match matched the current ETag, so the client's copy is still current.",
+            "headers": {
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=86400 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/geo/countries/{countryCode}": {
+      "get": {
+        "tags": [
+          "Geo"
+        ],
+        "summary": "One country",
+        "description": "A country by its ISO 3166-1 alpha-2 code (case-insensitive). Names answer in the language of Accept-Language: the requested tag, then its base language, any Portuguese in pt-BR, then English. Content-Language names the languages served.",
+        "operationId": "GetCountry",
+        "parameters": [
+          {
+            "name": "countryCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "ETags of the copies the client holds (or *): when one matches, the answer is 304 without a body.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages Frappé's own texts in the response are written in; absent when it holds none, only proper nouns, identifiers and source data (names and categories as their source publishes them).",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=86400 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: If-None-Match matched the current ETag, so the client's copy is still current.",
+            "headers": {
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=86400 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/geo/currencies": {
+      "get": {
+        "tags": [
+          "Geo"
+        ],
+        "summary": "Currencies in use",
+        "description": "Every ISO 4217 currency some country uses today as legal tender, ordered by code. Name and symbol answer together in the language of Accept-Language: the requested tag, then its base language, any Portuguese in pt-BR, then English. Content-Language names the languages served.",
+        "operationId": "ListCurrencies",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "ETags of the copies the client holds (or *): when one matches, the answer is 304 without a body.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages Frappé's own texts in the response are written in; absent when it holds none, only proper nouns, identifiers and source data (names and categories as their source publishes them).",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=86400 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrencyListResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: If-None-Match matched the current ETag, so the client's copy is still current.",
+            "headers": {
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=86400 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/geo/currencies/{currencyCode}": {
+      "get": {
+        "tags": [
+          "Geo"
+        ],
+        "summary": "One currency",
+        "description": "A currency in use by its ISO 4217 code (case-insensitive). Name and symbol answer together in the language of Accept-Language: the requested tag, then its base language, any Portuguese in pt-BR, then English. Content-Language names the languages served.",
+        "operationId": "GetCurrency",
+        "parameters": [
+          {
+            "name": "currencyCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "ETags of the copies the client holds (or *): when one matches, the answer is 304 without a body.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages Frappé's own texts in the response are written in; absent when it holds none, only proper nouns, identifiers and source data (names and categories as their source publishes them).",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=86400 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrencyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: If-None-Match matched the current ETag, so the client's copy is still current.",
+            "headers": {
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=86400 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/geo/countries/{countryCode}/currencies": {
+      "get": {
+        "tags": [
+          "Geo"
+        ],
+        "summary": "Currencies of a country",
+        "description": "The currencies a country uses today as legal tender, in order of preference. Name and symbol answer together in the language of Accept-Language: the requested tag, then its base language, any Portuguese in pt-BR, then English. Content-Language names the languages served.",
+        "operationId": "ListCountryCurrencies",
+        "parameters": [
+          {
+            "name": "countryCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "ETags of the copies the client holds (or *): when one matches, the answer is 304 without a body.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages Frappé's own texts in the response are written in; absent when it holds none, only proper nouns, identifiers and source data (names and categories as their source publishes them).",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=86400 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrencyListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: If-None-Match matched the current ETag, so the client's copy is still current.",
+            "headers": {
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=86400 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CountryListResponse": {
+        "required": [
+          "countries"
+        ],
+        "type": "object",
+        "properties": {
+          "countries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CountryResponse"
+            }
+          }
+        },
+        "description": "Every country, ordered by code."
+      },
+      "CountryResponse": {
+        "required": [
+          "code",
+          "alpha3",
+          "numeric",
+          "name",
+          "currencies"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "alpha3": {
+            "type": "string"
+          },
+          "numeric": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "currencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "description": "A country: ISO 3166-1 alpha-2, alpha-3 and numeric codes, its name, and its currencies in order of preference."
+      },
+      "CurrencyListResponse": {
+        "required": [
+          "currencies"
+        ],
+        "type": "object",
+        "properties": {
+          "currencies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CurrencyResponse"
+            }
+          }
+        },
+        "description": "A list of currencies."
+      },
+      "CurrencyResponse": {
+        "required": [
+          "code",
+          "name",
+          "symbol",
+          "minorUnitDigits"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "minorUnitDigits": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "description": "A currency: ISO 4217 code, CLDR name and standard symbol (same language), and its minor unit digits."
+      },
+      "Problem": {
+        "examples": [
+          {
+            "type": "urn:frappe:problem:not-found",
+            "title": "The resource does not exist.",
+            "status": 404,
+            "detail": "The URL does not match any endpoint of the API.",
+            "instance": "/v1/planets",
+            "errors": [
+              {
+                "code": "http.not_found",
+                "parameters": {},
+                "message": "The URL does not match any endpoint of the API."
+              }
+            ],
+            "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+          }
+        ],
+        "required": [
+          "type",
+          "title",
+          "status",
+          "instance",
+          "errors",
+          "traceId"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "enum": [
+              "urn:frappe:problem:invalid-value",
+              "urn:frappe:problem:bad-request",
+              "urn:frappe:problem:not-found",
+              "urn:frappe:problem:method-not-allowed",
+              "urn:frappe:problem:conflict",
+              "urn:frappe:problem:request-too-large",
+              "urn:frappe:problem:unsupported-media-type",
+              "urn:frappe:problem:rule-violation",
+              "urn:frappe:problem:too-many-requests",
+              "urn:frappe:problem:unexpected",
+              "urn:frappe:problem:unavailable"
+            ],
+            "type": "string",
+            "description": "The category of the failure: urn:frappe:problem: and a stable slug. It never names an error code.",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string",
+            "description": "Stable summary of the category, in the language of Content-Language."
+          },
+          "status": {
+            "type": "integer",
+            "description": "The HTTP status.",
+            "format": "int32"
+          },
+          "detail": {
+            "type": "string",
+            "description": "The error's text when there is one, or how many errors there are, in the language of Content-Language."
+          },
+          "instance": {
+            "type": "string",
+            "description": "The request path."
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProblemError"
+            },
+            "description": "Every error found, so a client can fix them all at once."
+          },
+          "traceId": {
+            "type": "string",
+            "description": "W3C trace id of the request, to find it in the logs and traces."
+          }
+        },
+        "description": "RFC 9457 Problem Details. type is the category of the failure; the error codes are only in errors, which always lists every error, one or several."
+      },
+      "ProblemError": {
+        "required": [
+          "code",
+          "parameters"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Stable error code (http.not_found)."
+          },
+          "parameters": {
+            "type": "object",
+            "description": "The values the error was raised with, by name (the same the texts use)."
+          },
+          "message": {
+            "type": "string",
+            "description": "The error in the language of Content-Language; absent when no text exists."
+          }
+        },
+        "description": "One error: its stable code, the values it was raised with and its text in the response language."
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Geo"
+    }
+  ]
+}

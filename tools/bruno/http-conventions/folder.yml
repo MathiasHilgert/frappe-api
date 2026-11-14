@@ -1,0 +1,12 @@
+info:
+  name: HTTP Conventions
+  type: folder
+  seq: 4
+
+docs:
+  content: |-
+    # HTTP Conventions
+
+    What every route shares: `HEAD` on every `GET` route, conditional requests on cacheable answers (`ETag` and
+    `If-None-Match`), and Problem Details for routes and methods that do not exist, never an empty body.
+  type: text/markdown

@@ -17,10 +17,12 @@ that own their data and talk to each other through integration events. Each modu
 and the cross-cutting work (persistence, messaging, caching, scheduling, localization, observability, health)
 lives once in a shared platform layer.
 
-**Status: early.** The platform layer and the three hosts are in place: results, use cases, localization,
-aggregates, health probes, the HTTP conventions (Problem Details, language negotiation, caching), OpenTelemetry,
-EF Core persistence with a unit of work, FusionCache over Valkey, integration events over NATS JetStream and
-clustered Quartz scheduling, served by the Api, the Worker and the Migrator from one image. The modules arrive next.
+**Status: early.** The platform and the Geo module are in place (see [docs/geo.md](docs/geo.md)); Geo serves its
+country and currency catalog so far. Version 1 of the HTTP API has anonymous reads.
+
+Every response is localized (English, Spanish and Portuguese variants), errors follow one
+[Problem Details](https://www.rfc-editor.org/rfc/rfc9457) contract, and successful answers are cacheable with
+`ETag`s. The full list of endpoints lives in the OpenAPI document, not here: see [Documentation](#documentation).
 
 ## Architecture
 
@@ -51,7 +53,7 @@ flowchart LR
   NATS JetStream as CloudEvents; consumers deduplicate through an inbox. See
   [ADR 0001](docs/adr/0001-own-messaging-over-cap.md) for why this is built in-house.
 - **The rules are tested.** Layering is checked on the compiled assemblies, so a module that reaches into
-  infrastructure fails the architecture tests.
+  infrastructure, or a port that commits on its own, fails the architecture tests.
 
 ## Tech stack
 
@@ -104,13 +106,13 @@ just run worker
 ## Testing
 
 ```bash
-just test all        # platform and architecture suites (the messaging tests need Docker)
+just test all        # platform, architecture and Geo suites (Geo's needs Docker)
 just test e2e        # builds the image and runs it end to end, a few minutes
 ```
 
-`tests/` mirrors `src/`. The platform suite runs in process, with the messaging tests against a real Postgres through
-Testcontainers rather than a mock of it. The architecture suite checks the layering on the compiled assemblies, and
-the end-to-end suite runs the real image.
+`tests/` mirrors `src/`. Each module has a unit suite that runs in process and an integration suite that runs
+against real Postgres, NATS and Valkey through Testcontainers rather than mocks of them. The end-to-end suite runs the
+real image.
 
 ## Conventions
 
@@ -120,6 +122,7 @@ the end-to-end suite runs the real image.
 | Branches | `<type>/<kebab-topic>`, with the type of the title |
 | Merging | Squash only: the PR title becomes the commit on `main` |
 | Code quality | Warnings are errors; every method stays within cognitive complexity 15 and cyclomatic complexity 10 |
+| Contracts | The HTTP contract is committed in [`docs/api/`](docs/api/); a breaking change needs `!` in the title |
 | Coverage | At least 80% of the production lines a PR changes |
 | CI | Every required check is named after what it guarantees, such as "Database migrations are safe" |
 
@@ -132,7 +135,10 @@ The details, and every CI check, are in [CONTRIBUTING.md](.github/CONTRIBUTING.m
 | `/docs/` and `/openapi/v1.json` on a running Api | Every endpoint, with its parameters and responses |
 | [`docs/http-api.md`](docs/http-api.md) | What every endpoint shares: errors and their codes, languages, caching, rate limiting |
 | [`docs/operations.md`](docs/operations.md) | Telemetry, alerts, health probes and runtime settings |
+| [`docs/geo.md`](docs/geo.md) | The Geo module: what it answers, its sources and their terms, configuration |
 | [`docs/adr/`](docs/adr/) | Architecture decision records |
+| [`tools/bruno/`](tools/bruno/) | A [Bruno](https://www.usebruno.com/) collection that exercises the API |
+| [`docs/api/`](docs/api/) | The committed OpenAPI contract |
 | [CONTRIBUTING.md](.github/CONTRIBUTING.md) | Commands, testing, conventions, CI and the repository layout |
 
 ## License

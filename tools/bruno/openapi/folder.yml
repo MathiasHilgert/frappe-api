@@ -1,0 +1,12 @@
+info:
+  name: OpenAPI
+  type: folder
+  seq: 5
+
+docs:
+  content: |-
+    # OpenAPI
+
+    The API's contract. The document lives outside `/v1`, so it is not rate limited. Browse it with Scalar at
+    `{{baseUrl}}/docs/`.
+  type: text/markdown

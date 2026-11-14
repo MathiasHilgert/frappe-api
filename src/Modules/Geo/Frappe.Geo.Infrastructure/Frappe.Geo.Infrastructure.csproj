@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Geo.UnitTests" />
+    <InternalsVisibleTo Include="Frappe.Geo.IntegrationTests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.Geo.Application/Frappe.Geo.Application.csproj" />
+    <ProjectReference Include="../Frappe.Geo.Contracts/Frappe.Geo.Contracts.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Caching/Frappe.Caching.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Health/Frappe.Health.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Persistence/Frappe.Persistence.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Messaging/Frappe.Messaging.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Observability/Frappe.Observability.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Scheduling/Frappe.Scheduling.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+  </ItemGroup>
+</Project>

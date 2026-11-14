@@ -63,6 +63,7 @@ services:
       <<: *otel
       OTEL_SERVICE_NAME: frappe-migrator
       ConnectionStrings__Owner: Host=postgres;Database=frappe;Username=${POSTGRES_OWNER_USER:?set it in .env};Password=${POSTGRES_OWNER_PASSWORD:?set it in .env}
+      Roles__Geo__Password: ${FRAPPE_GEO_PASSWORD:?set it in .env}
       Roles__Scheduler__Password: ${FRAPPE_SCHEDULER_PASSWORD:?set it in .env}
 
   api:
@@ -82,6 +83,7 @@ services:
     environment:
       <<: *otel
       OTEL_SERVICE_NAME: frappe-api
+      ConnectionStrings__Geo: Host=postgres;Database=frappe;Username=frappe_geo;Password=${FRAPPE_GEO_PASSWORD:?set it in .env}
       ConnectionStrings__Valkey: valkey:6379
 
   worker:

@@ -1,0 +1,27 @@
+info:
+  name: Get currency
+  type: http
+  seq: 5
+
+http:
+  method: GET
+  url: "{{baseUrl}}/v1/geo/currencies/ARS"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.code
+      operator: eq
+      value: '"ARS"'
+    - expression: res.body.symbol
+      operator: isString
+    - expression: res.body.minorUnitDigits
+      operator: isNumber
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `GET /v1/geo/currencies/{currencyCode}`: one currency in use, with its CLDR name and symbol.

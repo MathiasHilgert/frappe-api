@@ -11,10 +11,12 @@ mod infra "eng/just/infra.just"
 mod db "eng/just/db.just"
 # Frappé hosts on this machine against the compose infrastructure: just run api | worker
 mod run "eng/just/run.just"
-# Test suites, each under a timeout: just test all | platform | architecture | e2e
+# Test suites, each under a timeout: just test all | platform | architecture | geo | geo-unit | geo-integration | e2e
 mod test "eng/just/test.just"
 # The image: just docker image
 mod docker "eng/just/docker.just"
+# The committed HTTP and event contracts: just contracts update
+mod contracts "eng/just/contracts.just"
 # Packages: just deps lock | audit
 mod deps "eng/just/deps.just"
 # GitHub: just github conventions | protect (conventions also runs the tests of the CI's change detection)

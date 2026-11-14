@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- In process only: no Docker, no database, no broker, no host, no network. Whatever needs one of them belongs in
+       Frappe.Geo.IntegrationTests; keeping Testcontainers and the hosts out of this project's references enforces it. -->
+  <ItemGroup>
+    <ProjectReference Include="../../../Shared/Frappe.Testing/Frappe.Testing.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Geo/Frappe.Geo.Infrastructure/Frappe.Geo.Infrastructure.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Geo/Frappe.Geo.Global/Frappe.Geo.Global.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Fixtures/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

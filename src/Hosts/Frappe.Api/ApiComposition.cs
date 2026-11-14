@@ -1,5 +1,7 @@
 using System.Text.Json.Serialization;
 using Frappe.Caching;
+using Frappe.Geo.Http;
+using Frappe.Geo.Infrastructure;
 using Frappe.Http;
 using Frappe.Observability;
 using Frappe.Observability.Hosting;
@@ -13,8 +15,7 @@ using Scalar.AspNetCore;
 namespace Frappe.Api;
 
 /// <summary>
-/// Everything the public API serves: the platform's HTTP conventions (health, the negotiated language and anonymous
-/// rate limiting under <c>/v1</c>), with modules mapping their endpoints into that group, with the OpenAPI document and its Scalar reference.
+/// Everything the public API serves: Geo's use cases over HTTP, in the negotiated language and anonymous rate limiting, with the OpenAPI document and its Scalar reference.
 /// Every setting is bound to an options type and validated when the host starts, before it serves anything: a missing
 /// or invalid one fails naming its configuration key. Optional: <c>Caching:InstanceName</c> (default <c>frappe</c>),
 /// the cache key and backplane prefix, for sharing one Valkey between environments; <c>Http:RateLimit</c>; and
@@ -39,6 +40,8 @@ public static class ApiComposition
         builder.Services
             .AddFrappeHttp()
             .AddFrappeCaching()
+            .AddGeoCore()
+            .AddGeoHttp()
             .AddOpenApi("v1", options => options
                 .AddDocumentTransformer<ApiDocumentInfo>()
                 .AddDocumentTransformer<ProblemDocumentation>()
@@ -72,7 +75,8 @@ public static class ApiComposition
             .AnswerHead()
             .NegotiateRequestLanguage()
             .RequireRateLimiting(HttpRegistration.AnonymousPolicy)
-            .ProducesProblem(StatusCodes.Status429TooManyRequests);
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .MapGeoEndpoints();
 
         return app;
     }

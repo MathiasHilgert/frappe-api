@@ -41,5 +41,7 @@ jobs:
         run: |
           dotnet test --project tests/Platform/Frappe.Platform.Tests --no-build --timeout 5m --maximum-failed-tests 10 --results-directory-layout per-module
           dotnet test --project tests/Frappe.Architecture.Tests --no-build --timeout 3m --maximum-failed-tests 10 --results-directory-layout per-module
+          dotnet test --project tests/Modules/Geo/Frappe.Geo.UnitTests --no-build --timeout 3m --maximum-failed-tests 10 --results-directory-layout per-module
+          dotnet test --project tests/Modules/Geo/Frappe.Geo.IntegrationTests --no-build --timeout 10m --maximum-failed-tests 10 --results-directory-layout per-module
       - name: Build the image from freshly pulled base images
         run: docker build --pull --no-cache -f deploy/Dockerfile -t frappe-api:nightly .

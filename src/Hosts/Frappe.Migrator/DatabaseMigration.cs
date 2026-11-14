@@ -1,3 +1,5 @@
+using Frappe.Geo.Global.Cldr;
+using Frappe.Geo.Infrastructure.Persistence;
 using Frappe.Persistence;
 using Frappe.Scheduling;
 using Microsoft.Extensions.Configuration;
@@ -17,6 +19,7 @@ public static partial class DatabaseMigration
     /// <summary>Each module's login role, its schema, and its name under <c>Roles</c> in the configuration.</summary>
     private static readonly (string Role, string Schema, string Name)[] ModuleRoleSettings =
     [
+        (GeoMigration.Role, GeoDbContext.Schema, "Geo"),
         (SchedulingRegistration.Role, SchedulingRegistration.Schema, "Scheduler"),
     ];
 
@@ -46,6 +49,9 @@ public static partial class DatabaseMigration
                 await ModuleRoles.EnsureLoginRoleAsync(connection, role, password, cancellationToken);
                 LogRoleReady(logger, role);
             }
+
+            await GeoMigration.MigrateAsync(owner, new CldrCatalogSeed(), cancellationToken);
+            LogMigrated(logger, GeoDbContext.Schema);
 
             await SchedulingRegistration.ProvisionAsync(owner, cancellationToken);
             LogMigrated(logger, SchedulingRegistration.Schema);

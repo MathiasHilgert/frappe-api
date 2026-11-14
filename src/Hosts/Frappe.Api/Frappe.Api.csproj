@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <ItemGroup>
+    <ProjectReference Include="../../Modules/Geo/Frappe.Geo.Http/Frappe.Geo.Http.csproj" />
+    <ProjectReference Include="../../Modules/Geo/Frappe.Geo.Infrastructure/Frappe.Geo.Infrastructure.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Http/Frappe.Http.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Caching/Frappe.Caching.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Observability/Frappe.Observability.csproj" />

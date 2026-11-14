@@ -8,6 +8,8 @@ excluded_rules = [
   "prefer-bigint-over-smallint",
   "prefer-identity",
   "prefer-text-field",
+  # ISO codes (country, currency, subdivision) are fixed-length by definition, so character(n) is deliberate there.
+  "ban-char-field",
   "prefer-robust-stmts",
   "require-timeout-settings",
   # EF Core's migration script wraps each migration in its own START TRANSACTION/COMMIT, which this rule reports as

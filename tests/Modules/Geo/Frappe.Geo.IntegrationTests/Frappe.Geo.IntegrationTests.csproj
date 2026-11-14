@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Geo against real infrastructure (Testcontainers; needs Docker). Whatever runs in process without it belongs in
+       Frappe.Geo.UnitTests. -->
+  <ItemGroup>
+    <ProjectReference Include="../../../Shared/Frappe.Testing/Frappe.Testing.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Geo/Frappe.Geo.Infrastructure/Frappe.Geo.Infrastructure.csproj" />
+    <ProjectReference Include="../../../../src/Hosts/Frappe.Migrator/Frappe.Migrator.csproj" />
+    <ProjectReference Include="../../../../src/Hosts/Frappe.Api/Frappe.Api.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Geo/Frappe.Geo.Global/Frappe.Geo.Global.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Testcontainers.Redis" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="../Frappe.Geo.UnitTests/Fixtures/**" LinkBase="Fixtures" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

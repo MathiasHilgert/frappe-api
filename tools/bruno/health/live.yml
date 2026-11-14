@@ -1,0 +1,27 @@
+info:
+  name: Liveness
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{baseUrl}}/health/live"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.status
+      operator: eq
+      value: '"Healthy"'
+    - expression: res.body.checks
+      operator: isArray
+    - expression: res.body.checks[0].name
+      operator: isString
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `GET /health/live`: 200 when the process is up. It checks nothing else, so it stays 200 while Postgres or Valkey are down.

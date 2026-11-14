@@ -3,6 +3,8 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../../Modules/Geo/Frappe.Geo.Infrastructure/Frappe.Geo.Infrastructure.csproj" />
+    <ProjectReference Include="../../Modules/Geo/Frappe.Geo.Global/Frappe.Geo.Global.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Persistence/Frappe.Persistence.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Scheduling/Frappe.Scheduling.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Observability.Hosting/Frappe.Observability.Hosting.csproj" />

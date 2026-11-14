@@ -10,6 +10,7 @@ extend-exclude = [
   "**/Resources/Messages/**",
   "**/Fixtures/**",
   "tools/seeds/**",
+  "**/Cldr/*.json",
   "deploy/observability/**",
   "tools/bruno/**",
 ]

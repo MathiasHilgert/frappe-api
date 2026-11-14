@@ -4,6 +4,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 # Run the Api on http://localhost:5080 (needs `just infra up` and `just db migrate`)
 api:
     ASPNETCORE_URLS=http://localhost:5080 \
+    ConnectionStrings__Geo="Host=localhost;Port=${POSTGRES_PORT:-5432};Database=frappe;Username=frappe_geo;Password=$FRAPPE_GEO_PASSWORD" \
     ConnectionStrings__Valkey="localhost:${VALKEY_PORT:-6379}" \
     dotnet run --project src/Hosts/Frappe.Api
 
