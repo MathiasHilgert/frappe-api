@@ -2,9 +2,13 @@
 
 [![Tests](https://github.com/MathiasHilgert/frappe-api/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/MathiasHilgert/frappe-api/actions/workflows/tests.yml)
 [![Code quality](https://github.com/MathiasHilgert/frappe-api/actions/workflows/code-quality.yml/badge.svg?branch=main)](https://github.com/MathiasHilgert/frappe-api/actions/workflows/code-quality.yml)
+[![Security](https://github.com/MathiasHilgert/frappe-api/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/MathiasHilgert/frappe-api/actions/workflows/security.yml)
 [![License: proprietary](https://img.shields.io/badge/license-proprietary-lightgrey)](LICENSE)
 
 The backend of Frappé, the operating system for restaurants and cafés in Latin America.
+
+[Getting started](#getting-started) · [Architecture](#architecture) · [Conventions](#conventions) ·
+[Documentation](#documentation) · [Contributing](.github/CONTRIBUTING.md)
 
 ## About
 
@@ -95,7 +99,7 @@ just run api       # http://localhost:5080
 just run worker
 ```
 
-`just` alone lists every command.
+`just` alone lists every command. The full table is in [CONTRIBUTING.md](.github/CONTRIBUTING.md#commands).
 
 ## Testing
 
@@ -116,7 +120,10 @@ the end-to-end suite runs the real image.
 | Branches | `<type>/<kebab-topic>`, with the type of the title |
 | Merging | Squash only: the PR title becomes the commit on `main` |
 | Code quality | Warnings are errors; every method stays within cognitive complexity 15 and cyclomatic complexity 10 |
-| CI | Every required check is named after what it guarantees, such as "Code compiles without warnings" |
+| Coverage | At least 80% of the production lines a PR changes |
+| CI | Every required check is named after what it guarantees, such as "Database migrations are safe" |
+
+The details, and every CI check, are in [CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
 ## Documentation
 
@@ -126,6 +133,7 @@ the end-to-end suite runs the real image.
 | [`docs/http-api.md`](docs/http-api.md) | What every endpoint shares: errors and their codes, languages, caching, rate limiting |
 | [`docs/operations.md`](docs/operations.md) | Telemetry, alerts, health probes and runtime settings |
 | [`docs/adr/`](docs/adr/) | Architecture decision records |
+| [CONTRIBUTING.md](.github/CONTRIBUTING.md) | Commands, testing, conventions, CI and the repository layout |
 
 ## License
 

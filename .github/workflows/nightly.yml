@@ -1,0 +1,45 @@
+# Does it still build from nothing? Every night, without caches: a fresh NuGet download, a freshly pulled base image and
+# every suite, so drift outside the repository (a yanked package, a broken base image) shows up before a pull request.
+name: Nightly
+
+on:
+  schedule:
+    - cron: "23 4 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  scratch:
+    name: Builds from scratch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET without a package cache
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+      - name: Restore every package from NuGet
+        run: dotnet restore Frappe.slnx --locked-mode --no-http-cache
+      - name: Build with every warning as an error
+        run: dotnet build Frappe.slnx --no-restore
+      - name: Run every suite
+        run: |
+          dotnet test --project tests/Platform/Frappe.Platform.Tests --no-build --timeout 5m --maximum-failed-tests 10 --results-directory-layout per-module
+          dotnet test --project tests/Frappe.Architecture.Tests --no-build --timeout 3m --maximum-failed-tests 10 --results-directory-layout per-module
+      - name: Build the image from freshly pulled base images
+        run: docker build --pull --no-cache -f deploy/Dockerfile -t frappe-api:nightly .

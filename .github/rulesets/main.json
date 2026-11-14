@@ -1,0 +1,129 @@
+{
+  "name": "main",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": [
+        "~DEFAULT_BRANCH"
+      ],
+      "exclude": []
+    }
+  },
+  "bypass_actors": [
+    {
+      "actor_id": 5,
+      "actor_type": "RepositoryRole",
+      "bypass_mode": "pull_request"
+    }
+  ],
+  "rules": [
+    {
+      "type": "deletion"
+    },
+    {
+      "type": "non_fast_forward"
+    },
+    {
+      "type": "required_linear_history"
+    },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": true,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": true,
+        "allowed_merge_methods": [
+          "squash"
+        ]
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "do_not_enforce_on_create": false,
+        "required_status_checks": [
+          {
+            "context": "Title follows Conventional Commits",
+            "integration_id": 15368
+          },
+          {
+            "context": "Commits follow Conventional Commits",
+            "integration_id": 15368
+          },
+          {
+            "context": "Branch name is valid",
+            "integration_id": 15368
+          },
+          {
+            "context": "Assignee and labels set",
+            "integration_id": 15368
+          },
+          {
+            "context": "Code is formatted",
+            "integration_id": 15368
+          },
+          {
+            "context": "Code compiles without warnings",
+            "integration_id": 15368
+          },
+          {
+            "context": "Complexity is within limits",
+            "integration_id": 15368
+          },
+          {
+            "context": "Unit tests pass",
+            "integration_id": 15368
+          },
+          {
+            "context": "Architecture rules hold",
+            "integration_id": 15368
+          },
+          {
+            "context": "Changed lines are covered",
+            "integration_id": 15368
+          },
+          {
+            "context": "App starts and responds",
+            "integration_id": 15368
+          },
+          {
+            "context": "API has no unmarked breaking changes",
+            "integration_id": 15368
+          },
+          {
+            "context": "Events have no unmarked breaking changes",
+            "integration_id": 15368
+          },
+          {
+            "context": "Database migrations are safe",
+            "integration_id": 15368
+          },
+          {
+            "context": "No vulnerable dependencies",
+            "integration_id": 15368
+          },
+          {
+            "context": "No leaked secrets",
+            "integration_id": 15368
+          },
+          {
+            "context": "Code has no known vulnerabilities",
+            "integration_id": 15368
+          },
+          {
+            "context": "Workflows are secure",
+            "integration_id": 15368
+          },
+          {
+            "context": "Container image is clean",
+            "integration_id": 15368
+          }
+        ]
+      }
+    }
+  ]
+}

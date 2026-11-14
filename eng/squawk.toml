@@ -1,0 +1,16 @@
+# Squawk lints the SQL of new EF Core migrations (Compatibility workflow) for statements that lock tables or lose data.
+pg_version = "18"
+# EF Core runs each migration inside a transaction.
+assume_in_transaction = true
+# Style preferences that EF Core's generated SQL does not follow and that carry no risk.
+excluded_rules = [
+  "prefer-bigint-over-int",
+  "prefer-bigint-over-smallint",
+  "prefer-identity",
+  "prefer-text-field",
+  "prefer-robust-stmts",
+  "require-timeout-settings",
+  # EF Core's migration script wraps each migration in its own START TRANSACTION/COMMIT, which this rule reports as
+  # nesting under assume_in_transaction on every migration. The statements still run, and are linted, as in a transaction.
+  "transaction-nesting",
+]
