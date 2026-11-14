@@ -184,6 +184,7 @@ public sealed class MigratorTests(PostgresServer server)
     [Test]
     public async Task The_host_exits_with_1_when_the_migration_fails_and_has_stopped_by_then()
     {
+        // The missing owner connection string fails validation before any connection is attempted.
         using var host = MigratorHost(Configuration("Host=unreachable.invalid", without: "ConnectionStrings:Owner"));
 
         var exitCode = await host.RunMigrationAsync();
@@ -192,7 +193,7 @@ public sealed class MigratorTests(PostgresServer server)
         await Assert.That(host.Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopped.IsCancellationRequested).IsTrue();
     }
 
-    /// <summary>The Migrator's host as <c>Program</c> builds it, reading only the given configuration.</summary>
+    /// <summary>A host composed with <c>AddFrappeMigrator</c>, reading only the given configuration (not <c>Program</c>'s settings files).</summary>
     private static IHost MigratorHost(IConfiguration configuration)
     {
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true });
