@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.Health/Frappe.Health.csproj" />
+    <ProjectReference Include="../Frappe.Aggregates/Frappe.Aggregates.csproj" />
+    <ProjectReference Include="../Frappe.IntegrationEvents/Frappe.IntegrationEvents.csproj" />
+    <ProjectReference Include="../Frappe.Persistence/Frappe.Persistence.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="NATS.Net" />
+  </ItemGroup>
+</Project>
