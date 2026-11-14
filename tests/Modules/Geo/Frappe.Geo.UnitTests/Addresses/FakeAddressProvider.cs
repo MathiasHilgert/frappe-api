@@ -22,6 +22,10 @@ internal sealed class FakeAddressProvider : IAddressProvider
 
     public string Name => "fake";
 
+    public TimeSpan SessionLifetime => TimeSpan.FromMinutes(15);
+
+    public double EstimatedCostUsd(AddressOperation operation) => operation == AddressOperation.Suggest ? 0.01 : 0.02;
+
     public Task<IReadOnlyList<ProviderSuggestion>> SuggestAsync(AddressSearch search, CancellationToken cancellationToken)
     {
         Searches.Add(search);

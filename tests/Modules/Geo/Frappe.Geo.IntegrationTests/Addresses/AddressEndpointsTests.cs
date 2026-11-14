@@ -1,3 +1,4 @@
+using System.Diagnostics.Metrics;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -173,10 +174,37 @@ public sealed class AddressEndpointsTests(GeoDatabase database, ValkeyCache valk
     }
 
     [Test]
-    public async Task Without_an_api_key_the_host_starts_and_addresses_answer_503_not_configured()
+    public async Task Without_an_api_key_the_host_starts_and_addresses_answer_503_not_configured_counted_as_unconfigured()
     {
         var places = new FakePlaces();
         await using var app = await StartAsync(places, withKey: false);
+        var meter = app.Services.GetRequiredService<GeoMetrics>().Meter;
+        var providers = new List<object?>();
+        using var listener = new MeterListener
+        {
+            InstrumentPublished = (instrument, l) =>
+            {
+                if (ReferenceEquals(instrument.Meter, meter) && instrument.Name == GeoMetrics.AddressRequestsMetric)
+                {
+                    l.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+        listener.SetMeasurementEventCallback<long>((_, _, tags, _) =>
+        {
+            foreach (var tag in tags)
+            {
+                if (tag.Key == GeoMetrics.AddressProviderTag)
+                {
+                    lock (providers)
+                    {
+                        providers.Add(tag.Value);
+                    }
+                }
+            }
+        });
+        listener.Start();
+
         using var response = await app.GetTestClient().GetAsync($"/v1/geo/address-suggestions?q=corrientes&session={Session}");
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
 
@@ -186,6 +214,14 @@ public sealed class AddressEndpointsTests(GeoDatabase database, ValkeyCache valk
         await Assert.That(response.Headers.RetryAfter?.Delta).IsEqualTo(TimeSpan.FromSeconds(30));
         await Assert.That(response.Headers.CacheControl?.NoStore).IsTrue();
         await Assert.That(places.Requests).IsEqualTo(0);
+        object?[] labels;
+        lock (providers)
+        {
+            labels = [.. providers];
+        }
+
+        await Assert.That(labels).IsNotEmpty();
+        await Assert.That(labels.All(label => Equals(label, "unconfigured"))).IsTrue();
     }
 
     [Test]

@@ -10,8 +10,14 @@ namespace Frappe.Geo.Application.Addresses;
 /// </summary>
 public interface IAddressProvider
 {
-    /// <summary>A short lower-case name, carried inside every <see cref="AddressReference"/> (<c>google</c>).</summary>
+    /// <summary>A short lower-case name, carried inside every <see cref="AddressReference"/> and in metrics (<c>google</c>).</summary>
     string Name { get; }
+
+    /// <summary>How long Geo waits, after a session's first suggestion, for the resolution that closes it before counting it abandoned.</summary>
+    TimeSpan SessionLifetime { get; }
+
+    /// <summary>What one answered call of <paramref name="operation"/> costs at list price, in US dollars, for the cost metric.</summary>
+    double EstimatedCostUsd(AddressOperation operation);
 
     /// <summary>The places that match what the user typed so far, best first.</summary>
     Task<IReadOnlyList<ProviderSuggestion>> SuggestAsync(AddressSearch search, CancellationToken cancellationToken);

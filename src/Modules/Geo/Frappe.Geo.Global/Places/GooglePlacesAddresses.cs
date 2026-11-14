@@ -11,7 +11,7 @@ public static class GooglePlacesAddresses
     /// <summary>
     /// Replaces the unconfigured provider with Google's, bound from <c>Geo:Google:Places</c> (<see cref="GooglePlacesOptions"/>).
     /// No key is required to start: without one the provider is <see cref="UnconfiguredAddressProvider"/>, so addresses
-    /// answer not configured. The client has the standard resilience
+    /// answer not configured and its metrics never name Google. The client has the standard resilience
     /// pipeline, shortened for a user who is typing (2 s per attempt, one retry, 5 s in all), and no request logging,
     /// since a URL carries the place id.
     /// </summary>
