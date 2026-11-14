@@ -17,8 +17,7 @@ that own their data and talk to each other through integration events. Each modu
 and the cross-cutting work (persistence, messaging, caching, scheduling, localization, observability, health)
 lives once in a shared platform layer.
 
-**Status: early.** The platform and the Geo module are in place (see [docs/geo.md](docs/geo.md)); Geo serves its
-country and currency catalog, Argentina's territory, its national, provincial and banking holidays and its business days so far. Version 1 of the HTTP API has
+**Status: early.** The platform and the Geo module are in place (see [docs/geo.md](docs/geo.md)). Version 1 of the HTTP API has
 anonymous reads and administration writes that are not authenticated yet.
 
 Every response is localized (English, Spanish and Portuguese variants), errors follow one

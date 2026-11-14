@@ -330,6 +330,14 @@
           "NodaTime": "[3.3.7, )"
         }
       },
+      "frappe.geo.global": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Geo.Application": "[1.0.0, )",
+          "Frappe.Observability": "[1.0.0, )",
+          "Microsoft.Extensions.Http.Resilience": "[11.0.0, )"
+        }
+      },
       "frappe.geo.http": {
         "type": "Project",
         "dependencies": {

@@ -2,7 +2,7 @@ namespace Frappe.Geo.Contracts.Queries;
 
 /// <summary>
 /// Geo's synchronous public queries for other modules, in process (ADR 0002): a country, a subdivision, whether a date
-/// is a business day, the next business days, and, for payroll, what kind of day a date is. A jurisdiction is a country
+/// is a business day, the next business days, for payroll, what kind of day a date is, and an address validated again. A jurisdiction is a country
 /// (<c>AR</c>) or a first-level subdivision (<c>AR-X</c>). An answer never turns a gap in Geo's data into "no holidays":
 /// a calendar Geo does not hold answers <see cref="CalendarStatus.NotCovered"/>.
 /// </summary>
@@ -28,4 +28,11 @@ public interface IGeoQueries
 
     /// <summary>What kind of day <paramref name="date"/> is for payroll (the labor policy): its strongest observance's kind.</summary>
     Task<DayKindAnswer> GetDayKindAsync(string jurisdiction, DateOnly date, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Validates and normalizes again the address of <paramref name="reference"/> (an id from Geo's address suggestions
+    /// or a snapshot's reference), in <paramref name="language"/> (BCP 47; English when <see langword="null"/>). It is
+    /// one billed provider call: resolve when the snapshot must be checked, not on every read of it.
+    /// </summary>
+    Task<AddressAnswer> ResolveAddressAsync(string reference, string? language, CancellationToken cancellationToken);
 }

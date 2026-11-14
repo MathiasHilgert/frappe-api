@@ -1,0 +1,14 @@
+{
+  "id": "ChIJ3S-JXmauEmsRUcIaWtf4MzE",
+  "formattedAddress": "Av. Corrientes 1234, C1043 Cdad. Autónoma de Buenos Aires, Argentina",
+  "addressComponents": [
+    { "longText": "1234", "shortText": "1234", "types": ["street_number"], "languageCode": "es" },
+    { "longText": "Avenida Corrientes", "shortText": "Av. Corrientes", "types": ["route"], "languageCode": "es" },
+    { "longText": "San Nicolás", "shortText": "San Nicolás", "types": ["sublocality_level_1", "sublocality", "political"], "languageCode": "es" },
+    { "longText": "Buenos Aires", "shortText": "CABA", "types": ["locality", "political"], "languageCode": "es" },
+    { "longText": "Capital Federal", "shortText": "CABA", "types": ["administrative_area_level_1", "political"], "languageCode": "es" },
+    { "longText": "Argentina", "shortText": "AR", "types": ["country", "political"], "languageCode": "es" },
+    { "longText": "C1043", "shortText": "C1043", "types": ["postal_code"], "languageCode": "es" }
+  ],
+  "location": { "latitude": -34.6037851, "longitude": -58.3815655 }
+}

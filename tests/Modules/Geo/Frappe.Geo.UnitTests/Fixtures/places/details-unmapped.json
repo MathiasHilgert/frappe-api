@@ -1,0 +1,13 @@
+{
+  "id": "ChIJunmappedPlace0000000000",
+  "formattedAddress": "Av. San Martín 450, V9410 Ushuaia, Tierra del Fuego, Argentina",
+  "addressComponents": [
+    { "longText": "450", "shortText": "450", "types": ["street_number"], "languageCode": "es" },
+    { "longText": "Avenida San Martín", "shortText": "Av. San Martín", "types": ["route"], "languageCode": "es" },
+    { "longText": "Ushuaia", "shortText": "Ushuaia", "types": ["locality", "political"], "languageCode": "es" },
+    { "longText": "Tierra del Fuego", "shortText": "Tierra del Fuego", "types": ["administrative_area_level_1", "political"], "languageCode": "es" },
+    { "longText": "Argentina", "shortText": "AR", "types": ["country", "political"], "languageCode": "es" },
+    { "longText": "V9410", "shortText": "V9410", "types": ["postal_code"], "languageCode": "es" }
+  ],
+  "location": { "latitude": -54.8069, "longitude": -68.3073 }
+}

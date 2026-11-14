@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Frappe.Caching;
 using Frappe.Geo.Countries.Argentina;
+using Frappe.Geo.Global.Places;
 using Frappe.Geo.Http;
 using Frappe.Geo.Infrastructure;
 using Frappe.Http;
@@ -16,11 +17,13 @@ using Scalar.AspNetCore;
 namespace Frappe.Api;
 
 /// <summary>
-/// Everything the public API serves: Geo's use cases over HTTP, in the negotiated language and anonymous rate limiting, with the OpenAPI document and its Scalar reference.
+/// Everything the public API serves: Geo's use cases over HTTP (reads, and the administration writes, open until
+/// Frappé has authentication), in the negotiated language and anonymous rate limiting, with the OpenAPI document and its Scalar reference.
 /// Every setting is bound to an options type and validated when the host starts, before it serves anything: a missing
 /// or invalid one fails naming its configuration key. Optional: <c>Caching:InstanceName</c> (default <c>frappe</c>),
 /// the cache key and backplane prefix, for sharing one Valkey between environments; <c>Http:RateLimit</c>; and
-/// <c>Http:ForwardedHeaders</c>.
+/// <c>Http:ForwardedHeaders</c>; and <c>Geo:Google:Places:ApiKey</c>, without which addresses answer 503
+/// <c>geo.addresses.not_configured</c>.
 /// </summary>
 public static class ApiComposition
 {
@@ -43,6 +46,7 @@ public static class ApiComposition
             .AddFrappeCaching()
             .AddGeoCore()
             .AddArgentinaCalendar()
+            .AddGooglePlacesAddresses()
             .AddGeoHttp()
             .AddOpenApi("v1", options => options
                 .AddDocumentTransformer<ApiDocumentInfo>()

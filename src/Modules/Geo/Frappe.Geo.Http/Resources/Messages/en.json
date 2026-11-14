@@ -34,5 +34,11 @@
   "geo.subdivision_alias.duplicate": "The subdivision {subdivisionCode} is already known as “{alias}”.",
   "geo.subdivision_alias.not_found": "The subdivision {subdivisionCode} has no manual alias “{alias}”.",
   "geo.subdivision_alias.taken": "The subdivision {otherSubdivisionCode} is already known as “{alias}”, so it cannot name {subdivisionCode} too.",
-  "geo.subdivision_alias.imported": "The alias “{alias}” of {subdivisionCode} comes from the source: it changes only with the source."
+  "geo.subdivision_alias.imported": "The alias “{alias}” of {subdivisionCode} comes from the source: it changes only with the source.",
+  "geo.address_query.invalid": "The address to search must have {min} to {max} characters.",
+  "geo.address_session.invalid": "The search session must be a UUID the client generates (such as 5b1c1a5e-3f5d-4e0b-9f53-4d1c2b9e8a10) and sends with every suggestion and the selection.",
+  "geo.address_reference.invalid": "The address id is not valid: use an id from an address suggestion or a resolved address.",
+  "geo.address.not_found": "The address does not exist or is no longer available.",
+  "geo.addresses.unavailable": "Address search is not available right now. Try again later.",
+  "geo.addresses.not_configured": "Address search is not configured on this server."
 }

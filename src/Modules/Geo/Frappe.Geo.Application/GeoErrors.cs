@@ -86,4 +86,17 @@ internal static class GeoErrors
         Error.InvalidValue(GeoErrorCodes.PageLimitInvalid, ("value", value), ("min", 1), ("max", max));
 
     public static InvalidValueError PageCursorInvalid() => Error.InvalidValue(GeoErrorCodes.PageCursorInvalid);
+
+    /// <summary>What the user typed is never echoed back: it may be personal (S15).</summary>
+    public static InvalidValueError AddressQueryInvalid(int max) => Error.InvalidValue(GeoErrorCodes.AddressQueryInvalid, ("min", 1), ("max", max));
+
+    public static InvalidValueError AddressSessionInvalid() => Error.InvalidValue(GeoErrorCodes.AddressSessionInvalid);
+
+    public static InvalidValueError AddressReferenceInvalid() => Error.InvalidValue(GeoErrorCodes.AddressReferenceInvalid);
+
+    public static NotFoundError AddressNotFound() => new(GeoErrorCodes.AddressNotFound);
+
+    public static UnavailableError AddressesUnavailable() => new(GeoErrorCodes.AddressesUnavailable);
+
+    public static UnavailableError AddressesNotConfigured() => new(GeoErrorCodes.AddressesNotConfigured);
 }

@@ -40,4 +40,10 @@ public static class GeoErrorCodes
     public const string SubdivisionAliasNotFound = "geo.subdivision_alias.not_found";
     public const string SubdivisionAliasTaken = "geo.subdivision_alias.taken";
     public const string SubdivisionAliasImported = "geo.subdivision_alias.imported";
+    public const string AddressQueryInvalid = "geo.address_query.invalid";
+    public const string AddressSessionInvalid = "geo.address_session.invalid";
+    public const string AddressReferenceInvalid = "geo.address_reference.invalid";
+    public const string AddressNotFound = "geo.address.not_found";
+    public const string AddressesUnavailable = "geo.addresses.unavailable";
+    public const string AddressesNotConfigured = "geo.addresses.not_configured";
 }

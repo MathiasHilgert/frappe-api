@@ -166,6 +166,46 @@ source ids, scopes, outcomes and error codes.
   platform) counts `fusioncache.cache.hit` and `fusioncache.cache.miss`: the hit ratio of the whole shared cache, of
   which Geo's calendars are one user (Geo adds no cache instrument of its own).
 
+## Addresses
+
+Geo suggests addresses while a user types and validates the chosen one into a normalized address:
+street, number, postal code, locality, coordinates, and the ISO codes of the country and the
+subdivision.
+
+- **Provider.** Google Places API (New), behind `IAddressProvider`. The Api composes it with
+  `AddGooglePlacesAddresses()`; the core never names Google, so another provider can replace it.
+- **Key.** `Geo:Google:Places:ApiKey`. Without it every host still starts, and the address
+  endpoints answer `503` with `geo.addresses.not_configured` and `Retry-After` (a provider outage or a rejected key answers `geo.addresses.unavailable`).
+- **Endpoints.** `GET /v1/geo/address-suggestions?q=&session=&country=&language=` and
+  `POST /v1/geo/address-validations` with the body `{ "reference", "session", "language" }`
+  (`reference` is a suggestion's `id` or a stored snapshot's `reference`; `language` is optional).
+  Both answer `Cache-Control: no-store` and are not authenticated yet (`TODO(auth)`). The
+  reference travels in the body because URLs end up in access logs, traces and the `instance` of
+  problems; bodies do not.
+- **Sessions.** The client generates one UUID per search and sends it with every suggestion
+  request and with the final validation, so the provider bills the search as one session.
+- **Opaque ids.** Suggestion ids and address references hide the provider's ids. A malformed one
+  answers `400` without calling the provider. They are not signed: a well-formed made-up reference
+  only makes Geo ask the provider for a place that does not exist (`404`, or `503` when Google
+  rejects the id for a reason it does not tie to the place).
+- **Not found or unavailable.** Only an error Google ties to the place itself (`404 NOT_FOUND`, or
+  `400 INVALID_ARGUMENT` blaming the place id) answers `404 geo.address.not_found`; a rejected or
+  expired key, an exhausted quota, any other 400 or an answer that is not Google's is `503`, so a
+  stored address never looks gone because the call failed. Google's error bodies are
+  `google.rpc.Status` (<https://google.aip.dev/193>), with an `ErrorInfo` reason such as
+  `API_KEY_INVALID`. `IGeoQueries.ResolveAddressAsync` answers `NotFound`, `Unavailable`,
+  `InvalidReference` or `InvalidLanguage` the same way.
+- **Subdivision codes.** Places answers province names, never ISO 3166-2 codes. Geo maps the name
+  through its subdivision names and aliases (imported and manual); an unmapped one comes back as
+  `null`.
+- **Storage.** Geo stores no address. The validation answer is the snapshot the consuming module
+  stores. Google Places' terms restrict storing Places content; reviewing that storage with legal
+  counsel before production is the operator's responsibility. If needed, a provider whose terms
+  allow storing the result (such as the Geocoding API) can replace this one without changing callers.
+- **Privacy.** No log carries what the user typed or the resolved address. Place Details puts the place id in its path,
+  so its HttpClient span shows `url.full` as `.../v1/places/REDACTED` (the Api registers
+  `OutgoingRequestTelemetry.Redact` as the HttpClient instrumentation's enrichment).
+
 ## Adding a country
 
 A country is a package under `src/Modules/Geo/Countries/Frappe.Geo.Countries.<Country>` (territory, holidays, sector

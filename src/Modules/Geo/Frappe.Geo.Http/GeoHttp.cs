@@ -1,3 +1,4 @@
+using Frappe.Geo.Http.Addresses;
 using Frappe.Geo.Http.BusinessDays;
 using Frappe.Geo.Http.Countries;
 using Frappe.Geo.Http.Currencies;
@@ -34,6 +35,7 @@ public static class GeoHttp
         administration.MapHolidayOverrideEndpoints();
         administration.MapHolidaySyncEndpoints();
         administration.MapSubdivisionAliasEndpoints();
+        geo.MapAddressEndpoints();
         return routes;
     }
 }
