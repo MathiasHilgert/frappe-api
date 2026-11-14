@@ -11,6 +11,7 @@
     <Project Path="src/Platform/Frappe.Health/Frappe.Health.csproj" />
     <Project Path="src/Platform/Frappe.Persistence/Frappe.Persistence.csproj" />
     <Project Path="src/Platform/Frappe.Results/Frappe.Results.csproj" />
+    <Project Path="src/Platform/Frappe.Scheduling/Frappe.Scheduling.csproj" />
     <Project Path="src/Platform/Frappe.UseCases/Frappe.UseCases.csproj" />
   </Folder>
   <Folder Name="/tests/Platform/">
