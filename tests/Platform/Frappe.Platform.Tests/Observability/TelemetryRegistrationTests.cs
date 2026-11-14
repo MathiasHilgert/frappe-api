@@ -59,7 +59,9 @@ public sealed class TelemetryRegistrationTests
         }
 
         await host.StopAsync();
-        await Assert.That(spans).IsEmpty();
+
+        // Frappé's own sources are process-wide, so spans of tests running alongside may reach this provider too.
+        await Assert.That(spans.Where(s => s.Source.Name == "SomeLibrary")).IsEmpty();
     }
 
     [Test]
