@@ -17,7 +17,8 @@ Every endpoint is under `/v1/geo`; parameters and responses are in the committed
 caching follow [`http-api.md`](http-api.md).
 
 - **Catalogue.** The 249 ISO 3166-1 countries and the ISO 4217 currencies in use: `countries`, `countries/{code}`,
-  `countries/{code}/currencies`, `currencies`, `currencies/{code}`.
+  `countries/{code}/currencies`, `currencies`, `currencies/{code}`. A country also says what Geo covers for it
+  (`capabilities`: holiday years per scope, business-day policies, time zone).
 - **Territory.** A covered country's subdivisions (ISO 3166-2), their administrative areas and localities:
   `countries/{code}/subdivisions`, `subdivisions/{code}`, `subdivisions/{code}/areas?level=`, `areas/{id}`,
   `subdivisions/{code}/localities?q=&limit=&cursor=`, `localities/{id}`. A known country Geo holds no territory of
@@ -27,7 +28,9 @@ caching follow [`http-api.md`](http-api.md).
   too, never "does not exist"; an unknown subdivision of a covered country is 404 `geo.subdivision.not_found`.
 - **Holidays.** A jurisdiction's calendar of a year (`countries/{code}/holidays?year=&scope=`, and the same under
   `subdivisions/{code}`), with the calendars it covers (`covers`) and the credit their sources require
-  (`attributions`). `scope` is `general`, the only calendar a country has so far.
+  (`attributions`). `scope` is `general` by default, or a sector calendar the country declares (Argentina: `banking`);
+  a sector's calendar lists its source's facts as published (the BCRA's rows, all `holiday`), since two sources' fields
+  are never merged.
 
 Geo keeps holidays only for countries with explicit coverage. Any other country, or a year Geo holds no calendar for,
 answers 404 `geo.holidays.not_covered`, never "no holidays". The error names the calendar actually missing
@@ -58,12 +61,16 @@ refused or failed run changes nothing, and every run is audited in `geo.sync_run
 | Argentina: territory | [Georef](https://infra.datos.gob.ar/georef/) full downloads (provinces, departments, municipalities, localities) | See the source | Mondays 04:00 |
 | Argentina: national holidays | [argentina.gob.ar](https://www.argentina.gob.ar/) `holidays-{year}-es.json` | CC BY 4.0, credited in every answer | Daily 05:00 |
 | Argentina: provincial holidays | [Calendarios Nacionales](https://calendariosnacionales.com/) `{year}/provincias/{slug}.json` | [Terms](https://calendariosnacionales.com/terminos-y-condiciones/): a visible link in every answer, no abusive syncing (hence weekly) | Mondays 05:30 |
+| Argentina: banking holidays | [BCRA](https://www.bcra.gob.ar/) `consulta-feriados-bancarios-{year}/` (scope `banking`) | No license published; the publisher is credited and linked | Daily 05:15 |
 
 Next year's holiday file is optional until it is published; the current year's is required.
 
-Provincial rows keep the source's link to their norm: SAIJ links (`saij.gob.ar/view-document?guid=123456789-0abc-...`)
-look made up but are SAIJ's own id format (read backwards, `...-230-5000avorpyel` is `leyprova 0005-032`, Salta's
-Ley 5.032).
+The BCRA's page names the Comunicaciones its year's list follows for the list as a whole, not per row (2026: C 101352,
+amended by C 102390 and A 8487), so every row cites them all (`BCRA, Comunicaciones C 101352, C 102390 y A 8487`) and
+links the first one's text; a page that names none leaves the rows without a legal basis rather than guessing one. The
+6 November sector rule cites CCT 18/75, art. 50. Provincial rows keep the source's link to their norm: SAIJ
+links (`saij.gob.ar/view-document?guid=123456789-0abc-...`) look made up but are SAIJ's own id format (read backwards,
+`...-230-5000avorpyel` is `leyprova 0005-032`, Salta's Ley 5.032).
 
 The Migrator brings the catalog to the embedded snapshot after every migration, as a diff: a country or currency the
 snapshot drops is retired, never deleted, so a code another module stored keeps resolving.
@@ -82,6 +89,8 @@ expressions, seconds first. In environment variables, `:` becomes `__` (`Geo__Ar
 | `Geo:Argentina:Holidays:Cron` | `0 0 5 * * ?` | National holiday sync. |
 | `Geo:Argentina:ProvincialHolidays:BaseUrl` | `https://calendariosnacionales.com/ar/v1/` | Provincial holiday files. |
 | `Geo:Argentina:ProvincialHolidays:Cron` | `0 30 5 ? * MON` | Provincial holiday sync; keep it weekly (the source's terms). |
+| `Geo:Argentina:BankingHolidays:BaseUrl` | `https://www.bcra.gob.ar/` | BCRA banking holiday pages. |
+| `Geo:Argentina:BankingHolidays:Cron` | `0 15 5 * * ?` | Banking holiday sync. |
 | `Geo:MessagePurge:Cron` | `0 30 3 * * ?` | Purge of Geo's old outbox and inbox rows ([operations](operations.md#message-retention)). |
 
 ## Metrics
@@ -108,9 +117,9 @@ source ids, scopes, outcomes and error codes.
 
 ## Adding a country
 
-A country is a package under `src/Modules/Geo/Countries/Frappe.Geo.Countries.<Country>`; it never references another
-country's package, and the core names no country or source. An adapter only declares: the core's one sync pipeline
-fetches, validates, applies and audits every source. Use `Frappe.Geo.Countries.Argentina` as the model.
+A country is a package under `src/Modules/Geo/Countries/Frappe.Geo.Countries.<Country>` (territory, holidays, sector
+calendars, business-day rules); it never references another country's package, and the core names no country or
+source. An adapter only declares: the core's one sync pipeline fetches, validates, applies and audits every source. Use `Frappe.Geo.Countries.Argentina` as the model.
 
 1. **Sources.** Implement `ISnapshotSource<TerritorySnapshot>` or `ISnapshotSource<HolidaySnapshot>` per source: a
    stable `Id`, its files (`Resources`, each required or optional) and `Read`, which turns the downloaded files into a
@@ -118,7 +127,11 @@ fetches, validates, applies and audits every source. Use `Frappe.Geo.Countries.A
 2. **Registration.** An `Add<Country>(this IGeoSources geo)` extension binds and validates each source's options
    (`Geo:<Country>:<Source>:BaseUrl`) and registers each source with its job key, configuration section and default
    cron (`geo.Territory<TSource>(...)`, `geo.Holidays<TSource>(...)`). Respect each source's terms in its schedule.
-3. **Hosts.** The Worker composes the sources (`AddGeoSyncs(geo => geo.Add<Country>())`).
-4. **Tests.** Trimmed real files as fixtures in `tests/Modules/Geo/Frappe.Geo.UnitTests/Fixtures/`, unit tests of
+3. **Calendar rules.** An `Add<Country>Calendar` extension declares the country's weekend, per policy which
+   observances are non-working and which sector calendars (scopes) it needs, and the communities its community
+   non-working days apply to. The scopes the policies name are the only ones the country answers besides `general`.
+4. **Hosts.** The Worker composes the sources (`AddGeoSyncs(geo => geo.Add<Country>())`); every host that answers
+   business-day questions (Api and Worker) composes the rules (`Add<Country>Calendar()`).
+5. **Tests.** Trimmed real files as fixtures in `tests/Modules/Geo/Frappe.Geo.UnitTests/Fixtures/`, unit tests of
    `Read`, and a sync through the real pipeline against an in-process source in the integration tests.
-5. **Docs.** Add its sources, terms, schedules and keys to this page.
+6. **Docs.** Add its sources, terms, schedules and keys to this page.

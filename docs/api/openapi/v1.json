@@ -150,7 +150,7 @@
           "Geo"
         ],
         "summary": "One country",
-        "description": "A country by its ISO 3166-1 alpha-2 code (case-insensitive). Names answer in the language of Accept-Language: the requested tag, then its base language, any Portuguese in pt-BR, then English. Content-Language names the languages served.",
+        "description": "A country by its ISO 3166-1 alpha-2 code (case-insensitive), with capabilities: the years of each holiday calendar Geo holds for it, the business-day policies it answers and its reference time zone. Names answer in the language of Accept-Language: the requested tag, then its base language, any Portuguese in pt-BR, then English. Content-Language names the languages served.",
         "operationId": "GetCountry",
         "parameters": [
           {
@@ -195,7 +195,7 @@
                 }
               },
               "Cache-Control": {
-                "description": "public, max-age=86400 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "description": "public, max-age=300 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
                 "schema": {
                   "type": "string"
                 }
@@ -210,7 +210,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CountryResponse"
+                  "$ref": "#/components/schemas/CountryDetailResponse"
                 }
               }
             }
@@ -305,7 +305,7 @@
                 }
               },
               "Cache-Control": {
-                "description": "public, max-age=86400 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "description": "public, max-age=300 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
                 "schema": {
                   "type": "string"
                 }
@@ -2340,6 +2340,35 @@
         },
         "description": "A source to credit: its name, a working link to it and its license, when it names one."
       },
+      "CapabilitiesResponse": {
+        "required": [
+          "holidays",
+          "businessDayPolicies",
+          "timeZone"
+        ],
+        "type": "object",
+        "properties": {
+          "holidays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HolidayCoverageResponse"
+            }
+          },
+          "businessDayPolicies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "timeZone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "description": "What Geo covers for a country: each holiday calendar it holds (`general`, `banking`) with its years, the\nbusiness-day policies it answers (`banking`, `labor`, `commercial`) and its reference time zone (IANA;\nnull without business-day rules). Empty lists mean Geo has no data, never that the country has no holidays."
+      },
       "CentroidResponse": {
         "required": [
           "latitude",
@@ -2357,6 +2386,41 @@
           }
         },
         "description": "A representative point (WGS 84) published by the source."
+      },
+      "CountryDetailResponse": {
+        "required": [
+          "code",
+          "alpha3",
+          "numeric",
+          "name",
+          "currencies",
+          "capabilities"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "alpha3": {
+            "type": "string"
+          },
+          "numeric": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "currencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/CapabilitiesResponse"
+          }
+        },
+        "description": "One country, as CountryResponse, with what Geo covers for it (CapabilitiesResponse)."
       },
       "CountryListResponse": {
         "required": [
@@ -2485,6 +2549,26 @@
           }
         },
         "description": "The observances that apply in a jurisdiction in a year, by date. `covers` names the calendars they come from:\nthe country's, then the subdivision's own when Geo has it. `attributions` credits the sources of those\ncalendars, as their terms ask: show it wherever the observances are shown. `scope` is the calendars' scope\n(`general`, or a sector's such as `banking`, which lists its source's facts as published)."
+      },
+      "HolidayCoverageResponse": {
+        "required": [
+          "scope",
+          "years"
+        ],
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string"
+          },
+          "years": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        },
+        "description": "The years Geo holds a country's calendar of one scope for, in order."
       },
       "LegalBasisResponse": {
         "required": [
