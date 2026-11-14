@@ -26,7 +26,7 @@ public static class GeoModule
 {
     /// <summary>
     /// Use cases, their storage and the module database, bound from <c>ConnectionStrings:Geo</c>
-    /// (<see cref="GeoDatabaseOptions"/>), with its readiness check. Shared by
+    /// (<see cref="GeoDatabaseOptions"/>), with its readiness check, and <c>IGeoQueries</c> for other modules. Shared by
     /// every host that runs Geo. A missing connection string fails at startup naming the key. Business-day reads go
     /// through the platform cache (<c>AddFrappeCaching</c>), and answer only for the countries whose rules the host
     /// composes (for example <c>AddArgentinaCalendar</c>).
@@ -51,6 +51,7 @@ public static class GeoModule
         services.AddScoped<IHolidaySyncs, EfHolidaySyncs>();
         services.AddScoped<ISubdivisionAliases, EfSubdivisionAliases>();
         services.AddScoped<IEffectiveCalendars, CachedEffectiveCalendars>();
+        services.AddGeoQueries();
         services.AddHandlers(typeof(ICountryCatalog).Assembly);
         return services;
     }

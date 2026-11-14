@@ -4,7 +4,7 @@ What the Geo module answers, where its data comes from, how it is configured and
 
 | Topic | Summary |
 |-------|---------|
-| [What Geo answers](#what-geo-answers) | Countries, currencies, territory, holidays and business days, over HTTP |
+| [What Geo answers](#what-geo-answers) | Countries, currencies, territory, holidays and business days, over HTTP and `IGeoQueries` |
 | [Sources](#sources) | Where each kind of data comes from, its terms and its sync schedule |
 | [Configuration](#configuration) | Source locations and cron schedules |
 | [Administration](#administration) | Manual corrections, sync history and runs, subdivision aliases |
@@ -42,7 +42,8 @@ Geo keeps holidays only for countries with explicit coverage. Any other country,
 answers 404 `geo.holidays.not_covered` (or `geo.business_days.not_covered` when the country has no rules for the
 policy), never "no holidays". The error names the calendar actually missing (`jurisdiction`, `year`, `scope`): for a
 subdivision, the country's when that is the one Geo lacks. A scope the country does not declare is 400
-`geo.calendar_scope.invalid` (with the `scopes` it does), never "not covered", since no calendar of it can exist. Other modules
+`geo.calendar_scope.invalid` (with the `scopes` it does), never "not covered", since no calendar of it can exist. Other modules ask the same questions in process through `IGeoQueries`
+(`Frappe.Geo.Contracts`, see [ADR 0002](adr/0002-synchronous-geo-queries.md)), which answers `NotCovered` instead, and
 learn about calendar changes from the `HolidaysChanged` integration event.
 
 Calendar and business-day answers are cached (memory, then Valkey); clients may reuse an answer for five minutes
@@ -151,7 +152,7 @@ source ids, scopes, outcomes and error codes.
 | `frappe.geo.sync.last_success.age` | Observable gauge, `s` | `frappe.geo.source` | Worker |
 | `frappe.geo.sync.override_conflicts` | Counter, `{conflict}` | `frappe.geo.source` | Worker |
 | `frappe.geo.holidays.covered_through` | Observable gauge, `{year}` | `frappe.geo.country`, `frappe.geo.calendar.scope` | Worker |
-| `frappe.geo.holidays.not_covered` | Counter, `{request}` | `frappe.geo.country`, `frappe.error.code` | Api (HTTP) |
+| `frappe.geo.holidays.not_covered` | Counter, `{request}` | `frappe.geo.country`, `frappe.error.code` | Api (HTTP) and any host serving `IGeoQueries` |
 
 - **Freshness.** `last_success.age` is the time since a source's last applied or unchanged run, read from
   `geo.sync_resources`; a source that never succeeded reports nothing. Alert when it exceeds about twice the source's
