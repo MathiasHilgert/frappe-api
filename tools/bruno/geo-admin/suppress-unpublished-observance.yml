@@ -1,0 +1,37 @@
+info:
+  name: Suppress observance (not in the source, 422)
+  type: http
+  seq: 10
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/v1/geo/countries/AR/holidays/suppressions"
+  body:
+    type: json
+    data: |-
+      {
+        "date": "2026-12-24",
+        "name": "Bruno check"
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "422"
+    - expression: res.headers['content-type']
+      operator: startsWith
+      value: '"application/problem+json"'
+    - expression: res.body.type
+      operator: eq
+      value: '"urn:frappe:problem:rule-violation"'
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"geo.observance.not_in_source"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  Only an observance the source publishes can be suppressed: 422 `geo.observance.not_in_source` for one it does not
+  have, and nothing changes. TODO(auth).

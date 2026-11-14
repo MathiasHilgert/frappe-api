@@ -62,4 +62,28 @@ public sealed class BankingHolidaySyncTests(ValkeyCache valkey)
         await Assert.That(answer.Status).IsEqualTo(HttpStatusCode.OK);
         await Assert.That(answer.Body.GetProperty("observances").GetArrayLength()).IsEqualTo(32);
     }
+
+    [Test]
+    [ClassDataSource<GeoDatabase>(Shared = SharedType.None)]
+    public async Task A_correction_of_the_banking_calendar_leaves_the_general_one_alone_and_wins_over_the_bcra(GeoDatabase database)
+    {
+        await SourceSync.HolidaysAsync(database, new SourceServer("holidays"));
+        var bcra = SourceSync.Bcra();
+        await SourceSync.BankingHolidaysAsync(database, bcra);
+
+        var put = await SendAsync(database, valkey, HttpMethod.Put, "/v1/geo/countries/AR/holidays/suppressions?scope=banking", new { date = "2026-11-06", name = "Día del Bancario" });
+        var unknown = await SendAsync(database, valkey, HttpMethod.Put, "/v1/geo/countries/AR/holidays/suppressions?scope=bank-ing", new { date = "2026-11-06", name = "Día del Bancario" });
+        var undeclared = await SendAsync(database, valkey, HttpMethod.Put, "/v1/geo/countries/AR/holidays/suppressions?scope=insurance", new { date = "2026-11-06", name = "Día del Bancario" });
+        bcra.Replace(SourceSync.BcraPage2026, html => html.Replace("<td>Navidad</td>", "<td>Navidad.</td>", StringComparison.Ordinal));
+        await SourceSync.BankingHolidaysAsync(database, bcra);
+
+        var calendars = await CalendarsAsync(database);
+        await Assert.That(put.Status).IsEqualTo(HttpStatusCode.NoContent);
+        await Assert.That(Outcome(unknown)).IsEqualTo((HttpStatusCode.BadRequest, (string?)"geo.calendar_scope.invalid"));
+        await Assert.That(Outcome(undeclared)).IsEqualTo((HttpStatusCode.BadRequest, (string?)"geo.calendar_scope.invalid"))
+            .Because("a well-formed scope Argentina does not declare has no calendar to be missing");
+        await Assert.That(calendars.Single(c => c.Scope.Value == "banking").Effective.Any(o => o.Date == new NodaTime.LocalDate(2026, 11, 6))).IsFalse();
+        await Assert.That(calendars.Single(c => c.Scope.Value == "banking").Effective.Count).IsEqualTo(20);
+        await Assert.That(calendars.Single(c => c.Scope == CalendarScope.General).Effective.Count).IsEqualTo(32);
+    }
 }

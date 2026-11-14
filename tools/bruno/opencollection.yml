@@ -15,11 +15,12 @@ docs:
   content: |-
     # Frappé API
 
-    Anonymous: no auth and no secrets. Pick an environment (Local
+    Anonymous: no auth and no secrets (the Geo administration routes are `TODO(auth)`). Pick an environment (Local
     or Stack) before sending.
 
     - **Health:** the three Kubernetes probes.
     - **Geo:** countries, currencies, territory and holidays.
+    - **Geo administration:** manual calendar corrections and holiday syncs.
     - **HTTP Conventions:** unknown routes.
     - **OpenAPI:** the machine-readable contract (`/openapi/v1.json`); the human one is Scalar at `{{baseUrl}}/docs/`.
 

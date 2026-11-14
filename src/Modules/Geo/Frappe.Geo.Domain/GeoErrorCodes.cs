@@ -3,6 +3,8 @@ namespace Frappe.Geo.Domain;
 /// <summary>Every stable error code Geo answers with, written once. Its texts live in Frappe.Geo.Http's messages.</summary>
 public static class GeoErrorCodes
 {
+    /// <summary>A required parameter (query, route or body) is absent or blank; its name is the <c>parameter</c>.</summary>
+    public const string ParameterRequired = "geo.parameter.required";
     public const string CountryCodeInvalidFormat = "geo.country_code.invalid_format";
     public const string CountryNotFound = "geo.country.not_found";
     public const string CurrencyCodeInvalidFormat = "geo.currency_code.invalid_format";
@@ -25,5 +27,7 @@ public static class GeoErrorCodes
     public const string ObservanceDuplicate = "geo.observance.duplicate";
     public const string ObservanceInvalid = "geo.observance.invalid";
     public const string ObservanceNotInSource = "geo.observance.not_in_source";
+    public const string HolidayOverrideNotFound = "geo.holiday_override.not_found";
     public const string HolidayCalendarChangedConcurrently = "geo.holiday_calendar.changed_concurrently";
+    public const string HolidaySyncNotFound = "geo.holiday_sync.not_found";
 }

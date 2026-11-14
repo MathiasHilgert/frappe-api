@@ -1,0 +1,29 @@
+info:
+  name: Suppress country observance
+  type: http
+  seq: 4
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/v1/geo/countries/AR/holidays/suppressions?scope=banking"
+  body:
+    type: json
+    data: |-
+      {
+        "date": "2026-12-25",
+        "name": "Navidad"
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "204"
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `PUT /v1/geo/countries/{countryCode}/holidays/suppressions?scope=`: leaves the source's observance of that date
+  and name out, whatever the source says later; here Christmas in the banking calendar. Only an observance the source
+  publishes can be suppressed (422 `geo.observance.not_in_source` otherwise); the next request undoes it. TODO(auth).

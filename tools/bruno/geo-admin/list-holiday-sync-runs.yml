@@ -1,0 +1,26 @@
+info:
+  name: List holiday sync runs
+  type: http
+  seq: 13
+
+http:
+  method: GET
+  url: "{{baseUrl}}/v1/geo/holiday-syncs/ar-official-holidays/runs"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.runs
+      operator: isArray
+    - expression: res.headers['cache-control']
+      operator: eq
+      value: '"no-store"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `GET /v1/geo/holiday-syncs/{sourceId}/runs`: the source's latest 50 runs, newest first, with the override
+  conflicts each found. Never cached (`no-store`). TODO(auth).

@@ -1,0 +1,33 @@
+info:
+  name: Set country override
+  type: http
+  seq: 1
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/v1/geo/countries/AR/holidays/overrides"
+  body:
+    type: json
+    data: |-
+      {
+        "date": "2026-12-24",
+        "name": "Bruno check",
+        "kind": "non_working_day",
+        "movedFrom": null,
+        "community": null,
+        "legalBasis": null
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "204"
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `PUT /v1/geo/countries/{countryCode}/holidays/overrides?scope=`: sets an observance by hand, or replaces the
+  source's of the same date and name; it wins over later syncs. `kind` is `holiday`, `tourist_non_working_day`,
+  `non_working_day` or `community_non_working_day` (with `community`). TODO(auth).

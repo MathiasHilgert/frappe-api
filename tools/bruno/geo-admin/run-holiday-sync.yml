@@ -1,0 +1,31 @@
+info:
+  name: Run holiday sync now
+  type: http
+  seq: 14
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/geo/holiday-syncs/ar-official-holidays/runs"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "202"
+    - expression: res.body.sourceId
+      operator: eq
+      value: '"ar-official-holidays"'
+    - expression: res.body.requestId
+      operator: isString
+    - expression: res.headers.location
+      operator: eq
+      value: '"/v1/geo/holiday-syncs/ar-official-holidays/runs"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `POST /v1/geo/holiday-syncs/{sourceId}/runs`: asks the Worker to run the source besides its schedule; it starts
+  within seconds (`Geo:SyncRequests:Cron`). The body names the request (`requestId`: requests made before the run
+  starts are run once, so it is not a run's id); `Location` is the absolute path of the source's runs, where the run
+  appears once done. TODO(auth).

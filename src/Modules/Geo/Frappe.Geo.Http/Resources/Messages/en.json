@@ -1,4 +1,5 @@
 {
+  "geo.parameter.required": "The parameter “{parameter}” is required.",
   "geo.country_code.invalid_format": "“{value}” is not an ISO 3166-1 alpha-2 country code.",
   "geo.country.not_found": "The country {countryCode} does not exist.",
   "geo.currency_code.invalid_format": "“{value}” is not an ISO 4217 currency code.",
@@ -21,5 +22,7 @@
   "geo.observance.duplicate": "The calendar already has “{name}” on {date}.",
   "geo.observance.invalid": "The observance on {date} is not valid: {reason, select, date_invalid {the date is not in the form YYYY-MM-DD} name_empty {its name is empty} name_too_long {its name has more than {max} characters} kind_unknown {“{value}” is not a kind of observance: use “holiday”, “tourist_non_working_day”, “non_working_day” or “community_non_working_day”} moved_from_invalid {movedFrom “{value}” is not a date in the form YYYY-MM-DD} moved_from_not_allowed {only a holiday moves, and within its year} community_missing {a community non-working day needs its community} community_not_allowed {only a community non-working day has a community} community_too_long {its community has more than {max} characters} community_unknown {“{value}” is not a community of the country: use {communities}} citation_empty {its legal basis needs a citation} citation_too_long {the citation of its legal basis has more than {max} characters} url_invalid {the address of its legal basis is not an absolute http or https URL} url_too_long {the address of its legal basis has more than {max} characters} other {“{reason}”}}.",
   "geo.observance.not_in_source": "The source calendar of {jurisdiction} has no “{name}” on {date}: only an observance the source publishes can be suppressed.",
-  "geo.holiday_calendar.changed_concurrently": "Someone else changed this calendar at the same time: read it again and retry."
+  "geo.holiday_override.not_found": "The calendar of {jurisdiction} has no manual correction of “{name}” on {date}.",
+  "geo.holiday_calendar.changed_concurrently": "Someone else changed this calendar at the same time: read it again and retry.",
+  "geo.holiday_sync.not_found": "There is no holiday source {sourceId}."
 }

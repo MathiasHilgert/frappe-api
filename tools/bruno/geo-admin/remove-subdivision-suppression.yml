@@ -1,0 +1,20 @@
+info:
+  name: Remove subdivision suppression
+  type: http
+  seq: 9
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/v1/geo/subdivisions/AR-X/holidays/overrides?date=2026-11-10&name=Visita oficial de Su Santidad el Papa León XIV"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "204"
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  Removes the suppression of the previous request. TODO(auth).

@@ -1,0 +1,20 @@
+info:
+  name: Remove country suppression
+  type: http
+  seq: 5
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/v1/geo/countries/AR/holidays/overrides?date=2026-12-25&name=Navidad&scope=banking"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "204"
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  A suppression is removed like an override: Christmas counts again in the banking calendar. TODO(auth).

@@ -26,6 +26,11 @@ public static class GeoHttp
         geo.MapCurrencyEndpoints();
         geo.MapTerritoryEndpoints();
         geo.MapHolidayEndpoints();
+
+        // Administration answers must show the latest state, so no cache keeps them.
+        var administration = geo.MapGroup(string.Empty).NoStore();
+        administration.MapHolidayOverrideEndpoints();
+        administration.MapHolidaySyncEndpoints();
         return routes;
     }
 }

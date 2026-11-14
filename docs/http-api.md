@@ -6,14 +6,16 @@ described by the OpenAPI document: `/openapi/v1.json` on a running Api, browsabl
 
 | Topic | Rule |
 |-------|------|
-| [Access](#access) | Anonymous under `/v1`, rate limited per client |
+| [Access](#access) | Anonymous under `/v1`, rate limited per client; administration writes not authenticated yet |
 | [Languages](#languages) | Texts follow `Accept-Language`; `Content-Language` names what was served |
 | [Errors](#errors) | RFC 9457 Problem Details with one contract: a category in `type`, stable codes in `errors` |
 | [Caching](#caching) | Every endpoint declares its lifetime: cacheable answers carry a strong `ETag` and `304`, the rest `no-store` |
 
 ## Access
 
-Version 1 is anonymous, under `/v1` (rate limited per client). The OpenAPI document describes the real problem body (`Problem`) on
+Version 1 is anonymous, under `/v1` (rate limited per client). Most of it reads; the administration endpoints also
+write (holiday overrides and sync requests) and are not authenticated yet: they are open until Frappé
+has authentication (`TODO(auth)` on each route). The OpenAPI document describes the real problem body (`Problem`) on
 every 4xx and 5xx, the `Content-Language`, `ETag`, `Cache-Control`, `Location` and `Retry-After` headers, and every
 query parameter's type and whether it is required. Every `GET` route, the OpenAPI document and the Scalar reference included, also answers `HEAD`
 with the same headers and no body.
