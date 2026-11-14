@@ -22,7 +22,7 @@ public sealed class LayeringTests
 
     /// <summary>The source packages: what serves any country, and one package per country.</summary>
     private static readonly Assembly[] GeoSourcePackages =
-        [System.Reflection.Assembly.Load("Frappe.Geo.Global")];
+        [System.Reflection.Assembly.Load("Frappe.Geo.Global"), System.Reflection.Assembly.Load("Frappe.Geo.Countries.Argentina")];
 
     /// <summary>Anything a domain or application layer must never know about.</summary>
     private static readonly string[] Infrastructure =

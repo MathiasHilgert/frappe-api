@@ -94,9 +94,13 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
         _worker = Track(new ContainerBuilder(_image)
             .WithNetwork(_network)
             .WithEntrypoint("/app/worker/Frappe.Worker")
+            .WithEnvironment("ConnectionStrings__Geo", GeoConnectionString())
             .WithEnvironment("ConnectionStrings__Scheduler", $"Host=postgres;Database=frappe;Username=frappe_scheduler;Password={_schedulerPassword}")
             .WithEnvironment("ConnectionStrings__Valkey", "valkey:6379")
             .WithEnvironment("ConnectionStrings__Nats", "nats://nats:4222")
+            // Never a real source from a test: the territory sync at startup fails against a reserved name, is audited and
+            // retried on its schedule, and the Worker stays ready.
+            .WithEnvironment("Geo__Argentina__Georef__BaseUrl", "http://georef.invalid/")
             .Build());
 
         try

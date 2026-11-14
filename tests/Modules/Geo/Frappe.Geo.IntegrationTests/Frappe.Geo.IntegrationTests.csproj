@@ -7,6 +7,7 @@
     <ProjectReference Include="../../../../src/Hosts/Frappe.Migrator/Frappe.Migrator.csproj" />
     <ProjectReference Include="../../../../src/Hosts/Frappe.Api/Frappe.Api.csproj" />
     <ProjectReference Include="../../../../src/Modules/Geo/Frappe.Geo.Global/Frappe.Geo.Global.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Geo/Countries/Frappe.Geo.Countries.Argentina/Frappe.Geo.Countries.Argentina.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Testcontainers.PostgreSql" />

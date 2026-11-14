@@ -1,3 +1,4 @@
+using Frappe.Geo.Application;
 using Frappe.Geo.Application.Countries;
 using Frappe.Geo.Application.Currencies;
 using Frappe.Geo.Infrastructure.Configuration;
@@ -33,6 +34,8 @@ public static class GeoModule
         services.TryAddSingleton<IClock>(provider => new TimeProviderClock(provider.GetRequiredService<TimeProvider>()));
         services.AddGeoPersistence(GeoConnectionString);
         services.AddCriticalDependency("geo-database", provider => new DatabaseHealthCheck(() => new Npgsql.NpgsqlConnection(GeoConnectionString(provider))));
+        services.AddMetrics();
+        services.TryAddSingleton<GeoMetrics>();
         services.AddScoped<ICountryCatalog, EfCountryCatalog>();
         services.AddScoped<ICurrencyCatalog, EfCurrencyCatalog>();
         services.AddHandlers(typeof(ICountryCatalog).Assembly);

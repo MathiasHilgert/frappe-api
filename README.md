@@ -18,7 +18,7 @@ and the cross-cutting work (persistence, messaging, caching, scheduling, localiz
 lives once in a shared platform layer.
 
 **Status: early.** The platform and the Geo module are in place (see [docs/geo.md](docs/geo.md)); Geo serves its
-country and currency catalog so far. Version 1 of the HTTP API has anonymous reads.
+country and currency catalog and syncs Argentina's territory so far. Version 1 of the HTTP API has anonymous reads.
 
 Every response is localized (English, Spanish and Portuguese variants), errors follow one
 [Problem Details](https://www.rfc-editor.org/rfc/rfc9457) contract, and successful answers are cacheable with
@@ -135,7 +135,7 @@ The details, and every CI check, are in [CONTRIBUTING.md](.github/CONTRIBUTING.m
 | `/docs/` and `/openapi/v1.json` on a running Api | Every endpoint, with its parameters and responses |
 | [`docs/http-api.md`](docs/http-api.md) | What every endpoint shares: errors and their codes, languages, caching, rate limiting |
 | [`docs/operations.md`](docs/operations.md) | Telemetry, alerts, health probes and runtime settings |
-| [`docs/geo.md`](docs/geo.md) | The Geo module: what it answers, its sources and their terms, configuration |
+| [`docs/geo.md`](docs/geo.md) | The Geo module: what it answers, its sources and their terms, configuration, metrics, adding a country |
 | [`docs/adr/`](docs/adr/) | Architecture decision records |
 | [`tools/bruno/`](tools/bruno/) | A [Bruno](https://www.usebruno.com/) collection that exercises the API |
 | [`docs/api/`](docs/api/) | The committed OpenAPI contract |

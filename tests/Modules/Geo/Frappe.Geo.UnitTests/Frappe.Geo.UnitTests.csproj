@@ -5,6 +5,7 @@
     <ProjectReference Include="../../../Shared/Frappe.Testing/Frappe.Testing.csproj" />
     <ProjectReference Include="../../../../src/Modules/Geo/Frappe.Geo.Infrastructure/Frappe.Geo.Infrastructure.csproj" />
     <ProjectReference Include="../../../../src/Modules/Geo/Frappe.Geo.Global/Frappe.Geo.Global.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Geo/Countries/Frappe.Geo.Countries.Argentina/Frappe.Geo.Countries.Argentina.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Fixtures/**" CopyToOutputDirectory="PreserveNewest" />

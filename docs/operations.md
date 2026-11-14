@@ -20,7 +20,7 @@ follows a scheduled job from Quartz through its command to the outbox and JetStr
 integration events. In Grafana, open Explore: a trace links to its logs and metrics, and a log line links to its trace.
 
 Modules only declare business metrics on a `Frappe.<Module>` meter (for example `frappe.<module>.<thing>.changed`); the
-platform exports them with everything else. Sampling keeps every trace unless
+platform exports them with everything else ([Geo's](geo.md#metrics)). Sampling keeps every trace unless
 `OTEL_TRACES_SAMPLER` says otherwise.
 
 ## Health

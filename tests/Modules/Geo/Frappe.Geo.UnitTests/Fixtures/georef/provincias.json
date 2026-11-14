@@ -1,0 +1,47 @@
+{
+ "cantidad": 3,
+ "total": 3,
+ "inicio": 0,
+ "parametros": {},
+ "provincias": [
+  {
+   "id": "02",
+   "nombre": "Ciudad Autónoma de Buenos Aires",
+   "nombre_completo": "Ciudad Autónoma de Buenos Aires",
+   "fuente": "IGN",
+   "categoria": "Ciudad Autónoma",
+   "centroide": {
+    "lon": -58.445876325,
+    "lat": -34.614442065
+   },
+   "iso_id": "AR-C",
+   "iso_nombre": "Ciudad Autónoma de Buenos Aires"
+  },
+  {
+   "id": "22",
+   "nombre": "Chaco",
+   "nombre_completo": "Provincia del Chaco",
+   "fuente": "IGN",
+   "categoria": "Provincia",
+   "centroide": {
+    "lon": -60.76511626,
+    "lat": -26.386987184
+   },
+   "iso_id": "AR-H",
+   "iso_nombre": "Chaco"
+  },
+  {
+   "id": "14",
+   "nombre": "Córdoba",
+   "nombre_completo": "Provincia de Córdoba",
+   "fuente": "IGN",
+   "categoria": "Provincia",
+   "centroide": {
+    "lon": -63.801973467,
+    "lat": -32.144799387
+   },
+   "iso_id": "AR-X",
+   "iso_nombre": "Córdoba"
+  }
+ ]
+}
