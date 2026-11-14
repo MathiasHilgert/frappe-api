@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "year": 2026,
+  "generatedAt": "2026-11-10T19:31:58.588Z",
+  "source": {
+    "name": "Ley 27.399 — Feriados Nacionales (Argentina)",
+    "url": "https://www.argentina.gob.ar/interior/feriados",
+    "license": "Datos públicos oficiales de Argentina"
+  },
+  "calendarType": "laboral",
+  "scope": "provincia",
+  "region": {
+    "code": "AR-U",
+    "slug": "chubut",
+    "name": "Chubut",
+    "capital": "Rawson"
+  },
+  "holidays": {
+    "national": [
+      {
+        "date": "2026-01-01",
+        "name": "Año Nuevo",
+        "source": "Ley 27.399, art. 1",
+        "sourceUrl": "https://www.argentina.gob.ar/interior/feriados",
+        "scope": "nacional",
+        "rule": "fixed"
+      },
+      {
+        "date": "2026-02-16",
+        "name": "Carnaval (lunes)",
+        "source": "Ley 27.399, art. 1 (48 días antes de Pascua)",
+        "sourceUrl": "https://www.argentina.gob.ar/interior/feriados",
+        "scope": "nacional",
+        "rule": "easter-48"
+      }
+    ],
+    "regional": [],
+    "calendar": [
+      {
+        "date": "2026-01-01",
+        "name": "Año Nuevo",
+        "source": "Ley 27.399, art. 1",
+        "sourceUrl": "https://www.argentina.gob.ar/interior/feriados",
+        "scope": "nacional",
+        "rule": "fixed"
+      },
+      {
+        "date": "2026-02-16",
+        "name": "Carnaval (lunes)",
+        "source": "Ley 27.399, art. 1 (48 días antes de Pascua)",
+        "sourceUrl": "https://www.argentina.gob.ar/interior/feriados",
+        "scope": "nacional",
+        "rule": "easter-48"
+      }
+    ]
+  },
+  "disclaimer": "Este servicio se proporciona de forma gratuita, sin garantía de ningún tipo, expresa o implícita. Los datos son meramente informativos y no sustituyen a las fuentes oficiales (BOE, diarios oficiales, organismos competentes de cada país). El acceso, sea anónimo o mediante cuenta gratuita, no genera relación contractual ni obligación alguna por parte de Calendarios Nacionales. El titular del servicio no se responsabiliza de daños o perjuicios derivados del uso o interpretación de estos datos."
+}

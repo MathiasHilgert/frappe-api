@@ -57,8 +57,13 @@ refused or failed run changes nothing, and every run is audited in `geo.sync_run
 | Countries, currencies, names | [Unicode CLDR](https://cldr.unicode.org/), embedded snapshot (`Frappe.Geo.Global`) | Unicode License v3 | None: changes ship with a release |
 | Argentina: territory | [Georef](https://infra.datos.gob.ar/georef/) full downloads (provinces, departments, municipalities, localities) | See the source | Mondays 04:00 |
 | Argentina: national holidays | [argentina.gob.ar](https://www.argentina.gob.ar/) `holidays-{year}-es.json` | CC BY 4.0, credited in every answer | Daily 05:00 |
+| Argentina: provincial holidays | [Calendarios Nacionales](https://calendariosnacionales.com/) `{year}/provincias/{slug}.json` | [Terms](https://calendariosnacionales.com/terminos-y-condiciones/): a visible link in every answer, no abusive syncing (hence weekly) | Mondays 05:30 |
 
 Next year's holiday file is optional until it is published; the current year's is required.
+
+Provincial rows keep the source's link to their norm: SAIJ links (`saij.gob.ar/view-document?guid=123456789-0abc-...`)
+look made up but are SAIJ's own id format (read backwards, `...-230-5000avorpyel` is `leyprova 0005-032`, Salta's
+Ley 5.032).
 
 The Migrator brings the catalog to the embedded snapshot after every migration, as a diff: a country or currency the
 snapshot drops is retired, never deleted, so a code another module stored keeps resolving.
@@ -66,7 +71,7 @@ snapshot drops is retired, never deleted, so a code another module stored keeps 
 ## Configuration
 
 Every key is validated when the host starts; a missing or invalid one stops it naming the key. Crons are Quartz
-expressions, seconds first. In environment variables, `:` becomes `__` (`Geo__Argentina__Territory__Cron`).
+expressions, seconds first. In environment variables, `:` becomes `__` (`Geo__Argentina__Holidays__Cron`).
 
 | Key | Default | Meaning |
 |-----|---------|---------|
@@ -75,6 +80,8 @@ expressions, seconds first. In environment variables, `:` becomes `__` (`Geo__Ar
 | `Geo:Argentina:Territory:Cron` | `0 0 4 ? * MON` | Territory sync. |
 | `Geo:Argentina:Holidays:BaseUrl` | `https://www.argentina.gob.ar/sites/default/files/` | National holiday files. |
 | `Geo:Argentina:Holidays:Cron` | `0 0 5 * * ?` | National holiday sync. |
+| `Geo:Argentina:ProvincialHolidays:BaseUrl` | `https://calendariosnacionales.com/ar/v1/` | Provincial holiday files. |
+| `Geo:Argentina:ProvincialHolidays:Cron` | `0 30 5 ? * MON` | Provincial holiday sync; keep it weekly (the source's terms). |
 | `Geo:MessagePurge:Cron` | `0 30 3 * * ?` | Purge of Geo's old outbox and inbox rows ([operations](operations.md#message-retention)). |
 
 ## Metrics
