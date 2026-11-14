@@ -1,0 +1,3 @@
+{
+  "http.rate_limited": "Usted envió más solicitudes de las permitidas. Vuelva a intentarlo en {retryAfter, plural, one {# segundo} other {# segundos}}."
+}

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="MessageFormat" />
+    <InternalsVisibleTo Include="Frappe.Platform.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.UseCases/Frappe.UseCases.csproj" />
+    <ProjectReference Include="../Frappe.Localization/Frappe.Localization.csproj" />
+    <ProjectReference Include="../Frappe.Health/Frappe.Health.csproj" />
+  </ItemGroup>
+</Project>

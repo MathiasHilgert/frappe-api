@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <ProjectReference Include="../../../src/Platform/Frappe.Http/Frappe.Http.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Localization/Frappe.Localization.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Aggregates/Frappe.Aggregates.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
   </ItemGroup>
 </Project>

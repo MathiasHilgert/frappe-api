@@ -1,0 +1,23 @@
+{
+  "problem.invalid_value": "The request contains invalid values.",
+  "problem.rule_violation": "The operation breaks a business rule.",
+  "problem.not_found": "The resource does not exist.",
+  "problem.conflict": "The operation conflicts with the current state.",
+  "problem.several": "{count, plural, one {# error was found.} other {# errors were found.}}",
+  "problem.rate_limited": "Too many requests.",
+  "problem.unavailable": "The service is not available right now.",
+  "problem.unexpected": "An unexpected error occurred.",
+  "localization.language_tag.invalid_format": "“{value}” is not a valid language tag.",
+  "localization.translation.unavailable": "There is no content in {requested}. Available languages: {available}.",
+  "http.rate_limited": "You sent more requests than allowed. Try again in {retryAfter, plural, one {# second} other {# seconds}}.",
+  "problem.method_not_allowed": "The method is not allowed for this resource.",
+  "http.not_found": "The URL does not match any endpoint of the API.",
+  "http.method_not_allowed": "{method} is not allowed here. Allowed methods: {allowed}.",
+  "http.unexpected": "The request could not be completed. If the problem persists, report the traceId.",
+  "problem.bad_request": "The request is malformed.",
+  "problem.request_too_large": "The request is too large.",
+  "http.bad_request": "The request could not be read: a value does not have the expected format.",
+  "http.request_too_large": "The request body is larger than the API accepts.",
+  "problem.unsupported_media_type": "The request's content type is not accepted.",
+  "http.unsupported_media_type": "The request body must be sent as {accepted}."
+}

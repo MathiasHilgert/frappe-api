@@ -1,0 +1,23 @@
+{
+  "problem.invalid_value": "A solicitação contém valores inválidos.",
+  "problem.rule_violation": "A operação não cumpre uma regra de negócio.",
+  "problem.not_found": "O recurso não existe.",
+  "problem.conflict": "A operação entra em conflito com o estado atual.",
+  "problem.several": "{count, plural, one {Foi encontrado # erro.} other {Foram encontrados # erros.}}",
+  "problem.rate_limited": "Muitas solicitações.",
+  "problem.unavailable": "O serviço não está disponível no momento.",
+  "problem.unexpected": "Ocorreu um erro inesperado.",
+  "localization.language_tag.invalid_format": "“{value}” não é uma etiqueta de idioma válida.",
+  "localization.translation.unavailable": "Não há conteúdo em {requested}. Idiomas disponíveis: {available}.",
+  "http.rate_limited": "Você enviou mais solicitações do que o permitido. Tente novamente em {retryAfter, plural, one {# segundo} other {# segundos}}.",
+  "problem.method_not_allowed": "O método não é permitido para este recurso.",
+  "http.not_found": "A URL não corresponde a nenhum endpoint da API.",
+  "http.method_not_allowed": "{method} não é permitido aqui. Métodos permitidos: {allowed}.",
+  "http.unexpected": "A solicitação não pôde ser concluída. Se o problema persistir, informe o traceId.",
+  "problem.bad_request": "A solicitação está malformada.",
+  "problem.request_too_large": "A solicitação é grande demais.",
+  "http.bad_request": "A solicitação não pôde ser lida: um valor não tem o formato esperado.",
+  "http.request_too_large": "O corpo da solicitação excede o tamanho que a API aceita.",
+  "problem.unsupported_media_type": "O tipo de conteúdo da solicitação não é aceito.",
+  "http.unsupported_media_type": "O corpo da solicitação deve ser enviado como {accepted}."
+}
