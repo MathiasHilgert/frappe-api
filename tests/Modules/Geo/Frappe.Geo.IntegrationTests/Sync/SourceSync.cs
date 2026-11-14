@@ -37,6 +37,27 @@ internal static class SourceSync
     public static Task<SyncOutcome> HolidaysAsync(GeoDatabase database, SourceServer government, SyncMetrics? metrics = null) =>
         RunAsync(database, government, new OfficialHolidaySource(Options.Create(new OfficialHolidaysOptions()), In2026), db => new HolidayTarget(new EfHolidayCalendars(db)), metrics);
 
+    public static Task<SyncOutcome> ProvincialHolidaysAsync(GeoDatabase database, SourceServer calendarios) =>
+        RunAsync(database, calendarios, new ProvincialHolidaySource(Options.Create(new ProvincialHolidaysOptions()), In2026), db => new HolidayTarget(new EfHolidayCalendars(db)));
+
+    /// <summary>
+    /// Calendarios Nacionales' 2026 provincial files: the trimmed real ones of the fixture folder, and for every other
+    /// province a file with no own observance, built from Chubut's, so the required files are all published.
+    /// </summary>
+    public static SourceServer Calendarios()
+    {
+        var server = new SourceServer("calendarios-nacionales");
+        var chubut = server.Content("2026/provincias/chubut.json");
+        foreach (var (slug, code) in ArgentineProvinces.Codes.Where(p => !server.Serves($"2026/provincias/{p.Key}.json")))
+        {
+            server.Add($"2026/provincias/{slug}.json", chubut
+                .Replace("\"slug\": \"chubut\"", $"\"slug\": \"{slug}\"", StringComparison.Ordinal)
+                .Replace("\"code\": \"AR-U\"", $"\"code\": \"{code}\"", StringComparison.Ordinal));
+        }
+
+        return server;
+    }
+
     /// <summary>
     /// The sync metrics of a Worker over <paramref name="database"/>, on a meter factory of their own (dispose the
     /// provider) so a test listens only to its own runs.

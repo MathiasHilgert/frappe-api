@@ -102,6 +102,7 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
             // retried on its schedule, and the Worker stays ready.
             .WithEnvironment("Geo__Argentina__Georef__BaseUrl", "http://georef.invalid/")
             .WithEnvironment("Geo__Argentina__Holidays__BaseUrl", "http://holidays.invalid/")
+            .WithEnvironment("Geo__Argentina__ProvincialHolidays__BaseUrl", "http://calendarios.invalid/")
             .Build());
 
         try
