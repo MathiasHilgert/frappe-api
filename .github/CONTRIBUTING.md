@@ -50,7 +50,7 @@ Commands are `just <area> <action>`; `just` lists them all.
 | `docker` | `image`: the one image for the Api, the Worker and the Migrator |
 | `contracts` | `update`: regenerate `docs/api/` (the HTTP contract) after a deliberate change |
 | `deps` | `lock`: rewrite every `packages.lock.json` after changing a package or the SDK; `audit`: list vulnerable packages |
-| `github` | `conventions`: test the title, commit and branch rules; `protect`: apply the repository settings and the ruleset of `main` |
+| `github` | `conventions`: test the title, commit and branch rules; `protect`: apply the repository settings and the ruleset of `main`; `labels`: make the labels match `.github/labels.json` |
 
 `just build` builds the solution.
 

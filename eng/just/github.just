@@ -13,3 +13,15 @@ protect:
     if [ -n "$id" ]; then gh api --method PUT "repos/{owner}/{repo}/rulesets/$id" --input .github/rulesets/main.json --silent; \
     else gh api --method POST "repos/{owner}/{repo}/rulesets" --input .github/rulesets/main.json --silent; fi
     @echo "Settings and the ruleset of main are applied."
+
+# Make the repository's labels exactly .github/labels.json: create or update each one, delete any other; needs gh
+labels:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    jq -c '.[]' .github/labels.json | while read -r label; do
+      gh label create "$(jq -r .name <<< "$label")" --color "$(jq -r .color <<< "$label")" --description "$(jq -r .description <<< "$label")" --force
+    done
+    gh label list --limit 200 --json name --jq '.[].name' | while read -r name; do
+      jq -e --arg name "$name" 'any(.[]; .name == $name)' .github/labels.json > /dev/null || gh label delete "$name" --yes
+    done
+    echo "Labels match .github/labels.json."

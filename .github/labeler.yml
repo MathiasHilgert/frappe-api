@@ -1,4 +1,6 @@
-# Area labels by changed path, applied by the "Pull request" workflow (actions/labeler).
+# Area labels by changed path, applied by the "Pull request" workflow (actions/labeler). Which part of the system a
+# change touches; what kind of change it is comes from the title ("type:" labels), so tests and docs get no area label.
+# Every label, with its color and description, is defined in .github/labels.json (just github labels).
 "area: geo":
   - changed-files:
       - any-glob-to-any-file: ["src/Modules/Geo/**", "tests/Modules/Geo/**"]
@@ -14,9 +16,6 @@
 "area: contracts":
   - changed-files:
       - any-glob-to-any-file: ["docs/api/**", "src/Modules/*/*.Contracts/**"]
-"area: tests":
-  - changed-files:
-      - any-glob-to-any-file: ["tests/**"]
 "area: infrastructure":
   - changed-files:
       - any-glob-to-any-file: ["deploy/**", ".justfile", "eng/just/**"]
@@ -26,6 +25,3 @@
 "area: dependencies":
   - changed-files:
       - any-glob-to-any-file: ["Directory.Packages.props", "**/packages.lock.json", "global.json", ".config/dotnet-tools.json", "NuGet.config"]
-"area: docs":
-  - changed-files:
-      - any-glob-to-any-file: ["docs/**", "tools/bruno/**", "**/*.md"]
