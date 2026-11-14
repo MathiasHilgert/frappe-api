@@ -2254,6 +2254,822 @@
         }
       }
     },
+    "/v1/geo/countries/{countryCode}/calendar/{date}": {
+      "get": {
+        "tags": [
+          "Geo"
+        ],
+        "summary": "A date in a country's business calendar",
+        "description": "Whether a date (YYYY-MM-DD) is a business day in a country under a policy, its kind and its observances. policy (required) is banking (settlements and payments), labor (payroll: read kind, the day's strongest observance) or commercial (suppliers and deadlines). Each country declares what its policies close: its weekend, the kinds of observance and the sector calendars each policy treats as non-working; GET /v1/geo/countries/{code} lists the policies it answers and its time zone. 404 geo.holidays.not_covered when Geo lacks a calendar the answer needs, geo.business_days.not_covered when the country has no rules for the policy; each answer names the general calendars it read (covers) and credits the sources of every calendar read (attributions), as their terms ask. A missing parameter is 400 geo.parameter.required.",
+        "operationId": "GetCountryCalendarDay",
+        "parameters": [
+          {
+            "name": "countryCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "policy",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "banking",
+                "labor",
+                "commercial"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "ETags of the copies the client holds (or *): when one matches, the answer is 304 without a body.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages Frappé's own texts in the response are written in; absent when it holds none, only proper nouns, identifiers and source data (names and categories as their source publishes them).",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=300 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessDayResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: If-None-Match matched the current ETag, so the client's copy is still current.",
+            "headers": {
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=300 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/geo/subdivisions/{subdivisionCode}/calendar/{date}": {
+      "get": {
+        "tags": [
+          "Geo"
+        ],
+        "summary": "A date in a subdivision's business calendar",
+        "description": "The same for a subdivision: its country's calendars and its own where Geo has them (see covers). policy (required) is banking (settlements and payments), labor (payroll: read kind, the day's strongest observance) or commercial (suppliers and deadlines). Each country declares what its policies close: its weekend, the kinds of observance and the sector calendars each policy treats as non-working; GET /v1/geo/countries/{code} lists the policies it answers and its time zone. 404 geo.holidays.not_covered when Geo lacks a calendar the answer needs, geo.business_days.not_covered when the country has no rules for the policy; each answer names the general calendars it read (covers) and credits the sources of every calendar read (attributions), as their terms ask. A missing parameter is 400 geo.parameter.required.",
+        "operationId": "GetSubdivisionCalendarDay",
+        "parameters": [
+          {
+            "name": "subdivisionCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "policy",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "banking",
+                "labor",
+                "commercial"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "ETags of the copies the client holds (or *): when one matches, the answer is 304 without a body.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages Frappé's own texts in the response are written in; absent when it holds none, only proper nouns, identifiers and source data (names and categories as their source publishes them).",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=300 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessDayResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: If-None-Match matched the current ETag, so the client's copy is still current.",
+            "headers": {
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=300 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/geo/countries/{countryCode}/business-days": {
+      "get": {
+        "tags": [
+          "Geo"
+        ],
+        "summary": "Next business days in a country",
+        "description": "The first count (1 to 60; 400 geo.business_day_count.invalid when not digits, .out_of_range outside) business days from the date from (YYYY-MM-DD, included); a year on the way that Geo does not cover answers 404, never fewer days. policy (required) is banking (settlements and payments), labor (payroll: read kind, the day's strongest observance) or commercial (suppliers and deadlines). Each country declares what its policies close: its weekend, the kinds of observance and the sector calendars each policy treats as non-working; GET /v1/geo/countries/{code} lists the policies it answers and its time zone. 404 geo.holidays.not_covered when Geo lacks a calendar the answer needs, geo.business_days.not_covered when the country has no rules for the policy; each answer names the general calendars it read (covers) and credits the sources of every calendar read (attributions), as their terms ask. A missing parameter is 400 geo.parameter.required.",
+        "operationId": "ListCountryBusinessDays",
+        "parameters": [
+          {
+            "name": "countryCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "count",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "maximum": 60,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "policy",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "banking",
+                "labor",
+                "commercial"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "ETags of the copies the client holds (or *): when one matches, the answer is 304 without a body.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages Frappé's own texts in the response are written in; absent when it holds none, only proper nouns, identifiers and source data (names and categories as their source publishes them).",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=300 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessDaysResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: If-None-Match matched the current ETag, so the client's copy is still current.",
+            "headers": {
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=300 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/geo/subdivisions/{subdivisionCode}/business-days": {
+      "get": {
+        "tags": [
+          "Geo"
+        ],
+        "summary": "Next business days in a subdivision",
+        "description": "The first count (1 to 60; 400 geo.business_day_count.invalid when not digits, .out_of_range outside) business days from the date from (YYYY-MM-DD, included); a year on the way that Geo does not cover answers 404, never fewer days. policy (required) is banking (settlements and payments), labor (payroll: read kind, the day's strongest observance) or commercial (suppliers and deadlines). Each country declares what its policies close: its weekend, the kinds of observance and the sector calendars each policy treats as non-working; GET /v1/geo/countries/{code} lists the policies it answers and its time zone. 404 geo.holidays.not_covered when Geo lacks a calendar the answer needs, geo.business_days.not_covered when the country has no rules for the policy; each answer names the general calendars it read (covers) and credits the sources of every calendar read (attributions), as their terms ask. A missing parameter is 400 geo.parameter.required.",
+        "operationId": "ListSubdivisionBusinessDays",
+        "parameters": [
+          {
+            "name": "subdivisionCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "count",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "maximum": 60,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "policy",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "banking",
+                "labor",
+                "commercial"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "ETags of the copies the client holds (or *): when one matches, the answer is 304 without a body.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages Frappé's own texts in the response are written in; absent when it holds none, only proper nouns, identifiers and source data (names and categories as their source publishes them).",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=300 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessDaysResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: If-None-Match matched the current ETag, so the client's copy is still current.",
+            "headers": {
+              "ETag": {
+                "description": "Strong validator of this representation, language included; send it back in If-None-Match.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "public, max-age=300 at most (seconds); some answers expire sooner, such as time zones before an offset change.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "Accept-Language: each language is a separate representation with its own ETag; a cache keys on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/geo/countries/{countryCode}/holidays/overrides": {
       "put": {
         "tags": [
@@ -4182,6 +4998,103 @@
           }
         },
         "description": "A source to credit: its name, a working link to it and its license, when it names one."
+      },
+      "BusinessDayResponse": {
+        "required": [
+          "jurisdiction",
+          "date",
+          "policy",
+          "businessDay",
+          "weekend",
+          "kind",
+          "observances",
+          "covers",
+          "attributions"
+        ],
+        "type": "object",
+        "properties": {
+          "jurisdiction": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "policy": {
+            "type": "string"
+          },
+          "businessDay": {
+            "type": "boolean"
+          },
+          "weekend": {
+            "type": "boolean"
+          },
+          "kind": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "observances": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ObservanceResponse"
+            }
+          },
+          "covers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "attributions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttributionResponse"
+            }
+          }
+        },
+        "description": "A date in a jurisdiction under a policy. `businessDay` answers the policy; `kind` is the day's strongest\nobservance (`holiday`, `tourist_non_working_day`, `non_working_day`, `community_non_working_day`;\nnull for an ordinary day), which is what payroll (`labor`) needs; `observances` are those the policy looked\nat; `covers` names the general calendars read; `attributions` credits the sources of every calendar read, as\ntheir terms ask: show it wherever the observances are shown."
+      },
+      "BusinessDaysResponse": {
+        "required": [
+          "jurisdiction",
+          "policy",
+          "from",
+          "dates",
+          "covers",
+          "attributions"
+        ],
+        "type": "object",
+        "properties": {
+          "jurisdiction": {
+            "type": "string"
+          },
+          "policy": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "dates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "covers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "attributions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttributionResponse"
+            }
+          }
+        },
+        "description": "The next business days in a jurisdiction under a policy, from `from` (included), in order. `covers` names\nthe general calendars read; `attributions` credits the sources of every calendar read, as their terms ask: show\nit wherever these dates are shown."
       },
       "CapabilitiesResponse": {
         "required": [

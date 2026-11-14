@@ -7,10 +7,10 @@ docs:
   content: |-
     # Geo
 
-    The read side of `/v1/geo`: the CLDR catalogue of countries and currencies, Argentina's territory (Georef) and
-    holiday calendars. Territory and calendars exist only after the Worker synced them (it runs every source once when
-    it starts), so run the Worker before this folder. Answers are cached: each one carries an `ETag` and
-    `Cache-Control`.
+    The read side of `/v1/geo`: the CLDR catalogue of countries and currencies, Argentina's territory (Georef),
+    holiday calendars and business days. Territory and calendars exist only after the Worker synced them (it runs
+    every source once when it starts), so run the Worker before this folder. Answers are cached: each one carries an
+    `ETag` and `Cache-Control`.
 
     The requests use Argentina (`AR`), Córdoba (`AR-X`) and 2026. A country or year Geo holds no calendar for
     answers 404 `geo.holidays.not_covered`, never "no holidays". See `docs/geo.md`.

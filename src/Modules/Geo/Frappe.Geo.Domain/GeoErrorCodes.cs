@@ -23,6 +23,11 @@ public static class GeoErrorCodes
     public const string HolidayYearOutOfRange = "geo.holiday_year.out_of_range";
     public const string CalendarScopeInvalid = "geo.calendar_scope.invalid";
     public const string HolidaysNotCovered = "geo.holidays.not_covered";
+    public const string DateInvalidFormat = "geo.date.invalid_format";
+    public const string BusinessDayPolicyInvalid = "geo.business_day_policy.invalid";
+    public const string BusinessDaysNotCovered = "geo.business_days.not_covered";
+    public const string BusinessDayCountOutOfRange = "geo.business_day_count.out_of_range";
+    public const string BusinessDayCountInvalid = "geo.business_day_count.invalid";
     public const string ObservanceDateOutsideYear = "geo.observance.date_outside_year";
     public const string ObservanceDuplicate = "geo.observance.duplicate";
     public const string ObservanceInvalid = "geo.observance.invalid";
