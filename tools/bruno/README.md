@@ -7,7 +7,7 @@ and response shape; error requests assert the Problem Details category (`type`) 
 | Folder | Covers |
 |--------|--------|
 | Health | `/health/live`, `/health/ready`, `/health/startup` |
-| Geo | Every read endpoint of `/v1/geo`: catalogue and territory |
+| Geo | Every read endpoint of `/v1/geo`: catalogue, territory and holidays |
 | HTTP Conventions | The 404 Problem Details of an unknown route |
 | OpenAPI | `/openapi/v1.json` |
 

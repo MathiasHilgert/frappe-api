@@ -101,6 +101,7 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
             // Never a real source from a test: the territory sync at startup fails against a reserved name, is audited and
             // retried on its schedule, and the Worker stays ready.
             .WithEnvironment("Geo__Argentina__Georef__BaseUrl", "http://georef.invalid/")
+            .WithEnvironment("Geo__Argentina__Holidays__BaseUrl", "http://holidays.invalid/")
             .Build());
 
         try

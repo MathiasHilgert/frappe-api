@@ -1,0 +1,29 @@
+info:
+  name: Country holidays (not covered, 404)
+  type: http
+  seq: 14
+
+http:
+  method: GET
+  url: "{{baseUrl}}/v1/geo/countries/UY/holidays?year=2026"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "404"
+    - expression: res.headers['content-type']
+      operator: startsWith
+      value: '"application/problem+json"'
+    - expression: res.body.type
+      operator: eq
+      value: '"urn:frappe:problem:not-found"'
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"geo.holidays.not_covered"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  Geo holds no calendar for Uruguay: 404 `geo.holidays.not_covered`, never an empty calendar.

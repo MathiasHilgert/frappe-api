@@ -18,7 +18,7 @@ and the cross-cutting work (persistence, messaging, caching, scheduling, localiz
 lives once in a shared platform layer.
 
 **Status: early.** The platform and the Geo module are in place (see [docs/geo.md](docs/geo.md)); Geo serves its
-country and currency catalog and Argentina's territory so far. Version 1 of the HTTP API has anonymous reads.
+country and currency catalog, Argentina's territory and its national holidays so far. Version 1 of the HTTP API has anonymous reads.
 
 Every response is localized (English, Spanish and Portuguese variants), errors follow one
 [Problem Details](https://www.rfc-editor.org/rfc/rfc9457) contract, and successful answers are cacheable with
@@ -122,7 +122,7 @@ real image.
 | Branches | `<type>/<kebab-topic>`, with the type of the title |
 | Merging | Squash only: the PR title becomes the commit on `main` |
 | Code quality | Warnings are errors; every method stays within cognitive complexity 15 and cyclomatic complexity 10 |
-| Contracts | The HTTP contract is committed in [`docs/api/`](docs/api/); a breaking change needs `!` in the title |
+| Contracts | The HTTP and event contracts are committed in [`docs/api/`](docs/api/); a breaking change needs `!` in the title |
 | Coverage | At least 80% of the production lines a PR changes |
 | CI | Every required check is named after what it guarantees, such as "Database migrations are safe" |
 
@@ -138,7 +138,7 @@ The details, and every CI check, are in [CONTRIBUTING.md](.github/CONTRIBUTING.m
 | [`docs/geo.md`](docs/geo.md) | The Geo module: what it answers, its sources and their terms, configuration, metrics, adding a country |
 | [`docs/adr/`](docs/adr/) | Architecture decision records |
 | [`tools/bruno/`](tools/bruno/) | A [Bruno](https://www.usebruno.com/) collection that exercises the API |
-| [`docs/api/`](docs/api/) | The committed OpenAPI contract |
+| [`docs/api/`](docs/api/) | The committed OpenAPI and integration event contracts |
 | [CONTRIBUTING.md](.github/CONTRIBUTING.md) | Commands, testing, conventions, CI and the repository layout |
 
 ## License

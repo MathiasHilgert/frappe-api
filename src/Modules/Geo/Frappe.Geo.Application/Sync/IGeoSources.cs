@@ -1,3 +1,4 @@
+using Frappe.Geo.Application.Holidays;
 using Frappe.Geo.Application.Territory;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,4 +17,8 @@ public interface IGeoSources
     /// <summary>A source of a country's territory, synced as job <c>sync-{key}</c> on <c>{section}:Cron</c>.</summary>
     IGeoSources Territory<TSource>(string key, string section, string defaultCron)
         where TSource : class, ISnapshotSource<TerritorySnapshot>;
+
+    /// <summary>A source of holiday calendars, synced as job <c>sync-{key}</c> on <c>{section}:Cron</c>.</summary>
+    IGeoSources Holidays<TSource>(string key, string section, string defaultCron)
+        where TSource : class, ISnapshotSource<HolidaySnapshot>;
 }

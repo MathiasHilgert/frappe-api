@@ -12,5 +12,14 @@
   "geo.territory.not_covered": "Geo no tiene datos territoriales de {countryCode}: no conoce sus subdivisiones.",
   "geo.page_limit.out_of_range": "El límite “{value}” debe ser un número entero de {min} a {max}.",
   "geo.page_limit.invalid": "El límite “{value}” no es un número entero: use uno de {min} a {max}.",
-  "geo.page_cursor.invalid": "El cursor no es válido: use el nextCursor de una página anterior de la misma búsqueda."
+  "geo.page_cursor.invalid": "El cursor no es válido: use el nextCursor de una página anterior de la misma búsqueda.",
+  "geo.holiday_year.invalid": "El año “{value}” debe ser un número entero de {min} a {max}.",
+  "geo.holiday_year.out_of_range": "El año {value} está fuera de rango: debe ser de {min} a {max}.",
+  "geo.calendar_scope.invalid": "“{value}” no es un alcance de calendario de {countryCode}: use {scopes}.",
+  "geo.holidays.not_covered": "Geo no tiene el calendario de feriados de {jurisdiction} para {year} (alcance “{scope}”).",
+  "geo.observance.date_outside_year": "La fecha {date} no pertenece a {year}.",
+  "geo.observance.duplicate": "El calendario ya tiene “{name}” el {date}.",
+  "geo.observance.invalid": "La conmemoración del {date} no es válida: {reason, select, date_invalid {la fecha no tiene el formato AAAA-MM-DD} name_empty {su nombre está vacío} name_too_long {su nombre tiene más de {max} caracteres} kind_unknown {“{value}” no es un tipo de conmemoración: use “holiday”, “tourist_non_working_day”, “non_working_day” o “community_non_working_day”} moved_from_invalid {movedFrom “{value}” no es una fecha con el formato AAAA-MM-DD} moved_from_not_allowed {solo se traslada un feriado, y dentro de su año} community_missing {un día no laborable de una comunidad necesita su comunidad} community_not_allowed {solo un día no laborable de una comunidad tiene comunidad} community_too_long {su comunidad tiene más de {max} caracteres} community_unknown {“{value}” no es una comunidad del país: use {communities}} citation_empty {su base legal necesita una cita} citation_too_long {la cita de su base legal tiene más de {max} caracteres} url_invalid {la dirección de su base legal no es una URL http o https absoluta} url_too_long {la dirección de su base legal tiene más de {max} caracteres} other {“{reason}”}}.",
+  "geo.observance.not_in_source": "El calendario de la fuente de {jurisdiction} no tiene “{name}” el {date}: solo se puede suprimir una conmemoración que la fuente publica.",
+  "geo.holiday_calendar.changed_concurrently": "Otra persona modificó este calendario al mismo tiempo: vuelva a leerlo e intente de nuevo."
 }

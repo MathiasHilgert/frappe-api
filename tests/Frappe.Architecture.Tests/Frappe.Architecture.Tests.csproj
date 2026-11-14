@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <ProjectReference Include="../Shared/Frappe.Testing/Frappe.Testing.csproj" />
     <ProjectReference Include="../../src/Hosts/Frappe.Worker/Frappe.Worker.csproj" />
     <ProjectReference Include="../../src/Modules/Geo/Frappe.Geo.Http/Frappe.Geo.Http.csproj" />
     <ProjectReference Include="../../src/Modules/Geo/Frappe.Geo.Infrastructure/Frappe.Geo.Infrastructure.csproj" />

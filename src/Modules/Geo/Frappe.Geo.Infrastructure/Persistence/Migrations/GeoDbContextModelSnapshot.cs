@@ -18,7 +18,7 @@ partial class GeoDbContextModelSnapshot : ModelSnapshot
     // If you encounter a merge conflict in the line below, it means you need to
     // discard one of the migration branches and recreate its migrations on top of
     // the other branch. See https://aka.ms/efcore-docs-migrations-conflicts for more info.
-    public override string LastMigrationId => "20261114125052_AddTerritoryAndSyncState";
+    public override string LastMigrationId => "20261114130253_AddHolidayCalendars";
 
     protected override void BuildModel(ModelBuilder modelBuilder)
     {
@@ -30,6 +30,57 @@ partial class GeoDbContextModelSnapshot : ModelSnapshot
 
         NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "pg_trgm");
         NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+        modelBuilder.Entity("Frappe.Geo.Domain.Holidays.HolidayCalendar", b =>
+            {
+                b.Property<string>("Jurisdiction")
+                    .HasMaxLength(6)
+                    .HasColumnType("character varying(6)")
+                    .HasColumnName("jurisdiction");
+
+                b.Property<int>("Year")
+                    .HasColumnType("integer")
+                    .HasColumnName("year");
+
+                b.Property<string>("Scope")
+                    .HasMaxLength(16)
+                    .HasColumnType("character varying(16)")
+                    .HasColumnName("scope");
+
+                b.Property<int>("Revision")
+                    .HasColumnType("integer")
+                    .HasColumnName("revision");
+
+                b.Property<uint>("xmin")
+                    .IsConcurrencyToken()
+                    .ValueGeneratedOnAddOrUpdate()
+                    .HasColumnType("xid")
+                    .HasColumnName("xmin");
+
+                b.ComplexProperty(typeof(Dictionary<string, object>), "Attribution", "Frappe.Geo.Domain.Holidays.HolidayCalendar.Attribution#Attribution", b1 =>
+                    {
+                        b1.Property<string>("License")
+                            .HasMaxLength(50)
+                            .HasColumnType("character varying(50)")
+                            .HasColumnName("attribution_license");
+
+                        b1.Property<string>("Name")
+                            .IsRequired()
+                            .HasMaxLength(100)
+                            .HasColumnType("character varying(100)")
+                            .HasColumnName("attribution_name");
+
+                        b1.Property<string>("Url")
+                            .IsRequired()
+                            .HasMaxLength(500)
+                            .HasColumnType("character varying(500)")
+                            .HasColumnName("attribution_url");
+                    });
+
+                b.HasKey("Jurisdiction", "Year", "Scope");
+
+                b.ToTable("holiday_calendars", "geo");
+            });
 
         modelBuilder.Entity("Frappe.Geo.Infrastructure.Countries.CountryRow", b =>
             {
@@ -499,6 +550,69 @@ partial class GeoDbContextModelSnapshot : ModelSnapshot
                     .HasFilter("published_at IS NULL");
 
                 b.ToTable("outbox_messages", "geo");
+            });
+
+        modelBuilder.Entity("Frappe.Geo.Domain.Holidays.HolidayCalendar", b =>
+            {
+                b.OwnsMany("Frappe.Geo.Domain.Holidays.CalendarEntry", "Entries", b1 =>
+                    {
+                        b1.Property<string>("jurisdiction")
+                            .HasColumnType("character varying(6)");
+
+                        b1.Property<int>("year")
+                            .HasColumnType("integer");
+
+                        b1.Property<string>("scope")
+                            .HasColumnType("character varying(16)");
+
+                        b1.Property<string>("Layer")
+                            .HasMaxLength(16)
+                            .HasColumnType("character varying(16)")
+                            .HasColumnName("layer");
+
+                        b1.Property<LocalDate>("Date")
+                            .HasColumnType("date")
+                            .HasColumnName("date");
+
+                        b1.Property<string>("Name")
+                            .HasMaxLength(200)
+                            .HasColumnType("character varying(200)")
+                            .HasColumnName("name");
+
+                        b1.Property<string>("Community")
+                            .HasMaxLength(32)
+                            .HasColumnType("character varying(32)")
+                            .HasColumnName("community");
+
+                        b1.Property<string>("Kind")
+                            .IsRequired()
+                            .HasMaxLength(32)
+                            .HasColumnType("character varying(32)")
+                            .HasColumnName("kind");
+
+                        b1.Property<string>("LegalCitation")
+                            .HasMaxLength(200)
+                            .HasColumnType("character varying(200)")
+                            .HasColumnName("legal_citation");
+
+                        b1.Property<string>("LegalText")
+                            .HasMaxLength(500)
+                            .HasColumnType("character varying(500)")
+                            .HasColumnName("legal_text");
+
+                        b1.Property<LocalDate?>("MovedFrom")
+                            .HasColumnType("date")
+                            .HasColumnName("moved_from");
+
+                        b1.HasKey("jurisdiction", "year", "scope", "Layer", "Date", "Name");
+
+                        b1.ToTable("calendar_entries", "geo");
+
+                        b1.WithOwner()
+                            .HasForeignKey("jurisdiction", "year", "scope");
+                    });
+
+                b.Navigation("Entries");
             });
 
         modelBuilder.Entity("Frappe.Geo.Infrastructure.Countries.CountryRow", b =>

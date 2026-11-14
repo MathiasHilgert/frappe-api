@@ -1,5 +1,6 @@
 using Frappe.Geo.Http.Countries;
 using Frappe.Geo.Http.Currencies;
+using Frappe.Geo.Http.Holidays;
 using Frappe.Geo.Http.Territory;
 using Frappe.Http;
 using Microsoft.AspNetCore.Builder;
@@ -24,6 +25,7 @@ public static class GeoHttp
         geo.MapCountryEndpoints();
         geo.MapCurrencyEndpoints();
         geo.MapTerritoryEndpoints();
+        geo.MapHolidayEndpoints();
         return routes;
     }
 }

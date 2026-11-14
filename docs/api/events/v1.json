@@ -1,0 +1,49 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Frappé integration events",
+    "version": "1"
+  },
+  "paths": {
+    "/frappe.geo.holidays_changed.v1": {
+      "get": {
+        "operationId": "HolidaysChanged",
+        "summary": "Payload (CloudEvents data) of frappe.geo.holidays_changed.v1",
+        "responses": {
+          "200": {
+            "description": "Frappe.Geo.Contracts.Holidays.HolidaysChanged",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jurisdiction": {
+                      "type": "string"
+                    },
+                    "year": {
+                      "type": [
+                        "string",
+                        "integer"
+                      ],
+                      "pattern": "^-?(?:0|[1-9]\\d*)$"
+                    },
+                    "scope": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "jurisdiction",
+                    "year"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

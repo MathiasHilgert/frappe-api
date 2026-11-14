@@ -711,6 +711,12 @@
           "Quartz.Extensions.Hosting": "[4.7.2, )"
         }
       },
+      "frappe.testing": {
+        "type": "Project",
+        "dependencies": {
+          "Microsoft.Extensions.Logging": "[11.0.0, )"
+        }
+      },
       "frappe.usecases": {
         "type": "Project",
         "dependencies": {
