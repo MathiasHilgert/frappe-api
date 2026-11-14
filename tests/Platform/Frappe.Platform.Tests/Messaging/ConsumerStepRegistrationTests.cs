@@ -19,12 +19,12 @@ public sealed class ConsumerStepRegistrationTests
     public async Task A_step_for_a_consumer_that_does_not_exist_fails_the_host_at_startup()
     {
         var builder = Builder();
-        builder.Services.AddAfterCommitHandler<SomethingHappened, HookA>("b-cahce");
+        builder.Services.AddAfterCommitHandler<SomethingHappened, HookA>("b-cache");
         using var host = builder.Build();
 
         var failure = await Assert.ThrowsAsync<OptionsValidationException>(() => host.StartAsync());
 
-        await Assert.That(failure!.Message).Contains("b-cahce");
+        await Assert.That(failure!.Message).Contains("b-cache");
         await Assert.That(failure.Message).Contains(nameof(SomethingHappened));
         await Assert.That(failure.Message).Contains(nameof(HookA));
     }
