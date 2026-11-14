@@ -1,0 +1,72 @@
+{
+ "cantidad": 4,
+ "total": 4,
+ "inicio": 0,
+ "parametros": {},
+ "departamentos": [
+  {
+   "id": "22063",
+   "nombre": "General Güemes",
+   "nombre_completo": "Departamento General Güemes",
+   "provincia": {
+    "id": "22",
+    "nombre": "Chaco",
+    "interseccion": 0.0
+   },
+   "fuente": "IGN",
+   "categoria": "Departamento",
+   "centroide": {
+    "lon": -61.334427023,
+    "lat": -25.212576906
+   }
+  },
+  {
+   "id": "14091",
+   "nombre": "Punilla",
+   "nombre_completo": "Departamento Punilla",
+   "provincia": {
+    "id": "14",
+    "nombre": "Córdoba",
+    "interseccion": 0.0
+   },
+   "fuente": "IGN",
+   "categoria": "Departamento",
+   "centroide": {
+    "lon": -64.585872218,
+    "lat": -31.218758284
+   }
+  },
+  {
+   "id": "02049",
+   "nombre": "Comuna 7",
+   "nombre_completo": "Comuna 7",
+   "provincia": {
+    "id": "02",
+    "nombre": "Ciudad Autónoma de Buenos Aires",
+    "interseccion": 0.0
+   },
+   "fuente": "IGN",
+   "categoria": "Comuna",
+   "centroide": {
+    "lon": -58.451886857,
+    "lat": -34.636554414
+   }
+  },
+  {
+   "id": "14014",
+   "nombre": "Capital",
+   "nombre_completo": "Departamento Capital",
+   "provincia": {
+    "id": "14",
+    "nombre": "Córdoba",
+    "interseccion": 0.0
+   },
+   "fuente": "IGN",
+   "categoria": "Departamento",
+   "centroide": {
+    "lon": -64.183583773,
+    "lat": -31.416756877
+   }
+  }
+ ]
+}

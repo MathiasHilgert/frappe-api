@@ -18,6 +18,8 @@ public sealed class GeoDbContext(DbContextOptions<GeoDbContext> options) : DbCon
         ArgumentNullException.ThrowIfNull(modelBuilder);
         modelBuilder.HasDefaultSchema(Schema);
 
+        // The locality search (trigram word similarity). A trusted extension since Postgres 13: the database owner creates it.
+        modelBuilder.HasPostgresExtension("pg_trgm");
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(GeoDbContext).Assembly);
         modelBuilder.AddOutbox();
         modelBuilder.AddInbox();

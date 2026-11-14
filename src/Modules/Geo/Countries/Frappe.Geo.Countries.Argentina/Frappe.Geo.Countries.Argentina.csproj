@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Everything Geo knows specifically about Argentina. It depends on Geo.Application and the platform only: the
+       pipeline that downloads, validates, applies and audits lives in Geo's core, which never references a country. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Geo.UnitTests" />
+    <InternalsVisibleTo Include="Frappe.Geo.IntegrationTests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../Frappe.Geo.Application/Frappe.Geo.Application.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+  </ItemGroup>
+</Project>

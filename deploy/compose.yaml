@@ -97,6 +97,7 @@ services:
     environment:
       <<: *otel
       OTEL_SERVICE_NAME: frappe-worker
+      ConnectionStrings__Geo: Host=postgres;Database=frappe;Username=frappe_geo;Password=${FRAPPE_GEO_PASSWORD:?set it in .env}
       ConnectionStrings__Scheduler: Host=postgres;Database=frappe;Username=frappe_scheduler;Password=${FRAPPE_SCHEDULER_PASSWORD:?set it in .env}
       ConnectionStrings__Valkey: valkey:6379
       ConnectionStrings__Nats: nats://nats:4222

@@ -1,0 +1,112 @@
+{
+ "cantidad": 4,
+ "total": 4,
+ "inicio": 0,
+ "parametros": {},
+ "localidades": [
+  {
+   "id": "14014010",
+   "nombre": "Córdoba",
+   "fuente": "INDEC",
+   "provincia": {
+    "id": "14",
+    "nombre": "Córdoba"
+   },
+   "departamento": {
+    "id": "14014",
+    "nombre": "Capital"
+   },
+   "gobierno_local": {
+    "id": "140077",
+    "nombre": "Córdoba"
+   },
+   "localidad_censal": {
+    "id": "14014010",
+    "nombre": "Córdoba"
+   },
+   "categoria": "Componente de localidad compuesta",
+   "centroide": {
+    "lon": -64.183606532,
+    "lat": -31.416804475
+   }
+  },
+  {
+   "id": "14091250",
+   "nombre": "Villa Carlos Paz",
+   "fuente": "INDEC",
+   "provincia": {
+    "id": "14",
+    "nombre": "Córdoba"
+   },
+   "departamento": {
+    "id": "14091",
+    "nombre": "Punilla"
+   },
+   "gobierno_local": {
+    "id": "140742",
+    "nombre": "Villa Carlos Paz"
+   },
+   "localidad_censal": {
+    "id": "14091250",
+    "nombre": "Villa Carlos Paz"
+   },
+   "categoria": "Componente de localidad compuesta",
+   "centroide": {
+    "lon": -64.494029164,
+    "lat": -31.41791694
+   }
+  },
+  {
+   "id": "0204901001",
+   "nombre": "Flores",
+   "fuente": "INDEC",
+   "provincia": {
+    "id": "02",
+    "nombre": "Ciudad Autónoma de Buenos Aires"
+   },
+   "departamento": {
+    "id": "02049",
+    "nombre": "Comuna 7"
+   },
+   "gobierno_local": {
+    "id": "022049",
+    "nombre": "Comuna 7"
+   },
+   "localidad_censal": {
+    "id": "02049010",
+    "nombre": "CABA - Comuna 7"
+   },
+   "categoria": "Entidad",
+   "centroide": {
+    "lon": -58.463686247,
+    "lat": -34.628534187
+   }
+  },
+  {
+   "id": "22063010",
+   "nombre": "El Espinillo",
+   "fuente": "INDEC",
+   "provincia": {
+    "id": "22",
+    "nombre": "Chaco"
+   },
+   "departamento": {
+    "id": "22063",
+    "nombre": "General Güemes"
+   },
+   "gobierno_local": {
+    "id": "220165",
+    "nombre": "El Espinillo"
+   },
+   "localidad_censal": {
+    "id": "22063010",
+    "nombre": "El Espinillo"
+   },
+   "categoria": "Localidad simple",
+   "centroide": {
+    "lon": -60.447784868,
+    "lat": -25.408798321
+   }
+  }
+ ]
+}

@@ -538,6 +538,13 @@
           "Frappe.IntegrationEvents": "[1.0.0, )"
         }
       },
+      "frappe.geo.countries.argentina": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Geo.Application": "[1.0.0, )",
+          "Microsoft.Extensions.Options.ConfigurationExtensions": "[11.0.0, )"
+        }
+      },
       "frappe.geo.domain": {
         "type": "Project",
         "dependencies": {

@@ -4,6 +4,7 @@
     <ProjectReference Include="../../src/Modules/Geo/Frappe.Geo.Http/Frappe.Geo.Http.csproj" />
     <ProjectReference Include="../../src/Modules/Geo/Frappe.Geo.Infrastructure/Frappe.Geo.Infrastructure.csproj" />
     <ProjectReference Include="../../src/Modules/Geo/Frappe.Geo.Global/Frappe.Geo.Global.csproj" />
+    <ProjectReference Include="../../src/Modules/Geo/Countries/Frappe.Geo.Countries.Argentina/Frappe.Geo.Countries.Argentina.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="NetArchTest.Rules" />

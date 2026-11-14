@@ -10,6 +10,7 @@ api:
 
 # Run the Worker (needs `just infra up` and `just db migrate`)
 worker:
+    ConnectionStrings__Geo="Host=localhost;Port=${POSTGRES_PORT:-5432};Database=frappe;Username=frappe_geo;Password=$FRAPPE_GEO_PASSWORD" \
     ConnectionStrings__Scheduler="Host=localhost;Port=${POSTGRES_PORT:-5432};Database=frappe;Username=frappe_scheduler;Password=$FRAPPE_SCHEDULER_PASSWORD" \
     ConnectionStrings__Valkey="localhost:${VALKEY_PORT:-6379}" \
     ConnectionStrings__Nats="nats://localhost:${NATS_PORT:-4222}" \

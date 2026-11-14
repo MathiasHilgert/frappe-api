@@ -1,0 +1,56 @@
+{
+ "cantidad": 3,
+ "total": 3,
+ "inicio": 0,
+ "parametros": {},
+ "municipios": [
+  {
+   "id": "140742",
+   "nombre": "Villa Carlos Paz",
+   "nombre_completo": "Municipio Villa Carlos Paz",
+   "provincia": {
+    "id": "14",
+    "nombre": "Córdoba",
+    "interseccion": 0.0
+   },
+   "fuente": "IGN",
+   "categoria": "Municipio",
+   "centroide": {
+    "lon": -64.5088844540428,
+    "lat": -31.4206918540754
+   }
+  },
+  {
+   "id": "022049",
+   "nombre": "Comuna 7",
+   "nombre_completo": "Comuna 7",
+   "provincia": {
+    "id": "02",
+    "nombre": "Ciudad Autónoma de Buenos Aires",
+    "interseccion": 0.0
+   },
+   "fuente": "IGN",
+   "categoria": "Comuna",
+   "centroide": {
+    "lon": -58.4518868569654,
+    "lat": -34.6365544143585
+   }
+  },
+  {
+   "id": "140077",
+   "nombre": "Córdoba",
+   "nombre_completo": "Municipio Córdoba",
+   "provincia": {
+    "id": "14",
+    "nombre": "Córdoba",
+    "interseccion": 0.0
+   },
+   "fuente": "IGN",
+   "categoria": "Municipio",
+   "centroide": {
+    "lon": -64.1832233454368,
+    "lat": -31.4170520006004
+   }
+  }
+ ]
+}
