@@ -14,8 +14,8 @@ and the cross-cutting work (persistence, messaging, caching, scheduling, localiz
 lives once in a shared platform layer.
 
 **Status: early.** The platform layer is being built: results, use cases, localization, aggregates, health probes,
-the HTTP conventions (Problem Details, language negotiation, caching) and OpenTelemetry tracing and metrics are in
-place. The modules arrive after it.
+the HTTP conventions (Problem Details, language negotiation, caching), OpenTelemetry tracing and metrics, EF Core
+persistence with a unit of work, and FusionCache over Valkey are in place. The modules arrive after it.
 
 ## Tech stack
 
