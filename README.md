@@ -13,9 +13,9 @@ that own their data and talk to each other through integration events. Each modu
 and the cross-cutting work (persistence, messaging, caching, scheduling, localization, observability, health)
 lives once in a shared platform layer.
 
-**Status: early.** The platform layer is being built: results, use cases, localization, aggregates, health probes and the HTTP conventions (Problem Details, language
-negotiation, caching) are in place.
-The modules arrive after it.
+**Status: early.** The platform layer is being built: results, use cases, localization, aggregates, health probes,
+the HTTP conventions (Problem Details, language negotiation, caching) and OpenTelemetry tracing and metrics are in
+place. The modules arrive after it.
 
 ## Tech stack
 

@@ -1,10 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <ProjectReference Include="../../../src/Platform/Frappe.Observability/Frappe.Observability.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Http/Frappe.Http.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Localization/Frappe.Localization.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Aggregates/Frappe.Aggregates.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.Observability.Hosting/Frappe.Observability.Hosting.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="OpenTelemetry.Exporter.InMemory" />
   </ItemGroup>
 </Project>
