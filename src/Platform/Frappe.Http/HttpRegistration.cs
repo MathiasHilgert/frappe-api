@@ -15,12 +15,14 @@ public static class HttpRegistration
     {
         /// <summary>
         /// Registers the HTTP conventions: the framework's Problem Details writer with the Frappé contract, so every
-        /// problem is shaped the same whoever raises it.
+        /// problem is shaped the same whoever raises it, and rate limiting (<see cref="RateLimitingRegistration"/>).
         /// </summary>
         public IServiceCollection AddFrappeHttp()
         {
             ArgumentNullException.ThrowIfNull(services);
-            return services.AddFrappeProblemDetails();
+            return services
+                .AddFrappeProblemDetails()
+                .AddFrappeRateLimiting();
         }
     }
 
@@ -32,16 +34,20 @@ public static class HttpRegistration
         /// (<see cref="DatabaseOutage"/>) becomes a <c>503</c> <see cref="DatabaseUnavailableCode"/> with <c>Retry-After</c>,
         /// any other exception becomes a <c>500</c> (both logged by the middleware, never leaking the exception), and any
         /// <c>4xx</c> answered without a body (<c>400</c>, <c>404</c>, <c>405</c>, <c>413</c>, <c>415</c>, ...) gets one, all
-        /// as Problem Details; then routing. Call it before mapping endpoints.
+        /// as Problem Details; then routing and rate limiting, which needs the matched endpoint. Call it before mapping endpoints.
         /// </summary>
         public IApplicationBuilder UseFrappeHttp()
         {
             ArgumentNullException.ThrowIfNull(app);
             return app
                 .UseFrappeProblemDetails()
-                .UseRouting();
+                .UseRouting()
+                .UseRateLimiter();
         }
     }
+
+    /// <summary>Name of the rate limiting policy for endpoints anyone may call without credentials.</summary>
+    public const string AnonymousPolicy = "anonymous";
 
     /// <summary>The client spent a rate limit: it is told how long to wait.</summary>
     public const string RateLimitedCode = "http.rate_limited";
