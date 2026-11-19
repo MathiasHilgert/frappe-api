@@ -14,6 +14,12 @@
   <ItemGroup Label="Observability">
     <PackageVersion Include="OpenTelemetry.Exporter.InMemory" Version="1.20.1" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.20.2" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.20.1" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.20.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.20.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Process" Version="1.20.1-rc.1" />
+    <PackageVersion Include="Npgsql.OpenTelemetry" Version="10.0.3" />
+    <PackageVersion Include="ZiggyCreatures.FusionCache.OpenTelemetry" Version="2.9.0" />
   </ItemGroup>
   <ItemGroup Label="Persistence">
     <!-- The Postgres driver the test containers' reuse helper talks to. -->

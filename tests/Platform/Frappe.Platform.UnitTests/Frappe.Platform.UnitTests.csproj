@@ -9,6 +9,7 @@
     <ProjectReference Include="../../../src/Platform/Frappe.Health/Frappe.Health.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Caching/Frappe.Caching.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Observability/Frappe.Observability.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.Observability.Hosting/Frappe.Observability.Hosting.csproj" />
   </ItemGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
