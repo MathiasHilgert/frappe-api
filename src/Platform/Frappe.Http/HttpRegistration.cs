@@ -17,8 +17,8 @@ public static class HttpRegistration
         /// Registers the HTTP conventions: the framework's Problem Details writer with the Frappé contract, so every
         /// problem is shaped the same whoever raises it; rate limiting (<see cref="RateLimitingRegistration"/>); idempotent
         /// replays (<see cref="IdempotencyRegistration"/>); the proxies trusted to forward the client's address
-        /// (<see cref="TrustedProxyOptions"/>); and the console's origins with their CORS policy
-        /// (<see cref="ConsoleOriginOptions"/>).
+        /// (<see cref="TrustedProxyOptions"/>); the console's origins with their CORS policy
+        /// (<see cref="ConsoleOriginOptions"/>); and the API document (<see cref="OpenApiRegistration"/>).
         /// </summary>
         public IServiceCollection AddFrappeHttp()
         {
@@ -28,7 +28,8 @@ public static class HttpRegistration
                 .AddFrappeRateLimiting()
                 .AddFrappeIdempotency()
                 .AddTrustedProxies()
-                .AddConsoleOrigins();
+                .AddConsoleOrigins()
+                .AddFrappeOpenApi();
         }
     }
 
