@@ -4,6 +4,7 @@
     <Project Path="src/Platform/Frappe.Localization/Frappe.Localization.csproj" />
     <Project Path="src/Platform/Frappe.Caching/Frappe.Caching.csproj" />
     <Project Path="src/Platform/Frappe.Health/Frappe.Health.csproj" />
+    <Project Path="src/Platform/Frappe.Observability/Frappe.Observability.csproj" />
     <Project Path="src/Platform/Frappe.Results/Frappe.Results.csproj" />
     <Project Path="src/Platform/Frappe.UseCases/Frappe.UseCases.csproj" />
   </Folder>
