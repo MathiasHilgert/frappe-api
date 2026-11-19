@@ -7,5 +7,6 @@
     <ProjectReference Include="../../../src/Platform/Frappe.Aggregates/Frappe.Aggregates.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Localization/Frappe.Localization.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Health/Frappe.Health.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.Caching/Frappe.Caching.csproj" />
   </ItemGroup>
 </Project>

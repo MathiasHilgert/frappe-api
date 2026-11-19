@@ -58,6 +58,11 @@
         "resolved": "2.2.10",
         "contentHash": "zmGsm6b2y3STDa/Of7rdkkfTDV8VuGB8aCqIkLoJIQh5tL78K3zJ8OUyFKnfsaORXmGr9iOKwDkZfUjeXi+CwA=="
       },
+      "Microsoft.Extensions.Caching.Memory": {
+        "type": "Transitive",
+        "resolved": "10.0.1",
+        "contentHash": "NxqSP0Ky4dZ5ybszdZCqs1X2C70s+dXflqhYBUh/vhcQVTIooNCXIYnLVbafoAFGZMs51d9+rHxveXs0ZC3SQQ=="
+      },
       "Microsoft.Extensions.Configuration": {
         "type": "Transitive",
         "resolved": "11.0.0",
@@ -260,6 +265,25 @@
         "resolved": "0.11.6",
         "contentHash": "f33RkDtZO8VlGXCtmQIviOtxgnUdym9xx/b1p9h91CRGOsJFxCFOFK1FDbVt1OCf1aWwYejUFa2MOQyFWTFjbA=="
       },
+      "NodaTime": {
+        "type": "Transitive",
+        "resolved": "3.0.0",
+        "contentHash": "ZauY6Ihs+abkPCpgIafCj92sl+cDqFbvwrJj9Ga0dteWIYg+A5FeoteBzgzez/cyBeukl2kbDTt4qtpTbHvqOw=="
+      },
+      "Pipelines.Sockets.Unofficial": {
+        "type": "Transitive",
+        "resolved": "2.2.8",
+        "contentHash": "zG2FApP5zxSx6OcdJQLbZDk2AVlN2BNQD6MorwIfV6gVj0RRxWPEp2LXAxqDGZqeNV1Zp0BNPcNaey/GXmTdvQ=="
+      },
+      "StackExchange.Redis": {
+        "type": "Transitive",
+        "resolved": "2.10.1",
+        "contentHash": "se08WZvD42H3bV4XBW07pupTiE2/72qStKyi/lRqqcijksFWfRtwLTuhFtZ4OX19f4+we/2qruFZBXYJBFc8PQ==",
+        "dependencies": {
+          "Pipelines.Sockets.Unofficial": "2.2.8",
+          "System.IO.Hashing": "9.0.10"
+        }
+      },
       "StyleCop.Analyzers.Unstable": {
         "type": "Transitive",
         "resolved": "1.2.0.556",
@@ -269,6 +293,11 @@
         "type": "Transitive",
         "resolved": "11.0.0",
         "contentHash": "lKore9DXE1q8o6ss6/M7++xBpn2FMS0axaAypBspYLqY5OT1ZRPLzFGwF18l61aXfXTPpwkx5tYh4zMUHoAv/g=="
+      },
+      "System.IO.Hashing": {
+        "type": "Transitive",
+        "resolved": "9.0.10",
+        "contentHash": "9gv5z71xaWWmcGEs4bXdreIhKp2kYLK2fvPK5gQkgnWMYvZ8ieaxKofDjxL3scZiEYfi/yW2nJTiKV2awcWEdA=="
       },
       "TUnit.Assertions": {
         "type": "Transitive",
@@ -293,6 +322,17 @@
       },
       "frappe.aggregates": {
         "type": "Project"
+      },
+      "frappe.caching": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Health": "[1.0.0, )",
+          "Microsoft.Extensions.Caching.StackExchangeRedis": "[11.0.0, )",
+          "NodaTime.Serialization.SystemTextJson": "[1.4.0, )",
+          "ZiggyCreatures.FusionCache": "[2.9.0, )",
+          "ZiggyCreatures.FusionCache.Backplane.StackExchangeRedis": "[2.9.0, )",
+          "ZiggyCreatures.FusionCache.Serialization.SystemTextJson": "[2.9.0, )"
+        }
       },
       "frappe.health": {
         "type": "Project",
@@ -322,6 +362,15 @@
         "requested": "[8.0.0, )",
         "resolved": "8.0.0",
         "contentHash": "+nmYgGQVhGXmvQd+AMYILZGTxOP4J9tOR3KbjoxMDDICRrSzHYB9v1aRRVnXkD1ZeBapscFWIf5B/ck3p9R1mg=="
+      },
+      "Microsoft.Extensions.Caching.StackExchangeRedis": {
+        "type": "CentralTransitive",
+        "requested": "[11.0.0, )",
+        "resolved": "11.0.0",
+        "contentHash": "pLOYsJmqt/jx4dbEojwnz1MsRTz8lDBceXMcKpnpjxPiOxtXUUVqw4f7aDmpJbDnCE3K5yMvnW3ZXzeFLoGmaw==",
+        "dependencies": {
+          "StackExchange.Redis": "2.7.27"
+        }
       },
       "Microsoft.Extensions.Diagnostics.HealthChecks": {
         "type": "CentralTransitive",
@@ -363,6 +412,43 @@
         "contentHash": "zsse8MOgo0bj2KAEsSkg9WtNAfZbHbTlGeqfhy5PGozomM3zQM0XzumSQzQ0451IWNSJWLqYaSIQEpCi2j1sCA==",
         "dependencies": {
           "Microsoft.Extensions.DependencyInjection": "11.0.0"
+        }
+      },
+      "NodaTime.Serialization.SystemTextJson": {
+        "type": "CentralTransitive",
+        "requested": "[1.4.0, )",
+        "resolved": "1.4.0",
+        "contentHash": "jGe0WLNAoRb3efOgsa5iecmMuzP+LNdtw2Rs4N9+2pS4YN+kg8e9Z48Jk47WWebcpqF81YdWT2KNInbXZXTS7w==",
+        "dependencies": {
+          "NodaTime": "[3.0.0, 4.0.0)"
+        }
+      },
+      "ZiggyCreatures.FusionCache": {
+        "type": "CentralTransitive",
+        "requested": "[2.9.0, )",
+        "resolved": "2.9.0",
+        "contentHash": "m2z6LlE4yckDkE95Vha2NH/gPD+iM9PnCUMfe1nfkC+xaiq48S80HI7olnSblVOAHx5OP+VN9vhQoTdZAPZp0g==",
+        "dependencies": {
+          "Microsoft.Extensions.Caching.Memory": "10.0.1"
+        }
+      },
+      "ZiggyCreatures.FusionCache.Backplane.StackExchangeRedis": {
+        "type": "CentralTransitive",
+        "requested": "[2.9.0, )",
+        "resolved": "2.9.0",
+        "contentHash": "1O2IZiNvTgjssKwxuG5yFBHhrcjXDbraaQUbUPBSGM5sdsHNrj5hxNIx6uAXshikSxBibTdPotwTfgZaO4GPjQ==",
+        "dependencies": {
+          "StackExchange.Redis": "2.10.1",
+          "ZiggyCreatures.FusionCache": "2.9.0"
+        }
+      },
+      "ZiggyCreatures.FusionCache.Serialization.SystemTextJson": {
+        "type": "CentralTransitive",
+        "requested": "[2.9.0, )",
+        "resolved": "2.9.0",
+        "contentHash": "4cJOqBFLmFGcm1SSu7HAcMOTyHCRAHAxZ7fmxrcxMXwZ+FYNiZBpdxqi67vbtw608piFtswOyJhxLZhO36fLCg==",
+        "dependencies": {
+          "ZiggyCreatures.FusionCache": "2.9.0"
         }
       }
     },
