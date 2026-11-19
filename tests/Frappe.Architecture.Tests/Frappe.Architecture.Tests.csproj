@@ -8,5 +8,6 @@
     <ProjectReference Include="../../src/Platform/Frappe.Results/Frappe.Results.csproj" />
     <ProjectReference Include="../../src/Platform/Frappe.UseCases/Frappe.UseCases.csproj" />
     <ProjectReference Include="../../src/Platform/Frappe.Aggregates/Frappe.Aggregates.csproj" />
+    <ProjectReference Include="../../src/Platform/Frappe.Localization/Frappe.Localization.csproj" />
   </ItemGroup>
 </Project>

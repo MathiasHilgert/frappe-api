@@ -147,6 +147,13 @@
       "frappe.aggregates": {
         "type": "Project"
       },
+      "frappe.localization": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Results": "[1.0.0, )",
+          "MessageFormat": "[8.0.0, )"
+        }
+      },
       "frappe.results": {
         "type": "Project"
       },
@@ -155,6 +162,12 @@
         "dependencies": {
           "Frappe.Results": "[1.0.0, )"
         }
+      },
+      "MessageFormat": {
+        "type": "CentralTransitive",
+        "requested": "[8.0.0, )",
+        "resolved": "8.0.0",
+        "contentHash": "+nmYgGQVhGXmvQd+AMYILZGTxOP4J9tOR3KbjoxMDDICRrSzHYB9v1aRRVnXkD1ZeBapscFWIf5B/ck3p9R1mg=="
       }
     },
     "net11.0/linux-arm64": {

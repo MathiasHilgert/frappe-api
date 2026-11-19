@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="MessageFormat" />
+    <InternalsVisibleTo Include="Frappe.Platform.UnitTests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.Results/Frappe.Results.csproj" />
+  </ItemGroup>
+</Project>

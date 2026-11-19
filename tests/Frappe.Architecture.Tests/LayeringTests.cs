@@ -37,4 +37,19 @@ public sealed class LayeringTests
         // Assert
         await Assert.That(result.IsSuccessful).IsTrue().Because($"{assemblyName} depends on infrastructure: {string.Join(", ", result.FailingTypeNames ?? [])}");
     }
+
+    [Test]
+    public async Task Localization_depends_only_on_results()
+    {
+        // Arrange
+        var assembly = typeof(Frappe.Localization.LanguageTag).Assembly;
+
+        // Act
+        var result = Types.InAssembly(assembly).ShouldNot().HaveDependencyOnAny(Infrastructure).GetResult();
+        var references = assembly.GetReferencedAssemblies().Select(a => a.Name!).Where(n => n.StartsWith("Frappe.", StringComparison.Ordinal)).ToArray();
+
+        // Assert
+        await Assert.That(result.IsSuccessful).IsTrue().Because($"Frappe.Localization depends on infrastructure: {string.Join(", ", result.FailingTypeNames ?? [])}");
+        await Assert.That(references).IsEquivalentTo(["Frappe.Results"]);
+    }
 }
