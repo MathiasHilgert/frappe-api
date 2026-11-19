@@ -17,7 +17,9 @@ public static class UnitOfWorkRegistration
         /// <c>Frappe.&lt;Module&gt;.*</c>) over the scope's <typeparamref name="TContext"/>, so the platform runs each of the
         /// module's commands in it and commits the command's changes once. The unit hands the domain events it saves to the
         /// scope's <c>IDomainEventHandler&lt;TEvent&gt;</c>s before the save and to its
-        /// <c>IAfterCommitDomainEventHandler&lt;TEvent&gt;</c>s after the commit.
+        /// <c>IAfterCommitDomainEventHandler&lt;TEvent&gt;</c>s after the commit. When the storage refuses the save, the rules
+        /// the module registered with <see cref="CommitRejectionRegistration.AddCommitRejections"/> turn the failure into its
+        /// <c>ICommitRejection</c>.
         /// </summary>
         public IServiceCollection AddUnitOfWork<TContext>(string module)
             where TContext : DbContext
@@ -27,7 +29,8 @@ public static class UnitOfWorkRegistration
             services.TryAddKeyedScoped<IUnitOfWork>(module, (provider, _) => new EfUnitOfWork<TContext>(
                 provider.GetRequiredService<TContext>(),
                 provider,
-                (ILogger?)provider.GetService<ILoggerFactory>()?.CreateLogger<EfUnitOfWork<TContext>>() ?? NullLogger.Instance));
+                (ILogger?)provider.GetService<ILoggerFactory>()?.CreateLogger<EfUnitOfWork<TContext>>() ?? NullLogger.Instance,
+                provider.GetKeyedService<CommitRejectionMap>(typeof(TContext))));
             return services;
         }
     }
