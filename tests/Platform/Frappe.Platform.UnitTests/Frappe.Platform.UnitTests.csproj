@@ -10,6 +10,7 @@
     <ProjectReference Include="../../../src/Platform/Frappe.Caching/Frappe.Caching.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Observability/Frappe.Observability.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Observability.Hosting/Frappe.Observability.Hosting.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.Persistence/Frappe.Persistence.csproj" />
   </ItemGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
@@ -18,5 +19,6 @@
     <PackageReference Include="Microsoft.AspNetCore.TestHost" />
     <PackageReference Include="OpenTelemetry.Exporter.InMemory" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
   </ItemGroup>
 </Project>

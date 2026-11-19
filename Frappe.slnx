@@ -6,6 +6,7 @@
     <Project Path="src/Platform/Frappe.Health/Frappe.Health.csproj" />
     <Project Path="src/Platform/Frappe.Observability/Frappe.Observability.csproj" />
     <Project Path="src/Platform/Frappe.Observability.Hosting/Frappe.Observability.Hosting.csproj" />
+    <Project Path="src/Platform/Frappe.Persistence/Frappe.Persistence.csproj" />
     <Project Path="src/Platform/Frappe.Results/Frappe.Results.csproj" />
     <Project Path="src/Platform/Frappe.UseCases/Frappe.UseCases.csproj" />
   </Folder>
