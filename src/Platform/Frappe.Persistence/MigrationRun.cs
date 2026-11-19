@@ -19,12 +19,14 @@ public sealed class MigrationRun : IAsyncDisposable
 
     private readonly MigrationOptions _options;
     private readonly IReadOnlyCollection<ModuleRoleGrant> _roles;
+    private readonly IReadOnlyCollection<IDatabaseModule> _modules;
 
-    private MigrationRun(NpgsqlConnection connection, MigrationOptions options, IReadOnlyCollection<ModuleRoleGrant> roles)
+    private MigrationRun(NpgsqlConnection connection, MigrationOptions options, IReadOnlyCollection<ModuleRoleGrant> roles, IReadOnlyCollection<IDatabaseModule> modules)
     {
         Connection = connection;
         _options = options;
         _roles = roles;
+        _modules = modules;
     }
 
     /// <summary>The owner's open connection, which holds the run's lock.</summary>
@@ -35,10 +37,31 @@ public sealed class MigrationRun : IAsyncDisposable
     /// connects and takes the lock. A missing setting fails with an <see cref="OptionsValidationException"/> naming each
     /// key, before the database is touched. Waits while another run holds the lock.
     /// </summary>
-    public static async Task<MigrationRun> StartAsync(MigrationOptions options, IReadOnlyCollection<ModuleRoleGrant> roles, CancellationToken cancellationToken)
+    public static Task<MigrationRun> StartAsync(MigrationOptions options, IReadOnlyCollection<ModuleRoleGrant> roles, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(roles);
+        return StartAsync(options, roles, [], cancellationToken);
+    }
+
+    /// <summary>
+    /// Starts a run for the modules a host lists: their roles come from <see cref="IDatabaseModule"/>, and
+    /// <see cref="MigrateAsync"/> runs the whole sequence. Validates and locks as
+    /// <see cref="StartAsync(MigrationOptions, IReadOnlyCollection{ModuleRoleGrant}, CancellationToken)"/> does, and first
+    /// refuses, with an <see cref="ArgumentException"/> naming the value, two modules that declare the same name (one
+    /// password key), role (one login for two modules) or schema (one module's data open to the other).
+    /// </summary>
+    public static Task<MigrationRun> StartModulesAsync(MigrationOptions options, IReadOnlyCollection<IDatabaseModule> modules, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(modules);
+        RefuseShared(modules, "name", module => module.Name);
+        RefuseShared(modules, "role", module => module.Role);
+        RefuseShared(modules, "schema", module => module.Schema);
+        return StartAsync(options, [.. modules.Select(m => new ModuleRoleGrant(m.Name, m.Role, m.Schema))], modules, cancellationToken);
+    }
+
+    private static async Task<MigrationRun> StartAsync(MigrationOptions options, IReadOnlyCollection<ModuleRoleGrant> roles, IReadOnlyCollection<IDatabaseModule> modules, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(options);
-        ArgumentNullException.ThrowIfNull(roles);
 
         var validation = new MigrationOptionsValidator([.. roles.Select(r => r.Name)]).Validate(Options.DefaultName, options);
         if (validation.Failed)
@@ -58,7 +81,7 @@ public sealed class MigrationRun : IAsyncDisposable
             throw;
         }
 
-        return new MigrationRun(connection, options, roles);
+        return new MigrationRun(connection, options, roles, modules);
     }
 
     /// <summary>
@@ -73,6 +96,23 @@ public sealed class MigrationRun : IAsyncDisposable
             await ModuleRoles.EnsureLoginRoleAsync(Connection, role.Role, _options.Roles[role.Name].Password!, cancellationToken);
             await ModuleRoles.LimitSessionsAsync(Connection, role.Role, limits, cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// The whole setup of a run started by <see cref="StartModulesAsync"/>, in order: the roles, each module's migrations
+    /// (in the order listed, as the owner), then the revoke and the grants. A module that fails stops the run before any
+    /// grant is given. A run started by <c>StartAsync</c> with roles only has no modules, so there this only ensures the
+    /// roles and gives the grants. Every phase is idempotent, so running it on every deployment is safe.
+    /// </summary>
+    public async Task MigrateAsync(DatabaseOptions limits, CancellationToken cancellationToken)
+    {
+        await EnsureRolesAsync(limits, cancellationToken);
+        foreach (var module in _modules)
+        {
+            await module.MigrateAsync(_options.OwnerConnectionString!, cancellationToken);
+        }
+
+        await GrantAsync(cancellationToken);
     }
 
     /// <summary>
@@ -110,6 +150,19 @@ public sealed class MigrationRun : IAsyncDisposable
         finally
         {
             await Connection.DisposeAsync();
+        }
+    }
+
+    /// <summary>
+    /// Throws when two of <paramref name="modules"/> declare the same <paramref name="kind"/>, ignoring case: the
+    /// configuration reads <c>Roles:Orders</c> and <c>Roles:orders</c> as one key.
+    /// </summary>
+    private static void RefuseShared(IReadOnlyCollection<IDatabaseModule> modules, string kind, Func<IDatabaseModule, string> value)
+    {
+        var shared = modules.GroupBy(value, StringComparer.OrdinalIgnoreCase).FirstOrDefault(group => group.Count() > 1);
+        if (shared is not null)
+        {
+            throw new ArgumentException($"More than one module declares the {kind} '{shared.Key}'; every module needs its own.", nameof(modules));
         }
     }
 

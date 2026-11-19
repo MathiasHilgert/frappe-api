@@ -261,6 +261,83 @@ public sealed class MigrationRunTests(PostgresServer server)
         });
     }
 
+    [Test]
+    public async Task Migrating_runs_roles_then_each_module_under_the_lock_then_grants()
+    {
+        await WithDatabaseAsync(async (options, owner) =>
+        {
+            // Arrange
+            var names = NewRoles("orders", "billing");
+            var migrated = new List<string>();
+            var modules = names.Select(r => new RecordingModule(r, owner, migrated)).ToArray();
+            await using var run = await MigrationRun.StartModulesAsync(WithPasswords(options, names), modules, CancellationToken.None);
+
+            // Act
+            await run.MigrateAsync(new DatabaseOptions(), CancellationToken.None);
+            var first = names[0];
+            await ExecuteAsync(owner, $"INSERT INTO {first.Schema}.item VALUES (1)", first.Role);
+
+            // Assert
+            using (Assert.Multiple())
+            {
+                await Assert.That(migrated).IsEquivalentTo(["orders", "billing"], TUnit.Assertions.Enums.CollectionOrdering.Matching);
+                await Assert.That(modules.Select(m => m.ConnectionString!)).IsEquivalentTo([owner, owner]);
+                await Assert.That(modules.Select(m => m.RoleExistedWhenMigrating)).IsEquivalentTo([true, true]);
+                await Assert.That(modules.Select(m => m.LockHeldWhenMigrating)).IsEquivalentTo([true, true]);
+                await Assert.That(modules.Select(m => m.RoleCouldReadWhenMigrating)).IsEquivalentTo([false, false]);
+            }
+        });
+    }
+
+    [Test]
+    public async Task A_module_that_fails_to_migrate_stops_the_run_before_any_grant()
+    {
+        await WithDatabaseAsync(async (options, owner) =>
+        {
+            // Arrange
+            var names = NewRoles("orders", "billing");
+            var modules = new[] { new RecordingModule(names[0], owner, fail: true), new RecordingModule(names[1], owner) };
+            await using var run = await MigrationRun.StartModulesAsync(WithPasswords(options, names), modules, CancellationToken.None);
+
+            // Act
+            var failure = await Assert.ThrowsAsync<InvalidOperationException>(async () => await run.MigrateAsync(new DatabaseOptions(), CancellationToken.None));
+            var defaults = await ScalarAsync(owner, "SELECT count(*) FROM pg_default_acl");
+
+            // Assert
+            using (Assert.Multiple())
+            {
+                await Assert.That(failure!.Message).Contains(names[0].Name);
+                await Assert.That(modules[1].ConnectionString).IsNull();
+                await Assert.That(defaults).IsEqualTo(0L);
+            }
+        });
+    }
+
+    [Test]
+    [Arguments("name", "Orders", "orders_role", "orders", "orders", "billing_role", "billing", "Orders")]
+    [Arguments("role", "Orders", "shared_role", "orders", "Billing", "shared_role", "billing", "shared_role")]
+    [Arguments("schema", "Orders", "orders_role", "shared", "Billing", "billing_role", "shared", "shared")]
+    public async Task Two_modules_declaring_the_same_name_role_or_schema_fail_naming_it_before_connecting(
+        string kind, string firstName, string firstRole, string firstSchema, string secondName, string secondRole, string secondSchema, string value)
+    {
+        // Arrange
+        var grants = new[] { new ModuleRoleGrant(firstName, firstRole, firstSchema), new ModuleRoleGrant(secondName, secondRole, secondSchema) };
+        var options = WithPasswords(new MigrationOptions { OwnerConnectionString = "Host=127.0.0.1;Port=1;Timeout=1" }, grants);
+        var modules = grants.Select(grant => new RecordingModule(grant, options.OwnerConnectionString!)).ToArray();
+
+        // Act
+        var failure = await Assert.ThrowsAsync<ArgumentException>(
+            async () => await MigrationRun.StartModulesAsync(options, modules, CancellationToken.None));
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(failure!.ParamName).IsEqualTo("modules");
+            await Assert.That(failure.Message).StartsWith($"More than one module declares the {kind} '{value}'; every module needs its own.");
+            await Assert.That(modules.All(module => module.ConnectionString is null)).IsTrue();
+        }
+    }
+
     private static MigrationOptions WithPasswords(MigrationOptions options, IEnumerable<ModuleRoleGrant> roles)
     {
         foreach (var role in roles)
@@ -315,4 +392,45 @@ public sealed class MigrationRunTests(PostgresServer server)
 
     private static async Task<string> ShowAsync(string owner, string role, string setting) =>
         (string)(await ScalarAsync(owner, $"SHOW {setting}", role))!;
+
+    /// <summary>A module whose migration creates its schema, a table and a row, and records what it saw while it ran.</summary>
+    private sealed class RecordingModule(ModuleRoleGrant grant, string owner, List<string>? order = null, bool fail = false) : IDatabaseModule
+    {
+        public string Name => grant.Name;
+
+        public string Role => grant.Role;
+
+        public string Schema => grant.Schema;
+
+        public string? ConnectionString { get; private set; }
+
+        public bool RoleExistedWhenMigrating { get; private set; }
+
+        public bool LockHeldWhenMigrating { get; private set; }
+
+        public bool RoleCouldReadWhenMigrating { get; private set; }
+
+        public async Task MigrateAsync(string ownerConnectionString, CancellationToken cancellationToken)
+        {
+            if (fail)
+            {
+                throw new InvalidOperationException($"{Name} failed");
+            }
+
+            order?.Add(Name);
+            ConnectionString = ownerConnectionString;
+            RoleExistedWhenMigrating = await ScalarAsync(owner, $"SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{Role}')") is true;
+            LockHeldWhenMigrating = await ScalarAsync(owner, $"SELECT pg_try_advisory_lock({MigrationRun.LockKey})") is false;
+            await ExecuteAsync(owner, $"CREATE SCHEMA {Schema}; CREATE TABLE {Schema}.item (id int PRIMARY KEY)");
+            try
+            {
+                await ScalarAsync(owner, $"SELECT count(*) FROM {Schema}.item", Role);
+                RoleCouldReadWhenMigrating = true;
+            }
+            catch (PostgresException)
+            {
+                RoleCouldReadWhenMigrating = false;
+            }
+        }
+    }
 }

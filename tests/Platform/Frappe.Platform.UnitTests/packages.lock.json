@@ -269,6 +269,9 @@
           "MessageFormat": "[8.0.0, )"
         }
       },
+      "frappe.modules": {
+        "type": "Project"
+      },
       "frappe.observability": {
         "type": "Project",
         "dependencies": {

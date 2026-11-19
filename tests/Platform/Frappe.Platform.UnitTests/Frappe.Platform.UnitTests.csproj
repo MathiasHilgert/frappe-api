@@ -13,6 +13,7 @@
     <ProjectReference Include="../../../src/Platform/Frappe.Persistence/Frappe.Persistence.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Http/Frappe.Http.csproj" />
     <ProjectReference Include="../Frappe.Platform.Testing/Frappe.Platform.Testing.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.Modules/Frappe.Modules.csproj" />
   </ItemGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />

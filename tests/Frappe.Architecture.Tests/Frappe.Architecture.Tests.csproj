@@ -10,5 +10,7 @@
     <ProjectReference Include="../../src/Platform/Frappe.Aggregates/Frappe.Aggregates.csproj" />
     <ProjectReference Include="../../src/Platform/Frappe.Localization/Frappe.Localization.csproj" />
     <ProjectReference Include="../../src/Platform/Frappe.Http/Frappe.Http.csproj" />
+    <ProjectReference Include="../../src/Platform/Frappe.Modules/Frappe.Modules.csproj" />
+    <ProjectReference Include="../../src/Platform/Frappe.Persistence/Frappe.Persistence.csproj" />
   </ItemGroup>
 </Project>
