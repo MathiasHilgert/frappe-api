@@ -15,8 +15,10 @@ public static class HttpRegistration
     {
         /// <summary>
         /// Registers the HTTP conventions: the framework's Problem Details writer with the Frappé contract, so every
-        /// problem is shaped the same whoever raises it; rate limiting (<see cref="RateLimitingRegistration"/>); and idempotent
-        /// replays (<see cref="IdempotencyRegistration"/>).
+        /// problem is shaped the same whoever raises it; rate limiting (<see cref="RateLimitingRegistration"/>); idempotent
+        /// replays (<see cref="IdempotencyRegistration"/>); the proxies trusted to forward the client's address
+        /// (<see cref="TrustedProxyOptions"/>); and the console's origins with their CORS policy
+        /// (<see cref="ConsoleOriginOptions"/>).
         /// </summary>
         public IServiceCollection AddFrappeHttp()
         {
@@ -24,7 +26,9 @@ public static class HttpRegistration
             return services
                 .AddFrappeProblemDetails()
                 .AddFrappeRateLimiting()
-                .AddFrappeIdempotency();
+                .AddFrappeIdempotency()
+                .AddTrustedProxies()
+                .AddConsoleOrigins();
         }
     }
 
@@ -36,16 +40,19 @@ public static class HttpRegistration
         /// (<see cref="DatabaseOutage"/>) becomes a <c>503</c> <see cref="DatabaseUnavailableCode"/> with <c>Retry-After</c>,
         /// any other exception becomes a <c>500</c> (both logged by the middleware, never leaking the exception), and any
         /// <c>4xx</c> answered without a body (<c>400</c>, <c>404</c>, <c>405</c>, <c>413</c>, <c>415</c>, ...) gets one, all
-        /// as Problem Details; a <c>HEAD</c> answers without content; then routing and rate limiting, which needs the matched
-        /// endpoint. Call it before mapping endpoints.
+        /// as Problem Details; the client's address comes from a trusted proxy only; a <c>HEAD</c> answers without content;
+        /// then routing, the console's CORS policy (before rate limiting, so a <c>429</c> still reaches the console) and rate
+        /// limiting, which needs the matched endpoint. Call it before mapping endpoints.
         /// </summary>
         public IApplicationBuilder UseFrappeHttp()
         {
             ArgumentNullException.ThrowIfNull(app);
             return app
+                .UseTrustedProxies()
                 .UseFrappeProblemDetails()
                 .Use(HeadRequests.DiscardBodyAsync)
                 .UseRouting()
+                .UseConsoleCors()
                 .UseRateLimiter();
         }
     }
