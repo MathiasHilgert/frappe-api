@@ -15,14 +15,16 @@ public static class HttpRegistration
     {
         /// <summary>
         /// Registers the HTTP conventions: the framework's Problem Details writer with the Frappé contract, so every
-        /// problem is shaped the same whoever raises it, and rate limiting (<see cref="RateLimitingRegistration"/>).
+        /// problem is shaped the same whoever raises it; rate limiting (<see cref="RateLimitingRegistration"/>); and idempotent
+        /// replays (<see cref="IdempotencyRegistration"/>).
         /// </summary>
         public IServiceCollection AddFrappeHttp()
         {
             ArgumentNullException.ThrowIfNull(services);
             return services
                 .AddFrappeProblemDetails()
-                .AddFrappeRateLimiting();
+                .AddFrappeRateLimiting()
+                .AddFrappeIdempotency();
         }
     }
 
