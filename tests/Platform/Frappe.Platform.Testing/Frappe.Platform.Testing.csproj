@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The fixtures both Platform suites (Frappe.Platform.UnitTests and Frappe.Platform.IntegrationTests) use. A library,
+       not a test project: it holds no tests and a test project never compiles another one's sources. Its
+       Resources/Messages are the error messages Frappe.Http's catalog needs at startup (see PlatformTestMessages). -->
+</Project>

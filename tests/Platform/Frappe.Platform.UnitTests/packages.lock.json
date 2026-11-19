@@ -255,6 +255,13 @@
       "frappe.health": {
         "type": "Project"
       },
+      "frappe.http": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Localization": "[1.0.0, )",
+          "Frappe.UseCases": "[1.0.0, )"
+        }
+      },
       "frappe.localization": {
         "type": "Project",
         "dependencies": {
@@ -290,6 +297,9 @@
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[11.0.0-rc.3, )",
           "Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime": "[11.0.0-rc.3, )"
         }
+      },
+      "frappe.platform.testing": {
+        "type": "Project"
       },
       "frappe.results": {
         "type": "Project"

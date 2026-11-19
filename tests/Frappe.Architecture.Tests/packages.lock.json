@@ -161,6 +161,13 @@
       "frappe.aggregates": {
         "type": "Project"
       },
+      "frappe.http": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Localization": "[1.0.0, )",
+          "Frappe.UseCases": "[1.0.0, )"
+        }
+      },
       "frappe.localization": {
         "type": "Project",
         "dependencies": {

@@ -4,10 +4,14 @@
   <ItemGroup>
     <ProjectReference Include="../../../src/Platform/Frappe.Caching/Frappe.Caching.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Persistence/Frappe.Persistence.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.Http/Frappe.Http.csproj" />
+    <ProjectReference Include="../Frappe.Platform.Testing/Frappe.Platform.Testing.csproj" />
     <ProjectReference Include="../../Shared/Frappe.Testing/Frappe.Testing.csproj" />
     <ProjectReference Include="../../Shared/Frappe.Testing.Containers/Frappe.Testing.Containers.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Testcontainers.Redis" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
