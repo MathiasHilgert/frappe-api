@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Frappe",
+  "classifications": [
+    "Frappe",
+    "Scaffold"
+  ],
+  "identity": "Frappe.Scaffold.EventContract",
+  "name": "Frappe integration event contract",
+  "shortName": "event-contract",
+  "tags": {
+    "language": "C#",
+    "type": "item"
+  },
+  "sourceName": "UseCaseName",
+  "preferNameDirectory": false,
+  "symbols": {
+    "Module": {
+      "type": "parameter",
+      "datatype": "string",
+      "isRequired": true,
+      "replaces": "ModuleName"
+    },
+    "Area": {
+      "type": "parameter",
+      "datatype": "string",
+      "isRequired": true,
+      "replaces": "AreaName"
+    },
+    "IsQuery": {
+      "type": "parameter",
+      "datatype": "bool",
+      "defaultValue": "false"
+    },
+    "AccessType": {
+      "type": "parameter",
+      "datatype": "string",
+      "defaultValue": "",
+      "description": "The module's authorization class (for example OrderAccess); empty when it has none."
+    },
+    "HasAccess": {
+      "type": "computed",
+      "value": "AccessType != \"\""
+    },
+    "ContractFields": {
+      "type": "parameter",
+      "datatype": "string",
+      "isRequired": true,
+      "replaces": "ContractFieldsHere"
+    },
+    "EventType": {
+      "type": "parameter",
+      "datatype": "string",
+      "isRequired": true,
+      "replaces": "event_type_here"
+    }
+  }
+}

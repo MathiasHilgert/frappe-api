@@ -1,0 +1,2 @@
+P:System.DateTime.UtcNow;Wall clock: inject TimeProvider (CRAFT-16)
+P:System.DateTimeOffset.UtcNow;Wall clock: inject TimeProvider (CRAFT-16)

@@ -1,0 +1,33 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+    <DotNetVersion>11.0.0</DotNetVersion>
+    <TestcontainersVersion>4.16.0</TestcontainersVersion>
+  </PropertyGroup>
+  <ItemGroup Label="Microsoft">
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="$(DotNetVersion)" />
+  </ItemGroup>
+  <ItemGroup Label="Persistence">
+    <!-- The Postgres driver the test containers' reuse helper talks to. -->
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
+  </ItemGroup>
+  <ItemGroup Label="Testing">
+    <PackageVersion Include="TUnit" Version="1.81.10" />
+    <PackageVersion Include="Testcontainers" Version="$(TestcontainersVersion)" />
+  </ItemGroup>
+  <ItemGroup Label="Analyzers">
+    <!-- Only SA1402/SA1649 (one type per file, named after it) are enabled, in .editorconfig. StyleCop has had no stable
+         release since 1.1.118, which predates modern C#; 1.2.0-beta.556 is the build the .NET community pins. Bump it
+         deliberately, since it is a prerelease. -->
+    <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
+    <!-- Sonar's community analyzer: its default rules and cognitive complexity (S3776), without a SonarQube server. -->
+    <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.35.0.4138" />
+    <!-- Bans APIs listed in eng/BannedSymbols.txt (wall clocks, sleeps, mocking libraries, DataAnnotations). -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0" />
+    <!-- Only the rules eng/analyzers.globalconfig turns on run (sealed types for now). -->
+    <PackageVersion Include="Meziantou.Analyzer" Version="3.0.341" />
+    <!-- Off by default (roslynator_analyzers.enabled_by_default); a rule runs only when a convention enables it. -->
+    <PackageVersion Include="Roslynator.Analyzers" Version="5.0.1" />
+  </ItemGroup>
+</Project>

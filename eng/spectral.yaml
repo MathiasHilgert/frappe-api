@@ -1,0 +1,52 @@
+# REST conventions of the committed OpenAPI contract (frappe-conventions http.md), as Spectral rules. Only these
+# custom rules run: Spectral's own `oas` ruleset is left out because it does not support OpenAPI 3.2 yet.
+rules:
+  frappe-operation-id:
+    description: "HTTP-04: every operation has a PascalCase operationId (WithName)."
+    severity: error
+    given: "$.paths[*][get,put,post,patch,delete]"
+    then:
+      field: operationId
+      function: pattern
+      functionOptions:
+        match: "^[A-Z][A-Za-z0-9]+$"
+  frappe-operation-summary:
+    description: "HTTP-04: every operation has a summary (WithSummary)."
+    severity: error
+    given: "$.paths[*][get,put,post,patch,delete]"
+    then:
+      field: summary
+      function: truthy
+  frappe-operation-description:
+    description: "HTTP-04: every operation has a description (WithDescription)."
+    severity: error
+    given: "$.paths[*][get,put,post,patch,delete]"
+    then:
+      field: description
+      function: truthy
+  frappe-paths-kebab-case:
+    description: "HTTP-07: path segments are kebab-case nouns or {parameters}."
+    severity: error
+    given: "$.paths"
+    then:
+      field: "@key"
+      function: pattern
+      functionOptions:
+        match: "^(/([a-z0-9]+(-[a-z0-9]+)*|\\{[A-Za-z]+\\}))+$"
+  frappe-no-bare-array:
+    description: "HTTP-15: a list is wrapped in an object named after the plural resource, never a bare array."
+    severity: error
+    given: "$.paths[*][*].responses[?(@property.match(/^2/))].content[*].schema"
+    then:
+      field: type
+      function: pattern
+      functionOptions:
+        notMatch: "^array$"
+  frappe-enum-snake-case:
+    description: "HTTP-17: enumerated string values are snake_case."
+    severity: error
+    given: "$..enum[*]"
+    then:
+      function: pattern
+      functionOptions:
+        match: "^[a-z][a-z0-9_]*$"
