@@ -36,13 +36,15 @@ public static class HttpRegistration
         /// (<see cref="DatabaseOutage"/>) becomes a <c>503</c> <see cref="DatabaseUnavailableCode"/> with <c>Retry-After</c>,
         /// any other exception becomes a <c>500</c> (both logged by the middleware, never leaking the exception), and any
         /// <c>4xx</c> answered without a body (<c>400</c>, <c>404</c>, <c>405</c>, <c>413</c>, <c>415</c>, ...) gets one, all
-        /// as Problem Details; then routing and rate limiting, which needs the matched endpoint. Call it before mapping endpoints.
+        /// as Problem Details; a <c>HEAD</c> answers without content; then routing and rate limiting, which needs the matched
+        /// endpoint. Call it before mapping endpoints.
         /// </summary>
         public IApplicationBuilder UseFrappeHttp()
         {
             ArgumentNullException.ThrowIfNull(app);
             return app
                 .UseFrappeProblemDetails()
+                .Use(HeadRequests.DiscardBodyAsync)
                 .UseRouting()
                 .UseRateLimiter();
         }
