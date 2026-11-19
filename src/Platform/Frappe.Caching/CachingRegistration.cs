@@ -96,6 +96,7 @@ public static class CachingRegistration
             services.TryAddSingleton(provider => new ValkeyHealthCheck(Resilient(provider)));
             services.TryAddSingleton(provider => new ValkeyMarkers(Resilient(provider), Settings(provider).InstanceName));
             services.TryAddSingleton(provider => new ValkeyValues(Resilient(provider), Settings(provider).InstanceName));
+            services.TryAddSingleton(provider => new ValkeyWindowCounter(Resilient(provider), Settings(provider).InstanceName));
             services.AddOptionalDependency("valkey", provider => provider.GetRequiredService<ValkeyHealthCheck>());
             return services;
         }

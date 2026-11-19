@@ -80,6 +80,20 @@ public sealed class CachingRegistrationTests
         await Assert.That(exception.Message).Contains("ConnectionStrings:Valkey");
     }
 
+    [Test]
+    public async Task The_window_counter_is_registered_as_one_shared_instance()
+    {
+        // Arrange
+        await using var provider = Build(new Dictionary<string, string?> { ["ConnectionStrings:Valkey"] = "localhost:6379" });
+
+        // Act
+        var first = provider.GetRequiredService<ValkeyWindowCounter>();
+        var second = provider.GetRequiredService<ValkeyWindowCounter>();
+
+        // Assert
+        await Assert.That(second).IsSameReferenceAs(first);
+    }
+
     private static ServiceProvider Build(Dictionary<string, string?> settings)
     {
         var services = new ServiceCollection();
