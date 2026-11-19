@@ -160,6 +160,6 @@ public sealed class LayeringTests
 
         // Assert
         await Assert.That(result.IsSuccessful).IsTrue().Because($"Frappe.Http depends on storage or messaging: {string.Join(", ", result.FailingTypeNames ?? [])}");
-        await Assert.That(references).IsEquivalentTo(["Frappe.Localization", "Frappe.Results"]);
+        await Assert.That(references).IsEquivalentTo(["Frappe.Caching", "Frappe.Localization", "Frappe.Results"]);
     }
 }
