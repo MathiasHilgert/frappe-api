@@ -313,6 +313,7 @@
         "type": "Project",
         "dependencies": {
           "Frappe.Caching": "[1.0.0, )",
+          "Frappe.Health": "[1.0.0, )",
           "Frappe.Localization": "[1.0.0, )",
           "Frappe.UseCases": "[1.0.0, )"
         }
