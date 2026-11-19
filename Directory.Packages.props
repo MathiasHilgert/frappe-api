@@ -6,6 +6,8 @@
     <TestcontainersVersion>4.16.0</TestcontainersVersion>
   </PropertyGroup>
   <ItemGroup Label="Microsoft">
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="$(DotNetVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="$(DotNetVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="$(DotNetVersion)" />
   </ItemGroup>
   <ItemGroup Label="Persistence">
