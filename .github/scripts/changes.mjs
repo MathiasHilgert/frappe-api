@@ -33,7 +33,7 @@ export const CATEGORIES = {
   // Read by no gated check: only by "Code is formatted" (spelling, Markdown, links), which always runs, or by no check.
   inert: ['**/*.md', 'LICENSE', 'eng/frappe.markdownlint-cli2.jsonc', 'eng/typos.toml',
     '.justfile', 'eng/just/**', '.github/renovate.json5', '.gitignore', '.github/labeler.yml', '.github/labels.json', '.github/rulesets/**',
-    '.github/release-please-config.json', '.github/release-please-manifest.json'],
+    'release-please-config.json', '.release-please-manifest.json'],
 };
 
 /** Each gated group of checks, and the categories that can affect it (the "ci" category affects every one). */
@@ -45,6 +45,8 @@ export const CHECKS = {
   tests: ['dotnet', 'contracts', 'observability'],
   // App starts and responds · Container image is clean · No vulnerable dependencies
   image: ['dotnet', 'container'],
+  // App starts and responds (it needs the image and the end-to-end project)
+  e2e: ['dotnet', 'container'],
   // Database migrations are safe (it builds the image and upgrades a database: any other .NET change cannot affect it)
   migrations: ['data', 'container'],
   // API has no unmarked breaking changes · Events have no unmarked breaking changes
@@ -61,6 +63,7 @@ export const SUBJECTS = {
   dotnet: ['Frappe.slnx'],
   tests: ['tests/**/*.csproj'],
   image: ['deploy/Dockerfile'],
+  e2e: ['tests/Frappe.EndToEnd.Tests/**'],
   migrations: ['**/Migrations/*.cs'],
   contracts: ['contracts/**'],
   bruno: ['tools/bruno/**'],

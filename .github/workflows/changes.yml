@@ -15,6 +15,9 @@ on:
       image:
         description: The image and its scan
         value: ${{ jobs.detect.outputs.image }}
+      e2e:
+        description: The end-to-end run against the image
+        value: ${{ jobs.detect.outputs.e2e }}
       migrations:
         description: The migration checks
         value: ${{ jobs.detect.outputs.migrations }}
@@ -39,6 +42,7 @@ jobs:
       dotnet: ${{ steps.decide.outputs.dotnet }}
       tests: ${{ steps.decide.outputs.tests }}
       image: ${{ steps.decide.outputs.image }}
+      e2e: ${{ steps.decide.outputs.e2e }}
       migrations: ${{ steps.decide.outputs.migrations }}
       contracts: ${{ steps.decide.outputs.contracts }}
       bruno: ${{ steps.decide.outputs.bruno }}

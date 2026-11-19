@@ -1,0 +1,68 @@
+# The image of one commit, ready to use as a local tag. The Tests workflow builds each commit's image once and pushes it
+# to GHCR as sha-<commit> (trusted runs only); this action pulls it, waits for it when the build runs in another workflow
+# of the same event, and builds it here only when it never appears (a fork, or a commit nobody built).
+name: Image of a commit
+description: Pulls the image built for a commit, or builds it when none was published
+
+inputs:
+  sha:
+    description: The commit the image was built from
+    required: true
+  as:
+    description: The local tag the image gets
+    required: true
+  wait:
+    description: Seconds to wait for the published image before building it (0 = try once)
+    default: "0"
+  context:
+    description: Build context of the fallback build
+    default: .
+  file:
+    description: Dockerfile of the fallback build
+    default: deploy/Dockerfile
+  token:
+    description: Token that can read packages
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Pull the published image
+      id: pull
+      shell: bash
+      env:
+        SHA: ${{ inputs.sha }}
+        AS: ${{ inputs.as }}
+        WAIT: ${{ inputs.wait }}
+        TOKEN: ${{ inputs.token }}
+        ACTOR: ${{ github.actor }}
+        OWNER: ${{ github.repository_owner }}
+      run: |
+        image="ghcr.io/${OWNER,,}/frappe-api:sha-$SHA"
+        # A fork's token cannot read packages: the pull below then fails and the image is built instead.
+        echo "$TOKEN" | docker login ghcr.io --username "$ACTOR" --password-stdin || true
+        deadline=$((SECONDS + WAIT))
+        while true; do
+          if docker pull --quiet "$image" > /dev/null 2>&1; then
+            docker tag "$image" "$AS"
+            echo "pulled=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          [ "$SECONDS" -ge "$deadline" ] && break
+          sleep 10
+        done
+        echo "::notice::No published image for $SHA, building it"
+        echo "pulled=false" >> "$GITHUB_OUTPUT"
+    - name: Set up Docker Buildx
+      if: steps.pull.outputs.pulled != 'true'
+      uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+    # Read-only cache: only the Tests workflow's build job on a trusted run writes the shared layers.
+    - name: Build the image
+      if: steps.pull.outputs.pulled != 'true'
+      uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+      with:
+        context: ${{ inputs.context }}
+        file: ${{ inputs.file }}
+        load: true
+        tags: ${{ inputs.as }}
+        cache-from: type=gha,scope=frappe-api
