@@ -11,6 +11,8 @@
     <ProjectReference Include="../../../src/Platform/Frappe.Observability/Frappe.Observability.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Observability.Hosting/Frappe.Observability.Hosting.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Persistence/Frappe.Persistence.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.Http/Frappe.Http.csproj" />
+    <ProjectReference Include="../Frappe.Platform.Testing/Frappe.Platform.Testing.csproj" />
   </ItemGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />

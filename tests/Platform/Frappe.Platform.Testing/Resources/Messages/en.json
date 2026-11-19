@@ -1,0 +1,5 @@
+{
+  "orders.quantity.out_of_range": "The quantity must be between {min} and {max}.",
+  "orders.code.invalid_length": "The order code must have {length} characters.",
+  "test.english_only": "Only in English."
+}

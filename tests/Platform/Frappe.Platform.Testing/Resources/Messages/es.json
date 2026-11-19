@@ -1,0 +1,4 @@
+{
+  "orders.quantity.out_of_range": "La cantidad debe estar entre {min} y {max}.",
+  "orders.code.invalid_length": "El código del pedido debe tener {length} caracteres."
+}

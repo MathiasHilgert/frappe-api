@@ -52,4 +52,20 @@ public sealed class LayeringTests
         await Assert.That(result.IsSuccessful).IsTrue().Because($"Frappe.Localization depends on infrastructure: {string.Join(", ", result.FailingTypeNames ?? [])}");
         await Assert.That(references).IsEquivalentTo(["Frappe.Results"]);
     }
+
+    [Test]
+    public async Task Http_knows_no_storage_nor_messaging()
+    {
+        // Arrange
+        var assembly = typeof(Frappe.Http.HttpRegistration).Assembly;
+        string[] storage = ["Microsoft.EntityFrameworkCore", "Npgsql", "NATS", "Quartz", "Frappe.Persistence", "Frappe.Messaging", "Frappe.Scheduling", "Frappe.Observability"];
+
+        // Act
+        var result = Types.InAssembly(assembly).ShouldNot().HaveDependencyOnAny(storage).GetResult();
+        var references = assembly.GetReferencedAssemblies().Select(a => a.Name!).Where(n => n.StartsWith("Frappe.", StringComparison.Ordinal)).ToArray();
+
+        // Assert
+        await Assert.That(result.IsSuccessful).IsTrue().Because($"Frappe.Http depends on storage or messaging: {string.Join(", ", result.FailingTypeNames ?? [])}");
+        await Assert.That(references).IsEquivalentTo(["Frappe.Localization", "Frappe.Results"]);
+    }
 }

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Platform.UnitTests" />
+    <InternalsVisibleTo Include="Frappe.Platform.IntegrationTests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.UseCases/Frappe.UseCases.csproj" />
+    <ProjectReference Include="../Frappe.Localization/Frappe.Localization.csproj" />
+  </ItemGroup>
+</Project>

@@ -4,6 +4,7 @@
     <Project Path="src/Platform/Frappe.Localization/Frappe.Localization.csproj" />
     <Project Path="src/Platform/Frappe.Caching/Frappe.Caching.csproj" />
     <Project Path="src/Platform/Frappe.Health/Frappe.Health.csproj" />
+    <Project Path="src/Platform/Frappe.Http/Frappe.Http.csproj" />
     <Project Path="src/Platform/Frappe.Observability/Frappe.Observability.csproj" />
     <Project Path="src/Platform/Frappe.Observability.Hosting/Frappe.Observability.Hosting.csproj" />
     <Project Path="src/Platform/Frappe.Persistence/Frappe.Persistence.csproj" />
@@ -15,6 +16,7 @@
   </Folder>
   <Folder Name="/tests/Platform/">
     <Project Path="tests/Platform/Frappe.Platform.IntegrationTests/Frappe.Platform.IntegrationTests.csproj" />
+    <Project Path="tests/Platform/Frappe.Platform.Testing/Frappe.Platform.Testing.csproj" />
     <Project Path="tests/Platform/Frappe.Platform.UnitTests/Frappe.Platform.UnitTests.csproj" />
   </Folder>
   <Folder Name="/tests/Shared/">
