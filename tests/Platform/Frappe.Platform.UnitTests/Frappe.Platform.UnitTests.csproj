@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Platform capabilities in process (TEST-02): no Docker, database, broker or cache. Whatever needs one belongs in
+       Frappe.Platform.IntegrationTests. -->
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Platform/Frappe.Results/Frappe.Results.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.UseCases/Frappe.UseCases.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.Aggregates/Frappe.Aggregates.csproj" />
+  </ItemGroup>
+</Project>
