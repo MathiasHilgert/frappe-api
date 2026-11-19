@@ -1,0 +1,258 @@
+# Does it break anyone? The HTTP and event contracts (contracts/, kept current by the test suites) are diffed against
+# the base branch, and a breaking change needs "!" in the title. New migrations are linted for locks and data loss, and
+# the database is upgraded from the base branch's schema with the real Migrator.
+name: Compatibility
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  OASDIFF_VERSION: "1.37.0"
+  SPECTRAL_VERSION: "6.17.1"
+
+jobs:
+  changes:
+    name: Changes
+    # The self-repository form ($/) is what zizmor prefers, but actionlint 1.7.12 cannot parse it yet.
+    uses: ./.github/workflows/changes.yml # zizmor: ignore[self-repository]
+    permissions:
+      contents: read
+      pull-requests: read
+
+  api:
+    name: API has no unmarked breaking changes
+    needs: changes
+    # Skipped (counted as passing) only when the change provably cannot affect it; see .github/scripts/changes.mjs.
+    if: ${{ !cancelled() && needs.changes.outputs.contracts != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code with the base branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Install oasdiff
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/install-oasdiff.sh "$OASDIFF_VERSION" "$RUNNER_TEMP/bin"
+      - name: Compare the HTTP contract with the base branch
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BASE_REF: ${{ github.base_ref }}
+        run: PATH="$RUNNER_TEMP/bin:$PATH" .github/scripts/breaking-changes.sh contracts/openapi/v1.json "$BASE_REF"
+
+  rest:
+    name: API follows the REST conventions
+    needs: changes
+    # Skipped (counted as passing) only when the change provably cannot affect it; see .github/scripts/changes.mjs.
+    if: ${{ !cancelled() && needs.changes.outputs.contracts != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Lint the HTTP contract with the repository's REST rules
+        run: |
+          if [ ! -f contracts/openapi/v1.json ]; then
+            echo "No HTTP contract yet: nothing to lint." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          npx --yes "@stoplight/spectral-cli@$SPECTRAL_VERSION" lint contracts/openapi/v1.json --ruleset eng/spectral.yaml --fail-severity error
+
+  events:
+    name: Events have no unmarked breaking changes
+    needs: changes
+    # Skipped (counted as passing) only when the change provably cannot affect it; see .github/scripts/changes.mjs.
+    if: ${{ !cancelled() && needs.changes.outputs.contracts != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code with the base branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Install oasdiff
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/install-oasdiff.sh "$OASDIFF_VERSION" "$RUNNER_TEMP/bin"
+      - name: Compare the event contract with the base branch
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BASE_REF: ${{ github.base_ref }}
+        run: PATH="$RUNNER_TEMP/bin:$PATH" .github/scripts/breaking-changes.sh contracts/events/v1.json "$BASE_REF"
+
+  migrations:
+    name: Database migrations are safe
+    needs: changes
+    # Skipped (counted as passing) only when the change provably cannot affect it; see .github/scripts/changes.mjs.
+    if: ${{ !cancelled() && needs.changes.outputs.migrations != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code with the base branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Set up .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+          # No NuGet cache here: zizmor (cache-poisoning) rejects one in a job that handles Docker images.
+      - name: Restore the EF Core tools
+        run: dotnet tool restore
+      - name: Check that every model change has its migration
+        run: |
+          dotnet build Frappe.slnx
+          factories=$(grep -rl --include='*.cs' 'IDesignTimeDbContextFactory' src || true)
+          if [ -z "$factories" ]; then
+            echo "No DbContext design-time factory yet: nothing to check." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          while read -r factory; do
+            project=$(dirname "$factory")
+            while [ ! -f "$project/$(basename "$project").csproj" ]; do
+              case "$project" in
+                . | /) echo "::error::no project found for $factory"; exit 1 ;;
+              esac
+              project=$(dirname "$project")
+            done
+            dotnet ef migrations has-pending-model-changes --project "$project" --no-build
+          done <<< "$factories"
+      - name: Generate the SQL of the new migrations
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: .github/scripts/migration-sql.sh "$BASE_REF" "$RUNNER_TEMP/migrations"
+      - name: Lint the SQL of the new migrations
+        env:
+          # Escape hatch for a deliberate risky change (a blocking index, a dropped column): a reviewer adds the label.
+          APPROVED: ${{ contains(github.event.pull_request.labels.*.name, 'risky migration approved') }}
+        run: |
+          shopt -s nullglob
+          files=("$RUNNER_TEMP"/migrations/*.sql)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No new migrations." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          for file in "${files[@]}"; do
+            { echo "### $(basename "$file")"; echo '```sql'; cat "$file"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          done
+          if npx --yes squawk-cli@2.72.0 --config eng/squawk.toml "${files[@]}"; then
+            exit 0
+          fi
+          if [ "$APPROVED" = "true" ]; then
+            echo "::warning::Risky migration statements, approved with the 'risky migration approved' label"
+            exit 0
+          fi
+          echo "::error::Risky migration statements (locks or data loss). Make them safe, or have a reviewer add the 'risky migration approved' label"
+          exit 1
+      - name: Check out the base branch and write throwaway credentials
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          # Throwaway credentials for every required variable of BOTH deploy/.env.example files, written where compose reads them:
+          # the base branch's compose may still require a variable this branch removed (and the other way around).
+          git worktree add "$RUNNER_TEMP/base" "origin/$BASE_REF"
+          sed -E "s/^([A-Z_]+)=$/\1=ci-$(openssl rand -hex 12)/" deploy/.env.example > deploy/.env
+          grep -E '^[A-Z_]+=$' "$RUNNER_TEMP/base/deploy/.env.example" | tr -d '=' | while read -r name; do
+            grep -q "^$name=" deploy/.env || echo "$name=ci-$(openssl rand -hex 12)" >> deploy/.env
+          done
+          echo "BASE_SHA=$(git -C "$RUNNER_TEMP/base" rev-parse HEAD)" >> "$GITHUB_ENV"
+          cp deploy/.env "$RUNNER_TEMP/base/deploy/.env"
+      # Both images are built once elsewhere: main's by its own push (Tests workflow, tagged with its commit), this branch's by
+      # this event's Tests run, which this waits for while the model and SQL checks above already ran. Either is built here
+      # only when it never shows up (a fork, a base commit nobody built).
+      - name: Get the base branch's image
+        uses: ./.github/actions/image # zizmor: ignore[self-repository]
+        with:
+          sha: ${{ env.BASE_SHA }}
+          as: frappe-api:local
+          context: ${{ runner.temp }}/base
+          file: ${{ runner.temp }}/base/deploy/Dockerfile
+          token: ${{ github.token }}
+      - name: Get this branch's image
+        uses: ./.github/actions/image # zizmor: ignore[self-repository]
+        with:
+          sha: ${{ github.sha }}
+          as: frappe-api:branch
+          wait: ${{ github.event.pull_request.head.repo.full_name == github.repository && '420' || '0' }}
+          token: ${{ github.token }}
+      - name: Upgrade the base branch's database with this branch's Migrator
+        env:
+          COMPOSE_PROJECT_NAME: frappe-upgrade
+        run: |
+          (cd "$RUNNER_TEMP/base/deploy" && docker compose up --detach --wait postgres && docker compose run --rm --pull missing migrator)
+          # The compose file names the image frappe-api:local: from here on that is this branch's.
+          docker tag frappe-api:branch frappe-api:local
+          # --pull missing, not never: it also governs the Migrator's dependencies, and a service this branch adds
+          # has no image yet; frappe-api:local exists, so it is never pulled.
+          docker compose -f deploy/compose.yaml run --rm --pull missing migrator
+      - name: Check that the upgraded database has the committed schema
+        run: |
+          .github/scripts/schema-dump.sh frappe-upgrade "$RUNNER_TEMP/upgraded-schema"
+          status=0
+          while read -r file; do
+            diff -u "$file" "$RUNNER_TEMP/upgraded-schema/$file" || status=1
+          done < <(git ls-files ':(glob)**/schema.sql')
+          if [ "$status" -ne 0 ]; then
+            echo "::error::The database upgraded from the base branch differs from the committed schema.sql files: the migrations do not take an existing database to the schema a new one gets (fix the migration; if the model changed, run 'just db schema' and commit it)"
+          fi
+          exit "$status"
+      - name: Check that a fresh database has the committed schema
+        env:
+          COMPOSE_PROJECT_NAME: frappe-fresh
+          POSTGRES_PORT: '0'
+        run: |
+          docker compose -f deploy/compose.yaml up --detach --wait postgres
+          docker compose -f deploy/compose.yaml run --rm --pull missing migrator
+          .github/scripts/schema-dump.sh frappe-fresh .
+          # git diff ignores a dump nobody committed: an untracked schema.sql (a new module) is drift too.
+          if ! git diff --exit-code -- ':(glob)**/schema.sql' || [ -n "$(git status --porcelain -- ':(glob)**/schema.sql')" ]; then
+            git status --short -- ':(glob)**/schema.sql'
+            echo "::error::The schema of a freshly migrated database differs from the committed schema.sql files: run 'just db schema' and commit the result"
+            exit 1
+          fi
+      - name: Stop the databases
+        if: always()
+        run: |
+          for project in frappe-upgrade frappe-fresh; do
+            COMPOSE_PROJECT_NAME=$project docker compose -f deploy/compose.yaml down --volumes || true
+          done

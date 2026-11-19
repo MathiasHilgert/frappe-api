@@ -94,12 +94,12 @@ test('a change to the REST lint rules runs the contract checks', () => {
 });
 
 test('a Dockerfile change runs the image, its dependencies and the migrations, not the .NET checks', () => {
-  assert.deepEqual(decide(['deploy/Dockerfile'], { complete: true }).checks, { ...none, image: true, migrations: true, bruno: true });
+  assert.deepEqual(decide(['deploy/Dockerfile'], { complete: true }).checks, { ...none, image: true, e2e: true, migrations: true, bruno: true });
 });
 
 test('the ignore file and lint rules of the image, and the compose stack, count as the container', () => {
   for (const file of ['deploy/Dockerfile.dockerignore', 'eng/hadolint.yaml', 'deploy/compose.yaml', 'deploy/.env.example']) {
-    assert.deepEqual(decide([file], { complete: true }).checks, { ...none, image: true, migrations: true, bruno: true }, file);
+    assert.deepEqual(decide([file], { complete: true }).checks, { ...none, image: true, e2e: true, migrations: true, bruno: true }, file);
   }
 });
 
@@ -145,6 +145,7 @@ const tracked = ['Frappe.slnx', 'src/Platform/Frappe.Results/Result.cs', 'tests/
 test('a group has a subject only when the repository holds one', () => {
   assert.deepEqual(existing(tracked), { ...none, dotnet: true, tests: true });
   assert.deepEqual(existing([...tracked, 'deploy/Dockerfile', 'contracts/openapi/v1.json', 'tools/bruno/README.md',
+    'tests/Frappe.EndToEnd.Tests/Frappe.EndToEnd.Tests.csproj',
     'src/Modules/Orders/Frappe.Orders.Infrastructure/Migrations/20260101000000_Init.cs']), all);
 });
 
@@ -152,6 +153,8 @@ test('a check whose subject does not exist is skipped even when its inputs chang
   const present = existing(tracked);
   assert.deepEqual(decide(['deploy/Dockerfile'], { complete: true, present }).checks, none);
   assert.deepEqual(decide(['contracts/openapi/v1.json'], { complete: true, present }).checks, { ...none, tests: true });
+  const withImage = { ...present, image: true };
+  assert.deepEqual(decide(['deploy/Dockerfile'], { complete: true, present: withImage }).checks, { ...none, image: true });
   assert.deepEqual(decide(['src/Platform/Frappe.Results/Result.cs'], { complete: true, present }).checks,
     { ...none, dotnet: true, tests: true });
 });

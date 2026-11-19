@@ -1,0 +1,400 @@
+# Does it work? Every suite, the lines the pull request changes covered by them, and the real image end to end.
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  changes:
+    name: Changes
+    # The self-repository form ($/) is what zizmor prefers, but actionlint 1.7.12 cannot parse it yet.
+    uses: ./.github/workflows/changes.yml # zizmor: ignore[self-repository]
+    permissions:
+      contents: read
+      pull-requests: read
+
+  unit:
+    name: Unit tests pass
+    needs: changes
+    # Skipped (counted as passing) only when the change provably cannot affect it, or there is nothing to test yet; see .github/scripts/changes.mjs.
+    if: ${{ !cancelled() && needs.changes.outputs.tests != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+      # In process only (no Docker): a unit test project references no container, database, broker or host.
+      - name: Run the unit tests with coverage
+        run: |
+          shopt -s globstar nullglob
+          for project in tests/**/*.UnitTests/*.UnitTests.csproj; do
+            name=$(basename "$project" .csproj)
+            dotnet test --project "$(dirname "$project")" --timeout 3m --maximum-failed-tests 10 --results-directory-layout per-module \
+              --results-directory "$RUNNER_TEMP/results" -- \
+              --coverage --coverage-output-format cobertura --coverage-output "$name.cobertura.xml"
+          done
+      - name: Run convention tests
+        run: node --test .github/scripts/*.test.mjs
+      - name: Upload coverage
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-unit
+          path: ${{ runner.temp }}/results/**/*.cobertura.xml
+          retention-days: 7
+
+  architecture:
+    name: Architecture rules hold
+    needs: changes
+    # Skipped (counted as passing) only when the change provably cannot affect it, or there is nothing to test yet; see .github/scripts/changes.mjs.
+    if: ${{ !cancelled() && needs.changes.outputs.tests != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+      # With coverage: it is the only suite that composes the hosts.
+      - name: Run architecture tests with coverage
+        run: >-
+          dotnet test --project tests/Frappe.Architecture.Tests --timeout 3m --maximum-failed-tests 10 --results-directory-layout per-module
+          --results-directory "$RUNNER_TEMP/results" --
+          --coverage --coverage-output-format cobertura --coverage-output architecture.cobertura.xml
+      - name: Upload coverage
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-architecture
+          path: ${{ runner.temp }}/results/**/*.cobertura.xml
+          retention-days: 7
+
+  # The rows of the integration matrix: one per integration test project that exists, so a new project joins the suite
+  # without touching this file, and the required check below never names one.
+  integration-projects:
+    name: Integration test projects
+    needs: changes
+    # Skipped (counted as passing) only when the change provably cannot affect it, or there is nothing to test yet; see .github/scripts/changes.mjs.
+    if: ${{ !cancelled() && needs.changes.outputs.tests != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.list.outputs.matrix }}
+      any: ${{ steps.list.outputs.any }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: List the integration test projects
+        id: list
+        run: |
+          rows='[]'
+          while read -r project; do
+            [ -n "$project" ] || continue
+            name=$(basename "$project" .csproj)
+            suite=${name#Frappe.}
+            suite=${suite%.IntegrationTests}
+            report=$(echo "$suite" | tr '[:upper:].' '[:lower:]-')
+            rows=$(jq -c --arg suite "$suite" --arg project "$(dirname "$project")" --arg report "$report-integration" \
+              '. + [{suite: $suite, project: $project, report: $report, timeout: "10m"}]' <<< "$rows")
+          done < <(git ls-files 'tests/**/*.IntegrationTests.csproj' | sort)
+          echo "matrix=$rows" >> "$GITHUB_OUTPUT"
+          echo "any=$(jq -r 'length > 0' <<< "$rows")" >> "$GITHUB_OUTPUT"
+          { echo '### Integration test projects'; jq -r '.[] | "- \(.suite): `\(.project)`"' <<< "$rows"; } >> "$GITHUB_STEP_SUMMARY"
+
+  # One job per integration test project, in parallel: each starts its own containers, so they share nothing.
+  integration-suite:
+    name: Integration tests (${{ matrix.suite }})
+    needs: integration-projects
+    if: ${{ !cancelled() && needs.integration-projects.outputs.any == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.integration-projects.outputs.matrix) }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+      - name: Run the ${{ matrix.suite }} integration tests with coverage
+        env:
+          PROJECT: ${{ matrix.project }}
+          REPORT: ${{ matrix.report }}
+          TEST_TIMEOUT: ${{ matrix.timeout }}
+        run: >-
+          dotnet test --project "$PROJECT" --timeout "$TEST_TIMEOUT" --maximum-failed-tests 10 --results-directory-layout per-module
+          --results-directory "$RUNNER_TEMP/results" --
+          --coverage --coverage-output-format cobertura --coverage-output "$REPORT.cobertura.xml"
+      - name: Upload coverage
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-integration-${{ matrix.report }}
+          path: ${{ runner.temp }}/results/**/*.cobertura.xml
+          retention-days: 7
+
+  # The required check "Integration tests pass": a matrix job's name carries its suite, so this one reports the whole.
+  integration:
+    name: Integration tests pass
+    needs: [integration-projects, integration-suite]
+    # Skipped suites (nothing they test changed, or no project yet) pass; a failed or cancelled one fails this check.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require every integration suite to have passed or been skipped
+        env:
+          LIST: ${{ needs.integration-projects.result }}
+          RESULT: ${{ needs.integration-suite.result }}
+        run: |
+          echo "Integration projects: $LIST; suites: $RESULT"
+          { [ "$LIST" = "success" ] || [ "$LIST" = "skipped" ]; } && { [ "$RESULT" = "success" ] || [ "$RESULT" = "skipped" ]; }
+
+  coverage:
+    name: Changed lines are covered
+    needs: [changes, unit, architecture, integration-suite]
+    # Explicit results, not the implicit success(): when the detection fails the suites still run, and their coverage
+    # must still be checked. Skipped suites (nothing they test changed) skip this job too, which reports as passing.
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.unit.result == 'success' && needs.architecture.result == 'success' && (needs.integration-suite.result == 'success' || needs.integration-suite.result == 'skipped') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code with the base branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Download coverage
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: coverage-*
+          path: ${{ runner.temp }}/coverage
+          merge-multiple: true
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - name: Install diff-cover
+        run: pip install --require-hashes --no-deps -r .github/requirements/diff-cover.txt
+      - name: Enforce 80% coverage on changed production lines
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        # Each report sits in its test app's own directory (--results-directory-layout per-module), at any depth.
+        run: |
+          mapfile -t reports < <(find "$RUNNER_TEMP/coverage" -name '*.cobertura.xml')
+          diff-cover "${reports[@]}" \
+            --compare-branch "origin/$BASE_REF" \
+            --exclude "tests/*" "*/Migrations/*" "tools/**" \
+            --fail-under 80 \
+            --format "markdown:$RUNNER_TEMP/diff-cover.md"
+      - name: Publish the coverage report
+        if: always()
+        run: cat "$RUNNER_TEMP/diff-cover.md" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+
+  # The image of this commit, built once and pushed to GHCR as sha-<commit>: Bruno, the end-to-end test, the image scan and
+  # the migration upgrade (Security and Compatibility workflows) pull it instead of building their own. Only a trusted run
+  # (a push, or a pull request from this repository) pushes the image and writes the shared layer cache.
+  image:
+    name: Image is built
+    needs: changes
+    # Skipped (counted as passing) while there is no Dockerfile, or when the change cannot affect the image.
+    if: ${{ !cancelled() && needs.changes.outputs.image != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    env:
+      TRUSTED: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to the registry
+        if: env.TRUSTED == 'true'
+        env:
+          TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: echo "$TOKEN" | docker login ghcr.io --username "$ACTOR" --password-stdin
+      - name: Name the image
+        id: name
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: echo "image=ghcr.io/${OWNER,,}/frappe-api" >> "$GITHUB_OUTPUT"
+      - name: Build and publish the image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/Dockerfile
+          push: ${{ env.TRUSTED == 'true' }}
+          tags: ${{ steps.name.outputs.image }}:sha-${{ github.sha }}
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha,scope=frappe-api
+          # Only pushes to main write the layer cache: writing every stage (mode=max) costs a pull request about
+          # 135 s, and pull requests read main's layers, so the restore layer stays cached until the lock files change.
+          cache-to: ${{ github.event_name == 'push' && 'type=gha,scope=frappe-api,mode=max' || '' }}
+
+  e2e:
+    name: App starts and responds
+    needs: changes
+    # Skipped (counted as passing) while there is no Dockerfile or end-to-end project, or when the change cannot affect the image.
+    if: ${{ !cancelled() && needs.changes.outputs.image != 'false' && needs.changes.outputs.e2e != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+      # Restore and compile the suite while the image is still being built by the "Image is built" job.
+      - name: Build the end-to-end tests
+        run: dotnet build tests/Frappe.EndToEnd.Tests
+      # The image built once for this commit; a same-repository run waits for it, a fork (which cannot publish one) builds it.
+      - name: Get the image
+        uses: ./.github/actions/image # zizmor: ignore[self-repository]
+        with:
+          sha: ${{ github.sha }}
+          as: frappe-api:local
+          wait: ${{ (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) && '420' || '0' }}
+          token: ${{ github.token }}
+      # FRAPPE_E2E_IMAGE: the suite deploys the image obtained above instead of building its own with Testcontainers (no layer cache).
+      - name: Run the stack end to end on that image
+        env:
+          FRAPPE_E2E_IMAGE: frappe-api:local
+        run: dotnet test --project tests/Frappe.EndToEnd.Tests --no-build --timeout 20m --maximum-failed-tests 10 --results-directory-layout per-module
+
+  bruno:
+    name: Bruno collection passes
+    needs: changes
+    # Skipped (counted as passing) while there is no Bruno collection, or when the change cannot affect it.
+    if: ${{ !cancelled() && needs.changes.outputs.bruno != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Throwaway secrets for this run only: every variable the example leaves empty gets a random value.
+      - name: Configure the stack
+        run: |
+          sed -E "s/^([A-Z_]+)=$/\1=ci-$(openssl rand -hex 12)/" deploy/.env.example > deploy/.env
+          # The whole collection runs from one address in about half a minute: more than the default 120 per minute.
+          echo "FRAPPE_HTTP_RATE_LIMIT=1000" >> deploy/.env
+      - name: Download the Bruno CLI
+        run: npx -y @usebruno/cli@4.3.0 --version
+      - name: Get the image
+        uses: ./.github/actions/image # zizmor: ignore[self-repository]
+        with:
+          sha: ${{ github.sha }}
+          as: frappe-api:local
+          wait: ${{ (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) && '420' || '0' }}
+          token: ${{ github.token }}
+      # Without --build: compose uses the image tagged above (frappe-api:local).
+      - name: Start the stack
+        run: docker compose -f deploy/compose.yaml up --detach --wait --no-build
+      - name: Wait for the Api
+        run: |
+          for _ in $(seq 150); do
+            curl -fsS -o /dev/null http://localhost:8080/health/ready && exit 0
+            sleep 2
+          done
+          echo "Timed out waiting for the Api" >&2
+          exit 1
+      - name: Run the Bruno collection
+        working-directory: tools/bruno
+        run: npx -y @usebruno/cli@4.3.0 run --env Stack
+      - name: Show the stack logs
+        if: failure()
+        run: docker compose -f deploy/compose.yaml logs --no-color --tail 200
+      - name: Stop the stack
+        if: always()
+        run: docker compose -f deploy/compose.yaml down -v

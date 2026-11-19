@@ -1,0 +1,60 @@
+# What stays in GHCR? Every commit pushes ghcr.io/<owner>/frappe-api:sha-<commit> (Tests, "Image is built"), so the package
+# grows without bound. Weekly, this deletes sha-* images older than 30 days and untagged versions older than 7 days.
+# Release tags (<version>, <major>.<minor>, latest; see release.yml) are never selected: a version that carries any tag
+# outside sha-* is kept, and the untagged children of a kept multi-arch image (its platform manifests and attestations)
+# are protected by the action itself. A manual run is a dry run unless its input says otherwise; the schedule deletes.
+# The GITHUB_TOKEN needs the repository to have the Admin role on the package (package settings).
+name: Image retention
+
+on:
+  schedule:
+    - cron: "41 5 * * 0"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Only list the versions that would be deleted
+        type: boolean
+        default: true
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  retention:
+    name: Old images are deleted
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    env:
+      # Manual runs follow the input (true by default); the schedule has no input and deletes for real.
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run || false }}
+      ACCOUNT: ${{ github.event.repository.owner.type == 'Organization' && github.repository_owner || 'user' }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      # Only versions whose every tag matches sha-* are selected, so a version also tagged latest or 1.2.3 survives.
+      - name: Delete the commit images older than 30 days
+        uses: snok/container-retention-policy@d3bdcf5ce9b05f685154e4a16c39233b245e3d53 # v3.1.0
+        with:
+          account: ${{ env.ACCOUNT }}
+          token: ${{ github.token }}
+          image-names: frappe-api
+          image-tags: "sha-*"
+          tag-selection: tagged
+          cut-off: 30d
+          dry-run: ${{ env.DRY_RUN }}
+      - name: Delete the untagged versions older than 7 days
+        uses: snok/container-retention-policy@d3bdcf5ce9b05f685154e4a16c39233b245e3d53 # v3.1.0
+        with:
+          account: ${{ env.ACCOUNT }}
+          token: ${{ github.token }}
+          image-names: frappe-api
+          tag-selection: untagged
+          cut-off: 7d
+          dry-run: ${{ env.DRY_RUN }}
