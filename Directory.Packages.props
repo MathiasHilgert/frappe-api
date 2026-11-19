@@ -11,6 +11,10 @@
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="$(DotNetVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="$(DotNetVersion)" />
   </ItemGroup>
+  <ItemGroup Label="Observability">
+    <PackageVersion Include="OpenTelemetry.Exporter.InMemory" Version="1.20.1" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.20.2" />
+  </ItemGroup>
   <ItemGroup Label="Persistence">
     <!-- The Postgres driver the test containers' reuse helper talks to. -->
     <PackageVersion Include="Npgsql" Version="10.0.3" />
@@ -23,6 +27,7 @@
     <PackageVersion Include="NodaTime.Serialization.SystemTextJson" Version="1.4.0" />
   </ItemGroup>
   <ItemGroup Label="Testing">
+    <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="$(DotNetVersion)" />
     <PackageVersion Include="NetArchTest.Rules" Version="1.3.2" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="11.0.0" />
     <PackageVersion Include="TUnit" Version="1.81.10" />
