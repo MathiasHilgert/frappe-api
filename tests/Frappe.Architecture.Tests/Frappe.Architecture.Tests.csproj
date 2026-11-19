@@ -12,5 +12,6 @@
     <ProjectReference Include="../../src/Platform/Frappe.Http/Frappe.Http.csproj" />
     <ProjectReference Include="../../src/Platform/Frappe.Modules/Frappe.Modules.csproj" />
     <ProjectReference Include="../../src/Platform/Frappe.Persistence/Frappe.Persistence.csproj" />
+    <ProjectReference Include="../../src/Hosts/Frappe.Migrator/Frappe.Migrator.csproj" />
   </ItemGroup>
 </Project>

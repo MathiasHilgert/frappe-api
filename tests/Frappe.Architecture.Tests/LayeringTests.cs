@@ -100,6 +100,24 @@ public sealed class LayeringTests
     }
 
     [Test]
+    public async Task The_Migrator_never_references_ASP_NET_Core()
+    {
+        // Arrange
+        var migrator = typeof(Frappe.Migrator.MigratorComposition).Assembly;
+
+        // Act
+        var references = ReferencedClosure(migrator).Where(name => name.StartsWith("Microsoft.AspNetCore", StringComparison.Ordinal)).ToList();
+        var uses = Types.InAssembly(migrator).ShouldNot().HaveDependencyOnAny("Microsoft.AspNetCore").GetResult();
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(references).IsEmpty().Because($"Frappe.Migrator reaches ASP.NET Core through: {string.Join(", ", references)}");
+            await Assert.That(uses.IsSuccessful).IsTrue().Because($"Frappe.Migrator uses ASP.NET Core: {string.Join(", ", uses.FailingTypeNames ?? [])}");
+        }
+    }
+
+    [Test]
     public async Task The_reference_walk_reaches_the_packages_each_assembly_is_built_on()
     {
         // Act

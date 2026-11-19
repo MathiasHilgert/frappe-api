@@ -12,8 +12,14 @@
     <Project Path="src/Platform/Frappe.Results/Frappe.Results.csproj" />
     <Project Path="src/Platform/Frappe.UseCases/Frappe.UseCases.csproj" />
   </Folder>
+  <Folder Name="/src/Hosts/">
+    <Project Path="src/Hosts/Frappe.Migrator/Frappe.Migrator.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Frappe.Architecture.Tests/Frappe.Architecture.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Hosts/">
+    <Project Path="tests/Hosts/Frappe.Migrator.IntegrationTests/Frappe.Migrator.IntegrationTests.csproj" />
   </Folder>
   <Folder Name="/tests/Platform/">
     <Project Path="tests/Platform/Frappe.Platform.IntegrationTests/Frappe.Platform.IntegrationTests.csproj" />
