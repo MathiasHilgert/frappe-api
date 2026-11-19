@@ -46,7 +46,13 @@ public static class ModuleDatabaseRegistration
             return services
                 .AddDatabaseOptions()
                 .AddDbContextPool<TContext>((provider, options) =>
-                    configure(provider, options, ModuleConnectionString(provider, connectionString(provider))));
+                {
+                    configure(provider, options, ModuleConnectionString(provider, connectionString(provider)));
+                    if (provider.GetKeyedService<CommitRejectionMap>(typeof(TContext)) is { } rejections)
+                    {
+                        options.UseCommitRejections(rejections);
+                    }
+                });
         }
     }
 
