@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The services entry point every module declares and every host lists. It references only the host abstractions
+       (Microsoft.Extensions.Hosting.Abstractions, which the shared runtime already provides): no ASP.NET Core, so a
+       module's Infrastructure stays free of it. -->
+</Project>
