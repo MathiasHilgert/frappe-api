@@ -12,6 +12,8 @@ extend-exclude = [
   "**/Resources/Mails/**",
   "**/Fixtures/**",
   "tools/bruno/**",
+  # The language-tag data is a list of codes, not words.
+  "**/KnownLanguages.Tags.cs",
 ]
 
 [default]
