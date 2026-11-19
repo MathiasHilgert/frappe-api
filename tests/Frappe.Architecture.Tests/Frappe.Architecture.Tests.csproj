@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../Shared/Frappe.Testing/Frappe.Testing.csproj" />
+    <!-- Every production project of the solution is referenced here as it is added, so rules derived from Frappe.slnx can load each assembly. -->
+  </ItemGroup>
+</Project>

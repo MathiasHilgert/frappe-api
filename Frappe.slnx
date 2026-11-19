@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/tests/">
+    <Project Path="tests/Frappe.Architecture.Tests/Frappe.Architecture.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Shared/">
+    <Project Path="tests/Shared/Frappe.Testing.Containers/Frappe.Testing.Containers.csproj" />
+    <Project Path="tests/Shared/Frappe.Testing/Frappe.Testing.csproj" />
+  </Folder>
+</Solution>

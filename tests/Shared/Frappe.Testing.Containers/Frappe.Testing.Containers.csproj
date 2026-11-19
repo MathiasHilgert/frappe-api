@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- What the integration suites share about their Testcontainers (reuse across local runs). Only IntegrationTests
+       projects reference it: a unit test project must not reach Docker (TEST-02). -->
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.Testing/Frappe.Testing.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Testcontainers" />
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+</Project>

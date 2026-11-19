@@ -1,0 +1,27 @@
+<Project>
+  <!-- Everything the repository root sets (analyzers, warnings as errors, lock files, net11.0) applies to tests too. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!-- A test project is named *Tests and is a TUnit app (Microsoft.Testing.Platform runs it as an executable). The
+       shared helpers under Shared/ are plain libraries: no TUnit, so they hold no tests and are never run. -->
+  <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('Tests'))">
+    <OutputType>Exe</OutputType>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup Condition="$(MSBuildProjectName.EndsWith('Tests'))">
+    <PackageReference Include="TUnit" />
+  </ItemGroup>
+
+  <!-- TEST-02: a unit test never reaches a database, NATS or Valkey; only integration suites and up do. A *.UnitTests
+       project that references their client or container packages fails the build. -->
+  <Target Name="UnitTestsStayInProcess" BeforeTargets="CollectPackageReferences" Condition="$(MSBuildProjectName.EndsWith('.UnitTests'))">
+    <ItemGroup>
+      <_InfrastructureInUnitTests Include="@(PackageReference)" Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('%(Identity)', '^(Testcontainers|Npgsql|NATS\.|StackExchange\.Redis|ZiggyCreatures\.FusionCache\.Backplane)'))" />
+    </ItemGroup>
+    <Error Condition="'@(_InfrastructureInUnitTests)' != ''" Text="TEST-02: $(MSBuildProjectName) is a unit test project and may not reference @(_InfrastructureInUnitTests); move the test to the IntegrationTests project." />
+  </Target>
+</Project>
