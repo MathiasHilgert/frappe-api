@@ -64,7 +64,12 @@ if [ -n "$factories" ]; then
   dotnet tool restore > /dev/null
   while read -r factory; do
     project=$(dirname "$factory")
-    while [ ! -f "$project/$(basename "$project").csproj" ]; do project=$(dirname "$project"); done
+    while [ ! -f "$project/$(basename "$project").csproj" ]; do
+      case "$project" in
+        . | /) echo "no project found for $factory"; exit 1 ;;
+      esac
+      project=$(dirname "$project")
+    done
     dotnet ef migrations has-pending-model-changes --project "$project" --no-build > /dev/null
   done <<< "$factories"
   echo ok
