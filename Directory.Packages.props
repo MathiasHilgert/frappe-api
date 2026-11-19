@@ -5,11 +5,17 @@
     <DotNetVersion>11.0.0</DotNetVersion>
     <TestcontainersVersion>4.16.0</TestcontainersVersion>
     <FusionCacheVersion>2.9.0</FusionCacheVersion>
+    <!-- Npgsql.EntityFrameworkCore.PostgreSQL 11.0.0-rc.3 pins EF Core to exactly 11.0.0-rc.3.26522.148; both move to 11.0.0 together once the provider ships. -->
+    <EfCoreVersion>11.0.0-rc.3.26522.148</EfCoreVersion>
+    <NpgsqlEfVersion>11.0.0-rc.3</NpgsqlEfVersion>
   </PropertyGroup>
   <ItemGroup Label="Microsoft">
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="$(DotNetVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="$(EfCoreVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="$(EfCoreVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="$(DotNetVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="$(DotNetVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="$(DotNetVersion)" />
   </ItemGroup>
   <ItemGroup Label="Observability">
     <PackageVersion Include="OpenTelemetry.Exporter.InMemory" Version="1.20.1" />
@@ -23,6 +29,8 @@
   </ItemGroup>
   <ItemGroup Label="Persistence">
     <!-- The Postgres driver the test containers' reuse helper talks to. -->
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="$(NpgsqlEfVersion)" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" Version="$(NpgsqlEfVersion)" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
   </ItemGroup>
   <ItemGroup Label="Caching">
@@ -38,6 +46,7 @@
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="11.0.0" />
     <PackageVersion Include="TUnit" Version="1.81.10" />
     <PackageVersion Include="Testcontainers" Version="$(TestcontainersVersion)" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="$(TestcontainersVersion)" />
     <PackageVersion Include="Testcontainers.Redis" Version="$(TestcontainersVersion)" />
   </ItemGroup>
   <ItemGroup Label="Analyzers">
