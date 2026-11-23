@@ -1,4 +1,7 @@
+using System.Diagnostics.Metrics;
 using Frappe.Persistence;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 
 namespace Frappe.Platform.IntegrationTests.Persistence;
@@ -69,10 +72,61 @@ public sealed class MigrationLockTests(PostgresServer server)
         });
     }
 
+    [Test]
+    public async Task A_migrator_that_waited_logs_it_and_measures_the_wait_while_one_that_did_not_only_measures()
+    {
+        await ScratchDatabase.RunAsync(server, [], async owner =>
+        {
+            // Arrange
+            using var meters = new ServiceCollection().AddMetrics().BuildServiceProvider();
+            var factory = meters.GetRequiredService<IMeterFactory>();
+            using var capture = new PersistenceMeterCapture(factory);
+            var metrics = new PersistenceMetrics(factory);
+            var logs = new List<string>();
+            await using var first = await OpenAsync(owner);
+            await using var second = await OpenAsync(owner);
+            var held = await MigrationLock.AcquireAsync(first, CancellationToken.None, new ListLogger(logs), metrics);
+            using var giveUp = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            var waiting = MigrationLock.AcquireAsync(second, giveUp.Token, new ListLogger(logs), metrics);
+            await Task.Delay(TimeSpan.FromMilliseconds(600), CancellationToken.None);
+
+            // Act
+            await held.DisposeAsync();
+            await using var taken = await waiting;
+
+            // Assert
+            var waits = capture.Of(PersistenceMetrics.MigrationLockWaitMetric).Select(m => m.Value).Order().ToArray();
+            using (Assert.Multiple())
+            {
+                await Assert.That(waits.Length).IsEqualTo(2);
+                await Assert.That(waits[0]).IsLessThan(0.5);
+                await Assert.That(waits[1]).IsGreaterThanOrEqualTo(0.5);
+                await Assert.That(logs.Count(l => l.Contains("Another Migrator", StringComparison.Ordinal))).IsEqualTo(1);
+                await Assert.That(logs.Count(l => l.Contains("after waiting", StringComparison.Ordinal))).IsEqualTo(1);
+            }
+        });
+    }
+
     private static async Task<NpgsqlConnection> OpenAsync(string connectionString)
     {
         var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync();
         return connection;
+    }
+
+    /// <summary>A logger that keeps the text of what it is told.</summary>
+    private sealed class ListLogger(List<string> entries) : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            lock (entries)
+            {
+                entries.Add(formatter(state, exception));
+            }
+        }
     }
 }

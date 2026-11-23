@@ -25,12 +25,16 @@ public static class UnitOfWorkRegistration
             where TContext : DbContext
         {
             ArgumentNullException.ThrowIfNull(services);
-            ArgumentException.ThrowIfNullOrWhiteSpace(module);
+            ModuleDatabaseRegistration.RequireLowerCase(module);
+            services.TryAddSingleton<PersistenceMetrics>();
+            services.AddMetrics();
             services.TryAddKeyedScoped<IUnitOfWork>(module, (provider, _) => new EfUnitOfWork<TContext>(
                 provider.GetRequiredService<TContext>(),
                 provider,
                 (ILogger?)provider.GetService<ILoggerFactory>()?.CreateLogger<EfUnitOfWork<TContext>>() ?? NullLogger.Instance,
-                provider.GetKeyedService<CommitRejectionMap>(typeof(TContext))));
+                provider.GetKeyedService<CommitRejectionMap>(typeof(TContext)),
+                provider.GetService<PersistenceMetrics>(),
+                module));
             return services;
         }
     }

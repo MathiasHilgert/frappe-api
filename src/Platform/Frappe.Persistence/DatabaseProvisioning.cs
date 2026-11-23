@@ -19,6 +19,7 @@ public static partial class DatabaseProvisioning
     /// <param name="limits">The session timeouts every login role gets.</param>
     /// <param name="logger">Where each finished step is logged.</param>
     /// <param name="cancellationToken">Cancels the run; the lock is still released.</param>
+    /// <param name="metrics">Where the wait for the migration lock is measured; none uses the platform's own instruments.</param>
     /// <exception cref="InvalidOperationException">A role has no password; nothing was touched.</exception>
     public static async Task RunAsync(
         string ownerConnectionString,
@@ -26,7 +27,8 @@ public static partial class DatabaseProvisioning
         IReadOnlyDictionary<string, string> rolePasswords,
         DatabaseOptions limits,
         ILogger logger,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        PersistenceMetrics? metrics = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(ownerConnectionString);
         ArgumentNullException.ThrowIfNull(participants);
@@ -38,7 +40,7 @@ public static partial class DatabaseProvisioning
 
         await using var connection = new NpgsqlConnection(ownerConnectionString);
         await connection.OpenAsync(cancellationToken);
-        await using var migrationLock = await MigrationLock.AcquireAsync(connection, cancellationToken);
+        await using var migrationLock = await MigrationLock.AcquireAsync(connection, cancellationToken, logger, metrics);
 
         foreach (var role in participants.SelectMany(participant => participant.Roles))
         {
@@ -59,6 +61,7 @@ public static partial class DatabaseProvisioning
 
         foreach (var participant in participants)
         {
+            await ModuleRoles.RevokePublicDefinerExecuteAsync(connection, participant.Schema, cancellationToken);
             foreach (var role in participant.Roles)
             {
                 await role.Grant.ApplyAsync(connection, role.Name, participant.Schema, cancellationToken);

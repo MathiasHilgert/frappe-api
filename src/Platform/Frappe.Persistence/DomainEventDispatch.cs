@@ -15,7 +15,8 @@ internal static partial class DomainEventDispatch
 {
     private static readonly ConcurrentDictionary<Type, Func<IServiceProvider, IDomainEvent, CancellationToken, Task>> InUnit = new();
 
-    private static readonly ConcurrentDictionary<Type, Func<IServiceProvider, IDomainEvent, ILogger, CancellationToken, Task>> AfterCommit = new();
+    private static readonly ConcurrentDictionary<
+        Type, Func<IServiceProvider, IDomainEvent, ILogger, PersistenceMetrics?, string, CancellationToken, Task>> AfterCommit = new();
 
     /// <summary>Runs every in-unit handler of the event in turn; the first one that throws fails the unit.</summary>
     public static Task HandleAsync(IServiceProvider services, IDomainEvent domainEvent, CancellationToken cancellationToken) =>
@@ -28,11 +29,18 @@ internal static partial class DomainEventDispatch
     /// Runs every after-commit handler of the event; a failure is logged and the next one still runs. Handlers the
     /// container cannot build are logged too, and then none runs: the commit stands either way.
     /// </summary>
-    public static Task AfterCommitAsync(IServiceProvider services, IDomainEvent domainEvent, ILogger logger, CancellationToken cancellationToken) =>
+    public static Task AfterCommitAsync(
+        IServiceProvider services,
+        IDomainEvent domainEvent,
+        ILogger logger,
+        PersistenceMetrics? metrics,
+        string module,
+        CancellationToken cancellationToken) =>
         AfterCommit.GetOrAdd(
             domainEvent.GetType(),
-            type => Bind<Func<IServiceProvider, IDomainEvent, ILogger, CancellationToken, Task>>(nameof(HandleAfterCommitAsync), type))(
-            services, domainEvent, logger, cancellationToken);
+            type => Bind<Func<IServiceProvider, IDomainEvent, ILogger, PersistenceMetrics?, string, CancellationToken, Task>>(
+                nameof(HandleAfterCommitAsync), type))(
+            services, domainEvent, logger, metrics, module, cancellationToken);
 
     private static TDelegate Bind<TDelegate>(string method, Type eventType)
         where TDelegate : Delegate =>
@@ -52,7 +60,12 @@ internal static partial class DomainEventDispatch
     }
 
     private static async Task HandleAfterCommitAsync<TEvent>(
-        IServiceProvider services, IDomainEvent domainEvent, ILogger logger, CancellationToken cancellationToken)
+        IServiceProvider services,
+        IDomainEvent domainEvent,
+        ILogger logger,
+        PersistenceMetrics? metrics,
+        string module,
+        CancellationToken cancellationToken)
         where TEvent : IDomainEvent
     {
         // The container builds every handler at once, so one that cannot be built leaves none to run; it is logged
@@ -65,6 +78,7 @@ internal static partial class DomainEventDispatch
         catch (Exception exception)
         {
             LogAfterCommitUnresolved(logger, exception, typeof(TEvent).Name);
+            metrics?.AfterCommitFailed(module, PersistenceMetrics.StepsUnresolved);
             return;
         }
 
@@ -77,6 +91,7 @@ internal static partial class DomainEventDispatch
             catch (Exception exception)
             {
                 LogAfterCommitFailed(logger, exception, typeof(TEvent).Name, handler.GetType().Name);
+                metrics?.AfterCommitFailed(module, PersistenceMetrics.StepFailed);
             }
         }
     }

@@ -17,7 +17,9 @@ public static partial class ModuleRoles
     private const int ScramIterations = 4096;
 
     /// <summary>
-    /// Creates the login role, or rotates its password when it already exists. Only a SCRAM-SHA-256 verifier computed
+    /// Creates the login role, or, when it already exists, rotates its password and puts back the attributes the role is
+    /// created with that matter here (<c>LOGIN</c>, <c>NOINHERIT</c>, no connection limit), so a role somebody altered by hand
+    /// does not keep them; <c>SUPERUSER</c> is never touched, an owner without it could not. Only a SCRAM-SHA-256 verifier computed
     /// here reaches the server, so the plain password can never appear in a server log, even when the statement fails.
     /// </summary>
     public static async Task EnsureLoginRoleAsync(NpgsqlConnection owner, string role, string password, CancellationToken cancellationToken)
@@ -29,7 +31,7 @@ public static partial class ModuleRoles
         await using var exists = new NpgsqlCommand("SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = @role)", owner);
         exists.Parameters.AddWithValue("role", role);
         var statement = (bool)(await exists.ExecuteScalarAsync(cancellationToken))!
-            ? "ALTER ROLE %I WITH LOGIN PASSWORD %L"
+            ? "ALTER ROLE %I WITH LOGIN NOINHERIT CONNECTION LIMIT -1 PASSWORD %L"
             : "CREATE ROLE %I WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD %L";
 
         // The verifier is quoted by the server (format %L), never interpolated: DDL takes no bind parameters.
@@ -80,6 +82,26 @@ public static partial class ModuleRoles
     {
         ArgumentNullException.ThrowIfNull(owner);
         await using var command = new NpgsqlCommand("ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC", owner);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Takes <c>EXECUTE</c> on the <c>SECURITY DEFINER</c> functions of a schema back from <c>PUBLIC</c>. Functions created
+    /// before the database-wide default was revoked (the first run) still carry it, and a role with any access to the schema
+    /// would otherwise run them with the owner's rights. Independent of the role's grant kind, so a custom grant is covered too.
+    /// </summary>
+    public static async Task RevokePublicDefinerExecuteAsync(NpgsqlConnection owner, string schema, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        var s = Identifier(schema);
+        var statement = $"""
+            DO $$ DECLARE f regprocedure; BEGIN
+              FOR f IN SELECT p.oid::regprocedure FROM pg_proc p WHERE p.pronamespace = to_regnamespace('{s}') AND p.prosecdef LOOP
+                EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC', f);
+              END LOOP;
+            END $$
+            """;
+        await using var command = new NpgsqlCommand(statement, owner);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 

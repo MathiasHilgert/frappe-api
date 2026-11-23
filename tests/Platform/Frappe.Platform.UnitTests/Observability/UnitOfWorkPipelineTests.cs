@@ -1,4 +1,5 @@
 using Frappe.Observability;
+using Frappe.Platform.Testing.Observability;
 using Frappe.Results;
 using Frappe.UseCases;
 using Microsoft.Extensions.DependencyInjection;
@@ -105,6 +106,47 @@ public sealed class UnitOfWorkPipelineTests
         {
             await Assert.That(exception!.Message).IsEqualTo("The database refused the commit.");
             await Assert.That(string.Join(",", unitOfWork.Calls)).IsEqualTo("begin,commit,rollback");
+        }
+    }
+
+    [Test]
+    public async Task A_begin_the_storage_refuses_is_rolled_back_and_answered_like_a_rejected_commit()
+    {
+        // Arrange
+        var unitOfWork = new RecordingUnitOfWork { BeginFailure = new LostRaceException() };
+        await using var services = Services(unitOfWork);
+
+        // Act
+        var result = await InScopeAsync(services, provider => provider.GetRequiredService<ICommandHandler<AcceptedCommand, string>>()
+            .HandleAsync(new AcceptedCommand("b"), CancellationToken.None));
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(result.IsSuccess).IsFalse();
+            await Assert.That(result.Errors[0].Code).IsEqualTo("test.changed_concurrently");
+            await Assert.That(string.Join(",", unitOfWork.Calls)).IsEqualTo("begin,rollback");
+        }
+    }
+
+    [Test]
+    public async Task A_begin_that_throws_is_rolled_back_and_the_exception_propagates()
+    {
+        // Arrange
+        var unitOfWork = new RecordingUnitOfWork { BeginFailure = new InvalidOperationException("The database is down.") };
+        await using var services = Services(unitOfWork);
+
+        // Act
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => InScopeAsync(
+            services,
+            provider => provider.GetRequiredService<ICommandHandler<AcceptedCommand, string>>()
+                .HandleAsync(new AcceptedCommand("b"), CancellationToken.None)));
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(exception!.Message).IsEqualTo("The database is down.");
+            await Assert.That(string.Join(",", unitOfWork.Calls)).IsEqualTo("begin,rollback");
         }
     }
 

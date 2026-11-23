@@ -17,20 +17,58 @@ namespace Frappe.Persistence;
 public static class StoredEnum<TEnum>
     where TEnum : struct, Enum
 {
+    // Built tolerant of an enum without members: a throw here would surface as a TypeInitializationException that hides
+    // which enum is wrong, so the public members check it and name the type instead.
     private static readonly Dictionary<TEnum, string> Texts = Enum.GetValues<TEnum>()
         .Distinct()
         .ToDictionary(value => value, value => JsonNamingPolicy.SnakeCaseLower.ConvertName(Enum.GetName(value)!));
 
     private static readonly Dictionary<string, TEnum> Values = Texts.ToDictionary(pair => pair.Value, pair => pair.Key, StringComparer.Ordinal);
 
+    private static readonly Lazy<string> Check = new(
+        () => string.Join(", ", Enum.GetValues<TEnum>().Distinct().Select(value => $"'{Texts[value]}'")));
+
+    private static readonly Lazy<int> Longest = new(() => Texts.Values.Max(text => text.Length));
+
+    private static readonly ValueConverter<TEnum, string> Shared = new(value => ToText(value), text => FromText(text));
+
     /// <summary>The text of every member in declaration order, each quoted, as the list of a <c>col IN (...)</c> check.</summary>
-    public static string CheckList { get; } = string.Join(", ", Enum.GetValues<TEnum>().Distinct().Select(value => $"'{Texts[value]}'"));
+    /// <exception cref="InvalidOperationException">The enum has no members.</exception>
+    public static string CheckList
+    {
+        get
+        {
+            _ = Members();
+            return Check.Value;
+        }
+    }
 
     /// <summary>The length of the longest stored text, for the column's maximum length.</summary>
-    public static int MaxLength { get; } = Texts.Values.Max(text => text.Length);
+    /// <exception cref="InvalidOperationException">The enum has no members.</exception>
+    public static int MaxLength
+    {
+        get
+        {
+            _ = Members();
+            return Longest.Value;
+        }
+    }
 
     /// <summary>Writes a member as its text and reads the text back as the member.</summary>
-    public static ValueConverter<TEnum, string> Converter { get; } = new(value => ToText(value), text => FromText(text));
+    /// <exception cref="InvalidOperationException">The enum has no members.</exception>
+    public static ValueConverter<TEnum, string> Converter
+    {
+        get
+        {
+            _ = Members();
+            return Shared;
+        }
+    }
+
+    private static Dictionary<TEnum, string> Members() =>
+        Texts.Count > 0
+            ? Texts
+            : throw new InvalidOperationException($"{typeof(TEnum).Name} has no members, so there is nothing to store as text.");
 
     /// <summary>The stored text of <paramref name="value"/>.</summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="value"/> is no member of the enum.</exception>

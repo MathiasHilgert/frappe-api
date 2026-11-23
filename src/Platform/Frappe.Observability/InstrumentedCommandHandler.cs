@@ -12,9 +12,8 @@ internal sealed class InstrumentedCommandHandler<TCommand, TResult>(
     where TCommand : ICommand<TResult>
 {
     public Task<Result<TResult>> HandleAsync(TCommand command, CancellationToken cancellationToken) =>
-        HandlerInstrumentation.ExecuteAsync(
+        HandlerInstrumentation.ExecuteAsync<TCommand, TResult>(
             "command",
-            typeof(TCommand),
             metrics,
             logger,
             () => inner.HandleAsync(command, cancellationToken),

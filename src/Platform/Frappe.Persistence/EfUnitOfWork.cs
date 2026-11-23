@@ -15,15 +15,21 @@ namespace Frappe.Persistence;
 /// commit to the owner; rolling back returns to the savepoint, so the owner's work survives.
 /// <para>
 /// Before each of its saves, the unit hands the pending domain events of the tracked aggregates to their
-/// <see cref="IDomainEventHandler{TEvent}"/>s (read models, for example), whose changes that same save writes. It only
-/// reads the events: the outbox interceptor still takes them during the save. Once the unit's own transaction committed,
+/// <see cref="IDomainEventHandler{TEvent}"/>s (read models, for example), whose changes that same save writes. The
+/// save carries them to the outbox when the module has one (its interceptor takes them), and the unit takes whatever is
+/// left once the save succeeded, so a later save never hands the same event to a handler twice. Once the unit's own transaction committed,
 /// it runs their <see cref="IAfterCommitDomainEventHandler{TEvent}"/>s (cache invalidation), never after a rollback.
 /// Inside somebody else's transaction a released savepoint is not a commit, so the unit runs no after-commit handler
 /// there.
 /// </para>
 /// </summary>
 internal sealed class EfUnitOfWork<TContext>(
-    TContext db, IServiceProvider services, ILogger logger, CommitRejectionMap? rejections = null) : IUnitOfWork
+    TContext db,
+    IServiceProvider services,
+    ILogger logger,
+    CommitRejectionMap? rejections = null,
+    PersistenceMetrics? metrics = null,
+    string module = "unknown") : IUnitOfWork
     where TContext : DbContext
 {
     private const string Savepoint = "frappe_unit_of_work";
@@ -41,11 +47,15 @@ internal sealed class EfUnitOfWork<TContext>(
 
     public async Task BeginAsync(CancellationToken cancellationToken)
     {
-        _ambient = db.Database.CurrentTransaction;
-        if (_ambient is not null)
+        // Kept apart until the savepoint exists: a rejected begin leaves no ambient, so the rollback never targets a savepoint
+        // that was not created (or an outer unit's savepoint of the same name).
+        _ambient = null;
+        var current = db.Database.CurrentTransaction;
+        if (current is not null)
         {
             await SaveAsync(cancellationToken);
-            await _ambient.CreateSavepointAsync(Savepoint, cancellationToken);
+            await current.CreateSavepointAsync(Savepoint, cancellationToken);
+            _ambient = current;
         }
     }
 
@@ -100,15 +110,24 @@ internal sealed class EfUnitOfWork<TContext>(
     /// <returns>The events the save carried, for the after-commit handlers.</returns>
     private async Task<IReadOnlyList<IDomainEvent>> SaveAsync(CancellationToken cancellationToken)
     {
-        var events = db.ChangeTracker.Entries<AggregateRoot>()
-            .SelectMany(entry => entry.Entity.DomainEvents)
+        var aggregates = db.ChangeTracker.Entries<AggregateRoot>()
+            .Select(entry => entry.Entity)
+            .Where(aggregate => aggregate.DomainEvents.Count > 0)
             .ToArray();
+        var events = aggregates.SelectMany(aggregate => aggregate.DomainEvents).ToArray();
         foreach (var domainEvent in events)
         {
             await DomainEventDispatch.HandleAsync(services, domainEvent, cancellationToken);
         }
 
         await SaveRejectingAsync(cancellationToken);
+
+        // Without an outbox nobody took them during the save: each event is handled once per save, saved or not.
+        foreach (var aggregate in aggregates)
+        {
+            aggregate.DequeueDomainEvents();
+        }
+
         return events;
     }
 
@@ -139,11 +158,13 @@ internal sealed class EfUnitOfWork<TContext>(
 
                 if (!resolution.IsRepair)
                 {
+                    metrics?.CommitRejected(module);
                     throw resolution.Rejection!;
                 }
 
                 if (++repairs > MaxRepairs)
                 {
+                    metrics?.RepairsExhausted(module);
                     throw new CommitConflictException("The commit kept failing after its staged changes were repaired.", exception);
                 }
             }
@@ -176,6 +197,7 @@ internal sealed class EfUnitOfWork<TContext>(
             await transaction.RollbackToSavepointAsync(DeferredCheckSavepoint, CancellationToken.None);
             if (rejections.ResolveDeferred(new CommitFailure(db, exception, cancellationToken)) is { } rejection)
             {
+                metrics?.CommitRejected(module);
                 throw rejection;
             }
 
@@ -202,7 +224,7 @@ internal sealed class EfUnitOfWork<TContext>(
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(AfterCommitTimeoutSeconds));
         foreach (var domainEvent in events)
         {
-            await DomainEventDispatch.AfterCommitAsync(services, domainEvent, logger, timeout.Token);
+            await DomainEventDispatch.AfterCommitAsync(services, domainEvent, logger, metrics, module, timeout.Token);
         }
     }
 }
