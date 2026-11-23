@@ -1,0 +1,1 @@
+../../.agents/skills/forge/agents/critic-observability.md
