@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../Shared/Frappe.Testing/Frappe.Testing.csproj" />
+    <!-- Every production project of the solution, so rules derived from Frappe.slnx can load each assembly. -->
+    <ProjectReference Include="../../src/Platform/Frappe.Results/Frappe.Results.csproj" />
+    <ProjectReference Include="../../src/Platform/Frappe.UseCases/Frappe.UseCases.csproj" />
+    <ProjectReference Include="../../src/Platform/Frappe.Aggregates/Frappe.Aggregates.csproj" />
+    <ProjectReference Include="../../src/Platform/Frappe.Localization/Frappe.Localization.csproj" />
+    <ProjectReference Include="../../src/Platform/Frappe.IntegrationEvents/Frappe.IntegrationEvents.csproj" />
+    <ProjectReference Include="../../src/Platform/Frappe.Health/Frappe.Health.csproj" />
+    <ProjectReference Include="../../src/Platform/Frappe.Caching/Frappe.Caching.csproj" />
+    <ProjectReference Include="../../src/Platform/Frappe.Modules/Frappe.Modules.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="NetArchTest.Rules" />
+  </ItemGroup>
+</Project>

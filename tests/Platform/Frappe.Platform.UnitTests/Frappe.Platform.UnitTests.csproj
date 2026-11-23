@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Platform capabilities in process (TEST-02): no Docker, database, broker or cache. Whatever needs one belongs in
+       Frappe.Platform.IntegrationTests. -->
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Platform/Frappe.Results/Frappe.Results.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.UseCases/Frappe.UseCases.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.Health/Frappe.Health.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.Caching/Frappe.Caching.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.Localization/Frappe.Localization.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.Aggregates/Frappe.Aggregates.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.IntegrationEvents/Frappe.IntegrationEvents.csproj" />
+    <ProjectReference Include="../../Shared/Frappe.Testing/Frappe.Testing.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+</Project>
