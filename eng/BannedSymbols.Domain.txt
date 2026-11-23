@@ -1,0 +1,1 @@
+N:System.ComponentModel.DataAnnotations;Validation lives in value objects and handlers and returns Result (DOM-09)

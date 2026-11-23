@@ -1,0 +1,62 @@
+# The HTTP and event contracts (contracts/) against the base branch and the REST rules: a breaking change passes only when
+# the title carries "!". The calling job checks out the whole history. A contract that does not exist yet has nothing to check.
+# Used by CI and by the workflow that re-runs it when the title is edited, so both report the same check from the same code.
+name: API contract is sound
+description: Diffs the committed contracts with the base branch and lints the HTTP contract with the REST rules
+
+inputs:
+  title:
+    description: The pull request title
+    required: true
+  base-ref:
+    description: The branch the pull request targets
+    required: true
+  token:
+    description: Token that can read releases (to download oasdiff)
+    required: true
+  oasdiff-version:
+    description: Version of oasdiff
+    default: "1.37.0"
+  spectral-version:
+    description: Version of the Spectral CLI
+    default: "6.17.1"
+
+runs:
+  using: composite
+  steps:
+    - name: Find the contracts
+      id: subject
+      shell: bash
+      run: |
+        [ -f contracts/openapi/v1.json ] && echo "api=true" >> "$GITHUB_OUTPUT" || echo "api=false" >> "$GITHUB_OUTPUT"
+        [ -f contracts/events/v1.json ] && echo "events=true" >> "$GITHUB_OUTPUT" || echo "events=false" >> "$GITHUB_OUTPUT"
+        if [ ! -f contracts/openapi/v1.json ] && [ ! -f contracts/events/v1.json ]; then
+          echo "No contracts yet: nothing to check." >> "$GITHUB_STEP_SUMMARY"
+        fi
+    - name: Install oasdiff
+      if: steps.subject.outputs.api == 'true' || steps.subject.outputs.events == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        OASDIFF_VERSION: ${{ inputs.oasdiff-version }}
+      run: .github/scripts/install-oasdiff.sh "$OASDIFF_VERSION" "$RUNNER_TEMP/bin"
+    - name: Compare the HTTP contract with the base branch
+      if: steps.subject.outputs.api == 'true'
+      shell: bash
+      env:
+        TITLE: ${{ inputs.title }}
+        BASE_REF: ${{ inputs.base-ref }}
+      run: PATH="$RUNNER_TEMP/bin:$PATH" .github/scripts/breaking-changes.sh contracts/openapi/v1.json "$BASE_REF"
+    - name: Lint the HTTP contract with the repository's REST rules
+      if: steps.subject.outputs.api == 'true'
+      shell: bash
+      env:
+        SPECTRAL_VERSION: ${{ inputs.spectral-version }}
+      run: npx --yes "@stoplight/spectral-cli@$SPECTRAL_VERSION" lint contracts/openapi/v1.json --ruleset eng/spectral.yaml --fail-severity error
+    - name: Compare the event contract with the base branch
+      if: steps.subject.outputs.events == 'true'
+      shell: bash
+      env:
+        TITLE: ${{ inputs.title }}
+        BASE_REF: ${{ inputs.base-ref }}
+      run: PATH="$RUNNER_TEMP/bin:$PATH" .github/scripts/breaking-changes.sh contracts/events/v1.json "$BASE_REF"

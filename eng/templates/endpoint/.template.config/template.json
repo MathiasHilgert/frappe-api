@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Frappe",
+  "classifications": ["Frappe", "Scaffold"],
+  "identity": "Frappe.Scaffold.Endpoint",
+  "name": "Frappe endpoint mapping",
+  "shortName": "endpoint",
+  "tags": { "language": "C#", "type": "item" },
+  "sourceName": "UseCaseName",
+  "preferNameDirectory": false,
+  "symbols": {
+    "Module": { "type": "parameter", "datatype": "string", "isRequired": true, "replaces": "ModuleName" },
+    "Area": { "type": "parameter", "datatype": "string", "isRequired": true, "replaces": "AreaName" },
+    "IsQuery": { "type": "parameter", "datatype": "bool", "defaultValue": "false" },
+    "AccessType": { "type": "parameter", "datatype": "string", "defaultValue": "", "description": "The module's authorization class (for example OrderAccess); empty when it has none." },
+    "HasAccess": { "type": "computed", "value": "AccessType != \"\"" },
+    "ModuleFirst": { "type": "parameter", "datatype": "bool", "defaultValue": "true", "description": "Whether the module name sorts before Http in the using order." },
+    "Verb": { "type": "parameter", "datatype": "string", "isRequired": true, "replaces": "MapVerb" },
+    "Route": { "type": "parameter", "datatype": "string", "isRequired": true, "replaces": "/route-placeholder" }
+  }
+}

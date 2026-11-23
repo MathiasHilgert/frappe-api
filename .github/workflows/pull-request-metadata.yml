@@ -1,0 +1,83 @@
+# Re-runs only the checks that read the pull request's title or labels, under the names CI reports them with, when those
+# are edited: a new title can fix the conventions or mark a breaking change with "!", and a label changes what triage
+# sets. Everything else in CI reads the code, which a title edit does not change. The checks are the composite actions
+# of .github/actions, the same code CI runs, so both workflows report the same verdict.
+name: Pull request metadata
+
+on:
+  pull_request:
+    types: [edited, labeled, unlabeled]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  conventions:
+    name: PR follows the conventions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the conventions
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - name: Validate the title, the commits and the branch
+        uses: ./.github/actions/conventions # zizmor: ignore[self-repository]
+
+  triage:
+    name: Assignee and labels set
+    # A pull request from a fork gets a read-only token: there is nothing to label with, so the job is skipped.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the conventions
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - name: Assign the author and label the pull request
+        uses: ./.github/actions/triage # zizmor: ignore[self-repository]
+
+  contract:
+    name: API contract is sound
+    # The "!" of the title lets a breaking change through; with no contract yet the check passes at once.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code with the base branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Diff the contracts with the base branch and lint them
+        uses: ./.github/actions/contract # zizmor: ignore[self-repository]
+        with:
+          title: ${{ github.event.pull_request.title }}
+          base-ref: ${{ github.base_ref }}
+          token: ${{ github.token }}

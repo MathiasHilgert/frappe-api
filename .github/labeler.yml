@@ -1,0 +1,24 @@
+# Area labels by changed path, applied by the "Assignee and labels set" check (actions/labeler). Which part of the system a
+# change touches; what kind of change it is comes from the title ("type:" labels), so tests and docs get no area label.
+# Every label, with its color and description, is defined in .github/labels.json (just github labels).
+"area: platform":
+  - changed-files:
+      - any-glob-to-any-file: ["src/Platform/**", "tests/Platform/**"]
+"area: hosts":
+  - changed-files:
+      - any-glob-to-any-file: ["src/Hosts/**"]
+"area: database":
+  - changed-files:
+      - any-glob-to-any-file: ["**/Migrations/**"]
+"area: contracts":
+  - changed-files:
+      - any-glob-to-any-file: ["contracts/**", "src/Modules/*/*.Contracts/**"]
+"area: infrastructure":
+  - changed-files:
+      - any-glob-to-any-file: ["deploy/**", ".justfile", "eng/just/**"]
+"area: ci":
+  - changed-files:
+      - any-glob-to-any-file: [".github/**"]
+"area: dependencies":
+  - changed-files:
+      - any-glob-to-any-file: ["Directory.Packages.props", "**/packages.lock.json", "global.json", ".config/dotnet-tools.json", "NuGet.config"]

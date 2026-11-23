@@ -1,0 +1,119 @@
+# Is main still safe? CodeQL on every push to main and weekly, and a weekly audit of the packages: a new advisory shows up
+# without anyone touching the code. The pull request side (dependencies, secrets, workflows, image) lives in ci.yml.
+name: Security
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  languages:
+    name: Find the languages to scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.find.outputs.matrix }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # CodeQL fails on a language it finds no source for, so C# is scanned once there is some.
+      - name: Find the languages with source
+        id: find
+        run: |
+          languages='["actions"]'
+          if [ -n "$(git ls-files '*.cs' | head -n 1)" ]; then
+            languages='["csharp", "actions"]'
+          fi
+          echo "matrix=$languages" >> "$GITHUB_OUTPUT"
+
+  code-scanning:
+    name: Code scanning (${{ matrix.language }})
+    needs: languages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ${{ fromJSON(needs.languages.outputs.matrix) }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Initialize CodeQL for ${{ matrix.language }}
+        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          languages: ${{ matrix.language }}
+          # Source-only analysis: no build, so it does not depend on the .NET SDK release in use.
+          build-mode: none
+          queries: security-extended
+          # Restores the NuGet packages the buildless C# extraction downloads, keyed on packages.lock.json. It is off by default
+          # outside GitHub's default setup (codeql-action: getDependencyCachingEnabled).
+          dependency-caching: true
+      - name: Analyze ${{ matrix.language }}
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          category: /language:${{ matrix.language }}
+
+  dependencies:
+    name: Packages have no known vulnerabilities
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+      - name: Restore packages from the lock files
+        run: dotnet restore Frappe.slnx --locked-mode
+      - name: Audit direct and transitive packages
+        run: |
+          dotnet package list --project Frappe.slnx --vulnerable --include-transitive --format json > "$RUNNER_TEMP/vulnerable.json"
+          if [ "$(jq '.problems // [] | length' "$RUNNER_TEMP/vulnerable.json")" -gt 0 ]; then
+            jq -r '.problems[] | "\(.level): \(.text)"' "$RUNNER_TEMP/vulnerable.json"
+            echo "::error::The vulnerability audit could not complete"
+            exit 1
+          fi
+          count=$(jq '[.projects[].frameworks[]? | (.topLevelPackages // []) + (.transitivePackages // []) | .[]] | length' "$RUNNER_TEMP/vulnerable.json")
+          if [ "$count" -gt 0 ]; then
+            echo "::error::$count vulnerable package(s); update them in Directory.Packages.props and run just deps lock"
+            exit 1
+          fi

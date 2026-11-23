@@ -182,8 +182,10 @@ $RECYCLE.BIN/
 # AI tooling, agents & assistants
 # =============================================================================
 
-# Claude / Anthropic
-.claude/
+# Claude / Anthropic: the agents and skills are versioned (symlinks into .agents), everything else under .claude is local state
+.claude/*
+!.claude/agents/
+!.claude/skills/
 CLAUDE.md
 CLAUDE.local.md
 .mcp.json
