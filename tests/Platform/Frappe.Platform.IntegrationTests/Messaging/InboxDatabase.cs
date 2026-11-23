@@ -21,15 +21,22 @@ public sealed class InboxDatabase : IAsyncInitializer, IAsyncDisposable
     /// <summary>A fresh database holding an inbox and the effects table, and the options to reach it.</summary>
     public async Task<DbContextOptions<InboxTestContext>> CreateAsync()
     {
-        var connection = new NpgsqlConnectionStringBuilder(_container.GetConnectionString())
-        {
-            Database = "inbox_" + Guid.NewGuid().ToString("N")[..12],
-        }.ConnectionString;
+        var connection = NewConnectionString();
         var options = new DbContextOptionsBuilder<InboxTestContext>().UseNpgsql(connection, npgsql => npgsql.UseNodaTime()).Options;
         await using var context = new InboxTestContext(options);
         await context.Database.EnsureCreatedAsync();
         return options;
     }
+
+    /// <summary>The connection string of a database name no other test uses; the database is created by whoever connects to it first.</summary>
+    public string NewConnectionString() =>
+        new NpgsqlConnectionStringBuilder(_container.GetConnectionString())
+        {
+            Database = "inbox_" + Guid.NewGuid().ToString("N")[..12],
+        }.ConnectionString;
+
+    /// <summary>The server's own connection string, a superuser on its default database.</summary>
+    public string ServerConnectionString => _container.GetConnectionString();
 
     /// <summary>Options of a database that was never created, on the same server: every statement fails.</summary>
     public DbContextOptions<InboxTestContext> Unreachable() =>

@@ -25,10 +25,13 @@ public sealed class NatsServer : IAsyncInitializer, IAsyncDisposable
     /// <summary>The JetStream context of a connection shared by the session's tests.</summary>
     public INatsJSContext JetStream { get; private set; } = null!;
 
+    /// <summary>The URL clients reach the server at.</summary>
+    public string Url => $"nats://{_container.Hostname}:{_container.GetMappedPublicPort(ClientPort)}";
+
     public async Task InitializeAsync()
     {
         await _container.StartAsync();
-        _connection = new NatsConnection(new NatsOpts { Url = $"nats://{_container.Hostname}:{_container.GetMappedPublicPort(ClientPort)}" });
+        _connection = new NatsConnection(new NatsOpts { Url = Url });
         await _connection.ConnectAsync();
         JetStream = new NatsJSContext(_connection);
     }
