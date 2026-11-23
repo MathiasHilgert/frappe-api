@@ -1,0 +1,490 @@
+#!/usr/bin/env bash
+# slot: isolated local stacks for concurrent sessions (slots 1..3) plus one shared LGTM observability stack.
+# Run `slot help` for usage. See README.md next to this file.
+set -euo pipefail
+
+SLOTS_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+MAIN_REPO="$(cd "$SLOTS_DIR/../../../../.." && pwd)"
+RUN_DIR="$SLOTS_DIR/run"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/frappe/slots"
+MAX_SLOT=3
+OBS_PROJECT="frappe-observability"
+OBS_NETWORK="frappe-observability"
+OBS_COLLECTOR_ALIAS="frappe-obs-collector"
+SLOT_SERVICES=(postgres nats valkey mailpit media-store imgproxy clamav migrator api worker)
+OBS_SERVICES=(otel-collector loki tempo mimir grafana)
+
+# Host-port variables published by compose.yaml and their defaults.
+PORT_VARS=(API_PORT GRAFANA_PORT POSTGRES_PORT NATS_PORT NATS_MONITOR_PORT VALKEY_PORT OTLP_GRPC_PORT OTLP_HTTP_PORT
+  LOKI_PORT TEMPO_PORT MIMIR_PORT MAILPIT_PORT MEDIA_STORE_PORT IMGPROXY_PORT CLAMAV_PORT)
+declare -A PORT_DEFAULT=(
+  [API_PORT]=8080 [GRAFANA_PORT]=3000 [POSTGRES_PORT]=5432 [NATS_PORT]=4222 [NATS_MONITOR_PORT]=8222
+  [VALKEY_PORT]=6379 [OTLP_GRPC_PORT]=4317 [OTLP_HTTP_PORT]=4318 [LOKI_PORT]=3100 [TEMPO_PORT]=3200
+  [MIMIR_PORT]=9009 [MAILPIT_PORT]=8025 [MEDIA_STORE_PORT]=9000 [IMGPROXY_PORT]=8081 [CLAMAV_PORT]=3310
+)
+# Ports a slot actually publishes (its services only).
+SLOT_PORT_VARS=(API_PORT POSTGRES_PORT NATS_PORT NATS_MONITOR_PORT VALKEY_PORT MAILPIT_PORT MEDIA_STORE_PORT IMGPROXY_PORT CLAMAV_PORT)
+OBS_PORT_VARS=(GRAFANA_PORT OTLP_GRPC_PORT OTLP_HTTP_PORT LOKI_PORT TEMPO_PORT MIMIR_PORT)
+
+log() { printf 'slot: %s\n' "$*" >&2; }
+die() { printf 'slot: error: %s\n' "$*" >&2; exit 1; }
+
+usage() {
+  cat <<'EOF'
+Usage: slot <command> [options]
+
+  claim [--worktree PATH] [--wait SECONDS]   Take the first free slot (1..3); prints its number. Waits up to
+                                             --wait seconds (default 1800) when all are taken.
+  env --slot N [--worktree PATH]             Write run/s<N>/slot.env and run/s<N>/compose.override.yaml.
+  up --slot N [--worktree PATH] [--timeout SECONDS]
+                                             Build and start the slot's services, wait for /health/ready.
+  down --slot N [--volumes]                  Stop the slot's compose project (keeps the claim).
+  release --slot N                           down --volumes, free the lock, remove run/s<N>.
+  status                                     Every slot: lock, holder, worktree, containers.
+  gc                                         Release slots whose holder is dead or whose worktree is gone.
+  ports --slot N                             Host ports the slot publishes (VAR=port lines).
+  url --slot N                               The slot's Api base URL.
+  observability up|down|status               The shared LGTM stack (project frappe-observability).
+
+Environment:
+  FRAPPE_OBS_PORT_OFFSET   Added to the shared stack's host ports (default 0: Grafana 3000, OTLP 4317/4318, ...).
+EOF
+}
+
+# ---------- helpers ----------
+
+valid_slot() {
+  if ! [[ "${1:-}" =~ ^[1-9]$ ]] || (( $1 > MAX_SLOT )); then die "slot must be 1..$MAX_SLOT (got '${1:-}')"; fi
+}
+lock_file() { printf '%s/%s.lock' "$STATE_DIR" "$1"; }
+claim_file() { printf '%s/%s.json' "$STATE_DIR" "$1"; }
+slot_run_dir() { printf '%s/s%s' "$RUN_DIR" "$1"; }
+project_of() { printf 'frappe-s%s' "$1"; }
+
+resolve_worktree() {
+  local wt="${1:-$PWD}"
+  [[ -d "$wt" ]] || die "worktree '$wt' does not exist"
+  wt="$(cd "$wt" && pwd)"
+  [[ -f "$wt/deploy/compose.yaml" ]] || die "'$wt' has no deploy/compose.yaml"
+  printf '%s' "$wt"
+}
+
+# Worktree of a claimed slot (from its claim record), or empty.
+claimed_worktree() {
+  local f; f="$(claim_file "$1")"
+  [[ -f "$f" ]] && jq -r '.worktree // empty' "$f" || true
+}
+
+# 0 when the slot's lock is held by some process (probed, not trusted from the JSON).
+lock_held() {
+  local f; f="$(lock_file "$1")"
+  [[ -f "$f" ]] || return 1
+  ! flock -n "$f" true
+}
+
+# 0 when PID is alive and holds the slot's lock file open (so it is our holder, not a recycled PID).
+is_holder() {
+  local pid="$1" slot="$2" lf link
+  [[ "$pid" =~ ^[0-9]+$ ]] && [[ -d "/proc/$pid/fd" ]] || return 1
+  lf="$(readlink -f "$(lock_file "$slot")")"
+  for link in /proc/"$pid"/fd/*; do
+    [[ "$(readlink "$link" 2>/dev/null)" == "$lf" ]] && return 0
+  done
+  return 1
+}
+
+holder_pid() {
+  local f; f="$(claim_file "$1")"
+  [[ -f "$f" ]] && jq -r '.holder_pid // empty' "$f" || true
+}
+
+# Base env file: the worktree's deploy/.env, else the main checkout's, else .env.example (with a warning).
+base_env_file() {
+  local wt="$1"
+  if [[ -f "$wt/deploy/.env" ]]; then printf '%s' "$wt/deploy/.env"
+  elif [[ -f "$MAIN_REPO/deploy/.env" ]]; then printf '%s' "$MAIN_REPO/deploy/.env"
+  else
+    log "warning: no deploy/.env in '$wt' or '$MAIN_REPO'; using deploy/.env.example (empty secrets fail compose)"
+    printf '%s' "$wt/deploy/.env.example"
+  fi
+}
+
+slot_port() { echo $(( PORT_DEFAULT[$1] + $2 * 100 )); }
+obs_offset() {
+  local o="${FRAPPE_OBS_PORT_OFFSET:-0}"
+  [[ "$o" =~ ^[0-9]+$ ]] || die "FRAPPE_OBS_PORT_OFFSET must be a non-negative integer"
+  echo "$o"
+}
+
+# The shared stack's host port for VAR: from the running stack's recorded env, else defaults + offset.
+obs_port() {
+  local var="$1" f="$RUN_DIR/observability/obs.env" v
+  if [[ -f "$f" ]] && v="$(grep -E "^$var=" "$f" | cut -d= -f2)" && [[ -n "$v" ]]; then echo "$v"
+  else echo $(( PORT_DEFAULT[$var] + $(obs_offset) )); fi
+}
+
+# Containers (name) publishing host port P, excluding those of project EXCLUDE.
+containers_on_port() {
+  local port="$1" exclude="$2" name proj
+  while read -r name proj; do
+    [[ -n "$name" && "$proj" != "$exclude" ]] && printf '%s\n' "$name"
+  done < <(docker ps --filter "publish=$port" --format '{{.Names}} {{.Label "com.docker.compose.project"}}')
+  return 0
+}
+
+port_listening() { ss -ltnH "( sport = :$1 )" 2>/dev/null | grep -q .; }
+
+# Fails naming the conflict when any host port of VARS (resolved by FN) is taken by something outside PROJECT.
+check_ports_free() {
+  local project="$1" fn="$2"; shift 2
+  local var port owners bad=0
+  for var in "$@"; do
+    port="$("$fn" "$var")"
+    owners="$(containers_on_port "$port" "$project" | paste -sd, -)"
+    if [[ -n "$owners" ]]; then log "port $port ($var) is published by container(s): $owners"; bad=1
+    elif [[ -z "$(docker ps -q --filter "publish=$port" --filter "label=com.docker.compose.project=$project")" ]] \
+         && port_listening "$port"; then
+      log "port $port ($var) is in use by a non-Docker process"; bad=1
+    fi
+  done
+  return "$bad"
+}
+
+# ---------- claim ----------
+
+try_claim() {
+  local n="$1" wt="$2" lf fd pid
+  lf="$(lock_file "$n")"
+  exec {fd}>>"$lf"
+  if ! flock -n "$fd"; then exec {fd}>&-; return 1; fi
+  # The holder inherits the locked fd; the lock lives as long as it does. Detached, std streams closed so that
+  # `n=$(slot claim)` returns at once.
+  setsid sleep infinity </dev/null >/dev/null 2>&1 &
+  pid=$!
+  exec {fd}>&-
+  # A previous holder may have died without releasing: start from an empty project.
+  if [[ -n "$(docker ps -aq --filter "label=com.docker.compose.project=$(project_of "$n")")" ]] \
+     || [[ -n "$(docker volume ls -q --filter "label=com.docker.compose.project=$(project_of "$n")")" ]]; then
+    log "slot $n: removing leftovers of a previous holder"
+    compose_down_project "$n" 1
+  fi
+  rm -rf "$(slot_run_dir "$n")"
+  jq -n --argjson slot "$n" --arg wt "$wt" --argjson pid "$pid" --arg at "$(date -Iseconds)" \
+    '{slot:$slot, worktree:$wt, holder_pid:$pid, claimed_at:$at}' > "$(claim_file "$n")"
+  printf '%s\n' "$n"
+}
+
+cmd_claim() {
+  local wt="" wait=1800 n deadline
+  while (($#)); do
+    case "$1" in
+      --worktree) wt="$2"; shift 2 ;;
+      --wait) wait="$2"; shift 2 ;;
+      *) die "claim: unknown option '$1'" ;;
+    esac
+  done
+  [[ "$wait" =~ ^[0-9]+$ ]] || die "--wait must be seconds"
+  wt="$(resolve_worktree "$wt")"
+  mkdir -p "$STATE_DIR"
+  deadline=$(( $(date +%s) + wait ))
+  local announced=0
+  while :; do
+    for ((n = 1; n <= MAX_SLOT; n++)); do
+      try_claim "$n" "$wt" && return 0
+    done
+    (( $(date +%s) >= deadline )) && die "all $MAX_SLOT slots are taken (waited ${wait}s); see 'slot status' or 'slot gc'"
+    if (( !announced )); then log "all $MAX_SLOT slots are taken; waiting up to ${wait}s"; announced=1; fi
+    sleep 5
+  done
+}
+
+# ---------- env ----------
+
+write_slot_env() {
+  local n="$1" wt="$2" dir var
+  dir="$(slot_run_dir "$n")"
+  mkdir -p "$dir"
+  {
+    echo "# Generated by .agents/skills/forge/scripts/slots/slot for slot $n (worktree $wt). Loaded after the base env file."
+    echo "COMPOSE_PROJECT_NAME=$(project_of "$n")"
+    echo "COMPOSE_PROFILES=mailpit"
+    echo "FRAPPE_IMAGE_TAG=s$n"
+    echo "OTEL_RESOURCE_ATTRIBUTES=deployment.environment=s$n"
+    echo "# Never send real mail from a slot, whatever the base env says."
+    echo "FRAPPE_NOTIFICATION_MAILER=Mailpit"
+    for var in "${PORT_VARS[@]}"; do echo "$var=$(slot_port "$var" "$n")"; done
+    echo "# The Bruno collection runs from one address faster than the default 120 requests per minute."
+    echo "FRAPPE_HTTP_RATE_LIMIT=1000"
+    # Every secret deploy/.env.example requires (an empty NAME= line) that the base env leaves empty or lacks gets a throwaway
+    # value, so a slot never fails on compose interpolation when the user's deploy/.env predates a new module.
+    local base name have
+    base="$(base_env_file "$wt")"
+    while IFS= read -r name; do
+      have="$(grep -E "^${name}=." "$base" 2>/dev/null | tail -1 || true)"
+      [[ -n "$have" ]] && continue
+      case "$name" in
+        FRAPPE_IMGPROXY_KEY|FRAPPE_IMGPROXY_SALT) echo "$name=$(openssl rand -hex 32)" ;;
+        FRAPPE_IDENTITY_CODES_KEY) echo "$name=$(openssl rand -base64 32)" ;;
+        *) echo "$name=slot-$(openssl rand -hex 12)" ;;
+      esac
+    done < <(grep -oE '^[A-Z_]+=$' "$wt/deploy/.env.example" | tr -d '=')
+  } > "$dir/slot.env"
+  # What a Bruno run against this slot needs on top of --env Stack (the slot's Mailpit is not on 8025).
+  printf -- '--env Stack --env-var baseUrl=http://localhost:%s --env-var mailpitUrl=http://127.0.0.1:%s\n' \
+    "$(slot_port API_PORT "$n")" "$(slot_port MAILPIT_PORT "$n")" > "$dir/bruno.args"
+
+  local svc
+  {
+    echo "# Generated by .agents/skills/forge/scripts/slots/slot for slot $n. Merged after deploy/compose.yaml."
+    echo "services:"
+    for svc in migrator api worker; do
+      cat <<EOF
+  $svc:
+    image: frappe-api:s$n
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://$OBS_COLLECTOR_ALIAS:4317
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=s$n
+    networks: [default, observability]
+EOF
+    done
+    cat <<EOF
+networks:
+  observability:
+    name: $OBS_NETWORK
+    external: true
+EOF
+  } > "$dir/compose.override.yaml"
+  printf '%s\n' "$(base_env_file "$wt")" > "$dir/base-env-path"
+  printf '%s\n' "$wt" > "$dir/worktree"
+}
+
+parse_slot_wt() {
+  SLOT=""; WT=""; TIMEOUT=300; VOLUMES=0
+  while (($#)); do
+    case "$1" in
+      --slot) SLOT="$2"; shift 2 ;;
+      --worktree) WT="$2"; shift 2 ;;
+      --timeout) TIMEOUT="$2"; shift 2 ;;
+      --volumes) VOLUMES=1; shift ;;
+      *) die "unknown option '$1'" ;;
+    esac
+  done
+  valid_slot "$SLOT"
+}
+
+cmd_env() {
+  parse_slot_wt "$@"
+  WT="$(resolve_worktree "${WT:-$(claimed_worktree "$SLOT")}")"
+  write_slot_env "$SLOT" "$WT"
+  log "wrote $(slot_run_dir "$SLOT")/{slot.env,compose.override.yaml} (base env: $(cat "$(slot_run_dir "$SLOT")/base-env-path"))"
+}
+
+# ---------- compose wrappers ----------
+
+slot_compose() {
+  local n="$1"; shift
+  local dir wt; dir="$(slot_run_dir "$n")"; wt="$(cat "$dir/worktree")"
+  # Compose ranks the shell environment above --env-file: export the generated values so a variable exported by
+  # the caller (API_PORT, COMPOSE_PROFILES, ...) cannot move the slot onto another slot's ports.
+  set -a
+  # shellcheck source=/dev/null
+  . "$dir/slot.env"
+  set +a
+  docker compose -p "$(project_of "$n")" --env-file "$(cat "$dir/base-env-path")" --env-file "$dir/slot.env" \
+    -f "$wt/deploy/compose.yaml" -f "$dir/compose.override.yaml" "$@"
+}
+
+obs_compose() {
+  local dir="$RUN_DIR/observability"
+  set -a
+  # shellcheck source=/dev/null
+  . "$dir/obs.env"
+  set +a
+  docker compose -p "$OBS_PROJECT" --env-file "$(cat "$dir/base-env-path")" --env-file "$dir/obs.env" \
+    -f "$MAIN_REPO/deploy/compose.yaml" -f "$dir/compose.override.yaml" "$@"
+}
+
+obs_running() {
+  [[ -n "$(docker ps -q --filter "label=com.docker.compose.project=$OBS_PROJECT" \
+    --filter "label=com.docker.compose.service=otel-collector")" ]]
+}
+
+# ---------- up / down / release ----------
+
+cmd_up() {
+  parse_slot_wt "$@"
+  local holder; holder="$(holder_pid "$SLOT")"
+  is_holder "$holder" "$SLOT" || die "slot $SLOT is not claimed by a live holder; run 'slot claim' first"
+  WT="$(resolve_worktree "${WT:-$(claimed_worktree "$SLOT")}")"
+  write_slot_env "$SLOT" "$WT"
+  cmd_observability up
+  check_ports_free "$(project_of "$SLOT")" "slot_port_of_current" "${SLOT_PORT_VARS[@]}" \
+    || die "slot $SLOT ports are taken (see above)"
+  log "starting $(project_of "$SLOT") from $WT"
+  slot_compose "$SLOT" up -d --build "${SLOT_SERVICES[@]}" >&2
+  local url deadline; url="$(slot_url "$SLOT")"
+  deadline=$(( $(date +%s) + TIMEOUT ))
+  until curl -fs -o /dev/null --max-time 3 "$url/health/ready"; do
+    (( $(date +%s) >= deadline )) && { slot_compose "$SLOT" ps >&2 || true; die "Api not ready at $url/health/ready after ${TIMEOUT}s"; }
+    sleep 3
+  done
+  echo "api=$url"
+  echo "mailpit=http://127.0.0.1:$(slot_port MAILPIT_PORT "$SLOT")"
+  obs_urls
+}
+slot_port_of_current() { slot_port "$1" "$SLOT"; }
+
+# Down by project name only: works even when the worktree or run files are gone.
+compose_down_project() {
+  local n="$1" volumes="$2" args=(down --remove-orphans)
+  (( volumes )) && args+=(--volumes)
+  docker compose -p "$(project_of "$n")" --profile mailpit "${args[@]}" >&2
+}
+
+cmd_down() {
+  parse_slot_wt "$@"
+  compose_down_project "$SLOT" "$VOLUMES"
+}
+
+release_slot() {
+  local n="$1" pid
+  valid_slot "$n"
+  compose_down_project "$n" 1
+  pid="$(holder_pid "$n")"
+  if [[ -n "$pid" ]] && is_holder "$pid" "$n"; then kill "$pid" 2>/dev/null || true; fi
+  local _; for _ in {1..20}; do lock_held "$n" || break; sleep 0.1; done
+  lock_held "$n" && log "warning: slot $n lock is still held by another process"
+  rm -f "$(claim_file "$n")"
+  rm -rf "$(slot_run_dir "$n")"
+  log "released slot $n"
+}
+
+cmd_release() { parse_slot_wt "$@"; release_slot "$SLOT"; }
+
+# ---------- status / gc ----------
+
+cmd_status() {
+  local n pid wt held alive ps
+  for ((n = 1; n <= MAX_SLOT; n++)); do
+    held=free; lock_held "$n" && held=held
+    pid="$(holder_pid "$n")"; alive="-"
+    [[ -n "$pid" ]] && { is_holder "$pid" "$n" && alive="alive" || alive="dead"; }
+    wt="$(claimed_worktree "$n")"
+    ps="$(docker ps -a --filter "label=com.docker.compose.project=$(project_of "$n")" \
+      --format '{{.Label "com.docker.compose.service"}}:{{.State}}' | sort | paste -sd' ' -)"
+    printf 'slot %s: lock=%s holder=%s(%s) worktree=%s containers=[%s]\n' \
+      "$n" "$held" "${pid:--}" "$alive" "${wt:--}" "${ps:-none}"
+  done
+  printf 'observability: %s\n' "$(obs_running && echo "running (grafana http://localhost:$(obs_port GRAFANA_PORT))" || echo stopped)"
+}
+
+cmd_gc() {
+  local n pid wt reason
+  for ((n = 1; n <= MAX_SLOT; n++)); do
+    pid="$(holder_pid "$n")"; wt="$(claimed_worktree "$n")"; reason=""
+    if [[ -f "$(claim_file "$n")" ]] && ! is_holder "$pid" "$n"; then reason="holder dead"
+    elif [[ -n "$wt" && ! -d "$wt" ]]; then reason="worktree gone"
+    elif [[ ! -f "$(claim_file "$n")" ]] && ! lock_held "$n" \
+         && [[ -n "$(docker ps -aq --filter "label=com.docker.compose.project=$(project_of "$n")")" ]]; then
+      reason="unclaimed containers"
+    fi
+    [[ -n "$reason" ]] && { log "gc slot $n: $reason"; release_slot "$n"; }
+  done
+  return 0
+}
+
+# ---------- ports / url ----------
+
+slot_url() { printf 'http://localhost:%s' "$(slot_port API_PORT "$1")"; }
+cmd_ports() {
+  parse_slot_wt "$@"
+  local var; for var in "${SLOT_PORT_VARS[@]}"; do echo "$var=$(slot_port "$var" "$SLOT")"; done
+  obs_urls
+}
+cmd_url() { parse_slot_wt "$@"; slot_url "$SLOT"; echo; }
+
+# ---------- observability ----------
+
+write_obs_files() {
+  local dir="$RUN_DIR/observability" var off
+  off="$(obs_offset)"
+  mkdir -p "$dir"
+  { echo "# Generated by .agents/skills/forge/scripts/slots/slot: host ports of the shared observability stack."
+    for var in "${OBS_PORT_VARS[@]}"; do echo "$var=$(( PORT_DEFAULT[$var] + off ))"; done
+  } > "$dir/obs.env"
+  cat > "$dir/compose.override.yaml" <<EOF
+# Generated by .agents/skills/forge/scripts/slots/slot. The collector joins the shared network so slot hosts reach it by alias.
+services:
+  otel-collector:
+    networks:
+      default: {}
+      observability:
+        aliases: [$OBS_COLLECTOR_ALIAS]
+networks:
+  observability:
+    name: $OBS_NETWORK
+    external: true
+EOF
+  base_env_file "$MAIN_REPO" > "$dir/base-env-path"
+}
+
+obs_port_from_env() { obs_port "$1"; }
+
+# key=url lines of the shared stack, only while it runs (its ports may be offset).
+obs_urls() {
+  if ! obs_running || [[ ! -f "$RUN_DIR/observability/obs.env" ]]; then echo "observability=stopped"; return 0; fi
+  echo "grafana=http://localhost:$(obs_port GRAFANA_PORT)"
+  echo "mimir=http://localhost:$(obs_port MIMIR_PORT)/prometheus"
+  echo "tempo=http://localhost:$(obs_port TEMPO_PORT)"
+  echo "loki=http://localhost:$(obs_port LOKI_PORT)"
+  echo "otlp_grpc=http://localhost:$(obs_port OTLP_GRPC_PORT)"
+}
+
+cmd_observability() {
+  local action="${1:-status}"
+  case "$action" in
+    up)
+      if obs_running; then log "observability already running"; return 0; fi
+      write_obs_files
+      if ! check_ports_free "$OBS_PROJECT" obs_port_from_env "${OBS_PORT_VARS[@]}"; then
+        rm -rf "$RUN_DIR/observability"
+        die "observability ports are taken (see above); not touching other projects. Stop them yourself, or set FRAPPE_OBS_PORT_OFFSET (e.g. 10000)"
+      fi
+      docker network inspect "$OBS_NETWORK" >/dev/null 2>&1 || docker network create "$OBS_NETWORK" >/dev/null
+      obs_compose up -d "${OBS_SERVICES[@]}" >&2
+      log "observability up: grafana http://localhost:$(obs_port GRAFANA_PORT), otlp grpc :$(obs_port OTLP_GRPC_PORT)"
+      ;;
+    down)
+      docker compose -p "$OBS_PROJECT" down --remove-orphans >&2
+      rm -rf "$RUN_DIR/observability"
+      ;;
+    status)
+      docker ps -a --filter "label=com.docker.compose.project=$OBS_PROJECT" \
+        --format '{{.Label "com.docker.compose.service"}}: {{.State}} {{.Ports}}'
+      obs_urls
+      ;;
+    *) die "observability: expected up|down|status" ;;
+  esac
+}
+
+# ---------- main ----------
+
+main() {
+  local cmd="${1:-help}"; (($#)) && shift
+  case "$cmd" in
+    claim) cmd_claim "$@" ;;
+    env) cmd_env "$@" ;;
+    up) cmd_up "$@" ;;
+    down) cmd_down "$@" ;;
+    release) cmd_release "$@" ;;
+    status) cmd_status ;;
+    gc) cmd_gc ;;
+    ports) cmd_ports "$@" ;;
+    url) cmd_url "$@" ;;
+    observability) cmd_observability "$@" ;;
+    help|-h|--help) usage ;;
+    *) usage >&2; exit 2 ;;
+  esac
+}
+
+main "$@"
