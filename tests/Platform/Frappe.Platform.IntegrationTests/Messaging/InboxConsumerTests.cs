@@ -4,6 +4,7 @@ using Frappe.Messaging;
 using Frappe.Messaging.Hosting;
 using Frappe.Messaging.Inbox;
 using Frappe.Platform.Testing.Messaging;
+using Frappe.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -97,6 +98,38 @@ public sealed class InboxConsumerTests(InboxDatabase database)
             await Assert.That(log.Steps).IsEquivalentTo(["handler-a", "hook-a", "hook-b"]);
             await Assert.That(stored.Inbox).IsEqualTo(2);
             await Assert.That(stored.Effects).IsEquivalentTo(["handler-a"]);
+        }
+    }
+
+    [Test]
+    public async Task A_failing_after_commit_step_is_counted_by_consumer_and_the_message_stays_committed()
+    {
+        // Arrange
+        var (services, _) = await ServicesAsync(s => s
+            .AddMetrics()
+            .AddIntegrationEventHandler<SomethingHappened, HandlerA>("a-projection")
+            .AddAfterCommitHandler<SomethingHappened, FailingHook>("a-projection"));
+        await using var _ = services;
+        var factory = services.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>();
+        using var capture = new MetricCapture(factory);
+        var consumer = new InboxConsumer<InboxTestContext, SomethingHappened>(
+            services.GetRequiredService<IServiceScopeFactory>(),
+            "a-projection",
+            NullLogger<InboxConsumer<InboxTestContext, SomethingHappened>>.Instance,
+            null,
+            new MessagingMetrics(factory));
+
+        // Act
+        var result = await consumer.ConsumeAsync(Message(FixedId(3)), CancellationToken.None);
+        var failure = capture.Of(MessagingMetrics.ConsumerFailuresMetric).Single();
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(result.Outcome).IsEqualTo(ConsumeOutcome.Processed);
+            await Assert.That(failure.Value).IsEqualTo(1d);
+            await Assert.That(failure.Tags[MessagingMetrics.ConsumerTag]).IsEqualTo("a-projection");
+            await Assert.That(failure.Tags[MessagingMetrics.ReasonTag]).IsEqualTo("after_commit");
         }
     }
 
@@ -328,6 +361,13 @@ public sealed class InboxConsumerTests(InboxDatabase database)
             await db.SaveChangesAsync(cancellationToken);
             throw new InvalidOperationException("The handler failed after writing.");
         }
+    }
+
+    /// <summary>An after-commit handler that fails.</summary>
+    private sealed class FailingHook : IAfterCommitHandler<SomethingHappened>
+    {
+        public Task HandleAsync(SomethingHappened integrationEvent, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("The cache is down.");
     }
 
     /// <summary>An after-commit handler that logs it ran.</summary>

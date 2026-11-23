@@ -20,7 +20,11 @@ namespace Frappe.Messaging.Relay;
 /// Every pass counts what it published in <see cref="MessagingMetrics.RelayedMetric"/>. The oldest unpublished message
 /// (<see cref="MessagingMetrics.OutboxOldestAgeMetric"/>) and the parked count (<see cref="MessagingMetrics.OutboxParkedMetric"/>)
 /// are looked up after a pass that claimed rows, and otherwise once per <see cref="OutboxRelayOptions.SampleInterval"/>, so an
-/// idle module costs one query per poll instead of two. Both are labelled with <paramref name="module"/>.
+/// idle module costs one query per poll instead of two. The parked count is the costly part: during a drain it is counted at
+/// most once per <see cref="OutboxRelayOptions.SampleInterval"/>, plus right after a pass that parked a row, so the gauge can lag by up
+/// to one interval after parked rows are requeued or purged. Both are labelled
+/// with <paramref name="module"/>. Every rejected, parked or unavailable outcome counts in
+/// <see cref="MessagingMetrics.RelayFailuresMetric"/>.
 /// </summary>
 /// <param name="scopes">Creates the scope each pass reads the module's context from.</param>
 /// <param name="publisher">Hands messages to the broker.</param>
@@ -44,12 +48,19 @@ public sealed partial class OutboxRelay<TContext>(
     /// </summary>
     private Instant? _sampledAt;
 
+    /// <summary>When the parked messages were last counted; null until the first lookup.</summary>
+    private Instant? _parkedSampledAt;
+
+    /// <summary>Whether the current pass parked a row, so the parked count changed.</summary>
+    private bool _parkedThisPass;
+
     /// <summary>Publishes one batch and returns how many messages were published.</summary>
     public async Task<int> PublishPendingAsync(CancellationToken cancellationToken)
     {
         await using var scope = scopes.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<TContext>();
 
+        _parkedThisPass = false;
         var now = Now();
         var batch = await db.Set<OutboxMessage>()
             .FromSqlRaw(ClaimSql(db), options.BatchSize, now, now + Duration.FromTimeSpan(options.LeaseDuration))
@@ -58,7 +69,7 @@ public sealed partial class OutboxRelay<TContext>(
         metrics.Relayed(module, published);
         if (!cancellationToken.IsCancellationRequested && SampleDue(claimed: batch.Count > 0))
         {
-            await SampleAsync(db, cancellationToken);
+            await SampleAsync(db, ParkedCountDue(), cancellationToken);
         }
 
         return published;
@@ -82,16 +93,36 @@ public sealed partial class OutboxRelay<TContext>(
     }
 
     /// <summary>
+    /// Whether this lookup also counts the parked rows: when this pass parked one, on the first lookup, and then once per
+    /// <see cref="OutboxRelayOptions.SampleInterval"/>. A clock set back counts as due. After parked rows are requeued or purged
+    /// the gauge can lag by up to one interval.
+    /// </summary>
+    private bool ParkedCountDue()
+    {
+        var now = Now();
+        if (!_parkedThisPass && _parkedSampledAt is { } last && now >= last && now - last < Duration.FromTimeSpan(options.SampleInterval))
+        {
+            return false;
+        }
+
+        _parkedSampledAt = now;
+        return true;
+    }
+
+    /// <summary>
     /// Feeds the outbox age and parked gauges. It is only a metric: a failed lookup is logged and the gauges keep their
     /// last values (the age keeps aging), and the pass, which may already have published, still succeeds.
     /// </summary>
-    private async Task SampleAsync(DbContext db, CancellationToken cancellationToken)
+    private async Task SampleAsync(DbContext db, bool countParked, CancellationToken cancellationToken)
     {
         try
         {
-            var sample = await db.Database.SqlQueryRaw<OutboxSample>(SampleSql(db)).SingleAsync(cancellationToken);
+            var sample = await db.Database.SqlQueryRaw<OutboxSample>(SampleSql(db, countParked)).SingleAsync(cancellationToken);
             metrics.OldestUnpublished(module, sample.Oldest);
-            metrics.Parked(module, sample.Parked);
+            if (sample.Parked is { } parked)
+            {
+                metrics.Parked(module, parked);
+            }
         }
         catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
         {
@@ -180,8 +211,10 @@ public sealed partial class OutboxRelay<TContext>(
                 : Now() + Duration.FromTimeSpan(options.RetryBackoff[Math.Min(message.Attempts, options.RetryBackoff.Count - 1)]);
             message.RecordFailure($"{rejected.GetType().Name}: {rejected.Message}", retryAt);
             activity?.SetStatus(ActivityStatusCode.Error, rejected.Message);
+            metrics.RelayFailed(module, parked ? RelayFailure.Parked : RelayFailure.Rejected);
             if (parked)
             {
+                _parkedThisPass = true;
                 LogParked(logger, rejected, message.Id, message.Type, message.Attempts);
             }
             else
@@ -200,6 +233,7 @@ public sealed partial class OutboxRelay<TContext>(
         catch (Exception unavailable)
         {
             message.ReleaseLease();
+            metrics.RelayFailed(module, RelayFailure.Unavailable);
             activity?.SetStatus(ActivityStatusCode.Error, unavailable.Message);
             LogBrokerUnavailable(logger, unavailable, message.Id, message.Type);
             return false;
@@ -231,13 +265,15 @@ public sealed partial class OutboxRelay<TContext>(
     /// pending rows and of the parked rows (the older of the two is the oldest unpublished message, whatever keeps it
     /// waiting, give or take concurrent commits), and how many rows are parked.
     /// </summary>
-    private static string SampleSql(DbContext db)
+    private static string SampleSql(DbContext db, bool countParked)
     {
         var name = TableName(db);
         return "SELECT LEAST("
             + " (SELECT occurred_at FROM " + name + " WHERE " + OutboxModel.PendingFilter + " ORDER BY sequence LIMIT 1),"
             + " (SELECT occurred_at FROM " + name + " WHERE " + OutboxModel.ParkedFilter + " ORDER BY sequence LIMIT 1)) AS \"Oldest\","
-            + " (SELECT count(*) FROM " + name + " WHERE " + OutboxModel.ParkedFilter + ") AS \"Parked\"";
+            + (countParked
+                ? " (SELECT count(*) FROM " + name + " WHERE " + OutboxModel.ParkedFilter + ") AS \"Parked\""
+                : " NULL::bigint AS \"Parked\"");
     }
 
     private static string TableName(DbContext db)
@@ -248,7 +284,7 @@ public sealed partial class OutboxRelay<TContext>(
     }
 
     /// <summary>What <see cref="SampleSql"/> returns.</summary>
-    private sealed record OutboxSample(Instant? Oldest, long Parked);
+    private sealed record OutboxSample(Instant? Oldest, long? Parked);
 
     /// <summary>The publish span becomes the parent consumers see; without a listener, the stored context is passed on.</summary>
     private static OutgoingMessage ToOutgoing(OutboxMessage message, Activity? activity) => new(

@@ -143,6 +143,9 @@ public sealed class OutboxParkedRowsTests(InboxDatabase database)
               WHERE published_at IS NULL AND attempts > 0 AND next_attempt_at IS NULL ORDER BY sequence LIMIT 1)
             """);
 
+        // The parked count is sampled once per SampleInterval during a drain (S18), so the next lookup is an interval later.
+        time.Advance(new OutboxRelayOptions().SampleInterval + TimeSpan.FromSeconds(1));
+
         // Act
         var requeued = await relay.PublishPendingAsync(CancellationToken.None);
         capture.Observe();
