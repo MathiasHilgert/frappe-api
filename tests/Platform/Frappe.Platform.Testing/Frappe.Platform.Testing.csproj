@@ -6,5 +6,7 @@
     <ProjectReference Include="../../../src/Platform/Frappe.Results/Frappe.Results.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.UseCases/Frappe.UseCases.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Localization/Frappe.Localization.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.Messaging/Frappe.Messaging.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.IntegrationEvents/Frappe.IntegrationEvents.csproj" />
   </ItemGroup>
 </Project>

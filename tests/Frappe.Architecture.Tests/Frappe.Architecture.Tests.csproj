@@ -11,6 +11,7 @@
     <ProjectReference Include="../../src/Platform/Frappe.Caching/Frappe.Caching.csproj" />
     <ProjectReference Include="../../src/Platform/Frappe.Http/Frappe.Http.csproj" />
     <ProjectReference Include="../../src/Platform/Frappe.Modules/Frappe.Modules.csproj" />
+    <ProjectReference Include="../../src/Platform/Frappe.Messaging/Frappe.Messaging.csproj" />
     <ProjectReference Include="../../src/Platform/Frappe.Persistence/Frappe.Persistence.csproj" />
     <ProjectReference Include="../../src/Platform/Frappe.Observability/Frappe.Observability.csproj" />
     <ProjectReference Include="../../src/Platform/Frappe.Observability.Hosting/Frappe.Observability.Hosting.csproj" />
