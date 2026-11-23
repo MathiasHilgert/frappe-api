@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0](https://github.com/MathiasHilgert/frappe-api/compare/v0.1.0...v0.2.0) (2026-11-23)
+
+
+### Features
+
+* **api:** compose the Api and Migrator hosts and the local stack ([#9](https://github.com/MathiasHilgert/frappe-api/issues/9)) ([5536e8a](https://github.com/MathiasHilgert/frappe-api/commit/5536e8a1f29363e2ecf5720f4c7c3bb1e6e1ae29))
+* **worker:** run scheduled jobs and consumers in the Worker host ([#8](https://github.com/MathiasHilgert/frappe-api/issues/8)) ([66bb28b](https://github.com/MathiasHilgert/frappe-api/commit/66bb28b3162d885c2706423815e29bfff22fa548))
+
 ## 0.1.0 (2026-11-23)
 
 
