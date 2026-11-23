@@ -52,6 +52,8 @@
     <AdditionalFiles Condition="!$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(MSBuildProjectDirectory)').Replace('\','/').StartsWith('tests/'))" Include="$(MSBuildThisFileDirectory)eng/BannedSymbols.Production.txt" Link="BannedSymbols.Production.txt" />
     <!-- Validation in the domain and application layers returns Result (DOM-09); options and host projects use data annotations. -->
     <AdditionalFiles Condition="$(MSBuildProjectName.EndsWith('.Domain')) Or $(MSBuildProjectName.EndsWith('.Application'))" Include="$(MSBuildThisFileDirectory)eng/BannedSymbols.Domain.txt" Link="BannedSymbols.Domain.txt" />
+    <!-- A module's Http project answers a Result with ToTypedHttpResult only (HTTP-06); the platform keeps its own uses of ErrorsProblemHttpResult.Of. -->
+    <AdditionalFiles Condition="$(MSBuildProjectName.EndsWith('.Http')) And '$(MSBuildProjectName)' != 'Frappe.Http'" Include="$(MSBuildThisFileDirectory)eng/BannedSymbols.Http.txt" Link="BannedSymbols.Http.txt" />
     <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory)eng/analyzers.globalconfig" />
   </ItemGroup>
 </Project>

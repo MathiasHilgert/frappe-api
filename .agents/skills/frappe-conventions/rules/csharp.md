@@ -80,8 +80,9 @@
   `<Subject>Extensions` or after the feature.
 - **Why:** One receiver declaration per block, and extension properties and indexers become available.
 - **Enforced by:** review.
-- **Good:** (shape after alignment) `public static class ResultHttpExtensions { extension<T>(Result<T> result) { public IResult ToHttpResult(Func<T,
-  IResult> onSuccess) => ...; } }`. **Bad:** `public static IResult ToHttpResult<T>(this Result<T> result, Func<T, IResult> onSuccess)` in new code.
+- **Good:** `public static class ResultHttpExtensions { extension<T>(Result<T> result) { public Results<TSuccess, ErrorsProblemHttpResult>
+  ToTypedHttpResult<TSuccess>(Func<T, TSuccess> onSuccess) where TSuccess : IResult => ...; } }`. **Bad:**
+  `public static IResult ToHttpResult<T>(this Result<T> result, Func<T, IResult> onSuccess)`.
 - **Status:** in force.
 
 ## CS-08 · Labeled `break`/`continue` instead of flags

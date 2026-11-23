@@ -9,9 +9,12 @@
     <ProjectReference Include="../../../src/Platform/Frappe.Localization/Frappe.Localization.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Aggregates/Frappe.Aggregates.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.IntegrationEvents/Frappe.IntegrationEvents.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.Http/Frappe.Http.csproj" />
     <ProjectReference Include="../../Shared/Frappe.Testing/Frappe.Testing.csproj" />
+    <ProjectReference Include="../Frappe.Platform.Testing/Frappe.Platform.Testing.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Platform.UnitTests" />
+    <InternalsVisibleTo Include="Frappe.Platform.IntegrationTests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.UseCases/Frappe.UseCases.csproj" />
+    <ProjectReference Include="../Frappe.Localization/Frappe.Localization.csproj" />
+    <ProjectReference Include="../Frappe.Health/Frappe.Health.csproj" />
+    <ProjectReference Include="../Frappe.Caching/Frappe.Caching.csproj" />
+  </ItemGroup>
+</Project>

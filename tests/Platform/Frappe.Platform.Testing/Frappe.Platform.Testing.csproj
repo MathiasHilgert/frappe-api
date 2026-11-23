@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- TEST-03: the fixtures both Platform suites (Frappe.Platform.UnitTests and Frappe.Platform.IntegrationTests) use.
+       A library, not a test project: it holds no tests and a test project never compiles another one's sources. Its
+       Resources/Messages are the error messages Frappe.Http's catalog needs at startup (see PlatformTestMessages). -->
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Platform/Frappe.Results/Frappe.Results.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.UseCases/Frappe.UseCases.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.Localization/Frappe.Localization.csproj" />
+  </ItemGroup>
+</Project>

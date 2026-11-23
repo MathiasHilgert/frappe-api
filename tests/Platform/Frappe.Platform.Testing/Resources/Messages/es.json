@@ -1,0 +1,4 @@
+{
+  "test.year.out_of_range": "El año debe estar entre {min} y {max}.",
+  "test.code.invalid_length": "El código de país debe tener {length} caracteres."
+}

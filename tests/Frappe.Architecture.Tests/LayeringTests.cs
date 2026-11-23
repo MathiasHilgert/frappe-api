@@ -16,6 +16,7 @@ public sealed class LayeringTests
     private static readonly Assembly IntegrationEvents = typeof(Frappe.IntegrationEvents.IIntegrationEvent).Assembly;
     private static readonly Assembly UseCases = typeof(Frappe.UseCases.ICommand<>).Assembly;
     private static readonly Assembly Caching = typeof(Frappe.Caching.CachingOptions).Assembly;
+    private static readonly Assembly Http = typeof(Frappe.Http.HttpRegistration).Assembly;
 
     /// <summary>Anything an inner layer must never know about.</summary>
     private static readonly string[] Infrastructure =
@@ -51,13 +52,30 @@ public sealed class LayeringTests
     }
 
     [Test]
+    public async Task Http_serves_use_cases_without_reaching_the_databases_the_broker_or_the_scheduler()
+    {
+        // Act
+        var result = Types.InAssembly(Http).ShouldNot().HaveDependencyOnAny(
+            "Microsoft.EntityFrameworkCore", "Npgsql", "NATS", "Quartz", "Frappe.Persistence", "Frappe.Messaging", "Frappe.Scheduling",
+            "Frappe.Observability").GetResult();
+
+        // Assert
+        await AssertAsync(result, "Frappe.Http depends on storage, messaging or scheduling");
+    }
+
+    [Test]
     public async Task The_rules_can_see_real_dependencies()
     {
         // Act
         // Positive control: a rule that can never fail would prove nothing.
         var caching = Types.InAssembly(Caching).That().HaveDependencyOn("ZiggyCreatures.Caching").GetTypes();
+        var http = Types.InAssembly(Http).That().HaveDependencyOn("Microsoft.AspNetCore").GetTypes();
 
         // Assert
-        await Assert.That(caching.Any()).IsTrue();
+        using (Assert.Multiple())
+        {
+            await Assert.That(caching.Any()).IsTrue();
+            await Assert.That(http.Any()).IsTrue();
+        }
     }
 }
