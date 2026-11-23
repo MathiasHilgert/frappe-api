@@ -3,7 +3,7 @@
 - MIG-01 · Every model change ships its migration
 - MIG-02 · New migration SQL passes squawk
 - MIG-03 · DDL on a live table starts with `lock_timeout`
-- MIG-04 · CHECKs are added NOT VALID, then validated
+- MIG-04 · CHECK constraints are added NOT VALID, then validated
 - MIG-05 · Indexes are built and dropped CONCURRENTLY
 - MIG-06 · Migrations use literals only and never read model types
 - MIG-07 · Breaking column changes go expand/contract
@@ -41,7 +41,7 @@
   identity.sessions ADD CONSTRAINT ...` with no lock timeout.
 - **Status:** in force.
 
-### MIG-04 · CHECKs are added NOT VALID, then validated
+### MIG-04 · CHECK constraints are added NOT VALID, then validated
 - **Rule:** Add a CHECK `NOT VALID` inside the transaction (`DROP CONSTRAINT IF EXISTS` + `ADD` in one `ALTER`), then `VALIDATE CONSTRAINT` in its own
   statement with `suppressTransaction: true`, in the same migration by default. Use two migrations when existing rows may break it and need cleanup
   first, or on a hot or large table (outbox, inbox, sessions, localities, or more than ~1M rows expected).

@@ -88,7 +88,7 @@ patterns, and search the web for one that fits when unsure.
 - **Rule:** when no catalog row fits or the idiomatic .NET 11 form is unclear, search primary sources (Microsoft Learn, the library's docs, well-known
   authors) and put the URL in the plan, finding or PR. Never invent a pattern name or claim an idiom without a source.
 - **Why:** decisions stay verifiable and current with the platform.
-- **Enforced by:** review (a finding or plan that names an uncatalogued pattern without a URL is incomplete).
+- **Enforced by:** review (a finding or plan that names an uncataloged pattern without a URL is incomplete).
 - **Good:** "Strongly typed metrics, per https://learn.microsoft.com/dotnet/core/diagnostics/metrics-strongly-typed". **Bad:** "the standard way is X"
   with no source.
 - **Status:** in force.
