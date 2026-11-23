@@ -150,6 +150,31 @@ public sealed class HealthTests
     }
 
     [Test]
+    public async Task A_port_that_could_not_be_opened_stays_closed_and_is_opened_by_the_next_publish()
+    {
+        // Arrange
+        var ports = new TcpProbePorts(FreePort(), FreePort(), FreePort());
+        await using var services = new ServiceCollection().AddLogging().AddTcpHealthProbes(ports).BuildServiceProvider();
+        var publisher = services.GetServices<IHealthCheckPublisher>().Single();
+        var occupant = new TcpListener(IPAddress.Any, ports.Ready);
+        occupant.Start();
+        await publisher.PublishAsync(Report(HealthStatus.Healthy), CancellationToken.None);
+        occupant.Stop();
+        var afterFailure = await ProbeCommand.RunAsync($"tcp://localhost:{ports.Ready}");
+
+        // Act
+        await publisher.PublishAsync(Report(HealthStatus.Healthy), CancellationToken.None);
+        var afterRetry = await ProbeCommand.RunAsync($"tcp://localhost:{ports.Ready}");
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(afterFailure).IsEqualTo(1);
+            await Assert.That(afterRetry).IsEqualTo(0);
+        }
+    }
+
+    [Test]
     public async Task The_probe_command_answers_with_the_exit_code_a_container_healthcheck_expects_for_a_tcp_target()
     {
         // Act

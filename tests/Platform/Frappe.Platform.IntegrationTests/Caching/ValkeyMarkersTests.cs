@@ -24,7 +24,7 @@ public sealed class ValkeyMarkersTests(ValkeyServer server)
         var reopened = await markers.TryOpenAsync("sync:orders", Lifetime, CancellationToken.None);
 
         // Assert
-        var expiry = await server.Inspector.KeyTimeToLiveAsync($"{instance}:sync:orders");
+        var expiry = await server.Inspector.KeyTimeToLiveAsync($"{instance}:marker:sync:orders");
         using (Assert.Multiple())
         {
             await Assert.That(opened).IsTrue();
@@ -47,7 +47,7 @@ public sealed class ValkeyMarkersTests(ValkeyServer server)
         var closed = await markers.TryCloseAsync("sync:orders", CancellationToken.None);
 
         // Assert
-        var stored = await server.Inspector.KeyExistsAsync($"{instance}:sync:orders");
+        var stored = await server.Inspector.KeyExistsAsync($"{instance}:marker:sync:orders");
         var reopened = await markers.TryOpenAsync("sync:orders", Lifetime, CancellationToken.None);
         using (Assert.Multiple())
         {
@@ -82,7 +82,7 @@ public sealed class ValkeyMarkersTests(ValkeyServer server)
 
         // Act
         await WaitUntil.TrueAsync(
-            async () => !await server.Inspector.KeyExistsAsync($"{instance}:sync:orders"),
+            async () => !await server.Inspector.KeyExistsAsync($"{instance}:marker:sync:orders"),
             "the marker never expired");
 
         // Assert

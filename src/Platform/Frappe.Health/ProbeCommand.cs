@@ -19,11 +19,21 @@ public static class ProbeCommand
         return target.Length > 0;
     }
 
-    public static async Task<int> RunAsync(string target)
+    /// <summary>Runs the probe, writing why a target is refused to standard error; 0 when healthy, 1 otherwise.</summary>
+    public static Task<int> RunAsync(string target) => RunAsync(target, Console.Error);
+
+    /// <summary>
+    /// Runs the probe, writing why a target is refused to <paramref name="error"/>; 0 when healthy, 1 otherwise. A target
+    /// that is not absolute, whose scheme is not <c>http</c>, <c>https</c> or <c>tcp</c>, or a <c>tcp</c> one without a port, is refused.
+    /// </summary>
+    public static async Task<int> RunAsync(string target, TextWriter error)
     {
-        if (!Uri.TryCreate(target, UriKind.Absolute, out var uri))
+        ArgumentNullException.ThrowIfNull(error);
+        if (!Uri.TryCreate(target, UriKind.Absolute, out var uri)
+            || !(uri.Scheme is "http" or "https" or "tcp")
+            || (uri.Scheme == "tcp" && uri.Port < 1))
         {
-            await Console.Error.WriteLineAsync($"'{target}' is not a probe target (http://host:port/path or tcp://host:port).");
+            await error.WriteLineAsync($"'{target}' is not a probe target (http://host:port/path or tcp://host:port).");
             return 1;
         }
 

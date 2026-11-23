@@ -103,4 +103,29 @@ public sealed class ForwardedHeadersTests
         await Assert.That(failure!.Message).Contains("Configuration 'Http:ForwardedHeaders:KnownProxies' has an entry that is not an IP address: "
             + "'proxy.internal'.");
     }
+
+    [Test]
+    public async Task The_overload_with_a_limit_in_code_also_pins_trust_after_the_platform_switch_that_trusts_every_proxy()
+    {
+        // Arrange: the same host switch as ASPNETCORE_FORWARDEDHEADERS_ENABLED=true, given as host configuration.
+        var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions { Args = ["--FORWARDEDHEADERS_ENABLED=true"] });
+        builder.WebHost.UseTestServer();
+        builder.Logging.ClearProviders();
+        builder.Services.AddSingleton<IRateLimitStore, AllowAllRateLimitStore>().AddFrappeHttp(new AnonymousRateLimit(10, TimeSpan.FromMinutes(1)));
+        await using var app = builder.Build();
+        app.Use((context, next) =>
+        {
+            context.Connection.RemoteIpAddress = System.Net.IPAddress.Parse(Proxy);
+            return next(context);
+        });
+        app.UseFrappeHttp();
+        app.MapGet("/who", (HttpContext context) => $"{ClientAddress.Of(context)} {context.Request.Scheme}");
+        await app.StartAsync();
+
+        // Act
+        var who = await WhoAsync(app);
+
+        // Assert
+        await Assert.That(who).IsEqualTo($"{Proxy} http");
+    }
 }

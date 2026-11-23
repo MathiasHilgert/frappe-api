@@ -1,10 +1,12 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Frappe.Health;
 
 /// <summary>
 /// The ports of the <c>tcpSocket</c> probes, bound from <see cref="Section"/> (<c>Health:Probes:LivePort</c>,
 /// <c>ReadyPort</c>, <c>StartupPort</c>), by default those of <see cref="TcpProbePorts.Default"/>.
 /// </summary>
-public sealed class TcpProbeOptions
+public sealed class TcpProbeOptions : IValidatableObject
 {
     /// <summary>The configuration section the hosts bind.</summary>
     public const string Section = "Health:Probes";
@@ -33,4 +35,26 @@ public sealed class TcpProbeOptions
     /// </summary>
     [Port("Health:Probes:StartupPort")]
     public int StartupPort { get; set; } = TcpProbePorts.Default.Startup;
+
+    /// <summary>Reports every pair of probe ports that share a number, naming both full keys.</summary>
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        (string Key, int Port)[] probes =
+        [
+            ("Health:Probes:LivePort", LivePort),
+            ("Health:Probes:ReadyPort", ReadyPort),
+            ("Health:Probes:StartupPort", StartupPort),
+        ];
+        for (var first = 0; first < probes.Length; first++)
+        {
+            for (var second = first + 1; second < probes.Length; second++)
+            {
+                if (probes[first].Port == probes[second].Port)
+                {
+                    yield return new ValidationResult(
+                        $"Configuration '{probes[first].Key}' and '{probes[second].Key}' must be distinct ports, both are {probes[first].Port}.");
+                }
+            }
+        }
+    }
 }

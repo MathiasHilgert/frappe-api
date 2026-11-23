@@ -55,6 +55,26 @@ public sealed class ProbeTargetTests
     }
 
     [Test]
+    [Arguments("tcp://localhost")]
+    [Arguments("ftp://localhost:21")]
+    [Arguments("file:///tmp/x")]
+    public async Task A_target_without_a_port_or_with_an_unknown_scheme_exits_1_with_a_message(string target)
+    {
+        // Arrange
+        var error = new StringWriter();
+
+        // Act
+        var exit = await ProbeCommand.RunAsync(target, error);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(exit).IsEqualTo(1);
+            await Assert.That(error.ToString()).Contains(target);
+        }
+    }
+
+    [Test]
     public async Task The_probe_ports_default_and_bind_from_the_Health_Probes_section()
     {
         // Arrange
