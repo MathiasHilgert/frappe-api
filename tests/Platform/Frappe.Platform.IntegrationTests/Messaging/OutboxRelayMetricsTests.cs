@@ -152,6 +152,123 @@ public sealed class OutboxRelayMetricsTests(InboxDatabase database, NatsServer n
         }
     }
 
+    [Test]
+    public async Task The_parked_count_is_looked_up_once_per_sample_interval_during_a_drain()
+    {
+        // Arrange
+        var options = await database.CreateAsync();
+        var time = new FakeTimeProvider(Occurred.AddMinutes(10));
+        var (services, relay, capture) = await RelayAsync(options, time);
+        await using var _ = services;
+        using var __ = capture;
+        const string Pending = "(gen_random_uuid(), 'frappe.test.something_happened.v1', '/frappe/test', 'application/json', '{}', now(), 0, NULL)";
+        const string Parked =
+            "(gen_random_uuid(), 'frappe.test.something_happened.v1', '/frappe/test', 'application/json', '{}', now(), 10, NULL)";
+
+        async Task<double> PassAsync(string values)
+        {
+            await InsertAsync(options, values);
+            await relay.PublishPendingAsync(CancellationToken.None);
+            capture.Observe();
+            var parkedSamples = capture.Of(MessagingMetrics.OutboxParkedMetric);
+            return parkedSamples[^1].Value;
+        }
+
+        // Act
+        var first = await PassAsync(Pending);
+        var withinInterval = await PassAsync(Parked + "," + Pending);
+        time.Advance(TimeSpan.FromSeconds(16));
+        var afterInterval = await PassAsync(Pending);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(first).IsEqualTo(0d);
+            await Assert.That(withinInterval).IsEqualTo(0d);
+            await Assert.That(afterInterval).IsEqualTo(1d);
+        }
+    }
+
+    [Test]
+    public async Task A_pass_that_parks_a_row_refreshes_the_parked_count_within_the_sample_interval()
+    {
+        // Arrange
+        var options = await database.CreateAsync();
+        const string Row = "(gen_random_uuid(), 'frappe.test.something_happened.v1', '/frappe/test', 'application/json', '{}', now(), ";
+        var time = new FakeTimeProvider(Occurred.AddMinutes(10));
+        var publisher = new ScriptedPublisher { Failure = new MessageRejectedException("no") };
+        await using var services = new ServiceCollection().AddMetrics().AddScoped(_ => new InboxTestContext(options)).BuildServiceProvider();
+        var factory = services.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>();
+        using var capture = new MetricCapture(factory);
+        var relay = new OutboxRelay<InboxTestContext>(
+            services.GetRequiredService<IServiceScopeFactory>(),
+            publisher,
+            time,
+            new OutboxRelayOptions(),
+            Module,
+            new MessagingMetrics(factory, time),
+            NullLogger<OutboxRelay<InboxTestContext>>.Instance);
+        await InsertAsync(options, Row + "0, NULL)");
+        await relay.PublishPendingAsync(CancellationToken.None);
+        capture.Observe();
+        var before = capture.Of(MessagingMetrics.OutboxParkedMetric)[^1].Value;
+        await InsertAsync(options, Row + "9, '2000-01-01')");
+
+        // Act
+        await relay.PublishPendingAsync(CancellationToken.None);
+        capture.Observe();
+        var after = capture.Of(MessagingMetrics.OutboxParkedMetric)[^1].Value;
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(before).IsEqualTo(0d);
+            await Assert.That(after).IsEqualTo(1d);
+        }
+    }
+
+    [Test]
+    public async Task A_parked_rejected_and_unavailable_publish_are_each_counted_by_outcome()
+    {
+        // Arrange
+        var options = await database.CreateAsync();
+        const string Row = "(gen_random_uuid(), 'frappe.test.something_happened.v1', '/frappe/test', 'application/json', '{}', now(), ";
+        var publisher = new ScriptedPublisher();
+        await using var services = new ServiceCollection().AddMetrics().AddScoped(_ => new InboxTestContext(options)).BuildServiceProvider();
+        var factory = services.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>();
+        using var capture = new MetricCapture(factory);
+        var relay = new OutboxRelay<InboxTestContext>(
+            services.GetRequiredService<IServiceScopeFactory>(),
+            publisher,
+            TimeProvider.System,
+            new OutboxRelayOptions(),
+            Module,
+            new MessagingMetrics(factory),
+            NullLogger<OutboxRelay<InboxTestContext>>.Instance);
+
+        // Act
+        publisher.Failure = new MessageRejectedException("no");
+        await InsertAsync(options, Row + "9, now() - interval '1 minute')");
+        await relay.PublishPendingAsync(CancellationToken.None);
+        await InsertAsync(options, Row + "0, NULL)");
+        await relay.PublishPendingAsync(CancellationToken.None);
+        publisher.Failure = new InvalidOperationException("down");
+        await InsertAsync(options, Row + "0, NULL)");
+        await relay.PublishPendingAsync(CancellationToken.None);
+
+        // Assert
+        var outcomes = capture.Of(MessagingMetrics.RelayFailuresMetric).Select(m => (string)m.Tags[MessagingMetrics.OutcomeTag]!).ToList();
+        await Assert.That(outcomes).IsEquivalentTo(["parked", "rejected", "unavailable"]);
+    }
+
+    /// <summary>Fails every publish with <see cref="Failure"/>.</summary>
+    private sealed class ScriptedPublisher : IMessagePublisher
+    {
+        public Exception Failure { get; set; } = new InvalidOperationException();
+
+        public Task PublishAsync(OutgoingMessage message, CancellationToken cancellationToken) => throw Failure;
+    }
+
     /// <summary>
     /// Fails every query that reads: the relay's claim and settle are <c>UPDATE</c>s, so only its oldest lookup is hit,
     /// as if the database failed right after the pass published.

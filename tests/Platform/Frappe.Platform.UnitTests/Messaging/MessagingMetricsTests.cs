@@ -139,4 +139,53 @@ public sealed class MessagingMetricsTests
         // Assert
         await Assert.That(ages).IsEquivalentTo([("orders", 120d), ("billing", 0d), ("orders", 420d), ("billing", 0d)]);
     }
+
+    [Test]
+    public async Task Every_relay_and_consumer_failure_has_its_own_bounded_tag()
+    {
+        // Act
+        var relay = Enum.GetValues<RelayFailure>().Select(MessagingMetrics.RelayFailureTagOf).ToList();
+        var consumer = Enum.GetValues<ConsumerFailure>().Select(MessagingMetrics.ConsumerFailureTagOf).ToList();
+        var unknownRelay = Assert.Throws<UnreachableException>(() => MessagingMetrics.RelayFailureTagOf((RelayFailure)99));
+        var unknownConsumer = Assert.Throws<UnreachableException>(() => MessagingMetrics.ConsumerFailureTagOf((ConsumerFailure)99));
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(relay).IsEquivalentTo(["rejected", "parked", "unavailable"]);
+            await Assert.That(consumer).IsEquivalentTo(["subscription", "after_commit"]);
+            await Assert.That(unknownRelay).IsNotNull();
+            await Assert.That(unknownConsumer).IsNotNull();
+        }
+    }
+
+    [Test]
+    public async Task The_failure_counters_count_one_failure_by_module_or_consumer_and_its_kind()
+    {
+        // Arrange
+        await using var services = new ServiceCollection().AddMetrics().BuildServiceProvider();
+        var factory = services.GetRequiredService<IMeterFactory>();
+        using var capture = new MetricCapture(factory);
+        var metrics = new MessagingMetrics(factory);
+
+        // Act
+        metrics.RelayFailed("orders", RelayFailure.Parked);
+        metrics.ConsumerFailed("orders-projection", ConsumerFailure.Subscription);
+        metrics.PurgeFailed("orders");
+
+        // Assert
+        var relay = capture.Of(MessagingMetrics.RelayFailuresMetric).Single();
+        var consumer = capture.Of(MessagingMetrics.ConsumerFailuresMetric).Single();
+        var purge = capture.Of(MessagingMetrics.PurgeFailuresMetric).Single();
+        using (Assert.Multiple())
+        {
+            await Assert.That(relay.Value).IsEqualTo(1d);
+            await Assert.That(relay.Tags[MessagingMetrics.ModuleTag]).IsEqualTo("orders");
+            await Assert.That(relay.Tags[MessagingMetrics.OutcomeTag]).IsEqualTo("parked");
+            await Assert.That(consumer.Tags[MessagingMetrics.ConsumerTag]).IsEqualTo("orders-projection");
+            await Assert.That(consumer.Tags[MessagingMetrics.ReasonTag]).IsEqualTo("subscription");
+            await Assert.That(purge.Value).IsEqualTo(1d);
+            await Assert.That(purge.Tags[MessagingMetrics.ModuleTag]).IsEqualTo("orders");
+        }
+    }
 }

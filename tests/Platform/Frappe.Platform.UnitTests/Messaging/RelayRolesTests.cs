@@ -42,19 +42,19 @@ public sealed class RelayRolesTests
 
         await Assert.That(statements).IsEquivalentTo(
             [
-                "REVOKE ALL ON ALL TABLES IN SCHEMA orders FROM frappe_orders_relay",
-                "REVOKE ALL ON ALL SEQUENCES IN SCHEMA orders FROM frappe_orders_relay",
-                "REVOKE ALL ON ALL FUNCTIONS IN SCHEMA orders FROM frappe_orders_relay",
-                "REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA orders FROM PUBLIC",
-                "REVOKE ALL ON SCHEMA orders FROM frappe_orders_relay",
+                "REVOKE ALL ON ALL TABLES IN SCHEMA \"orders\" FROM \"frappe_orders_relay\"",
+                "REVOKE ALL ON ALL SEQUENCES IN SCHEMA \"orders\" FROM \"frappe_orders_relay\"",
+                "REVOKE ALL ON ALL FUNCTIONS IN SCHEMA \"orders\" FROM \"frappe_orders_relay\"",
+                "REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA \"orders\" FROM PUBLIC",
+                "REVOKE ALL ON SCHEMA \"orders\" FROM \"frappe_orders_relay\"",
                 DefaultPrivilegeRevoke(schema, role),
-                "GRANT USAGE ON SCHEMA orders TO frappe_orders_relay",
-                "GRANT SELECT, DELETE ON TABLE orders.outbox_messages TO frappe_orders_relay",
+                "GRANT USAGE ON SCHEMA \"orders\" TO \"frappe_orders_relay\"",
+                "GRANT SELECT, DELETE ON TABLE \"orders\".outbox_messages TO \"frappe_orders_relay\"",
                 "GRANT UPDATE (published_at, attempts, next_attempt_at, leased_until, last_error) "
-                + "ON TABLE orders.outbox_messages TO frappe_orders_relay",
-                "GRANT SELECT, DELETE ON TABLE orders.inbox_messages TO frappe_orders_relay",
+                + "ON TABLE \"orders\".outbox_messages TO \"frappe_orders_relay\"",
+                "GRANT SELECT, DELETE ON TABLE \"orders\".inbox_messages TO \"frappe_orders_relay\"",
                 "GRANT EXECUTE ON FUNCTION orders.purge_expired_drafts(timestamptz, integer), "
-                + "orders.purge_expired_tokens(timestamptz, integer) TO frappe_orders_relay",
+                + "orders.purge_expired_tokens(timestamptz, integer) TO \"frappe_orders_relay\"",
             ],
             TUnit.Assertions.Enums.CollectionOrdering.Matching);
     }
@@ -69,18 +69,36 @@ public sealed class RelayRolesTests
 
         await Assert.That(statements).IsEquivalentTo(
             [
-                "REVOKE ALL ON ALL TABLES IN SCHEMA example FROM frappe_example_relay",
-                "REVOKE ALL ON ALL SEQUENCES IN SCHEMA example FROM frappe_example_relay",
-                "REVOKE ALL ON ALL FUNCTIONS IN SCHEMA example FROM frappe_example_relay",
-                "REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA example FROM PUBLIC",
-                "REVOKE ALL ON SCHEMA example FROM frappe_example_relay",
+                "REVOKE ALL ON ALL TABLES IN SCHEMA \"example\" FROM \"frappe_example_relay\"",
+                "REVOKE ALL ON ALL SEQUENCES IN SCHEMA \"example\" FROM \"frappe_example_relay\"",
+                "REVOKE ALL ON ALL FUNCTIONS IN SCHEMA \"example\" FROM \"frappe_example_relay\"",
+                "REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA \"example\" FROM PUBLIC",
+                "REVOKE ALL ON SCHEMA \"example\" FROM \"frappe_example_relay\"",
                 DefaultPrivilegeRevoke(schema, role),
-                "GRANT USAGE ON SCHEMA example TO frappe_example_relay",
-                "GRANT SELECT, DELETE ON TABLE example.outbox_messages TO frappe_example_relay",
+                "GRANT USAGE ON SCHEMA \"example\" TO \"frappe_example_relay\"",
+                "GRANT SELECT, DELETE ON TABLE \"example\".outbox_messages TO \"frappe_example_relay\"",
                 "GRANT UPDATE (published_at, attempts, next_attempt_at, leased_until, last_error) "
-                + "ON TABLE example.outbox_messages TO frappe_example_relay",
-                "GRANT SELECT, DELETE ON TABLE example.inbox_messages TO frappe_example_relay",
+                + "ON TABLE \"example\".outbox_messages TO \"frappe_example_relay\"",
+                "GRANT SELECT, DELETE ON TABLE \"example\".inbox_messages TO \"frappe_example_relay\"",
             ],
             TUnit.Assertions.Enums.CollectionOrdering.Matching);
+    }
+
+    [Test]
+    [Arguments("orders; DROP ROLE x")]
+    [Arguments("orders\"")]
+    [Arguments("Orders")]
+    [Arguments("1orders")]
+    [Arguments("orders-x")]
+    public async Task A_schema_or_role_name_outside_the_identifier_pattern_is_rejected_before_any_statement_is_built(string hostile)
+    {
+        var inSchema = Assert.Throws<ArgumentException>(() => RelayRoles.Statements(hostile, "frappe_orders_relay", []));
+        var inRole = Assert.Throws<ArgumentException>(() => RelayRoles.Statements("orders", hostile, []));
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(inSchema.ParamName).IsEqualTo("schema");
+            await Assert.That(inRole.ParamName).IsEqualTo("role");
+        }
     }
 }

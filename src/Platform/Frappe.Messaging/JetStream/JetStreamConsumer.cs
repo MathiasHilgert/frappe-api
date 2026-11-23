@@ -101,6 +101,7 @@ public sealed partial class JetStreamConsumer<TContext, TEvent>(
             catch (Exception exception) when (!stoppingToken.IsCancellationRequested)
             {
                 failures++;
+                metrics.ConsumerFailed(inbox.ConsumerName, ConsumerFailure.Subscription);
                 LogSubscriptionFailed(logger, exception, inbox.ConsumerName, failures);
             }
 

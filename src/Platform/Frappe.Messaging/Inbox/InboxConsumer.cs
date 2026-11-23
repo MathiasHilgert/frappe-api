@@ -17,7 +17,8 @@ public sealed partial class InboxConsumer<TContext, TEvent>(
     IServiceScopeFactory scopes,
     string consumerName,
     ILogger<InboxConsumer<TContext, TEvent>> logger,
-    TimeProvider? time = null)
+    TimeProvider? time = null,
+    MessagingMetrics? metrics = null)
     where TContext : DbContext
     where TEvent : IIntegrationEvent
 {
@@ -191,6 +192,7 @@ public sealed partial class InboxConsumer<TContext, TEvent>(
         }
         catch (Exception exception)
         {
+            metrics?.ConsumerFailed(ConsumerName, ConsumerFailure.AfterCommit);
             LogAfterCommitFailed(logger, exception, ConsumerName, messageId, nameof(IAfterCommitHandler<TEvent>));
             return;
         }
@@ -203,6 +205,7 @@ public sealed partial class InboxConsumer<TContext, TEvent>(
             }
             catch (Exception exception)
             {
+                metrics?.ConsumerFailed(ConsumerName, ConsumerFailure.AfterCommit);
                 LogAfterCommitFailed(logger, exception, ConsumerName, messageId, hook.GetType().Name);
             }
         }

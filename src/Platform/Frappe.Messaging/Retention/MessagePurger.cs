@@ -29,6 +29,19 @@ public sealed partial class MessagePurger<TContext>(
     /// <summary>Purges both tables and returns how many rows each lost.</summary>
     public async Task<MessagePurgeResult> PurgeAsync(CancellationToken cancellationToken)
     {
+        try
+        {
+            return await PurgeCoreAsync(cancellationToken);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            metrics.PurgeFailed(Module);
+            throw;
+        }
+    }
+
+    private async Task<MessagePurgeResult> PurgeCoreAsync(CancellationToken cancellationToken)
+    {
         await using var scope = scopes.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<TContext>();
         var now = Instant.FromDateTimeOffset(time.GetUtcNow());

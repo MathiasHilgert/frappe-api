@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Frappe.Messaging.Inbox;
 using Frappe.Messaging.Outbox;
 using Npgsql;
@@ -8,8 +9,12 @@ namespace Frappe.Messaging.Relay;
 /// The grants of a module's narrow relay role (the login role the Worker uses): exactly what the outbox relay and the
 /// message purge need, and nothing else, so a compromised Worker reads none of the module's data.
 /// </summary>
-public static class RelayRoles
+public static partial class RelayRoles
 {
+    /// <summary>The names a schema or role may have: lower-case letters, digits and underscores, not starting with a digit (SEC-11).</summary>
+    [GeneratedRegex("^[a-z_][a-z0-9_]*$", RegexOptions.CultureInvariant)]
+    private static partial Regex IdentifierPattern();
+
     /// <summary>
     /// The outbox columns a relay role may update: what the relay's claim (<c>leased_until</c>), settle (<c>published_at</c>,
     /// <c>attempts</c>, <c>next_attempt_at</c>, <c>last_error</c>) and lease release write.
@@ -54,34 +59,44 @@ public static class RelayRoles
     /// <summary>The statements <see cref="GrantAsync"/> runs, in order.</summary>
     internal static IReadOnlyList<string> Statements(string schema, string role, IReadOnlyList<string> purgeFunctions)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(schema);
-        ArgumentException.ThrowIfNullOrWhiteSpace(role);
+        ValidateIdentifier(schema, nameof(schema));
+        ValidateIdentifier(role, nameof(role));
         ArgumentNullException.ThrowIfNull(purgeFunctions);
+        var quotedSchema = $"\"{schema}\"";
+        var quotedRole = $"\"{role}\"";
 
         List<string> statements =
         [
-            $"REVOKE ALL ON ALL TABLES IN SCHEMA {schema} FROM {role}",
-            $"REVOKE ALL ON ALL SEQUENCES IN SCHEMA {schema} FROM {role}",
-            $"REVOKE ALL ON ALL FUNCTIONS IN SCHEMA {schema} FROM {role}",
+            $"REVOKE ALL ON ALL TABLES IN SCHEMA {quotedSchema} FROM {quotedRole}",
+            $"REVOKE ALL ON ALL SEQUENCES IN SCHEMA {quotedSchema} FROM {quotedRole}",
+            $"REVOKE ALL ON ALL FUNCTIONS IN SCHEMA {quotedSchema} FROM {quotedRole}",
 
             // Postgres lets PUBLIC, so every role, execute a new function: taken back from every function of the schema
             // on each run. The ones the owner creates later are covered database-wide by the Migrator
             // (ModuleRoles.RevokePublicFunctionExecuteAsync), for every module.
-            $"REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA {schema} FROM PUBLIC",
-            $"REVOKE ALL ON SCHEMA {schema} FROM {role}",
+            $"REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA {quotedSchema} FROM PUBLIC",
+            $"REVOKE ALL ON SCHEMA {quotedSchema} FROM {quotedRole}",
             RevokeDefaultPrivileges(schema, role),
-            $"GRANT USAGE ON SCHEMA {schema} TO {role}",
-            $"GRANT SELECT, DELETE ON TABLE {schema}.{OutboxModel.Table} TO {role}",
-            $"GRANT UPDATE ({string.Join(", ", RelayWritableColumns)}) ON TABLE {schema}.{OutboxModel.Table} TO {role}",
-            $"GRANT SELECT, DELETE ON TABLE {schema}.{InboxModel.Table} TO {role}",
+            $"GRANT USAGE ON SCHEMA {quotedSchema} TO {quotedRole}",
+            $"GRANT SELECT, DELETE ON TABLE {quotedSchema}.{OutboxModel.Table} TO {quotedRole}",
+            $"GRANT UPDATE ({string.Join(", ", RelayWritableColumns)}) ON TABLE {quotedSchema}.{OutboxModel.Table} TO {quotedRole}",
+            $"GRANT SELECT, DELETE ON TABLE {quotedSchema}.{InboxModel.Table} TO {quotedRole}",
         ];
 
         if (purgeFunctions.Count > 0)
         {
-            statements.Add($"GRANT EXECUTE ON FUNCTION {string.Join(", ", purgeFunctions)} TO {role}");
+            statements.Add($"GRANT EXECUTE ON FUNCTION {string.Join(", ", purgeFunctions)} TO {quotedRole}");
         }
 
         return statements;
+    }
+
+    private static void ValidateIdentifier(string name, string parameter)
+    {
+        if (string.IsNullOrWhiteSpace(name) || !IdentifierPattern().IsMatch(name))
+        {
+            throw new ArgumentException($"'{parameter}' must match ^[a-z_][a-z0-9_]*$.", parameter);
+        }
     }
 
     /// <summary>

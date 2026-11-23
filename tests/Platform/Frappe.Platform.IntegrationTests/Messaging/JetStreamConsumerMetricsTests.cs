@@ -187,6 +187,45 @@ public sealed class JetStreamConsumerMetricsTests(InboxDatabase database, NatsSe
         }
     }
 
+    [Test]
+    public async Task A_subscription_the_broker_refuses_is_counted_as_a_subscription_failure_and_retried()
+    {
+        // Arrange
+        // A durable name with a dot and a space is refused by the broker, so the subscription never starts.
+        const string badName = "bad name.x";
+        var options = await database.CreateAsync();
+        await using var services = new ServiceCollection().AddMetrics().AddScoped(_ => new InboxTestContext(options)).BuildServiceProvider();
+        var factory = services.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>();
+        using var capture = new MetricCapture(factory);
+        var consumer = new JetStreamConsumer<InboxTestContext, SomethingHappened>(
+            nats.JetStream,
+            new InboxConsumer<InboxTestContext, SomethingHappened>(
+                services.GetRequiredService<IServiceScopeFactory>(),
+                badName,
+                NullLogger<InboxConsumer<InboxTestContext, SomethingHappened>>.Instance),
+            Producer,
+            new JetStreamConsumerOptions { Backoff = [TimeSpan.FromMilliseconds(10)] },
+            new MessagingMetrics(factory),
+            NullLogger<JetStreamConsumer<InboxTestContext, SomethingHappened>>.Instance,
+            naming: NatsServer.FreshNaming());
+
+        // Act
+        await consumer.StartAsync(CancellationToken.None);
+        await WaitUntil.TrueAsync(
+            () => capture.Of(MessagingMetrics.ConsumerFailuresMetric).Count >= 2,
+            "the consumer never counted its failed subscription twice",
+            TimeSpan.FromSeconds(20));
+        await consumer.StopAsync(CancellationToken.None);
+
+        // Assert
+        var failures = capture.Of(MessagingMetrics.ConsumerFailuresMetric);
+        using (Assert.Multiple())
+        {
+            await Assert.That(failures.Select(f => (string)f.Tags[MessagingMetrics.ConsumerTag]!).Distinct()).IsEquivalentTo([badName]);
+            await Assert.That(failures.Select(f => (string)f.Tags[MessagingMetrics.ReasonTag]!).Distinct()).IsEquivalentTo(["subscription"]);
+        }
+    }
+
     /// <summary>A handler that stores an effect and succeeds.</summary>
     private sealed class Succeeding(InboxTestContext db) : IIntegrationEventHandler<SomethingHappened>
     {

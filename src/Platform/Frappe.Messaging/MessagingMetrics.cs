@@ -38,6 +38,24 @@ public sealed partial class MessagingMetrics
     /// </summary>
     public const string ConsumedMetric = "frappe.messaging.consumed";
 
+    /// <summary>
+    /// Counter: outbox messages the relay could not publish, by module and <see cref="OutcomeTag"/> (<c>rejected</c>,
+    /// <c>parked</c> or <c>unavailable</c>).
+    /// </summary>
+    public const string RelayFailuresMetric = "frappe.messaging.relay.failures";
+
+    /// <summary>
+    /// Counter: consumer failures that are not a handler failure, by <see cref="ConsumerTag"/> and <see cref="ReasonTag"/>
+    /// (<c>subscription</c> or <c>after_commit</c>).
+    /// </summary>
+    public const string ConsumerFailuresMetric = "frappe.messaging.consumer.failures";
+
+    /// <summary>Counter: retention purges that failed, by module; a purge that fails every run no longer looks idle.</summary>
+    public const string PurgeFailuresMetric = "frappe.messaging.purge.failures";
+
+    /// <summary>The reason a consumer failed: <c>subscription</c> or <c>after_commit</c>.</summary>
+    public const string ReasonTag = "frappe.reason";
+
     /// <summary>The module label, for example <c>orders</c>.</summary>
     public const string ModuleTag = "frappe.module";
 
@@ -53,6 +71,9 @@ public sealed partial class MessagingMetrics
     private readonly Purged _purged;
     private readonly Relayed _relayed;
     private readonly Consumed _consumed;
+    private readonly RelayFailures _relayFailures;
+    private readonly ConsumerFailures _consumerFailures;
+    private readonly PurgeFailures _purgeFailures;
     private readonly TimeProvider _time;
 
     /// <summary>Per module, the oldest unpublished message's time, or null when the relay found none.</summary>
@@ -69,6 +90,9 @@ public sealed partial class MessagingMetrics
         _purged = CreatePurged(meter);
         _relayed = CreateRelayed(meter);
         _consumed = CreateConsumed(meter);
+        _relayFailures = CreateRelayFailures(meter);
+        _consumerFailures = CreateConsumerFailures(meter);
+        _purgeFailures = CreatePurgeFailures(meter);
         meter.CreateObservableGauge(
             OutboxOldestAgeMetric,
             ObserveOldestAge,
@@ -107,6 +131,34 @@ public sealed partial class MessagingMetrics
     public void Consumed(string consumer, ConsumedOutcome outcome) =>
         _consumed.Add(1, new ConsumedTags { Consumer = consumer, Outcome = OutcomeTagOf(outcome) });
 
+    /// <summary>The relay of <paramref name="module"/> failed a message with <paramref name="outcome"/>.</summary>
+    public void RelayFailed(string module, RelayFailure outcome) =>
+        _relayFailures.Add(1, new RelayFailureTags { Module = module, Outcome = RelayFailureTagOf(outcome) });
+
+    /// <summary><paramref name="consumer"/> failed for <paramref name="reason"/>.</summary>
+    public void ConsumerFailed(string consumer, ConsumerFailure reason) =>
+        _consumerFailures.Add(1, new ConsumerFailureTags { Consumer = consumer, Reason = ConsumerFailureTagOf(reason) });
+
+    /// <summary>A retention purge of <paramref name="module"/> failed.</summary>
+    public void PurgeFailed(string module) => _purgeFailures.Add(1, new ModuleTags { Module = module });
+
+    /// <summary>The <see cref="OutcomeTag"/> value of a relay failure; a value without its own arm fails.</summary>
+    public static string RelayFailureTagOf(RelayFailure outcome) => outcome switch
+    {
+        RelayFailure.Rejected => "rejected",
+        RelayFailure.Parked => "parked",
+        RelayFailure.Unavailable => "unavailable",
+        _ => throw new UnreachableException($"Unknown relay failure {outcome}."),
+    };
+
+    /// <summary>The <see cref="ReasonTag"/> value of a consumer failure; a value without its own arm fails.</summary>
+    public static string ConsumerFailureTagOf(ConsumerFailure reason) => reason switch
+    {
+        ConsumerFailure.Subscription => "subscription",
+        ConsumerFailure.AfterCommit => "after_commit",
+        _ => throw new UnreachableException($"Unknown consumer failure {reason}."),
+    };
+
     /// <summary>The <see cref="OutcomeTag"/> value of <paramref name="outcome"/>; a value without its own arm fails.</summary>
     public static string OutcomeTagOf(ConsumedOutcome outcome) => outcome switch
     {
@@ -137,6 +189,27 @@ public sealed partial class MessagingMetrics
         Unit = "{delivery}",
         Description = "Deliveries a consumer settled, by consumer and outcome (handled, duplicate, failed, dead_lettered).")]
     public static partial Consumed CreateConsumed(Meter meter);
+
+    [Counter<long>(
+        typeof(RelayFailureTags),
+        Name = RelayFailuresMetric,
+        Unit = "{message}",
+        Description = "Outbox messages the relay could not publish, by module and outcome (rejected, parked, unavailable).")]
+    public static partial RelayFailures CreateRelayFailures(Meter meter);
+
+    [Counter<long>(
+        typeof(ConsumerFailureTags),
+        Name = ConsumerFailuresMetric,
+        Unit = "{failure}",
+        Description = "Consumer failures that are not a handler failure, by consumer and reason (subscription, after_commit).")]
+    public static partial ConsumerFailures CreateConsumerFailures(Meter meter);
+
+    [Counter<long>(
+        typeof(ModuleTags),
+        Name = PurgeFailuresMetric,
+        Unit = "{purge}",
+        Description = "Retention purges that failed, by module.")]
+    public static partial PurgeFailures CreatePurgeFailures(Meter meter);
 
     private IEnumerable<Measurement<long>> ObserveParked() =>
         _parked.Select(parked => new Measurement<long>(parked.Value, new KeyValuePair<string, object?>(ModuleTag, parked.Key)));

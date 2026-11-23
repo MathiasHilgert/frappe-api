@@ -159,6 +159,35 @@ public sealed class MessagePurgerTests(InboxDatabase database)
         await Assert.That(failure!.Message).Contains("AddOutbox");
     }
 
+    [Test]
+    public async Task A_failing_purge_is_counted_by_module_and_still_throws()
+    {
+        // Arrange
+        var options = new DbContextOptionsBuilder<NoMessagingContext>().UseNpgsql("Host=unused;Database=unused").Options;
+        using var services = new ServiceCollection().AddMetrics().AddScoped(_ => new NoMessagingContext(options)).BuildServiceProvider();
+        var factory = services.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>();
+        using var capture = new Frappe.Testing.MetricCapture(factory);
+        var purger = new MessagePurger<NoMessagingContext>(
+            services.GetRequiredService<IServiceScopeFactory>(),
+            Module,
+            TimeProvider.System,
+            new MessageRetentionOptions(),
+            new MessagingMetrics(factory, TimeProvider.System),
+            NullLogger<MessagePurger<NoMessagingContext>>.Instance);
+
+        // Act
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => purger.PurgeAsync(CancellationToken.None));
+        var counted = capture.Of(MessagingMetrics.PurgeFailuresMetric).Single();
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(failure).IsNotNull();
+            await Assert.That(counted.Value).IsEqualTo(1d);
+            await Assert.That(counted.Tags[MessagingMetrics.ModuleTag]).IsEqualTo(Module);
+        }
+    }
+
     /// <summary>A context that forgot to map the outbox and the inbox.</summary>
     private sealed class NoMessagingContext(DbContextOptions<NoMessagingContext> options) : DbContext(options);
 }
