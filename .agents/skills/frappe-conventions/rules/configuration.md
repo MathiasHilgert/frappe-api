@@ -27,11 +27,17 @@
 - **Good:** `public const string Section = "Identity:Login"; public int FailuresPerClient { get; set; } = DefaultFailuresPerClient;` **Bad:** `.BindConfiguration("Identity:Login")` with defaults only in `appsettings.json`.
 - **Status:** in force.
 
-### CFG-03 · Every options type has a sealed `IValidateOptions<T>`
-- **Rule:** Validate each options type in a `sealed` class implementing `IValidateOptions<T>` that collects every failure and names the full key. No inline `.Validate(lambda, message)`, no DataAnnotations, no `[OptionsValidator]` source generator.
-- **Why:** one style, all failures reported at once, and a validator a unit test can call.
-- **Enforced by:** BannedApiAnalyzers on `OptionsBuilder<T>.Validate` overloads and `ValidateDataAnnotations` (planned); review.
-- **Good:** `public sealed class JetStreamConsumerOptionsValidator(string optionsName, string section) : IValidateOptions<JetStreamConsumerOptions>` collecting `failures` **Bad:** `.Validate(o => o.Iterations >= Argon2id.MinIterations, "...")`.
+### CFG-03 · Every options type is validated by data annotations and a generated validator
+- **Rule:** Annotate the options with data annotations whose message names the full configuration key, and declare
+  `[OptionsValidator] public sealed partial class XValidator : IValidateOptions<X>`. Nested options use `[ValidateObjectMembers]` or
+  `[ValidateEnumeratedItems]`; cross-field rules use `IValidatableObject`. The generator ignores `ErrorMessage` on `[Range]`: use a small
+  `ValidationAttribute` (such as `PortAttribute`) when the message must name the key. Rules that depend on composition (role passwords
+  keyed by the database participants, consumer steps declared in DI) stay a hand-written sealed `IValidateOptions<T>` that collects every
+  failure. No inline `.Validate(lambda, message)`.
+- **Why:** one declarative style, every failure reported at once, and a validator a unit test can call, without hand-written range checks.
+- **Enforced by:** BannedApiAnalyzers on `OptionsBuilder<T>.Validate` overloads; DataAnnotations stay banned in Domain and Application projects (DOM-09); review.
+- **Good:** `[Required(ErrorMessage = "Configuration 'ConnectionStrings:Valkey' is required.")]` with
+  `[OptionsValidator] public sealed partial class CachingOptionsValidator : IValidateOptions<CachingOptions>;` **Bad:** `.Validate(o => o.Port > 0, "...")`.
 - **Status:** in force.
 
 ### CFG-04 · Every setting is documented in its property's XML doc
