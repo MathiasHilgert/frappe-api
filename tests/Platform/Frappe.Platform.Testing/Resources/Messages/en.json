@@ -1,0 +1,5 @@
+{
+  "test.year.out_of_range": "The year must be between {min} and {max}.",
+  "test.code.invalid_length": "The country code must have {length} characters.",
+  "test.english_only": "Only in English."
+}

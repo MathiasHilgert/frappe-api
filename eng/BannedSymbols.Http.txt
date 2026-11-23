@@ -1,0 +1,1 @@
+M:Frappe.Http.ErrorsProblemHttpResult.Of(Frappe.Results.Error[]);Answer a Result with ToTypedHttpResult (one way to map a Result to HTTP, S8a); compose failures with Then/Map/Ensure

@@ -9,6 +9,7 @@
     <ProjectReference Include="../../src/Platform/Frappe.IntegrationEvents/Frappe.IntegrationEvents.csproj" />
     <ProjectReference Include="../../src/Platform/Frappe.Health/Frappe.Health.csproj" />
     <ProjectReference Include="../../src/Platform/Frappe.Caching/Frappe.Caching.csproj" />
+    <ProjectReference Include="../../src/Platform/Frappe.Http/Frappe.Http.csproj" />
     <ProjectReference Include="../../src/Platform/Frappe.Modules/Frappe.Modules.csproj" />
   </ItemGroup>
   <ItemGroup>
