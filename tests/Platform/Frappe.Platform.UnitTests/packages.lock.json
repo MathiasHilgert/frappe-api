@@ -319,6 +319,9 @@
           "Microsoft.Extensions.Hosting": "[11.0.0, )"
         }
       },
+      "frappe.integrationevents": {
+        "type": "Project"
+      },
       "frappe.localization": {
         "type": "Project",
         "dependencies": {

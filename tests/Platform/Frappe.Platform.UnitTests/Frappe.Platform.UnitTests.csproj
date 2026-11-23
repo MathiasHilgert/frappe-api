@@ -8,6 +8,7 @@
     <ProjectReference Include="../../../src/Platform/Frappe.Caching/Frappe.Caching.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Localization/Frappe.Localization.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Aggregates/Frappe.Aggregates.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.IntegrationEvents/Frappe.IntegrationEvents.csproj" />
     <ProjectReference Include="../../Shared/Frappe.Testing/Frappe.Testing.csproj" />
   </ItemGroup>
   <ItemGroup>
