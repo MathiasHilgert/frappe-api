@@ -7,16 +7,16 @@ namespace Frappe.Platform.UnitTests.IntegrationEvents;
 public sealed class IntegrationEventAttributeTests
 {
     /// <summary>An event class that declares its type.</summary>
-    [IntegrationEvent("frappe.geo.holidays_changed.v1")]
-    private sealed class HolidaysChanged;
+    [IntegrationEvent("frappe.test.item_changed.v1")]
+    private sealed class ItemChanged;
 
     [Test]
     public async Task An_event_class_declares_its_stable_type()
     {
         // Act
-        var attribute = typeof(HolidaysChanged).GetCustomAttribute<IntegrationEventAttribute>();
+        var attribute = typeof(ItemChanged).GetCustomAttribute<IntegrationEventAttribute>();
 
         // Assert
-        await Assert.That(attribute?.Type).IsEqualTo("frappe.geo.holidays_changed.v1");
+        await Assert.That(attribute?.Type).IsEqualTo("frappe.test.item_changed.v1");
     }
 }

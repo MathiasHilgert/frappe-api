@@ -24,7 +24,7 @@ public sealed class ResultTests
     public async Task Failure_exposes_its_errors_and_hides_the_value()
     {
         // Arrange
-        Result<int> result = Error.RuleViolation("geo.holiday.date_outside_year", ("year", 2026));
+        Result<int> result = Error.RuleViolation("test.item.date_outside_year", ("year", 2026));
 
         // Act
         var failure = Assert.Throws<InvalidOperationException>(() => _ = result.Value);
@@ -42,7 +42,7 @@ public sealed class ResultTests
     public async Task A_rate_limit_states_its_wait_in_whole_seconds_rounded_up()
     {
         // Act
-        var error = new RateLimitedError("identity.login.throttled", TimeSpan.FromSeconds(1.01), ("scope", "email"));
+        var error = new RateLimitedError("test.login.throttled", TimeSpan.FromSeconds(1.01), ("scope", "email"));
 
         // Assert
         using (Assert.Multiple())
@@ -51,7 +51,7 @@ public sealed class ResultTests
             await Assert.That(error.Parameters["retryAfter"]).IsEqualTo(2);
             await Assert.That(error.Parameters["scope"]).IsEqualTo("email");
             await Assert.That(new RateLimitedError("x", TimeSpan.Zero).RetryAfterSeconds).IsEqualTo(1);
-            await Assert.That(error).IsEqualTo(new RateLimitedError("identity.login.throttled", TimeSpan.FromSeconds(2), ("scope", "email")));
+            await Assert.That(error).IsEqualTo(new RateLimitedError("test.login.throttled", TimeSpan.FromSeconds(2), ("scope", "email")));
         }
     }
 
@@ -163,12 +163,12 @@ public sealed class ResultTests
     public async Task Errors_carry_a_code_and_typed_parameters_but_no_human_text()
     {
         // Act
-        var error = Error.InvalidValue("geo.holiday_year.out_of_range", ("min", 1900), ("max", 2100));
+        var error = Error.InvalidValue("test.year.out_of_range", ("min", 1900), ("max", 2100));
 
         // Assert
         using (Assert.Multiple())
         {
-            await Assert.That(error.Code).IsEqualTo("geo.holiday_year.out_of_range");
+            await Assert.That(error.Code).IsEqualTo("test.year.out_of_range");
             await Assert.That(error.Parameters["min"]).IsEqualTo(1900);
             await Assert.That(error.Parameters["max"]).IsEqualTo(2100);
         }
@@ -188,18 +188,18 @@ public sealed class ResultTests
     public async Task Errors_with_the_same_code_and_parameters_are_equal()
     {
         // Arrange
-        var first = Error.InvalidValue("geo.holiday_year.out_of_range", ("min", 1900), ("max", 2100));
+        var first = Error.InvalidValue("test.year.out_of_range", ("min", 1900), ("max", 2100));
 
         // Act
-        var second = Error.InvalidValue("geo.holiday_year.out_of_range", ("max", 2100), ("min", 1900));
+        var second = Error.InvalidValue("test.year.out_of_range", ("max", 2100), ("min", 1900));
 
         // Assert
         using (Assert.Multiple())
         {
             await Assert.That(first).IsEqualTo(second);
             await Assert.That(first.GetHashCode()).IsEqualTo(second.GetHashCode());
-            await Assert.That(first).IsNotEqualTo(Error.InvalidValue("geo.holiday_year.out_of_range", ("min", 1900), ("max", 2099)));
-            await Assert.That((Error)first).IsNotEqualTo(Error.RuleViolation("geo.holiday_year.out_of_range", ("min", 1900), ("max", 2100)));
+            await Assert.That(first).IsNotEqualTo(Error.InvalidValue("test.year.out_of_range", ("min", 1900), ("max", 2099)));
+            await Assert.That((Error)first).IsNotEqualTo(Error.RuleViolation("test.year.out_of_range", ("min", 1900), ("max", 2100)));
         }
     }
 

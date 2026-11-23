@@ -62,7 +62,14 @@ design, one design review, one feature document. No questions mid-run: anything 
   slice adds `"commit": "<type>(<scope>): <summary>"`.
 - Per slice: the writer builds and commits it; critics review that commit while the next writer starts; the correction is a `fixup!` commit; QA runs
   once on the head. A blocker that stops slice k stops the chain after the slice already being written.
-- Two chains that touch different modules run in parallel (`chains: [[...], [...]]`); never two chains on the same module.
+- Parallel chains come from the real dependency graph, not from guesses: read the `ProjectReference` edges of `src/**/*.csproj` and
+  `tests/**/*.csproj` and group the slices by the projects they touch. Slices whose projects do not depend on each other (neither directly nor
+  through a shared project that one of them changes) go in separate chains on separate worktrees, each based on the last common slice, and run
+  at the same time (`chains: [[...], [...]]`); a slice that references a project another slice changes stays after it in the same chain. Never two
+  chains on the same module.
+- Files every chain edits (`Frappe.slnx`, `Directory.Packages.props`, test `.csproj` files and `packages.lock.json`) are expected merge points,
+  not a reason to serialize: the orchestrator resolves them by taking the union of both sides and then runs `dotnet restore --force-evaluate` to
+  regenerate the lock files.
 - Profile per slice by risk: `deep` for schema changes on existing rows, security or contract breaks; `standard` for features; `small` for internal
   logic with good tests. Do not give every slice `deep`.
 

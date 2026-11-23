@@ -28,7 +28,8 @@ module's data: see `criteria`.
   Contracts; Infrastructure and Http reference Application; nothing references Infrastructure except hosts and its own plug-ins.
 - **Why:** business rules stay testable and unchanged when storage, transport or vendors change.
 - **Enforced by:** csproj references + `LayeringTests.Inner_layers_know_nothing_about_infrastructure`.
-- **Good:** `Frappe.Geo.Http.csproj` → `Frappe.Geo.Application` only. **Bad:** `Frappe.X.Application` → `Frappe.X.Infrastructure` to reach an `Ef*`
+- **Good:** `Frappe.Orders.Http.csproj` → `Frappe.Orders.Application` only. **Bad:** `Frappe.X.Application` → `Frappe.X.Infrastructure` to reach an
+  `Ef*`
   type.
 - **Status:** in force.
 
@@ -38,9 +39,9 @@ module's data: see `criteria`.
   infrastructure platform libraries (`Frappe.Persistence`, `Messaging`, `Caching`, `Scheduling`, `Http`, `Observability`). A port's signature uses
   only BCL, NodaTime and module types.
 - **Why:** a vendor type in a use case pins the use case to that vendor (see `design`).
-- **Enforced by:** `LayeringTests.Inner_layers_know_nothing_about_infrastructure` (Geo.Contracts and Frappe.UseCases not yet in its arguments: add
+- **Enforced by:** `LayeringTests.Inner_layers_know_nothing_about_infrastructure` (Orders.Contracts and Frappe.UseCases not yet in its arguments: add
   them, planned).
-- **Good:** `Task<GeoCountry?> FindCountryAsync(string countryCode, CancellationToken ct)`. **Bad:** a port returning `IQueryable<CountryRow>` or
+- **Good:** `Task<OrdersRegion?> FindRegionAsync(string regionCode, CancellationToken ct)`. **Bad:** a port returning `IQueryable<RegionRow>` or
   taking a `DbContext`.
 - **Status:** in force.
 
@@ -58,9 +59,9 @@ module's data: see `criteria`.
   Infrastructure, EF, Npgsql, `Frappe.Persistence`, `Frappe.Caching` or Redis.
 - **Why:** transport and storage change independently; an endpoint that reads a table bypasses the use case's rules.
 - **Enforced by:** `LayeringTests.Infrastructure_adapters_do_not_serve_http`,
-  `LayeringTests.The_http_adapter_reaches_use_cases_only_through_the_application_layer` (covers Identity.Http only; extend to every `*.Http`,
+  `LayeringTests.The_http_adapter_reaches_use_cases_only_through_the_application_layer` (covers Billing.Http only; extend to every `*.Http`,
   planned).
-- **Good:** endpoint → `IQueryHandler<GetCountry, CountryView>`. **Bad:** endpoint injecting `GeoDbContext`.
+- **Good:** endpoint → `IQueryHandler<GetRegion, RegionView>`. **Bad:** endpoint injecting `OrdersDbContext`.
 - **Status:** in force.
 
 ## ARCH-05 · A module reaches another only through its `*.Contracts`, on an allow-list
@@ -69,11 +70,11 @@ module's data: see `criteria`.
   isolation allow-list. Never another module's Domain, Application, Infrastructure, Http, tables or services.
 - **Why:** each module can change its internals, schema and deployment without breaking others; the allow-list makes every new dependency a reviewed
   decision.
-- **Enforced by:** today `LayeringTests.Only_Identitys_mail_package_reaches_Identitys_contracts_from_another_module` and
-  `Identity_knows_nothing_about_notification` (Identity only); one generic module-isolation ArchTest with an allow-list over every production assembly
+- **Enforced by:** today `LayeringTests.Only_Billings_mail_package_reaches_Billings_contracts_from_another_module` and
+  `Billing_knows_nothing_about_mailing` (Billing only); one generic module-isolation ArchTest with an allow-list over every production assembly
   (planned).
-- **Good:** `Frappe.Notification.Identity` → `Frappe.Identity.Contracts` (allow-listed). **Bad:** `Frappe.Geo.Application` →
-  `Frappe.Identity.Application`.
+- **Good:** `Frappe.Mailing.Billing` → `Frappe.Billing.Contracts` (allow-listed). **Bad:** `Frappe.Orders.Application` →
+  `Frappe.Billing.Application`.
 - **Status:** in force.
 
 ## ARCH-06 · Sync cross-module reads go through a read-only `I<Module>Queries` port
@@ -84,8 +85,8 @@ module's data: see `criteria`.
 - **Why:** the owner keeps its rules and its model private; a query port answers with current data without a second source of truth.
 - **Enforced by:** `LayeringTests.A_module_contract_exposes_nothing_but_its_public_types` + ARCH-05 test (planned); review for read-only and "missing
   is an answer".
-- **Good:** `IGeoQueries.IsBusinessDayAsync(...)` answers `CalendarStatus.NotCovered` for a calendar Geo does not hold. **Bad:** a port method that
-  writes, returns a Geo aggregate, or answers "no holidays" when Geo has no data.
+- **Good:** `IOrdersQueries.IsBusinessDayAsync(...)` answers `CalendarStatus.NotCovered` for a calendar Orders does not hold. **Bad:** a port method
+  that writes, returns an Orders aggregate, or answers "no shipments" when Orders has no data.
 - **Status:** in force.
 
 ## ARCH-07 · Published contracts only grow
@@ -109,7 +110,7 @@ module's data: see `criteria`.
   its own schema only. A narrower extra role (`frappe_<module>_relay`) exists only when a process needs less than the module role.
 - **Why:** the database enforces ARCH-05; a module cannot read another's tables even by mistake.
 - **Enforced by:** Migrator (`DatabaseMigration` + `ModuleRoles`: no DDL, no other schema); review.
-- **Good:** `IdentityMigration.Role = "frappe_identity"`, `RelayRole = "frappe_identity_relay"`. **Bad:** a Geo query joining `identity.principals`.
+- **Good:** `BillingMigration.Role = "frappe_billing"`, `RelayRole = "frappe_billing_relay"`. **Bad:** an Orders query joining `billing.principals`.
 - **Status:** in force.
 
 ## ARCH-11 · Composition happens only in hosts, from explicit module lists
@@ -128,9 +129,9 @@ module's data: see `criteria`.
 
 - **Rule:** tracing and exporters are platform work; modules declare business metrics through `IMeterFactory` only (see `observability`).
 - **Why:** one telemetry pipeline, configured once.
-- **Enforced by:** `LayeringTests.Modules_contain_no_tracing_or_exporter_code` (does not load Geo.Http nor the Geo source packages; add them,
+- **Enforced by:** `LayeringTests.Modules_contain_no_tracing_or_exporter_code` (does not load Orders.Http nor the Orders source packages; add them,
   planned).
-- **Good:** `GeoMetrics` over `IMeterFactory`. **Bad:** `new ActivitySource("Frappe.Geo")` in a handler.
+- **Good:** `OrdersMetrics` over `IMeterFactory`. **Bad:** `new ActivitySource("Frappe.Orders")` in a handler.
 - **Status:** in force.
 
 ## ARCH-13 · Application ports never save
@@ -143,12 +144,12 @@ module's data: see `criteria`.
 
 ## ARCH-14 · Plug-in packages depend on their core, never the reverse
 
-- **Rule:** a plug-in package (country, source, producer) references its module's core and declares; the core never references a plug-in. Names follow
+- **Rule:** a plug-in package (region, source, producer) references its module's core and declares; the core never references a plug-in. Names follow
   STR-04.
-- **Why:** adding a country or a producer adds a package; it never edits the core.
-- **Enforced by:** `LayeringTests.Source_packages_declare_and_never_reach_the_pipeline_or_the_database`, `Geo_core_never_knows_a_source_package`,
-  `Notification_core_knows_no_producer_module`.
-- **Good:** `Frappe.Geo.Countries.Argentina` → Geo core. **Bad:** `GeoModule` calling `AddArgentinaCalendar()`.
+- **Why:** adding a region or a producer adds a package; it never edits the core.
+- **Enforced by:** `LayeringTests.Source_packages_declare_and_never_reach_the_pipeline_or_the_database`, `Orders_core_never_knows_a_source_package`,
+  `Mailing_core_knows_no_producer_module`.
+- **Good:** `Frappe.Orders.Regions.Argentina` → Orders core. **Bad:** `OrdersModule` calling `AddArgentinaCalendar()`.
 - **Status:** in force.
 
 ## ARCH-15 · Namespaces follow folders
@@ -156,7 +157,7 @@ module's data: see `criteria`.
 - **Rule:** `RootNamespace` equals the project name; every namespace equals root + folder path; request types live in `Frappe.<Module>.*`.
 - **Why:** the handler pipeline derives the module from the namespace; folders and namespaces never drift.
 - **Enforced by:** IDE0130 (warning).
-- **Good:** `Frappe.Geo.Application.Countries.GetCountry`. **Bad:** `namespace Frappe.Geo;` in `Countries/GetCountry/`.
+- **Good:** `Frappe.Orders.Application.Regions.GetRegion`. **Bad:** `namespace Frappe.Orders;` in `Regions/GetRegion/`.
 - **Status:** in force.
 
 ## ARCH-16 · Durable consumer names are permanent
@@ -169,7 +170,7 @@ module's data: see `criteria`.
 - **Rule:** one top-level type per file, the file named after it, in all of `src/` and `tests/` (see `craft`).
 - **Why:** types are found by name; diffs stay local.
 - **Enforced by:** SA1402/SA1649 (today only on folders enabled in `.editorconfig`; repo-wide planned).
-- **Good:** `CountryView.cs` holds `CountryView`. **Bad:** a `Views.cs` with five records.
+- **Good:** `RegionView.cs` holds `RegionView`. **Bad:** a `Views.cs` with five records.
 - **Status:** in force.
 
 ## ARCH-18 · Platform holds no business rules and never knows a module
@@ -178,5 +179,5 @@ module's data: see `criteria`.
   under CRIT-02.
 - **Why:** a business rule in platform couples every module to one module's domain.
 - **Enforced by:** ArchTest "platform never references a module" (planned); review for business vocabulary.
-- **Good:** `Frappe.Caching.CacheInvalidator`. **Bad:** a `HolidayHelper` in `Frappe.UseCases`.
+- **Good:** `Frappe.Caching.CacheInvalidator`. **Bad:** a `ShipmentHelper` in `Frappe.UseCases`.
 - **Status:** in force.

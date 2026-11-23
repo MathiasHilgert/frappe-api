@@ -17,8 +17,9 @@
 - **Why:** One commit per command keeps aggregates, outbox rows and events atomic; a port that saves splits the command into partial commits.
 - **Enforced by:** LayeringTests `Application_ports_leave_saving_to_the_unit_of_work`; `UnitOfWorkPipelineTests`
   `A_succeeding_command_is_committed_once`, `A_command_of_a_module_without_a_unit_of_work_fails_naming_the_module_instead_of_saving_nothing`.
-- **Good:** `.AddUnitOfWork<GeoDbContext>(GeoDbContext.Module)`; `void Add(HolidayCalendar calendar); // the unit of work saves it`. **Bad:** `Task
-  SaveAsync(...)` on an Application port; Notification with no unit of work.
+- **Good:** `.AddUnitOfWork<OrdersDbContext>(OrdersDbContext.Module)`; `void Add(ShipmentCalendar calendar); // the unit of work saves it`. **Bad:**
+  `Task
+  SaveAsync(...)` on an Application port; Mailing with no unit of work.
 - **Status:** in force.
 
 ## UOW-02 · The transaction opens at commit, in a fixed order
@@ -54,16 +55,17 @@
 - **Why:** One optimistic token per aggregate, the convention Npgsql documents, catches every lost update with no schema column and no hand-kept list
   of fields.
 - **Enforced by:** ArchTest (planned) over the EF model: every `AggregateRoot` entity has a row-version property.
-- **Good:** `builder.Property<uint>("xmin").HasColumnName("xmin").IsRowVersion();` (`HolidayCalendarConfiguration`). **Bad:** `owner.Property(o =>
-  o.PasswordChangedAt).IsConcurrencyToken();` with no `xmin` and no justification; `FOR UPDATE` fences in `IdentityDbContext`.
-- **Exception: a counted limit under concurrency (Businesses cap, D10 "Candado + excepción anotada"):** `xmin` protects a row that exists; a limit
-  over a count of rows ("at most N businesses per owner") has no row to version, and two commits that each read `N-1` would both pass. The one allowed
+- **Good:** `builder.Property<uint>("xmin").HasColumnName("xmin").IsRowVersion();` (`ShipmentCalendarConfiguration`). **Bad:** `owner.Property(o =>
+  o.PasswordChangedAt).IsConcurrencyToken();` with no `xmin` and no justification; `FOR UPDATE` fences in `BillingDbContext`.
+- **Exception: a counted limit under concurrency (Shipping cap, D10 "Candado + excepción anotada"):** `xmin` protects a row that exists; a limit
+  over a count of rows ("at most N shipments per customer") has no row to version, and two commits that each read `N-1` would both pass. The one
+  allowed
   lock is a **transaction-scoped advisory lock** (`pg_advisory_xact_lock(<module namespace int>, hashtext(<owner key>))`) taken inside the commit's
   transaction by an in-unit `IDomainEventHandler` (UOW-02), then the count in a second statement, rejecting with an `ICommitRejection`. It is not
   `SELECT … FOR UPDATE` on rows, it releases itself when the transaction ends, and it serializes only the creations of one owner. Each use is marked
   in code `// Exception to UOW-04: <reason>` (`EfBusinessCapacity`, `EnforceBusinessCap`) and tested with parallel commits that would pass without it.
 - **Child-only changes:** `xmin` only sees the root row. An aggregate whose change can touch only a child collection (aliases, entries) bumps a root
-  `Revision` on every change, as `HolidayCalendar` does, so `xmin` catches it; its configuration says so.
+  `Revision` on every change, as `ShipmentCalendar` does, so `xmin` catches it; its configuration says so.
 - **Status:** in force.
 
 ## UOW-05 · Modules register commit rules; the unit of work applies them
@@ -78,9 +80,9 @@
   constraint `INITIALLY IMMEDIATE`. DbContexts never override `SaveChanges`/`SaveChangesAsync`.
 - **Why:** Race translation stays declarative, one line per constraint, instead of hundreds of lines of exception sniffing per context.
 - **Enforced by:** ArchTest (planned): no `DbContext` subclass overrides `SaveChanges*`.
-- **Good:** (planned API) `.AddCommitRejections<GeoDbContext>(map => map.On("ux_subdivision_aliases_country_alias", e => new
+- **Good:** (planned API) `.AddCommitRejections<OrdersDbContext>(map => map.On("ux_subdivision_aliases_region_alias", e => new
   SubdivisionAliasRaceLostException(...)))`. **Bad:** `public override async Task<int> SaveChangesAsync(...)` with `catch (DbUpdateException ...)` in
-  `IdentityDbContext` and `GeoDbContext`.
+  `BillingDbContext` and `OrdersDbContext`.
 - **Status:** in force.
 
 ## UOW-06 · DbContexts are stateless and pooled
@@ -89,7 +91,7 @@
 - **Why:** Pooling cuts allocation on every request, and it is only safe when nothing leaks from one use to the next.
 - **Enforced by:** ArchTest (planned): `DbContext` subclasses declare no instance fields; review of `ModuleDatabaseRegistration`.
 - **Good:** `services.AddDbContextPool<TContext>((provider, options) => configure(...))`. **Bad:** `.AddDbContext<TContext>(...)`
-  (`ModuleDatabaseRegistration`); `private readonly List<...> _profileFences = [];` in `IdentityDbContext`.
+  (`ModuleDatabaseRegistration`); `private readonly List<...> _profileFences = [];` in `BillingDbContext`.
 - **Status:** in force.
 
 ## UOW-07 · No `EnableRetryOnFailure`

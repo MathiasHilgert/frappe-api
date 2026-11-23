@@ -18,7 +18,7 @@
   the decorator as the port. Handlers and Application code never see `IFusionCache`.
 - **Why:** The use case stays the same with or without a cache, and the cache can be removed or swapped by changing one registration.
 - **Enforced by:** `LayeringTests` (`Inner_layers_know_nothing_about_infrastructure`) | review.
-- **Good:** `internal sealed class CachedCountryCatalog(EfCountryCatalog countries, IFusionCache cache) : ICountryCatalog`. **Bad:** a query handler
+- **Good:** `internal sealed class CachedRegionCatalog(EfRegionCatalog regions, IFusionCache cache) : IRegionCatalog`. **Bad:** a query handler
   taking `IFusionCache`.
 - **Status:** in force.
 
@@ -28,7 +28,7 @@
   value) and what invalidates it.
 - **Why:** A cache without a stated budget is a stale-data bug nobody can review; most data does not need one.
 - **Enforced by:** review.
-- **Good:** "`/// The countries ... change only with a new seed; CatalogCacheInvalidation evicts them; a stale copy lives at most the 10 min entry
+- **Good:** "`/// The regions ... change only with a new seed; CatalogCacheInvalidation evicts them; a stale copy lives at most the 10 min entry
   duration.`". **Bad:** a `Cached*` summary that names neither.
 - **Status:** in force.
 
@@ -38,7 +38,7 @@
   in the next response.
 - **Why:** A stale security answer keeps a revoked session alive; a stale own write looks like a lost update to the user.
 - **Enforced by:** review.
-- **Good:** Identity reads sessions from the database on every request (`EfSessions.FindForAuthenticationAsync`). **Bad:** `CachedSessions` keyed by
+- **Good:** Billing reads sessions from the database on every request (`EfSessions.FindForAuthenticationAsync`). **Bad:** `CachedSessions` keyed by
   token hash.
 - **Status:** in force.
 
@@ -48,7 +48,7 @@
   in one `*CacheKeys` static class per area; FusionCache adds the `{instance}:` prefix.
 - **Why:** One scheme makes Valkey browsable and keeps two areas from evicting each other by accident.
 - **Enforced by:** review.
-- **Good:** `public const string CatalogTag = "geo:catalog"; public const string Countries = CatalogTag + ":countries";`. **Bad:** `ScopedTag(...) =>
+- **Good:** `public const string CatalogTag = "orders:catalog"; public const string Regions = CatalogTag + ":regions";`. **Bad:** `ScopedTag(...) =>
   "tag:" + Key(...)`.
 - **Status:** in force.
 
@@ -59,7 +59,7 @@
   change at once.
 - **Why:** The event is the one signal every writer emits; a local eviction alone misses writes from other processes.
 - **Enforced by:** review.
-- **Good:** `CalendarCacheInvalidation : IAfterCommitHandler<HolidaysChanged>`; `TerritoryCacheEviction` for the Api's own alias change. **Bad:**
+- **Good:** `CalendarCacheInvalidation : IAfterCommitHandler<ShipmentsChanged>`; `TerritoryCacheEviction` for the Api's own alias change. **Bad:**
   evicting only in the command handler.
 - **Status:** in force.
 
@@ -70,7 +70,7 @@
 - **Why:** A reader that loaded the old row just before the commit can write it back right after the first eviction; the second one removes it.
 - **Enforced by:** review.
 - **Good:** `invalidator.InvalidateAsync(ReferenceCacheKeys.TerritoryTag, cancellationToken)`. **Bad:** `await
-  cache.RemoveByTagAsync("geo:territory")`.
+  cache.RemoveByTagAsync("orders:territory")`.
 - **Status:** in force.
 
 ## CACHE-07 · HTTP max-age never exceeds the data's freshness
@@ -79,8 +79,8 @@
   seed"). Lifetimes are named constants (`CacheLifetimes`); everything else is `NoStore()`.
 - **Why:** A client or proxy may serve the cached response for the full max-age, whatever the server knows.
 - **Enforced by:** review.
-- **Good:** `.WithName("ListCountries").CacheFor(CacheLifetimes.ReferenceData)` (catalog changes only with a seed). **Bad:**
-  `.WithName("GetCountryHolidays").CacheFor(CacheLifetimes.Calendars)` while an override must show at once.
+- **Good:** `.WithName("ListRegions").CacheFor(CacheLifetimes.ReferenceData)` (catalog changes only with a seed). **Bad:**
+  `.WithName("GetRegionShipments").CacheFor(CacheLifetimes.Calendars)` while an override must show at once.
 - **Status:** in force.
 
 ## CACHE-08 · Must-be-fresh data answers no-cache with an ETag
@@ -89,7 +89,7 @@
   gets `304`. A platform helper next to `CacheFor`/`NoStore` provides it.
 - **Why:** The client revalidates every time but downloads only what changed.
 - **Enforced by:** review | the revalidation helper in `Frappe.Http` (planned).
-- **Good:** `Cache-Control: no-cache` + `ETag: "<revision>"` → `304 Not Modified`. **Bad:** `max-age=300` on holidays an administrator just overrode.
+- **Good:** `Cache-Control: no-cache` + `ETag: "<revision>"` → `304 Not Modified`. **Bad:** `max-age=300` on shipments an administrator just overrode.
 - **Status:** in force.
 
 ## CACHE-09 · Cache is not state: ephemeral state lives behind its own Valkey port
@@ -108,8 +108,8 @@
   `static Of(view)` and `ToView()`. Never cache a domain type or a public view directly.
 - **Why:** The stored JSON stays independent of the model: renaming a view or a value object does not break entries already in Valkey.
 - **Enforced by:** review.
-- **Good:** `internal sealed record CachedCountry(string Code, ...) { public static CachedCountry Of(CountryView country) ...; public CountryView
-  ToView() ... }`. **Bad:** `cache.GetOrSetAsync<CountryView>(...)`.
+- **Good:** `internal sealed record CachedRegion(string Code, ...) { public static CachedRegion Of(RegionView region) ...; public RegionView
+  ToView() ... }`. **Bad:** `cache.GetOrSetAsync<RegionView>(...)`.
 - **Status:** in force.
 
 ## CACHE-11 · Keep the platform's FusionCache defaults

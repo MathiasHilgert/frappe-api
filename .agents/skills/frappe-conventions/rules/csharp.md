@@ -61,7 +61,7 @@
 - **Rule:** Every file declares `namespace X;` matching its folder.
 - **Why:** One indentation level less in every file, and one namespace per file.
 - **Enforced by:** IDE0161 (`csharp_style_namespace_declarations = file_scoped:warning`); IDE0130.
-- **Good:** `namespace Frappe.Identity.Domain.Owners;`. **Bad:** `namespace Frappe.Identity.Domain.Owners { ... }`.
+- **Good:** `namespace Frappe.Billing.Domain.Owners;`. **Bad:** `namespace Frappe.Billing.Domain.Owners { ... }`.
 - **Status:** in force.
 
 ## CS-06 · Pattern matching over casts and null checks
@@ -113,8 +113,8 @@
 - **Why:** One source of time that tests control with one `FakeTimeProvider`, so instants and timers move together.
 - **Enforced by:** BannedApiAnalyzers (`eng/BannedSymbols.txt`); `DesignTimeFactoryTests`.
 - **Good:** `public sealed class TimeProviderClock(TimeProvider time) : IClock { public Instant GetCurrentInstant() =>
-  Instant.FromDateTimeOffset(time.GetUtcNow()); }`. **Bad:** `SystemClock.Instance` in `GeoDesignTimeDbContextFactory` and
-  `IdentityDesignTimeDbContextFactory`.
+  Instant.FromDateTimeOffset(time.GetUtcNow()); }`. **Bad:** `SystemClock.Instance` in `OrdersDesignTimeDbContextFactory` and
+  `BillingDesignTimeDbContextFactory`.
 - **Status:** in force.
 
 ## CS-11 · Async all the way, with the caller's `CancellationToken`

@@ -20,7 +20,7 @@
 - **Why:** The intent and the side effects are visible from the type, and the pipeline treats each kind correctly (CQRS-03).
 - **Enforced by:** review; ArchTest (planned): request records public sealed in `Frappe.<Module>.Application.*`, handlers internal sealed in the same
   namespace.
-- **Good:** `Geo.Application/Territory/AddSubdivisionAlias/{AddSubdivisionAlias.cs, AddSubdivisionAliasHandler.cs}`. **Bad:**
+- **Good:** `Orders.Application/Territory/AddSubdivisionAlias/{AddSubdivisionAlias.cs, AddSubdivisionAliasHandler.cs}`. **Bad:**
   `SettleLostRegistration.cs` sitting inside `RegisterOwner/`; a `public class` handler.
 - **Status:** in force.
 
@@ -42,13 +42,13 @@
   authorization** is the one form that is not a decorator: when the decision needs the row the handler loads (404 before 403 on a tenant resource, a
   field of the row such as the creator), the handler loads it through its own port and makes exactly one call to the module's authorizer with that
   resource (the shape of ASP.NET Core's `IAuthorizationService.AuthorizeAsync(user, resource, requirement)`); the authorizer owns parsing, the ask to
-  Access and the refusal, so handlers never repeat those steps.
+  Ledger and the refusal, so handlers never repeat those steps.
 - **Why:** One place decides order and behavior for every use case; a span and duration always include the commit. A decorator cannot see a row it has
   not loaded, and loading it twice costs a query and opens a race between the check and the write
   (<https://learn.microsoft.com/aspnet/core/security/authorization/resourcebased>).
 - **Enforced by:** `HandlerPipelineTests`; `UnitOfWorkPipelineTests` `A_query_never_touches_the_unit_of_work`.
 - **Good:** `(typeof(ICommandHandler<,>), [typeof(TransactionalCommandHandler<,>), typeof(InstrumentedCommandHandler<,>)])`. **Bad:** `using var
-  activity = source.StartActivity(...)` inside a handler; a handler that parses the id, asks Access and builds the 404/403 itself instead of one call
+  activity = source.StartActivity(...)` inside a handler; a handler that parses the id, asks Ledger and builds the 404/403 itself instead of one call
   to the module's authorizer.
 - **Status:** in force.
 
@@ -70,7 +70,7 @@
 - **Why:** Every command answers a lost race the same way, and adapters stay one line.
 - **Enforced by:** `UnitOfWorkPipelineTests` (planned case: a commit rejection is rolled back and answered as a failed `Result`).
 - **Good:** `(await handler.HandleAsync(command, cancellationToken)).ToTypedHttpResult(a => TypedResults.Created(...))` in the endpoint, nothing else.
-  **Bad:** `IdentityCommands.HandleAsync(...)` catching `ICommitRejection`; `GeoCommands` catching concrete exception types in Http.
+  **Bad:** `BillingCommands.HandleAsync(...)` catching `ICommitRejection`; `OrdersCommands` catching concrete exception types in Http.
 - **Status:** in force.
 
 ## CQRS-06 · A command returns only what its answer needs from the same write
@@ -79,7 +79,7 @@
   resource). It never reads extra data to enrich the answer; anything else is a query.
 - **Why:** Commands stay cheap and their result cannot drift from what was committed.
 - **Enforced by:** review.
-- **Good:** `AddSubdivisionAlias : ICommand<SubdivisionAliasView>` built from the alias it added. **Bad:** a command handler that loads the country's
+- **Good:** `AddSubdivisionAlias : ICommand<SubdivisionAliasView>` built from the alias it added. **Bad:** a command handler that loads the region's
   whole territory to return a list view.
 - **Status:** in force.
 
@@ -99,7 +99,7 @@
 - **Why:** Reads stay cheap and shaped for the answer; repositories stay the only door to invariant-guarding objects.
 - **Enforced by:** ArchTest (planned): query handlers depend on no repository port; review for mixed ports.
 - **Good:** `IPrincipals.FindAsync` used only by commands; a `IOwnerProfiles.GetMeAsync` read port projecting to `Me`. **Bad:**
-  `GetMeHandler(IPrincipals principals)` loading `Principal`; `IHolidayCalendars` with tracked `FindAsync` and projected `CoverageAsync`.
+  `GetMeHandler(IPrincipals principals)` loading `Principal`; `IShipmentCalendars` with tracked `FindAsync` and projected `CoverageAsync`.
 - **Status:** in force.
 
 ## CQRS-09 · Business writes only through commands

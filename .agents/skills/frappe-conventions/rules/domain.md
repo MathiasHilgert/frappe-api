@@ -10,7 +10,7 @@
 - DOM-08 · State changes raise past-tense domain events
 - DOM-09 · Validate every input together and report every failure
 - DOM-10 · Validation lives in handlers and value objects only
-- DOM-11 · Every module uses the same model, Notification included
+- DOM-11 · Every module uses the same model, Mailing included
 
 ## DOM-01 · Business failures are `Result` values, never exceptions
 
@@ -19,7 +19,7 @@
   (a lost race, a refused provider) turns it into a `Result` at that call.
 - **Why:** Exceptions as control flow hide the failure paths from the signature, cost a stack trace per rejection and get logged as incidents.
 - **Enforced by:** review.
-- **Good:** `return Error.RuleViolation(IdentityErrorCodes.OwnerNotActive);` (`Principal.ResetOwnerPassword`). **Bad:** `throw new
+- **Good:** `return Error.RuleViolation(BillingErrorCodes.OwnerNotActive);` (`Principal.ResetOwnerPassword`). **Bad:** `throw new
   OwnerNotActiveException();` from a transition.
 - **Status:** in force.
 
@@ -30,17 +30,17 @@
 - **Why:** `Error` is a `closed record`: every switch over its kinds (HTTP status, problem type) is exhaustive, so a new kind is a compile error where
   it is not handled yet.
 - **Enforced by:** compiler (closed hierarchy: derivation outside `Frappe.Results` does not compile).
-- **Good:** `Error.InvalidValue(IdentityErrorCodes.EmailInvalid)`. **Bad:** `record PaymentDeclined(...) : Error` in a module.
+- **Good:** `Error.InvalidValue(BillingErrorCodes.EmailInvalid)`. **Bad:** `record PaymentDeclined(...) : Error` in a module.
 - **Status:** in force.
 
 ## DOM-03 · Error codes are `<module>.<subject>.<problem>` and never change
 
-- **Rule:** Codes are lower case, dot separated, prefixed by the module (`geo.holiday_year.out_of_range`). Code constants live in Domain in
+- **Rule:** Codes are lower case, dot separated, prefixed by the module (`orders.shipment_year.out_of_range`). Code constants live in Domain in
   `<Module>ErrorCodes`; `Error` instances that Application builds live in Application in `<Module>Errors`. A published code is never renamed or
   reused.
 - **Why:** Codes are public contract: clients branch on them and message catalogs are keyed by them.
 - **Enforced by:** review; ArchTest (planned): codes declared only in `<Module>ErrorCodes` and prefixed by the module.
-- **Good:** `IdentityErrorCodes.OwnerNotActive` in `Frappe.Identity.Domain`, `GeoErrors.CountryNotFound(...)` in `Frappe.Geo.Application`. **Bad:**
+- **Good:** `BillingErrorCodes.OwnerNotActive` in `Frappe.Billing.Domain`, `OrdersErrors.RegionNotFound(...)` in `Frappe.Orders.Application`. **Bad:**
   `Error.NotFound("not_found")` inline in a handler.
 - **Status:** in force.
 
@@ -49,7 +49,7 @@
 - **Rule:** Parameters are strings, numbers, booleans, dates or arrays of those, and never personal data, secrets or entities.
 - **Why:** Parameters go to API clients as they are and errors get logged.
 - **Enforced by:** review.
-- **Good:** `Error.InvalidValue(IdentityErrorCodes.PasswordTooLong, ("max", MaxLength))`. **Bad:** `Error.InvalidValue(code, ("email", raw))`.
+- **Good:** `Error.InvalidValue(BillingErrorCodes.PasswordTooLong, ("max", MaxLength))`. **Bad:** `Error.InvalidValue(code, ("email", raw))`.
 - **Status:** in force.
 
 ## DOM-05 · A value object is a sealed record built by `Create` → `Result<T>`
@@ -82,9 +82,9 @@
   and unit-of-work dispatch into persistence code.
 - **Enforced by:** `LayeringTests.Only_sealed_types_in_a_domain_project_derive_from_AggregateRoot`.
 - **Good:** `public sealed class Principal : AggregateRoot { private Principal() { ... } public static Principal RegisterOwner(...) ... }`. **Bad:**
-  `internal sealed class CountryRow : AggregateRoot` in Infrastructure; `public Guid Id { get; set; }`.
-- **Announcements:** an event announces a change of the aggregate that raises it; a change spanning several rows of one concept (the Geo catalog:
-  countries and currencies) gets its own aggregate (a one-row root with a `Revision`) that raises it, never a sibling aggregate speaking for others.
+  `internal sealed class RegionRow : AggregateRoot` in Infrastructure; `public Guid Id { get; set; }`.
+- **Announcements:** an event announces a change of the aggregate that raises it; a change spanning several rows of one concept (the Orders catalog:
+  regions and currencies) gets its own aggregate (a one-row root with a `Revision`) that raises it, never a sibling aggregate speaking for others.
 - **Status:** in force.
 
 ## DOM-08 · State changes raise past-tense domain events
@@ -120,13 +120,13 @@
   `builder.Services.AddValidation();`.
 - **Status:** in force.
 
-## DOM-11 · Every module uses the same model, Notification included
+## DOM-11 · Every module uses the same model, Mailing included
 
 - **Rule:** Every module has Domain, Application, Contracts, Infrastructure and Http projects; its use cases are commands and queries returning
   `Result`, run through `AddHandlers` and its own unit of work (UOW-01). No module is exempt because it is small or has no HTTP routes yet.
 - **Why:** One model means one way to read, review and instrument any module; exceptions become the places bugs hide.
 - **Enforced by:** ArchTest (planned): each module ships the five projects and its Domain references `Frappe.Results`; `UnitOfWorkPipelineTests`
   `A_command_of_a_module_without_a_unit_of_work_fails_naming_the_module_instead_of_saving_nothing`.
-- **Good:** Identity and Geo: `Frappe.<M>.Application/<Feature>/<UseCase>/` with handlers, `AddUnitOfWork<TContext>(Module)`. **Bad:** Notification:
+- **Good:** Billing and Orders: `Frappe.<M>.Application/<Feature>/<UseCase>/` with handlers, `AddUnitOfWork<TContext>(Module)`. **Bad:** Mailing:
   no Contracts or Http project, no commands, no unit of work, `MailAddress` throwing.
 - **Status:** in force.

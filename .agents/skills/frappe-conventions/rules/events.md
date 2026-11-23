@@ -34,7 +34,7 @@
   `[IntegrationEvent("frappe.<module>.<fact>.v<N>")]`, fact snake_case past tense. Same rule as CON-05 and ARCH-08.
 - **Why:** consumers depend only on Contracts; the type is the subject and contract id.
 - **Enforced by:** IntegrationEventContractTests; `OutboxInterceptor` throws on an event without the attribute.
-- **Good:** `[IntegrationEvent("frappe.geo.holidays_changed.v1")] public sealed record HolidaysChanged(string Jurisdiction, int Year) :
+- **Good:** `[IntegrationEvent("frappe.orders.shipments_changed.v1")] public sealed record ShipmentsChanged(string Jurisdiction, int Year) :
   IIntegrationEvent`. **Bad:** publishing a domain event type.
 - **Status:** in force.
 
@@ -54,7 +54,7 @@
   (`DomainIssued`, `PublishedIssued`). Same rule as ARCH-09.
 - **Why:** the domain stays free to change; the published shape is decided in one place.
 - **Enforced by:** review.
-- **Good:** `GeoIntegrationEvents.Translate`: `HolidayCalendarChanged c => [new HolidaysChanged(...)], _ => []`. **Bad:** an aggregate raising a
+- **Good:** `OrdersIntegrationEvents.Translate`: `ShipmentCalendarChanged c => [new ShipmentsChanged(...)], _ => []`. **Bad:** an aggregate raising a
   Contracts type.
 - **Status:** in force.
 
@@ -81,8 +81,8 @@
   taking and returning primitives or Contracts records. Never another module's tables or services.
 - **Why:** modules deploy, fail and change their storage independently.
 - **Enforced by:** LayeringTests.
-- **Good:** `IIdentityQueries`, `IGeoQueries`, `IAccessQueries` (read by Businesses, the module that announces `BusinessCreated`; CRIT-06). **Bad:**
-  Notification reading `identity.owners`.
+- **Good:** `IBillingQueries`, `IOrdersQueries`, `ILedgerQueries` (read by Shipping, the module that announces `ShipmentCreated`; CRIT-06). **Bad:**
+  Mailing reading `billing.owners`.
 - **Status:** in force.
 
 ## EVT-07 · One stream per producer with fixed limits; one DLQ stream
@@ -91,7 +91,7 @@
   Dead letters go to `FRAPPE_DLQ` (30 days).
 - **Why:** producers own their subjects; the duplicate window dedupes relay retries.
 - **Enforced by:** review (`JetStreamTopology`).
-- **Good:** `FRAPPE_GEO` over `frappe.geo.>`. **Bad:** one shared stream for every module.
+- **Good:** `FRAPPE_ORDERS` over `frappe.orders.>`. **Bad:** one shared stream for every module.
 - **Status:** in force.
 
 ## EVT-08 · Durable consumers are `<consumer-module>-<purpose>`, one event type, never renamed
@@ -99,7 +99,7 @@
 - **Rule:** Name each durable consumer `<consumer-module>-<purpose>`, bind it to one event type, and never rename it. Same rule as ARCH-16.
 - **Why:** a renamed durable starts from scratch and replays or skips history; the name is in metrics and alerts.
 - **Enforced by:** review.
-- **Good:** `GeoMessaging.CalendarCacheConsumer = "geo-calendar-cache"`. **Bad:** `"consumer1"`; renaming a deployed durable.
+- **Good:** `OrdersMessaging.CalendarCacheConsumer = "orders-calendar-cache"`. **Bad:** `"consumer1"`; renaming a deployed durable.
 - **Status:** in force.
 
 ## EVT-09 · The relay counts only rejections against a row; the rest are outages
@@ -158,7 +158,7 @@
 - **Rule:** `IIntegrationEventHandler` writes only inside the consumer transaction (throw = retry); cache evictions and other visibility effects go in
   an idempotent `IAfterCommitHandler`; slow external calls go in `IBeforeClaimHandler` with an idempotency key.
 - **Why:** no transaction waits on a third party, and retries never repeat an external effect.
-- **Enforced by:** IdentityMailConsumerTests + review.
+- **Enforced by:** BillingMailConsumerTests + review.
 - **Good:** sending mail in `IBeforeClaimHandler` with the message id as idempotency key. **Bad:** an HTTP call inside `IIntegrationEventHandler`.
 - **Status:** in force.
 
@@ -217,7 +217,7 @@
   aggregate nor sensitive data no consumer needs.
 - **Why:** consumers stay decoupled from the producer's model and availability; less PII travels.
 - **Enforced by:** review.
-- **Good:** `OwnerEmailChanged(PrincipalId, OldEmail, NewEmail, ..., Locale, ChangedAt)`: what Notification needs to mail both addresses. **Bad:** an
+- **Good:** `OwnerEmailChanged(PrincipalId, OldEmail, NewEmail, ..., Locale, ChangedAt)`: what Mailing needs to mail both addresses. **Bad:** an
   `OwnerChanged` with the whole owner, password hash included.
 - **Status:** in force.
 
@@ -227,7 +227,7 @@
   to survive the other module's outage, or to join it in SQL with own data; the copy's configuration states its consistency window.
 - **Why:** copies cost sync code and staleness; they pay only for those needs.
 - **Enforced by:** review.
-- **Good:** `IGeoQueries` from another module. **Bad:** a copied table with no stated reason or window.
+- **Good:** `IOrdersQueries` from another module. **Bad:** a copied table with no stated reason or window.
 - **Status:** in force.
 
 ## EVT-24 · Projections: own data in the same transaction, others' by events
@@ -244,7 +244,8 @@
 - **Rule:** Every module maps `AddOutbox()` and `AddInbox()`, registers its outbox relay and purge, and has a translator, from day one.
 - **Why:** uniform modules; publishing an event later needs no messaging setup.
 - **Enforced by:** review.
-- **Good:** `GeoMessaging`: `AddOutboxRelay<GeoDbContext>(...).AddMessagePurge<GeoDbContext>(...)`. **Bad:** a module with outbox tables and no relay.
+- **Good:** `OrdersMessaging`: `AddOutboxRelay<OrdersDbContext>(...).AddMessagePurge<OrdersDbContext>(...)`. **Bad:** a module with outbox tables and
+  no relay.
 - **Status:** in force.
 
 ## EVT-26 · Span outcomes use the metric's vocabulary
@@ -262,5 +263,5 @@
   stated in the handler. Nothing external runs inside the transaction; only protective limits may run before, with TTL and refund.
 - **Why:** a crash between commit and effect must not lose the effect, and a rollback must not leave one.
 - **Enforced by:** review.
-- **Good:** registration raises `OwnerRegistrationAttempted`; Notification mails it. **Bad:** `IAfterCommitDomainEventHandler` sending the mail.
+- **Good:** registration raises `OwnerRegistrationAttempted`; Mailing mails it. **Bad:** `IAfterCommitDomainEventHandler` sending the mail.
 - **Status:** in force.

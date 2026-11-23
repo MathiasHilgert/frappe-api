@@ -25,3 +25,7 @@
   of the same module, the Designer's BuildTargetModel must equal the snapshot.
 - zsh does not word-split `$files`: run multi-file commands through `bash -c` or arrays; quote `--include='*.cs'` globs.
 - EF wraps a Postgres 40P01 deadlock in DbUpdateConcurrencyException: register an OnPostgres rule before OnConcurrency to map it.
+- Commit messages carry no trailers (no Co-Authored-By, no Claude-Session, no AI attribution); CI rejects them.
+- Run `node .github/scripts/line-length.mjs` (150 characters) before committing; `scripts/gate/gate.sh` runs it as a step.
+- A slice copied into another branch loses the coverage that module tests gave it: measure changed-line coverage with `scripts/gate/coverage.sh`
+  before committing (CI fails under 80%).

@@ -39,8 +39,11 @@ when a spec of this task changes that behavior; name the spec in your notes.
    builds only that test project (errors only), runs only that class under a 110 s timeout, fails with exit 9 when the filter matches no test, and
    prints the summary and failures with the full log path. Never run a whole test project or `just test` while writing.
 6-bis. Final gate, once: `.agents/skills/forge/scripts/gate/gate.sh` from the worktree root, as ONE Bash call with `timeout: 600000`. It builds the
-solution once, then runs in parallel: format of the changed C# files, typos, squawk on changed migrations, pending EF model changes of the touched
-modules, and every test app your change can break. After a fix run `gate.sh --rerun`: it reruns only the failed steps and the test apps your new edits
+solution once, then runs in parallel: format of the changed C# files, typos, line length, Markdown lint of the changed `.md` files, the commit
+messages of the branch (no AI trailers, header of 100 characters at most), squawk on changed migrations, pending EF model changes of the touched
+modules, and every test app your change can break. When production code changed, pass `--coverage` (the CI's changed-line coverage, slow because it
+runs every test project) in that one gate, before the final commit.
+After a fix run `gate.sh --rerun`: it reruns only the failed steps and the test apps your new edits
 affect (never the whole gate again; 404 gate reruns cost 139 tool-minutes). Still yours outside the gate: `just contracts update` when a contract
 changed, `just db schema` after a migration, Bruno `seq:` numbers.
 6a. Conventions: read `.agents/skills/frappe-conventions/SKILL.md` (an index) and load only the rule files its **By task** table gives for this task

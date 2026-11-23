@@ -39,7 +39,7 @@
   and calls to other systems happen before the transaction opens. Nothing but `EfUnitOfWork` and `InboxConsumer` calls `SaveChangesAsync`.
 - **Why:** Short transactions hold locks and connections for milliseconds; one SaveChanges is one round trip batch and one atomic outcome.
 - **Enforced by:** `LayeringTests` (`Application_ports_leave_saving_to_the_unit_of_work`) | review.
-- **Good:** `EfUnitOfWork.SaveChangesAsync`. **Bad:** `await db.SaveChangesAsync(ct)` in `SnapshotSync` or `GeoSeeding`.
+- **Good:** `EfUnitOfWork.SaveChangesAsync`. **Bad:** `await db.SaveChangesAsync(ct)` in `SnapshotSync` or `OrdersSeeding`.
 - **Status:** in force.
 
 ## PERF-04 · Every read states its tracking explicitly
@@ -49,7 +49,7 @@
 - **Why:** Tracking a read costs memory and snapshot comparison for rows nobody saves, and it makes a later command in the same scope see a stale
   copy.
 - **Enforced by:** review.
-- **Good:** `db.Set<CountryRow>().AsNoTracking().Where(c => c.RetiredAt == null)`. **Bad:** `EfSubdivisionAliases.ListAsync` projecting views from a
+- **Good:** `db.Set<RegionRow>().AsNoTracking().Where(c => c.RetiredAt == null)`. **Bad:** `EfSubdivisionAliases.ListAsync` projecting views from a
   tracked `SingleAsync` row.
 - **Status:** in force.
 
@@ -64,7 +64,7 @@
   EF translates the whole of it.
 - **Why:** One round trip and one plan; a client-side loop multiplies latency by the data.
 - **Enforced by:** `LocalitySearchTests` (`A_search_is_one_database_command`, `..._served_by_the_trigram_index`).
-- **Good:** `geo.search_localities(...)` called through `FromSql`. **Bad:** load candidates, then rank in C#.
+- **Good:** `orders.search_localities(...)` called through `FromSql`. **Bad:** load candidates, then rank in C#.
 - **Status:** in force.
 
 ## PERF-07 · A partial index predicate and its query filter are one constant

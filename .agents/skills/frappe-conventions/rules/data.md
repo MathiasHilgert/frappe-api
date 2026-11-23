@@ -21,7 +21,7 @@
   `HasDefaultSchema` and `UseModulePostgres`. The schema name is a `Schema` constant on the module's DbContext.
 - **Why:** The schema is the ownership boundary: grants, purges and migrations stay per module, so one module can change without migrating another.
 - **Enforced by:** `MigratorTests` (each module role reads and writes its own schema and nothing else) | review.
-- **Good:** `modelBuilder.HasDefaultSchema(Schema);` with `public const string Schema = "notification";`. **Bad:** `ToTable("sessions", "public")`.
+- **Good:** `modelBuilder.HasDefaultSchema(Schema);` with `public const string Schema = "mailing";`. **Bad:** `ToTable("sessions", "public")`.
 - **Status:** in force.
 
 ## DATA-02 · Ids are UUIDv7 made by the application
@@ -35,12 +35,12 @@
 
 ## DATA-03 · Reference data uses natural keys
 
-- **Rule:** Reference catalogs key on their standard code: ISO codes as `character(n)` (`countries.code`, `currencies.code`); children key on the
-  parent's code plus their own part (`country_currencies (country_code, currency_code)`).
+- **Rule:** Reference catalogs key on their standard code: ISO codes as `character(n)` (`currencies.code`, `languages.code`); children key on the
+  parent's code plus their own part (`currency_names (currency_code, language)`).
 - **Why:** Codes are stable, short, and what clients and other modules already hold; no join to translate a surrogate.
 - **Enforced by:** `eng/squawk.toml` (`ban-char-field` excluded on purpose) | review.
-- **Good:** `builder.HasKey(c => c.Code); builder.Property(c => c.Code).HasColumnName("code").HasMaxLength(2).IsFixedLength();`. **Bad:**
-  `countries.id uuid` plus a unique `code`.
+- **Good:** `builder.HasKey(c => c.Code); builder.Property(c => c.Code).HasColumnName("code").HasMaxLength(3).IsFixedLength();`. **Bad:**
+  `currencies.id uuid` plus a unique `code`.
 - **Status:** in force.
 
 ## DATA-04 · snake_case names, set explicitly
@@ -60,7 +60,7 @@
 - **Why:** One readable scheme lets a constraint violation map to its rule by name; EF defaults (`PK_`, `FK_`) and Postgres `*_key` names break that
   mapping. A rename is metadata only.
 - **Enforced by:** review.
-- **Good:** `public const string PendingIndex = "ix_outbox_messages_relayable";`. **Bad:** `table.PrimaryKey("PK_countries", ...)`,
+- **Good:** `public const string PendingIndex = "ix_outbox_messages_relayable";`. **Bad:** `table.PrimaryKey("PK_regions", ...)`,
   `"sessions_token_hash_key"`.
 - **Status:** in force.
 
@@ -105,7 +105,7 @@
 - **Why:** An unbounded table slows every index and vacuum and holds data longer than anyone promised.
 - **Enforced by:** review | each purge's tests (`CredentialPurgeTests`) and options validators (`MessageRetentionOptionsValidator`).
 - **Good:** `MessagePurger` with `MessageRetentionOptions.OutboxRetention`; `MailOutcomePurger`. **Bad:** an audit table with no purge
-  (`geo.sync_runs`).
+  (`orders.sync_runs`).
 - **Status:** in force.
 
 ## DATA-10 · Translations live in `<entity>_names`
@@ -114,7 +114,7 @@
   with length `LanguageTag.StorageLength`.
 - **Why:** A new language is rows, not columns; one length everywhere keeps every tag storable.
 - **Enforced by:** review.
-- **Good:** `country_names (country_code, language, text)`. **Bad:** `name_es`, `name_en` columns; `.HaveMaxLength(35)` hard-coded.
+- **Good:** `region_names (region_code, language, text)`. **Bad:** `name_es`, `name_en` columns; `.HaveMaxLength(35)` hard-coded.
 - **Status:** in force.
 
 ## DATA-11 · Optimistic concurrency uses xmin by default
@@ -124,7 +124,7 @@
 
 ## DATA-12 · Third normal form; copies are documented; jsonb only for whole documents
 
-- **Rule:** Design in 3NF. A copied or derived column (`search_name`, `localities.country_code`) carries a comment in its configuration: what it
+- **Rule:** Design in 3NF. A copied or derived column (`search_name`, `localities.region_code`) carries a comment in its configuration: what it
   copies, which query needs it, who keeps it in sync. `jsonb` only for a document read and written whole, never filtered or joined inside; a field a
   query needs is a column.
 - **Why:** Undocumented copies drift silently; filtering inside jsonb defeats indexes and constraints.
@@ -139,7 +139,7 @@
   day one, even when it publishes nothing yet.
 - **Why:** Uniform messaging: the first published event needs no infrastructure change, and the purge, metrics and alerts apply unchanged.
 - **Enforced by:** `MigratorTests` (every module outbox gets the relay index and the four invariants) | review for the wiring.
-- **Good:** `GeoMessaging` registers the relay. **Bad:** `NotificationMessaging` has the tables but no relay or interceptor.
+- **Good:** `OrdersMessaging` registers the relay. **Bad:** `MailingMessaging` has the tables but no relay or interceptor.
 - **Status:** in force.
 
 ## DATA-14 · No database object is shared across modules
@@ -148,5 +148,5 @@
   fed by its integration events.
 - **Why:** A cross-schema object couples migrations, grants and outages of two modules.
 - **Enforced by:** `MigratorTests` (each role reads and writes its own schema and nothing else) | review.
-- **Good:** Notification keeps its own `mail_outcomes`. **Bad:** `REFERENCES identity.principals(id)` from `geo`.
+- **Good:** Mailing keeps its own `mail_outcomes`. **Bad:** `REFERENCES billing.principals(id)` from `orders`.
 - **Status:** in force.

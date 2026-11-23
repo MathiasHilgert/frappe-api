@@ -21,7 +21,7 @@ the scratchpad, publish it and give the link.
 2. **The story.** Before → the problem → what we did → after. Three to six sentences.
 3. **What we built.** One line per capability.
 4. **How it fits.** A small ASCII diagram of the pieces involved and how they talk (Api, Worker, Postgres schema of each module, Valkey,
-   NATS/JetStream, Mailpit, external providers), only the parts this change touches plus their direct neighbors, the new parts marked. Then one line
+   NATS/JetStream, external providers), only the parts this change touches plus their direct neighbors, the new parts marked. Then one line
    per layer touched (domain, application, infrastructure, Http) saying what lives there now.
 5. **The data.** How the database looks after the change: a table per table added or changed (columns, keys, constraints, indexes worth knowing),
    marking what is new; growth and retention in one line.

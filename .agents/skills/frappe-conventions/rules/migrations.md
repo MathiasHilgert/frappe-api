@@ -41,7 +41,7 @@
 - **Why:** A DDL waiting for its lock queues every reader and writer behind it; failing fast and retrying beats an outage.
 - **Enforced by:** review (squawk's `require-timeout-settings` is excluded in `eng/squawk.toml`).
 - **Good:** `migrationBuilder.Sql("SET LOCAL lock_timeout = '2s';");` first in `RequireSessionPasswordStamp.Up` (sessions, hot). **Bad:** `ALTER TABLE
-  identity.sessions ADD CONSTRAINT ...` with no lock timeout.
+  billing.sessions ADD CONSTRAINT ...` with no lock timeout.
 - **Status:** in force.
 
 ## MIG-04 · CHECK constraints are added NOT VALID, then validated
@@ -72,8 +72,8 @@
 - **Why:** A migration is frozen history; reading a constant rewrites what an old migration does when the model later changes.
 - **Enforced by:** `MigrationTests` (a source scan of the hand-written migration files, comments included; C# inlines constants, so an assembly check
   cannot see them).
-- **Good:** `IndexParkedOutboxRows`: `"CREATE INDEX CONCURRENTLY ix_outbox_messages_parked ON geo.outbox_messages (sequence) WHERE ..."`. **Bad:**
-  `private const string Table = "geo." + OutboxModel.Table;`, `{SessionConfiguration.PasswordStampCheck}`.
+- **Good:** `IndexParkedOutboxRows`: `"CREATE INDEX CONCURRENTLY ix_outbox_messages_parked ON orders.outbox_messages (sequence) WHERE ..."`. **Bad:**
+  `private const string Table = "orders." + OutboxModel.Table;`, `{SessionConfiguration.PasswordStampCheck}`.
 - **Status:** in force.
 
 ## MIG-07 · Breaking column changes go expand/contract
@@ -104,7 +104,7 @@
   rows itself. The check and the build are rerunnable (`IF EXISTS` in Up and Down).
 - **Why:** Which duplicate to keep is a business decision; a failed concurrent build otherwise leaves an invalid index.
 - **Enforced by:** review.
-- **Good:** the check in `AddManualAliasCountryUniqueness`: `RAISE EXCEPTION 'Manual subdivision aliases shared by two subdivisions of a country: %.
+- **Good:** the check in `AddManualAliasRegionUniqueness`: `RAISE EXCEPTION 'Manual subdivision aliases shared by two subdivisions of a region: %.
   ...'`. **Bad:** `DELETE FROM ... WHERE ctid NOT IN (SELECT min(ctid) ...)`; that same migration's build and `Down` without `IF EXISTS`.
 - **Status:** in force.
 
@@ -124,7 +124,7 @@
   `PUBLIC` loses access to the schema.
 - **Why:** Least privilege: a module cannot read another's data or rewrite its own history.
 - **Enforced by:** `MigratorTests` (`The_<Module>_role_reads_and_writes_<Module>_data_and_nothing_else`).
-- **Good:** `ModuleRoles` grants. **Bad:** `GRANT ALL ON SCHEMA identity TO identity_app`.
+- **Good:** `ModuleRoles` grants. **Bad:** `GRANT ALL ON SCHEMA billing TO billing_app`.
 - **Status:** in force.
 
 ## MIG-12 · Narrower roles get column grants and pinned SECURITY DEFINER functions
@@ -132,8 +132,8 @@
 - **Rule:** A role that needs less than its module's DML (a relay, a purge) gets column-level `UPDATE` and `EXECUTE` on `SECURITY DEFINER` functions
   with `search_path` pinned and `EXECUTE` revoked from `PUBLIC`.
 - **Why:** The relay can publish and purge but cannot read or change business rows.
-- **Enforced by:** `MigratorTests` (Identity and Businesses relay roles) | `CredentialPurgeTests` | the `RelayRoles` statement test.
-- **Good:** `RelayRoles.GrantAsync` (Frappe.Messaging) called by `IdentityMigration` and `BusinessesMigration`; the module passes only its schema,
+- **Enforced by:** `MigratorTests` (Billing and Shipping relay roles) | `CredentialPurgeTests` | the `RelayRoles` statement test.
+- **Good:** `RelayRoles.GrantAsync` (Frappe.Messaging) called by `BillingMigration` and `ShippingMigration`; the module passes only its schema,
   role and purge functions. **Bad:** the relay logging in as the module role.
 - **Status:** in force.
 

@@ -35,22 +35,24 @@
   the declared 429.
 - **Why:** a route outside the group silently loses rate limiting, CORS and language handling.
 - **Enforced by:** HttpConventionsTests.
-- **Good:** `var v1 = app.MapGroup("/v1")...; v1.MapGeoEndpoints();` **Bad:** `app.MapGet("/countries", ...)`.
+- **Good:** `var v1 = app.MapGroup("/v1")...; v1.MapOrdersEndpoints();` **Bad:** `app.MapGet("/regions", ...)`.
 - **Status:** in force.
 
 ## HTTP-02 · Each module maps its own routes and OpenAPI tag; supporting areas keep a namespace, business resources are flat
 
 - **Rule:** A module exposes `Map<Module>Endpoints` in `<Module>Http.cs`, maps its own routes and sets one OpenAPI tag. The area decides, not the
-  resource: a supporting module (a reference-data module like Geo, or one whose nouns are generic like Identity) keeps a module namespace (`/v1/geo`,
-  `/v1/identity`); every resource of the business domain, its own catalogs included, is a flat plural noun at `/v1` (`/v1/businesses`,
+  resource: a supporting module (a reference-data module like Orders, or one whose nouns are generic like Billing) keeps a module namespace
+  (`/v1/orders`,
+  `/v1/billing`); every resource of the business domain, its own catalogs included, is a flat plural noun at `/v1` (`/v1/shipping`,
   `/v1/business-types`). A collection's children are only its items; a catalog is a sibling collection (`/v1/business-types`, never
-  `/v1/businesses/types`; AIP-122). No two modules own routes under the same first segment.
+  `/v1/shipping/types`; AIP-122). No two modules own routes under the same first segment.
 - **Why:** hosts compose modules without knowing their routes; the document groups operations by module; a namespace disambiguates generic nouns
-  (`/v1/identity/sessions`, like Stripe's `/v1/checkout/sessions`) while domain nouns are already unambiguous.
+  (`/v1/billing/sessions`, like Stripe's `/v1/checkout/sessions`) while domain nouns are already unambiguous.
 - **Enforced by:** `RouteOwnershipTests` (Api integration tests: fails when two OpenAPI tags own routes under the same first segment after `/v1`) +
   review for the namespace-or-flat choice.
-- **Good:** `GeoHttp.MapGeoEndpoints(v1)` → `/v1/geo/...` tagged `Geo`; `BusinessesHttp.MapBusinessesEndpoints(v1)` → `/v1/business-types` tagged
-  `Business`. **Bad:** a module adding routes to another module's group or first segment; `/v1/businesses/types`.
+- **Good:** `OrdersHttp.MapOrdersEndpoints(v1)` → `/v1/orders/...` tagged `Orders`; `ShippingHttp.MapShippingEndpoints(v1)` → `/v1/business-types`
+  tagged
+  `Business`. **Bad:** a module adding routes to another module's group or first segment; `/v1/shipping/types`.
 - **Status:** in force.
 
 ## HTTP-03 · One `<Feature>Endpoints` class per feature, one record per file
@@ -93,7 +95,7 @@
 - **Rule:** Paths are kebab-case plural nouns; an action is a sub-resource noun, never a verb.
 - **Why:** predictable URLs; verbs belong to HTTP methods.
 - **Enforced by:** Spectral (planned).
-- **Good:** `POST /owners/{id}/verification`, `POST /holiday-syncs/{sourceId}/runs`. **Bad:** `POST /owners/{id}/verify`.
+- **Good:** `POST /owners/{id}/verification`, `POST /shipment-syncs/{sourceId}/runs`. **Bad:** `POST /owners/{id}/verify`.
 - **Status:** in force.
 
 ## HTTP-08 · Caller-scoped routes under `/me` or `/sessions/current`
@@ -102,7 +104,7 @@
   the URL.
 - **Why:** an id in the URL invites one caller to address another's data.
 - **Enforced by:** review.
-- **Good:** `PATCH /v1/identity/me`. **Bad:** `PATCH /v1/identity/owners/{ownerId}` for the caller's own profile.
+- **Good:** `PATCH /v1/billing/me`. **Bad:** `PATCH /v1/billing/owners/{ownerId}` for the caller's own profile.
 - **Status:** in force.
 
 ## HTTP-09 · Status codes per verb: 201/202 + Location, 204, 200 PATCH
@@ -134,13 +136,13 @@
 
 ## HTTP-12 · Every endpoint declares `CacheFor` or `NoStore`
 
-- **Rule:** Each endpoint states `CacheFor(lifetime)` or `NoStore()`; personal, administrative and Identity answers are `no-store`; errors, 429 and
+- **Rule:** Each endpoint states `CacheFor(lifetime)` or `NoStore()`; personal, administrative and Billing answers are `no-store`; errors, 429 and
   health are never cached. A `no-store` answer may still carry an opaque strong `ETag` (not a cache validator, no 304): compute it with
-  `RepresentationTag.Of` over the bytes sent and declare it with `SendsNoStoreETag`; a domain version used for `If-Match` (Identity's profile) stays
+  `RepresentationTag.Of` over the bytes sent and declare it with `SendsNoStoreETag`; a domain version used for `If-Match` (Billing's profile) stays
   the module's own concept.
 - **Why:** an undeclared endpoint gets whatever a proxy guesses, including personal data.
 - **Enforced by:** HttpConventionsTests + OpenAPI caching transformer.
-- **Good:** `.CacheFor(CacheLifetimes.ReferenceData)`; `.NoStore()` on address suggestions; `GET /v1/businesses/{id}` with `NoStore()` +
+- **Good:** `.CacheFor(CacheLifetimes.ReferenceData)`; `.NoStore()` on address suggestions; `GET /v1/shipping/{id}` with `NoStore()` +
   `RepresentationTag`. **Bad:** neither; a module copy of the tag recipe.
 - **Status:** in force.
 
@@ -159,7 +161,7 @@
 - **Why:** an unpaged list that grows becomes a slow, unbounded answer; one shape and one set of codes for every client.
 - **Enforced by:** review.
 - **Good:** `GET .../localities?limit=50&cursor=...` → `{"localities":[...],"nextCursor":"..."}`. **Bad:** `{"runs":[...]}` with every sync run;
-  `geo.page_limit.invalid`.
+  `orders.page_limit.invalid`.
 - **Embedded collections:** a collection embedded in its parent's answer is bounded by a per-parent cap, never paged.
 - **Status:** in force.
 
@@ -168,7 +170,7 @@
 - **Rule:** A list answer is an object whose single array member is the resource's plural; never a bare array.
 - **Why:** the wrapper can gain `nextCursor` or metadata without a breaking change.
 - **Enforced by:** Spectral (planned).
-- **Good:** `CountryListResponse(IReadOnlyList<CountryResponse> Countries)`. **Bad:** `Ok<IReadOnlyList<CountryResponse>>`.
+- **Good:** `RegionListResponse(IReadOnlyList<RegionResponse> Regions)`. **Bad:** `Ok<IReadOnlyList<RegionResponse>>`.
 - **Status:** in force.
 
 ## HTTP-16 · Query parameters bind as `string?` with `[DocumentedParameter]`
@@ -195,7 +197,7 @@
   `traceId`.
 - **Why:** clients branch on `type` and `code`, never on prose.
 - **Enforced by:** ProblemDetailsMappingTests.
-- **Good:** `{"type":"urn:frappe:problem:not-found","errors":[{"code":"geo.country.not_found",...}]}`. **Bad:** `{"error":"Not found"}`.
+- **Good:** `{"type":"urn:frappe:problem:not-found","errors":[{"code":"orders.region.not_found",...}]}`. **Bad:** `{"error":"Not found"}`.
 - **Status:** in force.
 
 ## HTTP-19 · Error codes `<module>.<subject>.<reason>`, texts per language
@@ -204,7 +206,7 @@
   code has `en`), limits in `parameters`.
 - **Why:** codes are a contract; texts change without breaking clients.
 - **Enforced by:** ProblemDetailsMappingTests + review.
-- **Good:** `GeoErrorCodes.CountryNotFound = "geo.country.not_found"`. **Bad:** a code built inline or a limit baked into the message.
+- **Good:** `OrdersErrorCodes.RegionNotFound = "orders.region.not_found"`. **Bad:** a code built inline or a limit baked into the message.
 - **Status:** in force.
 
 ## HTTP-20 · One fixed category precedence decides the status
@@ -256,9 +258,9 @@
   `Accept-Language`. Lists of enumerated values are lists of `{code, name}`. A change to an existing field is breaking (`!`, CON-02).
 - **Why:** clients show a translated label without a local table, and branch on the code.
 - **Enforced by:** review.
-- **Good:** `"kind": {"code": "holiday", "name": "Feriado"}`. **Bad:** `"kind": "holiday"`; `"currencies": ["ARS"]`.
+- **Good:** `"kind": {"code": "shipment", "name": "Envio"}`. **Bad:** `"kind": "shipment"`; `"currencies": ["ARS"]`.
 - **Message keys:** the translated `name` of a value comes from `Resources/Messages/<lang>.json` under `<module>.<field>.<code>`; open,
-  country-declared sets (calendar scope, covers) stay bare codes and say so in the OpenAPI description. A language is the one value that names itself:
+  region-declared sets (calendar scope, covers) stay bare codes and say so in the OpenAPI description. A language is the one value that names itself:
   `{code, name}` with `code` the BCP 47 tag and `name` its own native name (`{"code": "es-AR", "name": "español (Argentina)"}`, `{"code": "ja",
   "name": "日本語"}`), the same whatever `Accept-Language`, because a speaker recognizes their own language in a picker and no catalogue translates every
   language into every other; the OpenAPI description says so.
@@ -279,7 +281,7 @@
 - **Rule:** An endpoint's `max-age` never exceeds the freshness its data promises; data that must be fresh uses `no-cache` with ETag revalidation.
 - **Why:** an HTTP cache that outlives the data cache serves changes the API already reflects.
 - **Enforced by:** review.
-- **Good:** reference data cached 1 day, refreshed daily. **Bad:** holidays cached by HTTP while an override must show at once.
+- **Good:** reference data cached 1 day, refreshed daily. **Bad:** shipments cached by HTTP while an override must show at once.
 - **Status:** in force.
 
 ## HTTP-28 · Slow work answers 202 + Location when the client must follow it
@@ -288,5 +290,5 @@
   job. Answer 202 with `Location` where the client follows the work; a 202 the client must not follow (anti-enumeration, SEC-06) has no Location.
 - **Why:** requests stay fast and predictable; clients get a resource to poll.
 - **Enforced by:** review.
-- **Good:** `POST /holiday-syncs/{sourceId}/runs` → 202, `Location: .../runs`. **Bad:** running the sync inside the request.
+- **Good:** `POST /shipment-syncs/{sourceId}/runs` → 202, `Location: .../runs`. **Bad:** running the sync inside the request.
 - **Status:** in force.

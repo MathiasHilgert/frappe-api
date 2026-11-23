@@ -19,7 +19,8 @@ generation dominates a writer run. Whole-file rewrites and one-command turns cos
 ## Final gate (once, when the task is done)
 
 Writers run it as one command: `scripts/gate/gate.sh` (one Bash call, `timeout: 600000`), then `gate.sh --rerun` after a fix; inner-loop tests go
-through `scripts/gate/test-class.sh <Class>`. The steps below are what the script does; they stay here as the reference.
+through `scripts/gate/test-class.sh <Class>`. The steps below are what the script does; they stay here as the reference. The gate mirrors the CI
+checks of a pull request, so a green gate means no CI round lost to a format, spelling, Markdown, commit message or coverage failure.
 
 1. `dotnet build Frappe.slnx --no-restore` once.
 2. Then everything independent **in parallel** (`cmd & … ; wait`, one log per command, report each exit code):
@@ -27,11 +28,22 @@ through `scripts/gate/test-class.sh <Class>`. The steps below are what the scrip
      `whitespace` alone misses an IMPORTS failure);
    - `dotnet ef migrations has-pending-model-changes` per changed module, and `just db schema` when a migration changed (the committed `**/schema.sql`
      is checked by CI);
-   - typos on the changed files (`uvx --from typos==1.52.0 typos --config eng/typos.toml <files>`);
+   - typos on the changed files (`uvx --from typos==1.52.0 typos --config eng/typos.toml --force-exclude <files>`);
+   - `node .github/scripts/line-length.mjs` (150 characters per line);
+   - Markdown lint of the changed `.md` files with the CI's `markdownlint-cli2@0.24.0` and `eng/markdownlint-cli2.jsonc` (copied to a temp file
+     named `*.markdownlint-cli2.jsonc`, the only name the tool reads as config);
+   - the commit messages of `origin/main..HEAD` (`scripts/gate/commits.mjs`, which reuses `.github/scripts/conventions.mjs`): scoped Conventional
+     Commits header of at most 100 characters, no `Co-Authored-By`, `Claude-Session` or other AI attribution trailer;
    - squawk on new migrations (`references`: forge/lessons/migrations);
    - `dotnet test --project <p> --no-build` for every test project that covers a changed project (`tests/Frappe.Architecture.Tests` always; Platform
      when `src/Platform` changed). Test projects run side by side safely: each starts its own containers on random ports.
+   - with `--coverage`: `scripts/gate/coverage.sh`, the CI's changed-line coverage (80% on the lines changed against `origin/main`). It runs every
+     test project, so it is the slowest step: writers pass the flag in the one final gate, before the final commit, when production code changed.
 3. On a failure: fix, rerun only the failing project (or class), then rerun only what the fix could affect. Do not rerun the whole gate.
+
+Before committing, `scripts/gate/coverage.sh [<base>] [<label>]` measures changed-line coverage against the base (diff-cover, 80%, as CI does). It
+  runs every
+test project: run it once, not in the inner loop.
 
 ## Who runs what
 
