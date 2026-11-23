@@ -14,6 +14,7 @@
     <ProjectReference Include="../../../src/Platform/Frappe.Observability.Hosting/Frappe.Observability.Hosting.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Messaging/Frappe.Messaging.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Persistence/Frappe.Persistence.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.Scheduling/Frappe.Scheduling.csproj" />
     <ProjectReference Include="../../Shared/Frappe.Testing/Frappe.Testing.csproj" />
     <ProjectReference Include="../Frappe.Platform.Testing/Frappe.Platform.Testing.csproj" />
   </ItemGroup>

@@ -20,7 +20,11 @@
     <Project Path="src/Platform/Frappe.Observability.Hosting/Frappe.Observability.Hosting.csproj" />
     <Project Path="src/Platform/Frappe.Persistence/Frappe.Persistence.csproj" />
     <Project Path="src/Platform/Frappe.Results/Frappe.Results.csproj" />
+    <Project Path="src/Platform/Frappe.Scheduling/Frappe.Scheduling.csproj" />
     <Project Path="src/Platform/Frappe.UseCases/Frappe.UseCases.csproj" />
+  </Folder>
+  <Folder Name="/src/Hosts/">
+    <Project Path="src/Hosts/Frappe.Worker/Frappe.Worker.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Frappe.Architecture.Tests/Frappe.Architecture.Tests.csproj" />

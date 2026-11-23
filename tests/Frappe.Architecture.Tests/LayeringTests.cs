@@ -20,6 +20,8 @@ public sealed class LayeringTests
     private static readonly Assembly Persistence = typeof(Frappe.Persistence.ModuleDatabase).Assembly;
     private static readonly Assembly Messaging = typeof(Frappe.Messaging.MessagingMetrics).Assembly;
     private static readonly Assembly Observability = typeof(Frappe.Observability.FrappeTelemetry).Assembly;
+    private static readonly Assembly Scheduling = typeof(Frappe.Scheduling.SchedulingRegistration).Assembly;
+    private static readonly Assembly Worker = typeof(Frappe.Worker.WorkerComposition).Assembly;
 
     /// <summary>Anything an inner layer must never know about.</summary>
     private static readonly string[] Infrastructure =
@@ -107,6 +109,47 @@ public sealed class LayeringTests
     }
 
     [Test]
+    public async Task Scheduling_runs_jobs_without_knowing_messaging_or_the_web_stack()
+    {
+        // Act
+        var result = Types.InAssembly(Scheduling)
+            .ShouldNot().HaveDependencyOnAny("Frappe.Messaging", "Frappe.Http", "Frappe.Observability", "Microsoft.AspNetCore")
+            .GetResult();
+
+        // Assert
+        await AssertAsync(result, "Scheduling depends on messaging, the web stack or telemetry code");
+    }
+
+    [Test]
+    public async Task The_Worker_serves_no_http_and_references_no_http_project()
+    {
+        // Arrange
+        var closure = new HashSet<string>(StringComparer.Ordinal);
+        var pending = new Stack<Assembly>([Worker]);
+        while (pending.TryPop(out var assembly))
+        {
+            if (!closure.Add(assembly.GetName().Name!))
+            {
+                continue;
+            }
+
+            foreach (var reference in assembly.GetReferencedAssemblies().Where(r => r.Name!.StartsWith("Frappe.", StringComparison.Ordinal)))
+            {
+                pending.Push(System.Reflection.Assembly.Load(reference));
+            }
+        }
+
+        var web = Worker.GetReferencedAssemblies().Select(a => a.Name!).Where(n => n.StartsWith("Microsoft.AspNetCore", StringComparison.Ordinal));
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(closure).DoesNotContain("Frappe.Http");
+            await Assert.That(web).IsEmpty();
+        }
+    }
+
+    [Test]
     public async Task The_rules_can_see_real_dependencies()
     {
         // Act
@@ -114,6 +157,8 @@ public sealed class LayeringTests
         var caching = Types.InAssembly(Caching).That().HaveDependencyOn("ZiggyCreatures.Caching").GetTypes();
         var http = Types.InAssembly(Http).That().HaveDependencyOn("Microsoft.AspNetCore").GetTypes();
         var persistence = Types.InAssembly(Persistence).That().HaveDependencyOn("Microsoft.EntityFrameworkCore").GetTypes();
+        var scheduling = Types.InAssembly(Scheduling).That().HaveDependencyOn("Quartz").GetTypes();
+        var worker = Worker.GetReferencedAssemblies().Select(a => a.Name).Contains("Frappe.Scheduling");
 
         // Assert
         using (Assert.Multiple())
@@ -121,6 +166,8 @@ public sealed class LayeringTests
             await Assert.That(caching.Any()).IsTrue();
             await Assert.That(http.Any()).IsTrue();
             await Assert.That(persistence.Any()).IsTrue();
+            await Assert.That(scheduling.Any()).IsTrue();
+            await Assert.That(worker).IsTrue();
         }
     }
 }
