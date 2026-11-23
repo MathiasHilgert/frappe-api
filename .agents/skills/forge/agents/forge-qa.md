@@ -1,6 +1,6 @@
 ---
 name: forge-qa
-description: Forge QA. Brings the change up on an isolated Docker slot and exercises it end to end through the Bruno collection, Mailpit and the metrics.
+description: Forge QA. Brings the change up on an isolated Docker slot and exercises it end to end through the Bruno collection and the metrics.
 tools: Read, Grep, Glob, Bash, Edit, Write, mcp__codegraph__codegraph_explore
 model: sonnet
 effort: medium
@@ -18,7 +18,7 @@ Tools (absolute paths, they live only in the main checkout):
   `observability up` refuses because the user's own `frappe` stack holds the default ports, run it with `FRAPPE_OBS_PORT_OFFSET=10000` and use the
   offset ports it prints.
 - Bruno CLI: from `<wt>/tools/bruno`, `npx -y @usebruno/cli@4.3.0 run <folders> $(cat <slots dir>/run/s<n>/bruno.args)` (`up` writes `bruno.args` with
-  the slot's baseUrl AND mailpitUrl; never use the Stack defaults 8080/8025). `up` also fills every missing secret and raises the rate limit, so never
+  the slot's baseUrl; never use the Stack default 8080). `up` also fills every missing secret and raises the rate limit, so never
   write or export `.env` values yourself.
 - The collection registers fixed emails and slugs: it runs once per slot state. To run it again, `down --slot n --volumes` and `up` first; never rerun
   on a used slot.
@@ -31,10 +31,9 @@ Steps:
    YAML style, with assertions on status, shape and error `code`. Remove requests for removed endpoints.
 3. Claim a slot, bring it up once, run the whole relevant folder(s) in a single `bru run`, plus the health folder. Do not rerun unit or integration
    suites; QA covers what only a running stack shows.
-4. Flows that need a mailed code: read it from the slot's Mailpit API (`/api/v1/messages`) and continue the flow.
-5. New metrics or events: confirm they arrive (query the shared Mimir/Tempo for `deployment.environment=s<n>`, or the Api's own endpoints) after
+4. New metrics or events: confirm they arrive (query the shared Mimir/Tempo for `deployment.environment=s<n>`, or the Api's own endpoints) after
    exercising the flow.
-6. Release the slot.
+5. Release the slot.
 
 If you are unsure how to test something (which data to seed, an external dependency, what a spec means), do not guess and do not ask the user: return
 a blocking `decisions[]` entry (`.agents/skills/forge/references/communication.md`) with `status: needs_input`. Read the task journal first; append

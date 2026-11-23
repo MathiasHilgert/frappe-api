@@ -114,7 +114,7 @@
   expressions and pattern matching. Language-version specifics live in `csharp.md`.
 - **Why:** less ceremony, intent visible in the shape of the code.
 - **Enforced by:** IDE style rules at warning (CRAFT-02); review.
-- **Good:** `public sealed class CountRegisteredOwner(IdentityMetrics metrics)` **Bad:** a constructor that only copies arguments into fields.
+- **Good:** `public sealed class CountRegisteredOwner(BillingMetrics metrics)` **Bad:** a constructor that only copies arguments into fields.
 - **Status:** in force.
 
 ## CRAFT-12 · One clock: injected `TimeProvider`
@@ -123,7 +123,8 @@
   `DateTime.UtcNow`, `DateTimeOffset.UtcNow` or `SystemClock.Instance`.
 - **Why:** one source of time that tests can move (TEST-11).
 - **Enforced by:** BannedApiAnalyzers: `NodaTime.SystemClock.Instance` in `eng/BannedSymbols.txt` (CRAFT-12); `DesignTimeFactoryTests`.
-- **Good:** `public SyncMetrics(GeoMetrics metrics, IServiceScopeFactory scopes, IClock clock)` **Bad:** `SystemClock.Instance.GetCurrentInstant()`.
+- **Good:** `public SyncMetrics(OrdersMetrics metrics, IServiceScopeFactory scopes, IClock clock)` **Bad:**
+  `SystemClock.Instance.GetCurrentInstant()`.
 - **Status:** in force.
 
 ## CRAFT-13 · Guard clauses, one abstraction level per method, BCL before hand-rolled code

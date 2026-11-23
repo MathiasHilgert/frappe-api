@@ -29,8 +29,8 @@
   production values; environments override only what differs.
 - **Why:** an empty production config must be a safe production config; the key is never retyped as a string.
 - **Enforced by:** review.
-- **Good:** `public const string Section = "Identity:Login"; public int FailuresPerClient { get; set; } = DefaultFailuresPerClient;` **Bad:**
-  `.BindConfiguration("Identity:Login")` with defaults only in `appsettings.json`.
+- **Good:** `public const string Section = "Billing:Login"; public int FailuresPerClient { get; set; } = DefaultFailuresPerClient;` **Bad:**
+  `.BindConfiguration("Billing:Login")` with defaults only in `appsettings.json`.
 - **Status:** in force.
 
 ## CFG-03 · Every options type is validated by data annotations and a generated validator
@@ -39,7 +39,8 @@
   `[OptionsValidator] public sealed partial class XValidator : IValidateOptions<X>`. Nested options use `[ValidateObjectMembers]` or
   `[ValidateEnumeratedItems]`; cross-field rules use `IValidatableObject`. The generator ignores `ErrorMessage` on `[Range]`: use a small
   `ValidationAttribute` (such as `PortAttribute`) when the message must name the key. Rules that depend on composition (role passwords
-  keyed by the database participants, consumer steps declared in DI) stay a hand-written sealed `IValidateOptions<T>` that collects every
+  keyed by the database participants, consumer steps declared in DI) and named options whose configuration section is chosen at registration (such as
+  per-policy rate limits) stay a hand-written sealed `IValidateOptions<T>` that collects every
   failure. No inline `.Validate(lambda, message)`.
 - **Why:** one declarative style, every failure reported at once, and a validator a unit test can call, without hand-written range checks.
 - **Enforced by:** BannedApiAnalyzers on `OptionsBuilder<T>.Validate` overloads; DataAnnotations stay banned in Domain and Application projects
@@ -55,7 +56,7 @@
   of changing it.
 - **Why:** the code is the only settings reference; operators read it from the type, not from a separate document.
 - **Enforced by:** review.
-- **Good:** `/// <summary><c>Identity:Login:FailuresPerClient</c>: failed logins one client may make against one address per window.</summary>` plus
+- **Good:** `/// <summary><c>Billing:Login:FailuresPerClient</c>: failed logins one client may make against one address per window.</summary>` plus
   the default and range **Bad:** `/// <summary>The NATS server URL.</summary>`.
 - **Status:** in force.
 
@@ -74,7 +75,7 @@
   validated. Jobs are `[DisallowConcurrentExecution]` and run on the clustered durable store.
 - **Why:** one schedule per job across replicas, overridable per environment, checked at start.
 - **Enforced by:** `WorkerCompositionTests`.
-- **Good:** `quartz.AddCronJob<GeoMessagePurgeJob>(new JobKey("purge-messages", "geo"), "Geo:MessagePurge", "0 30 3 * * ?")` **Bad:**
+- **Good:** `quartz.AddCronJob<OrdersMessagePurgeJob>(new JobKey("purge-messages", "orders"), "Orders:MessagePurge", "0 30 3 * * ?")` **Bad:**
   `quartz.ScheduleJob<T>(t => t.WithCronSchedule("0 30 3 * * ?"))`.
 - **Status:** in force.
 
@@ -84,7 +85,7 @@
   it in the Production environment.
 - **Why:** a missing registration or invalid default fails CI, not the deploy.
 - **Enforced by:** `WorkerCompositionTests`.
-- **Good:** `.AddGeoMessaging()` inside `AddFrappeWorker` **Bad:** registrations in `Program.cs` of the Worker.
+- **Good:** `.AddOrdersMessaging()` inside `AddFrappeWorker` **Bad:** registrations in `Program.cs` of the Worker.
 - **Status:** in force.
 
 ## CFG-08 · Outbound HTTP has explicit resilience budgets
@@ -103,7 +104,7 @@
   timeout > role `statement_timeout`).
 - **Why:** an outer budget shorter than the inner one cancels legitimate work halfway.
 - **Enforced by:** `WorkerCompositionTests`; the module's validator.
-- **Good:** `MinHandlerDuration = NotificationModule.TotalTimeout + TimeSpan.FromSeconds(20)` checked at start **Bad:** two independent defaults that
+- **Good:** `MinHandlerDuration = MailingModule.TotalTimeout + TimeSpan.FromSeconds(20)` checked at start **Bad:** two independent defaults that
   happen to fit today.
 - **Status:** in force.
 
@@ -121,7 +122,7 @@
 - **Rule:** Each process and module uses a Postgres role granted only what that process does; only the Migrator runs DDL.
 - **Why:** a compromised or buggy Worker cannot alter schemas or touch data it does not own.
 - **Enforced by:** `WorkerCompositionTests`; migration grants.
-- **Good:** Worker's `ConnectionStrings:Identity` names `frappe_identity_relay` **Bad:** every process using the owner role.
+- **Good:** Worker's `ConnectionStrings:Billing` names `frappe_billing_relay` **Bad:** every process using the owner role.
 - **Status:** in force.
 
 ## CFG-12 · No preview features

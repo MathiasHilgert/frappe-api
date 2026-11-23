@@ -8,12 +8,12 @@ public sealed class NotificationTests
     private static Result<string> Code(string raw) =>
         raw.Length == 2
             ? Result.Success(raw)
-            : Error.InvalidValue("geo.country_code.invalid_length", ("length", 2));
+            : Error.InvalidValue("test.code.invalid_length", ("length", 2));
 
     private static Result<int> Year(int raw) =>
         raw is >= 1900 and <= 2100
             ? Result.Success(raw)
-            : Error.InvalidValue("geo.holiday_year.out_of_range", ("min", 1900), ("max", 2100));
+            : Error.InvalidValue("test.year.out_of_range", ("min", 1900), ("max", 2100));
 
     [Test]
     public async Task Collects_every_error_instead_of_stopping_at_the_first()
@@ -31,7 +31,7 @@ public sealed class NotificationTests
         {
             await Assert.That(notification.HasErrors).IsTrue();
             await Assert.That(notification.Errors.Select(e => e.Code))
-                .IsEquivalentTo(["geo.country_code.invalid_length", "geo.holiday_year.out_of_range"]);
+                .IsEquivalentTo(["test.code.invalid_length", "test.year.out_of_range"]);
         }
     }
 

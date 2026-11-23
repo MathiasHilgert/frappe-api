@@ -16,7 +16,7 @@ api=$($S url --slot "$n")          # e.g. http://localhost:8180
 $S release --slot "$n"             # down -v, free the lock, delete generated files
 ```
 
-`up` prints `key=url` lines on stdout: `api`, `mailpit`, `grafana`, `mimir`, `tempo`, `loki`, `otlp_grpc`. Progress
+`up` prints `key=url` lines on stdout: `api`, `grafana`, `mimir`, `tempo`, `loki`, `otlp_grpc`. Progress
 goes to stderr. `ports` and `observability status` print the same shared URLs, or `observability=stopped`.
 
 ## Commands
@@ -25,7 +25,7 @@ goes to stderr. `ports` and `observability status` print the same shared URLs, o
 |---------|------|
 | `claim [--worktree P] [--wait S]` | Takes the first free slot and prints its number. Removes leftovers of a dead previous holder. Fails after `--wait` seconds (default 1800). |
 | `env --slot N [--worktree P]` | Writes `run/s<N>/slot.env` and `run/s<N>/compose.override.yaml` (`up` runs it for you). |
-| `up --slot N [--worktree P] [--timeout S]` | Builds and starts postgres, nats, valkey, mailpit, migrator, api and worker, then waits for the Api (default 300 s). |
+| `up --slot N [--worktree P] [--timeout S]` | Builds and starts postgres, nats, valkey, migrator, api and worker, then waits for the Api (default 300 s). |
 | `down --slot N [--volumes]` | Stops the slot's project. Keeps the claim. |
 | `release --slot N` | Runs `down --volumes`, kills the holder and deletes `run/s<N>`. |
 | `status` | Every slot: lock, holder PID and liveness, worktree, containers. Also shows the shared stack. |
@@ -41,8 +41,7 @@ goes to stderr. `ports` and `observability status` print the same shared URLs, o
 |------|----------|
 | Compose project | `frappe-s<n>` |
 | Image | `frappe-api:s<n>` (migrator, api, worker) |
-| Host ports | compose defaults + `n × 100`: Api `8080+100n`, Postgres `5432+100n`, NATS `4222+100n`/`8222+100n`, Valkey `6379+100n`, Mailpit `127.0.0.1:8025+100n` |
-| Mail | `FRAPPE_NOTIFICATION_MAILER=Mailpit` is forced, so no real mail leaves a slot |
+| Host ports | compose defaults + `n × 100`: Api `8080+100n`, Postgres `5432+100n`, NATS `4222+100n`/`8222+100n`, Valkey `6379+100n` (a base is overridable per port with `FRAPPE_SLOT_BASE_<VAR>`) |
 | Telemetry | OTLP to `frappe-obs-collector:4317` on network `frappe-observability`, tagged `deployment.environment=s<n>` |
 
 Query a slot's telemetry with the label `deployment_environment="s<n>"` on `target_info` in Mimir, or with

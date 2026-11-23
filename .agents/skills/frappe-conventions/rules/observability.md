@@ -27,7 +27,8 @@
   `IMeterFactory`. Hosts subscribe to `Frappe.*`.
 - **Why:** one place configures telemetry; a module that exports on its own duplicates or loses signals.
 - **Enforced by:** `LayeringTests` (Architecture tests).
-- **Good:** `Meter = meters.Create(MeterName); // "Frappe.Geo"` **Bad:** `static readonly ActivitySource Source = new("Frappe.Geo");` in a module.
+- **Good:** `Meter = meters.Create(MeterName); // "Frappe.Orders"` **Bad:** `static readonly ActivitySource Source = new("Frappe.Orders");` in a
+  module.
 - **Status:** in force.
 
 ## OBS-02 · Metric names are `frappe.<module>.<noun>[.<qualifier>]`, declared on the module's metrics class
@@ -37,7 +38,8 @@
   the module's meter, with its name const on `<Module>Metrics`. Never rename a shipped metric: dashboards and alerts read it.
 - **Why:** one file lists what a module reports; stable names keep dashboards working.
 - **Enforced by:** platform meter test (planned, OBS-08); review.
-- **Good:** `public const string SyncRunsMetric = "frappe.geo.sync.runs";` **Bad:** `meter.CreateCounter<long>("GeoSyncRuns")` inline in a handler.
+- **Good:** `public const string SyncRunsMetric = "frappe.orders.sync.runs";` **Bad:** `meter.CreateCounter<long>("OrdersSyncRuns")` inline in a
+  handler.
 - **Platform features:** a platform piece that answers instead of the handler (idempotency replay, paging refusals) counts its outcomes on the
   `Frappe.Http` meter as `frappe.http.<feature>.requests` tagged `frappe.outcome`.
 - **Status:** in force.
@@ -54,7 +56,7 @@
 
 ## OBS-04 · Tags are bounded; the outcome tag is always `frappe.outcome`
 
-- **Rule:** Tag values come from a closed set (enum, source name, country code). Never tag ids, message types, emails, tokens, origins or user-typed
+- **Rule:** Tag values come from a closed set (enum, source name, region code). Never tag ids, message types, emails, tokens, origins or user-typed
   text. The outcome of anything is tagged `frappe.outcome`.
 - **Why:** unbounded tags explode series cardinality in Mimir and leak personal data.
 - **Enforced by:** platform meter test with a tag allow-list (planned, OBS-08); review.
@@ -86,7 +88,7 @@
   A feature that changes business behavior without one says why in the plan.
 - **Why:** metrics added after an incident arrive too late to explain it.
 - **Enforced by:** review (critic-observability); dashboard test (OBS-19).
-- **Good:** plan line `frappe.identity.owners.verified {owner}: how many registrations finish` **Bad:** a new use case with no metric and no reason.
+- **Good:** plan line `frappe.billing.owners.verified {owner}: how many registrations finish` **Bad:** a new use case with no metric and no reason.
 - **Status:** in force.
 
 ## OBS-08 · New instruments use the metrics source generator and `CountOnCommit`
@@ -97,7 +99,8 @@
   tags from an allow-list. Existing metric names are kept.
 - **Why:** typed tags remove misspelled or unbounded tags at compile time; one helper keeps OBS-06 uniform.
 - **Enforced by:** `MeterConventionTests` in `tests/Frappe.Architecture.Tests`; `CountOnCommit` (`CountOnCommitRegistration.cs`).
-- **Good:** `[Counter<long>(typeof(SyncRunTags), Name = "frappe.geo.sync.runs")] public static partial SyncRuns CreateSyncRuns(Meter meter);` **Bad:**
+- **Good:** `[Counter<long>(typeof(SyncRunTags), Name = "frappe.orders.sync.runs")] public static partial SyncRuns CreateSyncRuns(Meter meter);`
+  **Bad:**
   `_syncRuns.Add(1, new("frappe.outcome", name), new("source", s));` with hand-typed keys.
 - **Status:** in force.
 
@@ -190,10 +193,10 @@
 - **Rule:** Each module defines an availability SLO and a latency SLO over the existing HTTP server metrics, filtered by its routes, and ships
   multi-window, multi-burn-rate alerts as code (fast: 1 h and 5 m at 14.4×; slow: 6 h and 30 m at 6×) in the provisioned alert file.
 - **Why:** burn-rate alerts page on budget at risk, not on every blip.
-- **Enforced by:** `AlertProvisioningTests` (expected rules list an availability and a latency fast/slow pair for each module with routes: Identity
-  and Geo by `/v1/{module}/`, Businesses by its flat prefix `/v1/business.*` in its own test; a module with flat routes selects its route prefix, see
+- **Enforced by:** `AlertProvisioningTests` (expected rules list an availability and a latency fast/slow pair for each module with routes: Billing
+  and Orders by `/v1/{module}/`, Shipping by its flat prefix `/v1/business.*` in its own test; a module with flat routes selects its route prefix, see
   HTTP-02).
-- **Good:** `uid: frappe-identity-availability-fast-burn` **Bad:** `5xx > 0` as the only HTTP alert.
+- **Good:** `uid: frappe-orders-availability-fast-burn` **Bad:** `5xx > 0` as the only HTTP alert.
 - **Status:** in force.
 
 ## OBS-19 · Every module has a dashboard as code that shows each business metric
@@ -202,7 +205,7 @@
   business metrics and messaging rows, provisioned at startup. A test fails when a business metric of the module appears in no panel query.
 - **Why:** a metric no panel shows is not watched.
 - **Enforced by:** `DashboardProvisioningTests.Every_business_metric_of_the_module_is_in_a_panel_query`.
-- **Good:** `dashboards/identity.json` querying `frappe_identity_owners_registered_total` **Bad:** a dashboard built by hand in the UI.
+- **Good:** `dashboards/billing.json` querying `frappe_billing_owners_registered_total` **Bad:** a dashboard built by hand in the UI.
 - **Status:** in force.
 
 ## OBS-20 · Liveness checks the process; readiness checks each capability

@@ -19,7 +19,7 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 ## STR-01 · Every module has the same project set
 
 - **Rule:** `src/Modules/<M>/` holds `Frappe.<M>.Domain`, `.Application`, `.Contracts`, `.Infrastructure`, `.Http`, plus plug-in packages (STR-04).
-  Every module, Notification included; no module invents a different layout.
+  Every module, Mailing included; no module invents a different layout.
 - **Why:** one shape to navigate; ArchTests and tools target every module the same way (same model for all: see `domain`, `cqrs`).
 - **Enforced by:** module project-set ArchTest over `Frappe.slnx` (planned).
 - **Good:** `src/Modules/<M>/` with its five projects. **Bad:** a module with no Contracts or Http project.
@@ -32,7 +32,7 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
   type several features use) sit at the project root. A helper used by one use case lives in that use case's folder.
 - **Why:** a feature is read and changed in one place; deleting a use case deletes one folder.
 - **Enforced by:** review (folder-shape ArchTest planned).
-- **Good:** `Geo.Application/Countries/GetCountry/{GetCountry,GetCountryHandler}.cs`, `Countries/ICountryCatalog.cs`. **Bad:** one use case's helper
+- **Good:** `Orders.Application/Regions/GetRegion/{GetRegion,GetRegionHandler}.cs`, `Regions/IRegionCatalog.cs`. **Bad:** one use case's helper
   at the project root; a port shared by the feature inside one use case's folder.
 - **Status:** in force.
 
@@ -43,36 +43,36 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
   (translator, consumers, relay wiring). No other technical folder.
 - **Why:** a feature's storage is found next to the feature; technical folders do not become dumping grounds.
 - **Enforced by:** review.
-- **Good:** `Geo.Infrastructure/Countries/{CountryRow,CountryRowConfiguration,EfCountryCatalog,CachedCountryCatalog}.cs`. **Bad:**
+- **Good:** `Orders.Infrastructure/Regions/{RegionRow,RegionRowConfiguration,EfRegionCatalog,CachedRegionCatalog}.cs`. **Bad:**
   `<M>.Infrastructure/Configuration/<M>DatabaseOptions.cs` (belongs in `Persistence/`).
 - **Status:** in force.
 
 ## STR-04 · Plug-in packages are named `Frappe.<Module>.<Kind>.<Name>`
 
 - **Rule:** a package that plugs into a module's core is `Frappe.<Module>.<Kind>.<Name>` in `src/Modules/<Module>/<Kind>/`, with `<Kind>` plural
-  (`Countries`, `Sources`, `Producers`). Dependency direction: ARCH-14.
+  (`Regions`, `Sources`, `Producers`). Dependency direction: ARCH-14.
 - **Why:** the name says what the package plugs in and where its siblings live.
 - **Enforced by:** `PlugInNamingTests` (tests/Frappe.Architecture.Tests); review.
-- **Good:** `Frappe.Geo.Countries.Argentina`. **Bad:** `Frappe.Geo.Global` (→ `Frappe.Geo.Sources.Global`), `Frappe.Notification.Identity` (→
-  `Frappe.Notification.Producers.Identity`).
+- **Good:** `Frappe.Orders.Regions.Argentina`. **Bad:** `Frappe.Orders.Global` (→ `Frappe.Orders.Sources.Global`), `Frappe.Mailing.Billing` (→
+  `Frappe.Mailing.Producers.Billing`).
 - **Status:** in force.
 
 ## STR-05 · Use cases are named for intent; handlers add `Handler`
 
-- **Rule:** a request is a verb phrase in the business language (`GetCountry`, `ListCountries`, `RegisterOwner`); its handler is `<Request>Handler`.
+- **Rule:** a request is a verb phrase in the business language (`GetRegion`, `ListRegions`, `RegisterOwner`); its handler is `<Request>Handler`.
   Response naming: see `cqrs`.
 - **Why:** the folder listing reads as the module's capabilities.
 - **Enforced by:** review (handler-suffix ArchTest planned).
-- **Good:** `GetCountry` → `GetCountryHandler`. **Bad:** `CountryQuery`, `CountryService.Get`.
+- **Good:** `GetRegion` → `GetRegionHandler`. **Bad:** `RegionQuery`, `RegionService.Get`.
 - **Status:** in force.
 
 ## STR-06 · Ports are capability nouns; adapters are prefixed by technology
 
-- **Rule:** an Application port names a capability (`IPrincipals`, `ICountryCatalog`, `IMailer`); its adapter is `<Technology><Capability>`: `Ef*` (EF
+- **Rule:** an Application port names a capability (`IPrincipals`, `IRegionCatalog`, `IMailer`); its adapter is `<Technology><Capability>`: `Ef*` (EF
   Core), `Cached*` (cache decorator), `Valkey*` (Valkey state), `Hmac*`, `Resend*`, and so on.
 - **Why:** the name tells which dependency an adapter wraps and what to swap.
 - **Enforced by:** review.
-- **Good:** `ICountryCatalog` → `EfCountryCatalog`, `CachedCountryCatalog`. **Bad:** `CountryCatalogImpl`, `CountryRepository2`.
+- **Good:** `IRegionCatalog` → `EfRegionCatalog`, `CachedRegionCatalog`. **Bad:** `RegionCatalogImpl`, `RegionRepository2`.
 - **Status:** in force.
 
 ## STR-07 · Aggregates live only in Domain and are mapped directly
@@ -82,7 +82,7 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 - **Why:** persistence ignorance keeps one model of the business; a second persistence class drifts from it.
 - **Enforced by:** ArchTest "only Domain extends AggregateRoot" (planned); `LayeringTests.Inner_layers_know_nothing_about_infrastructure` (no EF in
   Domain).
-- **Good:** `Principal` mapped by `PrincipalConfiguration`. **Bad:** `internal sealed class CountryRow : AggregateRoot` in Infrastructure.
+- **Good:** `Principal` mapped by `PrincipalConfiguration`. **Bad:** `internal sealed class RegionRow : AggregateRoot` in Infrastructure.
 - **Status:** in force.
 
 ## STR-08 · `*Row` names only data without domain behavior
@@ -91,7 +91,7 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
   It never extends `AggregateRoot` and never raises domain events.
 - **Why:** the suffix tells a reader there are no rules to look for.
 - **Enforced by:** `LayeringTests.Only_sealed_types_in_a_domain_project_derive_from_AggregateRoot`.
-- **Good:** `CountryNameRow`. **Bad:** `CountryRow`, `SubdivisionRow`, `SyncRunRow` extending `AggregateRoot`.
+- **Good:** `RegionNameRow`. **Bad:** `RegionRow`, `SubdivisionRow`, `SyncRunRow` extending `AggregateRoot`.
 - **Status:** in force.
 
 ## STR-09 · Each EF configuration sits next to the type it maps
@@ -100,7 +100,7 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
   configurations from its assembly and holds only mapping.
 - **Why:** mapping changes with its feature, not in a shared folder.
 - **Enforced by:** review.
-- **Good:** `Geo.Infrastructure/Countries/CountryRowConfiguration.cs`. **Bad:** `Identity.Infrastructure/Persistence/PrincipalConfiguration.cs`,
+- **Good:** `Orders.Infrastructure/Regions/RegionRowConfiguration.cs`. **Bad:** `Billing.Infrastructure/Persistence/PrincipalConfiguration.cs`,
   `SessionConfiguration.cs`, `VerificationCodeConfiguration.cs`.
 - **Status:** in force.
 
@@ -110,8 +110,9 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
   production assembly, never as an `[assembly:]` attribute.
 - **Why:** internals stay internal; a production consumer must go through a public contract.
 - **Enforced by:** csproj ArchTest (planned).
-- **Good:** `Frappe.Geo.Infrastructure.csproj` → `Frappe.Geo.UnitTests`, `Frappe.Geo.IntegrationTests`. **Bad:** `Frappe.Geo.Infrastructure` →
-  `Frappe.Geo.Global`.
+- **Good:** `Frappe.Orders.Infrastructure.csproj` → `Frappe.Orders.UnitTests`, `Frappe.Orders.IntegrationTests`. **Bad:**
+  `Frappe.Orders.Infrastructure` →
+  `Frappe.Orders.Global`.
 - **Status:** in force.
 
 ## STR-11 · Each layer exposes its host facet from one fixed class

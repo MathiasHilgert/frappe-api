@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Usage (from the worktree root): gate.sh [--base <ref>] [--rerun]
 # forge-writer's final gate in one call. Builds the solution once (errors only), then runs every independent check in
-# parallel, one log per step: format of the changed C# files, typos on the changed files, squawk on changed migrations,
+# parallel, one log per step: format of the changed C# files, typos on the changed files, line length (150), squawk on changed migrations,
 # pending EF model changes of the touched modules, and every test app the change can break (affected.py). Prints one
 # line per step and, for a failure, its first relevant lines and log path. Exit 0 only when every step passed.
 #   --rerun  after fixing: rebuild, then rerun only the steps that failed last time plus the test apps affected by files
@@ -41,7 +41,10 @@ if [ ${#cs[@]} -gt 0 ]; then
   cmd[format]="dotnet format Frappe.slnx --verify-no-changes --no-restore --include $(printf '%q ' "${cs[@]}")"
 fi
 if [ -f eng/typos.toml ] && command -v uvx >/dev/null && [ ${#changed[@]} -gt 0 ]; then
-  cmd[typos]="uvx --from typos==1.52.0 typos --config eng/typos.toml $(printf '%q ' "${changed[@]}")"
+  cmd[typos]="uvx --from typos==1.52.0 typos --config eng/typos.toml --force-exclude $(printf '%q ' "${changed[@]}")"
+fi
+if [ -f .github/scripts/line-length.mjs ] && command -v node >/dev/null; then
+  cmd[line-length]="node .github/scripts/line-length.mjs"
 fi
 if printf '%s\n' "${changed[@]}" | grep -q '/Migrations/' && [ -x .github/scripts/migration-sql.sh ] && [ -f eng/squawk.toml ]; then
   cmd[squawk]="out=\$(mktemp -d) && .github/scripts/migration-sql.sh $(printf '%q' "$base") \"\$out\" && npx -y squawk-cli@2.72.0 --config eng/squawk.toml \"\$out\"/*.sql"

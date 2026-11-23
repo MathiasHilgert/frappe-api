@@ -41,7 +41,7 @@
   connection-string builder) are allowed. Anything that needs one is an integration test or higher.
 - **Why:** unit suites stay fast and runnable anywhere; a hidden container makes them neither.
 - **Enforced by:** `UnitTestsStayInProcess` in `tests/Directory.Build.props` (direct references); review (connections).
-- **Good:** `IdentityFakes` in-memory ports in `Frappe.Identity.UnitTests` **Bad:** `Testcontainers.PostgreSql` in a project that holds unit tests.
+- **Good:** `BillingFakes` in-memory ports in `Frappe.Billing.UnitTests` **Bad:** `Testcontainers.PostgreSql` in a project that holds unit tests.
 - **Status:** in force.
 
 ## TEST-03 · tests/ mirrors src/, with unit and integration projects per module and for Platform
@@ -138,7 +138,7 @@
 - **Rule:** Compare timestamps as NodaTime `Instant`, never as formatted strings or `DateTime` with a kind.
 - **Why:** Postgres rounds to microseconds and `DateTime` kinds compare wrong across zones.
 - **Enforced by:** review.
-- **Good:** `await Assert.That(row.CreatedAt).IsEqualTo(IdentityFakes.Now);` **Bad:** `IsEqualTo(now.ToString("O"))`.
+- **Good:** `await Assert.That(row.CreatedAt).IsEqualTo(BillingFakes.Now);` **Bad:** `IsEqualTo(now.ToString("O"))`.
 - **Status:** in force.
 
 ## TEST-13 · Waits go through the shared `WaitUntil`; no `Task.Delay` or `Thread.Sleep`
@@ -147,7 +147,7 @@
   `Task.Delay` and `Thread.Sleep` are banned in tests except inside it; a handler that must hang awaits a `TaskCompletionSource` with the token.
 - **Why:** hand-rolled loops either flake or wait too long, and fail with no message.
 - **Enforced by:** BannedApiAnalyzers in tests (planned).
-- **Good:** `await WaitUntil.TrueAsync(() => mailpit.HasMailTo(email), "the registration mail never arrived");` **Bad:** `await
+- **Good:** `await WaitUntil.TrueAsync(() => outbox.HasPublished(type), "the event never left the outbox");` **Bad:** `await
   Task.Delay(TimeSpan.FromMilliseconds(500));` in a loop.
 - **Status:** in force.
 
@@ -193,7 +193,7 @@
   review the diff.
 - **Why:** the diff of the golden file is the review of the change.
 - **Enforced by:** `Snapshot` (fails on mismatch).
-- **Good:** `await Snapshot.MatchesAsync(mail.Content.Html, $"Identity/registration_attempted.{locale}.html");` **Bad:** `Contains("Hola")` on a whole
+- **Good:** `await Snapshot.MatchesAsync(mail.Content.Html, $"Billing/registration_attempted.{locale}.html");` **Bad:** `Contains("Hola")` on a whole
   HTML mail.
 - **Status:** in force.
 

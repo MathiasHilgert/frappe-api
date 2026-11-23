@@ -11,12 +11,12 @@ public sealed class ErrorKindsTests
         // Act
         Error[] errors =
         [
-            new ConflictError("geo.holiday.duplicate", ("year", 2026)),
-            new ForbiddenError("identity.session.forbidden", ("year", 2026)),
-            new NotFoundError("geo.holiday.not_found", ("year", 2026)),
-            new PreconditionFailedError("geo.holiday.stale", ("year", 2026)),
-            new UnauthenticatedError("identity.session.missing", ("year", 2026)),
-            new UnavailableError("geo.provider.down", ("year", 2026)),
+            new ConflictError("test.item.duplicate", ("year", 2026)),
+            new ForbiddenError("test.session.forbidden", ("year", 2026)),
+            new NotFoundError("test.item.not_found", ("year", 2026)),
+            new PreconditionFailedError("test.item.stale", ("year", 2026)),
+            new UnauthenticatedError("test.session.missing", ("year", 2026)),
+            new UnavailableError("test.provider.down", ("year", 2026)),
         ];
 
         // Assert
@@ -29,8 +29,8 @@ public sealed class ErrorKindsTests
                 ]);
             await Assert.That(errors.Select(e => e.Code)).IsEquivalentTo(
                 [
-                    "geo.holiday.duplicate", "identity.session.forbidden", "geo.holiday.not_found",
-                    "geo.holiday.stale", "identity.session.missing", "geo.provider.down",
+                    "test.item.duplicate", "test.session.forbidden", "test.item.not_found",
+                    "test.item.stale", "test.session.missing", "test.provider.down",
                 ]);
             await Assert.That(errors.All(e => (int)e.Parameters["year"]! == 2026)).IsTrue();
         }
@@ -40,11 +40,11 @@ public sealed class ErrorKindsTests
     public async Task Errors_with_the_same_sequence_parameters_are_equal_and_a_different_element_or_length_breaks_it()
     {
         // Arrange
-        var left = new ConflictError("geo.holiday.duplicate", ("days", new[] { 1, 2 }), ("note", null));
-        var same = new ConflictError("geo.holiday.duplicate", ("days", new[] { 1, 2 }), ("note", null));
-        var otherElement = new ConflictError("geo.holiday.duplicate", ("days", new[] { 1, 3 }), ("note", null));
-        var otherLength = new ConflictError("geo.holiday.duplicate", ("days", new[] { 1, 2, 3 }), ("note", null));
-        var otherKind = new NotFoundError("geo.holiday.duplicate", ("days", new[] { 1, 2 }), ("note", null));
+        var left = new ConflictError("test.item.duplicate", ("days", new[] { 1, 2 }), ("note", null));
+        var same = new ConflictError("test.item.duplicate", ("days", new[] { 1, 2 }), ("note", null));
+        var otherElement = new ConflictError("test.item.duplicate", ("days", new[] { 1, 3 }), ("note", null));
+        var otherLength = new ConflictError("test.item.duplicate", ("days", new[] { 1, 2, 3 }), ("note", null));
+        var otherKind = new NotFoundError("test.item.duplicate", ("days", new[] { 1, 2 }), ("note", null));
 
         // Assert
         using (Assert.Multiple())
@@ -62,7 +62,7 @@ public sealed class ErrorKindsTests
     {
         // Arrange
         Result<string?> success = (string?)null;
-        Result<string?> failure = new NotFoundError("geo.holiday.not_found");
+        Result<string?> failure = new NotFoundError("test.item.not_found");
 
         // Act
         var successFlag = success.IsSuccess;

@@ -27,11 +27,16 @@ through `scripts/gate/test-class.sh <Class>`. The steps below are what the scrip
      `whitespace` alone misses an IMPORTS failure);
    - `dotnet ef migrations has-pending-model-changes` per changed module, and `just db schema` when a migration changed (the committed `**/schema.sql`
      is checked by CI);
-   - typos on the changed files (`uvx --from typos==1.52.0 typos --config eng/typos.toml <files>`);
+   - typos on the changed files (`uvx --from typos==1.52.0 typos --config eng/typos.toml --force-exclude <files>`);
+   - `node .github/scripts/line-length.mjs` (150 characters per line);
    - squawk on new migrations (`references`: forge/lessons/migrations);
    - `dotnet test --project <p> --no-build` for every test project that covers a changed project (`tests/Frappe.Architecture.Tests` always; Platform
      when `src/Platform` changed). Test projects run side by side safely: each starts its own containers on random ports.
 3. On a failure: fix, rerun only the failing project (or class), then rerun only what the fix could affect. Do not rerun the whole gate.
+
+Before committing, `scripts/gate/coverage.sh [<base>] [<label>]` measures changed-line coverage against the base (diff-cover, 80%, as CI does). It
+  runs every
+test project: run it once, not in the inner loop.
 
 ## Who runs what
 
