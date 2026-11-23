@@ -12,56 +12,67 @@
 - CON-10 · Every contract change updates OpenAPI and Bruno in the same change
 
 ### CON-01 · Contracts are generated, committed under `contracts/`, updated with `just contracts update`
-- **Rule:** The OpenAPI document lives at `contracts/openapi/v1.json` and the events contract at `contracts/events/v1.json`; both are generated from code, committed, and refreshed only with `just contracts update`. Never edit them by hand.
+- **Rule:** The OpenAPI document lives at `contracts/openapi/v1.json` and the events contract at `contracts/events/v1.json`; both are generated from
+  code, committed, and refreshed only with `just contracts update`. Never edit them by hand.
 - **Why:** the committed file is what clients and the breaking-change check read; a hand edit diverges from the running API.
 - **Enforced by:** OpenApiContractTests + IntegrationEventContractTests (fail when the generated document differs from the committed one).
 - **Good:** change an endpoint, run `just contracts update`, commit the diff. **Bad:** editing `v1.json` to make a test pass.
 - **Status:** in force.
 
 ### CON-02 · A breaking change found by oasdiff needs a `!` title
-- **Rule:** When oasdiff reports a breaking change in either contract, the PR title is `<type>(<scope>)!: ...` and the body states the migration for clients.
+- **Rule:** When oasdiff reports a breaking change in either contract, the PR title is `<type>(<scope>)!: ...` and the body states the migration for
+  clients.
 - **Why:** release-please and clients learn of breaks from the title, not from reading diffs.
 - **Enforced by:** Compatibility workflow (`compatibility.yml`, `breaking-changes.sh`).
 - **Good:** `feat(geo)!: serve observance kind as {code, name}`. **Bad:** `feat(geo): change kind shape`.
 - **Status:** in force.
 
 ### CON-03 · Open enumerations use `x-extensible-enum`
-- **Rule:** An enumeration that may gain values is declared with `x-extensible-enum`, never `enum`; clients fall back on the HTTP status (or a generic label) for an unknown value.
+- **Rule:** An enumeration that may gain values is declared with `x-extensible-enum`, never `enum`; clients fall back on the HTTP status (or a generic
+  label) for an unknown value.
 - **Why:** adding a value to a closed `enum` is a breaking change for generated clients.
 - **Enforced by:** oasdiff (Compatibility workflow) + `ProblemDocumentation` transformer.
 - **Good:** error codes and categories as `x-extensible-enum`. **Bad:** `"enum": ["holiday", ...]` for a growing set.
 - **Status:** in force.
 
 ### CON-04 · Event payloads only grow with optional fields
-- **Rule:** An integration event's payload changes only by adding optional fields; any other change is a new type with the next `.vN`. Same rule as EVT-02 and ARCH-07.
+- **Rule:** An integration event's payload changes only by adding optional fields; any other change is a new type with the next `.vN`. Same rule as
+  EVT-02 and ARCH-07.
 - **Why:** consumers deployed before the change keep reading old and new messages.
 - **Enforced by:** IntegrationEventContractTests + oasdiff over `contracts/events/v1.json`.
-- **Good:** `HolidaysChanged.Scope` added as `string?` with "absent in events published before it existed". **Bad:** renaming `Jurisdiction` in `frappe.geo.holidays_changed.v1`.
+- **Good:** `HolidaysChanged.Scope` added as `string?` with "absent in events published before it existed". **Bad:** renaming `Jurisdiction` in
+  `frappe.geo.holidays_changed.v1`.
 - **Status:** in force.
 
 ### CON-05 · Every integration event has a stable `frappe.<module>.<fact>.v<N>` type
-- **Rule:** Each integration event carries `[IntegrationEvent("frappe.<module>.<fact>.v<N>")]`, fact in snake_case past tense, declared in `Frappe.<Module>.Contracts`; the type never changes. Same rule as EVT-01 and ARCH-08.
+- **Rule:** Each integration event carries `[IntegrationEvent("frappe.<module>.<fact>.v<N>")]`, fact in snake_case past tense, declared in
+  `Frappe.<Module>.Contracts`; the type never changes. Same rule as EVT-01 and ARCH-08.
 - **Why:** the type is the routing key, the subject and the contract id.
 - **Enforced by:** IntegrationEventContractTests.
 - **Good:** `[IntegrationEvent("frappe.geo.holidays_changed.v1")]`. **Bad:** `"geo.HolidaysChanged"`; a type without version.
 - **Status:** in force.
 
 ### CON-06 · OpenAPI declares every Problem and header the API sends
-- **Rule:** The document declares a Problem on every 4xx/5xx, the shared 500, 503 and 415, 403 `http.origin.forbidden` on unsafe operations, and the headers `Content-Language`, `Retry-After`, `WWW-Authenticate`, `ETag`, `Location`, `Cache-Control` where sent.
+- **Rule:** The document declares a Problem on every 4xx/5xx, the shared 500, 503 and 415, 403 `http.origin.forbidden` on unsafe operations, and the
+  headers `Content-Language`, `Retry-After`, `WWW-Authenticate`, `ETag`, `Location`, `Cache-Control` where sent.
 - **Why:** a client generated from the document must handle every answer the API can give.
 - **Enforced by:** OpenAPI transformers (`ProblemDocumentation`, Location, caching) + OpenApiContractTests.
-- **Good:** `.ProducesProblem(StatusCodes.Status412PreconditionFailed).ReadsIfMatch()`. **Bad:** an endpoint that returns 409 not declared in the document.
+- **Good:** `.ProducesProblem(StatusCodes.Status412PreconditionFailed).ReadsIfMatch()`. **Bad:** an endpoint that returns 409 not declared in the
+  document.
 - **Status:** in force.
 
 ### CON-07 · Bruno covers every endpoint and runs in CI
-- **Rule:** `tools/bruno` holds a request for every endpoint and its main errors, asserting status, Problem `type` and error `code`; an Identity folder authenticates with bearer; the collection runs in the e2e CI job; no secrets in it.
+- **Rule:** `tools/bruno` holds a request for every endpoint and its main errors, asserting status, Problem `type` and error `code`; an Identity
+  folder authenticates with bearer; the collection runs in the e2e CI job; no secrets in it.
 - **Why:** an executable, reviewed tour of the API that fails when behavior drifts.
 - **Enforced by:** Bruno CLI (`@usebruno/cli run --env Stack`) in the e2e job of `.github/workflows/tests.yml`.
-- **Good:** `geo/get-country-unknown.yml` asserting `404` and `geo.country.not_found`. **Bad:** an endpoint without a request; a request that asserts only the status.
+- **Good:** `geo/get-country-unknown.yml` asserting `404` and `geo.country.not_found`. **Bad:** an endpoint without a request; a request that asserts
+  only the status.
 - **Status:** in force.
 
 ### CON-08 · Spectral lints the OpenAPI document
-- **Rule:** `eng/spectral.yaml` lints `contracts/openapi/v1.json` in CI for HTTP-04, HTTP-07, HTTP-15 and HTTP-17; a Spectral finding blocks the PR like a failing test. Spectral must support OpenAPI 3.2 (the document's version) before it gates.
+- **Rule:** `eng/spectral.yaml` lints `contracts/openapi/v1.json` in CI for HTTP-04, HTTP-07, HTTP-15 and HTTP-17; a Spectral finding blocks the PR
+  like a failing test. Spectral must support OpenAPI 3.2 (the document's version) before it gates.
 - **Why:** naming and documentation rules are mechanical; reviewers should not check them by eye.
 - **Enforced by:** Spectral (planned).
 - **Good:** CI fails on an operation without `summary`. **Bad:** a reviewer comment "missing description".
@@ -71,11 +82,13 @@
 - **Rule:** The contract-generation tests live in a host-level test project that composes every module, never in one module's test project.
 - **Why:** the OpenAPI document spans every module; generating it from Geo's tests couples the whole contract to one module.
 - **Enforced by:** review.
-- **Good:** `just contracts update` runs a host-level suite. **Bad:** `dotnet test --project tests/Modules/<M>/Frappe.<M>.IntegrationTests` generating another module's routes.
+- **Good:** `just contracts update` runs a host-level suite. **Bad:** `dotnet test --project tests/Modules/<M>/Frappe.<M>.IntegrationTests` generating
+  another module's routes.
 - **Status:** in force.
 
 ### CON-10 · Every contract change updates OpenAPI and Bruno in the same change
-- **Rule:** A change to a route, request, response, error code or event updates the committed contract (CON-01) and the Bruno collection (CON-07) in the same PR.
+- **Rule:** A change to a route, request, response, error code or event updates the committed contract (CON-01) and the Bruno collection (CON-07) in
+  the same PR.
 - **Why:** a contract that lags behind the code misleads clients; a stale Bruno request hides regressions.
 - **Enforced by:** OpenApiContractTests + IntegrationEventContractTests (contracts); review (Bruno).
 - **Good:** new route + `v1.json` diff + `tools/bruno/.../<route>.yml` in one PR. **Bad:** "Bruno in a follow-up".

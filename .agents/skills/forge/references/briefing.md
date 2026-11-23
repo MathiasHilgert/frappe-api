@@ -17,7 +17,8 @@ The reader is a tech lead with five features open and no time. They read this on
 
 **What we build.** 2–4 bullets, each one capability a user or an operator gets.
 
-**How.** The approach in 2–3 bullets: which module owns it, which layer each rule lives in, the patterns used (and why that one, in a few words): e.g. "integration event, so Billing never waits on Identity".
+**How.** The approach in 2–3 bullets: which module owns it, which layer each rule lives in, the patterns used (and why that one, in a few words): e.g.
+"integration event, so Billing never waits on Identity".
 
 **Data.** Tables or columns added or changed, how they grow, the one migration risk.
 
@@ -29,4 +30,5 @@ The reader is a tech lead with five features open and no time. They read this on
 
 **Risks and what we leave out.** The riskiest part and how it is contained; what is explicitly out of this change.
 
-**Plan.** Tasks and waves in one line each ("2 tasks in parallel, then 1"), the PRs and their order when the budget splits the work, the depth of review and whether QA runs. ODD document: `odd/tasks/<feature>.md`.
+**Plan.** Tasks and waves in one line each ("2 tasks in parallel, then 1"), the PRs and their order when the budget splits the work, the depth of
+review and whether QA runs. ODD document: `odd/tasks/<feature>.md`.

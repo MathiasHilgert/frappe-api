@@ -9,24 +9,32 @@ metadata:
 
 ## Activation Contract
 
-Load when the user types `/forge` or asks to take a change from idea to merged PR in this repo. The session becomes the orchestrator; it writes no product code itself.
+Load when the user types `/forge` or asks to take a change from idea to merged PR in this repo. The session becomes the orchestrator; it writes no
+product code itself.
 
 ## Hard Rules
 
-1. Classify the change; grill only the mandatory blocks its kinds trigger, one question at a time, never what the code answers (`references/grill.md`).
+1. Classify the change; grill only the mandatory blocks its kinds trigger, one question at a time, never what the code answers
+   (`references/grill.md`).
 2. Think in the modular monolith: each rule in its hexagonal layer, modules talking only through events, contracts ports or projections.
 3. No writer before verbatim specs, a passed design review and the user's go.
 4. Design review first: `critic-dx` (routes), `critic-architecture` (code), `critic-data` (schema).
 5. A public contract change carries its docs: `just contracts update` and `tools/bruno/`.
-6. Depth follows the task profile and its kinds; critics are chosen by the three-layer selector (plan kinds, diff content, critic metrics), never all at once; never run critics or QA it does not call for.
+6. Depth follows the task profile and its kinds; critics are chosen by the three-layer selector (plan kinds, diff content, critic metrics), never all
+   at once; never run critics or QA it does not call for.
 7. Implementation, review and QA run only through `assets/forge.workflow.js`.
-8. The orchestrator owns git (worktrees, PRs, merges). Only exception: in a chain each writer commits its own slice, and corrections land as `fixup!` commits that the orchestrator folds in before opening PRs.
+8. The orchestrator owns git (worktrees, PRs, merges). Only exception: in a chain each writer commits its own slice, and corrections land as `fixup!`
+   commits that the orchestrator folds in before opening PRs.
 9. CodeGraph for every structural question, initialized in each worktree.
-10. You are the only one who talks to the user: each agent decision request becomes one `AskUserQuestion` (`references/communication.md`); never forward raw reports.
+10. You are the only one who talks to the user: each agent decision request becomes one `AskUserQuestion` (`references/communication.md`); never
+    forward raw reports.
 11. Engram at every stage, project `frappe-api` only (`references/memory.md`); MCP, else CLI, else ask.
 12. Show the TL briefing (`references/briefing.md`) before asking for go.
-13. Verify fast (`references/verification.md`): filtered tests while writing, one parallel final gate; never idle on CI, prepare the next PR meanwhile. Challenge the request when its value or impact is poor; the user decides.
-14. Code rules live in frappe-conventions (`.agents/skills/frappe-conventions/SKILL.md`), never here: agents load only the rule files their task or diff needs and cite rule ids. Surviving convention proposals (`conventions[]` in the Workflow result) reach the user as decision cards: keep the rule, add an exception (marked in code), or change the rule (you edit the card).
+13. Verify fast (`references/verification.md`): filtered tests while writing, one parallel final gate; never idle on CI, prepare the next PR
+    meanwhile. Challenge the request when its value or impact is poor; the user decides.
+14. Code rules live in frappe-conventions (`.agents/skills/frappe-conventions/SKILL.md`), never here: agents load only the rule files their task or
+    diff needs and cite rule ids. Surviving convention proposals (`conventions[]` in the Workflow result) reach the user as decision cards: keep the
+    rule, add an exception (marked in code), or change the rule (you edit the card).
 
 ## Decision Gates
 
@@ -48,17 +56,24 @@ Load when the user types `/forge` or asks to take a change from idea to merged P
 
 0. **Recall** from Engram (`references/memory.md`): lessons, and the feature's mirror and decisions when resuming.
 1. **Classify and grill** (`references/grill.md`) until every mandatory block is answered.
-2. **Design review and plan** (`references/plan.md`): write `odd/tasks/<feature>.md`, run the design critics, fix the design, set each task's profile, contract and QA flags, split into waves and PRs within the budget; show the TL briefing (`references/briefing.md`); wait for go.
-3. **Prepare**: per chain (or per wave task) `git worktree add ../frappe-api-worktrees/<slug> -b <type>/<slug> origin/main`, then `gentle-ai codegraph init --cwd <worktree>`.
-4. **Launch** `Workflow({ scriptPath: "<repo>/.agents/skills/forge/assets/forge.workflow.js", args })` with `deferQa: true`, `kinds` on every task, and `lensStats` and `suppressions` from Engram (`references/plan.md`). Critics review blind (specs and code, never the writer's story), list what they ruled out, and a critic that fails is retried once and never counts as zero findings. End the turn; resume on its notification. Roles you launch yourself (design review) use their definition files (`references/plan.md`).
-5. **Read** the result; update the ODD document per task (profile, critics run and skipped, verdict, fix review, QA); keep `criticStats` for the retro; relay questions or decisions.
+2. **Design review and plan** (`references/plan.md`): write `odd/tasks/<feature>.md`, run the design critics, fix the design, set each task's profile,
+   contract and QA flags, split into waves and PRs within the budget; show the TL briefing (`references/briefing.md`); wait for go.
+3. **Prepare**: per chain (or per wave task) `git worktree add ../frappe-api-worktrees/<slug> -b <type>/<slug> origin/main`, then `gentle-ai codegraph
+   init --cwd <worktree>`.
+4. **Launch** `Workflow({ scriptPath: "<repo>/.agents/skills/forge/assets/forge.workflow.js", args })` with `deferQa: true`, `kinds` on every task,
+   and `lensStats` and `suppressions` from Engram (`references/plan.md`). Critics review blind (specs and code, never the writer's story), list what
+   they ruled out, and a critic that fails is retried once and never counts as zero findings. End the turn; resume on its notification. Roles you
+   launch yourself (design review) use their definition files (`references/plan.md`).
+5. **Read** the result; update the ODD document per task (profile, critics run and skipped, verdict, fix review, QA); keep `criticStats` for the
+   retro; relay questions or decisions.
 6. **Deliver** (`references/delivery.md`).
 7. **Retro** (`references/retro.md`): gather friction, fix forge or save lessons to Engram.
 8. **Report** (`references/report.md`): the story of what was built, in the chat (a page only when asked).
 
 ## Output Contract
 
-After each phase, report in the user's language: what was decided or produced, the ODD document path, what was skipped and why, open question (one), next step. After delivery: PRs, merges, follow-ups.
+After each phase, report in the user's language: what was decided or produced, the ODD document path, what was skipped and why, open question (one),
+next step. After delivery: PRs, merges, follow-ups.
 
 ## References
 
@@ -72,8 +87,10 @@ After each phase, report in the user's language: what was decided or produced, t
 - `references/pitfalls.md` — known tool pitfalls every writer reads first
 - `scripts/review/signals.py` — content signals per lens for the critic selector (tests: `scripts/review/selector.test.mjs`)
 - `scripts/metrics/run_timings.py` — minutes, turns and tokens per phase and per agent of one Workflow run (from its transcript)
-- `scripts/hooks/writer_guard.py` — forge-writer hook: denies whole-file rewrites of tracked files (Write tool, `>`, `tee`, Python `open(..., 'w')`), trims unpiped dotnet/just output (`run_trimmed.sh`); tests: `writer_guard.test.sh`
-- `scripts/gate/gate.sh` — the writer's final gate in one call (build once, checks and affected test apps in parallel, `--rerun` only what failed); `scripts/gate/test-class.sh` — one test class under a 110 s timeout; `scripts/gate/affected.py` — test apps a change can break
+- `scripts/hooks/writer_guard.py` — forge-writer hook: denies whole-file rewrites of tracked files (Write tool, `>`, `tee`, Python `open(..., 'w')`),
+  trims unpiped dotnet/just output (`run_trimmed.sh`); tests: `writer_guard.test.sh`
+- `scripts/gate/gate.sh` — the writer's final gate in one call (build once, checks and affected test apps in parallel, `--rerun` only what failed);
+  `scripts/gate/test-class.sh` — one test class under a 110 s timeout; `scripts/gate/affected.py` — test apps a change can break
 - `scripts/metrics/followup_fixes.py` — outcome metric: share of changes that needed a `Fixes:` follow-up within 60 days
 - `scripts/review/workflow.test.mjs` — behavior tests of the review stage against a fake agent
 - `scripts/codemods/run.sh` — deterministic fixes run before a mechanical writer

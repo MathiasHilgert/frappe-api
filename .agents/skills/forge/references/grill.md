@@ -4,12 +4,17 @@ Goal: leave the interview with specs a stranger could implement and a user who h
 
 ## Rules
 - Module planning: ask every decision of the module before go, never mid-run.
-- One decision per question, with your recommended answer and the reason in one line. Up to four independent questions may go in one `AskUserQuestion` call; a question whose options depend on an earlier answer waits for that answer. Then stop.
-- Look before asking: CodeGraph, the frappe-conventions rules (`.agents/skills/frappe-conventions/SKILL.md`), `contracts/openapi/v1.json`, `contracts/events/v1.json`, `Directory.Packages.props`, the design docs repo (`gh api repos/MathiasHilgert/frappe-docs/contents/<path>`, never clone). Ask only what the code and docs cannot answer; when you looked, say what you found.
+- One decision per question, with your recommended answer and the reason in one line. Up to four independent questions may go in one `AskUserQuestion`
+  call; a question whose options depend on an earlier answer waits for that answer. Then stop.
+- Look before asking: CodeGraph, the frappe-conventions rules (`.agents/skills/frappe-conventions/SKILL.md`), `contracts/openapi/v1.json`,
+  `contracts/events/v1.json`, `Directory.Packages.props`, the design docs repo (`gh api repos/MathiasHilgert/frappe-docs/contents/<path>`, never
+  clone). Ask only what the code and docs cannot answer; when you looked, say what you found.
 - Challenge the use case: who needs it, what happens if we do not build it, the smallest version that delivers it, what breaks for existing clients.
 - Push back when an answer contradicts the repo's conventions or a design doc; cite `file:line`.
 - Decisions are the user's; facts are yours to verify. Never ask the user to confirm a fact you can check.
-- **Challenge.** Before going deep, judge the idea itself: what it costs, what it breaks or complicates in existing behavior, whether a smaller or different change gets the same outcome, whether it is worth doing at all. When it is not, say it plainly with a decision card ("no lo haría, porque…" with the alternative). The user decides; once they insist, build what they asked, well.
+- **Challenge.** Before going deep, judge the idea itself: what it costs, what it breaks or complicates in existing behavior, whether a smaller or
+  different change gets the same outcome, whether it is worth doing at all. When it is not, say it plainly with a decision card ("no lo haría,
+  porque…" with the alternative). The user decides; once they insist, build what they asked, well.
 
 ## 1. Classify the change first (decides which blocks are mandatory)
 Infer it from the request and confirm in one question only if unclear.
@@ -47,4 +52,5 @@ A change can have several kinds; ask every block they trigger.
 Never ask a block that is not mandatory for the kinds in play (no metrics questions for a docs change).
 
 ## Exit
-Stop when every mandatory block has an answer or an explicit "not in this change". Summarize decisions in a table (block → decision) and ask for go. The kinds you classified travel with each task as `kinds` (`references/plan.md`): they decide which critics are mandatory.
+Stop when every mandatory block has an answer or an explicit "not in this change". Summarize decisions in a table (block → decision) and ask for go.
+The kinds you classified travel with each task as `kinds` (`references/plan.md`): they decide which critics are mandatory.

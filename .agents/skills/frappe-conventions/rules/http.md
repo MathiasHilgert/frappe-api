@@ -30,21 +30,30 @@
 - HTTP-28 · Slow work answers 202 + Location when the client must follow it
 
 ### HTTP-01 · Public routes live under `/v1` in the shared group
-- **Rule:** Map every public route inside the `/v1` group built in `ApiComposition`, which sets CORS, HEAD, language negotiation, rate limiting and the declared 429.
+- **Rule:** Map every public route inside the `/v1` group built in `ApiComposition`, which sets CORS, HEAD, language negotiation, rate limiting and
+  the declared 429.
 - **Why:** a route outside the group silently loses rate limiting, CORS and language handling.
 - **Enforced by:** HttpConventionsTests.
 - **Good:** `var v1 = app.MapGroup("/v1")...; v1.MapGeoEndpoints();` **Bad:** `app.MapGet("/countries", ...)`.
 - **Status:** in force.
 
 ### HTTP-02 · Each module maps its own routes and OpenAPI tag; supporting areas keep a namespace, business resources are flat
-- **Rule:** A module exposes `Map<Module>Endpoints` in `<Module>Http.cs`, maps its own routes and sets one OpenAPI tag. The area decides, not the resource: a supporting module (a reference-data module like Geo, or one whose nouns are generic like Identity) keeps a module namespace (`/v1/geo`, `/v1/identity`); every resource of the business domain, its own catalogs included, is a flat plural noun at `/v1` (`/v1/businesses`, `/v1/business-types`). A collection's children are only its items; a catalog is a sibling collection (`/v1/business-types`, never `/v1/businesses/types`; AIP-122). No two modules own routes under the same first segment.
-- **Why:** hosts compose modules without knowing their routes; the document groups operations by module; a namespace disambiguates generic nouns (`/v1/identity/sessions`, like Stripe's `/v1/checkout/sessions`) while domain nouns are already unambiguous.
-- **Enforced by:** `RouteOwnershipTests` (Api integration tests: fails when two OpenAPI tags own routes under the same first segment after `/v1`) + review for the namespace-or-flat choice.
-- **Good:** `GeoHttp.MapGeoEndpoints(v1)` → `/v1/geo/...` tagged `Geo`; `BusinessesHttp.MapBusinessesEndpoints(v1)` → `/v1/business-types` tagged `Business`. **Bad:** a module adding routes to another module's group or first segment; `/v1/businesses/types`.
+- **Rule:** A module exposes `Map<Module>Endpoints` in `<Module>Http.cs`, maps its own routes and sets one OpenAPI tag. The area decides, not the
+  resource: a supporting module (a reference-data module like Geo, or one whose nouns are generic like Identity) keeps a module namespace (`/v1/geo`,
+  `/v1/identity`); every resource of the business domain, its own catalogs included, is a flat plural noun at `/v1` (`/v1/businesses`,
+  `/v1/business-types`). A collection's children are only its items; a catalog is a sibling collection (`/v1/business-types`, never
+  `/v1/businesses/types`; AIP-122). No two modules own routes under the same first segment.
+- **Why:** hosts compose modules without knowing their routes; the document groups operations by module; a namespace disambiguates generic nouns
+  (`/v1/identity/sessions`, like Stripe's `/v1/checkout/sessions`) while domain nouns are already unambiguous.
+- **Enforced by:** `RouteOwnershipTests` (Api integration tests: fails when two OpenAPI tags own routes under the same first segment after `/v1`) +
+  review for the namespace-or-flat choice.
+- **Good:** `GeoHttp.MapGeoEndpoints(v1)` → `/v1/geo/...` tagged `Geo`; `BusinessesHttp.MapBusinessesEndpoints(v1)` → `/v1/business-types` tagged
+  `Business`. **Bad:** a module adding routes to another module's group or first segment; `/v1/businesses/types`.
 - **Status:** in force.
 
 ### HTTP-03 · One `<Feature>Endpoints` class per feature, one record per file
-- **Rule:** Put routes in `<Feature>/<Feature>Endpoints.cs`, an `internal static class` with `Map<Feature>Endpoints(RouteGroupBuilder)`; each request/response record in its own file.
+- **Rule:** Put routes in `<Feature>/<Feature>Endpoints.cs`, an `internal static class` with `Map<Feature>Endpoints(RouteGroupBuilder)`; each
+  request/response record in its own file.
 - **Why:** a feature's HTTP surface is found by name and reviewed in one place.
 - **Enforced by:** SA1402/SA1649 + review.
 - **Good:** `Territory/TerritoryEndpoints.cs`, `Territory/AreaListResponse.cs`. **Bad:** response records nested in the endpoints class.
@@ -65,10 +74,12 @@
 - **Status:** in force.
 
 ### HTTP-06 · Handlers answer `Results<TSuccess, ErrorsProblemHttpResult>` via `ToTypedHttpResult`
-- **Rule:** Endpoint delegates return `Results<TSuccess, ErrorsProblemHttpResult>` built with `ToTypedHttpResult`; `ResultHttpExtensions` is the only place that maps errors to status codes.
+- **Rule:** Endpoint delegates return `Results<TSuccess, ErrorsProblemHttpResult>` built with `ToTypedHttpResult`; `ResultHttpExtensions` is the only
+  place that maps errors to status codes.
 - **Why:** one mapper keeps status codes, precedence and Problem shape identical across modules.
 - **Enforced by:** LayeringTests + ProblemDetailsMappingTests.
-- **Good:** `(await handler.HandleAsync(q, ct)).ToTypedHttpResult(v => TypedResults.Ok(ToResponse(v)))`. **Bad:** `if (r.IsFailure) return Results.NotFound();`.
+- **Good:** `(await handler.HandleAsync(q, ct)).ToTypedHttpResult(v => TypedResults.Ok(ToResponse(v)))`. **Bad:** `if (r.IsFailure) return
+  Results.NotFound();`.
 - **Status:** in force.
 
 ### HTTP-07 · kebab-case plural nouns; actions as sub-resources
@@ -79,38 +90,46 @@
 - **Status:** in force.
 
 ### HTTP-08 · Caller-scoped routes under `/me` or `/sessions/current`
-- **Rule:** Routes about the caller live under `/me` or `/sessions/current`; principal and session ids come from the authenticated request, never from the URL.
+- **Rule:** Routes about the caller live under `/me` or `/sessions/current`; principal and session ids come from the authenticated request, never from
+  the URL.
 - **Why:** an id in the URL invites one caller to address another's data.
 - **Enforced by:** review.
 - **Good:** `PATCH /v1/identity/me`. **Bad:** `PATCH /v1/identity/owners/{ownerId}` for the caller's own profile.
 - **Status:** in force.
 
 ### HTTP-09 · Status codes per verb: 201/202 + Location, 204, 200 PATCH
-- **Rule:** Creation answers 201 + Location; accepted async work 202 (see HTTP-28); no body 204; PATCH 200 with the whole resource. Use `WithoutLocation()` when a 201 has no addressable resource.
+- **Rule:** Creation answers 201 + Location; accepted async work 202 (see HTTP-28); no body 204; PATCH 200 with the whole resource. Use
+  `WithoutLocation()` when a 201 has no addressable resource.
 - **Why:** clients follow standard semantics without reading prose.
 - **Enforced by:** OpenAPI Location transformer + review.
 - **Good:** `TypedResults.Created(links.GetPathByName(...), body)`. **Bad:** `200 OK` for a creation.
 - **Status:** in force.
 
 ### HTTP-10 · PATCH is JSON Merge Patch only, all or nothing
-- **Rule:** PATCH accepts only `application/merge-patch+json` (else 415 with `Accept-Patch`); unknown or duplicate members are 400; every member is validated before anything changes.
+- **Rule:** PATCH accepts only `application/merge-patch+json` (else 415 with `Accept-Patch`); unknown or duplicate members are 400; every member is
+  validated before anything changes.
 - **Why:** one patch format; partial writes would leave the resource half-changed.
 - **Enforced by:** HttpConventionsTests + MePatchEndpointTests.
 - **Good:** `.Accepts<MeMergePatch>(MergePatch.MediaType).AdvertisesMergePatch()`. **Bad:** accepting `application/json` on PATCH.
 - **Status:** in force.
 
 ### HTTP-11 · Optional `If-Match` with strong ETag; never 428
-- **Rule:** Resources a client edits send a strong ETag; `If-Match` is optional, a mismatch answers 412 `precondition-failed`; never require it with 428.
+- **Rule:** Resources a client edits send a strong ETag; `If-Match` is optional, a mismatch answers 412 `precondition-failed`; never require it with
+  428.
 - **Why:** lost-update protection without breaking clients that do not send it.
 - **Enforced by:** MePatchEndpointTests.
 - **Good:** `.SendsETag()` on GET, `.ReadsIfMatch()` on PATCH. **Bad:** a weak ETag or 428 when `If-Match` is missing.
 - **Status:** in force.
 
 ### HTTP-12 · Every endpoint declares `CacheFor` or `NoStore`
-- **Rule:** Each endpoint states `CacheFor(lifetime)` or `NoStore()`; personal, administrative and Identity answers are `no-store`; errors, 429 and health are never cached. A `no-store` answer may still carry an opaque strong `ETag` (not a cache validator, no 304): compute it with `RepresentationTag.Of` over the bytes sent and declare it with `SendsNoStoreETag`; a domain version used for `If-Match` (Identity's profile) stays the module's own concept.
+- **Rule:** Each endpoint states `CacheFor(lifetime)` or `NoStore()`; personal, administrative and Identity answers are `no-store`; errors, 429 and
+  health are never cached. A `no-store` answer may still carry an opaque strong `ETag` (not a cache validator, no 304): compute it with
+  `RepresentationTag.Of` over the bytes sent and declare it with `SendsNoStoreETag`; a domain version used for `If-Match` (Identity's profile) stays
+  the module's own concept.
 - **Why:** an undeclared endpoint gets whatever a proxy guesses, including personal data.
 - **Enforced by:** HttpConventionsTests + OpenAPI caching transformer.
-- **Good:** `.CacheFor(CacheLifetimes.ReferenceData)`; `.NoStore()` on address suggestions; `GET /v1/businesses/{id}` with `NoStore()` + `RepresentationTag`. **Bad:** neither; a module copy of the tag recipe.
+- **Good:** `.CacheFor(CacheLifetimes.ReferenceData)`; `.NoStore()` on address suggestions; `GET /v1/businesses/{id}` with `NoStore()` +
+  `RepresentationTag`. **Bad:** neither; a module copy of the tag recipe.
 - **Status:** in force.
 
 ### HTTP-13 · Every GET answers HEAD
@@ -121,10 +140,12 @@
 - **Status:** in force.
 
 ### HTTP-14 · Every list that can grow pages with platform `Page<T>`
-- **Rule:** A list whose size is not fixed by nature pages with `Page<T>` from `Frappe.Http`: `cursor`, `limit` 1–200 default 50, body `{<plural>: [...], nextCursor}` with `nextCursor` absent on the last page; errors `platform.page_limit.*` and `platform.page_cursor.invalid`.
+- **Rule:** A list whose size is not fixed by nature pages with `Page<T>` from `Frappe.Http`: `cursor`, `limit` 1–200 default 50, body `{<plural>:
+  [...], nextCursor}` with `nextCursor` absent on the last page; errors `platform.page_limit.*` and `platform.page_cursor.invalid`.
 - **Why:** an unpaged list that grows becomes a slow, unbounded answer; one shape and one set of codes for every client.
 - **Enforced by:** review.
-- **Good:** `GET .../localities?limit=50&cursor=...` → `{"localities":[...],"nextCursor":"..."}`. **Bad:** `{"runs":[...]}` with every sync run; `geo.page_limit.invalid`.
+- **Good:** `GET .../localities?limit=50&cursor=...` → `{"localities":[...],"nextCursor":"..."}`. **Bad:** `{"runs":[...]}` with every sync run;
+  `geo.page_limit.invalid`.
 - **Embedded collections:** a collection embedded in its parent's answer is bounded by a per-parent cap, never paged.
 - **Status:** in force.
 
@@ -140,7 +161,8 @@
 - **Why:** framework binding failures answer untranslated 400s outside the error catalog.
 - **Enforced by:** review.
 - **Good:** `[DocumentedParameter("1 to 200")] string? limit`. **Bad:** `int limit` bound by ASP.NET.
-- **Platform parameters:** platform families (`limit`, `cursor`) are bound at the endpoint by `Frappe.Http` (`PageRequest.Bind`) with translated `platform.page_*` errors; the query receives typed values.
+- **Platform parameters:** platform families (`limit`, `cursor`) are bound at the endpoint by `Frappe.Http` (`PageRequest.Bind`) with translated
+  `platform.page_*` errors; the query receives typed values.
 - **Status:** in force.
 
 ### HTTP-17 · camelCase JSON, strict numbers, snake_case codes
@@ -151,28 +173,32 @@
 - **Status:** in force.
 
 ### HTTP-18 · Errors are RFC 9457 Problems with `urn:frappe:problem:<slug>`
-- **Rule:** Every error is a Problem with `type = urn:frappe:problem:<category>`, `errors[]` of `{code, parameters, message}`, `instance` and `traceId`.
+- **Rule:** Every error is a Problem with `type = urn:frappe:problem:<category>`, `errors[]` of `{code, parameters, message}`, `instance` and
+  `traceId`.
 - **Why:** clients branch on `type` and `code`, never on prose.
 - **Enforced by:** ProblemDetailsMappingTests.
 - **Good:** `{"type":"urn:frappe:problem:not-found","errors":[{"code":"geo.country.not_found",...}]}`. **Bad:** `{"error":"Not found"}`.
 - **Status:** in force.
 
 ### HTTP-19 · Error codes `<module>.<subject>.<reason>`, texts per language
-- **Rule:** Codes are snake_case `<module>.<subject>.<reason>`, constants in `<Module>ErrorCodes`, texts in `Resources/Messages/<lang>.json` (every code has `en`), limits in `parameters`.
+- **Rule:** Codes are snake_case `<module>.<subject>.<reason>`, constants in `<Module>ErrorCodes`, texts in `Resources/Messages/<lang>.json` (every
+  code has `en`), limits in `parameters`.
 - **Why:** codes are a contract; texts change without breaking clients.
 - **Enforced by:** ProblemDetailsMappingTests + review.
 - **Good:** `GeoErrorCodes.CountryNotFound = "geo.country.not_found"`. **Bad:** a code built inline or a limit baked into the message.
 - **Status:** in force.
 
 ### HTTP-20 · One fixed category precedence decides the status
-- **Rule:** When errors of several categories occur, the status follows: unavailable > too-many-requests > unauthenticated > not-found > forbidden > conflict > rule > invalid > precondition-failed; a malformed request stays 400 even with a dependency down.
+- **Rule:** When errors of several categories occur, the status follows: unavailable > too-many-requests > unauthenticated > not-found > forbidden >
+  conflict > rule > invalid > precondition-failed; a malformed request stays 400 even with a dependency down.
 - **Why:** the answer never depends on the order errors were collected and never leaks more than the caller may know.
 - **Enforced by:** ProblemDetailsMappingTests.
 - **Good:** `ResultHttpExtensions.ShapeOf`. **Bad:** an endpoint picking the status of the first error.
 - **Status:** in force.
 
 ### HTTP-21 · 429/503 carry Retry-After; database outage is 503
-- **Rule:** 429 and 503 send `Retry-After` and `parameters.retryAfter` (503: 30 s); a database outage answers 503 `platform.database.unavailable`; a constraint refusal stays 500.
+- **Rule:** 429 and 503 send `Retry-After` and `parameters.retryAfter` (503: 30 s); a database outage answers 503 `platform.database.unavailable`; a
+  constraint refusal stays 500.
 - **Why:** clients back off correctly; a constraint refusal is a bug, not an outage.
 - **Enforced by:** DatabaseOutageTests.
 - **Good:** `503` + `Retry-After: 30`. **Bad:** 500 while Postgres is down.
@@ -186,7 +212,8 @@
 - **Status:** in force.
 
 ### HTTP-23 · Accept-Language negotiated; source data never translated
-- **Rule:** Negotiate `Accept-Language` among en, es, es-AR, es-MX, pt-BR with fallback; `Content-Language` names only Frappé's own texts; data served as a source wrote it is not translated.
+- **Rule:** Negotiate `Accept-Language` among en, es, es-AR, es-MX, pt-BR with fallback; `Content-Language` names only Frappé's own texts; data served
+  as a source wrote it is not translated.
 - **Why:** a translated proper noun or a wrong `Content-Language` misleads clients and caches.
 - **Enforced by:** HttpConventionsTests.
 - **Good:** `TerritoryEndpoints.ProperNouns`: no `Content-Language` for source names. **Bad:** translating a locality name.
@@ -200,18 +227,25 @@
 - **Status:** in force.
 
 ### HTTP-25 · Every enumerated value is `{code, name}`
-- **Rule:** Every enumerated value on the wire, technical or not, is `{code, name}`: `code` the stable snake_case string, `name` translated by `Accept-Language`. Lists of enumerated values are lists of `{code, name}`. A change to an existing field is breaking (`!`, CON-02).
+- **Rule:** Every enumerated value on the wire, technical or not, is `{code, name}`: `code` the stable snake_case string, `name` translated by
+  `Accept-Language`. Lists of enumerated values are lists of `{code, name}`. A change to an existing field is breaking (`!`, CON-02).
 - **Why:** clients show a translated label without a local table, and branch on the code.
 - **Enforced by:** review.
 - **Good:** `"kind": {"code": "holiday", "name": "Feriado"}`. **Bad:** `"kind": "holiday"`; `"currencies": ["ARS"]`.
-- **Message keys:** the translated `name` of a value comes from `Resources/Messages/<lang>.json` under `<module>.<field>.<code>`; open, country-declared sets (calendar scope, covers) stay bare codes and say so in the OpenAPI description. A language is the one value that names itself: `{code, name}` with `code` the BCP 47 tag and `name` its own native name (`{"code": "es-AR", "name": "español (Argentina)"}`, `{"code": "ja", "name": "日本語"}`), the same whatever `Accept-Language`, because a speaker recognizes their own language in a picker and no catalogue translates every language into every other; the OpenAPI description says so.
+- **Message keys:** the translated `name` of a value comes from `Resources/Messages/<lang>.json` under `<module>.<field>.<code>`; open,
+  country-declared sets (calendar scope, covers) stay bare codes and say so in the OpenAPI description. A language is the one value that names itself:
+  `{code, name}` with `code` the BCP 47 tag and `name` its own native name (`{"code": "es-AR", "name": "español (Argentina)"}`, `{"code": "ja",
+  "name": "日本語"}`), the same whatever `Accept-Language`, because a speaker recognizes their own language in a picker and no catalogue translates every
+  language into every other; the OpenAPI description says so.
 - **Status:** in force.
 
 ### HTTP-26 · Retryable creations accept `Idempotency-Key` (opt-in)
-- **Rule:** A creation command a client may retry enables the platform `Idempotency-Key` piece per endpoint: the first answer is stored 24 h and replayed for the same key; the header is documented in OpenAPI.
+- **Rule:** A creation command a client may retry enables the platform `Idempotency-Key` piece per endpoint: the first answer is stored 24 h and
+  replayed for the same key; the header is documented in OpenAPI.
 - **Why:** a retried POST after a timeout must not create twice.
 - **Enforced by:** review.
-- **Good:** `POST /v1/...` with `Idempotency-Key: 7f3c...` answered twice with the same 201 and Location. **Bad:** a client-side dedupe guess or a per-module idempotency table.
+- **Good:** `POST /v1/...` with `Idempotency-Key: 7f3c...` answered twice with the same 201 and Location. **Bad:** a client-side dedupe guess or a
+  per-module idempotency table.
 - **Status:** in force.
 
 ### HTTP-27 · HTTP `max-age` never exceeds the data's freshness
@@ -222,7 +256,8 @@
 - **Status:** in force.
 
 ### HTTP-28 · Slow work answers 202 + Location when the client must follow it
-- **Rule:** A request does only what its answer needs within the latency budget; slow, retryable or third-party work goes to the Worker by event or job. Answer 202 with `Location` where the client follows the work; a 202 the client must not follow (anti-enumeration, SEC-06) has no Location.
+- **Rule:** A request does only what its answer needs within the latency budget; slow, retryable or third-party work goes to the Worker by event or
+  job. Answer 202 with `Location` where the client follows the work; a 202 the client must not follow (anti-enumeration, SEC-06) has no Location.
 - **Why:** requests stay fast and predictable; clients get a resource to poll.
 - **Enforced by:** review.
 - **Good:** `POST /holiday-syncs/{sourceId}/runs` → 202, `Location: .../runs`. **Bad:** running the sync inside the request.
