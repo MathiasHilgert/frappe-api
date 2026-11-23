@@ -1,19 +1,25 @@
 #!/usr/bin/env bash
-# Usage (from the worktree root): gate.sh [--base <ref>] [--rerun]
+# Usage (from the worktree root): gate.sh [--base <ref>] [--rerun] [--coverage]
 # forge-writer's final gate in one call. Builds the solution once (errors only), then runs every independent check in
-# parallel, one log per step: format of the changed C# files, typos on the changed files, line length (150), squawk on changed migrations,
+# parallel, one log per step: format of the changed C# files, typos on the changed files, line length (150), Markdown lint of the changed
+# .md files (the CI's markdownlint-cli2 version and config), the branch's commit messages against the repository conventions, squawk on
+# changed migrations,
 # pending EF model changes of the touched modules, and every test app the change can break (affected.py). Prints one
 # line per step and, for a failure, its first relevant lines and log path. Exit 0 only when every step passed.
+#   --coverage  also run coverage.sh (changed-line coverage, CI's 80% bar): runs every test project, so use it once before the final
+#            commit when production code changed.
 #   --rerun  after fixing: rebuild, then rerun only the steps that failed last time plus the test apps affected by files
 #            changed since then. Never rerun the whole gate by hand.
 # State lives in the git dir (never tracked): <git-dir>/forge-gate/. Give the Bash call a 600000 ms timeout.
 set -uo pipefail
 base=origin/main
 rerun=false
+coverage=false
 while [ $# -gt 0 ]; do
   case "$1" in
     --base) base=$2; shift 2 ;;
     --rerun) rerun=true; shift ;;
+    --coverage) coverage=true; shift ;;
     *) echo "unknown argument $1"; exit 64 ;;
   esac
 done
@@ -45,6 +51,17 @@ if [ -f eng/typos.toml ] && command -v uvx >/dev/null && [ ${#changed[@]} -gt 0 
 fi
 if [ -f .github/scripts/line-length.mjs ] && command -v node >/dev/null; then
   cmd[line-length]="node .github/scripts/line-length.mjs"
+fi
+mapfile -t md < <(printf '%s\n' "${changed[@]}" | grep -E '\.md$' || true)
+if [ ${#md[@]} -gt 0 ] && [ -f eng/markdownlint-cli2.jsonc ] && command -v npx >/dev/null; then
+  # markdownlint-cli2 reads a config only from a file named *.markdownlint-cli2.jsonc; 0.24.0 is the version the CI action pins.
+  cmd[markdown]="cfg=\$(mktemp -d)/eng.markdownlint-cli2.jsonc && cp eng/markdownlint-cli2.jsonc \"\$cfg\" && npx -y markdownlint-cli2@0.24.0 --config \"\$cfg\" $(printf '%q ' "${md[@]}")"
+fi
+if [ -f .github/scripts/conventions.mjs ] && command -v node >/dev/null; then
+  cmd[commits]="node $(printf '%q' "$here/commits.mjs") $(printf '%q' "$base")"
+fi
+if $coverage; then
+  cmd[coverage]="$(printf '%q' "$here/coverage.sh") $(printf '%q' "$base")"
 fi
 if printf '%s\n' "${changed[@]}" | grep -q '/Migrations/' && [ -x .github/scripts/migration-sql.sh ] && [ -f eng/squawk.toml ]; then
   cmd[squawk]="out=\$(mktemp -d) && .github/scripts/migration-sql.sh $(printf '%q' "$base") \"\$out\" && npx -y squawk-cli@2.72.0 --config eng/squawk.toml \"\$out\"/*.sql"
