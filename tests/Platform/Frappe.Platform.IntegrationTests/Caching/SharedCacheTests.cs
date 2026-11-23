@@ -1,3 +1,4 @@
+using System.Diagnostics.Metrics;
 using Frappe.Caching;
 using Frappe.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -177,6 +178,49 @@ public sealed class SharedCacheTests(ValkeyServer server)
             await Assert.That(logged.Level).IsEqualTo(LogLevel.Warning);
             await Assert.That(logged.Message).Contains($"cache tag {Tag} failed");
             await Assert.That(logged.Exception).IsTypeOf<ObjectDisposedException>();
+        }
+    }
+
+    [Test]
+    public async Task A_failed_second_invalidation_is_counted()
+    {
+        // Arrange
+        var time = new FakeTimeProvider();
+        var failures = 0L;
+        string? unit = null;
+        string? description = null;
+        await using var replica = CachingHost.Build(
+            server.ConnectionString,
+            CachingHost.NewInstanceName(),
+            services => services.AddSingleton<TimeProvider>(time));
+        var meters = replica.GetRequiredService<IMeterFactory>();
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            // Only this replica's meter: other tests of the process fail invalidations of their own.
+            if (ReferenceEquals(instrument.Meter.Scope, meters) && instrument.Name == CachingMetrics.FailedMetric)
+            {
+                unit = instrument.Unit;
+                description = instrument.Description;
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((_, measurement, _, _) => Interlocked.Add(ref failures, measurement));
+        listener.Start();
+        var cache = replica.GetRequiredService<IFusionCache>();
+        await replica.GetRequiredService<CacheInvalidator>().InvalidateAsync(Tag, CancellationToken.None);
+        cache.Dispose();
+
+        // Act
+        time.Advance(CacheInvalidator.SecondInvalidationDelay);
+
+        // Assert
+        await WaitUntil.TrueAsync(() => Interlocked.Read(ref failures) > 0, "the failed invalidation was never counted");
+        using (Assert.Multiple())
+        {
+            await Assert.That(Interlocked.Read(ref failures)).IsEqualTo(1);
+            await Assert.That(unit).IsEqualTo("{invalidation}");
+            await Assert.That(description).IsEqualTo("Delayed cache invalidations that failed.");
         }
     }
 

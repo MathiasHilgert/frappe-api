@@ -25,8 +25,9 @@ public sealed class ConsoleOriginOptions
     public string? Origins { get; set; }
 
     /// <summary>
-    /// The valid entries, normalized as a browser sends them in <c>Origin</c> (lower case, no default port). Parsed once,
-    /// when the options are validated at startup, and again only if <see cref="Origins"/> changes.
+    /// The valid entries, normalized as a browser sends them in <c>Origin</c> (lower case, no default port). Parsed on
+    /// first use, and again only if <see cref="Origins"/> changes; the parsed set is published with one reference write,
+    /// so a concurrent reader sees either the old set or the new one, never a mix.
     /// </summary>
     public IReadOnlyList<string> Allowed() => Parsed().List;
 
@@ -37,21 +38,26 @@ public sealed class ConsoleOriginOptions
     /// </summary>
     public bool Allows(string? origin) => origin is not null && Parsed().Set.Contains(origin);
 
-    private (string? Source, string[] List, HashSet<string> Set)? _parsed;
+    private volatile ParsedOrigins? _parsed;
 
-    private (string? Source, string[] List, HashSet<string> Set) Parsed()
+    private ParsedOrigins Parsed()
     {
-        if (_parsed is { } parsed && string.Equals(parsed.Source, Origins, StringComparison.Ordinal))
+        var parsed = _parsed;
+        var source = Origins;
+        if (parsed is not null && string.Equals(parsed.Source, source, StringComparison.Ordinal))
         {
             return parsed;
         }
 
-        string[] list = [.. ListEntriesAttribute.Entries(Origins).Select(entry =>
+        string[] list = [.. ListEntriesAttribute.Entries(source).Select(entry =>
             TryNormalize(entry, out var origin) ? origin : null).OfType<string>().Distinct(StringComparer.Ordinal)];
-        var fresh = (Origins, list, new HashSet<string>(list, StringComparer.OrdinalIgnoreCase));
+        var fresh = new ParsedOrigins(source, list, new HashSet<string>(list, StringComparer.OrdinalIgnoreCase));
         _parsed = fresh;
         return fresh;
     }
+
+    /// <summary>The origins parsed from one value of <see cref="Origins"/>, immutable once built.</summary>
+    private sealed record ParsedOrigins(string? Source, string[] List, HashSet<string> Set);
 
     /// <summary>
     /// Reads an origin: <c>https://host[:port]</c>, or <c>http</c> on a loopback host; no user, path, query or fragment.

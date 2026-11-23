@@ -13,9 +13,9 @@ internal sealed partial class TcpProbePublisher(TcpProbePorts ports, ILogger<Tcp
 {
     private readonly ProbeListener[] _probes =
     [
-        new(HealthProbes.Live, ports.Live),
-        new(HealthProbes.Ready, ports.Ready),
-        new(HealthProbes.Startup, ports.Startup),
+        new(HealthProbes.Live, ports.Live, logger),
+        new(HealthProbes.Ready, ports.Ready, logger),
+        new(HealthProbes.Startup, ports.Startup, logger),
     ];
 
     public Task PublishAsync(HealthReport report, CancellationToken cancellationToken)
@@ -25,7 +25,19 @@ internal sealed partial class TcpProbePublisher(TcpProbePorts ports, ILogger<Tcp
         {
             var entries = report.Entries.Where(entry => entry.Value.Tags.Contains(probe.Tag)).ToArray();
             var healthy = entries.All(entry => entry.Value.Status != HealthStatus.Unhealthy);
-            if (!probe.SetHealthy(healthy))
+            bool changed;
+            try
+            {
+                changed = probe.SetHealthy(healthy);
+            }
+            catch (SocketException exception)
+            {
+                // The port stays closed and nothing is marked open, so the next publish tries to open it again.
+                LogProbeOpenFailed(logger, exception, probe.Tag, probe.Port);
+                continue;
+            }
+
+            if (!changed)
             {
                 continue;
             }
@@ -58,8 +70,16 @@ internal sealed partial class TcpProbePublisher(TcpProbePorts ports, ILogger<Tcp
     [LoggerMessage(Level = LogLevel.Warning, Message = "Probe {Probe} is unhealthy: port {Port} is closed; failing checks: {Failing}")]
     private static partial void LogProbeUnhealthy(ILogger logger, string probe, int port, string failing);
 
+    [LoggerMessage(
+        Level = LogLevel.Error,
+        Message = "Probe {Probe} could not open port {Port}; it stays closed and is tried again at the next publish")]
+    private static partial void LogProbeOpenFailed(ILogger logger, Exception exception, string probe, int port);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Probe {Probe} stopped accepting connections on port {Port}")]
+    private static partial void LogAcceptStopped(ILogger logger, Exception exception, string probe, int port);
+
     /// <summary>One port: listening while healthy, closed otherwise. Accepted connections are closed right away.</summary>
-    private sealed class ProbeListener(string tag, int port) : IAsyncDisposable
+    private sealed class ProbeListener(string tag, int port, ILogger logger) : IAsyncDisposable
     {
         private readonly Lock _gate = new();
         private TcpListener? _listener;
@@ -82,10 +102,20 @@ internal sealed partial class TcpProbePublisher(TcpProbePorts ports, ILogger<Tcp
 
                 if (healthy)
                 {
-                    _listener = new TcpListener(IPAddress.Any, Port);
-                    _listener.Start();
+                    var listener = new TcpListener(IPAddress.Any, Port);
+                    try
+                    {
+                        listener.Start();
+                    }
+                    catch (SocketException)
+                    {
+                        listener.Stop();
+                        throw;
+                    }
+
+                    _listener = listener;
                     _stop = new CancellationTokenSource();
-                    _accepting = AcceptAsync(_listener, _stop.Token);
+                    _accepting = AcceptAsync(listener, _stop.Token);
                 }
                 else
                 {
@@ -96,7 +126,7 @@ internal sealed partial class TcpProbePublisher(TcpProbePorts ports, ILogger<Tcp
             }
         }
 
-        private static async Task AcceptAsync(TcpListener listener, CancellationToken stop)
+        private async Task AcceptAsync(TcpListener listener, CancellationToken stop)
         {
             while (!stop.IsCancellationRequested)
             {
@@ -104,8 +134,17 @@ internal sealed partial class TcpProbePublisher(TcpProbePorts ports, ILogger<Tcp
                 {
                     using var client = await listener.AcceptTcpClientAsync(stop);
                 }
-                catch (Exception exception) when (exception is OperationCanceledException or ObjectDisposedException or SocketException)
+                catch (Exception exception) when (exception is OperationCanceledException or ObjectDisposedException)
                 {
+                    return;
+                }
+                catch (SocketException exception)
+                {
+                    if (!stop.IsCancellationRequested)
+                    {
+                        LogAcceptStopped(logger, exception, Tag, Port);
+                    }
+
                     return;
                 }
             }

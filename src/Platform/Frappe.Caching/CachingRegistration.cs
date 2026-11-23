@@ -93,6 +93,8 @@ public static class CachingRegistration
                 .WithDistributedCache(provider => new RedisCache(new RedisCacheOptions { ConfigurationOptions = Resilient(provider) }))
                 .WithBackplane(provider => new RedisBackplane(new RedisBackplaneOptions { ConfigurationOptions = Resilient(provider) }));
             services.TryAddSingleton(TimeProvider.System);
+            services.AddMetrics();
+            services.TryAddSingleton<CachingMetrics>();
             services.TryAddSingleton<CacheInvalidator>();
             services.TryAddSingleton(provider => new ValkeyHealthCheck(Resilient(provider)));
             services.TryAddSingleton(provider => new ValkeyWindowCounter(Resilient(provider), Settings(provider).InstanceName));

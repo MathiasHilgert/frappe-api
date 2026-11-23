@@ -3,7 +3,8 @@ using StackExchange.Redis;
 namespace Frappe.Caching;
 
 /// <summary>
-/// Small values in Valkey, shared by every replica, under the cache's instance name: written only if absent, read,
+/// Small values in Valkey, shared by every replica, under the cache's instance name and its own <c>value:</c> sub-prefix,
+/// so no key collides with a cache entry, a marker or a rate-limit window: written only if absent, read,
 /// overwritten and deleted, each in one atomic command, and every value expires on its own. Not a cache: a value lost to
 /// an outage is not rebuilt from anywhere (the platform's <c>Idempotency-Key</c> answers live here). Uses its own
 /// connection, opened once and opened again on the next call if that attempt failed. It never waits for Valkey longer
@@ -23,7 +24,7 @@ public sealed class ValkeyValues : IAsyncDisposable
     internal ValkeyValues(Func<Task<ConnectionMultiplexer>> connect, string instanceName)
     {
         _connection = new ValkeyConnection(connect);
-        _prefix = $"{instanceName}:";
+        _prefix = $"{instanceName}:value:";
     }
 
     /// <summary>

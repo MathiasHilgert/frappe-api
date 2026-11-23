@@ -55,7 +55,10 @@ public static class HttpRegistration
             return services.AddFrappeForwardedHeaders().AddFrappeHttpServices();
         }
 
-        /// <summary>The same as <see cref="AddFrappeHttp(IServiceCollection)"/>, with the limit given in code and no console origin.</summary>
+        /// <summary>
+        /// The same as <see cref="AddFrappeHttp(IServiceCollection)"/>, with the limit given in code and no console origin; the
+        /// trusted proxies are still bound from <c>Http:ForwardedHeaders</c>.
+        /// </summary>
         public IServiceCollection AddFrappeHttp(AnonymousRateLimit anonymous)
         {
             ArgumentNullException.ThrowIfNull(services);
@@ -67,7 +70,7 @@ public static class HttpRegistration
                 options.PermitLimit = anonymous.PermitLimit;
                 options.Window = anonymous.Window;
             });
-            return services.AddFrappeHttpServices();
+            return services.AddFrappeForwardedHeaders().AddFrappeHttpServices();
         }
 
         /// <summary>

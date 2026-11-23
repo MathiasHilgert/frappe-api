@@ -39,4 +39,20 @@ public sealed class TcpProbeOptionsValidatorTests
             await Assert.That(edges.Succeeded).IsTrue();
         }
     }
+
+    [Test]
+    public async Task Probe_ports_that_are_not_distinct_are_reported_naming_the_keys_that_share_one()
+    {
+        // Act
+        var result = _validator.Validate(null, new TcpProbeOptions { LivePort = 9000, ReadyPort = 9000, StartupPort = 8083 });
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(result.Failed).IsTrue();
+            await Assert.That(result.FailureMessage).Contains("'Health:Probes:LivePort'");
+            await Assert.That(result.FailureMessage).Contains("'Health:Probes:ReadyPort'");
+            await Assert.That(result.FailureMessage).Contains("distinct");
+        }
+    }
 }

@@ -25,8 +25,8 @@ public sealed class ValkeyValuesTests(ValkeyServer server)
         var added = await values.TryAddAsync("idempotency:k1", FirstAnswer, Lifetime, CancellationToken.None);
 
         // Assert
-        var stored = (byte[]?)await server.Inspector.StringGetAsync($"{instance}:idempotency:k1");
-        var expiry = await server.Inspector.KeyTimeToLiveAsync($"{instance}:idempotency:k1");
+        var stored = (byte[]?)await server.Inspector.StringGetAsync($"{instance}:value:idempotency:k1");
+        var expiry = await server.Inspector.KeyTimeToLiveAsync($"{instance}:value:idempotency:k1");
         using (Assert.Multiple())
         {
             await Assert.That(added).IsTrue();
@@ -70,7 +70,7 @@ public sealed class ValkeyValuesTests(ValkeyServer server)
 
         // Assert
         var read = await values.GetAsync("idempotency:k1", CancellationToken.None);
-        var expiry = await server.Inspector.KeyTimeToLiveAsync($"{instance}:idempotency:k1");
+        var expiry = await server.Inspector.KeyTimeToLiveAsync($"{instance}:value:idempotency:k1");
         using (Assert.Multiple())
         {
             await Assert.That(read).IsEquivalentTo(SecondAnswer);
