@@ -2,6 +2,7 @@
   <ItemGroup>
     <ProjectReference Include="../Shared/Frappe.Testing/Frappe.Testing.csproj" />
     <!-- Every production project of the solution, so rules derived from Frappe.slnx can load each assembly. -->
+    <ProjectReference Include="../../src/Hosts/Frappe.Worker/Frappe.Worker.csproj" />
     <ProjectReference Include="../../src/Platform/Frappe.Results/Frappe.Results.csproj" />
     <ProjectReference Include="../../src/Platform/Frappe.UseCases/Frappe.UseCases.csproj" />
     <ProjectReference Include="../../src/Platform/Frappe.Aggregates/Frappe.Aggregates.csproj" />
@@ -15,8 +16,10 @@
     <ProjectReference Include="../../src/Platform/Frappe.Persistence/Frappe.Persistence.csproj" />
     <ProjectReference Include="../../src/Platform/Frappe.Observability/Frappe.Observability.csproj" />
     <ProjectReference Include="../../src/Platform/Frappe.Observability.Hosting/Frappe.Observability.Hosting.csproj" />
+    <ProjectReference Include="../../src/Platform/Frappe.Scheduling/Frappe.Scheduling.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="NetArchTest.Rules" />
+    <PackageReference Include="OpenTelemetry.Exporter.InMemory" />
   </ItemGroup>
 </Project>
