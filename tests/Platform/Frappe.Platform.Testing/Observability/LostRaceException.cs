@@ -1,7 +1,7 @@
 using Frappe.Results;
 using Frappe.UseCases;
 
-namespace Frappe.Platform.IntegrationTests.Persistence;
+namespace Frappe.Platform.Testing.Observability;
 
 /// <summary>What a storage throws when someone else changed the same data first: an expected answer, not an incident.</summary>
 public sealed class LostRaceException : Exception, ICommitRejection

@@ -18,6 +18,7 @@ public sealed class LayeringTests
     private static readonly Assembly Caching = typeof(Frappe.Caching.CachingOptions).Assembly;
     private static readonly Assembly Http = typeof(Frappe.Http.HttpRegistration).Assembly;
     private static readonly Assembly Persistence = typeof(Frappe.Persistence.ModuleDatabase).Assembly;
+    private static readonly Assembly Messaging = typeof(Frappe.Messaging.MessagingMetrics).Assembly;
     private static readonly Assembly Observability = typeof(Frappe.Observability.FrappeTelemetry).Assembly;
 
     /// <summary>Anything an inner layer must never know about.</summary>
@@ -77,6 +78,18 @@ public sealed class LayeringTests
 
         // Assert
         await AssertAsync(result, "Persistence depends on a capability built on it, on the web stack or on a broker");
+    }
+
+    [Test]
+    public async Task Messaging_publishes_and_consumes_without_knowing_the_web_stack_or_the_scheduler()
+    {
+        // Act
+        var result = Types.InAssembly(Messaging)
+            .ShouldNot().HaveDependencyOnAny("Frappe.Scheduling", "Frappe.Http", "Frappe.Observability", "Microsoft.AspNetCore", "Quartz")
+            .GetResult();
+
+        // Assert
+        await AssertAsync(result, "Messaging depends on the scheduler, the web stack or telemetry code");
     }
 
     [Test]

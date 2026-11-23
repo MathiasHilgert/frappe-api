@@ -1,6 +1,7 @@
 using System.Data.Common;
 using Frappe.Aggregates;
 using Frappe.Persistence;
+using Frappe.Platform.Testing.Observability;
 using Frappe.Results;
 using Frappe.UseCases;
 using Microsoft.EntityFrameworkCore;
