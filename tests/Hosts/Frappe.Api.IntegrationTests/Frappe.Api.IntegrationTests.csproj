@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The Api host composed as deployed (CON-09): whatever spans modules, such as the HTTP contract, is generated and checked
+       here, never from one module's suite. It needs no infrastructure: the contract is served without touching it. -->
+  <ItemGroup>
+    <ProjectReference Include="../../Shared/Frappe.Testing/Frappe.Testing.csproj" />
+    <ProjectReference Include="../../../src/Hosts/Frappe.Api/Frappe.Api.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+  </ItemGroup>
+</Project>

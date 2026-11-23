@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Black box: no reference to src/. The test builds the real image and talks to it over HTTP and Docker only. -->
+  <ItemGroup>
+    <ProjectReference Include="../Shared/Frappe.Testing/Frappe.Testing.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Testcontainers" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+  </ItemGroup>
+</Project>

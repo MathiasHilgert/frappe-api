@@ -18,6 +18,14 @@ public static class ErrorMessageRegistration
             ArgumentNullException.ThrowIfNull(services);
             ArgumentNullException.ThrowIfNull(assembly);
 
+            services.AddPlatformErrorMessages();
+            services.Configure<ErrorMessageOptions>(options => options.Add(assembly));
+            return services;
+        }
+
+        /// <summary>Registers the platform's own messages and the catalog once, however many times and in whatever order it is called.</summary>
+        internal IServiceCollection AddPlatformErrorMessages()
+        {
             if (!services.Any(d => d.ServiceType == typeof(ErrorMessageCatalog)))
             {
                 // ValidateOnStart builds the catalog options when the host starts, so a duplicated or untranslated key
@@ -27,7 +35,6 @@ public static class ErrorMessageRegistration
                 services.TryAddSingleton<ErrorMessageCatalog>();
             }
 
-            services.Configure<ErrorMessageOptions>(options => options.Add(assembly));
             return services;
         }
     }

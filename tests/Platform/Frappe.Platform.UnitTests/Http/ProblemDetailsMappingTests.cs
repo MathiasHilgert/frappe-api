@@ -5,6 +5,7 @@ using Frappe.Platform.Testing;
 using Frappe.Results;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 
 namespace Frappe.Platform.UnitTests.Http;
@@ -569,7 +570,9 @@ public sealed class ProblemDetailsMappingTests
     public async Task Without_any_message_catalog_no_English_default_title_is_invented()
     {
         // Arrange
-        using var services = new ServiceCollection().AddLogging().AddFrappeHttp(AnonymousRateLimit.Default).BuildServiceProvider();
+        var collection = new ServiceCollection().AddLogging().AddFrappeHttp(AnonymousRateLimit.Default);
+        collection.RemoveAll<ErrorMessageCatalog>();
+        using var services = collection.BuildServiceProvider();
         var context = new DefaultHttpContext { RequestServices = services };
         context.Response.Body = new MemoryStream();
         Result<int> result = new NotFoundError("test.code");

@@ -1,3 +1,4 @@
+using Frappe.Platform.Testing.Observability;
 using Frappe.Results;
 using Frappe.UseCases;
 
