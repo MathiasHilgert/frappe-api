@@ -11,16 +11,15 @@ namespace Frappe.Observability;
 /// </summary>
 internal static partial class HandlerInstrumentation
 {
-    public static async Task<Result<TResult>> ExecuteAsync<TResult>(
+    public static async Task<Result<TResult>> ExecuteAsync<TRequest, TResult>(
         string kind,
-        Type requestType,
         HandlerMetrics metrics,
         ILogger logger,
         Func<Task<Result<TResult>>> handle,
         CancellationToken cancellationToken)
     {
-        var useCase = requestType.Name;
-        var module = HandlerModule.Of(requestType);
+        var useCase = typeof(TRequest).Name;
+        var module = HandlerModule<TRequest>.Name;
         var startedAt = Stopwatch.GetTimestamp();
 
         using var activity = FrappeTelemetry.Source.StartActivity($"{kind} {useCase}", ActivityKind.Internal);
@@ -40,9 +39,12 @@ internal static partial class HandlerInstrumentation
             else
             {
                 outcome = "failure";
-                var codes = string.Join(", ", result.Errors.Select(e => e.Code));
                 activity?.SetTag(FrappeTelemetry.Tags.ErrorCode, result.Errors[0].Code);
-                LogRejected(logger, kind, useCase, codes);
+                if (logger.IsEnabled(LogLevel.Information))
+                {
+                    var codes = string.Join(", ", result.Errors.Select(e => e.Code));
+                    LogRejected(logger, kind, useCase, codes);
+                }
             }
 
             return result;

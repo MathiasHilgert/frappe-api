@@ -285,6 +285,40 @@ public sealed class CommitRejectionTests(PostgresServer server)
     }
 
     [Test]
+    public async Task A_unit_whose_begin_is_rejected_inside_somebody_elses_transaction_is_answered_with_the_rejection_and_rolls_back_cleanly()
+    {
+        // Arrange
+        await using var services = await ComposeAsync(
+            map => map.On(NameKey, failure => CommitResolution.Reject(new LostRaceException("name taken"))));
+        await SeedAsync(services, "bolt");
+
+        await using var scope = services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<WidgetsContext>();
+        await using var owner = await context.Database.BeginTransactionAsync();
+        context.Widgets.Add(new Widget { Id = FixedId(120), Name = "bolt" });
+        var unitOfWork = scope.ServiceProvider.GetRequiredKeyedService<IUnitOfWork>("widgets");
+
+        // Act
+        var rejection = await Assert.ThrowsAsync<LostRaceException>(() => unitOfWork.BeginAsync(CancellationToken.None));
+        Exception? rollback = null;
+        try
+        {
+            await unitOfWork.RollbackAsync(CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            rollback = exception;
+        }
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(rejection!.Message).IsEqualTo("name taken");
+            await Assert.That(rollback).IsNull();
+        }
+    }
+
+    [Test]
     public async Task A_second_unit_in_the_same_owner_transaction_still_defers_its_constraints_after_the_first_checked_them()
     {
         // Arrange

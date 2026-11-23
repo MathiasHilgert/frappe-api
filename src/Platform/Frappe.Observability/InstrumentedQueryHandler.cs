@@ -12,9 +12,8 @@ internal sealed class InstrumentedQueryHandler<TQuery, TResult>(
     where TQuery : IQuery<TResult>
 {
     public Task<Result<TResult>> HandleAsync(TQuery query, CancellationToken cancellationToken) =>
-        HandlerInstrumentation.ExecuteAsync(
+        HandlerInstrumentation.ExecuteAsync<TQuery, TResult>(
             "query",
-            typeof(TQuery),
             metrics,
             logger,
             () => inner.HandleAsync(query, cancellationToken),

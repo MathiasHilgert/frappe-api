@@ -154,6 +154,98 @@ public sealed class DatabaseProvisioningTests(PostgresServer server)
     }
 
     [Test]
+    public async Task A_security_definer_function_a_migration_creates_is_closed_to_public_and_to_the_module_role_on_the_first_run()
+    {
+        // Arrange
+        var role = ScratchDatabase.Unique("prov_role");
+        var schema = ScratchDatabase.Unique("orders");
+        var participant = new TestParticipant("orders", schema, [SchemaRole(role)], (owner, _) => ScratchDatabase.ExecuteAsync(
+            owner,
+            $"""
+            CREATE SCHEMA {schema};
+            CREATE FUNCTION {schema}.definer() RETURNS integer LANGUAGE sql SECURITY DEFINER AS 'SELECT 1';
+            CREATE FUNCTION {schema}.invoker() RETURNS integer LANGUAGE sql AS 'SELECT 2'
+            """));
+
+        await ScratchDatabase.RunAsync(server, [role], async owner =>
+        {
+            // Act
+            await RunAsync(owner, [participant]);
+            var definerOpenToPublic = await PublicCanExecuteAsync(owner, $"{schema}.definer()");
+            var definerOpenToRole = (bool)(await ScratchDatabase.ScalarAsync(
+                owner, $"SELECT has_function_privilege('{role}', '{schema}.definer()', 'EXECUTE')"))!;
+            var invokerOpenToRole = (bool)(await ScratchDatabase.ScalarAsync(
+                owner, $"SELECT has_function_privilege('{role}', '{schema}.invoker()', 'EXECUTE')"))!;
+
+            // Assert
+            using (Assert.Multiple())
+            {
+                await Assert.That(definerOpenToPublic).IsFalse();
+                await Assert.That(definerOpenToRole).IsFalse();
+                await Assert.That(invokerOpenToRole).IsTrue();
+            }
+        });
+    }
+
+    [Test]
+    public async Task A_security_definer_function_is_closed_to_public_on_the_first_run_for_a_role_with_a_custom_grant()
+    {
+        // Arrange
+        var role = ScratchDatabase.Unique("prov_role");
+        var schema = ScratchDatabase.Unique("orders");
+        var narrow = new DatabaseRole(role, "narrow", RoleGrant.Custom(async (owner, token) =>
+        {
+            await using var batch = new NpgsqlCommand($"GRANT USAGE ON SCHEMA {schema} TO {role}", owner);
+            await batch.ExecuteNonQueryAsync(token);
+        }));
+        var participant = new TestParticipant("orders", schema, [narrow], (owner, _) => ScratchDatabase.ExecuteAsync(
+            owner,
+            $"CREATE SCHEMA {schema}; CREATE FUNCTION {schema}.definer() RETURNS integer LANGUAGE sql SECURITY DEFINER AS 'SELECT 1'"));
+
+        await ScratchDatabase.RunAsync(server, [role], async owner =>
+        {
+            // Act
+            await RunAsync(owner, [participant]);
+            var definerOpenToPublic = await PublicCanExecuteAsync(owner, $"{schema}.definer()");
+            var definerOpenToRole = (bool)(await ScratchDatabase.ScalarAsync(
+                owner, $"SELECT has_function_privilege('{role}', '{schema}.definer()', 'EXECUTE')"))!;
+
+            // Assert
+            using (Assert.Multiple())
+            {
+                await Assert.That(definerOpenToPublic).IsFalse();
+                await Assert.That(definerOpenToRole).IsFalse();
+            }
+        });
+    }
+
+    [Test]
+    public async Task A_role_created_earlier_gets_its_login_inheritance_and_connection_limit_back_on_the_next_run()
+    {
+        // Arrange
+        var role = ScratchDatabase.Unique("prov_role");
+        var schema = ScratchDatabase.Unique("orders");
+        var participant = new TestParticipant(
+            "orders", schema, [SchemaRole(role)], (owner, _) => ScratchDatabase.ExecuteAsync(owner, $"CREATE SCHEMA IF NOT EXISTS {schema}"));
+
+        await ScratchDatabase.RunAsync(server, [role], async owner =>
+        {
+            await RunAsync(owner, [participant]);
+            await ScratchDatabase.ExecuteAsync(owner, $"ALTER ROLE {role} NOLOGIN INHERIT CONNECTION LIMIT 1");
+
+            // Act
+            await RunAsync(owner, [participant]);
+            var attributes = await ScratchDatabase.ScalarAsync(
+                owner,
+                $"SELECT rolcanlogin::text || ',' || rolinherit::text || ',' || rolconnlimit::text || ',' || rolsuper::text "
+                + $"FROM pg_roles WHERE rolname = '{role}'");
+
+            // Assert
+            await Assert.That(attributes).IsEqualTo("true,false,-1,false");
+        });
+    }
+
+    [Test]
     public async Task Participants_migrate_in_the_order_given_and_every_run_is_repeatable()
     {
         // Arrange

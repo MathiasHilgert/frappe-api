@@ -28,13 +28,14 @@ public static class ModuleDatabaseRegistration
         /// <param name="module">The lower-case module name of its namespaces, <c>Frappe.&lt;Module&gt;.*</c>.</param>
         /// <param name="schema">The Postgres schema the module owns; it also holds the module's migrations history.</param>
         /// <param name="configure">Adds to the context's options, with the host's services (the clock, for one).</param>
+        /// <exception cref="ArgumentException"><paramref name="module"/> is not lower case.</exception>
         /// <exception cref="InvalidOperationException"><typeparamref name="TDbContext"/> is already registered.</exception>
         public IServiceCollection AddModuleDatabase<TDbContext>(string module, string schema,
             Action<IServiceProvider, DbContextOptionsBuilder>? configure = null)
             where TDbContext : DbContext
         {
             ArgumentNullException.ThrowIfNull(services);
-            ArgumentException.ThrowIfNullOrWhiteSpace(module);
+            RequireLowerCase(module);
             ArgumentException.ThrowIfNullOrWhiteSpace(schema);
             if (services.Any(descriptor => descriptor.ServiceType == typeof(TDbContext)))
             {
@@ -123,6 +124,22 @@ public static class ModuleDatabaseRegistration
             return ModuleDatabase.WithConnectionLimits(
                 connectionString,
                 new DatabaseOptions { MaxPoolSize = 1, CommandTimeout = limits.CommandTimeout });
+        }
+    }
+
+    /// <summary>
+    /// Checks the module name is the lower-case one <c>HandlerModule.Of</c> derives from a request's namespace: the unit of work
+    /// is registered under it, so another casing would never be found and every command of the module would fail at run time.
+    /// </summary>
+    internal static void RequireLowerCase(string module)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(module);
+        if (!string.Equals(module, module.ToLowerInvariant(), StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                $"The module name '{module}' must be lower case ('{module.ToLowerInvariant()}'): the unit of work is found by the lower-case "
+                + "module of a command's namespace.",
+                nameof(module));
         }
     }
 

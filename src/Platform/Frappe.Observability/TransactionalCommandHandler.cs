@@ -27,10 +27,10 @@ internal sealed class TransactionalCommandHandler<TCommand, TResult>(
                 $"Command {typeof(TCommand).Name} belongs to module '{Module}', which registers no unit of work (AddUnitOfWork): "
                 + "its changes would never be saved.");
 
-        await unitOfWork.BeginAsync(cancellationToken);
         Result<TResult> result;
         try
         {
+            await unitOfWork.BeginAsync(cancellationToken);
             result = await inner.HandleAsync(command, cancellationToken);
             if (result.IsSuccess)
             {

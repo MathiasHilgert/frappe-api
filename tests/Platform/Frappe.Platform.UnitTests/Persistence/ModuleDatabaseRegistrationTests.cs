@@ -113,6 +113,39 @@ public sealed class ModuleDatabaseRegistrationTests
     }
 
     [Test]
+    [Arguments("Orders")]
+    [Arguments("orderS")]
+    public async Task A_module_name_that_is_not_lower_case_is_refused_at_registration_because_the_unit_of_work_would_never_be_found(string module)
+    {
+        // Arrange
+        var services = Builder(("ConnectionStrings:Orders", Plain)).Services;
+
+        // Act
+        var failure = Assert.Throws<ArgumentException>(() => services.AddModuleDatabase<OrdersContext>(module, "orders"));
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(failure.ParamName).IsEqualTo("module");
+            await Assert.That(failure.Message).Contains($"'{module}'");
+            await Assert.That(failure.Message).Contains("'orders'");
+        }
+    }
+
+    [Test]
+    public async Task A_unit_of_work_registered_on_its_own_refuses_a_module_name_that_is_not_lower_case()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+
+        // Act
+        var failure = Assert.Throws<ArgumentException>(() => services.AddUnitOfWork<OrdersContext>("Orders"));
+
+        // Assert
+        await Assert.That(failure.ParamName).IsEqualTo("module");
+    }
+
+    [Test]
     public async Task Each_module_validates_its_own_connection_string()
     {
         // Arrange

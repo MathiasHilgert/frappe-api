@@ -107,6 +107,23 @@ public sealed class StoredEnumTests
     }
 
     [Test]
+    public async Task An_enum_without_members_is_refused_naming_the_enum_instead_of_failing_the_type_initializer()
+    {
+        // Act
+        var checkList = Assert.Throws<InvalidOperationException>(() => _ = StoredEnum<Nothing>.CheckList);
+        var maxLength = Assert.Throws<InvalidOperationException>(() => _ = StoredEnum<Nothing>.MaxLength);
+        var converter = Assert.Throws<InvalidOperationException>(() => _ = StoredEnum<Nothing>.Converter);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(checkList.Message).Contains(nameof(Nothing));
+            await Assert.That(maxLength.Message).Contains(nameof(Nothing));
+            await Assert.That(converter.Message).Contains(nameof(Nothing));
+        }
+    }
+
+    [Test]
     public async Task A_property_mapped_with_it_is_text_as_long_as_the_longest_value()
     {
         // Arrange
@@ -146,6 +163,11 @@ public sealed class StoredEnumTests
         Web,
         MobileApp,
         TourVoucherDesk,
+    }
+
+    /// <summary>An enum with no member, which has nothing to store.</summary>
+    public enum Nothing
+    {
     }
 
     /// <summary>Why something happened; a second enum, to pin its spelling on its own.</summary>
