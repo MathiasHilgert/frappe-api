@@ -38,6 +38,24 @@ public sealed class CronScheduleOptionsValidatorTests
     }
 
     [Test]
+    public async Task A_missing_cron_with_no_default_fails_naming_the_key()
+    {
+        // Arrange
+        var configuration = new ConfigurationBuilder().Build();
+        var services = new ServiceCollection().AddSingleton<IConfiguration>(configuration);
+        services.AddQuartz(quartz => quartz.AddCronJob<NoopJob>(new JobKey("purge", "orders"), Section, string.Empty));
+        await using var provider = services.BuildServiceProvider();
+
+        // Act
+        var thrown = Assert.Throws<OptionsValidationException>(
+            () => provider.GetRequiredService<IOptionsMonitor<CronScheduleOptions>>().Get(Section));
+
+        // Assert
+        await Assert.That(thrown.Failures.Single())
+            .Contains("Configuration 'Orders:MessagePurge:Cron' must be a Quartz cron expression, seconds first.");
+    }
+
+    [Test]
     public async Task A_missing_cron_takes_the_jobs_default()
     {
         // Arrange
