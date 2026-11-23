@@ -109,7 +109,11 @@ public static class HttpRegistration
         private IServiceCollection AddFrappeHttpServices()
         {
             services.TryAddSingleton(TimeProvider.System);
-            return services.AddFrappeProblemDetails().AddFrappeIdempotency().AddFrappeConsoleCors().AddFrappeRateLimiting();
+            return services.AddPlatformErrorMessages()
+                .AddFrappeProblemDetails()
+                .AddFrappeIdempotency()
+                .AddFrappeConsoleCors()
+                .AddFrappeRateLimiting();
         }
 
         /// <summary>A host that registers its own store before this call (one every replica shares) keeps it.</summary>

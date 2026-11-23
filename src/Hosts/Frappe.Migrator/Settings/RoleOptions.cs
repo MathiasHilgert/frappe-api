@@ -8,4 +8,7 @@ public sealed class RoleOptions
     /// Default: <see langword="null"/>, which <see cref="MigrationOptionsValidator"/> refuses at startup.
     /// </summary>
     public string? Password { get; set; }
+
+    /// <summary>Describes the options without the password, so a log line or a debugger never shows it.</summary>
+    public override string ToString() => $"RoleOptions {{ Password = {(Password is null ? "<unset>" : "***")} }}";
 }

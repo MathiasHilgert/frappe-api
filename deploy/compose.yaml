@@ -36,7 +36,7 @@ services:
     image: nats:2.11-alpine
     restart: unless-stopped
     command: ["--jetstream", "--store_dir", "/data", "--http_port", "8222"]
-    ports: ["${NATS_PORT:-4222}:4222", "${NATS_MONITOR_PORT:-8222}:8222"]
+    ports: ["127.0.0.1:${NATS_PORT:-4222}:4222", "127.0.0.1:${NATS_MONITOR_PORT:-8222}:8222"]
     volumes: [nats-data:/data]
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz?js-enabled-only=true"]
@@ -47,7 +47,7 @@ services:
   valkey:
     image: valkey/valkey:8-alpine
     restart: unless-stopped
-    ports: ["${VALKEY_PORT:-6379}:6379"]
+    ports: ["127.0.0.1:${VALKEY_PORT:-6379}:6379"]
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 5s
@@ -65,6 +65,7 @@ services:
     environment:
       <<: *otel
       OTEL_SERVICE_NAME: frappe-migrator
+      DOTNET_gcServer: "0"
       ConnectionStrings__Owner: Host=postgres;Database=frappe;Username=${POSTGRES_OWNER_USER:?set it in .env};Password=${POSTGRES_OWNER_PASSWORD:?set it in .env}
       Roles__Scheduler__Password: ${FRAPPE_SCHEDULER_PASSWORD:?set it in .env}
 
@@ -119,7 +120,7 @@ services:
     restart: unless-stopped
     command: ["--config=/etc/otelcol/config.yaml"]
     volumes: ["./observability/otel-collector.yaml:/etc/otelcol/config.yaml:ro"]
-    ports: ["${OTLP_GRPC_PORT:-4317}:4317", "${OTLP_HTTP_PORT:-4318}:4318"]
+    ports: ["127.0.0.1:${OTLP_GRPC_PORT:-4317}:4317", "127.0.0.1:${OTLP_HTTP_PORT:-4318}:4318"]
     depends_on: [loki, tempo, mimir]
 
   loki:
@@ -127,21 +128,21 @@ services:
     restart: unless-stopped
     command: ["-config.file=/etc/loki/config.yaml"]
     volumes: ["./observability/loki.yaml:/etc/loki/config.yaml:ro", "loki-data:/loki"]
-    ports: ["${LOKI_PORT:-3100}:3100"]
+    ports: ["127.0.0.1:${LOKI_PORT:-3100}:3100"]
 
   tempo:
     image: grafana/tempo:3.1.1
     restart: unless-stopped
     command: ["-config.file=/etc/tempo/config.yaml"]
     volumes: ["./observability/tempo.yaml:/etc/tempo/config.yaml:ro", "tempo-data:/var/tempo"]
-    ports: ["${TEMPO_PORT:-3200}:3200"]
+    ports: ["127.0.0.1:${TEMPO_PORT:-3200}:3200"]
 
   mimir:
     image: grafana/mimir:3.2.3
     restart: unless-stopped
     command: ["-config.file=/etc/mimir/config.yaml"]
     volumes: ["./observability/mimir.yaml:/etc/mimir/config.yaml:ro", "mimir-data:/data"]
-    ports: ["${MIMIR_PORT:-9009}:9009"]
+    ports: ["127.0.0.1:${MIMIR_PORT:-9009}:9009"]
 
   # Grafana reads its datasources from provisioning/datasources and nothing else: no dashboard, no alert rule.
   grafana:

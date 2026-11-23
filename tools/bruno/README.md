@@ -11,6 +11,8 @@ requests are here; a module adds a folder of its own.
 | HTTP Conventions | The 404 Problem Details of an unknown route |
 | OpenAPI | `/openapi/v1.json` |
 
+The 503 body of a failing probe is pinned by the Api's integration tests, not by this collection, which only sees a healthy stack.
+
 ## Open it
 
 Bruno reads YAML collections since 3.0.0; this one is written for Bruno 4.3 or later. CI runs it with Bruno CLI 4.3.0

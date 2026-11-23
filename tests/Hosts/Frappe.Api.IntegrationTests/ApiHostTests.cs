@@ -42,6 +42,26 @@ public sealed class ApiHostTests
     }
 
     [Test]
+    public async Task With_zero_modules_an_unknown_route_answers_a_problem_with_a_title_and_a_detail()
+    {
+        // Arrange
+        await using var app = await ApiHost.StartAsync();
+        using var client = app.GetTestClient();
+
+        // Act
+        using var response = await client.GetAsync("/v1/planets");
+        using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
+            await Assert.That(problem.RootElement.GetProperty("title").GetString()).IsNotNullOrWhiteSpace();
+            await Assert.That(problem.RootElement.GetProperty("detail").GetString()).IsNotNullOrWhiteSpace();
+        }
+    }
+
+    [Test]
     public async Task The_OpenAPI_document_carries_the_Api_options_and_the_reference_is_served()
     {
         // Arrange

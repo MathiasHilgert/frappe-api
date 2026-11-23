@@ -21,6 +21,8 @@ runtime:
     - expression: res.body.errors[0].code
       operator: eq
       value: '"http.not_found"'
+    - expression: res.body.detail
+      operator: isString
     - expression: res.body.instance
       operator: eq
       value: '"/v1/planets"'

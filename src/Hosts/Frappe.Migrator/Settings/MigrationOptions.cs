@@ -1,3 +1,5 @@
+using Npgsql;
+
 namespace Frappe.Migrator.Settings;
 
 /// <summary>
@@ -24,4 +26,25 @@ public sealed class MigrationOptions
     /// entry per role. Default: empty, which <see cref="MigrationOptionsValidator"/> refuses at startup until every login role has a password.
     /// </summary>
     public Dictionary<string, RoleOptions> Roles { get; } = [with(StringComparer.OrdinalIgnoreCase)];
+
+    /// <summary>Describes the options with the owner's connection string without its password and the role names only.</summary>
+    public override string ToString()
+    {
+        var owner = "<unset>";
+        if (OwnerConnectionString is not null)
+        {
+            try
+            {
+                var builder = new NpgsqlConnectionStringBuilder(OwnerConnectionString);
+                builder.Remove("Password");
+                owner = builder.ConnectionString;
+            }
+            catch (ArgumentException)
+            {
+                owner = "***";
+            }
+        }
+
+        return $"MigrationOptions {{ OwnerConnectionString = {owner}, Roles = [{string.Join(", ", Roles.Keys)}] }}";
+    }
 }

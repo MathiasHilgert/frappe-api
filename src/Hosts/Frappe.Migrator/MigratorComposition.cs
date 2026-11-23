@@ -11,7 +11,7 @@ namespace Frappe.Migrator;
 /// Everything the Migrator runs: telemetry, then <see cref="DatabaseMigration"/> once, and the process exit code. The modules it
 /// sets up are the ones <see cref="Modules.All"/> lists; the scheduler's job store is always set up.
 /// </summary>
-public static class MigratorComposition
+public static partial class MigratorComposition
 {
     extension(IHostApplicationBuilder builder)
     {
@@ -51,12 +51,15 @@ public static class MigratorComposition
             }
             catch (Exception exception)
             {
-                logger.LogCritical(exception, "Database migration failed");
+                LogMigrationFailed(logger, exception);
                 await host.StopAsync();
                 return 1;
             }
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Critical, Message = "Database migration failed")]
+    private static partial void LogMigrationFailed(ILogger logger, Exception exception);
 
     /// <summary>The module databases a composed Migrator sets up.</summary>
     private sealed record MigratedModules(IReadOnlyCollection<IDatabaseModule> Modules);
