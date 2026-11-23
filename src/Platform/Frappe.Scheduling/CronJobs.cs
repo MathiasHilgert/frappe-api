@@ -8,7 +8,7 @@ namespace Frappe.Scheduling;
 /// <summary>
 /// Durable jobs on a cron schedule that each environment may override, the one way every module schedules its work.
 /// The expression is read from <c>{section}:Cron</c> (default <c>defaultCron</c>) and checked when the host starts: one
-/// Quartz cannot read fails naming the key.
+/// Quartz cannot read fails naming the key. Every expression is evaluated in UTC, whatever the host's time zone.
 /// </summary>
 public static class CronJobs
 {
@@ -44,7 +44,9 @@ public static class CronJobs
             quartz.AddTrigger((provider, trigger) => trigger
                 .ForJob(key)
                 .WithIdentity(key.Name + "-scheduled", key.Group)
-                .WithCronSchedule(provider.GetRequiredService<IOptionsMonitor<CronScheduleOptions>>().Get(section).Cron!));
+                .WithCronSchedule(
+                    provider.GetRequiredService<IOptionsMonitor<CronScheduleOptions>>().Get(section).Cron!,
+                    schedule => schedule.InTimeZone(TimeZoneInfo.Utc)));
             return quartz;
         }
     }

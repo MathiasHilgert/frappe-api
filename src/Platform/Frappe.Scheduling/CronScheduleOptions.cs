@@ -8,7 +8,8 @@ public sealed class CronScheduleOptions : IValidatableObject
 {
     /// <summary>
     /// <c>{section}:Cron</c> (for example <c>Orders:MessagePurge:Cron</c>): the job's Quartz cron expression, seconds
-    /// first. Default the job's own default passed to <c>AddCronJob</c>; unset or empty means that default. Range
+    /// first, evaluated in UTC whatever the host's time zone (so a daylight saving change never moves or repeats a
+    /// run). Default the job's own default passed to <c>AddCronJob</c>; unset or empty means that default. Range
     /// any expression Quartz can parse; an invalid one fails at startup. Changing it moves every replica's next
     /// run, since one clustered schedule exists per job.
     /// </summary>

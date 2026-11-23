@@ -74,15 +74,27 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ needs.version.outputs.tag }}
+      - name: Look for the image's Dockerfile
+        id: dockerfile
+        run: |
+          if [ -f deploy/Dockerfile ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Image skipped::deploy/Dockerfile is absent, so no image is published."
+          fi
       - name: Set up Docker Buildx
+        if: steps.dockerfile.outputs.present == 'true'
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Log in to GHCR
+        if: steps.dockerfile.outputs.present == 'true'
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
       - name: Name the image's tags
+        if: steps.dockerfile.outputs.present == 'true'
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
@@ -92,6 +104,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}},value=${{ needs.version.outputs.version }}
             type=raw,value=latest
       - name: Build and push the image for amd64 and arm64
+        if: steps.dockerfile.outputs.present == 'true'
         id: push
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -106,6 +119,7 @@ jobs:
           cache-from: type=gha,scope=frappe-api
           cache-to: type=gha,scope=frappe-api,mode=max
       - name: Attest the image's build provenance
+        if: steps.dockerfile.outputs.present == 'true'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ghcr.io/${{ github.repository }}

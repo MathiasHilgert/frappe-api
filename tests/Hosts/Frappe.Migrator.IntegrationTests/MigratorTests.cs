@@ -1,3 +1,4 @@
+using System.Diagnostics.Metrics;
 using Frappe.Persistence;
 using Frappe.Testing;
 using Microsoft.Extensions.Configuration;
@@ -129,6 +130,59 @@ public sealed class MigratorTests(PostgresServer server)
                 await Assert.That(role).IsEqualTo(0L);
             }
         });
+    }
+
+    [Test]
+    public async Task A_run_counts_its_outcome_and_records_its_duration_before_stopping()
+    {
+        await ScratchDatabase.RunAsync(server, [SchedulerRole], async owner =>
+        {
+            // Arrange
+            var recorded = new List<(string Instrument, string? Outcome)>();
+            using var listener = new MeterListener();
+            listener.InstrumentPublished = (instrument, subscribed) =>
+            {
+                if (instrument.Meter.Name == MigrationMetrics.MeterName)
+                {
+                    subscribed.EnableMeasurementEvents(instrument);
+                }
+            };
+            listener.SetMeasurementEventCallback<long>((instrument, _, tags, _) => Record(recorded, instrument, tags));
+            listener.SetMeasurementEventCallback<double>((instrument, _, tags, _) => Record(recorded, instrument, tags));
+            listener.Start();
+
+            // Act
+            var succeeded = await MigratorHost.RunAsync(MigratorHost.Settings(owner, SchedulerPassword));
+            var failed = await MigratorHost.RunAsync(new Dictionary<string, string?> { ["ConnectionStrings:Owner"] = owner });
+
+            // Assert
+            using (Assert.Multiple())
+            {
+                await Assert.That(succeeded).IsEqualTo(0);
+                await Assert.That(failed).IsEqualTo(1);
+                await Assert.That(recorded).IsEquivalentTo(
+                [
+                    (MigrationMetrics.RunsMetric, (string?)MigrationMetrics.Succeeded),
+                    (MigrationMetrics.DurationMetric, MigrationMetrics.Succeeded),
+                    (MigrationMetrics.RunsMetric, MigrationMetrics.Failed),
+                    (MigrationMetrics.DurationMetric, MigrationMetrics.Failed),
+                ]);
+            }
+        });
+    }
+
+    private static void Record(List<(string, string?)> recorded, Instrument instrument, ReadOnlySpan<KeyValuePair<string, object?>> tags)
+    {
+        string? outcome = null;
+        foreach (var tag in tags)
+        {
+            if (tag.Key == MigrationMetrics.OutcomeTag)
+            {
+                outcome = tag.Value as string;
+            }
+        }
+
+        recorded.Add((instrument.Name, outcome));
     }
 
     [Test]

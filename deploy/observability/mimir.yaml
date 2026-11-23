@@ -24,5 +24,6 @@ ruler_storage:
 store_gateway:
   sharding_ring: { replication_factor: 1 }
 limits:
+  compactor_blocks_retention_period: 7d
   native_histograms_ingestion_enabled: true
   max_global_exemplars_per_user: 100000
