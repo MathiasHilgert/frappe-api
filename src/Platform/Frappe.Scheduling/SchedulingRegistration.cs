@@ -88,6 +88,7 @@ public static class SchedulingRegistration
             services.AddCriticalDependency(
                 "scheduler-database",
                 provider => new DatabaseHealthCheck(() => provider.GetRequiredKeyedService<NpgsqlDataSource>(DataSourceKey).CreateConnection()));
+            services.AddCriticalDependency("scheduler", provider => new SchedulerHealthCheck(provider.GetRequiredService<ISchedulerFactory>()));
             return services;
         }
     }

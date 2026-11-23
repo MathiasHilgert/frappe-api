@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Frappe.Observability.Hosting;
 using Frappe.Persistence;
 using Microsoft.Extensions.Configuration;
@@ -25,6 +26,7 @@ public static partial class MigratorComposition
             ArgumentNullException.ThrowIfNull(modules);
             builder.AddFrappeTelemetry("frappe-migrator");
             builder.Services.AddSingleton(new MigratedModules(modules));
+            builder.Services.AddSingleton<MigrationMetrics>();
             return builder;
         }
     }
@@ -41,16 +43,20 @@ public static partial class MigratorComposition
             var configuration = host.Services.GetRequiredService<IConfiguration>();
             var modules = host.Services.GetRequiredService<MigratedModules>().Modules;
             var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Frappe.Migrator");
+            var metrics = host.Services.GetRequiredService<MigrationMetrics>();
             var stopping = host.Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping;
 
+            var started = Stopwatch.GetTimestamp();
             try
             {
                 await DatabaseMigration.RunAsync(configuration, modules, logger, stopping);
+                metrics.Finished(Stopwatch.GetElapsedTime(started), succeeded: true);
                 await host.StopAsync();
                 return 0;
             }
             catch (Exception exception)
             {
+                metrics.Finished(Stopwatch.GetElapsedTime(started), succeeded: false);
                 LogMigrationFailed(logger, exception);
                 await host.StopAsync();
                 return 1;

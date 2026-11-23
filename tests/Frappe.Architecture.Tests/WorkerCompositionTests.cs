@@ -78,6 +78,7 @@ public sealed class WorkerCompositionTests
         using (Assert.Multiple())
         {
             await Assert.That(registrations["scheduler-database"]).IsEqualTo(HealthStatus.Unhealthy);
+            await Assert.That(registrations["scheduler"]).IsEqualTo(HealthStatus.Unhealthy);
             await Assert.That(registrations["nats"]).IsEqualTo(HealthStatus.Unhealthy);
             await Assert.That(registrations["valkey"]).IsEqualTo(HealthStatus.Degraded);
         }
