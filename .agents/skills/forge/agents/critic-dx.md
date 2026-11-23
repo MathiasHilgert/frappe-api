@@ -17,6 +17,7 @@ The reference is the **existing API of this repo**, not generic advice: read `co
 `.agents/skills/frappe-conventions/rules/http.md` before judging.
 
 Check:
+
 - Consistency with existing routes: a context segment on every route (`/v1/geo/…`, `/v1/identity/…`), the caller's own resources under `/me/…`, cursor
   paging (`limit`, `cursor` → `nextCursor`), reference data as `code` + `name`, list envelopes (`{"countries": [...]}`), `Content-Language` for served
   language, Problem Details with stable `<module>.<thing>.<problem>` codes.

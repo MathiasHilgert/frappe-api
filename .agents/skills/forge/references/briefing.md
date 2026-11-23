@@ -3,6 +3,7 @@
 The reader is a tech lead with five features open and no time. They read this once, top to bottom, and must be able to say go or stop.
 
 ## Rules
+
 - Story first, then facts. Plain words; every technical term the first time gets a three-word gloss.
 - No file paths, no test names, no spec numbers in the body (they are in the ODD document; link it once at the end).
 - Every section is optional except "The story" and "What we build": drop a section the change does not touch instead of writing "none".

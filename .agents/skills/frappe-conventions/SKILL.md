@@ -8,10 +8,12 @@ metadata:
 ---
 
 ## Activation Contract
+
 Use before writing, reviewing or designing anything in this repo. This file is only an index: read the rows that match your task or your diff, then
 open only those files under `rules/`. Never load every rule file.
 
 ## Hard Rules
+
 1. Load on demand: match your task in **By task** and your changed paths in **By path**; read those rule files only. `design.md` is mandatory for any
    task that creates or changes a type.
 2. Cite rules by id (`DATA-04`) in plans, findings and commits. A finding without a rule id is an opinion; say so.
@@ -26,14 +28,17 @@ open only those files under `rules/`. Never load every rule file.
 7. Process (when to grill, plan, review, deliver) belongs to `/forge`; this skill only says what good code looks like here.
 
 ## Convention proposal (writers and critics return it; the arbiter filters; the user decides)
+
 ```json
 { "rule": "DATA-04", "kind": "change | exception | inconsistency | missing",
   "evidence": "path:line and why the rule fails here",
   "proposal": "the new rule text, the exception wording, or the fix" }
 ```
+
 Outcomes: keep the rule · exception (marked in code, rule 4) · change the rule (the orchestrator edits the card).
 
 ## By task
+
 | If you will… | Read |
 |---|---|
 | create or change any type | design, craft, csharp |
@@ -53,6 +58,7 @@ Outcomes: keep the rule · exception (marked in code, rule 4) · change the rule
 | add a NuGet package or platform library | criteria |
 
 ## By path (reviewers: union of every matching row)
+
 | Diff touches | Read |
 |---|---|
 | `src/Modules/*/*.Domain/**` | domain, design, csharp |
@@ -69,7 +75,9 @@ Outcomes: keep the rule · exception (marked in code, rule 4) · change the rule
 | any `*.cs` | craft, csharp |
 
 ## Card format (every rule file)
+
 A file opens with a one-line-per-rule summary, then one card per rule:
+
 ```markdown
 ### DATA-05 · Every key, index and check carries our lower-case prefix
 - **Rule:** one or two imperative sentences.
@@ -80,5 +88,6 @@ A file opens with a one-line-per-rule summary, then one card per rule:
 ```
 
 ## Rule files
+
 architecture · structure · design · domain · cqrs · uow · data · migrations · caching · performance · http · contracts · events · observability ·
 security · configuration · tests · craft · criteria · csharp — all under `rules/<name>.md`.

@@ -1,6 +1,7 @@
 # Critic protocol (every critic follows this)
 
 ## Input
+
 - `worktree`: absolute path of the change; `base`: the ref it branched from (usually `origin/main`).
 - `featureDoc`: the ODD document; read it from the top until `## Log`. The `S#` specs are the requirements; do not invent others.
 - `task`: the task id and its specs.
@@ -8,6 +9,7 @@
   inherits its blind spots. Judge the code against the specs alone.
 
 ## Rules
+
 1. Read-only. Never edit, create or delete files, never commit, never run formatters, generators or migrations.
 2. Start from the diff: `git -C <worktree> diff --stat <base>...HEAD` plus the uncommitted `git -C <worktree> diff <base>`. Then look **beyond the
    diff**: the defect you are paid to find usually lives between a changed file and an unchanged one (a query and its index, a route and its siblings,
@@ -30,6 +32,7 @@ the shaky ones and can revive them.
    not a finding: return it in `conventions[]` (`rule`, `kind`, `evidence`, `proposal`) and judge the code by the rule as written.
 
 ## Output (the StructuredOutput schema enforces it)
+
 `summary`, `checked` (what you inspected, one line each), `findings[]` with `id` (`<lens>-<n>`), `severity`, `confidence`, `file`, `line`, `rule` (the
 convention id, when one applies), `title`, `evidence`, `failure`, `fix`, `preexisting`, `ruledOut[]` (`concern`, `file`, `line`, `evidence`; rule 7a)
 and `conventions[]` (rule proposals, rule 9).

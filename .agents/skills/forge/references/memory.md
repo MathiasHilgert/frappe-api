@@ -3,6 +3,7 @@
 Engram is mandatory in `/forge`, project `frappe-api` only. Memory is bookkeeping: do it before composing the reply, never instead of it.
 
 ## Access (in this order)
+
 1. MCP tools when loaded (`mem_current_project` must resolve to `frappe-api`; then `mem_search`, `mem_get_observation`, `mem_save`, `mem_update`).
 2. Otherwise the CLI from the repo root: `engram search "<query>" --project frappe-api --limit 10`; `engram save "<title>" "<content>" --type <type>
    --topic <topic> --project frappe-api`. Saving again with the same `--topic` updates that observation in place (verified), so one topic = one living
@@ -11,6 +12,7 @@ Engram is mandatory in `/forge`, project `frappe-api` only. Memory is bookkeepin
    continue silently.
 
 ## What is worth saving (selective)
+
 Decisions with their reason, non-obvious root causes, real constraints, and what someone needs to resume the feature. Never routine progress, raw
 dumps, secrets, tokens or personal data. Content shape: **What**, **Why**, **Where** (files, PRs), **Learned**. Quote the user's decisions verbatim.
 
@@ -18,6 +20,7 @@ Before every save: search the topic; if an observation covers it, save to that s
 superseded; a new subject gets a new, deliberate topic.
 
 ## Topics per feature
+
 | Topic | Type | Holds |
 |---|---|---|
 | `odd/<feature>/tasks` | `architecture` | The full ODD document (mirror) and its path; the file is the source |
@@ -30,6 +33,7 @@ superseded; a new subject gets a new, deliberate topic.
 | `forge/lessons/<area>` | `discovery` / `bugfix` | Retro lessons that apply beyond this feature (`references/retro.md`) |
 
 ## When (every stage)
+
 | Stage | Read | Write |
 |---|---|---|
 | 0 Recall | `forge/lessons`, `odd/<feature>/tasks`, `forge/<feature>/decisions` (resume), and the feature's keywords | — |
@@ -40,5 +44,6 @@ superseded; a new subject gets a new, deliberate topic.
 | 7 Retro | `forge/lessons/<area>` before saving | Lessons per `references/retro.md` |
 
 ## Resume an interrupted feature
+
 Search `odd/<feature>/tasks` and `forge/<feature>/decisions`, read them in full, read the ODD file itself, reconcile (the file wins; refresh the
 mirror from it), then continue with the first unfinished task.

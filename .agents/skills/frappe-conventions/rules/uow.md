@@ -10,7 +10,8 @@
 - UOW-08 · Nothing external inside the transaction; what must happen leaves through the outbox
 - UOW-09 · After-commit handlers are for losable effects only
 
-### UOW-01 · One keyed unit of work per module; handlers only stage
+## UOW-01 · One keyed unit of work per module; handlers only stage
+
 - **Rule:** Each module registers one unit of work over its own context with `AddUnitOfWork<TContext>(Module)`, keyed by the module name. Handlers and
   Application ports stage changes (`Add`, aggregate transitions) and never save; the pipeline commits once per command.
 - **Why:** One commit per command keeps aggregates, outbox rows and events atomic; a port that saves splits the command into partial commits.
@@ -20,7 +21,8 @@
   SaveAsync(...)` on an Application port; Notification with no unit of work.
 - **Status:** in force.
 
-### UOW-02 · The transaction opens at commit, in a fixed order
+## UOW-02 · The transaction opens at commit, in a fixed order
+
 - **Rule:** The handler's reads and calls to other systems run with no transaction open. `CommitAsync` then runs, in order: in-unit
   `IDomainEventHandler`s → one `SaveChanges` (aggregates and outbox rows) → commit → `IAfterCommitDomainEventHandler`s. Inside an inbox consumer's
   transaction the unit nests in a savepoint and runs no after-commit handler. Only platform pieces (`EfUnitOfWork`, `InboxConsumer`) and migrations
@@ -33,7 +35,8 @@
   of a handler, then an HTTP call.
 - **Status:** in force.
 
-### UOW-03 · Set-based writes only inside the unit's transaction
+## UOW-03 · Set-based writes only inside the unit's transaction
+
 - **Rule:** In a command, `ExecuteUpdate`/`ExecuteDelete` run only from an `IDomainEventHandler` (or another commit step), so they join the unit's
   transaction. Never call them from the handler body.
 - **Why:** In the handler body no transaction is open yet: the statement autocommits on its own and survives a later rollback.
@@ -42,7 +45,8 @@
   command handler calling `sessions.RevokeAllAsync(...)` before returning `Unit.Value`.
 - **Status:** in force.
 
-### UOW-04 · Every aggregate is versioned by `xmin`
+## UOW-04 · Every aggregate is versioned by `xmin`
+
 - **Rule:** Every aggregate's configuration maps Postgres `xmin` as its row version. When an aggregate has independent writers (a reset and a rehash,
   a rename and a rehash), keep `xmin` and let the module's commit rules (UOW-05) read the stored row back and repair a conflict on fields the command
   never depended on; never add per-column tokens for that. A lost conflict surfaces as an `ICommitRejection` (CQRS-05). No `SELECT … FOR UPDATE`
@@ -62,7 +66,8 @@
   `Revision` on every change, as `HolidayCalendar` does, so `xmin` catches it; its configuration says so.
 - **Status:** in force.
 
-### UOW-05 · Modules register commit rules; the unit of work applies them
+## UOW-05 · Modules register commit rules; the unit of work applies them
+
 - **Rule:** Each module registers commit rules keyed by a constraint name (`ux_…`, `ck_…`, `fk_…`), a lost concurrency check or a Postgres state; a
   rule rejects (the module's `ICommitRejection`) or repairs and saves again, at most a fixed number of times, after which the answer is 409
   `platform.persistence.commit_conflict`. The unit of work evaluates them; a save made outside a unit gets only the rejection, through the platform
@@ -78,7 +83,8 @@
   `IdentityDbContext` and `GeoDbContext`.
 - **Status:** in force.
 
-### UOW-06 · DbContexts are stateless and pooled
+## UOW-06 · DbContexts are stateless and pooled
+
 - **Rule:** A DbContext holds mapping only: no instance fields, no per-request state. Every module registers it with `AddDbContextPool`.
 - **Why:** Pooling cuts allocation on every request, and it is only safe when nothing leaks from one use to the next.
 - **Enforced by:** ArchTest (planned): `DbContext` subclasses declare no instance fields; review of `ModuleDatabaseRegistration`.
@@ -86,7 +92,8 @@
   (`ModuleDatabaseRegistration`); `private readonly List<...> _profileFences = [];` in `IdentityDbContext`.
 - **Status:** in force.
 
-### UOW-07 · No `EnableRetryOnFailure`
+## UOW-07 · No `EnableRetryOnFailure`
+
 - **Rule:** Never configure an EF execution strategy with retries. Transient failures are retried by message redelivery, outbound HTTP resilience or
   the client running the command again.
 - **Why:** An execution strategy replays a user-initiated transaction outside the pipeline and conflicts with the unit's own transaction and
@@ -95,7 +102,8 @@
 - **Good:** `options.UseNpgsql(connectionString, npgsql => npgsql.UseNodaTime())`. **Bad:** `npgsql.EnableRetryOnFailure(3)`.
 - **Status:** in force.
 
-### UOW-08 · Nothing external inside the transaction; what must happen leaves through the outbox
+## UOW-08 · Nothing external inside the transaction; what must happen leaves through the outbox
+
 - **Rule:** Effects that must happen once the command commits (mails, third-party calls, other modules) leave through the outbox as integration
   events. Only protective limits and counters may run before commit, in Valkey, with a TTL and an explicit refund when the command fails. Nothing
   external runs while the transaction is open.
@@ -109,7 +117,8 @@
   `VerificationCodeIssued` in the outbox. **Bad:** calling the mail provider from a command handler or from an `IDomainEventHandler`.
 - **Status:** in force.
 
-### UOW-09 · After-commit handlers are for losable effects only
+## UOW-09 · After-commit handlers are for losable effects only
+
 - **Rule:** `IAfterCommitDomainEventHandler` runs only effects the system can lose: metrics, a quick local cache eviction. It finishes within the
   unit's 10 s bound and never fails the command. Anything that must happen goes through the outbox, or the handler's XML doc states its durable
   backstop. Business-success counters are counted after commit (`CountOnCommit`, planned).

@@ -1,22 +1,26 @@
 # Plan
 
 ## ODD document (`odd/tasks/<feature>.md`, git-ignored)
+
 Order: two-line header (objective, branches, runner); `## Specs` with numbered `S#` quoting the user's strings and examples verbatim; `## Tasks` one
 line each (ID, `S#`, wave, worktree, profile, contract, qa, status, commit); `## Log` with `L1` = the user's request verbatim, then decisions verbatim
 with dates.
 
 ## Impact (before the design review)
+
 Write an `## Impact` section in the ODD document from CodeGraph (`callers`, `impact` of every symbol the change touches) and the existing use cases:
 which use cases, consumers, jobs and stored data are affected; what changes in **behavior** (not only contracts) for each; states the change can
 create that nothing expects; incompatibilities with rows already stored; what to reuse (existing ports, helpers, value objects) and where reusing
 would mix layers. If the impact or the value is poor, say so to the user before planning (`references/grill.md`, Challenge).
 
 ## Design review (before specs are final)
+
 Design critics run on `model: opus`, `effort: high` whatever their frontmatter says: a design mistake costs a whole wave, and there are at most three
 of them. Implementation roles keep their frontmatter (the table in `references/verification.md` is the source of truth).
 Write the proposed design in the document (layers per rule, module communication, schema, routes, events, metrics, and the patterns chosen with the
 symptom each answers — `.agents/skills/frappe-conventions/rules/design.md`) and launch, in parallel, only the design critics the kinds call for, each
 with "review this proposed design, there is no diff yet":
+
 - `critic-dx` when routes or payloads change;
 - `critic-architecture` for any code change (layers, module communication, libraries);
 - `critic-data` when the schema changes.
@@ -25,6 +29,7 @@ Roles registered in `.claude/agents/` may load only after a session restarts; la
 `<repo>/.agents/skills/forge/agents/<role>.md` (ignore its frontmatter) and follow it". The Workflow does the same fallback on its own.
 
 ## Tasks
+
 - Every task carries a `brief` written at launch (never edited before its resume: it is part of every cache key). Orientation before the first edit is
   a large share of writer time, so the brief answers what the writer would otherwise explore. 5-15 lines, in this order:
   - **Specs**: the `S#` of this task and the user's choices verbatim.
@@ -44,10 +49,12 @@ Roles registered in `.claude/agents/` may load only after a session restarts; la
   wave.
 
 ## Plan per module
+
 Plan a whole module (or every feature still missing in it) in one pass: one grill with every decision asked upfront and in one batch, one schema
 design, one design review, one feature document. No questions mid-run: anything the plan cannot decide becomes a decision card before go.
 
 ## Chains
+
 - Merges stay squash with the PR body as the commit body so `git log` and `git blame` reach the why.
 - The module is cut into **slices** before go. A slice is one capability with its code, tests and docs, about **800-1500 authored lines**, that leaves
   main working; its `commit` header is its future PR title. The cuts are written in the feature document and shown in the briefing.
@@ -60,6 +67,7 @@ design, one design review, one feature document. No questions mid-run: anything 
   logic with good tests. Do not give every slice `deep`.
 
 ## PR budget (planned before go, shown in the briefing)
+
 - Chains: one PR per slice (800-1500 authored lines). Below, the budget for a single task outside a chain.
 - Budget: about **400 authored changed lines per PR** (additions + deletions), not counting generated files (EF `*.Designer.cs`, model snapshots,
   `packages.lock.json`, `contracts/**` regenerated contracts). A planning heuristic, never a hard gate: a behavior that is clearer whole may exceed
@@ -72,6 +80,7 @@ design, one design review, one feature document. No questions mid-run: anything 
 - A task whose risk is high (data migration of existing rows, security, contract break) gets its own PR so it can be reviewed and reverted alone.
 
 ## Profile per task (decides depth; the Workflow also checks the real diff)
+
 | Profile | When | Critics | QA |
 |---|---|---|---|
 | `docs` | only docs/comments | none, or `contracts` + `dx` if `contracts/**` or `tools/bruno/**` changed | no |
@@ -82,6 +91,7 @@ design, one design review, one feature document. No questions mid-run: anything 
 | `deep` | security, data migration of existing rows, cross-module, or the user asked | selector, cap 6 | yes |
 
 The selector (in `assets/forge.workflow.js`, tested by `node scripts/review/selector.test.mjs`) works in three layers:
+
 1. **Plan:** each task carries `kinds` from the grill. `security` → security; `data` → data + performance; `contract` → contracts + dx; `cross-module`
    → architecture + contracts; `operational` → performance + observability. These and correctness are mandatory: the cap never drops them.
 2. **Content:** the writer's last step runs `scripts/review/signals.py`, which scans the changed lines (authorization calls, migrations, locks and
@@ -95,6 +105,7 @@ performance, dx, observability, architecture, craft (style last). Any changed te
 diff turns out to be docs- or tests-only; it logs every skipped critic or QA with the reason.
 
 ## Workflow args
+
 ```json
 {
   "repo": "<repo>",
@@ -116,6 +127,7 @@ diff turns out to be docs- or tests-only; it logs every skipped critic or QA wit
   "suppressions": [{ "lens": "craft", "rule": "No requests for XML docs on private members", "reason": "declined by the user" }]
 }
 ```
+
 Every task gets `kinds`: the grill's change kinds that apply to THAT task, not the whole feature (a task with no migration is not `data`). `lensStats`
 is the current total from Engram `forge/metrics/critics` and `suppressions` the list in `forge/review/suppressions`; omit either when empty. Pass
 `args` as a JSON object, not a string. Create `odd/tasks/<feature>.journal/` before launching. To pass the user's choices back, add `"answers": {"T1":

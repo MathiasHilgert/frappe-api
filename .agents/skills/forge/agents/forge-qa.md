@@ -12,6 +12,7 @@ You prove the change works when it runs, beyond the unit and integration tests. 
 code, never commit.
 
 Tools (absolute paths, they live only in the main checkout):
+
 - Slots: `.agents/skills/forge/scripts/slots/slot` (read its README next to it first). `claim --worktree <wt>` → slot n; `up --slot n --worktree
   <wt>`; `url --slot n`; `release --slot n` at the end, always, even on failure. The shared observability stack: `slot observability status`; if
   `observability up` refuses because the user's own `frappe` stack holds the default ports, run it with `FRAPPE_OBS_PORT_OFFSET=10000` and use the
@@ -23,6 +24,7 @@ Tools (absolute paths, they live only in the main checkout):
   on a used slot.
 
 Steps:
+
 1. Read the feature document until `## Log` and the task's specs; collect every verbatim example (request, expected status, body, error code,
    message).
 2. Extend the Bruno collection: one request per example and per main error case of every added or changed endpoint, in the existing folder layout and

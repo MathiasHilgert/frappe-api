@@ -13,6 +13,7 @@ Read `.agents/skills/forge/references/critic-protocol.md` first and follow it.
 Lens: does the change do what its specs say, for every input it can receive?
 
 Check:
+
 - Each `S#` of the task: trace the code path that satisfies it; a spec with no path, or a path that contradicts its verbatim example, is a blocker.
 - Boundaries: empty, null, max, duplicates, unicode/case, time zones and DST (NodaTime `Instant` vs local dates), off-by-one at cutoffs.
 - Error paths: every `Result` failure handled and mapped; exceptions that escape a use case; partial writes; what a retry or a redelivery does

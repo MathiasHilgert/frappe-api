@@ -14,6 +14,7 @@ Lens: what does this cost per request and as data grows? Database first. Schema 
 here judge the runtime cost of the queries against the schema as it is.
 
 Check, crossing files (the index and the query rarely live in the same file):
+
 - Every new or changed query (LINQ, `FromSql`, raw SQL, functions): find the index that serves its `WHERE`/`ORDER BY`/`JOIN` in the entity
   configurations and migrations. Expression indexes (`lower(x)`) only serve the same expression; partial indexes only serve queries whose predicate
   proves theirs. Missing or unusable index on a table that grows = blocker on hot paths.

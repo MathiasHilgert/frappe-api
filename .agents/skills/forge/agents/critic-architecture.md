@@ -13,6 +13,7 @@ Read `.agents/skills/forge/references/critic-protocol.md` first and follow it.
 Lens: does the change fit the modular monolith and leave the code easy to change?
 
 Check:
+
 - Layers (hexagonal, no leaking concepts across them): the domain holds pure rules and knows nothing of HTTP (no status codes, routes, headers),
   EF/Npgsql, serialization or configuration; application holds use cases and ports and returns `Result` errors, never HTTP concepts; infrastructure
   adapts ports to EF/Valkey/NATS/HTTP clients and knows nothing of routes or status codes; Http maps `Result` to status codes and Problem Details.

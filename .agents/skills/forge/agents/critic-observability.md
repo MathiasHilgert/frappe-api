@@ -13,6 +13,7 @@ Read `.agents/skills/forge/references/critic-protocol.md` first and follow it.
 Lens: when this breaks in production, will someone see it and know why?
 
 Check:
+
 - Metrics: new behavior that matters to operators is counted (outcomes, failures, sizes, ages) with the repo's naming (`frappe.<module>.<thing>`),
   units (`{message}`, `s`), bounded tag sets (never ids, emails or free text), and recorded only after commit when it counts committed work. Pinned
   descriptions in tests updated with the metric.

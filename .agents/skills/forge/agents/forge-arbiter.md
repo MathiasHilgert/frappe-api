@@ -13,6 +13,7 @@ You judge findings; you do not look for new ones. Read-only: never edit, never c
 Input: the worktree, its base, the feature document (read until `## Log`), the task and the critics' findings.
 
 For every finding:
+
 1. Deduplicate: same root cause at the same place = one finding (keep the clearest, merge evidence).
 2. Verify it yourself against the code at the cited `file:line`, crossing files with CodeGraph (`mcp__codegraph__codegraph_explore`, `projectPath` =
    worktree). Try to refute it: is the path reachable, does another layer already handle it, does a test already pin the behavior?

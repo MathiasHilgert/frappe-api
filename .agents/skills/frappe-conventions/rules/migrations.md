@@ -15,7 +15,8 @@
 - MIG-13 · CI upgrades the base database with the branch's Migrator
 - MIG-14 · Reproduce squawk locally outside the repo
 
-### MIG-01 · Every model change ships its migration
+## MIG-01 · Every model change ships its migration
+
 - **Rule:** A change to a DbContext's model ships, in the same PR, the migration that brings the database to it (`dotnet ef migrations add`), Designer
   and snapshot included.
 - **Why:** A model ahead of its schema fails at runtime on the first query that touches the difference.
@@ -23,7 +24,8 @@
 - **Good:** `20261116143839_IndexParkedOutboxRows.cs` beside the `OutboxModel` change. **Bad:** a new `HasIndex` with no migration.
 - **Status:** in force.
 
-### MIG-02 · New migration SQL passes squawk
+## MIG-02 · New migration SQL passes squawk
+
 - **Rule:** The SQL of every new migration passes squawk 2.72.0 with `eng/squawk.toml` (pg 18, `assume_in_transaction`). An unavoidable finding gets a
   per-statement `-- squawk-ignore <rule>` with the reason in a comment beside it; otherwise the PR needs the `risky migration approved` label.
 - **Why:** squawk catches the statements that lock tables or lose data before they reach a live database.
@@ -32,7 +34,8 @@
   **Bad:** a file-wide ignore, or one with no reason.
 - **Status:** in force.
 
-### MIG-03 · DDL on a live table starts with `lock_timeout`
+## MIG-03 · DDL on a live table starts with `lock_timeout`
+
 - **Rule:** Every transactional DDL on an existing table starts with `SET LOCAL lock_timeout = '5s';` (`'2s'` for an ACCESS EXCLUSIVE lock on a hot
   table: outbox, inbox, sessions, localities).
 - **Why:** A DDL waiting for its lock queues every reader and writer behind it; failing fast and retrying beats an outage.
@@ -41,7 +44,8 @@
   identity.sessions ADD CONSTRAINT ...` with no lock timeout.
 - **Status:** in force.
 
-### MIG-04 · CHECK constraints are added NOT VALID, then validated
+## MIG-04 · CHECK constraints are added NOT VALID, then validated
+
 - **Rule:** Add a CHECK `NOT VALID` inside the transaction (`DROP CONSTRAINT IF EXISTS` + `ADD` in one `ALTER`), then `VALIDATE CONSTRAINT` in its own
   statement with `suppressTransaction: true`, in the same migration by default. Use two migrations when existing rows may break it and need cleanup
   first, or on a hot or large table (outbox, inbox, sessions, localities, or more than ~1M rows expected).
@@ -51,7 +55,8 @@
   validates it. **Bad:** `ADD CONSTRAINT ck_x CHECK (...)` validated under the ALTER's lock.
 - **Status:** in force.
 
-### MIG-05 · Indexes are built and dropped CONCURRENTLY
+## MIG-05 · Indexes are built and dropped CONCURRENTLY
+
 - **Rule:** On an existing table, `CREATE`/`DROP INDEX CONCURRENTLY`, one statement per `Sql` call, `suppressTransaction: true`, each create preceded
   by `DROP INDEX CONCURRENTLY IF EXISTS` so a failed build (an invalid index) is cleared on rerun.
 - **Why:** A plain build blocks writes for the whole build; a concurrent one cannot share a transaction or a batch.
@@ -60,7 +65,8 @@
   INDEX CONCURRENTLY IF EXISTS` before it.
 - **Status:** in force.
 
-### MIG-06 · Migrations use literals only and never read model types
+## MIG-06 · Migrations use literals only and never read model types
+
 - **Rule:** A migration writes table names, constraint names, predicates and index definitions as literals. It never references configuration, model
   or platform types (`SessionConfiguration`, `OutboxModel`), not even for a name.
 - **Why:** A migration is frozen history; reading a constant rewrites what an old migration does when the model later changes.
@@ -70,7 +76,8 @@
   `private const string Table = "geo." + OutboxModel.Table;`, `{SessionConfiguration.PasswordStampCheck}`.
 - **Status:** in force.
 
-### MIG-07 · Breaking column changes go expand/contract
+## MIG-07 · Breaking column changes go expand/contract
+
 - **Rule:** A new required column lands in steps: add it nullable without a default → backfill → `CHECK (col IS NOT NULL) NOT VALID` → validate → `SET
   NOT NULL` in a later migration. Renames and drops add the new shape first and remove the old one only after no running binary reads it.
 - **Why:** Each step is compatible with the binary before and after it, so replicas can roll.
@@ -79,7 +86,8 @@
   defaultValue: ...)` on a live table in one step.
 - **Status:** in force.
 
-### MIG-08 · The migration documents locks, rerunnability and rollout class
+## MIG-08 · The migration documents locks, rerunnability and rollout class
+
 - **Rule:** The migration's XML doc states the locks it takes and for how long, whether it is rerunnable after a partial failure, and its rollout
   class: `rolling-safe`; `rolling with a brief stall` (an ACCESS EXCLUSIVE wait bounded by `lock_timeout`, with no required order between old and new
   binaries); or `coordinated cutover` (with the steps). A non-rolling-safe migration needs a "Rollout" section in its PR, which release-please carries
@@ -90,7 +98,8 @@
   **Bad:** `/// <summary>Adds a column.</summary>`; a summary with no rollout class.
 - **Status:** in force.
 
-### MIG-09 · Adding uniqueness checks for duplicates first and never deletes data
+## MIG-09 · Adding uniqueness checks for duplicates first and never deletes data
+
 - **Rule:** Before a unique index or constraint, the migration looks for duplicates and raises an exception naming them. It never deletes or merges
   rows itself. The check and the build are rerunnable (`IF EXISTS` in Up and Down).
 - **Why:** Which duplicate to keep is a business decision; a failed concurrent build otherwise leaves an invalid index.
@@ -99,7 +108,8 @@
   ...'`. **Bad:** `DELETE FROM ... WHERE ctid NOT IN (SELECT min(ctid) ...)`; that same migration's build and `Down` without `IF EXISTS`.
 - **Status:** in force.
 
-### MIG-10 · The Migrator owns DDL; login roles are narrow
+## MIG-10 · The Migrator owns DDL; login roles are narrow
+
 - **Rule:** Only the Migrator runs DDL, as the schema owner, under an advisory lock. It creates every login role `NOINHERIT NOCREATEDB NOCREATEROLE`
   with a SCRAM verifier, and sets `statement_timeout` and `idle_in_transaction_session_timeout` on each from `DatabaseOptions`.
 - **Why:** A compromised or buggy Api cannot change the schema; two Migrators started together cannot race.
@@ -108,7 +118,8 @@
 - **Good:** `ModuleRoles`. **Bad:** the Api calling `Database.MigrateAsync()`.
 - **Status:** in force.
 
-### MIG-11 · Module roles get DML on their own schema, never DDL
+## MIG-11 · Module roles get DML on their own schema, never DDL
+
 - **Rule:** A module's login role gets DML on its schema's tables and default privileges for future ones; never DDL, never the migration history;
   `PUBLIC` loses access to the schema.
 - **Why:** Least privilege: a module cannot read another's data or rewrite its own history.
@@ -116,7 +127,8 @@
 - **Good:** `ModuleRoles` grants. **Bad:** `GRANT ALL ON SCHEMA identity TO identity_app`.
 - **Status:** in force.
 
-### MIG-12 · Narrower roles get column grants and pinned SECURITY DEFINER functions
+## MIG-12 · Narrower roles get column grants and pinned SECURITY DEFINER functions
+
 - **Rule:** A role that needs less than its module's DML (a relay, a purge) gets column-level `UPDATE` and `EXECUTE` on `SECURITY DEFINER` functions
   with `search_path` pinned and `EXECUTE` revoked from `PUBLIC`.
 - **Why:** The relay can publish and purge but cannot read or change business rows.
@@ -125,7 +137,8 @@
   role and purge functions. **Bad:** the relay logging in as the module role.
 - **Status:** in force.
 
-### MIG-13 · CI upgrades the base database with the branch's Migrator
+## MIG-13 · CI upgrades the base database with the branch's Migrator
+
 - **Rule:** The Compatibility workflow migrates a database built from the base branch with the branch's Migrator; a PR that cannot upgrade it does not
   merge.
 - **Why:** Production is always the base plus this migration, never a fresh database.
@@ -133,7 +146,8 @@
 - **Good:** the upgrade job green. **Bad:** testing migrations only on an empty database.
 - **Status:** in force.
 
-### MIG-14 · Reproduce squawk locally outside the repo
+## MIG-14 · Reproduce squawk locally outside the repo
+
 - **Rule:** Lint locally with `.github/scripts/migration-sql.sh <base-branch> "$(mktemp -d)"` and `npx --yes squawk-cli@2.72.0 --config
   eng/squawk.toml <files>`; the SQL directory never lives in the worktree.
 - **Why:** Same script and version as CI, and no generated SQL left in the change.

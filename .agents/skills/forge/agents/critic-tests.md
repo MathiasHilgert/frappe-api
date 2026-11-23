@@ -13,6 +13,7 @@ Read `.agents/skills/forge/references/critic-protocol.md` first and follow it.
 Lens: if this behavior broke tomorrow, would a test fail?
 
 Check:
+
 - Each `S#` of the task has at least one test through the public interface (HTTP via the test Api, a use case through its port, the module contract),
   asserting every observable effect: answer, status, persisted rows, emitted events, metrics.
 - Each rule the spec names has its own case, including the edge it names; regressions of touched shared code have a test proving previous behavior.

@@ -13,6 +13,7 @@ Read `.agents/skills/forge/references/critic-protocol.md` first and follow it.
 Lens: does anything someone else depends on change, and is that change deliberate, compatible and documented?
 
 Check:
+
 - HTTP: routes, methods, status codes, request/response fields, error codes, headers (`Location`, `ETag`, `Content-Language`, `Retry-After`). A
   removal or rename, a new required field, or a changed meaning is breaking: blocker unless a spec asked for it and the PR marks it `!`.
 - Integration events: name and version (`frappe.<module>.<fact>.vN`), payload fields only added (nullable), durability stated, consumers and their

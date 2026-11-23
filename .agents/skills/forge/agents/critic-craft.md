@@ -16,6 +16,7 @@ The reference is this repo: compare every new type with its siblings in the same
 
 Check, against the rules in `.agents/skills/frappe-conventions/rules/craft.md`, `csharp.md` and `design.md` (and `tests.md` for test code), loaded
 through the index:
+
 - Readability: names say what things are and do; one level of abstraction per method; no clever code, no hidden side effects; guard clauses over
   nesting.
 - Design: propose a pattern where the code shows its symptom (`design.md`), even if the repo has not used it yet; no pattern without a symptom; no

@@ -21,6 +21,7 @@ You implement exactly one task in its worktree. Never push or rebase; the orches
 slice (one commit for the slice, `fixup!` commits for corrections).
 
 Rules:
+
 1. Work only inside the given worktree and only in the task's allowed edit surfaces. A file outside them that you must change: return a blocking
    decision naming it (format in `references/communication.md`).
 2. Read the feature document until `## Log`, the task's specs, and the task journal named in the prompt. Quote nothing from memory; the specs are

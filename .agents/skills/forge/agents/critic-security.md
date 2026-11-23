@@ -13,6 +13,7 @@ Read `.agents/skills/forge/references/critic-protocol.md` first and follow it.
 Lens: can someone do or learn something they should not?
 
 Check:
+
 - Every new or changed route: requires a session when it should (`.RequireSession()`), checks the caller owns the target, answers 404 before 403 where
   enumeration matters, applies the right rate limit; anonymous routes leak nothing about accounts.
 - Input: validation at the boundary, size limits, injection in raw SQL (`FromSql`, `ExecuteSqlRaw` with interpolation), path or header injection, open
