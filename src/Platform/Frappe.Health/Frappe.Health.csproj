@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Health of a process and of its critical dependencies (S23), without ASP.NET Core: the Worker exposes it over
+       TCP probes and the Api over HTTP endpoints (Frappe.Http). -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+</Project>

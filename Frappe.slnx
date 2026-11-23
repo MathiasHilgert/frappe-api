@@ -7,4 +7,24 @@
     <File Path="NuGet.config" />
     <File Path=".config/dotnet-tools.json" />
   </Folder>
+  <Folder Name="/src/Platform/">
+    <Project Path="src/Platform/Frappe.Aggregates/Frappe.Aggregates.csproj" />
+    <Project Path="src/Platform/Frappe.Caching/Frappe.Caching.csproj" />
+    <Project Path="src/Platform/Frappe.Health/Frappe.Health.csproj" />
+    <Project Path="src/Platform/Frappe.IntegrationEvents/Frappe.IntegrationEvents.csproj" />
+    <Project Path="src/Platform/Frappe.Localization/Frappe.Localization.csproj" />
+    <Project Path="src/Platform/Frappe.Modules/Frappe.Modules.csproj" />
+    <Project Path="src/Platform/Frappe.Results/Frappe.Results.csproj" />
+    <Project Path="src/Platform/Frappe.UseCases/Frappe.UseCases.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Frappe.Architecture.Tests/Frappe.Architecture.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Platform/">
+    <Project Path="tests/Platform/Frappe.Platform.UnitTests/Frappe.Platform.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Shared/">
+    <Project Path="tests/Shared/Frappe.Testing/Frappe.Testing.csproj" />
+    <Project Path="tests/Shared/Frappe.Testing.Containers/Frappe.Testing.Containers.csproj" />
+  </Folder>
 </Solution>
