@@ -158,6 +158,16 @@
         "resolved": "2.2.10",
         "contentHash": "zmGsm6b2y3STDa/Of7rdkkfTDV8VuGB8aCqIkLoJIQh5tL78K3zJ8OUyFKnfsaORXmGr9iOKwDkZfUjeXi+CwA=="
       },
+      "Microsoft.EntityFrameworkCore.Abstractions": {
+        "type": "Transitive",
+        "resolved": "11.0.0-rc.3.26522.148",
+        "contentHash": "88lsUgMKrEYbwnzQA40NZb9HjIXYRwK9r73iE+vU6ILrdzu+dDoXBUF00Hvv7q5UX7ZqjaBNKEu8K3x2Y/q3Uw=="
+      },
+      "Microsoft.EntityFrameworkCore.Analyzers": {
+        "type": "Transitive",
+        "resolved": "11.0.0-rc.3.26522.148",
+        "contentHash": "G7qLkPhrXBWa0gUXHIe/pWw4ce5oFwfwU5FAxEkbsvxCS1swIAu0zgToA2UFTr6TW60mCk5fhdnDQ9tWK4U82Q=="
+      },
       "Microsoft.Extensions.Configuration": {
         "type": "Transitive",
         "resolved": "11.0.0",
@@ -352,6 +362,15 @@
         "resolved": "0.11.6",
         "contentHash": "f33RkDtZO8VlGXCtmQIviOtxgnUdym9xx/b1p9h91CRGOsJFxCFOFK1FDbVt1OCf1aWwYejUFa2MOQyFWTFjbA=="
       },
+      "Npgsql.NodaTime": {
+        "type": "Transitive",
+        "resolved": "10.0.3",
+        "contentHash": "6ba1CM/zAoI7bTuBV7cFhTR3qqUsY5FqqqNoOh7dHoFHcyEEpIsMui3mC3Swyc+oyAJG0Zf8DCiXPnAf+sW09A==",
+        "dependencies": {
+          "NodaTime": "3.2.2",
+          "Npgsql": "10.0.3"
+        }
+      },
       "Pipelines.Sockets.Unofficial": {
         "type": "Transitive",
         "resolved": "2.2.8",
@@ -415,6 +434,9 @@
           "TUnit.Core": "1.81.10"
         }
       },
+      "frappe.aggregates": {
+        "type": "Project"
+      },
       "frappe.caching": {
         "type": "Project",
         "dependencies": {
@@ -448,6 +470,25 @@
         "dependencies": {
           "Frappe.Results": "[1.0.0, )",
           "MessageFormat": "[8.0.0, )"
+        }
+      },
+      "frappe.observability": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Aggregates": "[1.0.0, )",
+          "Frappe.UseCases": "[1.0.0, )"
+        }
+      },
+      "frappe.persistence": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Aggregates": "[1.0.0, )",
+          "Frappe.Health": "[1.0.0, )",
+          "Frappe.Localization": "[1.0.0, )",
+          "Frappe.UseCases": "[1.0.0, )",
+          "Microsoft.Extensions.Options.ConfigurationExtensions": "[11.0.0, )",
+          "Npgsql.EntityFrameworkCore.PostgreSQL": "[11.0.0-rc.3, )",
+          "Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime": "[11.0.0-rc.3, )"
         }
       },
       "frappe.platform.testing": {
@@ -496,6 +537,29 @@
           "Microsoft.AspNetCore.WebUtilities": "11.0.0",
           "Microsoft.Extensions.Hosting": "11.0.0",
           "Microsoft.OpenApi": "[3.11.0, 4.0.0)"
+        }
+      },
+      "Microsoft.EntityFrameworkCore": {
+        "type": "CentralTransitive",
+        "requested": "[11.0.0-rc.3.26522.148, )",
+        "resolved": "11.0.0-rc.3.26522.148",
+        "contentHash": "dAf8QI+9efsqaRikJ/d+KZpaFvDSR00PbLr/L19bJxlMYjr/06K+DF10kFyRhdPH4VM7RY1nbEH83atGI3p74Q==",
+        "dependencies": {
+          "Microsoft.EntityFrameworkCore.Abstractions": "[11.0.0-rc.3.26522.148, 12.0.0-a)",
+          "Microsoft.EntityFrameworkCore.Analyzers": "[11.0.0-rc.3.26522.148, 12.0.0-a)",
+          "Microsoft.Extensions.Caching.Memory": "11.0.0-rc.3.26522.148",
+          "Microsoft.Extensions.Logging": "11.0.0-rc.3.26522.148"
+        }
+      },
+      "Microsoft.EntityFrameworkCore.Relational": {
+        "type": "CentralTransitive",
+        "requested": "[11.0.0-rc.3.26522.148, )",
+        "resolved": "11.0.0-rc.3.26522.148",
+        "contentHash": "qzuy7EHpwV7AFSxOhmdK8czmo85R7NoxB+dSWPw3DB4khFjDtDvM6LUvXXb4cTNh7+9iLBM11sViexCSxSZd1A==",
+        "dependencies": {
+          "Microsoft.EntityFrameworkCore": "[11.0.0-rc.3.26522.148, 12.0.0-a)",
+          "Microsoft.Extensions.Caching.Memory": "11.0.0-rc.3.26522.148",
+          "Microsoft.Extensions.Logging": "11.0.0-rc.3.26522.148"
         }
       },
       "Microsoft.Extensions.Caching.Memory": {
@@ -596,6 +660,27 @@
         "requested": "[10.0.3, )",
         "resolved": "10.0.3",
         "contentHash": "7nb5YzXuvWWJxB0J8DiyL3we+X4FOctZrt0fIBnucOIaIevFEEwGQVZKtiu9olXdlNAK1eNgqSral6r/jlhI4w=="
+      },
+      "Npgsql.EntityFrameworkCore.PostgreSQL": {
+        "type": "CentralTransitive",
+        "requested": "[11.0.0-rc.3, )",
+        "resolved": "11.0.0-rc.3",
+        "contentHash": "Eqpu3yHTdvJGmP+lcrD1CJpbKKHZC2O5cC8uhWxsWGWXSvmw7ebKQPSmSoOtwmLwn0UUu+z7BlxDuH0Pn/Qrog==",
+        "dependencies": {
+          "Microsoft.EntityFrameworkCore": "[11.0.0-rc.3.26522.148]",
+          "Microsoft.EntityFrameworkCore.Relational": "[11.0.0-rc.3.26522.148]",
+          "Npgsql": "10.0.3"
+        }
+      },
+      "Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime": {
+        "type": "CentralTransitive",
+        "requested": "[11.0.0-rc.3, )",
+        "resolved": "11.0.0-rc.3",
+        "contentHash": "9M2OAnq4WdEwlgv4/6oh/YFtucA71Daw3pDRreKUspjTdC0TZk4IgwkxI4wc2+8HQ4j3aOpAhyxVlcNMXEiFag==",
+        "dependencies": {
+          "Npgsql.EntityFrameworkCore.PostgreSQL": "11.0.0-rc.3",
+          "Npgsql.NodaTime": "10.0.3"
+        }
       },
       "Testcontainers": {
         "type": "CentralTransitive",

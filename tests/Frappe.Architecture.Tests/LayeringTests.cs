@@ -17,6 +17,8 @@ public sealed class LayeringTests
     private static readonly Assembly UseCases = typeof(Frappe.UseCases.ICommand<>).Assembly;
     private static readonly Assembly Caching = typeof(Frappe.Caching.CachingOptions).Assembly;
     private static readonly Assembly Http = typeof(Frappe.Http.HttpRegistration).Assembly;
+    private static readonly Assembly Persistence = typeof(Frappe.Persistence.ModuleDatabase).Assembly;
+    private static readonly Assembly Observability = typeof(Frappe.Observability.FrappeTelemetry).Assembly;
 
     /// <summary>Anything an inner layer must never know about.</summary>
     private static readonly string[] Infrastructure =
@@ -64,18 +66,48 @@ public sealed class LayeringTests
     }
 
     [Test]
+    public async Task Persistence_knows_no_capability_built_on_it()
+    {
+        // Act
+        // Messaging adds its outbox through the callback of AddModuleDatabase, so the dependency never points back.
+        var result = Types.InAssembly(Persistence)
+            .ShouldNot().HaveDependencyOnAny(
+                "Frappe.Messaging", "Frappe.Scheduling", "Frappe.Http", "Frappe.Observability", "Microsoft.AspNetCore", "Quartz", "NATS")
+            .GetResult();
+
+        // Assert
+        await AssertAsync(result, "Persistence depends on a capability built on it, on the web stack or on a broker");
+    }
+
+    [Test]
+    public async Task Observability_decorates_handlers_without_knowing_storage_or_transport()
+    {
+        // Act
+        var result = Types.InAssembly(Observability)
+            .ShouldNot().HaveDependencyOnAny(
+                "Microsoft.EntityFrameworkCore", "Npgsql", "Frappe.Persistence", "Frappe.Messaging", "Frappe.Http",
+                "Microsoft.AspNetCore", "NATS", "Quartz")
+            .GetResult();
+
+        // Assert
+        await AssertAsync(result, "Observability depends on storage, on the web stack or on a broker");
+    }
+
+    [Test]
     public async Task The_rules_can_see_real_dependencies()
     {
         // Act
         // Positive control: a rule that can never fail would prove nothing.
         var caching = Types.InAssembly(Caching).That().HaveDependencyOn("ZiggyCreatures.Caching").GetTypes();
         var http = Types.InAssembly(Http).That().HaveDependencyOn("Microsoft.AspNetCore").GetTypes();
+        var persistence = Types.InAssembly(Persistence).That().HaveDependencyOn("Microsoft.EntityFrameworkCore").GetTypes();
 
         // Assert
         using (Assert.Multiple())
         {
             await Assert.That(caching.Any()).IsTrue();
             await Assert.That(http.Any()).IsTrue();
+            await Assert.That(persistence.Any()).IsTrue();
         }
     }
 }

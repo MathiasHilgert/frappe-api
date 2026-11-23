@@ -1,9 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Platform capabilities against real infrastructure (Testcontainers: Valkey, Postgres; needs Docker). Whatever runs in
+  <!-- Platform capabilities against real infrastructure (Testcontainers: Valkey, Postgres, NATS; needs Docker). Whatever runs in
        process without it belongs in Frappe.Platform.UnitTests; the fixtures both suites use live in Frappe.Platform.Testing. -->
   <ItemGroup>
     <ProjectReference Include="../../../src/Platform/Frappe.Caching/Frappe.Caching.csproj" />
     <ProjectReference Include="../../../src/Platform/Frappe.Http/Frappe.Http.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.Observability/Frappe.Observability.csproj" />
+    <ProjectReference Include="../../../src/Platform/Frappe.Persistence/Frappe.Persistence.csproj" />
     <ProjectReference Include="../../Shared/Frappe.Testing/Frappe.Testing.csproj" />
     <ProjectReference Include="../../Shared/Frappe.Testing.Containers/Frappe.Testing.Containers.csproj" />
     <ProjectReference Include="../Frappe.Platform.Testing/Frappe.Platform.Testing.csproj" />

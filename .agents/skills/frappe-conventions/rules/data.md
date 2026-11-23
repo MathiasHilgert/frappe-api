@@ -66,13 +66,15 @@
 
 ## DATA-06 · A closed set is short text guarded by a CHECK
 
-- **Rule:** Store a closed set as short text with a `CHECK (col IN (...))`; the converter and the CHECK list read the same `StoredText` source. Stored
+- **Rule:** Store a closed set as short text with a `CHECK (col IN (...))`; the converter, the CHECK list and the column length read the same
+  `StoredEnum<TEnum>` source (`Converter`, `CheckList`, `MaxLength`), and a test pins each enum's spellings. Stored
   values are lower snake_case (`email_change`, `tourist_non_working_day`) in every module, never PascalCase or the enum's `ToString()`; the wire name
   of a value lives apart (an Application `NameOf`), so the stored spelling and the API code can change independently. Never an int-backed enum, never
   a string with no CHECK.
 - **Why:** A row with an unknown value is refused at the write, not discovered when the reader's switch throws.
 - **Enforced by:** review.
-- **Good:** `table.HasCheckConstraint("ck_sessions_surface", $"surface IN ({StoredText.SessionSurfaces})");`. **Bad:**
+- **Good:** `.HasConversion(StoredEnum<Surface>.Converter).HasMaxLength(StoredEnum<Surface>.MaxLength)` with
+  `table.HasCheckConstraint("ck_<table>_surface", $"surface IN ({StoredEnum<Surface>.CheckList})");`. **Bad:**
   `.HasConversion<string>().HasMaxLength(32)` alone.
 - **Status:** in force.
 
