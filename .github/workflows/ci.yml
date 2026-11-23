@@ -1,0 +1,989 @@
+# The one pipeline of every pull request and of main. A single "Detect what the changes affect" job decides, from the changed
+# files (.github/scripts/changes.mjs) and from what exists in the repository, which checks have anything to check:
+#  - a check the change cannot affect, or whose subject does not exist yet (no projects, no image, no migrations, no
+#    contracts, no Bruno requests), is skipped through its job's `if:`, which GitHub reports as passing, never pending;
+#  - the test suites are found by name (*.UnitTests, *.IntegrationTests, *.Architecture.Tests), so a new suite needs no edit.
+# Every condition compares with `!= 'false'`: a failed detection runs everything instead of silently skipping it.
+# The pull request title and labels are also read by .github/workflows/pull-request-metadata.yml, which re-runs only those
+# checks (same names) when they are edited.
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  changes:
+    name: Detect what the changes affect
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      # What the changed files can affect (changes.mjs).
+      dotnet: ${{ steps.decide.outputs.dotnet }}
+      tests: ${{ steps.decide.outputs.tests }}
+      image: ${{ steps.decide.outputs.image }}
+      migrations: ${{ steps.decide.outputs.migrations }}
+      contracts: ${{ steps.decide.outputs.contracts }}
+      bruno: ${{ steps.decide.outputs.bruno }}
+      # What exists to be checked.
+      has_projects: ${{ steps.subjects.outputs.has_projects }}
+      has_unit: ${{ steps.subjects.outputs.has_unit }}
+      has_architecture: ${{ steps.subjects.outputs.has_architecture }}
+      has_integration: ${{ steps.subjects.outputs.has_integration }}
+      has_image: ${{ steps.subjects.outputs.has_image }}
+      has_e2e: ${{ steps.subjects.outputs.has_e2e }}
+      has_migrations: ${{ steps.subjects.outputs.has_migrations }}
+      has_bruno: ${{ steps.subjects.outputs.has_bruno }}
+      unit: ${{ steps.subjects.outputs.unit }}
+      integration: ${{ steps.subjects.outputs.integration }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Decide which checks the changed files can affect
+        id: decide
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { pathToFileURL } = require('node:url');
+            const { decide, runEverything } = await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/.github/scripts/changes.mjs`));
+            const pr = context.payload.pull_request;
+            let result;
+            if (!pr) {
+              result = runEverything(`${context.eventName} is not a pull request`);
+            } else {
+              try {
+                // The API lists at most 3000 files: fewer than the pull request's count means the list is incomplete.
+                const files = await github.paginate(github.rest.pulls.listFiles, { ...context.repo, pull_number: pr.number, per_page: 100 });
+                const paths = files.flatMap((file) => [file.filename, file.previous_filename].filter(Boolean));
+                result = decide(paths, { complete: files.length === pr.changed_files });
+              } catch (error) {
+                core.warning(`Could not list the changed files, so every check runs: ${error.message}`);
+                result = runEverything(`the changed files could not be listed (${error.message})`);
+              }
+            }
+            const rows = Object.entries(result.checks).map(([check, runs]) => {
+              core.setOutput(check, String(runs));
+              return [check, runs ? 'runs' : 'skipped'];
+            });
+            await core.summary
+              .addHeading('Checks this change can affect', 3)
+              .addRaw(`Why: ${result.reason}.`, true)
+              .addTable([[{ data: 'Group', header: true }, { data: 'Outcome', header: true }], ...rows])
+              .write();
+      - name: Find what there is to check
+        id: subjects
+        run: |
+          # One matrix entry per test project: its directory, and the name its coverage report gets.
+          suites() {
+            { find tests -name "$1" -not -path '*/obj/*' -not -path '*/bin/*' 2> /dev/null || true; } | sort \
+              | jq -R '{project: (split("/")[:-1] | join("/")), report: (split("/")[-1] | sub("\\.csproj$"; ""))}' | jq -sc '.'
+          }
+          exists() { if [ -n "$({ find "$@" 2> /dev/null || true; } | head -n 1)" ]; then echo true; else echo false; fi; }
+          unit=$(suites '*.UnitTests.csproj')
+          integration=$(suites '*.IntegrationTests.csproj')
+          {
+            echo "unit=$unit"
+            echo "integration=$integration"
+            echo "has_unit=$([ "$unit" != '[]' ] && echo true || echo false)"
+            echo "has_integration=$([ "$integration" != '[]' ] && echo true || echo false)"
+            echo "has_architecture=$(exists tests -name '*.Architecture.Tests.csproj')"
+            echo "has_projects=$(exists src tests -name '*.csproj')"
+            echo "has_image=$([ -f deploy/Dockerfile ] && echo true || echo false)"
+            echo "has_e2e=$([ -f deploy/Dockerfile ] && [ -f tests/Frappe.EndToEnd.Tests/Frappe.EndToEnd.Tests.csproj ] && echo true || echo false)"
+            echo "has_migrations=$([ -f deploy/Dockerfile ] && exists src -type d -name Migrations || echo false)"
+            echo "has_bruno=$([ -f deploy/Dockerfile ] && exists tools/bruno -name '*.yml' ! -name folder.yml ! -path '*/environments/*' || echo false)"
+          } | tee -a "$GITHUB_OUTPUT"
+
+  conventions:
+    name: PR follows the conventions
+    # Title, commits and branch exist only on a pull request.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the conventions
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - name: Validate the title, the commits and the branch
+        uses: ./.github/actions/conventions # zizmor: ignore[self-repository]
+
+  triage:
+    name: Assignee and labels set
+    # A pull request from a fork gets a read-only token: there is nothing to label with, so the job is skipped.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the conventions
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - name: Assign the author and label the pull request
+        uses: ./.github/actions/triage # zizmor: ignore[self-repository]
+
+  format:
+    name: Code is formatted
+    needs: changes
+    # Always runs: spelling, Markdown, links and line length can break with any file. Only the dotnet format steps are gated.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET
+        if: needs.changes.outputs.dotnet != 'false'
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+          # The package cache is keyed on the lock files, which only exist once there are projects.
+          cache: ${{ needs.changes.outputs.has_projects != 'false' }}
+          cache-dependency-path: "**/packages.lock.json"
+      - name: Set up just
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: "1.59.0"
+      - name: Check C# whitespace
+        if: needs.changes.outputs.dotnet != 'false'
+        run: dotnet format whitespace Frappe.slnx --verify-no-changes
+      - name: Check C# code style
+        if: needs.changes.outputs.dotnet != 'false'
+        run: dotnet format style Frappe.slnx --verify-no-changes
+      - name: Check line length
+        run: node .github/scripts/line-length.mjs
+      - name: Run the tests of the CI scripts
+        run: node --test .github/scripts/*.test.mjs
+      - name: Check justfile formatting
+        run: |
+          for file in .justfile eng/just/*.just; do
+            just --unstable --fmt --check --justfile "$file"
+          done
+      - name: Check spelling
+        uses: crate-ci/typos@4c8b7f51ca60df14e3c5ca82770dfbbe6c3dae85 # v1.52.0
+        with:
+          config: eng/typos.toml
+      - name: Lint Markdown
+        uses: DavidAnson/markdownlint-cli2-action@696eb3f2509270d7b882d2aa68347bc676e7af34 # v25.0.0
+        with:
+          config: eng/markdownlint-cli2.jsonc
+          globs: "**/*.md"
+      - name: Check links between documents
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          # --hidden: .github/ holds the PR template, which the glob skips otherwise.
+          args: --offline --no-progress --hidden --include-fragments "**/*.md"
+          fail: true
+
+  build:
+    name: Code compiles without warnings
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.dotnet != 'false' && needs.changes.outputs.has_projects != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+      - name: Restore packages from the lock files
+        run: dotnet restore Frappe.slnx --locked-mode
+      # The one compile of the solution: the binary log is read below to list the methods over the complexity budget.
+      - name: Build with every warning as an error
+        run: dotnet build Frappe.slnx --no-restore -bl:"$RUNNER_TEMP/build.binlog"
+      # Reads the log back (no second compile). A binary log can carry environment values, so only the findings leave this job.
+      - name: Extract the complexity findings from the build log
+        if: ${{ !cancelled() }}
+        run: |
+          : > "$RUNNER_TEMP/over-budget.txt"
+          [ -f "$RUNNER_TEMP/build.binlog" ] || exit 0
+          dotnet msbuild "$RUNNER_TEMP/build.binlog" -noconlog -flp:"logfile=$RUNNER_TEMP/build.log;verbosity=normal"
+          # MSBuild prefixes lines with its node ("1>") and repeats a diagnostic once per pass: strip and deduplicate. With
+          # warnings as errors the two rules show up as errors.
+          { grep -oE '[^ >]+\.cs\([0-9]+,[0-9]+\): (warning|error) (S3776|CA1502): [^[]*' "$RUNNER_TEMP/build.log" || true; } \
+            | sed -E "s|^$GITHUB_WORKSPACE/||; s/ +$//" | sort -u > "$RUNNER_TEMP/over-budget.txt"
+      - name: Keep the complexity findings
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: complexity-findings
+          path: ${{ runner.temp }}/over-budget.txt
+          retention-days: 1
+      # Runs on every .NET change (seconds, no database): an entity or configuration change without its migration fails
+      # here, while the heavier upgrade test only runs when migrations or the model files change.
+      - name: Check that every model change has its migration
+        run: |
+          factories=$(grep -rl --include='*.cs' 'IDesignTimeDbContextFactory' src 2> /dev/null || true)
+          [ -n "$factories" ] || { echo "No DbContext with a design-time factory: nothing to check."; exit 0; }
+          dotnet tool restore
+          while read -r factory; do
+            project=$(dirname "$factory")
+            while [ ! -f "$project/$(basename "$project").csproj" ]; do project=$(dirname "$project"); done
+            dotnet ef migrations has-pending-model-changes --project "$project" --no-build
+          done <<< "$factories"
+
+  complexity:
+    name: Complexity is within limits
+    needs: [changes, build]
+    # Reads what the build job extracted from its own log: it needs no SDK and compiles nothing.
+    if: ${{ !cancelled() && needs.changes.outputs.dotnet != 'false' && needs.changes.outputs.has_projects != 'false' && contains(fromJSON('["success", "failure"]'), needs.build.result) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Download the complexity findings
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: complexity-findings
+          path: ${{ runner.temp }}/findings
+      - name: Report methods over the complexity budget
+        run: |
+          count=$(wc -l < "$RUNNER_TEMP/findings/over-budget.txt")
+          {
+            echo "### Complexity budget"
+            echo "Cognitive complexity (S3776) ≤ 15 and cyclomatic complexity (CA1502) ≤ 10 per production method."
+            echo
+            if [ "$count" -eq 0 ]; then
+              echo "Every method is within budget."
+            else
+              echo "| Location | Rule | Finding |"
+              echo "|---|---|---|"
+              tick=$(printf '\x60')
+              sed -E "s/^(.+\.cs\([0-9]+,[0-9]+\)): (warning|error) ([A-Z0-9]+): (.*)\$/| ${tick}\1${tick} | \3 | \4 |/" "$RUNNER_TEMP/findings/over-budget.txt"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$count" -gt 0 ]; then
+            echo "::error::$count method(s) over the complexity budget; split them (see the job summary)"
+            exit 1
+          fi
+
+  # One job per unit test project, in parallel; each builds only what it needs.
+  unit-suite:
+    name: Unit tests (${{ matrix.report }})
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.tests != 'false' && needs.changes.outputs.has_unit != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.changes.outputs.unit) }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+      # In process only (no Docker): a unit test project references no container, database, broker or host.
+      - name: Run ${{ matrix.report }} with coverage
+        env:
+          PROJECT: ${{ matrix.project }}
+          REPORT: ${{ matrix.report }}
+        run: >-
+          dotnet test --project "$PROJECT" --timeout 5m --maximum-failed-tests 10 --results-directory-layout per-module
+          --results-directory "$RUNNER_TEMP/results" --
+          --coverage --coverage-output-format cobertura --coverage-output "$REPORT.cobertura.xml"
+      - name: Upload coverage
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-unit-${{ matrix.report }}
+          path: ${{ runner.temp }}/results/**/*.cobertura.xml
+          retention-days: 7
+
+  # The required check "Unit tests pass": a matrix job's name carries its suite, so this one reports the whole.
+  unit:
+    name: Unit tests pass
+    needs: [changes, unit-suite]
+    # Skipped (nothing to run) only when the change cannot affect the suites or there are none; a failed or cancelled suite fails it.
+    if: ${{ !cancelled() && needs.changes.outputs.tests != 'false' && needs.changes.outputs.has_unit != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require every unit suite to have passed
+        env:
+          RESULT: ${{ needs.unit-suite.result }}
+        run: |
+          echo "Unit suites: $RESULT"
+          [ "$RESULT" = "success" ]
+
+  architecture:
+    name: Architecture rules hold
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.tests != 'false' && needs.changes.outputs.has_architecture != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+      # With coverage: it is the suite that composes the hosts.
+      - name: Run the architecture tests with coverage
+        run: |
+          project=$(find tests -name '*.Architecture.Tests.csproj' -not -path '*/obj/*' | sort | head -n 1)
+          dotnet test --project "$project" --timeout 3m --maximum-failed-tests 10 --results-directory-layout per-module \
+            --results-directory "$RUNNER_TEMP/results" -- \
+            --coverage --coverage-output-format cobertura --coverage-output architecture.cobertura.xml
+      - name: Upload coverage
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-architecture
+          path: ${{ runner.temp }}/results/**/*.cobertura.xml
+          retention-days: 7
+
+  # One job per integration test project, in parallel: each starts its own containers, so they share nothing.
+  integration-suite:
+    name: Integration tests (${{ matrix.report }})
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.tests != 'false' && needs.changes.outputs.has_integration != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.changes.outputs.integration) }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+      - name: Run ${{ matrix.report }} with coverage
+        env:
+          PROJECT: ${{ matrix.project }}
+          REPORT: ${{ matrix.report }}
+        run: >-
+          dotnet test --project "$PROJECT" --timeout 10m --maximum-failed-tests 10 --results-directory-layout per-module
+          --results-directory "$RUNNER_TEMP/results" --
+          --coverage --coverage-output-format cobertura --coverage-output "$REPORT.cobertura.xml"
+      - name: Upload coverage
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-integration-${{ matrix.report }}
+          path: ${{ runner.temp }}/results/**/*.cobertura.xml
+          retention-days: 7
+
+  # The required check "Integration tests pass": a matrix job's name carries its suite, so this one reports the whole.
+  integration:
+    name: Integration tests pass
+    needs: [changes, integration-suite]
+    if: ${{ !cancelled() && needs.changes.outputs.tests != 'false' && needs.changes.outputs.has_integration != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require every integration suite to have passed
+        env:
+          RESULT: ${{ needs.integration-suite.result }}
+        run: |
+          echo "Integration suites: $RESULT"
+          [ "$RESULT" = "success" ]
+
+  coverage:
+    name: Changed lines are covered
+    needs: [unit-suite, architecture, integration-suite]
+    # Runs when at least one suite ran and none failed (a failed suite already fails its own check); with no suite there are
+    # no changed lines to cover and the job is skipped.
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && contains(needs.*.result, 'success') && !contains(needs.*.result, 'failure') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code with the base branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Download coverage
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: coverage-*
+          path: ${{ runner.temp }}/coverage
+          merge-multiple: true
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - name: Install diff-cover
+        run: pip install --require-hashes --no-deps -r .github/requirements/diff-cover.txt
+      - name: Enforce 80% coverage on changed production lines
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        # Each report sits in its test app's own directory (--results-directory-layout per-module), at any depth.
+        run: |
+          mapfile -t reports < <(find "$RUNNER_TEMP/coverage" -name '*.cobertura.xml')
+          if [ "${#reports[@]}" -eq 0 ]; then
+            echo "No coverage reports." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          diff-cover "${reports[@]}" \
+            --compare-branch "origin/$BASE_REF" \
+            --exclude "tests/*" "*/Migrations/*" "tools/**" \
+            --fail-under 80 \
+            --format "markdown:$RUNNER_TEMP/diff-cover.md"
+      - name: Publish the coverage report
+        if: always()
+        run: cat "$RUNNER_TEMP/diff-cover.md" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+
+  # The image of this commit, built once and pushed to GHCR as sha-<commit>: Bruno, the end-to-end test, the image scan and
+  # the migration upgrade pull it instead of building their own. Only a trusted run (a push, or a pull request from this
+  # repository) pushes the image and writes the layer cache, which is the same scope the release build uses.
+  image:
+    name: Image is built
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.has_image != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    env:
+      TRUSTED: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to the registry
+        if: env.TRUSTED == 'true'
+        env:
+          TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: echo "$TOKEN" | docker login ghcr.io --username "$ACTOR" --password-stdin
+      - name: Name the image
+        id: name
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: echo "image=ghcr.io/${OWNER,,}/frappe-api" >> "$GITHUB_OUTPUT"
+      - name: Build and publish the image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/Dockerfile
+          push: ${{ env.TRUSTED == 'true' }}
+          tags: ${{ steps.name.outputs.image }}:sha-${{ github.sha }}
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha,scope=frappe-api
+          # Only pushes to main write the layer cache: exporting every stage (mode=max) costs a pull request about
+          # 135 s, and pull requests read main's layers, so the restore layer stays cached until the lock files change.
+          cache-to: ${{ github.event_name == 'push' && 'type=gha,scope=frappe-api,mode=max' || '' }}
+
+  e2e:
+    name: App starts and responds
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.image != 'false' && needs.changes.outputs.has_e2e != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+      # Restore and compile the suite while the image is still being built by the "Image is built" job.
+      - name: Build the end-to-end tests
+        run: dotnet build tests/Frappe.EndToEnd.Tests
+      # The image built once for this commit; a same-repository run waits for it, a fork (which cannot publish one) builds it.
+      - name: Get the image
+        uses: ./.github/actions/image # zizmor: ignore[self-repository]
+        with:
+          sha: ${{ github.sha }}
+          as: frappe-api:local
+          wait: ${{ (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) && '420' || '0' }}
+          token: ${{ github.token }}
+      # FRAPPE_E2E_IMAGE: the suite deploys the image obtained above instead of building its own with Testcontainers (no layer cache).
+      - name: Run Migrator, Api and Worker end to end on that image
+        env:
+          FRAPPE_E2E_IMAGE: frappe-api:local
+        run: dotnet test --project tests/Frappe.EndToEnd.Tests --no-build --timeout 20m --maximum-failed-tests 10 --results-directory-layout per-module
+
+  bruno:
+    name: Bruno collection passes
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.bruno != 'false' && needs.changes.outputs.has_bruno != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Throwaway values for every variable deploy/.env.example leaves empty, for this run only, each one different.
+      - name: Configure the stack
+        run: |
+          while IFS= read -r line; do
+            case "$line" in
+              [A-Z_]*=) echo "${line}ci-$(openssl rand -hex 12)" ;;
+              *) echo "$line" ;;
+            esac
+          done < deploy/.env.example > deploy/.env
+          # The whole collection runs from one address in about half a minute: more than the default 120 per minute.
+          echo "FRAPPE_HTTP_RATE_LIMIT=1000" >> deploy/.env
+      # What does not depend on this commit's image is fetched while that image is still being built.
+      - name: Pull the infrastructure images
+        run: docker compose -f deploy/compose.yaml pull --ignore-buildable
+      - name: Download the Bruno CLI
+        run: npx -y @usebruno/cli@4.3.0 --version
+      - name: Get the image
+        uses: ./.github/actions/image # zizmor: ignore[self-repository]
+        with:
+          sha: ${{ github.sha }}
+          as: frappe-api:local
+          wait: ${{ (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) && '420' || '0' }}
+          token: ${{ github.token }}
+      # Without --build: compose uses the image tagged above (frappe-api:local).
+      - name: Start the stack
+        run: docker compose -f deploy/compose.yaml up -d --no-build
+      - name: Wait for the Api
+        run: |
+          for _ in $(seq 150); do
+            curl -fsS -o /dev/null http://localhost:8080/health/ready && exit 0
+            sleep 2
+          done
+          echo "Timed out waiting for the Api" >&2
+          exit 1
+      - name: Run the Bruno collection
+        working-directory: tools/bruno
+        run: npx -y @usebruno/cli@4.3.0 run --env Stack
+      - name: Show the stack logs
+        if: failure()
+        run: docker compose -f deploy/compose.yaml logs --no-color --tail 200 api worker migrator
+      - name: Stop the stack
+        if: always()
+        run: docker compose -f deploy/compose.yaml down -v
+
+  contract:
+    name: API contract is sound
+    needs: changes
+    # The title decides whether a breaking change passes, so the pull request re-runs this check when it is edited.
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.changes.outputs.contracts != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code with the base branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Diff the contracts with the base branch and lint them
+        uses: ./.github/actions/contract # zizmor: ignore[self-repository]
+        with:
+          title: ${{ github.event.pull_request.title }}
+          base-ref: ${{ github.base_ref }}
+          token: ${{ github.token }}
+
+  migrations:
+    name: Database migrations are safe
+    needs: changes
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.changes.outputs.migrations != 'false' && needs.changes.outputs.has_migrations != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+      pull-requests: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code with the base branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Set up .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+          # No NuGet cache here: zizmor (cache-poisoning) rejects one in a job that handles Docker images.
+      - name: Restore the EF Core tools
+        run: dotnet tool restore
+      # Builds only the projects that have a new migration (the EF tool builds what it scripts), not the solution: the
+      # model check of every project is part of "Code compiles without warnings".
+      - name: Generate the SQL of the new migrations
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: .github/scripts/migration-sql.sh "$BASE_REF" "$RUNNER_TEMP/migrations"
+      - name: Lint the SQL of the new migrations
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # The labels are read now, not from the event: re-running this job after a reviewer adds the label sees it.
+          approved=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels" --jq 'any(.[]; .name == "risky migration approved")')
+          shopt -s nullglob
+          files=("$RUNNER_TEMP"/migrations/*.sql)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No new migrations." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          for file in "${files[@]}"; do
+            { echo "### $(basename "$file")"; echo '```sql'; cat "$file"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          done
+          if npx --yes squawk-cli@2.72.0 --config eng/squawk.toml "${files[@]}"; then
+            exit 0
+          fi
+          # Escape hatch for a deliberate risky change (a blocking index, a dropped column): a reviewer adds the label.
+          if [ "$approved" = "true" ]; then
+            echo "::warning::Risky migration statements, approved with the 'risky migration approved' label"
+            exit 0
+          fi
+          echo "::error::Risky migration statements (locks or data loss). Make them safe, or have a reviewer add the 'risky migration approved' label and re-run this job"
+          exit 1
+      - name: Check out the base branch and write throwaway credentials
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          # Throwaway credentials for every required variable of BOTH deploy/.env.example files, written where compose reads them:
+          # the base branch's compose may still require a variable this branch removed (and the other way around).
+          git worktree add "$RUNNER_TEMP/base" "origin/$BASE_REF"
+          [ -f "$RUNNER_TEMP/base/deploy/Dockerfile" ] || { echo "The base branch has no image yet: nothing to upgrade from." >> "$GITHUB_STEP_SUMMARY"; echo "BASE_HAS_IMAGE=false" >> "$GITHUB_ENV"; }
+          while IFS= read -r line; do
+            case "$line" in
+              [A-Z_]*=) echo "${line}ci-$(openssl rand -hex 12)" ;;
+              *) echo "$line" ;;
+            esac
+          done < deploy/.env.example > deploy/.env
+          if [ -f "$RUNNER_TEMP/base/deploy/.env.example" ]; then
+            grep -E '^[A-Z_]+=$' "$RUNNER_TEMP/base/deploy/.env.example" | tr -d '=' | while read -r name; do
+              grep -q "^$name=" deploy/.env || echo "$name=ci-$(openssl rand -hex 12)" >> deploy/.env
+            done
+          fi
+          echo "BASE_SHA=$(git -C "$RUNNER_TEMP/base" rev-parse HEAD)" >> "$GITHUB_ENV"
+          cp deploy/.env "$RUNNER_TEMP/base/deploy/.env"
+      # Both images are built once elsewhere: main's by its own push (job "Image is built", tagged with its commit), this
+      # branch's by this run, which this waits for while the SQL checks above already ran. Either is built here only when it
+      # never shows up (a fork, a base commit nobody built).
+      - name: Get the base branch's image
+        if: env.BASE_HAS_IMAGE != 'false'
+        uses: ./.github/actions/image # zizmor: ignore[self-repository]
+        with:
+          sha: ${{ env.BASE_SHA }}
+          as: frappe-api:local
+          context: ${{ runner.temp }}/base
+          file: ${{ runner.temp }}/base/deploy/Dockerfile
+          token: ${{ github.token }}
+      - name: Get this branch's image
+        uses: ./.github/actions/image # zizmor: ignore[self-repository]
+        with:
+          sha: ${{ github.sha }}
+          as: frappe-api:branch
+          wait: ${{ github.event.pull_request.head.repo.full_name == github.repository && '420' || '0' }}
+          token: ${{ github.token }}
+      - name: Upgrade the base branch's database with this branch's Migrator
+        if: env.BASE_HAS_IMAGE != 'false'
+        env:
+          COMPOSE_PROJECT_NAME: frappe-upgrade
+        run: |
+          (cd "$RUNNER_TEMP/base/deploy" && docker compose up --detach --wait postgres && docker compose run --rm --pull missing migrator)
+          # The compose file names the image frappe-api:local: from here on that is this branch's.
+          docker tag frappe-api:branch frappe-api:local
+          # --pull missing, not never: it also governs the Migrator's dependencies, and a service this branch adds has no
+          # image yet; frappe-api:local exists, so it is never pulled.
+          docker compose -f deploy/compose.yaml run --rm --pull missing migrator
+      - name: Check that the upgraded database has the committed schema
+        if: env.BASE_HAS_IMAGE != 'false'
+        run: |
+          .github/scripts/schema-dump.sh frappe-upgrade "$RUNNER_TEMP/upgraded-schema"
+          status=0
+          while read -r file; do
+            diff -u "$file" "$RUNNER_TEMP/upgraded-schema/$file" || status=1
+          done < <(git ls-files ':(glob)**/schema.sql')
+          if [ "$status" -ne 0 ]; then
+            echo "::error::The database upgraded from the base branch differs from the committed schema.sql files: the migrations do not take an existing database to the schema a new one gets (fix the migration; if the model changed, run 'just db schema' and commit it)"
+          fi
+          exit "$status"
+      - name: Check that a fresh database has the committed schema
+        env:
+          COMPOSE_PROJECT_NAME: frappe-fresh
+          POSTGRES_PORT: '0'
+        run: |
+          docker tag frappe-api:branch frappe-api:local
+          docker compose -f deploy/compose.yaml up --detach --wait postgres
+          docker compose -f deploy/compose.yaml run --rm --pull missing migrator
+          .github/scripts/schema-dump.sh frappe-fresh .
+          # git diff ignores a dump nobody committed: an untracked schema.sql (a new module) is drift too.
+          if ! git diff --exit-code -- ':(glob)**/schema.sql' || [ -n "$(git status --porcelain -- ':(glob)**/schema.sql')" ]; then
+            git status --short -- ':(glob)**/schema.sql'
+            echo "::error::The schema of a freshly migrated database differs from the committed schema.sql files: run 'just db schema' and commit the result"
+            exit 1
+          fi
+      - name: Stop the databases
+        if: always()
+        run: |
+          for project in frappe-upgrade frappe-fresh; do
+            COMPOSE_PROJECT_NAME=$project docker compose -f deploy/compose.yaml down --volumes || true
+          done
+
+  dependencies:
+    name: No vulnerable dependencies
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.image != 'false' && needs.changes.outputs.has_projects != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up .NET
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+      - name: Restore packages from the lock files
+        run: dotnet restore Frappe.slnx --locked-mode
+      - name: Audit direct and transitive packages
+        run: |
+          dotnet package list --project Frappe.slnx --vulnerable --include-transitive --format json > "$RUNNER_TEMP/vulnerable.json"
+          # A source that cannot be queried is reported as a problem with exit code 0: that is no answer, not a pass.
+          if [ "$(jq '.problems // [] | length' "$RUNNER_TEMP/vulnerable.json")" -gt 0 ]; then
+            jq -r '.problems[] | "\(.level): \(.text)"' "$RUNNER_TEMP/vulnerable.json"
+            echo "::error::The vulnerability audit could not complete"
+            exit 1
+          fi
+          count=$(jq '[.projects[].frameworks[]? | (.topLevelPackages // []) + (.transitivePackages // []) | .[]] | length' "$RUNNER_TEMP/vulnerable.json")
+          if [ "$count" -gt 0 ]; then
+            jq -r '.projects[] | .path as $p | .frameworks[]? | (.topLevelPackages // []) + (.transitivePackages // []) | .[]
+              | "\($p): \(.id) \(.resolvedVersion) " + ([.vulnerabilities[]? | "\(.severity) \(.advisoryurl)"] | join(", "))' \
+              "$RUNNER_TEMP/vulnerable.json" | sort -u | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "::error::$count vulnerable package(s); update them in Directory.Packages.props and run just deps lock"
+            exit 1
+          fi
+          echo "No known vulnerabilities in direct or transitive packages." >> "$GITHUB_STEP_SUMMARY"
+      - name: Review the dependencies this pull request adds
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: low
+
+  secrets:
+    name: No leaked secrets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the whole history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Scan for secrets
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
+
+  workflows:
+    name: Workflows are secure
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Lint the workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=1.7.12
+          archive="actionlint_${version}_linux_amd64.tar.gz"
+          gh release download "v$version" --repo rhysd/actionlint --pattern "$archive" --pattern "actionlint_${version}_checksums.txt" --dir "$RUNNER_TEMP"
+          (cd "$RUNNER_TEMP" && sha256sum --check --ignore-missing "actionlint_${version}_checksums.txt")
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color
+      - name: Audit the workflows for security issues
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        with:
+          advanced-security: false
+          version: "1.32.0"
+
+  scan:
+    name: Container image is clean
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.image != 'false' && needs.changes.outputs.has_image != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Lint the Dockerfile
+        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
+        with:
+          dockerfile: deploy/Dockerfile
+          config: eng/hadolint.yaml
+      # The image of this commit is built once by the job "Image is built": a push or a same-repository pull request waits for
+      # it and builds here only when it never shows up. A fork cannot publish one, so it builds at once.
+      - name: Get the image
+        uses: ./.github/actions/image # zizmor: ignore[self-repository]
+        with:
+          sha: ${{ github.sha }}
+          as: frappe-api:scan
+          wait: ${{ (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) && '420' || '0' }}
+          token: ${{ github.token }}
+      - name: Scan the image for vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: frappe-api:scan
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"

@@ -1,0 +1,18 @@
+# Which third-party analyzer rules run, and how hard. Each one enforces a frappe-conventions rule (named next to it);
+# a rule not listed here stays off. Takes precedence over the packages' own defaults (Meziantou runs in mode None).
+is_global = true
+global_level = 100
+
+# Roslynator: every rule off unless a convention turns it on below.
+roslynator_analyzers.enabled_by_default = false
+dotnet_analyzer_diagnostic.category-roslynator.severity = none
+
+# CRAFT-07 · Classes are sealed unless something derives from them: internal ones (CA1852), public ones and
+# exceptions (MA0053).
+dotnet_diagnostic.CA1852.severity = warning
+dotnet_diagnostic.MA0053.severity = warning
+MA0053.public_class_should_be_sealed = true
+MA0053.exceptions_should_be_sealed = true
+
+# Banned APIs (eng/BannedSymbols*.txt).
+dotnet_diagnostic.RS0030.severity = warning

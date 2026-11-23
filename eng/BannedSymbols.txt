@@ -1,0 +1,8 @@
+P:System.DateTime.Now;Wall clock: inject TimeProvider (CRAFT-16) or use FakeTimeProvider in tests (TEST-11)
+P:System.DateTime.Today;Wall clock: inject TimeProvider (CRAFT-16) or use FakeTimeProvider in tests (TEST-11)
+P:System.DateTimeOffset.Now;Wall clock: inject TimeProvider (CRAFT-16) or use FakeTimeProvider in tests (TEST-11)
+M:System.Threading.Thread.Sleep(System.Int32);Blocks a thread: await a condition (WaitUntil in tests, TEST-13) or a TimeProvider delay
+M:System.Threading.Thread.Sleep(System.TimeSpan);Blocks a thread: await a condition (WaitUntil in tests, TEST-13) or a TimeProvider delay
+N:Moq;Hand-written fakes only: assert state, not calls (TEST-08)
+N:NSubstitute;Hand-written fakes only: assert state, not calls (TEST-08)
+P:NodaTime.SystemClock.Instance;Wall clock: inject TimeProvider and bridge it with TimeProviderClock (CRAFT-12)

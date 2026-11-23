@@ -1,0 +1,4 @@
+# Dockerfile lint (the "Container image is clean" check).
+ignored:
+  # USER app: the chiseled runtime image defines the "app" user itself, and an end-to-end test pins that name.
+  - DL3066
