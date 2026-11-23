@@ -24,10 +24,17 @@
     <Project Path="src/Platform/Frappe.UseCases/Frappe.UseCases.csproj" />
   </Folder>
   <Folder Name="/src/Hosts/">
+    <Project Path="src/Hosts/Frappe.Api/Frappe.Api.csproj" />
+    <Project Path="src/Hosts/Frappe.Migrator/Frappe.Migrator.csproj" />
     <Project Path="src/Hosts/Frappe.Worker/Frappe.Worker.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Frappe.Architecture.Tests/Frappe.Architecture.Tests.csproj" />
+    <Project Path="tests/Frappe.EndToEnd.Tests/Frappe.EndToEnd.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Hosts/">
+    <Project Path="tests/Hosts/Frappe.Api.IntegrationTests/Frappe.Api.IntegrationTests.csproj" />
+    <Project Path="tests/Hosts/Frappe.Migrator.IntegrationTests/Frappe.Migrator.IntegrationTests.csproj" />
   </Folder>
   <Folder Name="/tests/Platform/">
     <Project Path="tests/Platform/Frappe.Platform.IntegrationTests/Frappe.Platform.IntegrationTests.csproj" />

@@ -1,0 +1,14 @@
+using Frappe.Http;
+using Frappe.Modules;
+
+namespace Frappe.Api;
+
+/// <summary>The modules the Api serves, listed explicitly in one place: modules are never discovered by scanning.</summary>
+public static class Modules
+{
+    /// <summary>The services of every module the Api hosts, in registration order.</summary>
+    public static IReadOnlyCollection<IModule> Services { get; } = [];
+
+    /// <summary>The HTTP facet of every module the Api serves: its services and its endpoints under <c>/v1</c>.</summary>
+    public static IReadOnlyCollection<IHttpModule> Endpoints { get; } = [];
+}

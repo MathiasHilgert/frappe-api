@@ -1,0 +1,39 @@
+# Every Frappé process sends OTLP here; the collector fans signals out to the LGTM backends.
+receivers:
+  otlp:
+    protocols:
+      grpc: { endpoint: 0.0.0.0:4317 }
+      http: { endpoint: 0.0.0.0:4318 }
+
+processors:
+  memory_limiter: { check_interval: 1s, limit_percentage: 80, spike_limit_percentage: 25 }
+  batch: {}
+  # Processes send every span (parent-based sampling in the app); the decision is made here, once a trace is complete:
+  # every error trace and every slow one is kept, plus a share of the rest. The share changes here, through
+  # OTEL_TAIL_SAMPLING_PERCENTAGE on the collector (default 10), never by redeploying a process. Tail sampling needs every
+  # span of a trace on one collector: with several collectors, put a load-balancing exporter in front of them.
+  tail_sampling:
+    decision_wait: 10s
+    num_traces: 50000
+    policies:
+      - { name: errors, type: status_code, status_code: { status_codes: [ERROR] } }
+      - { name: slow, type: latency, latency: { threshold_ms: 1000 } }
+      - name: share-of-the-rest
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: ${env:OTEL_TAIL_SAMPLING_PERCENTAGE:-10}
+
+exporters:
+  otlphttp/loki: { endpoint: http://loki:3100/otlp }
+  otlp/tempo: { endpoint: tempo:4317, tls: { insecure: true } }
+  otlphttp/mimir: { endpoint: http://mimir:9009/otlp }
+
+extensions:
+  health_check: { endpoint: 0.0.0.0:13133 }
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces: { receivers: [otlp], processors: [memory_limiter, tail_sampling, batch], exporters: [otlp/tempo] }
+    metrics: { receivers: [otlp], processors: [memory_limiter, batch], exporters: [otlphttp/mimir] }
+    logs: { receivers: [otlp], processors: [memory_limiter, batch], exporters: [otlphttp/loki] }

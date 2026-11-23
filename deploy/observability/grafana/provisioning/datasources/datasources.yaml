@@ -1,0 +1,41 @@
+# Loki, Tempo and Mimir, linked both ways: a trace opens its logs and metrics, a log line opens its trace, and a
+# metric exemplar opens the trace behind it.
+apiVersion: 1
+datasources:
+  - name: Mimir
+    uid: mimir
+    type: prometheus
+    url: http://mimir:9009/prometheus
+    isDefault: true
+    jsonData:
+      httpMethod: POST
+      exemplarTraceIdDestinations:
+        - { name: trace_id, datasourceUid: tempo }
+
+  - name: Loki
+    uid: loki
+    type: loki
+    url: http://loki:3100
+    jsonData:
+      derivedFields:
+        - name: TraceID
+          matcherType: label
+          matcherRegex: trace_id
+          url: "$${__value.raw}"
+          datasourceUid: tempo
+
+  - name: Tempo
+    uid: tempo
+    type: tempo
+    url: http://tempo:3200
+    jsonData:
+      serviceMap: { datasourceUid: mimir }
+      nodeGraph: { enabled: true }
+      tracesToLogsV2:
+        datasourceUid: loki
+        filterByTraceID: true
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"
+      tracesToMetrics:
+        datasourceUid: mimir
+      lokiSearch: { datasourceUid: loki }

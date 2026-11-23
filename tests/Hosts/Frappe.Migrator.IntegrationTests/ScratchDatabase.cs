@@ -1,0 +1,44 @@
+using Npgsql;
+
+namespace Frappe.Migrator.IntegrationTests;
+
+/// <summary>
+/// A database of its own on the shared server, for a test that changes what is database-wide (roles, the migration lock): dropped,
+/// with the roles the test names, when it ends.
+/// </summary>
+internal static class ScratchDatabase
+{
+    /// <summary>
+    /// Runs <paramref name="test"/> with the owner's connection string of a new database; <paramref name="roles"/> are dropped afterwards.
+    /// </summary>
+    public static async Task RunAsync(PostgresServer server, string[] roles, Func<string, Task> test)
+    {
+        var name = "scratch_" + Guid.NewGuid().ToString("N")[..12];
+        var admin = new NpgsqlConnectionStringBuilder(server.ConnectionString) { Pooling = false }.ConnectionString;
+        await ScalarAsync(admin, $"CREATE DATABASE {name}");
+        try
+        {
+            await test(new NpgsqlConnectionStringBuilder(admin) { Database = name }.ConnectionString);
+        }
+        finally
+        {
+            await ScalarAsync(admin, $"DROP DATABASE IF EXISTS {name} WITH (FORCE)");
+            foreach (var role in roles)
+            {
+                await ScalarAsync(admin, $"DROP ROLE IF EXISTS {role}");
+            }
+        }
+    }
+
+    /// <summary>The connection string of <paramref name="role"/> into the database <paramref name="owner"/> reaches.</summary>
+    public static string LoginOf(string owner, string role, string password) =>
+        new NpgsqlConnectionStringBuilder(owner) { Username = role, Password = password, Pooling = false }.ConnectionString;
+
+    public static async Task<object?> ScalarAsync(string connectionString, string sql)
+    {
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(sql, connection);
+        return await command.ExecuteScalarAsync();
+    }
+}

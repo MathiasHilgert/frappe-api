@@ -13,7 +13,7 @@ set working-directory := "../.."
 policies := "--maximum-failed-tests 10 --results-directory-layout per-module"
 
 # Every suite
-all: platform architecture host
+all: platform architecture host migrator
 
 # Platform capabilities: unit (no containers), then integration (Docker)
 platform: platform-unit platform-integration
@@ -31,6 +31,10 @@ architecture:
 # The Api host composed with its modules: the committed HTTP contract (no Docker; seconds)
 host:
     timeout 180 dotnet test --project tests/Hosts/Frappe.Api.IntegrationTests --timeout 1m {{ policies }}
+
+# The Migrator against a real Postgres: the platform's databases and the listed modules' (needs Docker)
+migrator:
+    timeout 180 dotnet test --project tests/Hosts/Frappe.Migrator.IntegrationTests --timeout 2m {{ policies }}
 
 # The real image end to end: builds it, then runs Migrator, Api and Worker (needs Docker; not part of `all`)
 e2e:

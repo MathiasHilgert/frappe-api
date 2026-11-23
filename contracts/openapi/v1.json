@@ -1,0 +1,14 @@
+{
+  "openapi": "3.2.0",
+  "info": {
+    "title": "Frappé API",
+    "description": "The HTTP API of Frappé. Every endpoint lives under `/v1`; errors are RFC 9457 Problem Details.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost"
+    }
+  ],
+  "paths": {}
+}

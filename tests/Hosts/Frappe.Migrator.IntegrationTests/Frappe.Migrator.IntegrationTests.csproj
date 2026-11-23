@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The Migrator host composed as deployed, against a real Postgres (Testcontainers; needs Docker): the one-shot setup of the
+       platform's databases and of the modules it is given. -->
+  <ItemGroup>
+    <ProjectReference Include="../../Shared/Frappe.Testing/Frappe.Testing.csproj" />
+    <ProjectReference Include="../../Shared/Frappe.Testing.Containers/Frappe.Testing.Containers.csproj" />
+    <ProjectReference Include="../../../src/Hosts/Frappe.Migrator/Frappe.Migrator.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Testcontainers.PostgreSql" />
+  </ItemGroup>
+</Project>

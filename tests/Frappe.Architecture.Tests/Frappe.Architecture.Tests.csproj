@@ -2,6 +2,8 @@
   <ItemGroup>
     <ProjectReference Include="../Shared/Frappe.Testing/Frappe.Testing.csproj" />
     <!-- Every production project of the solution, so rules derived from Frappe.slnx can load each assembly. -->
+    <ProjectReference Include="../../src/Hosts/Frappe.Api/Frappe.Api.csproj" />
+    <ProjectReference Include="../../src/Hosts/Frappe.Migrator/Frappe.Migrator.csproj" />
     <ProjectReference Include="../../src/Hosts/Frappe.Worker/Frappe.Worker.csproj" />
     <ProjectReference Include="../../src/Platform/Frappe.Results/Frappe.Results.csproj" />
     <ProjectReference Include="../../src/Platform/Frappe.UseCases/Frappe.UseCases.csproj" />

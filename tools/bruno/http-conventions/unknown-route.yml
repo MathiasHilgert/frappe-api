@@ -1,0 +1,32 @@
+info:
+  name: Unknown route (404)
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{baseUrl}}/v1/planets"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "404"
+    - expression: res.headers['content-type']
+      operator: startsWith
+      value: '"application/problem+json"'
+    - expression: res.body.type
+      operator: eq
+      value: '"urn:frappe:problem:not-found"'
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"http.not_found"'
+    - expression: res.body.instance
+      operator: eq
+      value: '"/v1/planets"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  No route answers `/v1/planets`: 404 Problem Details whose error `code` is `http.not_found`, instead of an empty body.
