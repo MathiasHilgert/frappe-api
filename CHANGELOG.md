@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.2.1](https://github.com/MathiasHilgert/frappe-api/compare/v0.2.0...v0.2.1) (2026-11-23)
+
+
+### Bug fixes
+
+* **http:** pin proxy trust, retry probe listeners and separate cache key spaces ([#14](https://github.com/MathiasHilgert/frappe-api/issues/14)) ([aa06903](https://github.com/MathiasHilgert/frappe-api/commit/aa069037256607cb12c31fd8912dfcc10ca660ef))
+* **messaging:** quote relay role names and count relay, consumer and purge failures ([#13](https://github.com/MathiasHilgert/frappe-api/issues/13)) ([c32d350](https://github.com/MathiasHilgert/frappe-api/commit/c32d3504bf645a33ef9fab38b97e40ff7d0dc97c))
+* **persistence:** dispatch events once, roll back failed begins and harden provisioning ([#12](https://github.com/MathiasHilgert/frappe-api/issues/12)) ([3e23321](https://github.com/MathiasHilgert/frappe-api/commit/3e23321252ff64632c19b6019a995d0e1f590544))
+* **worker:** run cron in UTC, report scheduler state and bound local telemetry retention ([#15](https://github.com/MathiasHilgert/frappe-api/issues/15)) ([13d27d5](https://github.com/MathiasHilgert/frappe-api/commit/13d27d5fd0f800e7f39312750fcda5e8ce829e4a))
+
+
+### Build and dependencies
+
+* **agents:** fix the forge gate and slots and neutralize rule examples ([#16](https://github.com/MathiasHilgert/frappe-api/issues/16)) ([5d97fd8](https://github.com/MathiasHilgert/frappe-api/commit/5d97fd8c4b609324a2865b3519bb2e23b73b9ab6))
+
 ## [0.2.0](https://github.com/MathiasHilgert/frappe-api/compare/v0.1.0...v0.2.0) (2026-11-23)
 
 
