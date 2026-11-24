@@ -19,9 +19,9 @@ internal static class ApiHost
     {
         ["ConnectionStrings:Notifications"] = "Host=unreachable.invalid;Database=frappe;Username=frappe_notifications",
         ["Notifications:AddressHash:CurrentKeyId"] = "1",
-        ["Notifications:AddressHash:Keys:1"] = "bG9jYWwtb25seS1hZGRyZXNzLWhhc2gta2V5LTMyLWJ5dGVzIQ==",
+        ["Notifications:AddressHash:Keys:1"] = "bG9jYWwtb25seS1hZGRyZXNzLWhhc2gta2V5LW9mLTM5LWJ5dGVz",
         ["Notifications:Unsubscribe:SigningKey"] = "bG9jYWwtb25seS11bnN1YnNjcmliZS1zaWduaW5nLWtleSEh",
-        ["Notifications:Email:Resend:WebhookSecret"] = "bG9jYWwtb25seS1yZXNlbmQtd2ViaG9vay1zaWduaW5nLXNlY3JldA==",
+        ["Notifications:Email:Resend:WebhookSecret"] = "bG9jYWwtb25seS1yZXNlbmQtd2ViaG9vay1zaWduaW5nLXNlY3JldCEh",
     };
 
     public static async Task<WebApplication> StartAsync(

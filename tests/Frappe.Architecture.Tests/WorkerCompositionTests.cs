@@ -26,7 +26,7 @@ public sealed class WorkerCompositionTests
         ["ConnectionStrings:Nats"] = "nats://unreachable.invalid:4222",
         ["ConnectionStrings:Notifications"] = "Host=unreachable.invalid;Database=frappe;Username=frappe_notifications_worker",
         ["Notifications:AddressHash:CurrentKeyId"] = "1",
-        ["Notifications:AddressHash:Keys:1"] = "bG9jYWwtb25seS1hZGRyZXNzLWhhc2gta2V5LTMyLWJ5dGVzIQ==",
+        ["Notifications:AddressHash:Keys:1"] = "bG9jYWwtb25seS1hZGRyZXNzLWhhc2gta2V5LW9mLTM5LWJ5dGVz",
         ["Notifications:Unsubscribe:SigningKey"] = "bG9jYWwtb25seS11bnN1YnNjcmliZS1zaWduaW5nLWtleSEh",
         ["Notifications:Unsubscribe:PageUrl"] = "http://localhost:5173/unsubscribe",
         ["Notifications:Unsubscribe:ApiBaseUrl"] = "http://localhost:8080/",

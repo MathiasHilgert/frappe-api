@@ -26,12 +26,12 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
     private const string NatsImage = "nats:2.11-alpine";
 
     /// <summary>A local-only address hash key (base64, 37 bytes) for the throwaway deployment; it protects nothing.</summary>
-    private const string AddressHashKey = "bG9jYWwtb25seS1hZGRyZXNzLWhhc2gta2V5LTMyLWJ5dGVzIQ==";
+    private const string AddressHashKey = "bG9jYWwtb25seS1hZGRyZXNzLWhhc2gta2V5LW9mLTM5LWJ5dGVz";
 
     /// <summary>A local-only signing secret (base64) for the throwaway deployment's Resend webhook; it protects nothing.</summary>
     private const string UnsubscribeKey = "bG9jYWwtb25seS11bnN1YnNjcmliZS1zaWduaW5nLWtleSEh";
 
-    private const string WebhookSigning = "bG9jYWwtb25seS1yZXNlbmQtd2ViaG9vay1zaWduaW5nLXNlY3JldA==";
+    private const string WebhookSigning = "bG9jYWwtb25seS1yZXNlbmQtd2ViaG9vay1zaWduaW5nLXNlY3JldCEh";
 
     private const string ValkeyImage = "valkey/valkey:8-alpine";
 

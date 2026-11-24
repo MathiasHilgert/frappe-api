@@ -1,0 +1,13 @@
+# Secret scan configuration: the default rules, plus an allow-list for values that are public on purpose.
+title = "frappe-api"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = """Committed placeholders that are not secrets: base64 of text starting with "local-only-" (deploy/.env.example \
+and the test hosts) and the Svix documentation example signing secret the webhook tests sign with."""
+regexes = [
+  '''bG9jYWwtb25seS[A-Za-z0-9+/=]*''',
+  '''whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw''',
+]
