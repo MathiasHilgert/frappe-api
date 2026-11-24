@@ -38,6 +38,9 @@ public sealed partial class RenderedKindsTests
     [GeneratedRegex("border:2px solid", RegexOptions.None, 1000)]
     private static partial Regex CodeBoxes();
 
+    [GeneratedRegex("<td class=\"box\"[^>]*>482913</td>", RegexOptions.None, 1000)]
+    private static partial Regex CodeInBox();
+
     private static string GoldenPath(string kind, string language, string extension) => Path.Combine(
         RepositoryRoot.FullPath,
         "tests",
@@ -80,7 +83,7 @@ public sealed partial class RenderedKindsTests
 
     [Test]
     [MethodDataSource(nameof(Codes))]
-    public async Task A_security_mail_has_the_code_in_six_boxes_and_in_the_subject_and_no_link(string kind, string language)
+    public async Task A_security_mail_has_the_code_in_one_copyable_box_and_in_the_subject_and_no_link(string kind, string language)
     {
         // Arrange
         await using var world = new EmailWorld();
@@ -92,7 +95,11 @@ public sealed partial class RenderedKindsTests
         using (Assert.Multiple())
         {
             await Assert.That(email.Subject).Contains("482913");
-            await Assert.That(CodeBoxes().Count(email.Html)).IsEqualTo(6);
+            await Assert.That(CodeBoxes().Count(email.Html)).IsEqualTo(1);
+            await Assert.That(CodeInBox().Count(email.Html)).IsEqualTo(1);
+            await Assert.That(email.Html).Contains("<table role=\"presentation\" align=\"left\" cellpadding=\"0\" cellspacing=\"0\">");
+            await Assert.That(email.Html).Contains("class=\"box\"").And.Contains("user-select:all").And.Contains("letter-spacing:0.35em");
+            await Assert.That(email.Text).Contains("\n482913\n");
             await Assert.That(email.Html).Contains("width=\"56\" height=\"56\"");
             await Assert.That(email.Html).DoesNotContain("<a ");
             await Assert.That(Hrefs().Matches(email.Html).Select(match => match.Value))
@@ -187,7 +194,7 @@ public sealed partial class RenderedKindsTests
             await Assert.That(email.Html).Contains("font-family:Bricolage Grotesque,system-ui");
             await Assert.That(email.Html).Contains("font-family:Hanken Grotesk,system-ui");
             await Assert.That(email.Html).DoesNotContain("Roboto").And.DoesNotContain("Inter").And.DoesNotContain("Poppins");
-            await Assert.That(CenteredText().Count(email.Html)).IsEqualTo(kind == "product_announcement" ? 0 : 6);
+            await Assert.That(CenteredText().Count(email.Html)).IsEqualTo(0);
         }
     }
 

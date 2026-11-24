@@ -1,14 +1,6 @@
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:320px;table-layout:fixed;">
-<tr>
-@for (var index = 0; index < Value.Length; index++)
-{
-@if (index > 0)
-{
-<td width="8" style="width:8px;font-size:0;line-height:0;">&nbsp;</td>
-}
-<td class="box" align="center" style="height:56px;border:2px solid #1f1418;border-radius:10px;font-family:Hanken Grotesk,system-ui,-apple-system,Segoe UI,sans-serif;font-size:28px;line-height:32px;font-weight:600;font-variant-numeric:tabular-nums;text-align:center;color:#1f1418;">@Value[index]</td>
-}
-</tr>
+@* the right padding is the left padding minus the trailing letter-spacing (0.35em x 32px) *@
+<table role="presentation" align="left" cellpadding="0" cellspacing="0">
+<tr><td class="box" align="left" style="border:2px solid #1f1418;border-radius:10px;padding:14px 9px 14px 20px;font-family:Hanken Grotesk,system-ui,-apple-system,Segoe UI,sans-serif;font-size:32px;line-height:36px;font-weight:600;letter-spacing:0.35em;font-variant-numeric:tabular-nums;text-align:left;color:#1f1418;-webkit-user-select:all;user-select:all;">@Value</td></tr>
 </table>
 
 @code {
