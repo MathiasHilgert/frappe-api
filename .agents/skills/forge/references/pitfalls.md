@@ -29,3 +29,9 @@
 - Run `node .github/scripts/line-length.mjs` (150 characters) before committing; `scripts/gate/gate.sh` runs it as a step.
 - A slice copied into another branch loses the coverage that module tests gave it: measure changed-line coverage with `scripts/gate/coverage.sh`
   before committing (CI fails under 80%).
+- CI builds `deploy/.env` by appending `ci-<hex>` to every `.env.example` line that ends in `=`: a base64 placeholder with `=` padding breaks.
+  Use unpadded base64 (a length that is a multiple of 3 bytes); `pr-check` checks it.
+- The secret scan (gitleaks, `generic-api-key`) flags committed high-entropy placeholders: write them as base64 of text starting with
+  `local-only-` (allow-listed in `.gitleaks.toml`), never a random-looking string. `pr-check` runs gitleaks when Docker is available.
+- Razor HTML-encodes non-ASCII and quotes: assert accented copy on an email's text part, not on its HTML.
+- Gmail ignores SVG and `prefers-color-scheme`: email logos go as inline CID PNG images; dark mode is for Apple Mail, iOS and Outlook.

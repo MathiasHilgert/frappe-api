@@ -25,6 +25,11 @@ with "review this proposed design, there is no diff yet":
 - `critic-architecture` for any code change (layers, module communication, libraries);
 - `critic-data` when the schema changes.
 Fix the design from their findings, then show the plan.
+
+**Composition dry run (new module or platform change).** Before launch, check that the design composes: build the Api, Worker and Migrator with
+the planned project references (an empty module skeleton is enough) and run `HostReferenceTests` and `LayeringTests`. A closure the tests forbid
+(the Migrator reaching the broker or ASP.NET, the Api resolving a Worker-only service) becomes a platform slice or a design fix now, not a
+stopped chain later. Missing it cost a stopped chain and a redone slice once.
 Roles registered in `.claude/agents/` may load only after a session restarts; launch a design critic as `general-purpose` with "Your role: read
 `<repo>/.agents/skills/forge/agents/<role>.md` (ignore its frontmatter) and follow it". The Workflow does the same fallback on its own.
 
@@ -33,6 +38,8 @@ Roles registered in `.claude/agents/` may load only after a session restarts; la
 - Every task carries a `brief` written at launch (never edited before its resume: it is part of every cache key). Orientation before the first edit is
   a large share of writer time, so the brief answers what the writer would otherwise explore. 5-15 lines, in this order:
   - **Specs**: the `S#` of this task and the user's choices verbatim.
+  - **Read first**: the exact files the writer must read before editing, and nothing else (orientation is the writer's largest fixed cost: briefs
+    without this list cost 6-8 minutes per slice).
   - **Files**: the exact paths to change or create, each with one line on what changes.
   - **Reuse**: the existing symbols to call (type and method, with path), and the sibling to copy the shape from.
   - **Tests**: the test project, the test class to create or extend, and the command `test-class.sh <Class>`.
@@ -44,7 +51,14 @@ Roles registered in `.claude/agents/` may load only after a session restarts; la
 - One task = one independent behavior with its tests and docs. Never split tests, docs and code into different tasks.
 - **Contract rule:** a task that adds, changes or removes a route, payload field, error code, event or option has `contract: true`; its specs include
   "OpenAPI and events contracts regenerated (`just contracts update`) and `tools/bruno/` updated for every added, changed or removed endpoint".
-- Edit surfaces: exact repo-relative paths or narrow globs; include `contracts/**` and `tools/bruno/**` when the contract rule applies.
+- Edit surfaces: exact repo-relative paths or narrow globs; include `contracts/**` and `tools/bruno/**` when the contract rule applies. Grant the repo
+  configuration a slice may have to touch up front, so a config file never stops a chain: `eng/typos.toml` (texts in other languages),
+  `deploy/.env.example`, `deploy/compose.yaml`, `eng/just/*.just`, `tests/Frappe.EndToEnd.Tests/DeployedFrappe.cs`, `.editorconfig`,
+  `.gitleaks.toml`, and `.github/scripts/*` for a module's first use of a CI step.
+- **User-provided designs** (a mockup, an artifact, a design system): extract them to a file before the writer starts, with the assets as files
+  (logos, icons), the token values and the copy verbatim, and give the writer that path as the source of truth; never summarize a design in words.
+  The writer's evidence includes screenshots of every view in light and dark; the orchestrator compares them with the design before review is
+  trusted and shows them to the user before anything real is sent. Critics review code, not looks.
 - Waves: tasks in one wave have disjoint surfaces; a task that needs another's code goes in a later wave. Migrations of the same module never share a
   wave.
 
@@ -56,8 +70,12 @@ design, one design review, one feature document. No questions mid-run: anything 
 ## Chains
 
 - Merges stay squash with the PR body as the commit body so `git log` and `git blame` reach the why.
-- The module is cut into **slices** before go. A slice is one capability with its code, tests and docs, about **800-1500 authored lines**, that leaves
-  main working; its `commit` header is its future PR title. The cuts are written in the feature document and shown in the briefing.
+- The module is cut into **slices** before go. A slice is one capability with its code, tests and docs, about **800-1500 authored lines** and
+  **at most 3-4 responsibilities**, that leaves main working; its `commit` header is its future PR title. The cuts are written in the feature
+  document and shown in the briefing. A writer generates one file at a time: a slice with 7 responsibilities took 22 minutes of which tools were 5.
+  Do not pile a previous slice's carry-overs onto a slice that is already full: give them their own slice.
+- A running chain may be stopped to apply better briefs to the slices not yet started, but only after the writer in flight has committed and its
+  result is journaled (the next writer has started); stopping mid-write loses the slice.
 - Workflow args: `"chains": [[slice, slice, ...]]`. Every slice of a chain shares one `worktree` and one `branch` (`<type>/<module-topic>`); each
   slice adds `"commit": "<type>(<scope>): <summary>"`.
 - Per slice: the writer builds and commits it; critics review that commit while the next writer starts; the correction is a `fixup!` commit; QA runs

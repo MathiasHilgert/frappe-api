@@ -2,7 +2,8 @@
 # Usage: .github/scripts/pr-check.sh [base]  (just pr-check) — the CI checks a branch most often fails after a push, run locally
 # before pushing: commit and branch conventions, Bruno seq numbers, build, format of the changed files, pending EF model
 # changes, the committed contracts and, when a migration changed, the committed schema dumps. A step whose subject does not
-# exist yet (no Bruno requests, no projects with a model, no contracts) is skipped, as its CI check is. Base defaults to origin/main.
+# exist yet (no Bruno requests, no projects with a model, no contracts) is skipped, as its CI check is. Also: env placeholders that the CI env
+# builder would corrupt, the secret scan and the SQL lint of new migrations. Base defaults to origin/main.
 set -euo pipefail
 base=${1:-origin/main}
 cd "$(git rev-parse --show-toplevel)"
@@ -38,6 +39,26 @@ dupes=$(for d in tools/bruno/*/; do [ -d "$d" ] || continue; find "$d" -maxdepth
 [ -z "$dupes" ] || { echo "duplicate seq: $dupes"; exit 1; }
 echo ok
 
+if [ -f deploy/.env.example ]; then
+  step "Env placeholders survive the CI env builder"
+  # CI appends ci-<hex> to every line that ends in "=", so a value ending in "=" (base64 padding) would be corrupted.
+  padded=$(grep -nE '^[A-Za-z_][A-Za-z0-9_]*=.+=$' deploy/.env.example || true)
+  [ -z "$padded" ] || { echo "values ending in '=' (use unpadded base64): $padded"; exit 1; }
+  echo ok
+fi
+
+step "No leaked secrets in the branch's commits"
+if command -v gitleaks > /dev/null; then
+  gitleaks detect --redact --no-banner --log-opts="$base..HEAD"
+elif command -v docker > /dev/null && docker info > /dev/null 2>&1; then
+  # A worktree's git directory lives in the main checkout: mount both at their own paths.
+  common=$(cd "$(git rev-parse --git-common-dir)" && pwd)
+  docker run --rm -v "$PWD:$PWD" -v "$common:$common" -w "$PWD" zricethezav/gitleaks:v8.24.3 \
+    detect --redact --no-banner --log-opts="$base..HEAD"
+else
+  echo "skipped: neither gitleaks nor docker is available (CI still runs it)"
+fi
+
 step "Justfiles are formatted"
 for file in .justfile eng/just/*.just; do just --unstable --fmt --check --justfile "$file" > /dev/null; done
 echo ok
@@ -68,6 +89,20 @@ if [ -d tests/Hosts/Frappe.Api.IntegrationTests ]; then
   step "The committed contracts are current"
   just contracts update > /dev/null
   git diff --exit-code -- contracts
+fi
+
+if [ -n "$factories" ] && printf '%s\n' "$changed" | grep -qE '/Migrations/'; then
+  step "The SQL of the new migrations is safe (squawk)"
+  sql=$(mktemp -d)
+  .github/scripts/migration-sql.sh "${base#origin/}" "$sql" > /dev/null
+  shopt -s nullglob
+  files=("$sql"/*.sql)
+  if [ ${#files[@]} -gt 0 ]; then
+    npx --yes squawk-cli@2.72.0 --config eng/squawk.toml "${files[@]}" \
+      || echo "squawk flagged statements: CI fails unless a reviewer adds the 'risky migration approved' label"
+  fi
+  rm -rf "$sql"
+  echo ok
 fi
 
 if [ -n "$factories" ] && printf '%s\n' "$changed" | grep -qE '/Migrations/|schema\.sql$|Directory\.Packages\.props$'; then

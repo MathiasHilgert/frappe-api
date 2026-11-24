@@ -7,9 +7,12 @@ continue. Without runtime changes nothing is pending and delivery is as below.
 
 For a chain the Workflow returned `done`:
 
-1. Fold the fixups: `git -C <wt> -c sequence.editor=: rebase -i --autosquash origin/main`. On a conflict, abort and keep that fixup as its own
-   `fix(<scope>): ...` commit on the slice's PR.
-2. Run `just pr-check` once on the head.
+1. Fold the fixups: `git -C <wt> -c sequence.editor=: rebase -i --autosquash origin/main`. Correction writers work on the head, so a fixup for
+   slice k can carry text of slice k+1 and conflict. On a conflict, abort and rebuild one commit per slice from the trees at the slice boundaries
+   (`git commit-tree <last commit before slice k+1>^{tree} -p <parent>` with slice k's message); check the final tree equals the head's.
+2. Run `just pr-check` on the head, then on **every slice commit**: a stacked PR merges alone, so each slice must build and pass CI alone. A slice
+   that does not gets joined with the next one into one PR (say so in its Summary) instead of being fixed slice by slice. `pr-check` checks one
+   commit type per range: run it per type range when a chain mixes `refactor` and `feat` slices.
 3. Cut one branch per slice at its commit (`git branch <type>/<topic>-<n> <sha>`) and open stacked PRs (`chained-pr` skill): PR 1 targets main, PR k
    targets PR k-1's branch; each Summary lists the chain.
 4. Merge in order with `scripts/delivery/merge-queue.sh` (squash; the commit carries the PR body). After PR k merges, GitHub retargets PR k+1 to main:
