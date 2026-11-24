@@ -16,6 +16,9 @@ public sealed class Session : AggregateRoot
     /// <summary>The longest user agent kept ("El texto completo"): the length the column allows.</summary>
     public const int UserAgentMaxLength = 512;
 
+    /// <summary>How long a step-up holds, counted from its completion: use never extends it.</summary>
+    public static readonly Duration StepUpWindow = Duration.FromMinutes(5);
+
     private Session()
     {
         TokenHash = null!;
@@ -133,6 +136,23 @@ public sealed class Session : AggregateRoot
         Raise(reason == Sessions.RevocationReason.Logout
             ? new SessionClosed(PrincipalId, Id, now)
             : new SessionRevoked(PrincipalId, Id, reason, now));
+    }
+
+    /// <summary>
+    /// Records that the holder proved the password at <paramref name="now"/>: a sensitive action is allowed for <see cref="StepUpWindow"/> from
+    /// it. A later step-up starts a new window; using the session never moves it. A session that is revoked or ended is left alone and
+    /// <see langword="false"/> is answered.
+    /// </summary>
+    public bool StepUp(Instant now)
+    {
+        if (RevokedAt is not null || EndedAt is not null)
+        {
+            return false;
+        }
+
+        StepUpUntil = now + StepUpWindow;
+        Raise(new StepUpCompleted(PrincipalId, Id, StepUpUntil.Value, now));
+        return true;
     }
 
     /// <summary>

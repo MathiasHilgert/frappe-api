@@ -57,6 +57,9 @@ public sealed class IdentityMetrics
     /// <summary>The reason tag of <see cref="SessionsRevokedMetric"/>: a small fixed set.</summary>
     public const string ReasonTag = "frappe.reason";
 
+    /// <summary>Counter: step-ups, by outcome (<c>completed</c>, <c>incorrect</c> or <c>throttled</c>).</summary>
+    public const string StepUpsMetric = "frappe.identity.step_ups";
+
     /// <summary>The flow tag of <see cref="LimiterUnavailableMetric"/>: the name of a declared limit flow, a small fixed set.</summary>
     public const string FlowTag = "frappe.flow";
 
@@ -74,6 +77,7 @@ public sealed class IdentityMetrics
     private readonly Counter<long> _sessionsOpened;
     private readonly Counter<long> _passwordChanges;
     private readonly Counter<long> _sessionsRevoked;
+    private readonly Counter<long> _stepUps;
 
     public IdentityMetrics(IMeterFactory meters)
     {
@@ -99,6 +103,7 @@ public sealed class IdentityMetrics
             PasswordChangesMetric, unit: "{change}", description: "Passwords replaced, by kind (change or reset).");
         _sessionsRevoked = meter.CreateCounter<long>(
             SessionsRevokedMetric, unit: "{session}", description: "Sessions revoked, by reason.");
+        _stepUps = meter.CreateCounter<long>(StepUpsMetric, unit: "{step-up}", description: "Step-ups, by outcome.");
     }
 
     /// <summary>A password was hashed or verified in <paramref name="elapsed"/>.</summary>
@@ -132,6 +137,9 @@ public sealed class IdentityMetrics
     public void PasswordChanged(bool reset) =>
         _passwordChanges.Add(1, new KeyValuePair<string, object?>(KindTag, reset ? "reset" : "change"));
 
+    /// <summary>A step-up ended with <paramref name="outcome"/>.</summary>
+    public void SteppedUp(StepUpOutcome outcome) => _stepUps.Add(1, new KeyValuePair<string, object?>(OutcomeTag, OutcomeName(outcome)));
+
     /// <summary>A session was revoked for <paramref name="reason"/> (the name its stored form uses).</summary>
     public void SessionRevoked(string reason) => _sessionsRevoked.Add(1, new KeyValuePair<string, object?>(ReasonTag, reason));
 
@@ -152,6 +160,14 @@ public sealed class IdentityMetrics
         LoginOutcome.Pending => "pending",
         LoginOutcome.Invalid => "invalid",
         LoginOutcome.Throttled => "throttled",
+        _ => throw new UnreachableException($"Unknown outcome {outcome}."),
+    };
+
+    internal static string OutcomeName(StepUpOutcome outcome) => outcome switch
+    {
+        StepUpOutcome.Completed => "completed",
+        StepUpOutcome.Incorrect => "incorrect",
+        StepUpOutcome.Throttled => "throttled",
         _ => throw new UnreachableException($"Unknown outcome {outcome}."),
     };
 

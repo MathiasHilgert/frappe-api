@@ -4,6 +4,7 @@ using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Domain.Principals;
 using Frappe.Identity.Domain.Sessions;
 using Frappe.Identity.Http;
+using Frappe.Identity.Http.Sessions;
 using Frappe.Identity.Infrastructure.Sessions;
 using Frappe.Modules;
 using Frappe.Observability;
@@ -114,6 +115,7 @@ internal sealed class IdentitySessionHost : IAsyncDisposable
         {
             v1.MapGet("/probe/open", () => "open").WithName("ProbeOpen");
             v1.MapPost("/probe/open", () => "open").WithName("ProbeOpenPost");
+            v1.MapGet("/probe/step-up", () => "stepped up").WithName("ProbeStepUp").RequireSession().RequireStepUp();
         }
     }
 
