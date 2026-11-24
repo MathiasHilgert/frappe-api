@@ -37,7 +37,8 @@ when a spec of this task changes that behavior; name the spec in your notes.
 5. A change to a public contract (route, request/response, error code, event, option) includes its docs in the same task: run `just contracts update`
    (OpenAPI and events contracts), update `tools/bruno/` for every added or changed endpoint, and the XML docs of what changed.
 6. Inner loop, one test class at a time: `.agents/skills/forge/scripts/gate/test-class.sh <TestClass> [<TestMethod>]` from the worktree root. It
-   builds only that test project (errors only), runs only that class under a 110 s timeout, fails with exit 9 when the filter matches no test, and
+   builds only that test project (errors only), runs only that class under a 60 s timeout (a class slower than that is a defect: fix the
+   test, never rerun it unchanged), fails with exit 9 when the filter matches no test, and
    prints the summary and failures with the full log path. Never run a whole test project or `just test` while writing.
 6-bis. Final gate, once: `.agents/skills/forge/scripts/gate/gate.sh` from the worktree root, as ONE Bash call with `timeout: 600000`. It builds the
 solution once, then runs in parallel: format of the changed C# files, typos, line length, Markdown lint of the changed `.md` files, the commit

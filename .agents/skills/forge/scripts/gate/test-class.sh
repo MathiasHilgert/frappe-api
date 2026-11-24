@@ -29,14 +29,14 @@ if ! $nobuild; then
 fi
 filter="/*/*/${cls}/${method:-*}"
 # Integration classes start containers: keep FRAPPE_TEST_REUSE as the developer set it (one session per worktree).
-timeout 110 dotnet test --project "$proj" --no-build --timeout 100s --maximum-failed-tests 10 \
+timeout 60 dotnet test --project "$proj" --no-build --timeout 50s --maximum-failed-tests 10 \
   --minimum-expected-tests 1 --treenode-filter "$filter" >>"$log" 2>&1
 rc=$?
 if [ "$rc" -eq 0 ]; then
   grep -E -i '^\s*(total|error|correcto|succeeded|passed|failed|omitido|skipped|duraci|duration)' "$log" | tail -6
 else
   grep -E -i 'failed|error|exception|assert|expected|but was|  at |exit code|c[oó]digo de salida' "$log" | head -60
-  [ "$rc" -eq 124 ] && echo "[killed at 110 s: the class hangs or its containers are slow; read the log]"
+  [ "$rc" -eq 124 ] && echo "[killed at 60 s: a test class must finish in under a minute. Read the log and find the slow test (real waits, real hashing, many round trips) before running it again; never rerun it unchanged]"
 fi
 echo "[exit $rc]"
 exit "$rc"

@@ -35,3 +35,10 @@
   `local-only-` (allow-listed in `.gitleaks.toml`), never a random-looking string. `pr-check` runs gitleaks when Docker is available.
 - Razor HTML-encodes non-ASCII and quotes: assert accented copy on an email's text part, not on its HTML.
 - Gmail ignores SVG and `prefers-color-scheme`: email logos go as inline CID PNG images; dark mode is for Apple Mail, iOS and Outlook.
+- Tests never wait for real time. Every clock goes through `TimeProvider` and tests inject `FakeTimeProvider`. A floor or a delay finishes by
+  advancing the fake clock past it in one step; never pace it in real time (a loop of `Advance(10 ms)` + `Task.Delay(5)` costs about 0.5 s of real
+  time per call). A test that needs many attempts (limits, caps) drives the limiter fake or its budget directly, not 100 real calls.
+- Test hosts hash passwords with the cheapest Argon2id settings the options allow (`Identity:Passwords:MemoryMebibytes` at its minimum,
+  `Iterations` 1). Only the hasher's own tests use production parameters.
+- Budget: a test class finishes in under 60 s (`test-class.sh` kills it there) and one test in under 2 s. When the timeout hits, read the log
+  before running it again; three reruns of a hanging class cost a correction 6 minutes once.

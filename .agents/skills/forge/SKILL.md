@@ -90,7 +90,7 @@ next step. After delivery: PRs, merges, follow-ups.
 - `scripts/hooks/writer_guard.py` — forge-writer hook: denies whole-file rewrites of tracked files (Write tool, `>`, `tee`, Python `open(..., 'w')`),
   trims unpiped dotnet/just output (`run_trimmed.sh`); tests: `writer_guard.test.sh`
 - `scripts/gate/gate.sh` — the writer's final gate in one call (build once, checks and affected test apps in parallel, `--rerun` only what failed);
-  `scripts/gate/test-class.sh` — one test class under a 110 s timeout; `scripts/gate/affected.py` — test apps a change can break
+  `scripts/gate/test-class.sh` — one test class under a 60 s timeout; `scripts/gate/affected.py` — test apps a change can break
 - `scripts/metrics/followup_fixes.py` — outcome metric: share of changes that needed a `Fixes:` follow-up within 60 days
 - `scripts/review/workflow.test.mjs` — behavior tests of the review stage against a fake agent
 - `scripts/codemods/run.sh` — deterministic fixes run before a mechanical writer
