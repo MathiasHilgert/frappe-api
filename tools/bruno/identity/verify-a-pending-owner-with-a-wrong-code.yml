@@ -1,0 +1,32 @@
+info:
+  name: Verify a pending owner with a wrong code (422)
+  type: http
+  seq: 26
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/identity/owners/{{ownerId}}/verification"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      { "code": "000000" }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "422"
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"identity.code.invalid"'
+    - expression: res.headers['set-cookie']
+      operator: isUndefined
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  Run it after **Register the same address again (201)**, which sets `ownerId` to a real pending owner. A guess that is not the mailed code answers the same `422 identity.code.invalid` as an unknown owner, and counts against the code's budget of five wrong guesses. The odds that `000000` is the mailed code are one in a million.

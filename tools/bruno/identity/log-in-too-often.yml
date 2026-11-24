@@ -1,0 +1,53 @@
+info:
+  name: Log in too often (429)
+  type: http
+  seq: 27
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/identity/sessions"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      { "email": "{{throttledEmail}}", "password": "a password nobody has" }
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // An address of its own, so no other request of the collection counts against it: ten attempts use its budget up, the next one is throttled.
+        const stamp = Date.now() + '-' + Math.floor(Math.random() * 1e6);
+        const email = `bruno-throttled-${stamp}@example.com`;
+        bru.setVar('throttledEmail', email);
+        for (let attempt = 0; attempt < 10; attempt++) {
+          try {
+            await bru.sendRequest({
+              method: 'POST',
+              url: `${bru.getEnvVar('baseUrl')}/v1/identity/sessions`,
+              headers: { 'Content-Type': 'application/json' },
+              data: JSON.stringify({ email, password: 'a password nobody has' }),
+            });
+          } catch (refused) {
+            // Each attempt answers 401, which the client throws on: the answer is not what this loop is after.
+          }
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "429"
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"http.rate_limited"'
+    - expression: res.headers['retry-after']
+      operator: isDefined
+    - expression: res.headers['set-cookie']
+      operator: isUndefined
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  An address and client network that logged in ten times in fifteen minutes, whatever the outcome, is answered `429 http.rate_limited` with `Retry-After`. The script spends the budget of an address of its own first. The throttle never locks the owner out of other networks: the counter is keyed by address and the client's network prefix.

@@ -1,0 +1,41 @@
+info:
+  name: Register the same address again (201)
+  type: http
+  seq: 25
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/identity/owners"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "name": { "given": "Bruno", "family": "Again" },
+        "email": "{{ownerEmail}}",
+        "password": "{{ownerPassword}}-again"
+      }
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        bru.setVar('ownerId', res.body.id);
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "201"
+    - expression: res.body.id
+      operator: isString
+    - expression: res.headers['location']
+      operator: isUndefined
+    - expression: res.headers['set-cookie']
+      operator: isUndefined
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  Run it after **Register an owner (201)**, whose `ownerEmail` is still pending: this registration replaces it (new name, password and code, the old code stops working) and answers the same `201` shape with the new owner's `id`, which it keeps in `ownerId`. An address a verified owner holds answers the same way and writes nothing.
