@@ -15,8 +15,10 @@
     <ProjectReference Include="../../../Platform/Frappe.Scheduling/Frappe.Scheduling.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Argon2id hashing (the hasher arrives with the password slice). -->
+    <!-- Argon2id password hashing. -->
     <PackageReference Include="Geralt" />
+    <!-- The HaveIBeenPwned client's timeout and circuit breaker (CFG-08). -->
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
     <!-- dotnet ef reads the design-time factory through it; nothing of it ships. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
   </ItemGroup>
