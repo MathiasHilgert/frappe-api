@@ -15,7 +15,8 @@ public interface IUnsubscribeTokens
 
     /// <summary>
     /// What a token says, or <see cref="UnsubscribeToken.InvalidCode"/> for any text that is not one of ours: malformed, tampered, signed with
-    /// a key no longer known, or for a category that cannot be turned off. It never says which.
+    /// a key no longer known, written in any form but the one <see cref="Issue"/> gives (padded, zero-led), or for a category that cannot be
+    /// turned off. It never says which. The payload is signed, not hidden: a holder of the token can read it.
     /// </summary>
     Result<UnsubscribeClaim> Verify(string? token);
 }

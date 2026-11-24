@@ -239,7 +239,7 @@
           "Notifications"
         ],
         "summary": "Unsubscribe from marketing notifications",
-        "description": "The one-click unsubscribe of RFC 8058, for the link of a marketing email. The query token is the signed credential of the link: it names the recipient and the category (only marketing can be turned off) and never expires. It answers 204 when the category is off for the recipient, including when it already was, and 400 notifications.unsubscribe_token.invalid for a token that is missing, tampered or not issued here. The body may be the form of RFC 8058 (List-Unsubscribe=One-Click), urlencoded or multipart, or none; it is not read, and any other type is answered 415. It never redirects.",
+        "description": "The one-click unsubscribe of RFC 8058, for the link of a marketing email. The query token is the signed credential of the link (signed, not hidden: it is not encrypted): it names the recipient and the category (only marketing can be turned off) and never expires. It answers 204 when the category is off for the recipient, including when it already was, and 400 notifications.unsubscribe_token.invalid for a token that is missing, tampered, not issued here or not written exactly as issued (padded, re-encoded). The body may be the form of RFC 8058 (List-Unsubscribe=One-Click), urlencoded or multipart, or none; it is not read, and any other type is answered 415. It never redirects.",
         "operationId": "Unsubscribe",
         "parameters": [
           {

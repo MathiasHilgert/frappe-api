@@ -38,7 +38,18 @@ public sealed class EmailChannel(
             return new ChannelOutcome.Failed(DeliveryFailureReason.InvalidRecipient);
         }
 
-        var composed = composer.Compose(item.Kind, item.Payload, item.Contact.Language);
+        ComposedEmail composed;
+        try
+        {
+            composed = composer.Compose(item.Kind, item.Payload, item.Contact.Language);
+        }
+        catch (ArgumentException)
+        {
+            // The kind cannot build a draft for this payload (a link that is not https, a Security draft with a link): trying again
+            // gives the same, so it fails for good instead of going back to the queue until it is dead-lettered.
+            return new ChannelOutcome.Failed(DeliveryFailureReason.ProviderRejected);
+        }
+
         var (footer, headers) = item.Kind.Category.CanOptOut ? Unsubscribe(item, composed) : (null, NoHeaders);
         var document = new EmailDocument(
             composed.Language, composed.Draft.Subject, composed.Draft.PreheaderText, composed.Draft.Blocks, footer);

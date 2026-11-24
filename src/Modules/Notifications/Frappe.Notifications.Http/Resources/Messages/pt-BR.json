@@ -1,6 +1,6 @@
 {
   "notifications.kind.unknown": "O tipo de notificação “{kind}” está ausente ou não existe.",
   "notifications.payload.invalid": "O conteúdo não é o que o tipo “{kind}” recebe. O parâmetro fields indica o que corrigir.",
-  "notifications.unsubscribe_token.invalid": "O link de cancelamento não é válido: o token está ausente ou não foi emitido aqui.",
+  "notifications.unsubscribe_token.invalid": "O link de cancelamento não é válido: o token está ausente ou não foi emitido aqui. Abra o link do e-mail original novamente ou copie-o por inteiro.",
   "notifications.webhook_signature.invalid": "A chamada do webhook não é autêntica: a assinatura está ausente, incorreta ou é antiga demais."
 }

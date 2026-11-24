@@ -7,7 +7,7 @@ namespace Frappe.Notifications.Channels.Email;
 /// <summary>
 /// A notification kind that can be sent by email. It adds one method to <see cref="INotification{TPayload}"/>, so the payload type is
 /// declared once. A kind of the Security category returns <see cref="SecureEmail"/> from <see cref="Email.Secure"/>; the channel refuses
-/// at startup a Security kind whose draft has a link anyway.
+/// at startup a Security kind whose sample draft is not one, and fails for good a send whose draft is not.
 /// </summary>
 /// <typeparam name="TPayload">The data the notification needs.</typeparam>
 public interface IEmailNotification<TPayload> : INotification<TPayload>

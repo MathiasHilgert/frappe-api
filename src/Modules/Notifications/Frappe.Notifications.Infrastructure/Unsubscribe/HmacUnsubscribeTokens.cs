@@ -12,9 +12,10 @@ namespace Frappe.Notifications.Infrastructure.Unsubscribe;
 
 /// <summary>
 /// HMAC-SHA256 unsubscribe tokens (S5): <c>&lt;key id&gt;.&lt;payload&gt;.&lt;mac&gt;</c>, the payload and the MAC in base64url. The payload is the
-/// category and the recipient key, which are an opaque pair to whoever holds the mail; the MAC covers the key id and the payload under a
-/// context label, so a MAC made for anything else (an address hash, another key) never verifies. There is no timestamp and no randomness: the
-/// same pair always gives the same token, so a mail renders byte for byte alike on every attempt (S14), and a link never expires. The key id
+/// category and the recipient key: signed, not hidden (anyone holding the mail can decode them; the token is no encryption). The MAC covers the
+/// key id and the payload under a context label, so a MAC made for anything else (an address hash, another key) never verifies. There is no
+/// timestamp and no randomness: the same pair always gives the same token, so a mail renders byte for byte alike on every attempt (S14), and a
+/// link never expires. Only that one text verifies: a padded or reformatted spelling of the same bytes is refused. The key id
 /// lets a rotation keep verifying old links (S12).
 /// </summary>
 public sealed class HmacUnsubscribeTokens : IUnsubscribeTokens
@@ -53,9 +54,12 @@ public sealed class HmacUnsubscribeTokens : IUnsubscribeTokens
 
         var payload = Encoding.UTF8.GetBytes(StoredEnum<NotificationCategory>.ToText(category) + PayloadSeparator + recipient.Value);
         var mac = Sign(_currentKeyId, _keys[_currentKeyId], payload);
-        return string.Create(
-            CultureInfo.InvariantCulture, $"{_currentKeyId}{Separator}{Base64Url.EncodeToString(payload)}{Separator}{Base64Url.EncodeToString(mac)}");
+        return Text(_currentKeyId, payload, mac);
     }
+
+    private static string Text(short keyId, byte[] payload, byte[] mac) =>
+        string.Create(
+            CultureInfo.InvariantCulture, $"{keyId}{Separator}{Base64Url.EncodeToString(payload)}{Separator}{Base64Url.EncodeToString(mac)}");
 
     public Result<UnsubscribeClaim> Verify(string? token)
     {
@@ -80,7 +84,9 @@ public sealed class HmacUnsubscribeTokens : IUnsubscribeTokens
             return UnsubscribeToken.Invalid();
         }
 
-        return ClaimOf(payload);
+        // Only the text Issue writes is ours: a padded, zero-led or otherwise reformatted spelling of the same bytes is not, so one link has one
+        // text (and one rate-limit key).
+        return string.Equals(token, Text(keyId, payload, mac), StringComparison.Ordinal) ? ClaimOf(payload) : UnsubscribeToken.Invalid();
     }
 
     /// <summary>Reads the payload of a token whose MAC held: ours, so anything off about it is still refused, never an exception.</summary>

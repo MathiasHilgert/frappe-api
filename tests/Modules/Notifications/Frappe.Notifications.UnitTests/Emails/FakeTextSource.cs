@@ -16,4 +16,7 @@ internal sealed class FakeTextSource : INotificationTextSource
 
     public IReadOnlyDictionary<string, string>? Find(string kind, LanguageTag language) =>
         _texts.GetValueOrDefault((kind, language.Value));
+
+    public IReadOnlyCollection<string> KindsOf(LanguageTag language) =>
+        [.. _texts.Keys.Where(key => key.Language == language.Value).Select(key => key.Kind)];
 }

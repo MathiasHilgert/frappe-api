@@ -10,4 +10,7 @@ public interface INotificationTextSource
 {
     /// <summary>The patterns of <paramref name="kind"/> in exactly <paramref name="language"/>, by key; <see langword="null"/> when none.</summary>
     IReadOnlyDictionary<string, string>? Find(string kind, LanguageTag language);
+
+    /// <summary>The names of the kinds this source has texts for in <paramref name="language"/>; empty when it has none.</summary>
+    IReadOnlyCollection<string> KindsOf(LanguageTag language);
 }

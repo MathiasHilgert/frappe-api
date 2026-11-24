@@ -127,8 +127,29 @@ public sealed class NotificationsUnsubscribeRouteTests
 
             await Assert.That(error.GetProperty("code").GetString()).IsEqualTo("notifications.unsubscribe_token.invalid");
             await Assert.That(error.GetProperty("message").GetString()).Contains("unsubscribe");
+            await Assert.That(error.GetProperty("message").GetString()).Contains("original email");
             await Assert.That(handler.Verified).IsEmpty();
         }
+    }
+
+    [Test]
+    [Arguments("es", "correo original")]
+    [Arguments("es-AR", "correo original")]
+    [Arguments("pt-BR", "e-mail original")]
+    public async Task The_invalid_token_message_gives_the_next_step_in_each_language(string language, string nextStep)
+    {
+        // Arrange
+        await using var app = await StartAsync(new FakeHandler());
+        using var client = app.GetTestClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{Route}?token=garbage");
+        request.Headers.AcceptLanguage.ParseAdd(language);
+
+        // Act
+        using var response = await client.SendAsync(request);
+        using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        // Assert
+        await Assert.That(problem.RootElement.GetProperty("errors")[0].GetProperty("message").GetString()).Contains(nextStep);
     }
 
     [Test]
@@ -177,6 +198,34 @@ public sealed class NotificationsUnsubscribeRouteTests
             await Assert.That(store.Keys.Where(key => key.StartsWith("notifications:unsubscribe:", StringComparison.Ordinal)).Distinct().Count())
                 .IsEqualTo(2);
             await Assert.That(store.Keys.Any(key => key.Contains(token[10..], StringComparison.Ordinal))).IsFalse();
+        }
+    }
+
+    [Test]
+    public async Task A_token_that_fails_verification_never_reaches_the_limiter_and_a_reformatted_one_does_not_get_a_count_of_its_own()
+    {
+        // Arrange
+        var store = new FakeStore();
+        await using var app = await StartAsync(new FakeHandler(), store);
+        using var client = app.GetTestClient();
+        var token = TokenOf(app);
+
+        // Act
+        var statuses = new List<HttpStatusCode>();
+        foreach (var bad in new[] { "garbage", token[..^3] + "AAA", "0" + token, token + "=" })
+        {
+            using var response = await client.PostAsync($"{Route}?token={bad}", null);
+            statuses.Add(response.StatusCode);
+        }
+
+        using var missing = await client.PostAsync(Route, null);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(statuses).IsEquivalentTo(Enumerable.Repeat(HttpStatusCode.BadRequest, 4));
+            await Assert.That(missing.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
+            await Assert.That(store.Keys.Where(key => key.StartsWith("notifications:unsubscribe:", StringComparison.Ordinal))).IsEmpty();
         }
     }
 
