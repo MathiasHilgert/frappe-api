@@ -323,11 +323,6 @@
         "resolved": "1.81.10",
         "contentHash": "1DEAWwQpiuN8tRSOSbBmwEfrfA1p2N3OjpO2pYcbhVF6erdyED+JKT7Vq9YXpb50w/Ttc+4iRI+A20oC3NN8pA=="
       },
-      "TUnit.Core": {
-        "type": "Transitive",
-        "resolved": "1.81.10",
-        "contentHash": "j8JWWkOrqREW3J1rkejL8MOLzFwNuGY+HCdI5gxIVN60sK5xlSWd6VY7DBpmEal5W/hi72rAnSsQhF0e7BTWIw=="
-      },
       "TUnit.Engine": {
         "type": "Transitive",
         "resolved": "1.81.10",
@@ -615,6 +610,12 @@
         "requested": "[2.19.0, )",
         "resolved": "2.19.0",
         "contentHash": "nTXL9wsg6UhQ27KPUhuMr3/BE02H3zjuii2I5x7vbx7myPHkJzvzGDj7hfd1lKZBmJgUcKI+W7wcIzDdV/N/Dg=="
+      },
+      "TUnit.Core": {
+        "type": "CentralTransitive",
+        "requested": "[1.81.10, )",
+        "resolved": "1.81.10",
+        "contentHash": "j8JWWkOrqREW3J1rkejL8MOLzFwNuGY+HCdI5gxIVN60sK5xlSWd6VY7DBpmEal5W/hi72rAnSsQhF0e7BTWIw=="
       },
       "ZiggyCreatures.FusionCache": {
         "type": "CentralTransitive",

@@ -7,5 +7,7 @@
   <ItemGroup>
     <PackageReference Include="Testcontainers" />
     <PackageReference Include="Npgsql" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="TUnit.Core" />
   </ItemGroup>
 </Project>

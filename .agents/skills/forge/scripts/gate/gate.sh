@@ -61,7 +61,7 @@ if [ -f .github/scripts/conventions.mjs ] && command -v node >/dev/null; then
   cmd[commits]="node $(printf '%q' "$here/commits.mjs") $(printf '%q' "$base")"
 fi
 if $coverage; then
-  cmd[coverage]="$(printf '%q' "$here/coverage.sh") $(printf '%q' "$base")"
+  cmd[coverage]="env -u FRAPPE_TEST_REUSE $(printf '%q' "$here/coverage.sh") $(printf '%q' "$base")"
 fi
 if printf '%s\n' "${changed[@]}" | grep -q '/Migrations/' && [ -x .github/scripts/migration-sql.sh ] && [ -f eng/squawk.toml ]; then
   cmd[squawk]="out=\$(mktemp -d) && .github/scripts/migration-sql.sh $(printf '%q' "$base") \"\$out\" && npx -y squawk-cli@2.72.0 --config eng/squawk.toml \"\$out\"/*.sql"
@@ -94,12 +94,12 @@ if $rerun && [ -f "$stamp" ]; then
 fi
 touch "$stamp"
 
-# Several test apps at once must not share one reused container (just test warns about it).
-tests_selected=$(printf '%s\n' "${selected[@]}" | grep -c '^tests:' || true)
+# Several test apps at once keep FRAPPE_TEST_REUSE: a reused container is keyed by worktree + test app + fixture
+# (TestReuse.KeyOf), so two apps never share one. The coverage step runs the same apps again at the same time, so it
+# runs with reuse off (a second session of one app would reset the container under the first).
 for step in "${selected[@]}"; do
   log="$state/$step.log"
   (
-    if [ "$tests_selected" -gt 1 ]; then unset FRAPPE_TEST_REUSE; fi
     bash -c "${cmd[$step]}" >"$log" 2>&1
     echo $? >"$state/$step.rc"
   ) &

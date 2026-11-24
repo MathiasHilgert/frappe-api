@@ -1,11 +1,12 @@
 set working-directory := "../.."
 
 # Faster local integration runs: `export FRAPPE_TEST_REUSE=1` keeps the Postgres, Valkey and NATS test containers between
-# runs (restarted instead of created; about half the startup). It is opt-in and ignored when CI=true. The end-to-end suite
+# runs (restarted instead of created; about half the startup; Postgres data lives on tmpfs, so a restart empties it and the template databases are rebuilt). It is opt-in and ignored when CI=true. The end-to-end suite
 # always starts fresh. A reused Postgres is emptied of leftover databases at the start of each run, so run only one test
-# session per test app per worktree at a time (two at once share one container and clobber each other; unset the variable
-# for parallel runs). Ryuk needs no change (it simply does not own a reused container); remove them with
-# `just test reuse-clean`, and after a change to a fixture's image or settings.
+# session per test app per worktree at a time (a reused container is keyed by worktree, test app and fixture, so different
+# test apps in parallel are fine; two sessions of the same app share one container and clobber each other, which is why
+# the gate's coverage step runs with reuse off). Ryuk needs no change (it simply does not own a reused container);
+# remove them with `just test reuse-clean`, and after a change to a fixture's image or settings.
 
 # Run-level policies of `dotnet test` (Microsoft.Testing.Platform), before `--`: stop after 10 failed tests (exit 13),
 # and give every test app its own TestResults/<project>/<target> directory. Each recipe adds its own `--timeout`
