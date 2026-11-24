@@ -59,6 +59,11 @@
           "StyleCop.Analyzers.Unstable": "1.2.0.556"
         }
       },
+      "libsodium": {
+        "type": "Transitive",
+        "resolved": "1.0.22",
+        "contentHash": "KPD9SloJFclrsjnhABu7dzWrcyYkwPbvx5l1gRSPAX/0n+OBtSiVCKtGFv4n+ecWUHU0tCG9LSSwoZZx673zBQ=="
+      },
       "Microsoft.EntityFrameworkCore.Abstractions": {
         "type": "Transitive",
         "resolved": "11.0.0-rc.3.26522.148",
@@ -239,6 +244,59 @@
           "Microsoft.AspNetCore.OpenApi": "[11.0.0, )"
         }
       },
+      "frappe.identity.application": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Identity.Domain": "[1.0.0, )",
+          "Frappe.Results": "[1.0.0, )",
+          "Frappe.UseCases": "[1.0.0, )"
+        }
+      },
+      "frappe.identity.contracts": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.IntegrationEvents": "[1.0.0, )"
+        }
+      },
+      "frappe.identity.domain": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Aggregates": "[1.0.0, )",
+          "Frappe.Localization": "[1.0.0, )",
+          "NodaTime": "[3.3.7, )"
+        }
+      },
+      "frappe.identity.http": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Http": "[1.0.0, )",
+          "Frappe.Identity.Application": "[1.0.0, )",
+          "Frappe.Identity.Contracts": "[1.0.0, )"
+        }
+      },
+      "frappe.identity.infrastructure": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Identity.Application": "[1.0.0, )",
+          "Frappe.Identity.Contracts": "[1.0.0, )",
+          "Frappe.Identity.Domain": "[1.0.0, )",
+          "Frappe.Messaging.Abstractions": "[1.0.0, )",
+          "Frappe.Messaging.Storage": "[1.0.0, )",
+          "Frappe.Modules": "[1.0.0, )",
+          "Frappe.Observability": "[1.0.0, )",
+          "Frappe.Persistence": "[1.0.0, )",
+          "Frappe.Scheduling": "[1.0.0, )",
+          "Geralt": "[4.5.0, )"
+        }
+      },
+      "frappe.identity.limits.valkey": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Caching": "[1.0.0, )",
+          "Frappe.Identity.Application": "[1.0.0, )",
+          "Frappe.Modules": "[1.0.0, )"
+        }
+      },
       "frappe.integrationevents": {
         "type": "Project"
       },
@@ -387,6 +445,15 @@
         "type": "Project",
         "dependencies": {
           "Frappe.Results": "[1.0.0, )"
+        }
+      },
+      "Geralt": {
+        "type": "CentralTransitive",
+        "requested": "[4.5.0, )",
+        "resolved": "4.5.0",
+        "contentHash": "Wi9Hu/x65xkiZUMBRPT1U3UCUlmsUszJgcBlywHnT2ZLiQgpU/bBmcHHI//u3Lk8xkPfdBYLRc7YokZuB7rIFQ==",
+        "dependencies": {
+          "libsodium": "[1.0.22, 1.0.23)"
         }
       },
       "MessageFormat": {
@@ -584,7 +651,19 @@
         }
       }
     },
-    "net11.0/linux-arm64": {},
-    "net11.0/linux-x64": {}
+    "net11.0/linux-arm64": {
+      "libsodium": {
+        "type": "Transitive",
+        "resolved": "1.0.22",
+        "contentHash": "KPD9SloJFclrsjnhABu7dzWrcyYkwPbvx5l1gRSPAX/0n+OBtSiVCKtGFv4n+ecWUHU0tCG9LSSwoZZx673zBQ=="
+      }
+    },
+    "net11.0/linux-x64": {
+      "libsodium": {
+        "type": "Transitive",
+        "resolved": "1.0.22",
+        "contentHash": "KPD9SloJFclrsjnhABu7dzWrcyYkwPbvx5l1gRSPAX/0n+OBtSiVCKtGFv4n+ecWUHU0tCG9LSSwoZZx673zBQ=="
+      }
+    }
   }
 }

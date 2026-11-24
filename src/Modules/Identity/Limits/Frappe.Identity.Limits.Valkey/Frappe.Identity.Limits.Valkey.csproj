@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Identity.UnitTests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../Frappe.Identity.Application/Frappe.Identity.Application.csproj" />
+    <ProjectReference Include="../../../../Platform/Frappe.Caching/Frappe.Caching.csproj" />
+    <ProjectReference Include="../../../../Platform/Frappe.Modules/Frappe.Modules.csproj" />
+  </ItemGroup>
+</Project>

@@ -5,6 +5,535 @@
     "version": "1"
   },
   "paths": {
+    "/frappe.identity.owner_code_issued.v1": {
+      "get": {
+        "operationId": "OwnerCodeIssued",
+        "summary": "Payload (CloudEvents data) of frappe.identity.owner_code_issued.v1",
+        "responses": {
+          "200": {
+            "description": "Frappe.Identity.Contracts.Owners.OwnerCodeIssued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ownerId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "purpose": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "language": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "ownerId",
+                    "purpose",
+                    "email",
+                    "name",
+                    "language",
+                    "code",
+                    "occurredAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/frappe.identity.owner_email_change_requested.v1": {
+      "get": {
+        "operationId": "OwnerEmailChangeRequested",
+        "summary": "Payload (CloudEvents data) of frappe.identity.owner_email_change_requested.v1",
+        "responses": {
+          "200": {
+            "description": "Frappe.Identity.Contracts.Owners.OwnerEmailChangeRequested",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ownerId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "oldEmail": {
+                      "type": "string"
+                    },
+                    "newEmailMasked": {
+                      "type": "string"
+                    },
+                    "language": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "ownerId",
+                    "oldEmail",
+                    "newEmailMasked",
+                    "language",
+                    "name",
+                    "occurredAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/frappe.identity.owner_email_changed.v1": {
+      "get": {
+        "operationId": "OwnerEmailChanged",
+        "summary": "Payload (CloudEvents data) of frappe.identity.owner_email_changed.v1",
+        "responses": {
+          "200": {
+            "description": "Frappe.Identity.Contracts.Owners.OwnerEmailChanged",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ownerId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "ownerId",
+                    "occurredAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/frappe.identity.owner_pending_purged.v1": {
+      "get": {
+        "operationId": "OwnerPendingPurged",
+        "summary": "Payload (CloudEvents data) of frappe.identity.owner_pending_purged.v1",
+        "responses": {
+          "200": {
+            "description": "Frappe.Identity.Contracts.Owners.OwnerPendingPurged",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ownerId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "ownerId",
+                    "occurredAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/frappe.identity.owner_registered.v1": {
+      "get": {
+        "operationId": "OwnerRegistered",
+        "summary": "Payload (CloudEvents data) of frappe.identity.owner_registered.v1",
+        "responses": {
+          "200": {
+            "description": "Frappe.Identity.Contracts.Owners.OwnerRegistered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ownerId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "ownerId",
+                    "occurredAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/frappe.identity.owner_registration_attempted.v1": {
+      "get": {
+        "operationId": "OwnerRegistrationAttempted",
+        "summary": "Payload (CloudEvents data) of frappe.identity.owner_registration_attempted.v1",
+        "responses": {
+          "200": {
+            "description": "Frappe.Identity.Contracts.Owners.OwnerRegistrationAttempted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "email": {
+                      "type": "string"
+                    },
+                    "language": {
+                      "type": "string"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "email",
+                    "language",
+                    "occurredAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/frappe.identity.owner_verified.v1": {
+      "get": {
+        "operationId": "OwnerVerified",
+        "summary": "Payload (CloudEvents data) of frappe.identity.owner_verified.v1",
+        "responses": {
+          "200": {
+            "description": "Frappe.Identity.Contracts.Owners.OwnerVerified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ownerId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "ownerId",
+                    "occurredAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/frappe.identity.password_changed.v1": {
+      "get": {
+        "operationId": "PasswordChanged",
+        "summary": "Payload (CloudEvents data) of frappe.identity.password_changed.v1",
+        "responses": {
+          "200": {
+            "description": "Frappe.Identity.Contracts.Credentials.PasswordChanged",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "principalId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "principalId",
+                    "occurredAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/frappe.identity.password_reset.v1": {
+      "get": {
+        "operationId": "PasswordReset",
+        "summary": "Payload (CloudEvents data) of frappe.identity.password_reset.v1",
+        "responses": {
+          "200": {
+            "description": "Frappe.Identity.Contracts.Credentials.PasswordReset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "principalId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "principalId",
+                    "occurredAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/frappe.identity.session_closed.v1": {
+      "get": {
+        "operationId": "SessionClosed",
+        "summary": "Payload (CloudEvents data) of frappe.identity.session_closed.v1",
+        "responses": {
+          "200": {
+            "description": "Frappe.Identity.Contracts.Sessions.SessionClosed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "principalId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "sessionId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "principalId",
+                    "sessionId",
+                    "occurredAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/frappe.identity.session_ended.v1": {
+      "get": {
+        "operationId": "SessionEnded",
+        "summary": "Payload (CloudEvents data) of frappe.identity.session_ended.v1",
+        "responses": {
+          "200": {
+            "description": "Frappe.Identity.Contracts.Sessions.SessionEnded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "principalId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "sessionId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "principalId",
+                    "sessionId",
+                    "reason",
+                    "occurredAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/frappe.identity.session_opened.v1": {
+      "get": {
+        "operationId": "SessionOpened",
+        "summary": "Payload (CloudEvents data) of frappe.identity.session_opened.v1",
+        "responses": {
+          "200": {
+            "description": "Frappe.Identity.Contracts.Sessions.SessionOpened",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "principalId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "sessionId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "audience": {
+                      "type": "string"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "principalId",
+                    "sessionId",
+                    "audience",
+                    "occurredAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/frappe.identity.session_revoked.v1": {
+      "get": {
+        "operationId": "SessionRevoked",
+        "summary": "Payload (CloudEvents data) of frappe.identity.session_revoked.v1",
+        "responses": {
+          "200": {
+            "description": "Frappe.Identity.Contracts.Sessions.SessionRevoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "principalId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "sessionId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "principalId",
+                    "sessionId",
+                    "reason",
+                    "occurredAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/frappe.identity.step_up_completed.v1": {
+      "get": {
+        "operationId": "StepUpCompleted",
+        "summary": "Payload (CloudEvents data) of frappe.identity.step_up_completed.v1",
+        "responses": {
+          "200": {
+            "description": "Frappe.Identity.Contracts.Sessions.StepUpCompleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "principalId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "sessionId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "validUntil": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "principalId",
+                    "sessionId",
+                    "validUntil",
+                    "occurredAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/frappe.notifications.notification_requested.v1": {
       "get": {
         "operationId": "NotificationRequested",

@@ -25,6 +25,8 @@ public sealed class LayeringTests
     private static readonly Assembly Worker = typeof(Frappe.Worker.WorkerComposition).Assembly;
     private static readonly Assembly NotificationsHttp = typeof(Frappe.Notifications.Http.NotificationsHttp).Assembly;
     private static readonly Assembly NotificationsInfrastructure = typeof(Frappe.Notifications.Infrastructure.NotificationsModule).Assembly;
+    private static readonly Assembly IdentityHttp = typeof(Frappe.Identity.Http.IdentityHttp).Assembly;
+    private static readonly Assembly IdentityInfrastructure = typeof(Frappe.Identity.Infrastructure.IdentityModule).Assembly;
 
     /// <summary>Anything an inner layer must never know about.</summary>
     private static readonly string[] Infrastructure =
@@ -63,6 +65,9 @@ public sealed class LayeringTests
     [Arguments("Frappe.Notifications.Domain")]
     [Arguments("Frappe.Notifications.Application")]
     [Arguments("Frappe.Notifications.Contracts")]
+    [Arguments("Frappe.Identity.Domain")]
+    [Arguments("Frappe.Identity.Application")]
+    [Arguments("Frappe.Identity.Contracts")]
     public async Task A_modules_inner_layers_know_nothing_about_infrastructure(string assemblyName)
     {
         // Arrange
@@ -76,26 +81,36 @@ public sealed class LayeringTests
     }
 
     [Test]
-    public async Task A_modules_Http_project_serves_use_cases_without_reaching_the_database_or_the_broker()
+    [Arguments("Notifications")]
+    [Arguments("Identity")]
+    public async Task A_modules_Http_project_serves_use_cases_without_reaching_the_database_or_the_broker(string module)
     {
+        // Arrange
+        var http = module == "Identity" ? IdentityHttp : NotificationsHttp;
+
         // Act
-        var result = Types.InAssembly(NotificationsHttp).ShouldNot().HaveDependencyOnAny(
+        var result = Types.InAssembly(http).ShouldNot().HaveDependencyOnAny(
             "Microsoft.EntityFrameworkCore", "Npgsql", "NATS", "Quartz", "Frappe.Persistence", "Frappe.Messaging", "Frappe.Scheduling",
-            "Frappe.Notifications.Infrastructure", "Frappe.Notifications.Domain").GetResult();
+            $"Frappe.{module}.Infrastructure", $"Frappe.{module}.Domain").GetResult();
 
         // Assert
-        await AssertAsync(result, "Frappe.Notifications.Http depends on storage, messaging, scheduling or the module's infrastructure");
+        await AssertAsync(result, $"Frappe.{module}.Http depends on storage, messaging, scheduling or the module's infrastructure");
     }
 
     [Test]
-    public async Task A_modules_Infrastructure_reaches_no_web_stack()
+    [Arguments("Notifications")]
+    [Arguments("Identity")]
+    public async Task A_modules_Infrastructure_reaches_no_web_stack(string module)
     {
+        // Arrange
+        var infrastructure = module == "Identity" ? IdentityInfrastructure : NotificationsInfrastructure;
+
         // Act
-        var result = Types.InAssembly(NotificationsInfrastructure).ShouldNot().HaveDependencyOnAny(
-            "Microsoft.AspNetCore", "Frappe.Http", "Frappe.Notifications.Http").GetResult();
+        var result = Types.InAssembly(infrastructure).ShouldNot().HaveDependencyOnAny(
+            "Microsoft.AspNetCore", "Frappe.Http", $"Frappe.{module}.Http").GetResult();
 
         // Assert
-        await AssertAsync(result, "Frappe.Notifications.Infrastructure depends on the web stack");
+        await AssertAsync(result, $"Frappe.{module}.Infrastructure depends on the web stack");
     }
 
     [Test]

@@ -5,6 +5,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 api:
     ASPNETCORE_URLS=http://localhost:5080 \
     ConnectionStrings__Valkey="localhost:${VALKEY_PORT:-6379}" \
+    ConnectionStrings__Identity="Host=localhost;Port=${POSTGRES_PORT:-5432};Database=frappe;Username=frappe_identity;Password=$FRAPPE_IDENTITY_PASSWORD" \
     ConnectionStrings__Notifications="Host=localhost;Port=${POSTGRES_PORT:-5432};Database=frappe;Username=frappe_notifications;Password=$FRAPPE_NOTIFICATIONS_PASSWORD" \
     Notifications__AddressHash__CurrentKeyId=1 \
     Notifications__AddressHash__Keys__1="$FRAPPE_NOTIFICATIONS_ADDRESS_HASH_KEY" \
@@ -17,6 +18,7 @@ api:
 worker:
     DOTNET_ENVIRONMENT="${DOTNET_ENVIRONMENT:-Development}" \
     ConnectionStrings__Scheduler="Host=localhost;Port=${POSTGRES_PORT:-5432};Database=frappe;Username=frappe_scheduler;Password=$FRAPPE_SCHEDULER_PASSWORD" \
+    ConnectionStrings__Identity="Host=localhost;Port=${POSTGRES_PORT:-5432};Database=frappe;Username=frappe_identity_worker;Password=$FRAPPE_IDENTITY_WORKER_PASSWORD" \
     ConnectionStrings__Notifications="Host=localhost;Port=${POSTGRES_PORT:-5432};Database=frappe;Username=frappe_notifications_worker;Password=$FRAPPE_NOTIFICATIONS_WORKER_PASSWORD" \
     ConnectionStrings__Valkey="localhost:${VALKEY_PORT:-6379}" \
     ConnectionStrings__Nats="nats://localhost:${NATS_PORT:-4222}" \

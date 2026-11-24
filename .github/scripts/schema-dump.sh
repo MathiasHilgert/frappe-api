@@ -20,7 +20,7 @@ dump_directory() {
     *) find src/Modules -mindepth 3 -maxdepth 3 -type d -name Persistence -path "*/Frappe.*.Infrastructure/Persistence" 2> /dev/null \
          | while read -r dir; do
              module=$(basename "$(dirname "$dir")" | sed -E 's/^Frappe\.(.*)\.Infrastructure$/\1/' | tr '[:upper:]' '[:lower:]')
-             [ "$module" = "$1" ] && echo "$dir"
+             if [ "$module" = "$1" ]; then echo "$dir"; fi
            done ;;
   esac
 }

@@ -24,6 +24,7 @@ public sealed class WorkerCompositionTests
         ["ConnectionStrings:Scheduler"] = "Host=unreachable.invalid;Database=frappe;Username=frappe_scheduler",
         ["ConnectionStrings:Valkey"] = "unreachable.invalid:6379",
         ["ConnectionStrings:Nats"] = "nats://unreachable.invalid:4222",
+        ["ConnectionStrings:Identity"] = "Host=unreachable.invalid;Database=frappe;Username=frappe_identity_worker",
         ["ConnectionStrings:Notifications"] = "Host=unreachable.invalid;Database=frappe;Username=frappe_notifications_worker",
         ["Notifications:AddressHash:CurrentKeyId"] = "1",
         ["Notifications:AddressHash:Keys:1"] = "bG9jYWwtb25seS1hZGRyZXNzLWhhc2gta2V5LW9mLTM5LWJ5dGVz",
@@ -142,11 +143,29 @@ public sealed class WorkerCompositionTests
         {
             await Assert.That(Frappe.Worker.Modules.All.Select(module => module.GetType().Name))
                 .IsEquivalentTo(
-                    ["NotificationsModule", "NotificationsWorkerModule", "AccountKindsModule", "MarketingKindsModule", "EmailChannelWorkerModule"]);
+                [
+                    "IdentityModule", "IdentityWorkerModule", "NotificationsModule", "NotificationsWorkerModule", "AccountKindsModule",
+                    "MarketingKindsModule", "EmailChannelWorkerModule",
+                ]);
             await Assert.That(hosted).Contains("OutboxRelayService`1");
             await Assert.That(hosted).Contains("JetStreamConsumer`2");
-            await Assert.That(ready).Contains("notifications-database");
+            await Assert.That(ready).Contains("notifications-database").And.Contains("identity-database");
         }
+    }
+
+    [Test]
+    public async Task The_Worker_with_its_real_module_lists_and_no_identity_connection_fails_the_start_naming_its_key()
+    {
+        // Arrange
+        var settings = new Dictionary<string, string?>(Deployed);
+        settings.Remove("ConnectionStrings:Identity");
+        using var host = Build(settings);
+
+        // Act
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ValidateAsync(host));
+
+        // Assert
+        await Assert.That(thrown?.Message).Contains("ConnectionStrings:Identity");
     }
 
     [Test]

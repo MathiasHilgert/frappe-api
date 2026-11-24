@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Identity against a real Postgres (Testcontainers; needs Docker): its migration, its constraints and its roles. -->
+  <ItemGroup>
+    <ProjectReference Include="../../../../src/Modules/Identity/Frappe.Identity.Domain/Frappe.Identity.Domain.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Identity/Frappe.Identity.Infrastructure/Frappe.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="../../../Shared/Frappe.Testing/Frappe.Testing.csproj" />
+    <ProjectReference Include="../../../Shared/Frappe.Testing.Containers/Frappe.Testing.Containers.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Testcontainers.PostgreSql" />
+  </ItemGroup>
+</Project>

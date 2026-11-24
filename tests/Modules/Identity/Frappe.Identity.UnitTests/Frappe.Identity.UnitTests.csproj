@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Identity in process (TEST-02): no Docker, database, broker or cache. Whatever needs one belongs in
+       Frappe.Identity.IntegrationTests. -->
+  <ItemGroup>
+    <ProjectReference Include="../../../../src/Modules/Identity/Frappe.Identity.Domain/Frappe.Identity.Domain.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Identity/Frappe.Identity.Contracts/Frappe.Identity.Contracts.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Identity/Frappe.Identity.Infrastructure/Frappe.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="../../../Shared/Frappe.Testing/Frappe.Testing.csproj" />
+  </ItemGroup>
+</Project>
