@@ -178,6 +178,8 @@ CREATE INDEX ix_inbox_messages_received_at ON identity.inbox_messages USING btre
 
 CREATE INDEX ix_one_time_codes_expires_at ON identity.one_time_codes USING btree (expires_at);
 
+CREATE INDEX ix_one_time_codes_principal_id ON identity.one_time_codes USING btree (principal_id);
+
 CREATE INDEX ix_outbox_messages_parked ON identity.outbox_messages USING btree (sequence) WHERE ((published_at IS NULL) AND (attempts > 0) AND (next_attempt_at IS NULL));
 
 CREATE INDEX ix_outbox_messages_published_at ON identity.outbox_messages USING btree (published_at) WHERE (published_at IS NOT NULL);

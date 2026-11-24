@@ -108,6 +108,7 @@ public sealed class IdentityMigrationTests(PostgresServer server)
                     "pk_owners",
                     "ux_email_identifiers_normalized_address", "ux_email_identifiers_principal_id", "ux_sessions_token_hash",
                     "ix_sessions_principal_id", "ix_sessions_ended_at", "ux_one_time_codes_live", "ix_one_time_codes_expires_at",
+                    "ix_one_time_codes_principal_id",
                     "ux_email_change_undos_live", "ix_email_change_undos_expires_at",
                     "ix_owners_registered_at",
                 ]);

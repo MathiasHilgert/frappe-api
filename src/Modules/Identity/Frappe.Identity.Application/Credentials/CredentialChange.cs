@@ -23,7 +23,7 @@ public sealed class CredentialChange(ISessions sessions, TimeProvider time)
         ArgumentNullException.ThrowIfNull(principal);
         principal.RotateStamp();
         var now = Instant.FromDateTimeOffset(time.GetUtcNow());
-        foreach (var session in await sessions.ListLiveOfAsync(principal.Id, cancellationToken))
+        foreach (var session in await sessions.ListLiveOfAsync(principal.Id, now, cancellationToken))
         {
             if (session.Id == keptSessionId)
             {

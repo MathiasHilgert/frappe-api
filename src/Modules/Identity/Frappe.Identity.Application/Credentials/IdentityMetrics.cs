@@ -19,7 +19,7 @@ public sealed class IdentityMetrics
     public const string BreachCheckDurationMetric = "frappe.identity.breach_check.duration";
 
     /// <summary>Counter: attempts an attempt limiter could not count because its store was unreachable, by flow.</summary>
-    public const string LimiterUnavailableMetric = "identity.limiter.unavailable";
+    public const string LimiterUnavailableMetric = "frappe.identity.limiter.unavailable";
 
     /// <summary>Counter: touches of a session that lost the race to another request of the same session (harmless, expected).</summary>
     public const string SessionTouchLostMetric = "frappe.identity.session_touch.lost";

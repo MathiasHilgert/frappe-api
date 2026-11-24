@@ -11,7 +11,7 @@ namespace Frappe.Identity.Limits.Valkey;
 /// atomic step takes an attempt only while the subject is below its limit. When Valkey is slow or failing (SEC-14): a flow that fails closed
 /// answers <see cref="AttemptOutcome.Unavailable"/>, so nothing is judged uncounted; a flow that fails open lets the attempt through and then
 /// leaves Valkey alone for <see cref="BreakDuration"/>, so an outage costs one wait and one log line per break, not one per request. Both
-/// are counted in <c>identity.limiter.unavailable</c>.
+/// are counted in <c>frappe.identity.limiter.unavailable</c>.
 /// </summary>
 internal sealed partial class ValkeyAttemptLimiter(
     ValkeyWindowCounter counter,
