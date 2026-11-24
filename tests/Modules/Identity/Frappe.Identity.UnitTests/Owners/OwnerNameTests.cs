@@ -61,7 +61,9 @@ public sealed class OwnerNameTests
     [Arguments("Ana", "\u200Bx")]
     [Arguments("Ana\u2066", null)]
     [Arguments("\U000E0041na", null)]
-    public async Task A_name_with_a_control_or_format_character_is_refused(string given, string? family)
+    [Arguments("Ana\u2028x", null)]
+    [Arguments("Ana", "P\u2029rez")]
+    public async Task A_name_with_a_control_format_or_line_separator_character_is_refused(string given, string? family)
     {
         // Act
         var result = OwnerName.Create(given, family);
