@@ -1,4 +1,5 @@
 using System.Net;
+using Frappe.Access.Contracts;
 using Frappe.UseCases;
 
 namespace Frappe.Identity.Application.Owners.LogInOwner;
@@ -13,7 +14,8 @@ namespace Frappe.Identity.Application.Owners.LogInOwner;
 /// <param name="Password">The password, as typed.</param>
 /// <param name="UserAgent">The client's user agent, kept with the session.</param>
 /// <param name="ClientAddress">The client's address, of which the session keeps only the network prefix.</param>
-public sealed record LogInOwner(string? Email, string? Password, string? UserAgent, IPAddress? ClientAddress) : ICommand<LogInOutcome>
+public sealed record LogInOwner(string? Email, string? Password, string? UserAgent, IPAddress? ClientAddress)
+    : ICommand<LogInOutcome>, IPublic // proof: the password
 {
     public override string ToString() => "LogInOwner { the content is hidden }";
 }

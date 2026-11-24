@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.UseCases;
 
 namespace Frappe.Identity.Application.Sessions.GetCurrentSession;
@@ -7,4 +8,7 @@ namespace Frappe.Identity.Application.Sessions.GetCurrentSession;
 /// step-up that has run out is reported as none.
 /// </summary>
 /// <param name="SessionId">The caller's current session, from the authenticated request.</param>
-public sealed record GetCurrentSession(Guid SessionId) : IQuery<CurrentSessionView>;
+public sealed record GetCurrentSession(Guid SessionId) : IQuery<CurrentSessionView>, IGuarded
+{
+    public static CallerRule Allowed => Is.Authenticated;
+}

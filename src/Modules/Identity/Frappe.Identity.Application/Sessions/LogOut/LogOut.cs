@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.Results;
 using Frappe.UseCases;
 
@@ -9,4 +10,7 @@ namespace Frappe.Identity.Application.Sessions.LogOut;
 /// </summary>
 /// <param name="PrincipalId">The caller, from the authenticated request.</param>
 /// <param name="SessionId">The caller's current session, from the authenticated request.</param>
-public sealed record LogOut(Guid PrincipalId, Guid SessionId) : ICommand<Unit>;
+public sealed record LogOut(Guid PrincipalId, Guid SessionId) : ICommand<Unit>, IGuarded
+{
+    public static CallerRule Allowed => Is.Authenticated;
+}

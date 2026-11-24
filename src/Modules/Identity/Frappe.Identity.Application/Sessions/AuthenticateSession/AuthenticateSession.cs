@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.UseCases;
 
 namespace Frappe.Identity.Application.Sessions.AuthenticateSession;
@@ -8,7 +9,8 @@ namespace Frappe.Identity.Application.Sessions.AuthenticateSession;
 /// inactive principal), so a caller learns nothing about which it was.
 /// </summary>
 /// <param name="TokenHash">The hash of the presented token (<see cref="ISessionTokens.HashOf"/>), never the token.</param>
-public sealed record AuthenticateSession(byte[] TokenHash) : IQuery<SessionPrincipal>
+public sealed record AuthenticateSession(byte[] TokenHash)
+    : IQuery<SessionPrincipal>, IPublic // proof: trusted entry: the session authentication handler runs it
 {
     public override string ToString() => "AuthenticateSession { TokenHash = *** }";
 }

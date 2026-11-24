@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="../Frappe.Access.Application/Frappe.Access.Application.csproj" />
-    <ProjectReference Include="../../../Platform/Frappe.Http/Frappe.Http.csproj" />  </ItemGroup>
+    <ProjectReference Include="../../../Platform/Frappe.Http/Frappe.Http.csproj" />
+  </ItemGroup>
 </Project>

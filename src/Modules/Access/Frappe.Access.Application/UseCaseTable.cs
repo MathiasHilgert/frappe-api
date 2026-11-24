@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Frozen;
 using System.Reflection;
 using Frappe.Access.Contracts;
@@ -14,6 +15,7 @@ internal sealed class UseCaseTable
         .GetMethod(nameof(ReadAllowed), BindingFlags.Public | BindingFlags.Static)!;
 
     private readonly FrozenDictionary<Type, UseCaseDeclaration> _declarations;
+    private readonly ConcurrentDictionary<Type, UseCaseDeclaration> _unknown = new();
 
     private UseCaseTable(FrozenDictionary<Type, UseCaseDeclaration> declarations) => _declarations = declarations;
 
@@ -28,7 +30,7 @@ internal sealed class UseCaseTable
     public UseCaseDeclaration For(Type request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        return _declarations.GetValueOrDefault(request) ?? new UseCaseDeclaration(request.Name, null, false, []);
+        return _declarations.GetValueOrDefault(request) ?? _unknown.GetOrAdd(request, type => new UseCaseDeclaration(type.Name, null, false, []));
     }
 
     private static UseCaseDeclaration Declare(Type request)

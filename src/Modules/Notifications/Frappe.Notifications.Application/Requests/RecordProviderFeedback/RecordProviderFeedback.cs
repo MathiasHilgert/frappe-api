@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.Notifications.Application.Feedback;
 using Frappe.Results;
 using Frappe.UseCases;
@@ -10,4 +11,4 @@ namespace Frappe.Notifications.Application.Requests.RecordProviderFeedback;
 /// rules do not apply (a repeat, a late or out-of-order one): the provider is answered the same and must not retry it.
 /// </summary>
 /// <param name="Feedback">The event, already authenticated and read by the provider's parser.</param>
-public sealed record RecordProviderFeedback(ProviderFeedback Feedback) : ICommand<Unit>;
+public sealed record RecordProviderFeedback(ProviderFeedback Feedback) : ICommand<Unit>, IPublic; // proof: the provider webhook signature

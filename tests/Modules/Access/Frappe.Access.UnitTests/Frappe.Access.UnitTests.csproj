@@ -2,6 +2,7 @@
   <!-- Access in process (TEST-02): no Docker, database, broker or cache. -->
   <ItemGroup>
     <ProjectReference Include="../../../../src/Modules/Access/Frappe.Access.Infrastructure/Frappe.Access.Infrastructure.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Access/Frappe.Access.Http/Frappe.Access.Http.csproj" />
     <ProjectReference Include="../../../Shared/Frappe.Testing/Frappe.Testing.csproj" />
   </ItemGroup>
   <ItemGroup>

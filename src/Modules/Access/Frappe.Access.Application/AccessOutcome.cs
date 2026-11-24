@@ -18,6 +18,6 @@ internal enum AccessOutcome
     /// <summary>The request is public: anyone may run it, so no rule ran.</summary>
     Public,
 
-    /// <summary>The request declares neither marker and ran anyway. A host refuses to start with one once the startup check is on (S7).</summary>
+    /// <summary>The request declares neither marker and ran anyway: a host refuses to start with one (S7), so this is a fallback.</summary>
     Undeclared,
 }

@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.Results;
 using Frappe.UseCases;
 
@@ -9,4 +10,7 @@ namespace Frappe.Identity.Application.Sessions.RevokeMySession;
 /// </summary>
 /// <param name="PrincipalId">The caller, from the authenticated request.</param>
 /// <param name="SessionId">The session to revoke, from the URL; an id that is not one is <see cref="Guid.Empty"/>, which no session has.</param>
-public sealed record RevokeMySession(Guid PrincipalId, Guid SessionId) : ICommand<Unit>;
+public sealed record RevokeMySession(Guid PrincipalId, Guid SessionId) : ICommand<Unit>, IGuarded
+{
+    public static CallerRule Allowed => Is.Authenticated;
+}

@@ -229,9 +229,9 @@ public sealed class IdentityPasswordRouteTests
     {
         public void AddServices(IServiceCollection services)
         {
-            services.AddSingleton<ICommandHandler<ChangePassword, Unit>>(new Change(fakes));
-            services.AddSingleton<ICommandHandler<RequestPasswordReset, PasswordResetRequested>>(new Request(fakes));
-            services.AddSingleton<ICommandHandler<ResetPassword, Unit>>(new Confirm(fakes));
+            services.AddFakeCommand<ChangePassword, Unit>(new Change(fakes));
+            services.AddFakeCommand<RequestPasswordReset, PasswordResetRequested>(new Request(fakes));
+            services.AddFakeCommand<ResetPassword, Unit>(new Confirm(fakes));
         }
     }
 

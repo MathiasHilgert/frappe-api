@@ -1,4 +1,5 @@
 using System.Net;
+using Frappe.Access.Contracts;
 using Frappe.Identity.Application.Sessions;
 using Frappe.UseCases;
 
@@ -13,7 +14,8 @@ namespace Frappe.Identity.Application.Owners.VerifyOwnerEmail;
 /// <param name="Code">The six digits, as typed.</param>
 /// <param name="UserAgent">The client's user agent, kept with the session.</param>
 /// <param name="ClientAddress">The client's address, of which the session keeps only the network prefix.</param>
-public sealed record VerifyOwnerEmail(string? OwnerId, string? Code, string? UserAgent, IPAddress? ClientAddress) : ICommand<OpenedSession>
+public sealed record VerifyOwnerEmail(string? OwnerId, string? Code, string? UserAgent, IPAddress? ClientAddress)
+    : ICommand<OpenedSession>, IPublic // proof: the emailed code
 {
     public override string ToString() => $"VerifyOwnerEmail {{ OwnerId = {OwnerId}, Code = *** }}";
 }

@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.UseCases;
 
 namespace Frappe.Identity.Application.Owners.RequestPasswordReset;
@@ -8,7 +9,8 @@ namespace Frappe.Identity.Application.Owners.RequestPasswordReset;
 /// made-up id, so the answer reveals nothing.
 /// </summary>
 /// <param name="Email">The address, as typed.</param>
-public sealed record RequestPasswordReset(string? Email) : ICommand<PasswordResetRequested>
+public sealed record RequestPasswordReset(string? Email)
+    : ICommand<PasswordResetRequested>, IPublic // proof: none; a neutral answer that reveals nothing, limited per address
 {
     public override string ToString() => "RequestPasswordReset { the content is hidden }";
 }

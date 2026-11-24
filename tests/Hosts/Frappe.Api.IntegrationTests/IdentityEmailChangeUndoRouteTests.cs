@@ -78,7 +78,7 @@ public sealed class IdentityEmailChangeUndoRouteTests
     private sealed class FakesModule(Fakes fakes) : IModule
     {
         public void AddServices(IServiceCollection services) =>
-            services.AddSingleton<ICommandHandler<UndoEmailChange, Unit>>(new UndoHandler(fakes));
+            services.AddFakeCommand<UndoEmailChange, Unit>(new UndoHandler(fakes));
     }
 
     /// <summary>The undo use case, standing in for the real one.</summary>

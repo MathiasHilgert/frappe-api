@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.Results;
 using Frappe.UseCases;
 
@@ -9,7 +10,7 @@ namespace Frappe.Identity.Application.Owners.UndoEmailChange;
 /// address that another verified owner holds now, answer <c>identity.undo.invalid</c>. It carries a secret, so it prints none (DOM-06).
 /// </summary>
 /// <param name="Token">The token as the link carried it.</param>
-public sealed record UndoEmailChange(string? Token) : ICommand<Unit>
+public sealed record UndoEmailChange(string? Token) : ICommand<Unit>, IPublic // proof: the signed undo token
 {
     public override string ToString() => "UndoEmailChange { the token is hidden }";
 }
