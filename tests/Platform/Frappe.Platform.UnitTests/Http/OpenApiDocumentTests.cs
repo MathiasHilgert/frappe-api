@@ -33,6 +33,9 @@ public sealed class OpenApiDocumentTests
         var v1 = app.MapGroup("/v1").NegotiateRequestLanguage();
         v1.MapGet("/orders", () => TypedResults.Ok(new Order("tea"))).CacheFor(TimeSpan.FromMinutes(5));
         v1.MapPost("/orders", (Order order) => TypedResults.Created("/v1/orders/1", order)).AcceptsIdempotencyKey();
+        v1.MapPost("/receipts", () => TypedResults.Created()).WithoutLocation();
+        v1.MapPost("/jobs", () => TypedResults.Accepted((string?)null)).WithoutLocation();
+        v1.MapPost("/jobs-tracked", () => TypedResults.Accepted("/v1/jobs/1"));
         await app.StartAsync();
         return app;
     }
@@ -125,6 +128,27 @@ public sealed class OpenApiDocumentTests
             await Assert.That(post.GetProperty("responses").TryGetProperty("415", out _)).IsTrue();
             await Assert.That(get.GetProperty("responses").TryGetProperty("500", out _)).IsTrue();
             await Assert.That(get.GetProperty("responses").TryGetProperty("503", out _)).IsTrue();
+        }
+    }
+
+    [Test]
+    public async Task An_answer_without_a_location_documents_no_Location_header_and_the_others_keep_it()
+    {
+        // Arrange
+        await using var app = await StartAsync();
+
+        // Act
+        var paths = (await DocumentAsync(app)).GetProperty("paths");
+        var created = paths.GetProperty("/v1/receipts").GetProperty("post").GetProperty("responses").GetProperty("201");
+        var accepted = paths.GetProperty("/v1/jobs").GetProperty("post").GetProperty("responses").GetProperty("202");
+        var tracked = paths.GetProperty("/v1/jobs-tracked").GetProperty("post").GetProperty("responses").GetProperty("202");
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(created.TryGetProperty("headers", out var made) && made.TryGetProperty("Location", out _)).IsFalse();
+            await Assert.That(accepted.TryGetProperty("headers", out var queued) && queued.TryGetProperty("Location", out _)).IsFalse();
+            await Assert.That(tracked.GetProperty("headers").TryGetProperty("Location", out _)).IsTrue();
         }
     }
 }
