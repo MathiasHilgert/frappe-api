@@ -8,6 +8,9 @@ using Microsoft.Extensions.Options;
 namespace Frappe.Platform.UnitTests.Health;
 
 /// <summary>The probe command against an HTTP target, and the TCP probe ports bound from configuration.</summary>
+// FreePort() releases the port it found before the test binds it, so two tests running at once can get the same one: every test
+// class that opens real TCP ports runs alone among them.
+[NotInParallel("tcp-ports")]
 public sealed class ProbeTargetTests
 {
     private static int FreePort()

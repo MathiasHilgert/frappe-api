@@ -9,6 +9,9 @@ using Microsoft.Extensions.Logging;
 namespace Frappe.Platform.UnitTests.Health;
 
 /// <summary>Critical and optional dependencies, the startup check and the TCP probes (S10).</summary>
+// FreePort() releases the port it found before the test binds it, so two tests running at once can get the same one: every test
+// class that opens real TCP ports runs alone among them.
+[NotInParallel("tcp-ports")]
 public sealed class HealthTests
 {
     /// <summary>A dependency that answers or not; a failure reports the registration's failure status, as real checks do.</summary>
