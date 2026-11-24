@@ -36,6 +36,9 @@ internal sealed class IdentityIntegrationEvents : IIntegrationEventTranslator
             issued.OwnerId, StoredEnum<CodePurpose>.ToText(issued.Purpose), issued.Email, issued.Name, issued.Language, issued.Code,
             issued.At.ToDateTimeOffset())],
         OwnerVerified verified => [new PublishedOwners.OwnerVerified(verified.OwnerId, verified.At.ToDateTimeOffset())],
+        OwnerEmailChangeRequested requested => [new PublishedOwners.OwnerEmailChangeRequested(
+            requested.OwnerId, requested.OldEmail, requested.NewEmailMasked, requested.Language, requested.Name, requested.At.ToDateTimeOffset())],
+        OwnerEmailChanged changed => [new PublishedOwners.OwnerEmailChanged(changed.OwnerId, changed.At.ToDateTimeOffset())],
         _ => [],
     };
 }

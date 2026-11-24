@@ -27,10 +27,10 @@ public sealed class CodeIssuer(IOneTimeCodes codes, ICodeHasher hasher, IAttempt
     /// </summary>
     public async Task<Result<IssuedCode>> IssueAsync(Guid principalId, CodePurpose purpose, string target, CancellationToken cancellationToken)
     {
-        var verdict = await limiter.HitAsync(CodeLimits.Send, CodeLimits.SendSubject(principalId, purpose), cancellationToken);
-        if (verdict.Outcome == AttemptOutcome.Refused)
+        var counted = await TakeSendSlotAsync(principalId, purpose, cancellationToken);
+        if (!counted.IsSuccess)
         {
-            return new RateLimitedError(IdentityErrorCodes.CodeSendLimited, verdict.RetryAfter);
+            return Result.Failure<IssuedCode>(counted.Errors);
         }
 
         var now = Instant.FromDateTimeOffset(time.GetUtcNow());
@@ -41,5 +41,31 @@ public sealed class CodeIssuer(IOneTimeCodes codes, ICodeHasher hasher, IAttempt
         var code = OneTimeCode.Issue(principalId, purpose, target, hasher.Hash(plaintext), now, OneTimeCode.Lifetime);
         codes.Add(code);
         return new IssuedCode(code.Id, plaintext, code.ExpiresAt);
+    }
+
+    /// <summary>
+    /// Does everything <see cref="IssueAsync"/> does except create the code: it counts the send and invalidates the live code of that purpose, for
+    /// a caller that must leave the same traces when it sends nothing (a taken address answers like a free one). Fails as
+    /// <see cref="IssueAsync"/> does when the budget is spent.
+    /// </summary>
+    public async Task<Result<Unit>> SpendWithoutIssuingAsync(Guid principalId, CodePurpose purpose, CancellationToken cancellationToken)
+    {
+        var counted = await TakeSendSlotAsync(principalId, purpose, cancellationToken);
+        if (!counted.IsSuccess)
+        {
+            return counted;
+        }
+
+        var live = await codes.LiveOfAsync(principalId, purpose, cancellationToken);
+        live?.Invalidate(Instant.FromDateTimeOffset(time.GetUtcNow()));
+        return Unit.Value;
+    }
+
+    private async Task<Result<Unit>> TakeSendSlotAsync(Guid principalId, CodePurpose purpose, CancellationToken cancellationToken)
+    {
+        var verdict = await limiter.HitAsync(CodeLimits.Send, CodeLimits.SendSubject(principalId, purpose), cancellationToken);
+        return verdict.Outcome == AttemptOutcome.Refused
+            ? new RateLimitedError(IdentityErrorCodes.CodeSendLimited, verdict.RetryAfter)
+            : Unit.Value;
     }
 }

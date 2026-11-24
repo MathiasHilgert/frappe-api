@@ -1,0 +1,33 @@
+info:
+  name: Ask to change the email without a session (401)
+  type: http
+  seq: 21
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/identity/me/email-changes"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      { "email": "new@example.com" }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "401"
+    - expression: res.headers['www-authenticate']
+      operator: eq
+      value: '"Bearer"'
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"identity.session.invalid"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `POST /v1/identity/me/email-changes` needs an owner's session that stepped up in the last five minutes (`403 identity.step_up.required` otherwise). It mails a code to the new address, tells the old one, and answers `202 { id }` with no `Location`, the same for an address a verified owner holds (no code is sent then). That needs a verified owner, so the Api's integration tests cover it.

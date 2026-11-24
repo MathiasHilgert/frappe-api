@@ -49,4 +49,16 @@ public sealed class EmailIdentifier : AggregateRoot
 
     /// <summary>Records that the principal proved this address at <paramref name="now"/>; the first proof stands.</summary>
     public void Verify(Instant now) => VerifiedAt ??= now;
+
+    /// <summary>
+    /// The principal proved <paramref name="email"/> at <paramref name="now"/> and it replaces the address: both forms change together and the
+    /// proof starts over, since it was of the old address.
+    /// </summary>
+    public void ChangeTo(Email email, Instant now)
+    {
+        ArgumentNullException.ThrowIfNull(email);
+        Address = email.Address;
+        NormalizedAddress = email.NormalizedAddress;
+        VerifiedAt = now;
+    }
 }

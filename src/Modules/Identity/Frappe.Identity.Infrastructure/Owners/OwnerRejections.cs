@@ -1,4 +1,5 @@
 using Frappe.Identity.Domain.Codes;
+using Frappe.Identity.Domain.Identifiers;
 using Frappe.Identity.Infrastructure.Codes;
 using Frappe.Identity.Infrastructure.Identifiers;
 using Frappe.Persistence;
@@ -21,10 +22,19 @@ internal static class OwnerRejections
     {
         ArgumentNullException.ThrowIfNull(rejections);
         rejections
-            .On(EmailIdentifierConfiguration.NormalizedAddressIndex, DropWhatWasStaged)
+            .On(EmailIdentifierConfiguration.NormalizedAddressIndex, failure => DropWhatWasStaged(failure) ?? ChangeLostTheAddress(failure))
             .On(OneTimeCodeConfiguration.LiveIndex, DropWhatWasStaged)
             .OnConcurrency(DropWhatWasStaged);
     }
+
+    /// <summary>
+    /// An email change confirmed an address that another unit took first. Nothing is written and the command is answered a commit conflict; the
+    /// repeat finds the address held and answers as any refused change does.
+    /// </summary>
+    private static CommitResolution? ChangeLostTheAddress(CommitFailure failure) =>
+        failure.Context.ChangeTracker.Entries<EmailIdentifier>().Any(entry => entry.State == EntityState.Modified)
+            ? CommitResolution.Reject(new CommitConflictException("Another request took the address first.", failure.Exception))
+            : null;
 
     private static CommitResolution? DropWhatWasStaged(CommitFailure failure)
     {
