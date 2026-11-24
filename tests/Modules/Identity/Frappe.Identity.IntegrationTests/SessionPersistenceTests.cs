@@ -1,7 +1,10 @@
 using System.Net;
 using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Application.Sessions.AuthenticateSession;
+using Frappe.Identity.Application.Sessions.ListMySessions;
 using Frappe.Identity.Application.Sessions.LogOut;
+using Frappe.Identity.Application.Sessions.RevokeMyOtherSessions;
+using Frappe.Identity.Application.Sessions.RevokeMySession;
 using Frappe.Identity.Application.Sessions.TouchSession;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Principals;
@@ -320,6 +323,84 @@ public sealed class SessionPersistenceTests(PostgresServer server)
                 await Assert.That(row.TokenHash.SequenceEqual(new SessionTokens().HashOf(opened.Token.Value)!)).IsTrue();
                 await Assert.That(row.Methods.Single()).IsEqualTo(AuthenticationMethod.Pwd);
                 await Assert.That(opens.Single()).IsEqualTo("frappe.identity.session_opened.v1");
+            }
+        });
+    }
+
+    [Test]
+    public async Task The_list_pages_live_sessions_by_keyset_over_ties_and_revoking_the_others_commits_each_revocation_with_its_event()
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange
+            var principal = Principal.Create(PrincipalKind.Owner, PrincipalStatus.Active, Instant.FromDateTimeOffset(Start));
+            Session OpenedAt(int minutes) => Session.Open(
+                principal.Id, new SessionTokens().Issue().Hash, SessionAudience.Console, principal.CredentialStamp,
+                Instant.FromDateTimeOffset(Start.AddMinutes(minutes)), Duration.FromHours(12), Duration.FromDays(30), "agent",
+                IPNetwork.Parse("203.0.113.0/24"));
+            var sessions = new[] { OpenedAt(1), OpenedAt(2), OpenedAt(2), OpenedAt(3), OpenedAt(4) };
+            sessions[4].Revoke(RevocationReason.Logout, Instant.FromDateTimeOffset(Start.AddMinutes(5)));
+            var stranger = Principal.Create(PrincipalKind.Owner, PrincipalStatus.Active, Instant.FromDateTimeOffset(Start));
+            var foreign = Session.Open(
+                stranger.Id, new SessionTokens().Issue().Hash, SessionAudience.Console, stranger.CredentialStamp, Instant.FromDateTimeOffset(Start),
+                Duration.FromHours(12), Duration.FromDays(30), null, null);
+            await using (var seed = ContextOf(owner))
+            {
+                seed.Principals.Add(principal);
+                seed.Principals.Add(stranger);
+                await seed.SaveChangesAsync();
+                seed.Sessions.AddRange(sessions);
+                seed.Sessions.Add(foreign);
+                await seed.SaveChangesAsync();
+            }
+
+            await using var provider = ProviderOver(owner, new FakeTimeProvider(Start.AddHours(1)));
+            var expected = sessions[..4].OrderByDescending(x => x.OpenedAt).ThenBy(x => x.Id).Select(x => x.Id).ToArray();
+            var current = expected[0];
+
+            // Act
+            var pages = new List<MySessionsPage>();
+            SessionPosition? after = null;
+            do
+            {
+                await using var scope = provider.CreateAsyncScope();
+                var page = (await scope.ServiceProvider.GetRequiredService<IQueryHandler<ListMySessions, MySessionsPage>>()
+                    .HandleAsync(new ListMySessions(principal.Id, current, 3, after), default)).Value;
+                pages.Add(page);
+                after = page.Next;
+            }
+            while (after is not null);
+
+            Result<Unit> others;
+            await using (var scope = provider.CreateAsyncScope())
+            {
+                others = await scope.ServiceProvider.GetRequiredService<ICommandHandler<RevokeMyOtherSessions, Unit>>()
+                    .HandleAsync(new RevokeMyOtherSessions(principal.Id, current), default);
+            }
+
+            Result<Unit> again;
+            await using (var scope = provider.CreateAsyncScope())
+            {
+                again = await scope.ServiceProvider.GetRequiredService<ICommandHandler<RevokeMySession, Unit>>()
+                    .HandleAsync(new RevokeMySession(principal.Id, expected[1]), default);
+            }
+
+            // Assert
+            await using var db = ContextOf(owner);
+            var rows = await db.Sessions.AsNoTracking().Where(s => s.PrincipalId == principal.Id).ToListAsync();
+            var events = await db.Database.SqlQuery<string>($"SELECT type AS \"Value\" FROM identity.outbox_messages").ToListAsync();
+            using (Assert.Multiple())
+            {
+                await Assert.That(pages.Select(p => p.Items.Count).ToArray()).IsEquivalentTo([3, 1]);
+                await Assert.That(pages.SelectMany(p => p.Items).Select(i => i.Id).ToArray()).IsEquivalentTo(expected);
+                await Assert.That(pages[0].Items[0].Current).IsTrue();
+                await Assert.That(pages[0].Items[0].IpPrefix!.ToString()).IsEqualTo("203.0.113.0/24");
+                await Assert.That(others.IsSuccess).IsTrue();
+                await Assert.That(rows.Single(r => r.Id == current).RevokedAt).IsNull();
+                await Assert.That(rows.Count(r => r.RevocationReason == RevocationReason.OthersRevoked)).IsEqualTo(3);
+                await Assert.That(again.Errors.Single()).IsEqualTo(new NotFoundError(IdentityErrorCodes.SessionNotFound));
+                await Assert.That(events.Count(e => e == "frappe.identity.session_revoked.v1")).IsEqualTo(3);
+                await Assert.That((await db.Sessions.AsNoTracking().SingleAsync(s => s.Id == foreign.Id)).RevokedAt).IsNull();
             }
         });
     }

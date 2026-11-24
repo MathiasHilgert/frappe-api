@@ -16,7 +16,10 @@ using Frappe.Identity.Application.Owners.UpdateMe;
 using Frappe.Identity.Application.Owners.VerifyOwnerEmail;
 using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Application.Sessions.GetCurrentSession;
+using Frappe.Identity.Application.Sessions.ListMySessions;
 using Frappe.Identity.Application.Sessions.LogOut;
+using Frappe.Identity.Application.Sessions.RevokeMyOtherSessions;
+using Frappe.Identity.Application.Sessions.RevokeMySession;
 using Frappe.Identity.Application.Sessions.StepUp;
 using Frappe.Identity.Http;
 using Frappe.Identity.Http.Sessions;
@@ -329,6 +332,9 @@ public sealed class IdentityOwnerRouteTests
             services.AddSingleton<IQueryHandler<GetMe, OwnerProfile>>(new UnusedQuery<GetMe, OwnerProfile>());
             services.AddSingleton<ICommandHandler<UpdateMe, Unit>>(new Unused<UpdateMe, Unit>());
             services.AddSingleton<IQueryHandler<GetCurrentSession, CurrentSessionView>>(new UnusedQuery());
+            services.AddSingleton<IQueryHandler<ListMySessions, MySessionsPage>>(new UnusedQuery<ListMySessions, MySessionsPage>());
+            services.AddSingleton<ICommandHandler<RevokeMySession, Unit>>(new Unused<RevokeMySession, Unit>());
+            services.AddSingleton<ICommandHandler<RevokeMyOtherSessions, Unit>>(new Unused<RevokeMyOtherSessions, Unit>());
         }
     }
 

@@ -15,5 +15,6 @@
   "identity.session.forbidden": "This session is not allowed to use this route.",
   "identity.session.invalid": "The session is missing, expired or was revoked, or the request sent its session cookie twice. Log in again.",
   "identity.step_up.required": "This action needs a recent password check. Step up the session with your password and repeat the request.",
-  "identity.undo.invalid": "This link does not work: it is wrong, expired, already used or replaced, or the earlier address is held by another account now."
+  "identity.undo.invalid": "This link does not work: it is wrong, expired, already used or replaced, or the earlier address is held by another account now.",
+  "identity.session.not_found": "The session does not exist, is not yours or is already over."
 }
