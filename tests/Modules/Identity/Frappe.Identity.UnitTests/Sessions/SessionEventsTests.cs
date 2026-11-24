@@ -78,4 +78,22 @@ public sealed class SessionEventsTests
             await Assert.That(published[1]).IsEqualTo(new Frappe.Identity.Contracts.Credentials.PasswordReset(principal, at.ToDateTimeOffset()));
         }
     }
+
+    [Test]
+    public async Task A_step_up_is_published_with_its_window()
+    {
+        // Arrange
+        var principal = ActivePrincipal();
+        var session = SessionOf(principal);
+        session.DequeueDomainEvents();
+        var at = Opened + Duration.FromMinutes(5);
+        session.StepUp(at);
+
+        // Act
+        var published = session.DomainEvents.SelectMany(Translator.Translate).Single();
+
+        // Assert
+        await Assert.That(published).IsEqualTo(
+            new Published.StepUpCompleted(principal.Id, session.Id, (at + Duration.FromMinutes(5)).ToDateTimeOffset(), at.ToDateTimeOffset()));
+    }
 }

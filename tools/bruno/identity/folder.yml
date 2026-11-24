@@ -28,6 +28,7 @@ docs:
     - **Log in with wrong credentials (401):** `POST /v1/identity/sessions`, `identity.credentials.invalid`, never faster than half a second.
     - **Log in as a pending owner (403):** run after **Register an owner**: `identity.owner.verification_pending` with the owner id.
     - **Get / change the profile without a session (401):** `GET` and `PATCH /v1/identity/me`.
+    - **Step up the session without a session (401):** `POST /v1/identity/sessions/current/step-ups`.
 
     The 200 and 204 examples (a session, the profile, logging out) need a verified owner and are covered by the Api's integration tests.
   type: text/markdown

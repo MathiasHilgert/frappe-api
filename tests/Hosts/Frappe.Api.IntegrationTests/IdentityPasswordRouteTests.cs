@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
 using Frappe.Identity.Application.Credentials;
@@ -119,11 +118,10 @@ public sealed class IdentityPasswordRouteTests
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
         using var client = host.App.GetTestClient();
-        var watch = Stopwatch.StartNew();
+        host.Time.FrozenTimestamp = 0;
 
         // Act
         using var response = await client.SendAsync(Post("/v1/identity/password-resets", new { email = "ana@example.com" }));
-        watch.Stop();
 
         // Assert
         var body = await ReadAsync(response);
@@ -134,7 +132,7 @@ public sealed class IdentityPasswordRouteTests
             await Assert.That(response.Headers.CacheControl?.NoStore).IsTrue();
             await Assert.That(body.GetProperty("id").GetGuid()).IsEqualTo(ResetId);
             await Assert.That(fakes.Requests.Single().Email).IsEqualTo("ana@example.com");
-            await Assert.That(watch.Elapsed).IsGreaterThanOrEqualTo(PasswordResetLimits.Floor - TimeSpan.FromMilliseconds(50));
+            await Assert.That(host.Time.Waits).Contains(PasswordResetLimits.Floor);
         }
     }
 
@@ -145,17 +143,16 @@ public sealed class IdentityPasswordRouteTests
         var fakes = new Fakes { Requested = new UnavailableError("identity.attempts.unavailable") };
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
         using var client = host.App.GetTestClient();
-        var watch = Stopwatch.StartNew();
+        host.Time.FrozenTimestamp = 0;
 
         // Act
         using var response = await client.SendAsync(Post("/v1/identity/password-resets", new { email = "ana@example.com" }));
-        watch.Stop();
 
         // Assert
         using (Assert.Multiple())
         {
             await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.ServiceUnavailable);
-            await Assert.That(watch.Elapsed).IsGreaterThanOrEqualTo(PasswordResetLimits.Floor - TimeSpan.FromMilliseconds(50));
+            await Assert.That(host.Time.Waits).Contains(PasswordResetLimits.Floor);
         }
     }
 

@@ -41,6 +41,7 @@ internal static class SessionsRegistration
                 metrics.SessionOpened(StoredEnum<SessionAudience>.ToText(opened.Audience)));
             services.CountOnCommit<SessionRevoked, IdentityMetrics>((metrics, revoked) =>
                 metrics.SessionRevoked(StoredEnum<RevocationReason>.ToText(revoked.Reason)));
+            services.CountOnCommit<StepUpCompleted, IdentityMetrics>((metrics, _) => metrics.SteppedUp(StepUpOutcome.Completed));
             return services;
         }
     }

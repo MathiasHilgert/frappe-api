@@ -14,6 +14,7 @@ using Frappe.Identity.Application.Owners.VerifyOwnerEmail;
 using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Application.Sessions.GetCurrentSession;
 using Frappe.Identity.Application.Sessions.LogOut;
+using Frappe.Identity.Application.Sessions.StepUp;
 using Frappe.Identity.Http;
 using Frappe.Identity.Http.Sessions;
 using Frappe.Modules;
@@ -314,6 +315,7 @@ public sealed class IdentityOwnerRouteTests
             // The session routes of the same module are mapped too; nothing here calls them.
             services.AddSingleton<ICommandHandler<LogOut, Unit>>(new Unused<LogOut, Unit>());
             services.AddSingleton<ICommandHandler<ChangePassword, Unit>>(new Unused<ChangePassword, Unit>());
+            services.AddSingleton<ICommandHandler<StepUp, SteppedUp>>(new Unused<StepUp, SteppedUp>());
             services.AddSingleton<ICommandHandler<RequestPasswordReset, PasswordResetRequested>>(
                 new Unused<RequestPasswordReset, PasswordResetRequested>());
             services.AddSingleton<ICommandHandler<ResetPassword, Unit>>(new Unused<ResetPassword, Unit>());

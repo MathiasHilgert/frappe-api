@@ -5,6 +5,7 @@ using Frappe.Identity.Domain.Codes;
 using Frappe.Results;
 using Microsoft.Extensions.Time.Testing;
 using NodaTime;
+using TUnit.Assertions.Enums;
 
 namespace Frappe.Identity.UnitTests.Codes;
 
@@ -31,8 +32,8 @@ public sealed class CodeRedeemerTests
         _time.Advance(TimeSpan.FromMinutes(2));
 
         // Act
-        var first = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, issued.Plaintext, default);
-        var second = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, issued.Plaintext, default);
+        var first = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, issued.Plaintext, null, default);
+        var second = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, issued.Plaintext, null, default);
 
         // Assert
         using (Assert.Multiple())
@@ -51,14 +52,19 @@ public sealed class CodeRedeemerTests
         var issued = await IssueAsync();
 
         // Act
-        await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, "000000", default);
+        await Redeemer().RedeemAsync(
+            CodeFixtures.Principal, CodePurpose.EmailVerification, "000000", System.Net.IPAddress.Parse("198.51.100.9"), default);
 
         // Assert
         using (Assert.Multiple())
         {
-            await Assert.That(_limiter.Hits.Select(h => h.Flow)).IsEquivalentTo([CodeLimits.GuessPerPrincipal, CodeLimits.Guess]);
-            await Assert.That(_limiter.Hits[0].Subject).IsEqualTo($"EmailVerification:{CodeFixtures.Principal:N}");
-            await Assert.That(_limiter.Hits[1].Subject).IsEqualTo(issued.Id.ToString("N"));
+            await Assert.That(_limiter.Hits.Select(h => h.Flow).ToList())
+                .IsEquivalentTo([CodeLimits.GuessPerPrincipal, CodeLimits.GuessPerPrincipalAnywhere, CodeLimits.Guess], CollectionOrdering.Matching);
+            await Assert.That(_limiter.Hits[0].Subject).IsEqualTo($"EmailVerification:{CodeFixtures.Principal:N}:198.51.100.0/24");
+            await Assert.That(_limiter.Hits[1].Subject).IsEqualTo($"EmailVerification:{CodeFixtures.Principal:N}");
+            await Assert.That(_limiter.Hits[2].Subject).IsEqualTo(issued.Id.ToString("N"));
+            await Assert.That(CodeLimits.GuessPerPrincipalAnywhere.Limit).IsEqualTo(100);
+            await Assert.That(CodeLimits.GuessPerPrincipalAnywhere.OnFailure).IsEqualTo(LimitFailure.FailClosed);
             await Assert.That(CodeLimits.GuessPerPrincipal.Name).IsEqualTo("code.guess.principal");
             await Assert.That(CodeLimits.GuessPerPrincipal.Limit).IsEqualTo(10);
             await Assert.That(CodeLimits.GuessPerPrincipal.Window).IsEqualTo(TimeSpan.FromHours(24));
@@ -83,7 +89,7 @@ public sealed class CodeRedeemerTests
         var guess = candidate == issued.Plaintext ? "999999" : candidate;
 
         // Act
-        var result = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, guess, default);
+        var result = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, guess, null, default);
 
         // Assert
         using (Assert.Multiple())
@@ -101,7 +107,7 @@ public sealed class CodeRedeemerTests
         _limiter.Answer = AttemptVerdict.Refused(TimeSpan.FromMinutes(10));
 
         // Act
-        var result = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, issued.Plaintext, default);
+        var result = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, issued.Plaintext, null, default);
 
         // Assert
         using (Assert.Multiple())
@@ -119,7 +125,7 @@ public sealed class CodeRedeemerTests
         _limiter.Answer = AttemptVerdict.Unavailable;
 
         // Act
-        var result = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, issued.Plaintext, default);
+        var result = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, issued.Plaintext, null, default);
 
         // Assert
         using (Assert.Multiple())
@@ -138,7 +144,7 @@ public sealed class CodeRedeemerTests
         _time.Advance(TimeSpan.FromMinutes(15));
 
         // Act
-        var result = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, issued.Plaintext, default);
+        var result = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, issued.Plaintext, null, default);
 
         // Assert
         using (Assert.Multiple())
@@ -156,8 +162,8 @@ public sealed class CodeRedeemerTests
         var current = await IssueAsync();
 
         // Act
-        var oldResult = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, old.Plaintext, default);
-        var currentResult = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, current.Plaintext, default);
+        var oldResult = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, old.Plaintext, null, default);
+        var currentResult = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, current.Plaintext, null, default);
 
         // Assert
         using (Assert.Multiple())
@@ -176,8 +182,8 @@ public sealed class CodeRedeemerTests
         var issued = await IssueAsync(CodePurpose.PasswordReset);
 
         // Act
-        var wrongPurpose = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, issued.Plaintext, default);
-        var nobody = await Redeemer().RedeemAsync(Guid.NewGuid(), CodePurpose.PasswordReset, issued.Plaintext, default);
+        var wrongPurpose = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, issued.Plaintext, null, default);
+        var nobody = await Redeemer().RedeemAsync(Guid.NewGuid(), CodePurpose.PasswordReset, issued.Plaintext, null, default);
 
         // Assert
         using (Assert.Multiple())
@@ -197,14 +203,14 @@ public sealed class CodeRedeemerTests
         _limiter.AnswerFor = flow => flow == CodeLimits.GuessPerPrincipal ? AttemptVerdict.Refused(TimeSpan.FromHours(3)) : AttemptVerdict.Allowed;
 
         // Act
-        var result = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, issued.Plaintext, default);
+        var result = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, issued.Plaintext, null, default);
 
         // Assert
         using (Assert.Multiple())
         {
             await Assert.That(CodeOf(result)).IsEqualTo(IdentityErrorCodes.CodeInvalid);
             await Assert.That(result.Errors.Single()).IsNotTypeOf<RateLimitedError>();
-            await Assert.That(_limiter.Hits.Select(h => h.Flow)).IsEquivalentTo([CodeLimits.GuessPerPrincipal]);
+            await Assert.That(_limiter.Hits.Select(h => h.Flow).ToList()).IsEquivalentTo([CodeLimits.GuessPerPrincipal], CollectionOrdering.Matching);
             await Assert.That(_codes.Stored.Single().RedeemedAt).IsNull();
         }
     }
@@ -217,7 +223,7 @@ public sealed class CodeRedeemerTests
         _limiter.AnswerFor = flow => flow == CodeLimits.GuessPerPrincipal ? AttemptVerdict.Unavailable : AttemptVerdict.Allowed;
 
         // Act
-        var result = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, issued.Plaintext, default);
+        var result = await Redeemer().RedeemAsync(CodeFixtures.Principal, CodePurpose.EmailVerification, issued.Plaintext, null, default);
 
         // Assert
         using (Assert.Multiple())
@@ -234,14 +240,15 @@ public sealed class CodeRedeemerTests
         var issued = await IssueAsync(CodePurpose.PasswordReset);
 
         // Act
-        var result = await Redeemer().RedeemByIdAsync(issued.Id.ToString(), CodePurpose.PasswordReset, issued.Plaintext, default);
+        var result = await Redeemer().RedeemByIdAsync(issued.Id.ToString(), CodePurpose.PasswordReset, issued.Plaintext, null, default);
 
         // Assert
         using (Assert.Multiple())
         {
             await Assert.That(result.Value)
                 .IsEqualTo(new RedeemedCode(issued.Id, CodePurpose.PasswordReset, "ana@example.com", CodeFixtures.Principal));
-            await Assert.That(_limiter.Hits.Select(h => h.Flow)).IsEquivalentTo([CodeLimits.Guess, CodeLimits.GuessPerPrincipal]);
+            await Assert.That(_limiter.Hits.Select(h => h.Flow).ToList())
+                .IsEquivalentTo([CodeLimits.Guess, CodeLimits.GuessPerPrincipal, CodeLimits.GuessPerPrincipalAnywhere], CollectionOrdering.Matching);
             await Assert.That(_limiter.Hits[0].Subject).IsEqualTo(issued.Id.ToString("N"));
             await Assert.That(_codes.Stored.Single().RedeemedAt).IsNotNull();
         }
@@ -255,7 +262,7 @@ public sealed class CodeRedeemerTests
         var decoy = Guid.CreateVersion7();
 
         // Act
-        var result = await Redeemer().RedeemByIdAsync(decoy.ToString(), CodePurpose.PasswordReset, "123456", default);
+        var result = await Redeemer().RedeemByIdAsync(decoy.ToString(), CodePurpose.PasswordReset, "123456", null, default);
 
         // Assert
         using (Assert.Multiple())
@@ -272,7 +279,7 @@ public sealed class CodeRedeemerTests
     public async Task A_malformed_id_takes_the_one_shared_slot_and_is_invalid(string? id)
     {
         // Act
-        var result = await Redeemer().RedeemByIdAsync(id, CodePurpose.PasswordReset, "123456", default);
+        var result = await Redeemer().RedeemByIdAsync(id, CodePurpose.PasswordReset, "123456", null, default);
 
         // Assert
         using (Assert.Multiple())
@@ -290,9 +297,9 @@ public sealed class CodeRedeemerTests
         _limiter.Answer = AttemptVerdict.Unavailable;
 
         // Act
-        var real = await Redeemer().RedeemByIdAsync(issued.Id.ToString(), CodePurpose.PasswordReset, issued.Plaintext, default);
-        var decoy = await Redeemer().RedeemByIdAsync(Guid.CreateVersion7().ToString(), CodePurpose.PasswordReset, "123456", default);
-        var malformed = await Redeemer().RedeemByIdAsync("junk", CodePurpose.PasswordReset, "123456", default);
+        var real = await Redeemer().RedeemByIdAsync(issued.Id.ToString(), CodePurpose.PasswordReset, issued.Plaintext, null, default);
+        var decoy = await Redeemer().RedeemByIdAsync(Guid.CreateVersion7().ToString(), CodePurpose.PasswordReset, "123456", null, default);
+        var malformed = await Redeemer().RedeemByIdAsync("junk", CodePurpose.PasswordReset, "123456", null, default);
 
         // Assert
         using (Assert.Multiple())
@@ -313,8 +320,9 @@ public sealed class CodeRedeemerTests
         var verification = await IssueAsync();
 
         // Act
-        var superseded = await Redeemer().RedeemByIdAsync(old.Id.ToString(), CodePurpose.PasswordReset, current.Plaintext, default);
-        var wrongPurpose = await Redeemer().RedeemByIdAsync(verification.Id.ToString(), CodePurpose.PasswordReset, verification.Plaintext, default);
+        var superseded = await Redeemer().RedeemByIdAsync(old.Id.ToString(), CodePurpose.PasswordReset, current.Plaintext, null, default);
+        var wrongPurpose = await Redeemer()
+            .RedeemByIdAsync(verification.Id.ToString(), CodePurpose.PasswordReset, verification.Plaintext, null, default);
 
         // Assert
         using (Assert.Multiple())
@@ -334,7 +342,7 @@ public sealed class CodeRedeemerTests
         _limiter.AnswerFor = flow => flow == CodeLimits.GuessPerPrincipal ? AttemptVerdict.Refused(TimeSpan.FromHours(3)) : AttemptVerdict.Allowed;
 
         // Act
-        var result = await Redeemer().RedeemByIdAsync(issued.Id.ToString(), CodePurpose.PasswordReset, issued.Plaintext, default);
+        var result = await Redeemer().RedeemByIdAsync(issued.Id.ToString(), CodePurpose.PasswordReset, issued.Plaintext, null, default);
 
         // Assert
         using (Assert.Multiple())

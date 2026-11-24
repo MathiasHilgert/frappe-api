@@ -1,0 +1,33 @@
+info:
+  name: Step up the session without a session (401)
+  type: http
+  seq: 20
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/identity/sessions/current/step-ups"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      { "password": "a password nobody has" }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "401"
+    - expression: res.headers['www-authenticate']
+      operator: eq
+      value: '"Bearer"'
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"identity.session.invalid"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `POST /v1/identity/sessions/current/step-ups` needs a session. With one it asks for the password again (`422 identity.password.incorrect` when it is not right; 10 tries in 15 minutes, then `429 http.rate_limited` with `Retry-After`) and answers `201 { validUntil }` with no `Location`: the session may do sensitive actions for five minutes from then, never extended by use. That needs a verified owner, so the Api's integration tests cover it.

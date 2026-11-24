@@ -166,11 +166,11 @@ public sealed class OneTimeCodePersistenceTests(PostgresServer server)
             // Act
             await using var redeeming = ContextOf(owner);
             var redeemer = new CodeRedeemer(new EfOneTimeCodes(redeeming), Hasher(), new AllowingLimiter(), time);
-            var redeemed = await redeemer.RedeemAsync(principal, CodePurpose.EmailVerification, issued.Plaintext, default);
+            var redeemed = await redeemer.RedeemAsync(principal, CodePurpose.EmailVerification, issued.Plaintext, null, default);
             await redeeming.SaveChangesAsync();
             await using var again = ContextOf(owner);
             var second = await new CodeRedeemer(new EfOneTimeCodes(again), Hasher(), new AllowingLimiter(), time)
-                .RedeemAsync(principal, CodePurpose.EmailVerification, issued.Plaintext, default);
+                .RedeemAsync(principal, CodePurpose.EmailVerification, issued.Plaintext, null, default);
 
             // Assert
             var stored = await ScratchDatabase.ScalarAsync(owner, "SELECT encode(code_hmac, 'hex') FROM identity.one_time_codes");
