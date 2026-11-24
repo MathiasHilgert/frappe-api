@@ -1,6 +1,8 @@
 using Frappe.Identity.Application.Credentials;
+using Frappe.Identity.Application.Owners.RegisterOwner;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Principals;
+using Frappe.Results;
 using Frappe.Testing.Containers;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
@@ -137,6 +139,38 @@ public sealed class OwnerRegistrationTests(PostgresServer server)
                 await Assert.That(events.Single().Type).IsEqualTo(Attempted);
                 await Assert.That(attempt.GetProperty("email").GetString()).IsEqualTo("ana@example.com");
                 await Assert.That(attempt.GetProperty("language").GetString()).IsEqualTo("es-AR");
+            }
+        });
+    }
+
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task Notices_to_a_verified_owner_are_bounded_per_address_and_every_registration_still_answers_201(bool limiterDown)
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using var host = OwnersHost.Over(owner);
+            var first = await host.RegisterAsync("ana@example.com");
+            await host.VerifyAsync(first.Value.Id.ToString(), await host.LastCodeAsync());
+            host.Limiter.Down = limiterDown;
+            var before = (await host.OutboxAsync()).Count;
+            var tries = RegistrationLimits.Notice.Limit + 2;
+
+            // Act
+            var answers = new List<Result<RegisteredOwner>>();
+            for (var i = 0; i < tries; i++)
+            {
+                answers.Add(await host.RegisterAsync(i % 2 == 0 ? "ana@example.com" : "ANA@Example.com"));
+            }
+
+            // Assert
+            var notices = (await host.OutboxAsync()).Skip(before).Count(e => e.Type == Attempted);
+            using (Assert.Multiple())
+            {
+                await Assert.That(answers.All(a => a.IsSuccess)).IsTrue();
+                await Assert.That(notices).IsEqualTo(limiterDown ? tries : RegistrationLimits.Notice.Limit);
             }
         });
     }

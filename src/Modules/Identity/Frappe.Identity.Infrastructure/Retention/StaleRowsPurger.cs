@@ -9,7 +9,8 @@ namespace Frappe.Identity.Infrastructure.Retention;
 
 /// <summary>
 /// Deletes what the core keeps only for a while (S16): ended sessions (and their truncated address) older than
-/// <see cref="IdentityRetentionOptions.EndedSessionDays"/>, and codes expired for longer than <see cref="IdentityRetentionOptions.CodeDays"/>.
+/// <see cref="IdentityRetentionOptions.EndedSessionDays"/>, and codes and email change undo links expired (or, for a link, used) for longer than
+/// <see cref="IdentityRetentionOptions.CodeDays"/>: a link keeps two addresses, so it goes as soon as the window of a code would.
 /// Rows go in batches of <see cref="IdentityRetentionOptions.BatchSize"/>, each its own short statement. Counted on
 /// <see cref="IdentityMetrics"/> once committed. The pending owners are the Owners feature's own step.
 /// </summary>
@@ -22,6 +23,7 @@ internal sealed partial class StaleRowsPurger(
 {
     private const string SessionsTarget = "sessions";
     private const string CodesTarget = "codes";
+    private const string UndosTarget = "email_change_undos";
 
     // $1 is the cutoff, $2 the batch.
     private const string SessionsSql = """
@@ -36,17 +38,25 @@ internal sealed partial class StaleRowsPurger(
         RETURNING id
         """;
 
+    private const string UndosSql = """
+        DELETE FROM identity.email_change_undos
+        WHERE id IN (
+          SELECT id FROM identity.email_change_undos WHERE expires_at < $1 OR redeemed_at < $1 ORDER BY expires_at LIMIT $2)
+        RETURNING id
+        """;
+
     public async Task RunAsync(CancellationToken cancellationToken) => _ = await PurgeAsync(cancellationToken);
 
-    /// <summary>Purges both targets and returns how many rows each lost.</summary>
-    public async Task<(int Sessions, int Codes)> PurgeAsync(CancellationToken cancellationToken)
+    /// <summary>Purges every target and returns how many rows each lost.</summary>
+    public async Task<(int Sessions, int Codes, int Undos)> PurgeAsync(CancellationToken cancellationToken)
     {
         var settings = options.Value;
         var now = Instant.FromDateTimeOffset(time.GetUtcNow());
         var sessions = await PurgeAsync(
             SessionsTarget, SessionsSql, now - Duration.FromDays(settings.EndedSessionDays), settings.BatchSize, cancellationToken);
         var codes = await PurgeAsync(CodesTarget, CodesSql, now - Duration.FromDays(settings.CodeDays), settings.BatchSize, cancellationToken);
-        return (sessions, codes);
+        var undos = await PurgeAsync(UndosTarget, UndosSql, now - Duration.FromDays(settings.CodeDays), settings.BatchSize, cancellationToken);
+        return (sessions, codes, undos);
     }
 
     private async Task<int> PurgeAsync(string target, string sql, Instant cutoff, int batchSize, CancellationToken cancellationToken)

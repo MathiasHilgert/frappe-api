@@ -38,6 +38,78 @@ public sealed class EmailChangeUndoTests(PostgresServer server)
     }
 
     [Test]
+    public async Task The_same_token_used_twice_at_once_restores_the_address_once_and_the_loser_is_told_the_token_is_invalid()
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange
+            string token;
+            await using (var seed = OwnersHost.Over(owner))
+            {
+                var (id, session) = await ActiveOwnerAsync(seed);
+                token = await ChangeAsync(seed, id, session.Id, "new@example.com");
+            }
+
+            await using var host = OwnersHost.Over(owner, saving: new OwnersHost.RaceGate(2));
+            host.Time.Advance(TimeSpan.FromMinutes(10));
+
+            // Act
+            var answers = await Task.WhenAll(host.UndoEmailChangeAsync(token), host.UndoEmailChangeAsync(token));
+
+            // Assert
+            var loser = answers.Single(a => !a.IsSuccess);
+            using (Assert.Multiple())
+            {
+                await Assert.That(answers.Count(a => a.IsSuccess)).IsEqualTo(1);
+                await Assert.That(loser.Errors.Single().Code).IsEqualTo(IdentityErrorCodes.UndoInvalid);
+                await Assert.That((await host.OutboxAsync()).Count(e => e.Type == Undone)).IsEqualTo(1);
+            }
+        });
+    }
+
+    [Test]
+    public async Task An_undo_that_loses_to_another_request_on_a_session_answers_a_conflict_to_retry_and_the_retry_works()
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange
+            string token;
+            await using (var seed = OwnersHost.Over(owner))
+            {
+                var (id, session) = await ActiveOwnerAsync(seed);
+                token = await ChangeAsync(seed, id, session.Id, "new@example.com");
+            }
+
+            var touched = false;
+            await using var other = OwnersHost.Over(owner);
+            await using var host = OwnersHost.Over(owner, beforeSaving: async () =>
+            {
+                if (touched)
+                {
+                    return;
+                }
+
+                touched = true;
+                await using var db = other.Context();
+                await db.Database.ExecuteSqlRawAsync("UPDATE identity.sessions SET last_seen_at = last_seen_at");
+            });
+            host.Time.Advance(TimeSpan.FromMinutes(10));
+
+            // Act
+            var lost = await host.UndoEmailChangeAsync(token);
+            var retried = await host.UndoEmailChangeAsync(token);
+
+            // Assert
+            using (Assert.Multiple())
+            {
+                await Assert.That(lost.IsSuccess).IsFalse();
+                await Assert.That(lost.Errors.Single().Code).IsNotEqualTo(IdentityErrorCodes.UndoInvalid);
+                await Assert.That(retried.IsSuccess).IsTrue();
+            }
+        });
+    }
+
+    [Test]
     public async Task The_notice_carries_the_token_and_the_old_address_and_the_event_prints_none_of_them()
     {
         await MigratedIdentity.RunAsync(server, async owner =>

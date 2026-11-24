@@ -165,6 +165,7 @@ public partial class CreateIdentitySchema : Migration
             constraints: table =>
             {
                 table.PrimaryKey("pk_email_change_undos", x => x.id);
+                table.CheckConstraint("ck_email_change_undos_addresses_differ", "old_address <> new_address");
                 table.CheckConstraint("ck_email_change_undos_expires_after_issued", "expires_at > issued_at");
                 table.CheckConstraint("ck_email_change_undos_invalidated_after_issued", "invalidated_at IS NULL OR invalidated_at >= issued_at");
                 table.CheckConstraint(

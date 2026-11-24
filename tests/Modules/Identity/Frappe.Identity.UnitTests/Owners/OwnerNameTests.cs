@@ -55,6 +55,22 @@ public sealed class OwnerNameTests
     }
 
     [Test]
+    [Arguments("An\na", null)]
+    [Arguments("Ana", "P\u0000rez")]
+    [Arguments("Ana\u202Eevil", null)]
+    [Arguments("Ana", "\u200Bx")]
+    [Arguments("Ana\u2066", null)]
+    [Arguments("\U000E0041na", null)]
+    public async Task A_name_with_a_control_or_format_character_is_refused(string given, string? family)
+    {
+        // Act
+        var result = OwnerName.Create(given, family);
+
+        // Assert
+        await Assert.That(result.Errors.Single().Code).IsEqualTo(IdentityErrorCodes.NameInvalid);
+    }
+
+    [Test]
     public async Task The_given_name_plus_the_family_name_may_not_pass_60_characters()
     {
         // Act

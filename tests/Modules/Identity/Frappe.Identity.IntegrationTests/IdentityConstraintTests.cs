@@ -63,6 +63,17 @@ public sealed class IdentityConstraintTests(PostgresServer server)
         ["expires_at"] = "now() + interval '15 minutes'",
     };
 
+    private static readonly Dictionary<string, string> ValidUndo = new()
+    {
+        ["id"] = "gen_random_uuid()",
+        ["principal_id"] = Principal,
+        ["old_address"] = "'ana@example.com'",
+        ["new_address"] = "'luz@example.com'",
+        ["token_hmac"] = Hash,
+        ["issued_at"] = "now()",
+        ["expires_at"] = "now() + interval '7 days'",
+    };
+
     private static readonly Dictionary<string, string> ValidOwner = new()
     {
         ["principal_id"] = Principal,
@@ -110,6 +121,7 @@ public sealed class IdentityConstraintTests(PostgresServer server)
         yield return (Insert("one_time_codes", ValidCode, ("redeemed_at", "now() - interval '1 hour'")), "ck_one_time_codes_redeemed_in_window");
         yield return (Insert("one_time_codes", ValidCode, ("invalidated_at", "now() - interval '1 hour'")),
             "ck_one_time_codes_invalidated_after_issued");
+        yield return (Insert("email_change_undos", ValidUndo, ("new_address", "'ana@example.com'")), "ck_email_change_undos_addresses_differ");
         yield return (Insert("owners", ValidOwner, ("verified_at", "now() - interval '1 hour'")), "ck_owners_verified_after_registered");
     }
 

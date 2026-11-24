@@ -79,6 +79,14 @@ public sealed class RetentionTests(PostgresServer server)
             {At("-200 days")}, {At(expires)}, {At("-199 days")})
         """);
 
+    /// <summary>An undo link of <paramref name="principal"/>; <paramref name="expires"/> and <paramref name="redeemed"/> are intervals.</summary>
+    private static async Task AddUndoAsync(string owner, Guid principal, string expires, string? redeemed = null) =>
+        await ScratchDatabase.ExecuteAsync(owner, $"""
+            INSERT INTO identity.email_change_undos (id, principal_id, old_address, new_address, token_hmac, issued_at, expires_at, redeemed_at)
+            VALUES (gen_random_uuid(), '{principal}', 'ana@example.com', 'luz-' || gen_random_uuid() || '@example.com',
+                decode(repeat('ef', 32), 'hex'), {At("-300 days")}, {At(expires)}, {(redeemed is null ? "NULL" : At(redeemed))})
+            """);
+
     /// <summary>A condition that holds once some statement is waiting for a lock.</summary>
     private static Func<Task<bool>> WaitingAsync(string owner) =>
         async () => (long)(await ScratchDatabase.ScalarAsync(owner, "SELECT count(*) FROM pg_locks WHERE NOT granted"))! > 0;
@@ -234,7 +242,7 @@ public sealed class RetentionTests(PostgresServer server)
             var live = await AddSessionAsync(owner, principal);
 
             // Act
-            var (sessions, _) = await worker.Purger.PurgeAsync(CancellationToken.None);
+            var (sessions, _, _) = await worker.Purger.PurgeAsync(CancellationToken.None);
 
             // Assert
             using (Assert.Multiple())
@@ -271,7 +279,7 @@ public sealed class RetentionTests(PostgresServer server)
             await AddCodeAsync(owner, principal, "1 hour");
 
             // Act
-            var (_, codes) = await worker.Purger.PurgeAsync(CancellationToken.None);
+            var (_, codes, _) = await worker.Purger.PurgeAsync(CancellationToken.None);
 
             // Assert
             using (Assert.Multiple())
@@ -280,6 +288,36 @@ public sealed class RetentionTests(PostgresServer server)
                 await Assert.That(await CountAsync(owner, "one_time_codes")).IsEqualTo(3);
                 await Assert.That(await CountAsync(owner, "one_time_codes", $"WHERE expires_at < {At("-7 days")}")).IsEqualTo(0);
                 await Assert.That(worker.Counts.Of(IdentityMetrics.PurgedMetric, "codes")).IsEqualTo(3);
+            }
+        });
+    }
+
+    [Test]
+    public async Task Undo_links_expired_or_used_for_more_than_seven_days_are_purged_in_batches_and_the_rest_stay()
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange: two expired long ago and one used long ago (batch of two), one at exactly seven days, one just inside, one live,
+            // one live and used just inside.
+            await using var worker = Worker(owner);
+            var principal = await AddPrincipalAsync(owner);
+            await AddUndoAsync(owner, principal, "-7 days -1 second");
+            await AddUndoAsync(owner, principal, "-8 days");
+            await AddUndoAsync(owner, principal, "20 days", redeemed: "-7 days -1 second");
+            await AddUndoAsync(owner, principal, "-7 days");
+            await AddUndoAsync(owner, principal, "-6 days");
+            await AddUndoAsync(owner, principal, "1 hour");
+            await AddUndoAsync(owner, principal, "20 days", redeemed: "-6 days");
+
+            // Act
+            var (_, _, undos) = await worker.Purger.PurgeAsync(CancellationToken.None);
+
+            // Assert
+            using (Assert.Multiple())
+            {
+                await Assert.That(undos).IsEqualTo(3);
+                await Assert.That(await CountAsync(owner, "email_change_undos")).IsEqualTo(4);
+                await Assert.That(worker.Counts.Of(IdentityMetrics.PurgedMetric, "email_change_undos")).IsEqualTo(3);
             }
         });
     }

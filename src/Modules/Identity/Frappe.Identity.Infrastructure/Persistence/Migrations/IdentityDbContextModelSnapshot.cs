@@ -92,6 +92,8 @@ partial class IdentityDbContextModelSnapshot : ModelSnapshot
 
                 b.ToTable("email_change_undos", "identity", t =>
                     {
+                        t.HasCheckConstraint("ck_email_change_undos_addresses_differ", "old_address <> new_address");
+
                         t.HasCheckConstraint("ck_email_change_undos_expires_after_issued", "expires_at > issued_at");
 
                         t.HasCheckConstraint("ck_email_change_undos_invalidated_after_issued", "invalidated_at IS NULL OR invalidated_at >= issued_at");

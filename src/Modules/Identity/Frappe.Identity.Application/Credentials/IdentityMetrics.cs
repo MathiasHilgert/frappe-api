@@ -66,7 +66,9 @@ public sealed class IdentityMetrics
     /// <summary>Counter: sessions the sweep ended, by reason (<c>idle</c>, <c>absolute</c> or <c>revoked</c>).</summary>
     public const string SessionsEndedMetric = "frappe.identity.sessions.ended";
 
-    /// <summary>Counter: rows the retention purge deleted, by target (<c>sessions</c>, <c>owners</c> or <c>codes</c>).</summary>
+    /// <summary>
+    /// Counter: rows the retention purge deleted, by target (<c>sessions</c>, <c>owners</c>, <c>codes</c> or <c>email_change_undos</c>).
+    /// </summary>
     public const string PurgedMetric = "frappe.identity.purged";
 
     /// <summary>The target tag of <see cref="PurgedMetric"/>: the kind of data purged, a small fixed set.</summary>

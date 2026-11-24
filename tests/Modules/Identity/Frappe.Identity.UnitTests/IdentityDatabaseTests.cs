@@ -39,6 +39,8 @@ public sealed class IdentityDatabaseTests
             "GRANT DELETE ON TABLE identity.sessions TO frappe_identity_worker",
             "GRANT SELECT (id, expires_at) ON TABLE identity.one_time_codes TO frappe_identity_worker",
             "GRANT DELETE ON TABLE identity.one_time_codes TO frappe_identity_worker",
+            "GRANT SELECT (id, expires_at, redeemed_at) ON TABLE identity.email_change_undos TO frappe_identity_worker",
+            "GRANT DELETE ON TABLE identity.email_change_undos TO frappe_identity_worker",
             "GRANT SELECT (principal_id, registered_at, verified_at) ON TABLE identity.owners TO frappe_identity_worker",
             "GRANT SELECT (id, status) ON TABLE identity.principals TO frappe_identity_worker",
             "GRANT DELETE ON TABLE identity.principals TO frappe_identity_worker",

@@ -58,6 +58,8 @@ public sealed class IdentityDatabase : IDatabaseModule
         $"GRANT DELETE ON TABLE {schema}.sessions TO {WorkerRole}",
         $"GRANT SELECT (id, expires_at) ON TABLE {schema}.one_time_codes TO {WorkerRole}",
         $"GRANT DELETE ON TABLE {schema}.one_time_codes TO {WorkerRole}",
+        $"GRANT SELECT (id, expires_at, redeemed_at) ON TABLE {schema}.email_change_undos TO {WorkerRole}",
+        $"GRANT DELETE ON TABLE {schema}.email_change_undos TO {WorkerRole}",
         $"GRANT SELECT (principal_id, registered_at, verified_at) ON TABLE {schema}.owners TO {WorkerRole}",
         $"GRANT SELECT (id, status) ON TABLE {schema}.principals TO {WorkerRole}",
         $"GRANT DELETE ON TABLE {schema}.principals TO {WorkerRole}",
