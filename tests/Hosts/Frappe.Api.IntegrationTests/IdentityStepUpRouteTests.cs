@@ -48,7 +48,7 @@ public sealed class IdentityStepUpRouteTests
         // Arrange
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
-        var (principal, session, token) = host.Seed();
+        var (_, _, token) = host.Seed();
         using var client = host.App.GetTestClient();
 
         // Act
@@ -63,8 +63,6 @@ public sealed class IdentityStepUpRouteTests
             await Assert.That(response.Headers.Location).IsNull();
             await Assert.That(response.Headers.CacheControl?.NoStore).IsTrue();
             await Assert.That(body.GetProperty("validUntil").GetDateTimeOffset()).IsEqualTo(Fakes.ValidUntil.ToDateTimeOffset());
-            await Assert.That(command.PrincipalId).IsEqualTo(principal.Id);
-            await Assert.That(command.SessionId).IsEqualTo(session.Id);
             await Assert.That(command.Password).IsEqualTo("my password");
             await Assert.That(command.ToString()).DoesNotContain("my password");
         }

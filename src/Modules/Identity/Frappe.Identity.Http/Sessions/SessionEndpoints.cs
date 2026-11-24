@@ -61,10 +61,9 @@ internal static class SessionEndpoints
     }
 
     private static async Task<Results<Ok<CurrentSessionResponse>, ErrorsProblemHttpResult>> GetCurrentAsync(
-        HttpContext httpContext, IQueryHandler<GetCurrentSession, CurrentSessionView> handler, CancellationToken cancellationToken)
+        IQueryHandler<GetCurrentSession, CurrentSessionView> handler, CancellationToken cancellationToken)
     {
-        var session = SessionClaims.RequiredSessionIdOf(httpContext.User);
-        return (await handler.HandleAsync(new GetCurrentSession(session), cancellationToken)).ToTypedHttpResult(view =>
+        return (await handler.HandleAsync(new GetCurrentSession(), cancellationToken)).ToTypedHttpResult(view =>
             TypedResults.Ok(new CurrentSessionResponse(
                 view.Id,
                 view.IdleExpiresAt.ToDateTimeOffset(),
@@ -75,9 +74,7 @@ internal static class SessionEndpoints
     private static async Task<Results<NoContent, ErrorsProblemHttpResult>> LogOutAsync(
         HttpContext httpContext, ICommandHandler<LogOut, Unit> handler, CancellationToken cancellationToken)
     {
-        var principal = SessionPolicy.RequiredPrincipalIdOf(httpContext.User);
-        var session = SessionClaims.RequiredSessionIdOf(httpContext.User);
-        var loggedOut = await handler.HandleAsync(new LogOut(principal, session), cancellationToken);
+        var loggedOut = await handler.HandleAsync(new LogOut(), cancellationToken);
 
         // The cookie goes only once the session is really revoked: a refused commit leaves the holder their token to try again.
         if (loggedOut.IsSuccess)

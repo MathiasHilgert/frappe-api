@@ -59,13 +59,12 @@ internal static class EmailChangeEndpoints
     }
 
     private static async Task<Results<Accepted<EmailChangeResponse>, ErrorsProblemHttpResult>> RequestAsync(
-        [FromBody] RequestEmailChangeRequest? body, HttpContext httpContext, ICommandHandler<RequestEmailChange, EmailChangeRequested> handler,
+        [FromBody] RequestEmailChangeRequest? body, ICommandHandler<RequestEmailChange, EmailChangeRequested> handler,
         TimeProvider time, CancellationToken cancellationToken)
     {
         // The floor starts before the handler and ends after it, and its unit of work committed with it: only the branch that sends a code writes it.
         var started = time.GetTimestamp();
-        var principal = SessionPolicy.RequiredPrincipalIdOf(httpContext.User);
-        var result = await handler.HandleAsync(new RequestEmailChange(principal, body?.Email), cancellationToken);
+        var result = await handler.HandleAsync(new RequestEmailChange(body?.Email), cancellationToken);
         await ResponseFloor.HoldAsync(time, started, EmailChangeLimits.Floor, cancellationToken);
         return result.ToTypedHttpResult(requested => TypedResults.Accepted((string?)null, new EmailChangeResponse(requested.Id)));
     }
@@ -74,9 +73,7 @@ internal static class EmailChangeEndpoints
         string changeId, [FromBody] ConfirmEmailChangeRequest? body, HttpContext httpContext, ICommandHandler<ConfirmEmailChange, Unit> handler,
         CancellationToken cancellationToken)
     {
-        var principal = SessionPolicy.RequiredPrincipalIdOf(httpContext.User);
-        var session = SessionClaims.RequiredSessionIdOf(httpContext.User);
-        var command = new ConfirmEmailChange(principal, session, changeId, body?.Code, httpContext.Connection.RemoteIpAddress);
+        var command = new ConfirmEmailChange(changeId, body?.Code, httpContext.Connection.RemoteIpAddress);
         return (await handler.HandleAsync(command, cancellationToken)).ToTypedHttpResult(_ => TypedResults.NoContent());
     }
 }

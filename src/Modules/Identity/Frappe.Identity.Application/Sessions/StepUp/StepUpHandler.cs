@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.Identity.Application.Credentials;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Domain;
@@ -19,15 +20,16 @@ internal sealed class StepUpHandler(
     IPasswordCredentials credentials,
     PasswordRecheck recheck,
     IdentityMetrics metrics,
-    TimeProvider time) : ICommandHandler<StepUp, SteppedUp>
+    TimeProvider time,
+    ICaller caller) : ICommandHandler<StepUp, SteppedUp>
 {
     public async Task<Result<SteppedUp>> HandleAsync(StepUp command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
-        var session = await sessions.FindAsync(command.SessionId, cancellationToken);
-        var principal = session is null || session.PrincipalId != command.PrincipalId
+        var session = await sessions.FindAsync(caller.RequiredSessionId, cancellationToken);
+        var principal = session is null || session.PrincipalId != caller.RequiredPrincipalId
             ? null
-            : await principals.FindAsync(command.PrincipalId, cancellationToken);
+            : await principals.FindAsync(caller.RequiredPrincipalId, cancellationToken);
         if (session is null || principal is null)
         {
             return new UnauthenticatedError(IdentityErrorCodes.SessionInvalid);

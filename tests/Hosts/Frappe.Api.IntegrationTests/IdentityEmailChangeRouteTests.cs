@@ -59,7 +59,7 @@ public sealed class IdentityEmailChangeRouteTests
         // Arrange
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
-        var (principal, session, token) = host.Seed();
+        var (_, session, token) = host.Seed();
         session.StepUp(IdentitySessionHost.Start);
         using var client = host.App.GetTestClient();
 
@@ -75,7 +75,6 @@ public sealed class IdentityEmailChangeRouteTests
             await Assert.That(response.Headers.Location).IsNull();
             await Assert.That(response.Headers.CacheControl?.NoStore).IsTrue();
             await Assert.That(document.RootElement.GetProperty("id").GetGuid()).IsEqualTo(Fakes.ChangeId);
-            await Assert.That(command.PrincipalId).IsEqualTo(principal.Id);
             await Assert.That(command.NewEmail).IsEqualTo("new@example.com");
             await Assert.That(command.ToString()).DoesNotContain("new@example.com");
         }
@@ -87,7 +86,7 @@ public sealed class IdentityEmailChangeRouteTests
         // Arrange
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
-        var (principal, session, token) = host.Seed();
+        var (_, _, token) = host.Seed();
         using var client = host.App.GetTestClient();
 
         // Act
@@ -98,8 +97,6 @@ public sealed class IdentityEmailChangeRouteTests
         using (Assert.Multiple())
         {
             await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.NoContent);
-            await Assert.That(command.PrincipalId).IsEqualTo(principal.Id);
-            await Assert.That(command.SessionId).IsEqualTo(session.Id);
             await Assert.That(command.ChangeId).IsEqualTo(Fakes.ChangeId.ToString());
             await Assert.That(command.Code).IsEqualTo("123456");
             await Assert.That(command.ToString()).DoesNotContain("123456");

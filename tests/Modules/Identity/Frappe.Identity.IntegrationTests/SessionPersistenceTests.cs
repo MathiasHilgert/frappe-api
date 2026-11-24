@@ -46,6 +46,7 @@ public sealed class SessionPersistenceTests(PostgresServer server)
         new IdentityModule().AddServices(services);
         services.AddSessions();
         services.AddSingleton<IUseCaseGate, AllowAllUseCaseGate>();
+        FakeCaller.AddTo(services);
         services.AddHandlers(typeof(ISessions).Assembly);
         return services.BuildServiceProvider();
     }
@@ -163,8 +164,9 @@ public sealed class SessionPersistenceTests(PostgresServer server)
             Result<Unit> loggedOut;
             await using (var scope = provider.CreateAsyncScope())
             {
+                FakeCaller.ActAs(scope.ServiceProvider, principal.Id, sessionId);
                 loggedOut = await scope.ServiceProvider.GetRequiredService<ICommandHandler<LogOut, Unit>>()
-                    .HandleAsync(new LogOut(principal.Id, sessionId), default);
+                    .HandleAsync(new LogOut(), default);
             }
 
             var afterwards = await AuthenticateAsync(provider, token);
@@ -247,8 +249,9 @@ public sealed class SessionPersistenceTests(PostgresServer server)
             await unit.RollbackAsync(default);
 
             // Act
+            FakeCaller.ActAs(scope.ServiceProvider, principal.Id, sessionId);
             var loggedOut = await scope.ServiceProvider.GetRequiredService<ICommandHandler<LogOut, Unit>>()
-                .HandleAsync(new LogOut(principal.Id, sessionId), default);
+                .HandleAsync(new LogOut(), default);
 
             // Assert
             await using var db = ContextOf(owner);
@@ -274,8 +277,9 @@ public sealed class SessionPersistenceTests(PostgresServer server)
             // Act
             var touched = await scope.ServiceProvider.GetRequiredService<ICommandHandler<TouchSession, Unit>>()
                 .HandleAsync(new TouchSession(sessionId), default);
+            FakeCaller.ActAs(scope.ServiceProvider, principal.Id, sessionId);
             var loggedOut = await scope.ServiceProvider.GetRequiredService<ICommandHandler<LogOut, Unit>>()
-                .HandleAsync(new LogOut(principal.Id, sessionId), default);
+                .HandleAsync(new LogOut(), default);
 
             // Assert
             await using var db = ContextOf(owner);
@@ -365,8 +369,9 @@ public sealed class SessionPersistenceTests(PostgresServer server)
             do
             {
                 await using var scope = provider.CreateAsyncScope();
+                FakeCaller.ActAs(scope.ServiceProvider, principal.Id, current);
                 var page = (await scope.ServiceProvider.GetRequiredService<IQueryHandler<ListMySessions, MySessionsPage>>()
-                    .HandleAsync(new ListMySessions(principal.Id, current, 3, after), default)).Value;
+                    .HandleAsync(new ListMySessions(3, after), default)).Value;
                 pages.Add(page);
                 after = page.Next;
             }
@@ -375,8 +380,9 @@ public sealed class SessionPersistenceTests(PostgresServer server)
             Result<Unit> others;
             await using (var scope = provider.CreateAsyncScope())
             {
+                FakeCaller.ActAs(scope.ServiceProvider, principal.Id, current);
                 others = await scope.ServiceProvider.GetRequiredService<ICommandHandler<RevokeMyOtherSessions, Unit>>()
-                    .HandleAsync(new RevokeMyOtherSessions(principal.Id, current), default);
+                    .HandleAsync(new RevokeMyOtherSessions(), default);
             }
 
             Result<Unit> again;

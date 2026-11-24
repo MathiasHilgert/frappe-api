@@ -70,8 +70,7 @@ internal static class MeEndpoints
     private static async Task<Results<Ok<MeResponse>, ErrorsProblemHttpResult>> GetAsync(
         HttpContext httpContext, IQueryHandler<GetMe, OwnerProfile> handler, CancellationToken cancellationToken)
     {
-        var principal = SessionPolicy.RequiredPrincipalIdOf(httpContext.User);
-        return (await handler.HandleAsync(new GetMe(principal), cancellationToken)).ToTypedHttpResult(profile => Answer(httpContext, profile));
+        return (await handler.HandleAsync(new GetMe(), cancellationToken)).ToTypedHttpResult(profile => Answer(httpContext, profile));
     }
 
     private static async Task<Results<Ok<MeResponse>, ErrorsProblemHttpResult>> PatchAsync(
@@ -80,9 +79,8 @@ internal static class MeEndpoints
         IQueryHandler<GetMe, OwnerProfile> reader,
         CancellationToken cancellationToken)
     {
-        var principal = SessionPolicy.RequiredPrincipalIdOf(httpContext.User);
         var patch = await MePatchBody.ReadAsync(httpContext.Request, cancellationToken);
-        var command = new UpdateMe(principal, patch.Given, patch.Family, patch.Locale, IfMatch.Read(httpContext.Request));
+        var command = new UpdateMe(patch.Given, patch.Family, patch.Locale, IfMatch.Read(httpContext.Request));
         var updated = await handler.HandleAsync(command, cancellationToken);
         if (!updated.IsSuccess)
         {
@@ -90,7 +88,7 @@ internal static class MeEndpoints
         }
 
         // The version the change got exists only once it has committed, so the answer is read back: its ETag is the one the next If-Match needs.
-        return (await reader.HandleAsync(new GetMe(principal), cancellationToken)).ToTypedHttpResult(profile => Answer(httpContext, profile));
+        return (await reader.HandleAsync(new GetMe(), cancellationToken)).ToTypedHttpResult(profile => Answer(httpContext, profile));
     }
 
     private static Ok<MeResponse> Answer(HttpContext httpContext, OwnerProfile profile)

@@ -79,7 +79,7 @@ public sealed class IdentityMeRouteTests
             await Assert.That(english.Headers.CacheControl?.NoStore).IsTrue();
             await Assert.That(english.Headers.ETag?.Tag).IsEqualTo("\"4242\"");
             await Assert.That(english.Headers.ETag?.IsWeak).IsFalse();
-            await Assert.That(fakes.Reads[0]).IsEqualTo(principal.Id);
+            await Assert.That(fakes.Reads).Count().IsEqualTo(2);
             await Assert.That(body.GetProperty("id").GetGuid()).IsEqualTo(principal.Id);
             await Assert.That(body.GetProperty("kind").GetProperty("code").GetString()).IsEqualTo("owner");
             await Assert.That(body.GetProperty("kind").GetProperty("name").GetString()).IsEqualTo("Owner");
@@ -147,7 +147,6 @@ public sealed class IdentityMeRouteTests
             await Assert.That(response.Headers.ETag?.Tag).IsEqualTo("\"2\"");
             await Assert.That(response.Headers.CacheControl?.NoStore).IsTrue();
             await Assert.That(body.GetProperty("name").GetProperty("given").GetString()).IsEqualTo("Anabel");
-            await Assert.That(command.PrincipalId).IsEqualTo(principal.Id);
             await Assert.That(command.Given).IsEqualTo(new Patched<string>("Anabel"));
             await Assert.That(command.Family).IsEqualTo(new Patched<string>(null));
             await Assert.That(command.Locale).IsEqualTo(new Patched<string>("pt-BR"));
@@ -322,7 +321,7 @@ public sealed class IdentityMeRouteTests
     /// <summary>What the faked use cases saw and the answers they give.</summary>
     private sealed class Fakes
     {
-        public List<Guid> Reads { get; } = [];
+        public List<GetMe> Reads { get; } = [];
 
         public List<UpdateMe> Updates { get; } = [];
 
@@ -355,7 +354,7 @@ public sealed class IdentityMeRouteTests
     {
         public Task<Result<OwnerProfile>> HandleAsync(GetMe query, CancellationToken cancellationToken)
         {
-            fakes.Reads.Add(query.PrincipalId);
+            fakes.Reads.Add(query);
             var profile = fakes.Updates.Count > 0 && fakes.AfterUpdate is not null ? fakes.AfterUpdate : fakes.Current;
             return Task.FromResult<Result<OwnerProfile>>(profile!);
         }

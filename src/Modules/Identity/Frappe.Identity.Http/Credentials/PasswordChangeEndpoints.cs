@@ -2,7 +2,6 @@ using Frappe.Http;
 using Frappe.Identity.Application.Credentials;
 using Frappe.Identity.Application.Credentials.ChangePassword;
 using Frappe.Identity.Domain.Credentials;
-using Frappe.Identity.Http.Sessions;
 using Frappe.Results;
 using Frappe.UseCases;
 using Microsoft.AspNetCore.Builder;
@@ -41,12 +40,9 @@ internal static class PasswordChangeEndpoints
     }
 
     private static async Task<Results<NoContent, ErrorsProblemHttpResult>> ChangeAsync(
-        [FromBody] ChangePasswordRequest? body, HttpContext httpContext, ICommandHandler<ChangePassword, Unit> handler,
-        CancellationToken cancellationToken)
+        [FromBody] ChangePasswordRequest? body, ICommandHandler<ChangePassword, Unit> handler, CancellationToken cancellationToken)
     {
-        var principal = SessionPolicy.RequiredPrincipalIdOf(httpContext.User);
-        var session = SessionClaims.RequiredSessionIdOf(httpContext.User);
-        var command = new ChangePassword(principal, session, body?.CurrentPassword, body?.NewPassword);
+        var command = new ChangePassword(body?.CurrentPassword, body?.NewPassword);
         return (await handler.HandleAsync(command, cancellationToken)).ToTypedHttpResult(_ => TypedResults.NoContent());
     }
 }

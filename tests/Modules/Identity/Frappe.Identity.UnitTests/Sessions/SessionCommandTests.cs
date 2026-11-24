@@ -59,10 +59,10 @@ public sealed class SessionCommandTests
         var store = new FakeSessions();
         var (principal, session) = store.Seed(new byte[32]);
         session.DequeueDomainEvents();
-        var handler = new LogOutHandler(store, At(Duration.FromMinutes(5)));
+        var handler = new LogOutHandler(store, At(Duration.FromMinutes(5)), FakeCaller.Of(principal.Id, session.Id));
 
         // Act
-        var result = await handler.HandleAsync(new LogOut(principal.Id, session.Id), default);
+        var result = await handler.HandleAsync(new LogOut(), default);
 
         // Assert
         using (Assert.Multiple())
@@ -80,10 +80,10 @@ public sealed class SessionCommandTests
         // Arrange
         var store = new FakeSessions();
         var (_, session) = store.Seed(new byte[32]);
-        var handler = new LogOutHandler(store, At(Duration.FromMinutes(5)));
+        var handler = new LogOutHandler(store, At(Duration.FromMinutes(5)), FakeCaller.Of(Guid.CreateVersion7(), session.Id));
 
         // Act
-        var result = await handler.HandleAsync(new LogOut(Guid.CreateVersion7(), session.Id), default);
+        var result = await handler.HandleAsync(new LogOut(), default);
 
         // Assert
         using (Assert.Multiple())
@@ -99,11 +99,11 @@ public sealed class SessionCommandTests
         // Arrange
         var store = new FakeSessions();
         var (principal, session) = store.Seed(new byte[32]);
-        var handler = new LogOutHandler(store, At(Duration.FromMinutes(5)));
-        await handler.HandleAsync(new LogOut(principal.Id, session.Id), default);
+        var handler = new LogOutHandler(store, At(Duration.FromMinutes(5)), FakeCaller.Of(principal.Id, session.Id));
+        await handler.HandleAsync(new LogOut(), default);
 
         // Act
-        var again = await handler.HandleAsync(new LogOut(principal.Id, session.Id), default);
+        var again = await handler.HandleAsync(new LogOut(), default);
 
         // Assert
         await Assert.That(again.IsSuccess).IsTrue();
@@ -115,10 +115,10 @@ public sealed class SessionCommandTests
         // Arrange
         var store = new FakeSessions();
         var (_, session) = store.Seed(new byte[32]);
-        var handler = new GetCurrentSessionHandler(store, At(Duration.FromMinutes(5)));
+        var handler = new GetCurrentSessionHandler(store, At(Duration.FromMinutes(5)), FakeCaller.Of(Guid.CreateVersion7(), session.Id));
 
         // Act
-        var result = await handler.HandleAsync(new GetCurrentSession(session.Id), default);
+        var result = await handler.HandleAsync(new GetCurrentSession(), default);
 
         // Assert
         using (Assert.Multiple())
@@ -137,8 +137,9 @@ public sealed class SessionCommandTests
         var now = At(Duration.FromMinutes(5));
 
         // Act
-        var whileCounting = await new GetCurrentSessionHandler(counting, now).HandleAsync(new GetCurrentSession(id), default);
-        var afterwards = await new GetCurrentSessionHandler(ranOut, now).HandleAsync(new GetCurrentSession(id), default);
+        var caller = FakeCaller.Of(Guid.CreateVersion7(), id);
+        var whileCounting = await new GetCurrentSessionHandler(counting, now, caller).HandleAsync(new GetCurrentSession(), default);
+        var afterwards = await new GetCurrentSessionHandler(ranOut, now, caller).HandleAsync(new GetCurrentSession(), default);
 
         // Assert
         using (Assert.Multiple())
@@ -152,10 +153,11 @@ public sealed class SessionCommandTests
     public async Task A_current_session_that_vanished_is_the_one_invalid_session_answer()
     {
         // Arrange
-        var handler = new GetCurrentSessionHandler(new FakeSessions(), At(Duration.Zero));
+        var caller = FakeCaller.Of(Guid.CreateVersion7(), Guid.CreateVersion7());
+        var handler = new GetCurrentSessionHandler(new FakeSessions(), At(Duration.Zero), caller);
 
         // Act
-        var result = await handler.HandleAsync(new GetCurrentSession(Guid.CreateVersion7()), default);
+        var result = await handler.HandleAsync(new GetCurrentSession(), default);
 
         // Assert
         await Assert.That(result.Errors.Single()).IsEqualTo(new UnauthenticatedError(IdentityErrorCodes.SessionInvalid));

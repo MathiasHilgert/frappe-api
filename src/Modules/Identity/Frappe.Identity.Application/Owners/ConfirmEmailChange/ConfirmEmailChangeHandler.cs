@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.Identity.Application.Codes;
 using Frappe.Identity.Application.Credentials;
 using Frappe.Identity.Application.Identifiers;
@@ -30,7 +31,8 @@ internal sealed class ConfirmEmailChangeHandler(
     AddressClaim claim,
     EmailChangeUndoTokens undoTokens,
     CredentialChange change,
-    TimeProvider time) : ICommandHandler<ConfirmEmailChange, Unit>
+    TimeProvider time,
+    ICaller caller) : ICommandHandler<ConfirmEmailChange, Unit>
 {
     public async Task<Result<Unit>> HandleAsync(ConfirmEmailChange command, CancellationToken cancellationToken)
     {
@@ -41,7 +43,7 @@ internal sealed class ConfirmEmailChangeHandler(
         }
 
         var redeemed = await redeemer.RedeemAsync(
-            command.PrincipalId, CodePurpose.EmailChange, command.Code, command.ClientAddress, cancellationToken);
+            caller.RequiredPrincipalId, CodePurpose.EmailChange, command.Code, command.ClientAddress, cancellationToken);
         if (!redeemed.IsSuccess)
         {
             return Result.Failure<Unit>(redeemed.Errors);
@@ -50,7 +52,7 @@ internal sealed class ConfirmEmailChangeHandler(
         // A failed result rolls the unit back: the redemption stands only when everything below succeeds.
         var email = Email.Create(redeemed.Value.Target);
         if (redeemed.Value.Id != changeId || !email.IsSuccess
-            || await LoadAsync(command.PrincipalId, cancellationToken) is not var (principal, owner, current)
+            || await LoadAsync(caller.RequiredPrincipalId, cancellationToken) is not var (principal, owner, current)
             || !await claim.TryAsync(principal.Id, email.Value, cancellationToken))
         {
             return Error.RuleViolation(IdentityErrorCodes.CodeInvalid);
@@ -68,7 +70,7 @@ internal sealed class ConfirmEmailChangeHandler(
         var undoToken = await undoTokens.IssueAsync(principal.Id, oldNormalized, email.Value.NormalizedAddress, cancellationToken);
         owner.RecordEmailChanged(oldAddress, undoToken, now);
 
-        await change.ApplyAsync(principal, RevocationReason.EmailChanged, command.SessionId, cancellationToken);
+        await change.ApplyAsync(principal, RevocationReason.EmailChanged, caller.RequiredSessionId, cancellationToken);
         return Unit.Value;
     }
 
