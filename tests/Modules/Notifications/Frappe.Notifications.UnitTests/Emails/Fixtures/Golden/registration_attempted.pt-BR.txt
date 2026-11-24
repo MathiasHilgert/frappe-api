@@ -1,0 +1,6 @@
+Alguém usou seu e-mail para se cadastrar
+
+Alguém tentou criar uma conta no Frappé com seu e-mail, mas você já tem uma. Se foi você, entre ou redefina sua senha.
+
+--
+Se não foi você, ignore este e-mail: sua conta e sua senha continuam as mesmas.

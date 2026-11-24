@@ -1,0 +1,6 @@
+Someone used your email to sign up
+
+Someone tried to create a Frappé account with your email, but you already have one. If it was you, log in or reset your password.
+
+--
+If it was not you, ignore this email: your account and your password stay the same.

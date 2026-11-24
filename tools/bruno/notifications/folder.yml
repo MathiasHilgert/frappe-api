@@ -18,6 +18,7 @@ docs:
     - **The other kinds (202):** `password_reset_code`, `email_change_code` and `product_announcement` to Resend's `delivered@resend.dev` test inbox, and the activation code to
       `bounced@resend.dev` and `complained@resend.dev`; repeating the bounce request with its `Idempotency-Key` is a 202 that records one delivery. With the real Resend sender
       (sender `onboarding@resend.dev`) only Resend's test inboxes accept mail: the first request's `ana@example.com` is refused for good (the delivery ends `failed`).
+    - **The identity notices (202):** `registration_attempted` and `email_change_requested`, the two mails Identity's producer asks for, to Resend's `delivered@resend.dev` test inbox.
     - **Unknown kind (400):** `notifications.kind.unknown`.
     - **Invalid payload (400):** `notifications.payload.invalid`, with the fields to fix in `parameters.fields`.
 

@@ -25,5 +25,19 @@
     "expires": "Expires in 15 minutes",
     "single_use": "Single use",
     "footer": "If you did not ask for this change, ignore this email and nothing happens."
+  },
+  "registration_attempted": {
+    "subject": "Someone tried to create a Frappé account with your email",
+    "preheader": "If it was you, log in or reset your password.",
+    "heading": "Someone used your email to sign up",
+    "intro": "Someone tried to create a Frappé account with your email, but you already have one. If it was you, log in or reset your password.",
+    "footer": "If it was not you, ignore this email: your account and your password stay the same."
+  },
+  "email_change_requested": {
+    "subject": "A change of your Frappé email was requested",
+    "preheader": "If it was not you, change your password now.",
+    "heading": "Your account email may change",
+    "intro": "Hi {Name}. A change of your account email to {NewEmailMasked} was requested. Until it is confirmed, you keep signing in with this email.",
+    "footer": "If it was not you, change your password now: it closes every other session."
   }
 }

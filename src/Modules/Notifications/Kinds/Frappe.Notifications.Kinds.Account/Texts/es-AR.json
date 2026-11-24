@@ -25,5 +25,19 @@
     "expires": "Vence en 15 minutos",
     "single_use": "Un solo uso",
     "footer": "Si no pediste este cambio, ignorá este mail y no pasa nada."
+  },
+  "registration_attempted": {
+    "subject": "Alguien intentó crear una cuenta de Frappé con tu email",
+    "preheader": "Si fuiste vos, iniciá sesión o restablecé tu contraseña.",
+    "heading": "Alguien usó tu email para registrarse",
+    "intro": "Alguien intentó crear una cuenta de Frappé con tu email, pero ya tenés una. Si fuiste vos, iniciá sesión o restablecé tu contraseña.",
+    "footer": "Si no fuiste vos, ignorá este mail: tu cuenta y tu contraseña siguen igual."
+  },
+  "email_change_requested": {
+    "subject": "Se pidió cambiar tu email de Frappé",
+    "preheader": "Si no fuiste vos, cambiá tu contraseña ahora.",
+    "heading": "El email de tu cuenta puede cambiar",
+    "intro": "Hola {Name}. Se pidió cambiar el email de tu cuenta a {NewEmailMasked}. Hasta que se confirme, seguís entrando con este email.",
+    "footer": "Si no fuiste vos, cambiá tu contraseña ahora: se cierran todas tus otras sesiones."
   }
 }

@@ -1,0 +1,6 @@
+O e-mail da sua conta pode mudar
+
+Olá Ana. Foi pedida a troca do e-mail da sua conta para n***@example.com. Até ser confirmada, você continua entrando com este e-mail.
+
+--
+Se não foi você, troque sua senha agora: todas as suas outras sessões são encerradas.

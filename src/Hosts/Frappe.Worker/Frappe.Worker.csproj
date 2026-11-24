@@ -12,6 +12,7 @@
     <ProjectReference Include="../../Modules/Notifications/Channels/Frappe.Notifications.Channels.Email/Frappe.Notifications.Channels.Email.csproj" />
     <ProjectReference Include="../../Modules/Notifications/Kinds/Frappe.Notifications.Kinds.Account/Frappe.Notifications.Kinds.Account.csproj" />
     <ProjectReference Include="../../Modules/Notifications/Kinds/Frappe.Notifications.Kinds.Marketing/Frappe.Notifications.Kinds.Marketing.csproj" />
+    <ProjectReference Include="../../Modules/Notifications/Producers/Frappe.Notifications.Producers.Identity/Frappe.Notifications.Producers.Identity.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" />
