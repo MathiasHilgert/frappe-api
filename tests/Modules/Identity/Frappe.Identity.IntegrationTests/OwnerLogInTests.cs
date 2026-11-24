@@ -271,6 +271,58 @@ public sealed class OwnerLogInTests(PostgresServer server)
     }
 
     [Test]
+    public async Task One_network_spending_its_budget_does_not_throttle_the_same_address_from_another_network()
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using var host = OwnersHost.Over(owner);
+            await ActiveOwnerAsync(host);
+            for (var i = 0; i < LogInLimits.Attempt.Limit; i++)
+            {
+                await host.StartLogInAsync("ana@example.com", OwnersHost.Password, "203.0.113.7");
+            }
+
+            // Act
+            var sameNetwork = await host.LogInAsync("ana@example.com", OwnersHost.Password, "203.0.113.200");
+            var otherNetwork = await host.LogInAsync("ana@example.com", OwnersHost.Password, "198.51.100.9");
+
+            // Assert
+            using (Assert.Multiple())
+            {
+                await Assert.That(sameNetwork.Errors.Single()).IsTypeOf<RateLimitedError>();
+                await Assert.That(otherNetwork.IsSuccess).IsTrue();
+            }
+        });
+    }
+
+    [Test]
+    public async Task The_wide_cap_on_one_address_throttles_it_from_every_network()
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using var host = OwnersHost.Over(owner);
+            await ActiveOwnerAsync(host);
+            for (var i = 0; i < LogInLimits.AttemptByEmail.Limit; i++)
+            {
+                await host.StartLogInAsync("ana@example.com", OwnersHost.Password, $"10.{i / 250}.{i % 250}.1");
+            }
+
+            // Act
+            var throttled = await host.LogInAsync("ana@example.com", OwnersHost.Password, "198.51.100.9");
+
+            // Assert
+            var error = (RateLimitedError)throttled.Errors.Single();
+            using (Assert.Multiple())
+            {
+                await Assert.That(error.Code).IsEqualTo("http.rate_limited");
+                await Assert.That(error.RetryAfterSeconds).IsGreaterThan(0);
+            }
+        });
+    }
+
+    [Test]
     public async Task While_attempts_cannot_be_counted_none_is_judged()
     {
         await MigratedIdentity.RunAsync(server, async owner =>
