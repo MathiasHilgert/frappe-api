@@ -32,9 +32,9 @@ test('a Bruno request runs the collection against the stack and nothing else', (
   }
 });
 
-test('a C# change runs the build, the tests and the image, but not the migrations or the contract diff', () => {
+test('a C# change runs the build, the tests and the image, but not the scan, the migrations or the contract diff', () => {
   assert.deepEqual(decide(['src/Modules/Orders/Frappe.Orders.Domain/Order.cs'], { complete: true }).checks,
-    { ...all, contracts: false, migrations: false });
+    { ...all, contracts: false, migrations: false, scan: false });
 });
 
 test('a migration, an entity configuration, a DbContext or the module database setup runs the migration check and the .NET checks', () => {
@@ -43,7 +43,7 @@ test('a migration, an entity configuration, a DbContext or the module database s
     'src/Modules/Orders/Frappe.Orders.Infrastructure/Customers/CustomerConfiguration.cs',
     'src/Modules/Billing/Frappe.Billing.Infrastructure/Persistence/BillingDbContext.cs',
     'src/Platform/Frappe.Persistence/ModuleDatabaseRegistration.cs', 'src/Hosts/Frappe.Migrator/Program.cs']) {
-    assert.deepEqual(decide([file], { complete: true }).checks, { ...all, contracts: false }, file);
+    assert.deepEqual(decide([file], { complete: true }).checks, { ...all, contracts: false, scan: false }, file);
   }
 });
 
@@ -51,7 +51,7 @@ test('code the Migrator runs against an existing database runs the migration che
   for (const file of ['src/Platform/Frappe.Persistence/ModuleRoles.cs',
     'src/Modules/Billing/Frappe.Billing.Infrastructure/Persistence/BillingMigration.cs',
     'src/Platform/Frappe.Scheduling/SchedulingRegistration.cs']) {
-    assert.deepEqual(decide([file], { complete: true }).checks, { ...all, contracts: false }, file);
+    assert.deepEqual(decide([file], { complete: true }).checks, { ...all, contracts: false, scan: false }, file);
   }
 });
 
@@ -60,7 +60,7 @@ test('a test anywhere under tests/, its fixtures, helpers and shared settings, r
     'tests/Modules/Orders/Frappe.Orders.IntegrationTests/Persistence/OrdersDatabase.cs',
     'tests/Modules/Orders/Frappe.Orders.Testing/FakeOrderSource.cs', 'tests/Platform/Frappe.Platform.UnitTests/Results/ResultTests.cs',
     'tests/Shared/Frappe.Testing/RepositoryRoot.cs', 'tests/Directory.Build.props']) {
-    assert.deepEqual(decide([file], { complete: true }).checks, { ...all, contracts: false, migrations: false }, file);
+    assert.deepEqual(decide([file], { complete: true }).checks, { ...all, contracts: false, migrations: false, scan: false }, file);
   }
 });
 
@@ -70,6 +70,14 @@ test('a lock file or the SDK version is a .NET change', () => {
     'eng/analyzers.globalconfig', 'eng/BannedSymbols.txt', 'eng/BannedSymbols.Production.txt',
     'eng/scaffold/scaffold.sh', 'eng/templates/usecase/UseCaseName.cs']) {
     assert.equal(decide([file], { complete: true }).checks.dotnet, true, file);
+  }
+});
+
+test('a lock file, the package versions, the SDK version or the NuGet sources run the scan and the .NET checks', () => {
+  for (const file of ['src/Hosts/Frappe.Api/packages.lock.json', 'Directory.Packages.props', 'global.json', 'NuGet.config']) {
+    const checks = decide([file], { complete: true }).checks;
+    assert.equal(checks.scan, true, file);
+    assert.equal(checks.dotnet, true, file);
   }
 });
 
@@ -94,12 +102,12 @@ test('a change to the REST lint rules runs the contract checks', () => {
 });
 
 test('a Dockerfile change runs the image, its dependencies and the migrations, not the .NET checks', () => {
-  assert.deepEqual(decide(['deploy/Dockerfile'], { complete: true }).checks, { ...none, image: true, migrations: true, bruno: true });
+  assert.deepEqual(decide(['deploy/Dockerfile'], { complete: true }).checks, { ...none, image: true, scan: true, migrations: true, bruno: true });
 });
 
 test('the ignore file and lint rules of the image, and the compose stack, count as the container', () => {
   for (const file of ['deploy/Dockerfile.dockerignore', 'eng/hadolint.yaml', 'deploy/compose.yaml', 'deploy/.env.example']) {
-    assert.deepEqual(decide([file], { complete: true }).checks, { ...none, image: true, migrations: true, bruno: true }, file);
+    assert.deepEqual(decide([file], { complete: true }).checks, { ...none, image: true, scan: true, migrations: true, bruno: true }, file);
   }
 });
 

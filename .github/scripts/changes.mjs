@@ -30,6 +30,8 @@ export const CATEGORIES = {
     'eng/squawk.toml', '**/schema.sql', 'Directory.Packages.props'],
   // The Bruno collection: its CI job runs it against the stack, so a change to it must run that job.
   bruno: ['tools/bruno/**'],
+  // What the image's dependencies resolve from: lock files, package versions, SDK and NuGet sources. Also in dotnet.
+  packages: ['**/packages.lock.json', 'Directory.Packages.props', 'global.json', 'NuGet.config'],
   // Read by no gated check: only by "Code is formatted" (spelling, Markdown, links), which always runs, or by no check.
   inert: ['**/*.md', 'LICENSE', 'eng/markdownlint-cli2.jsonc', 'eng/typos.toml',
     '.justfile', 'eng/just/**', '.github/renovate.json5', '.gitignore', '.github/labeler.yml', '.github/rulesets/**',
@@ -43,8 +45,10 @@ export const CHECKS = {
   dotnet: ['dotnet'],
   // Unit tests pass · Architecture rules hold · Integration tests pass · Changed lines are covered
   tests: ['dotnet', 'contracts', 'observability'],
-  // App starts and responds · Container image is clean · No vulnerable dependencies
+  // App starts and responds · No vulnerable dependencies
   image: ['dotnet', 'container'],
+  // Container image is clean (it scans the image: only its Dockerfile, compose stack or dependencies change what it finds)
+  scan: ['container', 'packages'],
   // Database migrations are safe (it builds the image and upgrades a database: any other .NET change cannot affect it)
   migrations: ['data', 'container'],
   // API has no unmarked breaking changes · Events have no unmarked breaking changes

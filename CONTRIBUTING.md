@@ -169,7 +169,8 @@ when it runs.
   no build, suite or scan. The workflow itself is never path-filtered: a skipped workflow would leave its required checks
   waiting forever. "Code is formatted" (whose C# steps are gated), "No leaked secrets" and "Workflows are secure" always
   run. Everything runs for a change to the CI, a file in no category, an incomplete file list or a failed detection, and
-  on `main`.
+  on `main`. The image scan runs only when the Dockerfile, the compose stack or the dependencies (lock files, package
+  versions, SDK, NuGet sources) change, so a C# change does not rescan it.
 - **Suites are found by name**: every `*.UnitTests`, `*.IntegrationTests` and `*.Architecture.Tests` project under
   `tests/` gets its own job, so a new suite needs no workflow edit. Each job builds only what it needs.
 - **One compile.** "Code compiles without warnings" writes a binary log, reads it back for the complexity findings and
