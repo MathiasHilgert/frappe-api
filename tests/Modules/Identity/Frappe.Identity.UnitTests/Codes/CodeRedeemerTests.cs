@@ -176,7 +176,7 @@ public sealed class CodeRedeemerTests
     }
 
     [Test]
-    public async Task A_code_of_another_purpose_or_no_code_at_all_is_invalid_without_counting_a_guess()
+    public async Task A_code_of_another_purpose_or_no_code_at_all_is_invalid_and_costs_the_principal_slots_but_no_code_slot()
     {
         // Arrange
         var issued = await IssueAsync(CodePurpose.PasswordReset);
@@ -190,7 +190,8 @@ public sealed class CodeRedeemerTests
         {
             await Assert.That(CodeOf(wrongPurpose)).IsEqualTo(IdentityErrorCodes.CodeInvalid);
             await Assert.That(CodeOf(nobody)).IsEqualTo(IdentityErrorCodes.CodeInvalid);
-            await Assert.That(_limiter.Hits).IsEmpty();
+            await Assert.That(_limiter.Hits.Count(hit => hit.Flow == CodeLimits.Guess)).IsEqualTo(0);
+            await Assert.That(_limiter.Hits.Count(hit => hit.Flow == CodeLimits.GuessPerPrincipal)).IsEqualTo(2);
             await Assert.That(_codes.Stored.Single().RedeemedAt).IsNull();
         }
     }

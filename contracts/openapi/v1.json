@@ -2612,7 +2612,7 @@
           "Identity"
         ],
         "summary": "Confirm the change of the email address",
-        "description": "Replaces the address with the one the code was mailed to: the new address is proven, every other session of the owner is revoked (the one of the request keeps working) and every other live code of the owner stops working. A pending owner who registered with that address is deleted. 422 identity.code.invalid for a code that is wrong, expired, used or replaced, for an id that is unknown, made up, malformed or not the caller's, and for an address a verified owner holds meanwhile: a code takes 5 guesses, an owner 10 a day from one network and 100 a day from all of them. 503 identity.attempts.unavailable when guesses cannot be counted. 401 and 403 as the request.",
+        "description": "Replaces the address with the one the code was mailed to: the new address is proven, every other session of the owner is revoked (the one of the request keeps working) and every other live code of the owner stops working. A pending owner who registered with that address is deleted. 422 identity.code.invalid for a code that is wrong, expired, used or replaced, for an id that is unknown, made up, malformed or not the caller's, and for an address a verified owner holds meanwhile: a code takes 5 guesses, an owner 10 a day from one network and 100 a day from all of them. 503 identity.attempts.unavailable when guesses cannot be counted. 429 http.rate_limited with Retry-After. 401 and 403 as the request.",
         "operationId": "ConfirmEmailChange",
         "parameters": [
           {

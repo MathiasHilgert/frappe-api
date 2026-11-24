@@ -50,7 +50,7 @@ internal static class EmailChangeEndpoints
                     + "an id that is unknown, made up, malformed or not the caller's, and for an address a verified owner holds meanwhile: "
                     + $"a code takes {CodeLimits.Guess.Limit} guesses, an owner {CodeLimits.GuessPerPrincipal.Limit} a day from one network "
                     + $"and {CodeLimits.GuessPerPrincipalAnywhere.Limit} a day from all of them. 503 identity.attempts.unavailable when guesses "
-                    + "cannot be counted. 401 and 403 as the request.")
+                    + "cannot be counted. 429 http.rate_limited with Retry-After. 401 and 403 as the request.")
                 .ProducesProblem(StatusCodes.Status401Unauthorized)
                 .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
                 .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
