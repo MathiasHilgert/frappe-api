@@ -44,7 +44,7 @@ internal sealed class OwnersHost : IAsyncDisposable
 
     private readonly ServiceProvider _provider;
 
-    private OwnersHost(string owner, ServiceProvider provider, FakeTimeProvider time, CountingLimiter limiter, ListedPasswords breached)
+    private OwnersHost(string owner, ServiceProvider provider, FlooredTime time, CountingLimiter limiter, ListedPasswords breached)
     {
         Breached = breached;
         OwnerConnection = owner;
@@ -55,7 +55,7 @@ internal sealed class OwnersHost : IAsyncDisposable
 
     public string OwnerConnection { get; }
 
-    public FakeTimeProvider Time { get; }
+    public FlooredTime Time { get; }
 
     public CountingLimiter Limiter { get; }
 
@@ -66,7 +66,7 @@ internal sealed class OwnersHost : IAsyncDisposable
     /// <param name="gate">When given, every address lookup waits there after reading, so racing registrations all read the same state.</param>
     public static OwnersHost Over(string owner, RaceGate? gate = null)
     {
-        var time = new FakeTimeProvider(Start);
+        var time = new FlooredTime(Start);
         var limiter = new CountingLimiter();
         var breached = new ListedPasswords();
         var services = new ServiceCollection();
@@ -74,6 +74,8 @@ internal sealed class OwnersHost : IAsyncDisposable
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:Identity"] = owner,
+            ["Identity:Passwords:MemoryMebibytes"] = "8",
+            ["Identity:Passwords:Iterations"] = "1",
             ["Identity:Codes:Key"] = "bG9jYWwtb25seS1jb2RlLWhhc2gta2V5LW9mLTM2LWJ5dGVzIQ==",
         }).Build());
         services.AddSingleton<TimeProvider>(time);
@@ -117,19 +119,11 @@ internal sealed class OwnersHost : IAsyncDisposable
     }
 
     /// <summary>
-    /// Logs in. A refusal waits for the fake clock, so the clock is moved on, ten milliseconds at a time, while the call waits: a refusal that
-    /// ends before 500 ms of fake time have passed ended before its floor (hashing takes far less fake time than that).
+    /// Logs in. A refusal waits for its floor on the fake clock, which moves on by the wait (see <see cref="FlooredTime"/>).
     /// </summary>
     public async Task<Result<LogInOutcome>> LogInAsync(string? email, string? password, string client = "203.0.113.7")
     {
-        var task = StartLogInAsync(email, password, client);
-        while (!task.IsCompleted)
-        {
-            Time.Advance(TimeSpan.FromMilliseconds(10));
-            await Task.Delay(5);
-        }
-
-        return await task;
+        return await StartLogInAsync(email, password, client);
     }
 
     /// <summary>Starts a log-in and leaves it running: one that succeeds is complete at once, a refusal waits for the clock.</summary>
@@ -152,7 +146,7 @@ internal sealed class OwnersHost : IAsyncDisposable
         return await scope.ServiceProvider.GetRequiredService<ICommandHandler<UpdateMe, Unit>>().HandleAsync(command, default);
     }
 
-    /// <summary>Changes a password. A wrong current one waits for the fake clock, which is moved on while the call waits.</summary>
+    /// <summary>Changes a password. A wrong current one waits for its floor on the fake clock.</summary>
     public async Task<Result<Unit>> ChangePasswordAsync(Guid principalId, Guid sessionId, string? current, string? replacement) =>
         await SettleAsync(async () =>
         {
@@ -161,7 +155,7 @@ internal sealed class OwnersHost : IAsyncDisposable
                 .HandleAsync(new ChangePassword(principalId, sessionId, current, replacement), default);
         });
 
-    /// <summary>Steps a session up. A wrong password waits for the fake clock, which is moved on while the call waits.</summary>
+    /// <summary>Steps a session up. A wrong password waits for its floor on the fake clock.</summary>
     public async Task<Result<SteppedUp>> StepUpAsync(Guid principalId, Guid sessionId, string? password) =>
         await SettleAsync(async () =>
         {
@@ -202,17 +196,10 @@ internal sealed class OwnersHost : IAsyncDisposable
         return result.IsSuccess;
     }
 
-    /// <summary>Runs a command that may wait for its floor on the fake clock, which moves on ten milliseconds at a time until it ends.</summary>
-    private async Task<T> SettleAsync<T>(Func<Task<T>> command)
+    /// <summary>Runs a command that may wait for its floor on the fake clock.</summary>
+    private static async Task<T> SettleAsync<T>(Func<Task<T>> command)
     {
-        var task = command();
-        while (!task.IsCompleted)
-        {
-            Time.Advance(TimeSpan.FromMilliseconds(10));
-            await Task.Delay(5);
-        }
-
-        return await task;
+        return await command();
     }
 
     public IdentityDbContext Context() =>
@@ -276,6 +263,24 @@ internal sealed class OwnersHost : IAsyncDisposable
         public void Add(Domain.Identifiers.EmailIdentifier identifier) => inner.Add(identifier);
     }
 
+    /// <summary>
+    /// A fake clock whose waits end at once: a delay moves the clock on by its length, so a refusal held to its floor takes no real time
+    /// and the clock still shows that the floor passed.
+    /// </summary>
+    internal sealed class FlooredTime(DateTimeOffset start) : FakeTimeProvider(start)
+    {
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            var timer = base.CreateTimer(callback, state, dueTime, period);
+            if (dueTime > TimeSpan.Zero && dueTime != Timeout.InfiniteTimeSpan && period == Timeout.InfiniteTimeSpan)
+            {
+                _ = Task.Run(() => Advance(dueTime));
+            }
+
+            return timer;
+        }
+    }
+
     /// <summary>A limiter that counts like the real one in memory and can be told to be down.</summary>
     internal sealed class CountingLimiter : IAttemptLimiter
     {
@@ -289,6 +294,15 @@ internal sealed class OwnersHost : IAsyncDisposable
             lock (_hits)
             {
                 return _hits.GetValueOrDefault((flow, subject));
+            }
+        }
+
+        /// <summary>How many attempts of <paramref name="flow"/> were counted for every subject together.</summary>
+        public int HitsOfFlow(string flow)
+        {
+            lock (_hits)
+            {
+                return _hits.Where(hit => hit.Key.Flow == flow).Sum(hit => hit.Value);
             }
         }
 

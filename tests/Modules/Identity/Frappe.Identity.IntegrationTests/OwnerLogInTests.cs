@@ -323,6 +323,32 @@ public sealed class OwnerLogInTests(PostgresServer server)
     }
 
     [Test]
+    public async Task One_network_refused_cannot_spend_the_cap_of_the_address()
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using var host = OwnersHost.Over(owner);
+            await ActiveOwnerAsync(host);
+            for (var i = 0; i <= LogInLimits.Attempt.Limit; i++)
+            {
+                await host.StartLogInAsync("ana@example.com", "wrong-password", "203.0.113.200");
+            }
+
+            // Act
+            var otherNetwork = await host.LogInAsync("ana@example.com", OwnersHost.Password, "198.51.100.9");
+
+            // Assert
+            using (Assert.Multiple())
+            {
+                await Assert.That(otherNetwork.IsSuccess).IsTrue();
+                await Assert.That(host.Limiter.HitsOfFlow(LogInLimits.AttemptByEmail.Name))
+                    .IsLessThanOrEqualTo(LogInLimits.Attempt.Limit + 1);
+            }
+        });
+    }
+
+    [Test]
     public async Task While_attempts_cannot_be_counted_none_is_judged()
     {
         await MigratedIdentity.RunAsync(server, async owner =>
