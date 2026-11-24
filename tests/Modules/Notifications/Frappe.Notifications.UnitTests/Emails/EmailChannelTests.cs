@@ -147,7 +147,7 @@ public sealed class EmailChannelTests
     }
 
     [Test]
-    public async Task The_four_kinds_have_the_categories_of_the_spec()
+    public async Task The_kinds_have_the_categories_of_the_spec()
     {
         // Arrange
         await using var world = new EmailWorld();
@@ -160,6 +160,8 @@ public sealed class EmailChannelTests
                 ("account_activation_code", NotificationCategory.Security),
                 ("password_reset_code", NotificationCategory.Security),
                 ("email_change_code", NotificationCategory.Security),
+                ("registration_attempted", NotificationCategory.Security),
+                ("email_change_requested", NotificationCategory.Security),
                 ("product_announcement", NotificationCategory.Marketing),
             ]);
         }

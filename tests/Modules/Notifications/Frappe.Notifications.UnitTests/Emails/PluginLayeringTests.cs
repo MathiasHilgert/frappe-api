@@ -47,4 +47,23 @@ public sealed class PluginLayeringTests
         // Assert
         await Assert.That(notificationReferences).IsEmpty();
     }
+
+    [Test]
+    public async Task A_producer_plugin_reaches_the_kinds_it_maps_to_but_never_the_web_stack_a_channel_or_another_producer()
+    {
+        // Arrange
+        var assembly = typeof(Frappe.Notifications.Producers.Identity.IdentityProducerModule).Assembly;
+
+        // Act
+        var forbidden = assembly.GetReferencedAssemblies()
+            .Select(reference => reference.Name ?? string.Empty)
+            .Where(name => name.StartsWith("Frappe.Notifications.Http", StringComparison.Ordinal)
+                || name.StartsWith("Frappe.Notifications.Channels.", StringComparison.Ordinal)
+                || name.StartsWith("Frappe.Notifications.Kinds.Marketing", StringComparison.Ordinal)
+                || (name.StartsWith("Frappe.Notifications.Producers.", StringComparison.Ordinal) && name != assembly.GetName().Name))
+            .ToList();
+
+        // Assert
+        await Assert.That(forbidden).IsEmpty();
+    }
 }

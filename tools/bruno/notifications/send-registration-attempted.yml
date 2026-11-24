@@ -1,0 +1,43 @@
+info:
+  name: Send a registration attempted notice (202)
+  type: http
+  seq: 17
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/notifications/sends"
+  headers:
+    - name: Idempotency-Key
+      value: bruno-send-registration-attempted
+      description: The same key sends once; its request identity is derived from it.
+  body:
+    type: json
+    data: |-
+      {
+        "kind": "registration_attempted",
+        "payload": {
+          "email": "delivered@resend.dev",
+          "language": "es-AR"
+        }
+      }
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Development only: the compose stack runs as Production and does not map the route.
+        if (bru.getEnvName() === 'Stack') {
+          bru.runner.skipRequest();
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "202"
+    - expression: res.headers.location
+      operator: isUndefined
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `POST /v1/notifications/sends` with the sample of `registration_attempted` to Resend's `delivered` test inbox: 202. Development only (skipped against Stack).

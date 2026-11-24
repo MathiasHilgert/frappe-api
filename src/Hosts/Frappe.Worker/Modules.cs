@@ -4,6 +4,7 @@ using Frappe.Notifications.Channels.Email;
 using Frappe.Notifications.Infrastructure;
 using Frappe.Notifications.Kinds.Account;
 using Frappe.Notifications.Kinds.Marketing;
+using Frappe.Notifications.Producers.Identity;
 
 namespace Frappe.Worker;
 
@@ -19,6 +20,7 @@ public static class Modules
         new NotificationsWorkerModule(),
         new AccountKindsModule(),
         new MarketingKindsModule(),
+        new IdentityProducerModule(),
         new EmailChannelWorkerModule(),
     ];
 }

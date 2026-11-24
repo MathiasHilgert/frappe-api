@@ -559,6 +559,12 @@
           "Microsoft.Extensions.Hosting": "[11.0.0, )"
         }
       },
+      "frappe.identity.contracts": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.IntegrationEvents": "[1.0.0, )"
+        }
+      },
       "frappe.integrationevents": {
         "type": "Project"
       },
@@ -651,6 +657,16 @@
           "Frappe.Notifications.Application": "[1.0.0, )",
           "Frappe.Notifications.Channels.Email": "[1.0.0, )",
           "Frappe.Notifications.Domain": "[1.0.0, )"
+        }
+      },
+      "frappe.notifications.producers.identity": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Identity.Contracts": "[1.0.0, )",
+          "Frappe.Modules": "[1.0.0, )",
+          "Frappe.Notifications.Application": "[1.0.0, )",
+          "Frappe.Notifications.Infrastructure": "[1.0.0, )",
+          "Frappe.Notifications.Kinds.Account": "[1.0.0, )"
         }
       },
       "frappe.observability": {

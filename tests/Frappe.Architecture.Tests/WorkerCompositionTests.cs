@@ -145,7 +145,7 @@ public sealed class WorkerCompositionTests
                 .IsEquivalentTo(
                 [
                     "IdentityModule", "IdentityWorkerModule", "NotificationsModule", "NotificationsWorkerModule", "AccountKindsModule",
-                    "MarketingKindsModule", "EmailChannelWorkerModule",
+                    "MarketingKindsModule", "IdentityProducerModule", "EmailChannelWorkerModule",
                 ]);
             await Assert.That(hosted).Contains("OutboxRelayService`1");
             await Assert.That(hosted).Contains("JetStreamConsumer`2");

@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Frappe.Notifications.Channels.Email;
+using Frappe.Notifications.Kinds.Account;
 using Frappe.Testing;
 
 namespace Frappe.Notifications.UnitTests.Emails;
@@ -8,7 +9,10 @@ namespace Frappe.Notifications.UnitTests.Emails;
 public sealed partial class RenderedKindsTests
 {
     private static readonly string[] Kinds =
-        ["account_activation_code", "password_reset_code", "email_change_code", "product_announcement"];
+    [
+        "account_activation_code", "password_reset_code", "email_change_code", "registration_attempted", "email_change_requested",
+        "product_announcement",
+    ];
 
     /// <summary>Every color of the design system's light and dark tokens an email may use.</summary>
     private static readonly string[] Tokens =
@@ -19,7 +23,11 @@ public sealed partial class RenderedKindsTests
     public static IEnumerable<(string Kind, string Language)> Everything() =>
         Kinds.SelectMany(kind => Languages.Select(language => (kind, language)));
 
-    public static IEnumerable<(string Kind, string Language)> Codes() => Everything().Where(pair => pair.Kind != "product_announcement");
+    public static IEnumerable<(string Kind, string Language)> Codes() =>
+        Everything().Where(pair => pair.Kind is "account_activation_code" or "password_reset_code" or "email_change_code");
+
+    public static IEnumerable<(string Kind, string Language)> Notices() =>
+        Everything().Where(pair => pair.Kind is "registration_attempted" or "email_change_requested");
 
     [GeneratedRegex("#[0-9a-fA-F]{3,8}\\b", RegexOptions.None, 1000)]
     private static partial Regex HexColors();
@@ -162,6 +170,7 @@ public sealed partial class RenderedKindsTests
 
         // Assert
         var isAnnouncement = kind == "product_announcement";
+        var hasCode = kind.EndsWith("_code", StringComparison.Ordinal);
         using (Assert.Multiple())
         {
             foreach (var name in new[] { "bg-ground", "bg-surface", "ink", "muted" })
@@ -171,7 +180,7 @@ public sealed partial class RenderedKindsTests
 
             await Assert.That(email.Html.Contains("class=\"btn\"", StringComparison.Ordinal)).IsEqualTo(isAnnouncement);
             await Assert.That(email.Html.Contains("class=\"btn-text\"", StringComparison.Ordinal)).IsEqualTo(isAnnouncement);
-            await Assert.That(email.Html.Contains("class=\"box\"", StringComparison.Ordinal)).IsEqualTo(!isAnnouncement);
+            await Assert.That(email.Html.Contains("class=\"box\"", StringComparison.Ordinal)).IsEqualTo(hasCode);
         }
     }
 
@@ -277,6 +286,92 @@ public sealed partial class RenderedKindsTests
             await Assert.That(email.Text).Contains(heading);
             await Assert.That(email.Text).Contains(footer);
         }
+    }
+
+    [Test]
+    [MethodDataSource(nameof(Notices))]
+    public async Task A_security_notice_has_no_code_no_link_and_no_unsubscribe(string kind, string language)
+    {
+        // Arrange
+        await using var world = new EmailWorld();
+
+        // Act
+        var email = await SendAsync(world, kind, language);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(email.Subject).IsNotEmpty().And.DoesNotContain("482913");
+            await Assert.That(CodeBoxes().Count(email.Html)).IsEqualTo(0);
+            await Assert.That(email.Html).DoesNotContain("<a ").And.DoesNotContain("class=\"box\"");
+            await Assert.That(email.Text).DoesNotContain("http");
+            await Assert.That(email.Headers).IsEmpty();
+        }
+    }
+
+    [Test]
+    public async Task The_registration_attempt_mail_says_what_the_design_says()
+    {
+        // Arrange
+        await using var world = new EmailWorld();
+
+        // Act
+        var email = await SendAsync(world, "registration_attempted", "es-AR");
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(email.Subject).IsEqualTo("Alguien intentó crear una cuenta de Frappé con tu email");
+            await Assert.That(email.Text).Contains("Si fuiste vos, iniciá sesión o restablecé tu contraseña.");
+            await Assert.That(email.Text).Contains("Si no fuiste vos, ignorá este mail: tu cuenta y tu contraseña siguen igual.");
+        }
+    }
+
+    [Test]
+    public async Task The_email_change_mail_names_the_masked_new_address_and_says_to_change_the_password_if_it_was_not_the_owner()
+    {
+        // Arrange
+        await using var world = new EmailWorld();
+
+        // Act
+        var email = await SendAsync(world, "email_change_requested", "es-AR");
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(email.To.Value).IsEqualTo("ana@example.com");
+            await Assert.That(email.Text).Contains("Hola Ana. Se pidió cambiar el email de tu cuenta a n***@example.com.");
+            await Assert.That(email.Text).Contains("Si no fuiste vos, cambiá tu contraseña ahora");
+        }
+    }
+
+    [Test]
+    [Arguments("", false)]
+    [Arguments("no-at-sign", false)]
+    [Arguments("n***@exa mple.com", false)]
+    [Arguments("n***@https://example.com", false)]
+    [Arguments("n***@example.com", true)]
+    public async Task The_masked_address_must_look_like_one_and_carry_no_link(string masked, bool valid)
+    {
+        // Arrange
+        var payload = new EmailChangeRequestedPayload("ana@example.com", "es-AR", "Ana", masked);
+
+        // Act
+        var invalid = payload.InvalidFields();
+
+        // Assert
+        await Assert.That(invalid.Count == 0).IsEqualTo(valid);
+    }
+
+    [Test]
+    public async Task The_notice_payloads_print_no_personal_data()
+    {
+        // Act
+        var printed = new RegistrationAttemptedPayload("ana@example.com", "es-AR") + " "
+            + new EmailChangeRequestedPayload("ana@example.com", "es-AR", "Ana", "n***@example.com");
+
+        // Assert
+        await Assert.That(printed).DoesNotContain("ana@").And.DoesNotContain("Ana ").And.DoesNotContain("example.com");
     }
 
     [Test]

@@ -114,6 +114,79 @@ public sealed class LayeringTests
     }
 
     [Test]
+    public async Task The_Identity_producer_reaches_Identity_only_through_its_contracts_ARCH_05()
+    {
+        // Arrange
+        var producer = typeof(Frappe.Notifications.Producers.Identity.IdentityProducerModule).Assembly;
+
+        // Act
+        var identityReferences = producer.GetReferencedAssemblies()
+            .Select(reference => reference.Name ?? string.Empty)
+            .Where(name => name.StartsWith("Frappe.Identity.", StringComparison.Ordinal))
+            .ToList();
+
+        // Assert
+        await Assert.That(identityReferences).IsEquivalentTo(["Frappe.Identity.Contracts"]);
+    }
+
+    [Test]
+    public async Task Notifications_core_and_its_plug_ins_other_than_a_producer_know_nothing_about_Identity()
+    {
+        // Arrange
+        List<System.Reflection.Assembly> assemblies =
+            [NotificationsHttp, NotificationsInfrastructure, typeof(Frappe.Notifications.Kinds.Account.AccountKindsModule).Assembly];
+        for (var index = 0; index < assemblies.Count; index++)
+        {
+            foreach (var reference in assemblies[index].GetReferencedAssemblies())
+            {
+                if (reference.Name is { } name
+                    && name.StartsWith("Frappe.Notifications.", StringComparison.Ordinal)
+                    && !name.StartsWith("Frappe.Notifications.Producers.", StringComparison.Ordinal)
+                    && assemblies.TrueForAll(known => known.GetName().Name != name))
+                {
+                    assemblies.Add(System.Reflection.Assembly.Load(reference));
+                }
+            }
+        }
+
+        // Act
+        var identityReferences = assemblies
+            .SelectMany(assembly => assembly.GetReferencedAssemblies())
+            .Select(reference => reference.Name ?? string.Empty)
+            .Where(name => name.StartsWith("Frappe.Identity.", StringComparison.Ordinal))
+            .ToList();
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(assemblies.Select(assembly => assembly.GetName().Name))
+                .Contains("Frappe.Notifications.Domain").And.Contains("Frappe.Notifications.Kinds.Account");
+            await Assert.That(identityReferences).IsEmpty();
+        }
+    }
+
+    [Test]
+    [Arguments("Frappe.Identity.Domain")]
+    [Arguments("Frappe.Identity.Application")]
+    [Arguments("Frappe.Identity.Contracts")]
+    [Arguments("Frappe.Identity.Infrastructure")]
+    [Arguments("Frappe.Identity.Http")]
+    public async Task Identity_knows_nothing_about_Notifications(string assemblyName)
+    {
+        // Arrange
+        var assembly = System.Reflection.Assembly.Load(assemblyName);
+
+        // Act
+        var notificationsReferences = assembly.GetReferencedAssemblies()
+            .Select(reference => reference.Name ?? string.Empty)
+            .Where(name => name.StartsWith("Frappe.Notifications.", StringComparison.Ordinal))
+            .ToList();
+
+        // Assert
+        await Assert.That(notificationsReferences).IsEmpty();
+    }
+
+    [Test]
     public async Task Http_serves_use_cases_without_reaching_the_databases_the_broker_or_the_scheduler()
     {
         // Act

@@ -1,0 +1,6 @@
+El email de tu cuenta puede cambiar
+
+Hola Ana. Se pidió cambiar el email de tu cuenta a n***@example.com. Hasta que se confirme, seguís entrando con este email.
+
+--
+Si no fuiste vos, cambiá tu contraseña ahora: se cierran todas tus otras sesiones.

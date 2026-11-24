@@ -1,0 +1,6 @@
+Alguien usó tu correo para registrarse
+
+Alguien intentó crear una cuenta de Frappé con tu correo, pero ya tienes una. Si fuiste tú, inicia sesión o restablece tu contraseña.
+
+--
+Si no fuiste tú, ignora este correo: tu cuenta y tu contraseña siguen igual.

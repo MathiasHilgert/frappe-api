@@ -1,0 +1,6 @@
+Your account email may change
+
+Hi Ana. A change of your account email to n***@example.com was requested. Until it is confirmed, you keep signing in with this email.
+
+--
+If it was not you, change your password now: it closes every other session.
