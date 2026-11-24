@@ -38,7 +38,14 @@ internal sealed class IdentityIntegrationEvents : IIntegrationEventTranslator
         OwnerVerified verified => [new PublishedOwners.OwnerVerified(verified.OwnerId, verified.At.ToDateTimeOffset())],
         OwnerEmailChangeRequested requested => [new PublishedOwners.OwnerEmailChangeRequested(
             requested.OwnerId, requested.OldEmail, requested.NewEmailMasked, requested.Language, requested.Name, requested.At.ToDateTimeOffset())],
-        OwnerEmailChanged changed => [new PublishedOwners.OwnerEmailChanged(changed.OwnerId, changed.At.ToDateTimeOffset())],
+        OwnerEmailChanged changed => [new PublishedOwners.OwnerEmailChanged(changed.OwnerId, changed.At.ToDateTimeOffset())
+        {
+            OldEmail = changed.OldEmail,
+            UndoToken = changed.UndoToken,
+            Name = changed.Name,
+            Language = changed.Language,
+        }],
+        OwnerEmailChangeUndone undone => [new PublishedOwners.OwnerEmailChangeUndone(undone.OwnerId, undone.At.ToDateTimeOffset())],
         _ => [],
     };
 }

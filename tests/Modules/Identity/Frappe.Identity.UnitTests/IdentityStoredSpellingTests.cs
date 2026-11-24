@@ -52,14 +52,14 @@ public sealed class IdentityStoredSpellingTests
     }
 
     [Test]
-    public async Task RevocationReason_is_stored_as_its_six_reasons()
+    public async Task RevocationReason_is_stored_as_its_seven_reasons()
     {
         // Act
         var list = StoredEnum<RevocationReason>.CheckList;
 
         // Assert
         await Assert.That(list).IsEqualTo(
-            "'logout', 'revoked_by_holder', 'others_revoked', 'password_changed', 'password_reset', 'email_changed'");
+            "'logout', 'revoked_by_holder', 'others_revoked', 'password_changed', 'password_reset', 'email_changed', 'email_change_undone'");
     }
 
     [Test]

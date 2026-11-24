@@ -8,6 +8,22 @@ CREATE TABLE identity.__ef_migrations_history (
     "ProductVersion" character varying(32) NOT NULL
 );
 
+CREATE TABLE identity.email_change_undos (
+    id uuid NOT NULL,
+    principal_id uuid NOT NULL,
+    old_address character varying(254) NOT NULL,
+    new_address character varying(254) NOT NULL,
+    token_hmac bytea NOT NULL,
+    issued_at timestamp with time zone NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    redeemed_at timestamp with time zone,
+    invalidated_at timestamp with time zone,
+    CONSTRAINT ck_email_change_undos_expires_after_issued CHECK ((expires_at > issued_at)),
+    CONSTRAINT ck_email_change_undos_invalidated_after_issued CHECK (((invalidated_at IS NULL) OR (invalidated_at >= issued_at))),
+    CONSTRAINT ck_email_change_undos_redeemed_in_window CHECK (((redeemed_at IS NULL) OR ((redeemed_at >= issued_at) AND (redeemed_at <= expires_at)))),
+    CONSTRAINT ck_email_change_undos_token_hmac_length CHECK ((octet_length(token_hmac) = 32))
+);
+
 CREATE TABLE identity.email_identifiers (
     id uuid NOT NULL,
     principal_id uuid NOT NULL,
@@ -113,20 +129,23 @@ CREATE TABLE identity.sessions (
     ip_prefix cidr,
     step_up_until timestamp with time zone,
     revoked_at timestamp with time zone,
-    revocation_reason character varying(17),
+    revocation_reason character varying(19),
     CONSTRAINT ck_sessions_audience CHECK (((audience)::text = 'console'::text)),
     CONSTRAINT ck_sessions_ended_after_revoked CHECK ((ended_at >= revoked_at)),
     CONSTRAINT ck_sessions_idle_within_absolute CHECK ((idle_expires_at <= absolute_expires_at)),
     CONSTRAINT ck_sessions_ip_prefix CHECK (((ip_prefix IS NULL) OR ((family((ip_prefix)::inet) = 4) AND (masklen((ip_prefix)::inet) = 24)) OR ((family((ip_prefix)::inet) = 6) AND (masklen((ip_prefix)::inet) = 48)))),
     CONSTRAINT ck_sessions_methods CHECK (((methods <@ ARRAY['pwd'::text]) AND (cardinality(methods) > 0))),
     CONSTRAINT ck_sessions_revocation_pair CHECK (((revoked_at IS NULL) = (revocation_reason IS NULL))),
-    CONSTRAINT ck_sessions_revocation_reason CHECK (((revocation_reason)::text = ANY ((ARRAY['logout'::character varying, 'revoked_by_holder'::character varying, 'others_revoked'::character varying, 'password_changed'::character varying, 'password_reset'::character varying, 'email_changed'::character varying])::text[]))),
+    CONSTRAINT ck_sessions_revocation_reason CHECK (((revocation_reason)::text = ANY ((ARRAY['logout'::character varying, 'revoked_by_holder'::character varying, 'others_revoked'::character varying, 'password_changed'::character varying, 'password_reset'::character varying, 'email_changed'::character varying, 'email_change_undone'::character varying])::text[]))),
     CONSTRAINT ck_sessions_seen_after_opened CHECK ((opened_at <= last_seen_at)),
     CONSTRAINT ck_sessions_token_hash_length CHECK ((octet_length(token_hash) = 32))
 );
 
 ALTER TABLE ONLY identity.__ef_migrations_history
     ADD CONSTRAINT "PK___ef_migrations_history" PRIMARY KEY ("MigrationId");
+
+ALTER TABLE ONLY identity.email_change_undos
+    ADD CONSTRAINT pk_email_change_undos PRIMARY KEY (id);
 
 ALTER TABLE ONLY identity.email_identifiers
     ADD CONSTRAINT pk_email_identifiers PRIMARY KEY (id);
@@ -152,6 +171,8 @@ ALTER TABLE ONLY identity.principals
 ALTER TABLE ONLY identity.sessions
     ADD CONSTRAINT pk_sessions PRIMARY KEY (id);
 
+CREATE INDEX ix_email_change_undos_expires_at ON identity.email_change_undos USING btree (expires_at);
+
 CREATE INDEX ix_inbox_messages_received_at ON identity.inbox_messages USING btree (received_at);
 
 CREATE INDEX ix_one_time_codes_expires_at ON identity.one_time_codes USING btree (expires_at);
@@ -168,6 +189,8 @@ CREATE INDEX ix_sessions_ended_at ON identity.sessions USING btree (ended_at) WH
 
 CREATE INDEX ix_sessions_principal_id ON identity.sessions USING btree (principal_id);
 
+CREATE UNIQUE INDEX ux_email_change_undos_live ON identity.email_change_undos USING btree (principal_id, old_address, new_address) WHERE ((redeemed_at IS NULL) AND (invalidated_at IS NULL));
+
 CREATE UNIQUE INDEX ux_email_identifiers_normalized_address ON identity.email_identifiers USING btree (normalized_address);
 
 CREATE UNIQUE INDEX ux_email_identifiers_principal_id ON identity.email_identifiers USING btree (principal_id);
@@ -175,6 +198,9 @@ CREATE UNIQUE INDEX ux_email_identifiers_principal_id ON identity.email_identifi
 CREATE UNIQUE INDEX ux_one_time_codes_live ON identity.one_time_codes USING btree (principal_id, purpose) WHERE ((redeemed_at IS NULL) AND (invalidated_at IS NULL));
 
 CREATE UNIQUE INDEX ux_sessions_token_hash ON identity.sessions USING btree (token_hash);
+
+ALTER TABLE ONLY identity.email_change_undos
+    ADD CONSTRAINT fk_email_change_undos_principal_id FOREIGN KEY (principal_id) REFERENCES identity.principals(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY identity.email_identifiers
     ADD CONSTRAINT fk_email_identifiers_principal_id FOREIGN KEY (principal_id) REFERENCES identity.principals(id) ON DELETE CASCADE;
@@ -193,6 +219,8 @@ ALTER TABLE ONLY identity.sessions
 
 GRANT USAGE ON SCHEMA identity TO frappe_identity;
 GRANT USAGE ON SCHEMA identity TO frappe_identity_worker;
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE identity.email_change_undos TO frappe_identity;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE identity.email_identifiers TO frappe_identity;
 

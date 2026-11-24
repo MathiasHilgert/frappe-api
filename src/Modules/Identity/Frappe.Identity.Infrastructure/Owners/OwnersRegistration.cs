@@ -31,6 +31,7 @@ internal static class OwnersRegistration
             services.TryAddScoped<IEmailIdentifiers, EfEmailIdentifiers>();
             services.TryAddScoped<IPasswordCredentials, EfPasswordCredentials>();
             services.TryAddScoped<IOwners, EfOwners>();
+            services.TryAddScoped<AddressClaim>();
             services.TryAddScoped<IOwnerReads, EfOwnerReads>();
             services.CountOnCommit<OwnerRegistered, IdentityMetrics>((metrics, registered) =>
                 metrics.Registered(registered.Replaced ? RegistrationOutcome.Replaced : RegistrationOutcome.Created));

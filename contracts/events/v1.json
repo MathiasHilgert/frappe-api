@@ -105,6 +105,38 @@
         }
       }
     },
+    "/frappe.identity.owner_email_change_undone.v1": {
+      "get": {
+        "operationId": "OwnerEmailChangeUndone",
+        "summary": "Payload (CloudEvents data) of frappe.identity.owner_email_change_undone.v1",
+        "responses": {
+          "200": {
+            "description": "Frappe.Identity.Contracts.Owners.OwnerEmailChangeUndone",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ownerId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "occurredAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "ownerId",
+                    "occurredAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/frappe.identity.owner_email_changed.v1": {
       "get": {
         "operationId": "OwnerEmailChanged",
@@ -124,6 +156,30 @@
                     "occurredAt": {
                       "type": "string",
                       "format": "date-time"
+                    },
+                    "oldEmail": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "undoToken": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "name": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "language": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [

@@ -10,8 +10,9 @@ namespace Frappe.Identity.Infrastructure.Persistence.Migrations;
 
 /// <summary>
 /// Creates the module's schema with its tables: <c>principals</c>, <c>email_identifiers</c>, <c>password_credentials</c>, <c>sessions</c>,
-/// <c>one_time_codes</c> and <c>owners</c>, and the outbox and inbox every module owns. Everything is new, so the CHECKs and indexes are built
-/// with the tables: there is no existing row to scan and no live reader to block, and it takes no lock on any table that already exists. Not
+/// <c>one_time_codes</c>, <c>email_change_undos</c> and <c>owners</c>, and the outbox and inbox every module owns. Everything is new, so the
+/// CHECKs and indexes are built with the tables: there is no existing row to scan and no live reader to block, and it takes no lock on any
+/// table that already exists. Not
 /// rerunnable after a partial failure by itself (the migration runs in one transaction, so a failure leaves nothing). Rollout class:
 /// rolling-safe, since no binary reads these tables before the Migrator has created them.
 /// </summary>
@@ -146,6 +147,40 @@ public partial class CreateIdentitySchema : Migration
             });
 
         migrationBuilder.CreateTable(
+            name: "email_change_undos",
+            schema: "identity",
+            columns: table => new
+            {
+                id = table.Column<Guid>(type: "uuid", nullable: false),
+                principal_id = table.Column<Guid>(type: "uuid", nullable: false),
+                old_address = table.Column<string>(type: "character varying(254)", maxLength: 254, nullable: false),
+                new_address = table.Column<string>(type: "character varying(254)", maxLength: 254, nullable: false),
+                token_hmac = table.Column<byte[]>(type: "bytea", nullable: false),
+                issued_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                expires_at = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                redeemed_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
+                invalidated_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
+                xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false)
+            },
+            constraints: table =>
+            {
+                table.PrimaryKey("pk_email_change_undos", x => x.id);
+                table.CheckConstraint("ck_email_change_undos_expires_after_issued", "expires_at > issued_at");
+                table.CheckConstraint("ck_email_change_undos_invalidated_after_issued", "invalidated_at IS NULL OR invalidated_at >= issued_at");
+                table.CheckConstraint(
+                    "ck_email_change_undos_redeemed_in_window",
+                    "redeemed_at IS NULL OR (redeemed_at >= issued_at AND redeemed_at <= expires_at)");
+                table.CheckConstraint("ck_email_change_undos_token_hmac_length", "octet_length(token_hmac) = 32");
+                table.ForeignKey(
+                    name: "fk_email_change_undos_principal_id",
+                    column: x => x.principal_id,
+                    principalSchema: "identity",
+                    principalTable: "principals",
+                    principalColumn: "id",
+                    onDelete: ReferentialAction.Cascade);
+            });
+
+        migrationBuilder.CreateTable(
             name: "owners",
             schema: "identity",
             columns: table => new
@@ -211,7 +246,7 @@ public partial class CreateIdentitySchema : Migration
                 ip_prefix = table.Column<IPNetwork>(type: "cidr", nullable: true),
                 step_up_until = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                 revoked_at = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
-                revocation_reason = table.Column<string>(type: "character varying(17)", maxLength: 17, nullable: true)
+                revocation_reason = table.Column<string>(type: "character varying(19)", maxLength: 19, nullable: true)
             },
             constraints: table =>
             {
@@ -228,7 +263,7 @@ public partial class CreateIdentitySchema : Migration
                 table.CheckConstraint(
                     "ck_sessions_revocation_reason",
                     "revocation_reason IN ('logout', 'revoked_by_holder', 'others_revoked', 'password_changed', " +
-                    "'password_reset', 'email_changed')");
+                    "'password_reset', 'email_changed', 'email_change_undone')");
                 table.CheckConstraint("ck_sessions_seen_after_opened", "opened_at <= last_seen_at");
                 table.CheckConstraint("ck_sessions_token_hash_length", "octet_length(token_hash) = 32");
                 table.ForeignKey(
@@ -259,6 +294,20 @@ public partial class CreateIdentitySchema : Migration
             schema: "identity",
             table: "inbox_messages",
             column: "received_at");
+
+        migrationBuilder.CreateIndex(
+            name: "ix_email_change_undos_expires_at",
+            schema: "identity",
+            table: "email_change_undos",
+            column: "expires_at");
+
+        migrationBuilder.CreateIndex(
+            name: "ux_email_change_undos_live",
+            schema: "identity",
+            table: "email_change_undos",
+            columns: new[] { "principal_id", "old_address", "new_address" },
+            unique: true,
+            filter: "redeemed_at IS NULL AND invalidated_at IS NULL");
 
         migrationBuilder.CreateIndex(
             name: "ix_one_time_codes_expires_at",
@@ -332,6 +381,10 @@ public partial class CreateIdentitySchema : Migration
 
         migrationBuilder.DropTable(
             name: "inbox_messages",
+            schema: "identity");
+
+        migrationBuilder.DropTable(
+            name: "email_change_undos",
             schema: "identity");
 
         migrationBuilder.DropTable(

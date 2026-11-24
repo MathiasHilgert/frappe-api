@@ -120,8 +120,19 @@ public sealed class Owner : AggregateRoot
         Raise(new OwnerEmailChangeRequested(PrincipalId, oldAddress, newEmail.Masked, MailedName, Locale.Value, now));
     }
 
-    /// <summary>Records that the owner confirmed the new address at <paramref name="now"/> and it replaced the old one (S15).</summary>
-    public void RecordEmailChanged(Instant now) => Raise(new OwnerEmailChanged(PrincipalId, now));
+    /// <summary>
+    /// Records that the owner confirmed the new address at <paramref name="now"/> and it replaced <paramref name="oldAddress"/> (S15): the old
+    /// address is told, with the plain text of the <paramref name="undoToken"/> that restores it.
+    /// </summary>
+    public void RecordEmailChanged(string oldAddress, string undoToken, Instant now)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(oldAddress);
+        ArgumentException.ThrowIfNullOrWhiteSpace(undoToken);
+        Raise(new OwnerEmailChanged(PrincipalId, oldAddress, undoToken, MailedName, Locale.Value, now));
+    }
+
+    /// <summary>Records that the earlier address was restored from the notice at <paramref name="now"/> (S15).</summary>
+    public void RecordEmailChangeUndone(Instant now) => Raise(new OwnerEmailChangeUndone(PrincipalId, now));
 
     /// <summary>Records that somebody tried to register this verified owner's address; the owner gets a notice in their language (S3).</summary>
     public void RecordRegistrationAttempted(string email, Instant now)

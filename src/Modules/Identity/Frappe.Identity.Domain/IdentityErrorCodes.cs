@@ -23,6 +23,12 @@ public static class IdentityErrorCodes
     /// <summary>A code was asked for more often than the budget of its purpose allows (parameter <c>retryAfter</c>, in seconds).</summary>
     public const string CodeSendLimited = "identity.code.send_limited";
 
+    /// <summary>
+    /// An undo token did not redeem: malformed, unknown, wrong, expired, used, superseded, or its old address is held by another owner now. One
+    /// answer for all of them, so the caller learns nothing.
+    /// </summary>
+    public const string UndoInvalid = "identity.undo.invalid";
+
     /// <summary>The counter of wrong guesses could not be reached, so no guess is judged: a limit that guards a secret fails closed.</summary>
     public const string AttemptsUnavailable = "identity.attempts.unavailable";
 

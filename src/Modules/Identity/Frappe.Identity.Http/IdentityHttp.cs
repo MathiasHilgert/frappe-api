@@ -27,6 +27,9 @@ public sealed class IdentityHttp : IHttpModule
     /// <summary>The rate-limit policy of password reset requests and confirmations per client address, with its own budget.</summary>
     public const string PasswordResetRateLimitPolicy = "Identity:PasswordReset:RateLimit";
 
+    /// <summary>The rate-limit policy of the undo of an email change per client address, with its own budget.</summary>
+    public const string EmailChangeUndoRateLimitPolicy = "Identity:EmailChangeUndo:RateLimit";
+
     private const string Prefix = "/identity";
 
     /// <summary>
@@ -47,6 +50,12 @@ public sealed class IdentityHttp : IHttpModule
     /// </summary>
     private static readonly AnonymousRateLimit PasswordResetRateLimit = new(10, TimeSpan.FromMinutes(1));
 
+    /// <summary>
+    /// What one client address may ask of the undo route per window by default (<c>Identity:EmailChangeUndo:RateLimit:PermitLimit</c> and
+    /// <c>Window</c> change it): a hit that works revokes every session and writes much, so the budget is well below the anonymous one.
+    /// </summary>
+    private static readonly AnonymousRateLimit EmailChangeUndoRateLimit = new(10, TimeSpan.FromMinutes(1));
+
     /// <inheritdoc />
     public void AddServices(IServiceCollection services)
     {
@@ -56,6 +65,7 @@ public sealed class IdentityHttp : IHttpModule
         services.AddFrappeRateLimitPolicy(RegistrationRateLimitPolicy, RegistrationRateLimitPolicy, RegistrationRateLimit);
         services.AddFrappeRateLimitPolicy(LogInRateLimitPolicy, LogInRateLimitPolicy, LogInRateLimit);
         services.AddFrappeRateLimitPolicy(PasswordResetRateLimitPolicy, PasswordResetRateLimitPolicy, PasswordResetRateLimit);
+        services.AddFrappeRateLimitPolicy(EmailChangeUndoRateLimitPolicy, EmailChangeUndoRateLimitPolicy, EmailChangeUndoRateLimit);
         services.AddSessionAuthentication();
         services.AddOwnerPolicy();
     }
@@ -73,5 +83,6 @@ public sealed class IdentityHttp : IHttpModule
         identity.MapPasswordChangeEndpoints();
         identity.MapPasswordResetEndpoints();
         identity.MapEmailChangeEndpoints();
+        identity.MapEmailChangeUndoEndpoints();
     }
 }

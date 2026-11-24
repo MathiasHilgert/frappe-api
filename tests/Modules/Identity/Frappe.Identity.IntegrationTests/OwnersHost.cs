@@ -12,6 +12,7 @@ using Frappe.Identity.Application.Owners.RequestEmailChange;
 using Frappe.Identity.Application.Owners.RequestPasswordReset;
 using Frappe.Identity.Application.Owners.ResendOwnerVerification;
 using Frappe.Identity.Application.Owners.ResetPassword;
+using Frappe.Identity.Application.Owners.UndoEmailChange;
 using Frappe.Identity.Application.Owners.UpdateMe;
 using Frappe.Identity.Application.Owners.VerifyOwnerEmail;
 using Frappe.Identity.Application.Sessions;
@@ -202,6 +203,13 @@ internal sealed class OwnersHost : IAsyncDisposable
         await using var scope = _provider.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<ICommandHandler<ConfirmEmailChange, Unit>>()
             .HandleAsync(new ConfirmEmailChange(principalId, sessionId, changeId, code, System.Net.IPAddress.Parse(client)), default);
+    }
+
+    public async Task<Result<Unit>> UndoEmailChangeAsync(string? token)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<ICommandHandler<UndoEmailChange, Unit>>()
+            .HandleAsync(new UndoEmailChange(token), default);
     }
 
     /// <summary>Whether the token of <paramref name="session"/> still lets its holder in, as the authentication of every request decides.</summary>
