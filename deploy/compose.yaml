@@ -93,6 +93,8 @@ services:
       ConnectionStrings__Valkey: valkey:6379
       ConnectionStrings__Identity: Host=postgres;Database=frappe;Username=frappe_identity;Password=${FRAPPE_IDENTITY_PASSWORD:?set it in .env}
       ConnectionStrings__Notifications: Host=postgres;Database=frappe;Username=frappe_notifications;Password=${FRAPPE_NOTIFICATIONS_PASSWORD:?set it in .env}
+      # The key one-time codes are hashed with (S5): only the Api issues and redeems codes.
+      Identity__Codes__Key: ${FRAPPE_IDENTITY_CODE_KEY:?set it in .env}
       # The key addresses are hashed with (S12, S13); CurrentKeyId names it, and a rotation adds a key and moves the id.
       Notifications__AddressHash__CurrentKeyId: "1"
       Notifications__AddressHash__Keys__1: ${FRAPPE_NOTIFICATIONS_ADDRESS_HASH_KEY:?set it in .env}

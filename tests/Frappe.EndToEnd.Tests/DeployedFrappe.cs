@@ -31,6 +31,9 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
     /// <summary>A local-only signing secret (base64) for the throwaway deployment's Resend webhook; it protects nothing.</summary>
     private const string UnsubscribeKey = "bG9jYWwtb25seS11bnN1YnNjcmliZS1zaWduaW5nLWtleSEh";
 
+    /// <summary>A local-only one-time code hashing key (base64, 39 bytes) for the throwaway deployment; it protects nothing.</summary>
+    private const string CodeKey = "bG9jYWwtb25seS1jb2RlLWhhc2gta2V5LW9mLTM5LWJ5dGVzISEh";
+
     private const string WebhookSigning = "bG9jYWwtb25seS1yZXNlbmQtd2ViaG9vay1zaWduaW5nLXNlY3JldCEh";
 
     private const string ValkeyImage = "valkey/valkey:8-alpine";
@@ -114,6 +117,7 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
             .WithEnvironment("Notifications__AddressHash__Keys__1", AddressHashKey)
             .WithEnvironment("Notifications__Email__Resend__WebhookSecret", WebhookSigning)
             .WithEnvironment("Notifications__Unsubscribe__SigningKey", UnsubscribeKey)
+            .WithEnvironment("Identity__Codes__Key", CodeKey)
             .WithPortBinding(8080, true)
             .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => r.ForPort(8080).ForPath("/health/live"), Bounded))
             .Build());

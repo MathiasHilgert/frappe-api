@@ -193,6 +193,37 @@ public sealed class ApiHostTests
     }
 
     [Test]
+    public async Task The_Api_with_its_real_module_lists_and_no_code_hash_key_fails_the_start_naming_its_key()
+    {
+        // Arrange
+        var settings = new Dictionary<string, string?>(ApiHost.Deployed);
+        settings.Remove("Identity:Codes:Key");
+
+        // Act
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ApiHost.StartAsync(Modules.Services, Modules.Endpoints, settings));
+
+        // Assert
+        await Assert.That(thrown?.Message).Contains("Identity:Codes:Key");
+    }
+
+    [Test]
+    public async Task The_Api_with_its_real_module_lists_composes_the_code_services_over_the_valkey_limiter()
+    {
+        // Arrange
+        await using var app = await ApiHost.StartAsync(Modules.Services, Modules.Endpoints, new Dictionary<string, string?>(ApiHost.Deployed));
+        using var scope = app.Services.CreateScope();
+
+        // Act
+        var services = (
+            scope.ServiceProvider.GetRequiredService<Frappe.Identity.Application.Codes.CodeIssuer>(),
+            scope.ServiceProvider.GetRequiredService<Frappe.Identity.Application.Codes.CodeRedeemer>(),
+            app.Services.GetRequiredService<Frappe.Identity.Application.Limits.IAttemptLimiter>().GetType().Name);
+
+        // Assert
+        await Assert.That(services.Item3).IsEqualTo("ValkeyAttemptLimiter");
+    }
+
+    [Test]
     public async Task The_Api_with_its_real_module_lists_and_no_webhook_secret_fails_the_start_naming_its_key()
     {
         // Arrange

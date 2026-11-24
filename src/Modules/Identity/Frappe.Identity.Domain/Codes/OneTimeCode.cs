@@ -1,4 +1,5 @@
 using Frappe.Aggregates;
+using Frappe.Results;
 using NodaTime;
 
 // EF Core materializes the aggregate through its private constructor and setters.
@@ -17,7 +18,7 @@ public sealed class OneTimeCode : AggregateRoot
         CodeHmac = null!;
     }
 
-    private OneTimeCode(Guid id, Guid principalId, CodePurpose purpose, string target, byte[] codeHmac, Instant now, Duration lifetime)
+    private OneTimeCode(Guid id, Guid principalId, CodePurpose purpose, string target, CodeHmac codeHmac, Instant now, Duration lifetime)
     {
         Id = id;
         PrincipalId = principalId;
@@ -27,6 +28,9 @@ public sealed class OneTimeCode : AggregateRoot
         IssuedAt = now;
         ExpiresAt = now + lifetime;
     }
+
+    /// <summary>How long a code can be redeemed after it was issued (S5).</summary>
+    public static readonly Duration Lifetime = Duration.FromMinutes(15);
 
     /// <summary>UUIDv7 made by the application (DATA-02).</summary>
     public Guid Id { get; private set; }
@@ -39,7 +43,7 @@ public sealed class OneTimeCode : AggregateRoot
     public string Target { get; private set; }
 
     /// <summary>The HMAC-SHA256 of the code under the configured key.</summary>
-    public byte[] CodeHmac { get; private set; }
+    public CodeHmac CodeHmac { get; private set; }
 
     public Instant IssuedAt { get; private set; }
 
@@ -54,10 +58,46 @@ public sealed class OneTimeCode : AggregateRoot
     /// A code of <paramref name="purpose"/> for <paramref name="principalId"/>, valid for <paramref name="lifetime"/> from <paramref name="now"/>.
     /// </summary>
     public static OneTimeCode Issue(
-        Guid principalId, CodePurpose purpose, string target, byte[] codeHmac, Instant now, Duration lifetime)
+        Guid principalId, CodePurpose purpose, string target, CodeHmac codeHmac, Instant now, Duration lifetime)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(target);
         ArgumentNullException.ThrowIfNull(codeHmac);
         return new OneTimeCode(Guid.CreateVersion7(), principalId, purpose, target, codeHmac, now, lifetime);
+    }
+
+    /// <summary>
+    /// Whether the code still holds the principal's live slot: neither redeemed nor invalidated, whatever the time. It is the predicate of the
+    /// unique index, so an expired code nobody redeemed still holds the slot until a newer one invalidates it.
+    /// </summary>
+    public bool HoldsLiveSlot => RedeemedAt is null && InvalidatedAt is null;
+
+    /// <summary>Whether the code can be redeemed at <paramref name="now"/>: it holds the live slot and has not expired.</summary>
+    public bool IsLive(Instant now) => HoldsLiveSlot && now < ExpiresAt;
+
+    /// <summary>
+    /// Makes the code useless without redeeming it, because a newer one replaces it (or a change of state made it moot). A code that was
+    /// redeemed or invalidated already stays as it was.
+    /// </summary>
+    public void Invalidate(Instant now)
+    {
+        if (HoldsLiveSlot)
+        {
+            InvalidatedAt = Instant.Max(now, IssuedAt);
+        }
+    }
+
+    /// <summary>
+    /// Spends the code at <paramref name="now"/>, once. A code that expired, was redeemed or was invalidated answers
+    /// <see cref="IdentityErrorCodes.CodeInvalid"/>, whichever it was: the caller never learns which.
+    /// </summary>
+    public Result<Unit> Redeem(Instant now)
+    {
+        if (!IsLive(now))
+        {
+            return Error.RuleViolation(IdentityErrorCodes.CodeInvalid);
+        }
+
+        RedeemedAt = Instant.Max(now, IssuedAt);
+        return Unit.Value;
     }
 }
