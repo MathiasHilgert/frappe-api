@@ -59,7 +59,8 @@ product code itself.
 2. **Design review and plan** (`references/plan.md`): write `odd/tasks/<feature>.md`, run the design critics, fix the design, set each task's profile,
    contract and QA flags, split into waves and PRs within the budget; show the TL briefing (`references/briefing.md`); wait for go.
 3. **Prepare**: per chain (or per wave task) `git worktree add ../frappe-api-worktrees/<slug> -b <type>/<slug> origin/main`, then `gentle-ai codegraph
-   init --cwd <worktree>`.
+   init --cwd <worktree>`. Once per clone, install `scripts/hooks/commit-msg` as `$(git rev-parse --git-common-dir)/hooks/commit-msg`:
+   subagents get an attribution instruction from the harness, and CI rejects those trailers.
 4. **Launch** `Workflow({ scriptPath: "<repo>/.agents/skills/forge/assets/forge.workflow.js", args })` with `deferQa: true`, `kinds` on every task,
    and `lensStats` and `suppressions` from Engram (`references/plan.md`). Critics review blind (specs and code, never the writer's story), list what
    they ruled out, and a critic that fails is retried once and never counts as zero findings. End the turn; resume on its notification. Roles you
