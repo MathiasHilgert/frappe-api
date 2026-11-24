@@ -63,6 +63,15 @@ public sealed class IdentityMetrics
     /// <summary>The flow tag of <see cref="LimiterUnavailableMetric"/>: the name of a declared limit flow, a small fixed set.</summary>
     public const string FlowTag = "frappe.flow";
 
+    /// <summary>Counter: sessions the sweep ended, by reason (<c>idle</c>, <c>absolute</c> or <c>revoked</c>).</summary>
+    public const string SessionsEndedMetric = "frappe.identity.sessions.ended";
+
+    /// <summary>Counter: rows the retention purge deleted, by target (<c>sessions</c>, <c>owners</c> or <c>codes</c>).</summary>
+    public const string PurgedMetric = "frappe.identity.purged";
+
+    /// <summary>The target tag of <see cref="PurgedMetric"/>: the kind of data purged, a small fixed set.</summary>
+    public const string TargetTag = "frappe.target";
+
     /// <summary>The outcome tag every module uses (OBS-04).</summary>
     public const string OutcomeTag = "frappe.outcome";
 
@@ -78,6 +87,8 @@ public sealed class IdentityMetrics
     private readonly Counter<long> _passwordChanges;
     private readonly Counter<long> _sessionsRevoked;
     private readonly Counter<long> _stepUps;
+    private readonly Counter<long> _sessionsEnded;
+    private readonly Counter<long> _purged;
 
     public IdentityMetrics(IMeterFactory meters)
     {
@@ -104,6 +115,8 @@ public sealed class IdentityMetrics
         _sessionsRevoked = meter.CreateCounter<long>(
             SessionsRevokedMetric, unit: "{session}", description: "Sessions revoked, by reason.");
         _stepUps = meter.CreateCounter<long>(StepUpsMetric, unit: "{step-up}", description: "Step-ups, by outcome.");
+        _sessionsEnded = meter.CreateCounter<long>(SessionsEndedMetric, unit: "{session}", description: "Sessions the sweep ended, by reason.");
+        _purged = meter.CreateCounter<long>(PurgedMetric, unit: "{row}", description: "Rows the retention purge deleted, by target.");
     }
 
     /// <summary>A password was hashed or verified in <paramref name="elapsed"/>.</summary>
@@ -142,6 +155,12 @@ public sealed class IdentityMetrics
 
     /// <summary>A session was revoked for <paramref name="reason"/> (the name its stored form uses).</summary>
     public void SessionRevoked(string reason) => _sessionsRevoked.Add(1, new KeyValuePair<string, object?>(ReasonTag, reason));
+    /// <summary>The sweep ended <paramref name="count"/> sessions for <paramref name="reason"/> and committed.</summary>
+    public void SessionsEnded(string reason, long count) =>
+        _sessionsEnded.Add(count, new KeyValuePair<string, object?>(ReasonTag, reason));
+
+    /// <summary>The purge deleted <paramref name="rows"/> rows of <paramref name="target"/> and committed.</summary>
+    public void Purged(string target, long rows) => _purged.Add(rows, new KeyValuePair<string, object?>(TargetTag, target));
 
     /// <summary>A one-time code was issued for <paramref name="purpose"/> (the name its stored form uses).</summary>
     public void CodeIssued(string purpose) => _codesIssued.Add(1, new KeyValuePair<string, object?>(PurposeTag, purpose));

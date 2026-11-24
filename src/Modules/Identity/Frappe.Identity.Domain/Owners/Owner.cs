@@ -161,4 +161,15 @@ public sealed class Owner : AggregateRoot
         ArgumentNullException.ThrowIfNull(locale);
         Locale = locale;
     }
+
+    /// <summary>
+    /// A pending owner the purge deleted at <paramref name="now"/>, known only by its id (the Worker's role reads no name): it raises the
+    /// fact (S16, S17) and is tracked only so the fact reaches the outbox in the same transaction as the delete; it is never saved.
+    /// </summary>
+    public static Owner PurgedPending(Guid principalId, Instant now)
+    {
+        var owner = new Owner { PrincipalId = principalId };
+        owner.Raise(new OwnerPendingPurged(principalId, now));
+        return owner;
+    }
 }

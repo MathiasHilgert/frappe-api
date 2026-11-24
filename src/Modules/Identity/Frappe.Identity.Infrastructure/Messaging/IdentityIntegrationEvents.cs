@@ -29,6 +29,9 @@ internal sealed class IdentityIntegrationEvents : IIntegrationEventTranslator
             stepped.PrincipalId, stepped.SessionId, stepped.ValidUntil.ToDateTimeOffset(), stepped.At.ToDateTimeOffset())],
         PasswordChanged changed => [new PublishedCredentials.PasswordChanged(changed.PrincipalId, changed.At.ToDateTimeOffset())],
         PasswordReset reset => [new PublishedCredentials.PasswordReset(reset.PrincipalId, reset.At.ToDateTimeOffset())],
+        SessionEnded ended => [new Published.SessionEnded(
+            ended.PrincipalId, ended.SessionId, StoredEnum<SessionEndReason>.ToText(ended.Reason), ended.At.ToDateTimeOffset())],
+        OwnerPendingPurged purged => [new PublishedOwners.OwnerPendingPurged(purged.OwnerId, purged.At.ToDateTimeOffset())],
         OwnerRegistered registered => [new PublishedOwners.OwnerRegistered(registered.OwnerId, registered.At.ToDateTimeOffset())],
         OwnerRegistrationAttempted attempted => [new PublishedOwners.OwnerRegistrationAttempted(
             attempted.Email, attempted.Language, attempted.At.ToDateTimeOffset())],

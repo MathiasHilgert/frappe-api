@@ -144,4 +144,22 @@ public sealed class OwnerTests
             await Assert.That(attempted.ToString()).DoesNotContain("ana@example.com");
         }
     }
+
+    [Test]
+    public async Task A_purged_pending_owner_raises_its_purge_and_is_published()
+    {
+        // Arrange
+        var id = Guid.CreateVersion7();
+
+        // Act
+        var owner = Owner.PurgedPending(id, Start);
+
+        // Assert
+        var published = owner.DomainEvents.SelectMany(new Frappe.Identity.Infrastructure.Messaging.IdentityIntegrationEvents().Translate).Single();
+        using (Assert.Multiple())
+        {
+            await Assert.That(owner.DomainEvents.Single()).IsEqualTo(new OwnerPendingPurged(id, Start));
+            await Assert.That(published).IsEqualTo(new Frappe.Identity.Contracts.Owners.OwnerPendingPurged(id, Start.ToDateTimeOffset()));
+        }
+    }
 }

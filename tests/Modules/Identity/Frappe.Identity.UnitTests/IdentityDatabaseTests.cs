@@ -24,12 +24,24 @@ public sealed class IdentityDatabaseTests
     }
 
     [Test]
-    public async Task The_Worker_grant_added_to_the_relays_is_the_outbox_insert_alone()
+    public async Task The_Worker_grants_added_to_the_relays_are_the_outbox_insert_and_the_columns_of_the_sweep_and_the_purge()
     {
         // Act
         var statements = IdentityDatabase.WorkerStatements("identity");
 
         // Assert
-        await Assert.That(statements).IsEquivalentTo(["GRANT INSERT ON TABLE identity.outbox_messages TO frappe_identity_worker"]);
+        await Assert.That(statements).IsEquivalentTo(
+        [
+            "GRANT INSERT ON TABLE identity.outbox_messages TO frappe_identity_worker",
+            "GRANT SELECT (id, principal_id, idle_expires_at, absolute_expires_at, ended_at, revoked_at) "
+            + "ON TABLE identity.sessions TO frappe_identity_worker",
+            "GRANT UPDATE (ended_at) ON TABLE identity.sessions TO frappe_identity_worker",
+            "GRANT DELETE ON TABLE identity.sessions TO frappe_identity_worker",
+            "GRANT SELECT (id, expires_at) ON TABLE identity.one_time_codes TO frappe_identity_worker",
+            "GRANT DELETE ON TABLE identity.one_time_codes TO frappe_identity_worker",
+            "GRANT SELECT (principal_id, registered_at, verified_at) ON TABLE identity.owners TO frappe_identity_worker",
+            "GRANT SELECT (id, status) ON TABLE identity.principals TO frappe_identity_worker",
+            "GRANT DELETE ON TABLE identity.principals TO frappe_identity_worker",
+        ]);
     }
 }
