@@ -1,0 +1,28 @@
+info:
+  name: Log out with the session cookie and no console origin (403)
+  type: http
+  seq: 10
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/v1/identity/sessions/current"
+  headers:
+    - name: Cookie
+      value: "__Host-frappe-session=fs_dummy"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "403"
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"http.origin.forbidden"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  A request that carries the `__Host-frappe-session` cookie must come from a console origin; the check runs on the cookie's presence alone, before the
+  session is read, so a dummy cookie without an `Origin` header is refused with `403 http.origin.forbidden`. The 200 and 204 examples need a session
+  and wait for the log-in route.

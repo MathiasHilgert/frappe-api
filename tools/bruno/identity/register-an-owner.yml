@@ -1,0 +1,48 @@
+info:
+  name: Register an owner (201)
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/identity/owners"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "name": { "given": "Bruno", "family": "Tester" },
+        "email": "{{email}}",
+        "password": "{{password}}"
+      }
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // A new address and a password nobody has leaked on every run: the address must not exist, and the Api refuses breached passwords.
+        const stamp = Date.now() + '-' + Math.floor(Math.random() * 1e6);
+        bru.setVar('email', `bruno-${stamp}@example.com`);
+        bru.setVar('password', `bruno-${stamp}-${Math.random().toString(36).slice(2)}-pw`);
+    - type: after-response
+      code: |-
+        bru.setVar('ownerId', res.body.id);
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "201"
+    - expression: res.body.id
+      operator: isString
+    - expression: res.headers['location']
+      operator: isUndefined
+    - expression: res.headers['cache-control']
+      operator: contains
+      value: '"no-store"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `POST /v1/identity/owners` with a name, an address and a password answers `201` with an `id` and no `Location`, and mails a six-digit code to the address. The same answer comes back for an address that a verified owner holds (nothing is written and that owner is told) and for one a pending owner holds (this registration takes it over), so it never says whether an address is registered. The language of the mail is negotiated from `Accept-Language`; an unknown one is served in English, never refused. An `Idempotency-Key` makes a retry register once.

@@ -1,5 +1,6 @@
 using Frappe.Identity.Infrastructure.Credentials;
 using Frappe.Identity.Infrastructure.Messaging;
+using Frappe.Identity.Infrastructure.Owners;
 using Frappe.Identity.Infrastructure.Persistence;
 using Frappe.Identity.Infrastructure.Sessions;
 using Frappe.Messaging.Storage.Outbox;
@@ -24,7 +25,12 @@ public sealed class IdentityModule : IModule
         ArgumentNullException.ThrowIfNull(services);
         services.AddPasswords();
         services.AddKeyedSingleton<IIntegrationEventTranslator, IdentityIntegrationEvents>(Name);
-        services.AddCommitRejections<IdentityDbContext>(SessionRejections.Register);
+        services.AddCommitRejections<IdentityDbContext>(rejections =>
+        {
+            // Owners' rules go first: the session rule on a concurrency failure rejects whatever it sees.
+            OwnerRejections.Register(rejections);
+            SessionRejections.Register(rejections);
+        });
         services.AddModuleDatabase<IdentityDbContext>(
             Name, IdentityDbContext.Schema, (provider, options) => options.UseOutbox(provider, Name));
     }

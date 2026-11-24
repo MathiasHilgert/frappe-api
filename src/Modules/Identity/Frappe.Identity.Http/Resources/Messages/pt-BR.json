@@ -1,3 +1,10 @@
 {
+  "identity.attempts.unavailable": "Não é possível verificar códigos agora. Tente novamente em instantes.",
+  "identity.code.invalid": "O código não é válido: está errado, expirou, já foi usado ou foi substituído por um mais novo, ou não foi enviado a esta conta. Peça um novo.",
+  "identity.email.invalid": "O email está ausente ou não é um endereço válido.",
+  "identity.name.invalid": "O nome precisa de um nome próprio e, junto com o sobrenome, ter no máximo 60 caracteres e nenhum link (http, www. ou ://).",
+  "identity.password.breached": "Esta senha aparece em uma lista pública de senhas vazadas. Escolha outra.",
+  "identity.password.too_long": "A senha é longa demais: pode ter no máximo {max} caracteres.",
+  "identity.password.too_short": "A senha é curta demais: precisa ter pelo menos {min} caracteres.",
   "identity.session.invalid": "A sessão está ausente, expirou ou foi revogada, ou a requisição enviou o cookie de sessão duas vezes. Entre novamente."
 }

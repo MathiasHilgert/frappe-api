@@ -1,0 +1,32 @@
+info:
+  name: Verify an owner that does not exist (422)
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/identity/owners/0198f2a0-0000-7000-8000-000000000000/verification"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      { "code": "000000" }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "422"
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"identity.code.invalid"'
+    - expression: res.headers['set-cookie']
+      operator: isUndefined
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  A wrong, expired, used or replaced code, an owner that is not pending, and an id that is unknown or malformed are all `422 identity.code.invalid`: the answer tells nothing about which. The right code answers `201` with the session (`id`, `token`, `idleExpiresAt`, `absoluteExpiresAt`) and the session cookie; that needs the mailed code, so the Api's integration tests cover it.

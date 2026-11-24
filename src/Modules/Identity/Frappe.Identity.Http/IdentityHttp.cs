@@ -1,4 +1,5 @@
 using Frappe.Http;
+using Frappe.Identity.Http.Owners;
 using Frappe.Identity.Http.Sessions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -16,7 +17,16 @@ public sealed class IdentityHttp : IHttpModule
     /// <summary>The OpenAPI tag of the module's operations.</summary>
     internal const string Tag = "Identity";
 
+    /// <summary>The rate-limit policy of registrations, with its own budget apart from the anonymous one.</summary>
+    public const string RegistrationRateLimitPolicy = "Identity:Registration:RateLimit";
+
     private const string Prefix = "/identity";
+
+    /// <summary>
+    /// What one client address may register per window by default (<c>Identity:Registration:RateLimit:PermitLimit</c> and <c>Window</c>
+    /// change it): each registration hashes a password and may send a mail, so the budget is well below the anonymous one.
+    /// </summary>
+    private static readonly AnonymousRateLimit RegistrationRateLimit = new(10, TimeSpan.FromMinutes(1));
 
     /// <inheritdoc />
     public void AddServices(IServiceCollection services)
@@ -24,6 +34,7 @@ public sealed class IdentityHttp : IHttpModule
         ArgumentNullException.ThrowIfNull(services);
         services.AddErrorMessages(typeof(IdentityHttp).Assembly);
         services.TryAddSingleton(TimeProvider.System);
+        services.AddFrappeRateLimitPolicy(RegistrationRateLimitPolicy, RegistrationRateLimitPolicy, RegistrationRateLimit);
         services.AddSessionAuthentication();
     }
 
@@ -33,5 +44,6 @@ public sealed class IdentityHttp : IHttpModule
         ArgumentNullException.ThrowIfNull(v1);
         var identity = v1.MapGroup(Prefix);
         identity.MapSessionEndpoints();
+        identity.MapOwnerEndpoints();
     }
 }

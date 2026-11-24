@@ -1,0 +1,22 @@
+info:
+  name: Resend a verification code (202)
+  type: http
+  seq: 9
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/identity/owners/0198f2a0-0000-7000-8000-000000000000/verification-codes"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "202"
+    - expression: res.headers['location']
+      operator: isUndefined
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  Asking for a new code always answers `202` with no `Location`, whether the id is unknown, malformed, verified or over its budget of five codes an hour, so it reveals nothing about which owners exist. For a pending owner it mails a new code that replaces the live one.

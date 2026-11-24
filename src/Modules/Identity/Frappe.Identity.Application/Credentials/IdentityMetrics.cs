@@ -24,6 +24,18 @@ public sealed class IdentityMetrics
     /// <summary>Counter: touches of a session that lost the race to another request of the same session (harmless, expected).</summary>
     public const string SessionTouchLostMetric = "frappe.identity.session_touch.lost";
 
+    /// <summary>Counter: registrations, by outcome (<c>created</c>, <c>replaced</c> or <c>taken</c>).</summary>
+    public const string RegistrationsMetric = "frappe.identity.registrations";
+
+    /// <summary>Counter: email verifications, by outcome (<c>verified</c>, <c>invalid</c> or <c>unavailable</c>).</summary>
+    public const string VerificationsMetric = "frappe.identity.verifications";
+
+    /// <summary>Counter: one-time codes issued, by purpose.</summary>
+    public const string CodesIssuedMetric = "frappe.identity.codes.issued";
+
+    /// <summary>The purpose tag of <see cref="CodesIssuedMetric"/>: <c>email_verification</c>, <c>password_reset</c>, <c>email_change</c>.</summary>
+    public const string PurposeTag = "frappe.purpose";
+
     /// <summary>The flow tag of <see cref="LimiterUnavailableMetric"/>: the name of a declared limit flow, a small fixed set.</summary>
     public const string FlowTag = "frappe.flow";
 
@@ -34,6 +46,9 @@ public sealed class IdentityMetrics
     private readonly Histogram<double> _breachCheckDuration;
     private readonly Counter<long> _limiterUnavailable;
     private readonly Counter<long> _sessionTouchLost;
+    private readonly Counter<long> _registrations;
+    private readonly Counter<long> _verifications;
+    private readonly Counter<long> _codesIssued;
 
     public IdentityMetrics(IMeterFactory meters)
     {
@@ -48,6 +63,11 @@ public sealed class IdentityMetrics
         _sessionTouchLost = meter.CreateCounter<long>(
             SessionTouchLostMetric, unit: "{touch}",
             description: "Touches of a session that lost the race to another request of the same session.");
+        _registrations = meter.CreateCounter<long>(
+            RegistrationsMetric, unit: "{registration}", description: "Owner registrations, by outcome.");
+        _verifications = meter.CreateCounter<long>(
+            VerificationsMetric, unit: "{verification}", description: "Owner email verifications, by outcome.");
+        _codesIssued = meter.CreateCounter<long>(CodesIssuedMetric, unit: "{code}", description: "One-time codes issued, by purpose.");
     }
 
     /// <summary>A password was hashed or verified in <paramref name="elapsed"/>.</summary>
@@ -62,6 +82,33 @@ public sealed class IdentityMetrics
 
     /// <summary>A touch of a session lost the race to another request of the same session and committed nothing.</summary>
     public void SessionTouchLost() => _sessionTouchLost.Add(1);
+
+    /// <summary>A registration committed with <paramref name="outcome"/>.</summary>
+    public void Registered(RegistrationOutcome outcome) =>
+        _registrations.Add(1, new KeyValuePair<string, object?>(OutcomeTag, OutcomeName(outcome)));
+
+    /// <summary>An email verification ended with <paramref name="outcome"/>.</summary>
+    public void Verified(VerificationOutcome outcome) =>
+        _verifications.Add(1, new KeyValuePair<string, object?>(OutcomeTag, OutcomeName(outcome)));
+
+    /// <summary>A one-time code was issued for <paramref name="purpose"/> (the name its stored form uses).</summary>
+    public void CodeIssued(string purpose) => _codesIssued.Add(1, new KeyValuePair<string, object?>(PurposeTag, purpose));
+
+    internal static string OutcomeName(RegistrationOutcome outcome) => outcome switch
+    {
+        RegistrationOutcome.Created => "created",
+        RegistrationOutcome.Replaced => "replaced",
+        RegistrationOutcome.Taken => "taken",
+        _ => throw new UnreachableException($"Unknown outcome {outcome}."),
+    };
+
+    internal static string OutcomeName(VerificationOutcome outcome) => outcome switch
+    {
+        VerificationOutcome.Verified => "verified",
+        VerificationOutcome.Invalid => "invalid",
+        VerificationOutcome.Unavailable => "unavailable",
+        _ => throw new UnreachableException($"Unknown outcome {outcome}."),
+    };
 
     /// <summary>The tag value of an outcome; each is named, none falls back (OBS-05).</summary>
     internal static string OutcomeName(BreachCheckOutcome outcome) => outcome switch

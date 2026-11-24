@@ -10,7 +10,7 @@ namespace Frappe.Identity.Contracts.Owners;
 /// <param name="OwnerId">The owner the code was issued to.</param>
 /// <param name="Purpose">What the code proves: <c>email_verification</c>, <c>password_reset</c> or <c>email_change</c>.</param>
 /// <param name="Email">The address to mail: the owner's, or the new one for an email change.</param>
-/// <param name="Name">The owner's given name, for the greeting.</param>
+/// <param name="Name">The owner's name as the mail says it, given plus family (at most 60 characters, no link), for the greeting.</param>
 /// <param name="Language">The BCP 47 language of the mail.</param>
 /// <param name="Code">The six digits.</param>
 /// <param name="OccurredAt">When the code was issued.</param>

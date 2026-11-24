@@ -177,6 +177,12 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Set-Cookie": {
+                "description": "The expired __Host-frappe-session cookie (HttpOnly, Secure, SameSite=Lax, Path=/), which tells the browser to forget the session; sent for every successful log out.",
+                "schema": {
+                  "type": "string"
+                }
               }
             }
           },
@@ -295,6 +301,592 @@
           },
           "409": {
             "description": "Conflict: other writers kept changing the same data while the operation committed (platform.persistence.commit_conflict); nothing was written and the same request may succeed when sent again.",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/identity/owners": {
+      "post": {
+        "tags": [
+          "Identity"
+        ],
+        "summary": "Register an owner",
+        "description": "Registers an owner with a name, an email address and a password, and mails a six-digit code to the address. The language of the mail is the one the request negotiates from Accept-Language (an unknown one is answered in English, never refused). It answers 201 with an id to verify the address with. The answer is the same for an address that is new, one a pending owner holds (the new registration takes it over, and the old code stops working) and one a verified owner holds (nothing is written and that owner is told by mail), so it never reveals whether an address is registered. The same Idempotency-Key registers once. 400 identity.email.invalid or identity.name.invalid (a name is at most 60 characters, given plus family, and holds no http, www. or ://), 422 for a password that is too short, too long or breached.",
+        "operationId": "RegisterOwner",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Makes the request safe to retry: the first successful (2xx) answer is stored for 24 hours and replayed, with Idempotent-Replayed: true, to every later request with the same key, caller and content, without running it again. Send a new key (a UUID is fine) for each new request. 400 platform.idempotency_key.invalid for a key that is not 1 to 255 printable characters without spaces or is sent twice; 422 platform.idempotency_key.reused when the key was used for a different request; 409 platform.idempotency_key.in_progress while the first request still runs; 503 platform.idempotency.unavailable when answers cannot be kept (the request was not run). A refused or failed request is not stored, so it can be retried with the same key. Cookies are never replayed.",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[\\x21-\\x7E]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RegisterOwnerRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "headers": {
+              "Cache-Control": {
+                "description": "no-store: no cache may keep the answer, and it carries no validator.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Idempotent-Replayed": {
+                "description": "true when this is the stored answer of an earlier request with the same Idempotency-Key; absent on the first answer.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisteredOwnerResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict: the first request with this Idempotency-Key is still running (platform.idempotency_key.in_progress), or other writers kept changing the same data while the operation committed (platform.persistence.commit_conflict). The same request may be sent again.",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable: a database the operation needs is not answering (platform.database.unavailable); the same request may succeed after Retry-After.",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before trying again (30).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type: the body is not in a media type the operation reads (see its requestBody).",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: http.origin.forbidden when the request carries the session cookie without an Origin among the console's (a bearer token is never checked).",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/identity/owners/{ownerId}/verification": {
+      "post": {
+        "tags": [
+          "Identity"
+        ],
+        "summary": "Verify an owner's email",
+        "description": "Proves the address with the code that was mailed: the owner becomes active and a session opens, so the owner needs no log-in. The session is in the body (send its token as Authorization: Bearer) and, for the web console, in the session cookie. 422 identity.code.invalid for a code that is wrong, expired, used or replaced and for an id that is unknown or malformed (one answer for all of them); a code takes five guesses. 503 identity.attempts.unavailable when guesses cannot be counted.",
+        "operationId": "VerifyOwnerEmail",
+        "parameters": [
+          {
+            "name": "ownerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/VerifyOwnerRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "headers": {
+              "Cache-Control": {
+                "description": "no-store: no cache may keep the answer, and it carries no validator.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenedSessionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before trying again (30).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict: other writers kept changing the same data while the operation committed (platform.persistence.commit_conflict); nothing was written and the same request may succeed when sent again.",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type: the body is not in a media type the operation reads (see its requestBody).",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: http.origin.forbidden when the request carries the session cookie without an Origin among the console's (a bearer token is never checked).",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/identity/owners/{ownerId}/verification-codes": {
+      "post": {
+        "tags": [
+          "Identity"
+        ],
+        "summary": "Resend an owner's verification code",
+        "description": "Mails a new verification code to a pending owner, which replaces the one before it. It answers 202 always, for an id that is unknown, malformed, verified or over its budget of five codes an hour, so it reveals nothing about which owners exist.",
+        "operationId": "ResendOwnerVerification",
+        "parameters": [
+          {
+            "name": "ownerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "headers": {
+              "Cache-Control": {
+                "description": "no-store: no cache may keep the answer, and it carries no validator.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable: a database the operation needs is not answering (platform.database.unavailable); the same request may succeed after Retry-After.",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before trying again (30).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict: other writers kept changing the same data while the operation committed (platform.persistence.commit_conflict); nothing was written and the same request may succeed when sent again.",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: http.origin.forbidden when the request carries the session cookie without an Origin among the console's (a bearer token is never checked).",
             "headers": {
               "Content-Language": {
                 "description": "The languages the problem's texts are written in.",
@@ -766,6 +1358,53 @@
           }
         }
       },
+      "OpenedSessionResponse": {
+        "required": [
+          "id",
+          "token",
+          "idleExpiresAt",
+          "absoluteExpiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "token": {
+            "type": "string"
+          },
+          "idleExpiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "absoluteExpiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "OwnerNameRequest": {
+        "required": [
+          "given",
+          "family"
+        ],
+        "type": "object",
+        "properties": {
+          "given": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "family": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "Problem": {
         "examples": [
           {
@@ -868,6 +1507,50 @@
         },
         "description": "One error: its stable code, the values it was raised with and its text in the response language."
       },
+      "RegisteredOwnerResponse": {
+        "required": [
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "RegisterOwnerRequest": {
+        "required": [
+          "name",
+          "email",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OwnerNameRequest"
+              }
+            ]
+          },
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "password": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "UnsubscribeOneClick": {
         "type": "object",
         "properties": {
@@ -877,6 +1560,20 @@
               "string"
             ],
             "description": "Always One-Click (RFC 8058). The route ignores the value."
+          }
+        }
+      },
+      "VerifyOwnerRequest": {
+        "required": [
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       }
