@@ -23,7 +23,12 @@ internal sealed class AccessScope
     public IReadOnlyCollection<Type> Leave()
     {
         var frame = _frames.Pop();
-        return [.. frame.Owed.Where(owed => !frame.Checked.Contains(owed))];
+        if (frame.Owed.Count == 0)
+        {
+            return [];
+        }
+
+        return [.. frame.Owed.Where(owed => frame.Checked?.Contains(owed) != true)];
     }
 
     /// <summary>The handler of the innermost request checked a resource of type <paramref name="resource"/>.</summary>
@@ -31,7 +36,7 @@ internal sealed class AccessScope
     {
         if (_frames.TryPeek(out var frame))
         {
-            frame.Checked.Add(resource);
+            (frame.Checked ??= []).Add(resource);
         }
     }
 
@@ -42,6 +47,6 @@ internal sealed class AccessScope
 
         public IReadOnlyCollection<Type> Owed { get; } = owed;
 
-        public HashSet<Type> Checked { get; } = [];
+        public HashSet<Type>? Checked { get; set; }
     }
 }

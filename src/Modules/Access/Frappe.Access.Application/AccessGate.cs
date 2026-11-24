@@ -10,8 +10,8 @@ namespace Frappe.Access.Application;
 /// rule against the live caller and answers a denial as 403 (<see cref="AccessErrorCodes.ActionForbidden"/>, or
 /// <see cref="AccessErrorCodes.StepUpRequired"/> when a step-up is the only thing missing); Access never answers 401. A public request passes; an
 /// undeclared one cannot reach a host (its startup check refuses it, S7); it passes and is logged
-/// only where nothing validated the container. After the handler it fails closed when a
-/// request that <see cref="IActsOn{TResource}"/> a resource succeeded without checking it.
+/// only where nothing validated the container. After the handler it reports (after the commit, so it
+/// detects and does not undo) a request that <see cref="IActsOn{TResource}"/> a resource and succeeded without checking it.
 /// </summary>
 internal sealed partial class AccessGate(
     UseCaseTable table,

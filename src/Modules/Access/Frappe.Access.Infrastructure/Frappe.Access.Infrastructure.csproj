@@ -2,5 +2,5 @@
   <ItemGroup>
     <ProjectReference Include="../Frappe.Access.Application/Frappe.Access.Application.csproj" />
     <ProjectReference Include="../../../Platform/Frappe.Modules/Frappe.Modules.csproj" />
-    <ProjectReference Include="../../../Platform/Frappe.Observability/Frappe.Observability.csproj" />  </ItemGroup>
+  </ItemGroup>
 </Project>

@@ -17,7 +17,8 @@ public interface IUseCaseGate
 
     /// <summary>
     /// After the handler ran (<paramref name="succeeded"/> tells how it ended): the gate checks what the request owes. It throws when a request
-    /// succeeded without keeping its obligations, so that fails closed instead of passing in silence.
+    /// succeeded without keeping its obligations, so the mistake is reported instead of passing in silence. It runs after the handler's
+    /// transaction committed: it detects the mistake, it does not undo the write.
     /// </summary>
     ValueTask CompleteAsync(object request, bool succeeded, CancellationToken cancellationToken);
 }
