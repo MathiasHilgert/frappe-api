@@ -17,7 +17,7 @@ partial class NotificationsDbContextModelSnapshot : ModelSnapshot
     // If you encounter a merge conflict in the line below, it means you need to
     // discard one of the migration branches and recreate its migrations on top of
     // the other branch. See https://aka.ms/efcore-docs-migrations-conflicts for more info.
-    public override string LastMigrationId => "20261124021149_AddSendRequests";
+    public override string LastMigrationId => "20261124023635_TrackDeliveryFeedback";
 
     protected override void BuildModel(ModelBuilder modelBuilder)
     {
@@ -236,6 +236,12 @@ partial class NotificationsDbContextModelSnapshot : ModelSnapshot
                     .HasColumnType("timestamp with time zone")
                     .HasColumnName("status_changed_at");
 
+                b.Property<uint>("xmin")
+                    .IsConcurrencyToken()
+                    .ValueGeneratedOnAddOrUpdate()
+                    .HasColumnType("xid")
+                    .HasColumnName("xmin");
+
                 b.HasKey("Id")
                     .HasName("pk_deliveries");
 
@@ -303,6 +309,60 @@ partial class NotificationsDbContextModelSnapshot : ModelSnapshot
                         t.HasCheckConstraint("ck_preferences_only_marketing", "category = 'marketing'");
 
                         t.HasCheckConstraint("ck_preferences_recipient_key_format", "recipient_key ~ '^(ref:[a-z_]+:.+|addr:[0-9]+:[0-9a-f]{64})$'");
+                    });
+            });
+
+        modelBuilder.Entity("Frappe.Notifications.Domain.ProviderEvents.ProviderEvent", b =>
+            {
+                b.Property<string>("Provider")
+                    .HasMaxLength(6)
+                    .HasColumnType("character varying(6)")
+                    .HasColumnName("provider");
+
+                b.Property<string>("EventId")
+                    .HasMaxLength(100)
+                    .HasColumnType("character varying(100)")
+                    .HasColumnName("event_id");
+
+                b.Property<string>("Feedback")
+                    .HasMaxLength(22)
+                    .HasColumnType("character varying(22)")
+                    .HasColumnName("feedback");
+
+                b.Property<bool>("Matched")
+                    .HasColumnType("boolean")
+                    .HasColumnName("matched");
+
+                b.Property<Instant?>("OccurredAt")
+                    .HasColumnType("timestamp with time zone")
+                    .HasColumnName("occurred_at");
+
+                b.Property<string>("ProviderMessageId")
+                    .HasMaxLength(100)
+                    .HasColumnType("character varying(100)")
+                    .HasColumnName("provider_message_id");
+
+                b.Property<Instant>("ReceivedAt")
+                    .HasColumnType("timestamp with time zone")
+                    .HasColumnName("received_at");
+
+                b.HasKey("Provider", "EventId")
+                    .HasName("pk_provider_events");
+
+                b.HasIndex("ReceivedAt")
+                    .HasDatabaseName("ix_provider_events_received_at");
+
+                b.HasIndex("Provider", "ProviderMessageId")
+                    .HasDatabaseName("ix_provider_events_provider_message")
+                    .HasFilter("provider_message_id IS NOT NULL");
+
+                b.ToTable("provider_events", "notifications", t =>
+                    {
+                        t.HasCheckConstraint("ck_provider_events_feedback", "feedback IN ('delivered', 'permanent_failure', 'complaint', 'delayed', 'suppressed_by_provider')");
+
+                        t.HasCheckConstraint("ck_provider_events_parked_together", "(provider_message_id IS NULL) = (feedback IS NULL) AND (feedback IS NULL) = (occurred_at IS NULL)");
+
+                        t.HasCheckConstraint("ck_provider_events_provider", "provider IN ('resend')");
                     });
             });
 
@@ -389,56 +449,6 @@ partial class NotificationsDbContextModelSnapshot : ModelSnapshot
                         t.HasCheckConstraint("ck_suppressions_reason", "reason IN ('hard_bounce', 'complaint', 'provider_suppression')");
 
                         t.HasCheckConstraint("ck_suppressions_source", "source IN ('webhook', 'manual')");
-                    });
-            });
-
-        modelBuilder.Entity("Frappe.Notifications.Infrastructure.ProviderEvents.ProviderEventRow", b =>
-            {
-                b.Property<string>("Provider")
-                    .HasMaxLength(6)
-                    .HasColumnType("character varying(6)")
-                    .HasColumnName("provider");
-
-                b.Property<string>("EventId")
-                    .HasMaxLength(100)
-                    .HasColumnType("character varying(100)")
-                    .HasColumnName("event_id");
-
-                b.Property<string>("Feedback")
-                    .HasMaxLength(22)
-                    .HasColumnType("character varying(22)")
-                    .HasColumnName("feedback");
-
-                b.Property<bool>("Matched")
-                    .HasColumnType("boolean")
-                    .HasColumnName("matched");
-
-                b.Property<Instant?>("OccurredAt")
-                    .HasColumnType("timestamp with time zone")
-                    .HasColumnName("occurred_at");
-
-                b.Property<string>("ProviderMessageId")
-                    .HasMaxLength(100)
-                    .HasColumnType("character varying(100)")
-                    .HasColumnName("provider_message_id");
-
-                b.Property<Instant>("ReceivedAt")
-                    .HasColumnType("timestamp with time zone")
-                    .HasColumnName("received_at");
-
-                b.HasKey("Provider", "EventId")
-                    .HasName("pk_provider_events");
-
-                b.HasIndex("ReceivedAt")
-                    .HasDatabaseName("ix_provider_events_received_at");
-
-                b.ToTable("provider_events", "notifications", t =>
-                    {
-                        t.HasCheckConstraint("ck_provider_events_feedback", "feedback IN ('delivered', 'permanent_failure', 'complaint', 'delayed', 'suppressed_by_provider')");
-
-                        t.HasCheckConstraint("ck_provider_events_parked_together", "(provider_message_id IS NULL) = (feedback IS NULL) AND (feedback IS NULL) = (occurred_at IS NULL)");
-
-                        t.HasCheckConstraint("ck_provider_events_provider", "provider IN ('resend')");
                     });
             });
 #pragma warning restore 612, 618

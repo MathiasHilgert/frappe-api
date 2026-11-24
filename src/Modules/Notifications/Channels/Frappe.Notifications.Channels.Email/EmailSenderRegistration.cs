@@ -68,6 +68,7 @@ public static class EmailSenderRegistration
 
     /// <summary>
     /// The token bucket in front of the provider: the rate in <see cref="ResendOptions.RequestsPerSecond"/>, queued, shared by every send.
+    /// The budget is per Worker process (one replica, prefetch 1) and sits outside the retry strategy, so a retry takes no token.
     /// </summary>
     internal sealed class ResendRateLimiter(IOptions<EmailOptions> options) : IDisposable
     {

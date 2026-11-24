@@ -20,6 +20,7 @@ internal static class SendNotificationEndpoints
 {
     extension(IEndpointRouteBuilder routes)
     {
+        // Mapped only in Development, so contracts/openapi/v1.json leaves it out on purpose; NotificationsRouteTests pins it there.
         public void MapSendNotificationEndpoints() =>
             routes.MapPost("/notifications/sends", HandleAsync)
                 .WithName("SendNotification").WithTags("Notifications").NoStore().AcceptsIdempotencyKey()

@@ -91,7 +91,7 @@ public sealed class NotificationDispatcher(
 
         var key = DeliveryIdempotency.Key(request.SourceMessageId, request.Kind.Name, contact.Key, channel.Name);
         var item = new DispatchItem(request.SourceMessageId, request.Kind, request.Payload, contact.Contact, contact.Key, key);
-        return recorder.Record(target, await channel.DeliverAsync(item, cancellationToken));
+        return await recorder.RecordAsync(target, await channel.DeliverAsync(item, cancellationToken), cancellationToken);
     }
 
     private static DeliveryTarget Target(NotificationRequest request, ChannelName channel, RecipientKey key, AddressHash? hash) =>

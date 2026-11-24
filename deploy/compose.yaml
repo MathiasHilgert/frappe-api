@@ -93,6 +93,8 @@ services:
       # The key addresses are hashed with (S12, S13); CurrentKeyId names it, and a rotation adds a key and moves the id.
       Notifications__AddressHash__CurrentKeyId: "1"
       Notifications__AddressHash__Keys__1: ${FRAPPE_NOTIFICATIONS_ADDRESS_HASH_KEY:?set it in .env}
+      # The signing secret of Resend's webhook (S12): the Api refuses to start without it, and answers 400 to a call not signed with it.
+      Notifications__Email__Resend__WebhookSecret: ${FRAPPE_NOTIFICATIONS_WEBHOOK_SECRET:?set it in .env}
       # The console's origins, comma separated: credentialed CORS and unsafe requests with the session cookie.
       Http__Console__Origins: ${FRAPPE_CONSOLE_ORIGINS:-http://localhost:5173}
       # Requests one client address may make per window (Http:RateLimit). CI raises it so the whole Bruno collection runs from one address.

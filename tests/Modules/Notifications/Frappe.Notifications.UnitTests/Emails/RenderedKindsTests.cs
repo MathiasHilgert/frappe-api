@@ -112,7 +112,8 @@ public sealed partial class RenderedKindsTests
             .IsEquivalentTo(["#000000", "#ffffff"]);
         await Assert.That(ColorFunctions().IsMatch(email.Html)).IsFalse();
         var namedColors = ColorDeclarations().Matches(email.Html)
-            .SelectMany(match => Words().Matches(HexColors().Replace(match.Groups[1].Value, string.Empty)).Select(word => word.Value.ToLowerInvariant()))
+            .SelectMany(match => Words().Matches(HexColors().Replace(match.Groups[1].Value, string.Empty))
+                .Select(word => word.Value.ToLowerInvariant()))
             .Where(word => word is not ("black" or "white" or "transparent" or "solid" or "none" or "px" or "separate" or "collapse"))
             .Distinct();
         await Assert.That(namedColors).IsEmpty();

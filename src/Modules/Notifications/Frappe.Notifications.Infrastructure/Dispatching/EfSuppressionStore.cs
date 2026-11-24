@@ -1,5 +1,6 @@
 using Frappe.Notifications.Application.Ports;
 using Frappe.Notifications.Domain.Deliveries;
+using Frappe.Notifications.Domain.Suppressions;
 using Frappe.Notifications.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,4 +27,6 @@ internal sealed class EfSuppressionStore(NotificationsDbContext db) : ISuppressi
 
         return false;
     }
+
+    public void Stage(Suppression suppression) => db.Suppressions.Add(suppression);
 }

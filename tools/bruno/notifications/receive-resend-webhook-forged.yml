@@ -1,0 +1,49 @@
+info:
+  name: Receive a forged webhook (400)
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/notifications/webhooks/resend"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: svix-id
+      value: msg_bruno_forged
+    - name: svix-timestamp
+      value: "1700000000"
+    - name: svix-signature
+      value: v1,AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+  body:
+    type: json
+    data: |-
+      {
+        "type": "email.complained",
+        "data": {
+          "email_id": "re_bruno_sample",
+          "to": ["bruno@example.com"]
+        }
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "400"
+    - expression: res.headers['content-type']
+      operator: startsWith
+      value: '"application/problem+json"'
+    - expression: res.body.type
+      operator: eq
+      value: '"urn:frappe:problem:invalid-value"'
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"notifications.webhook_signature.invalid"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  A call whose signature (and timestamp) is not the endpoint's secret's: 400 Problem Details whose error `code` is
+  `notifications.webhook_signature.invalid`. Nothing is recorded.

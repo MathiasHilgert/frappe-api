@@ -93,6 +93,9 @@ internal sealed class DeliveryConfiguration : IEntityTypeConfiguration<Delivery>
         });
         builder.HasKey(d => d.Id).HasName(PrimaryKey);
         builder.Property(d => d.Id).HasColumnName("id").ValueGeneratedNever();
+
+        // The webhook moves a delivery as events arrive, possibly at once: a change another writer committed first is refused (UOW-04).
+        builder.Property<uint>("xmin").HasColumnName("xmin").HasColumnType("xid").ValueGeneratedOnAddOrUpdate().IsRowVersion();
         builder.Property(d => d.SourceMessageId).HasColumnName("source_message_id");
         builder.Property(d => d.Kind).HasColumnName("kind").HasMaxLength(100);
 

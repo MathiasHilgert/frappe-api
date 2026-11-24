@@ -14,6 +14,15 @@ internal static class ApiHost
     /// <summary>A Valkey nobody listens on: the settings only need to be valid, and the cache is optional for readiness.</summary>
     private const string UnreachableValkey = "127.0.0.1:1";
 
+    /// <summary>What a deploy sets for the real module lists: the database, the address hash key and the webhook secret (placeholders).</summary>
+    public static readonly Dictionary<string, string?> Deployed = new()
+    {
+        ["ConnectionStrings:Notifications"] = "Host=unreachable.invalid;Database=frappe;Username=frappe_notifications",
+        ["Notifications:AddressHash:CurrentKeyId"] = "1",
+        ["Notifications:AddressHash:Keys:1"] = "bG9jYWwtb25seS1hZGRyZXNzLWhhc2gta2V5LTMyLWJ5dGVzIQ==",
+        ["Notifications:Email:Resend:WebhookSecret"] = "bG9jYWwtb25seS1yZXNlbmQtd2ViaG9vay1zaWduaW5nLXNlY3JldA==",
+    };
+
     public static async Task<WebApplication> StartAsync(
         IReadOnlyCollection<IModule>? modules = null,
         IReadOnlyCollection<IHttpModule>? endpoints = null,

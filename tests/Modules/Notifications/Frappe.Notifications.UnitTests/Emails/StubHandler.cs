@@ -7,6 +7,7 @@ namespace Frappe.Notifications.UnitTests.Emails;
 internal sealed class StubHandler : HttpMessageHandler
 {
     private readonly Queue<Func<HttpResponseMessage>> _script = new();
+    private readonly object _gate = new();
     private int _hangs;
 
     public List<(HttpRequestMessage Request, string Body, DateTimeOffset At)> Received { get; } = [];
@@ -41,13 +42,24 @@ internal sealed class StubHandler : HttpMessageHandler
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        Received.Add((request, request.Content is null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken),
-            DateTimeOffset.UtcNow));
-        if (_script.Count == 0 && _hangs > 0)
+        var body = request.Content is null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken);
+        Func<HttpResponseMessage>? next = null;
+        bool hang;
+        lock (_gate)
+        {
+            Received.Add((request, body, DateTimeOffset.UtcNow));
+            hang = _script.Count == 0 && _hangs > 0;
+            if (_script.Count > 0)
+            {
+                next = _script.Dequeue();
+            }
+        }
+
+        if (hang)
         {
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
         }
 
-        return _script.Count > 0 ? _script.Dequeue()() : new HttpResponseMessage(HttpStatusCode.InternalServerError);
+        return next?.Invoke() ?? new HttpResponseMessage(HttpStatusCode.InternalServerError);
     }
 }

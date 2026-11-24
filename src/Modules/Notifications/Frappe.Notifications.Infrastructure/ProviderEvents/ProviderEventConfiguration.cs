@@ -1,4 +1,5 @@
 using Frappe.Notifications.Domain.Deliveries;
+using Frappe.Notifications.Domain.ProviderEvents;
 using Frappe.Notifications.Infrastructure.Deliveries;
 using Frappe.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -6,8 +7,8 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Frappe.Notifications.Infrastructure.ProviderEvents;
 
-/// <summary>Maps <see cref="ProviderEventRow"/> to <c>provider_events</c>, purged after seven days by <c>received_at</c>.</summary>
-internal sealed class ProviderEventRowConfiguration : IEntityTypeConfiguration<ProviderEventRow>
+/// <summary>Maps <see cref="ProviderEvent"/> to <c>provider_events</c>, purged after seven days by <c>received_at</c>.</summary>
+internal sealed class ProviderEventConfiguration : IEntityTypeConfiguration<ProviderEvent>
 {
     public const string Table = "provider_events";
 
@@ -22,9 +23,14 @@ internal sealed class ProviderEventRowConfiguration : IEntityTypeConfiguration<P
     /// <summary>The retention purge reads events older than a cutoff.</summary>
     public const string ReceivedAtIndex = "ix_provider_events_received_at";
 
-    public const int EventIdLength = 100;
+    /// <summary>A parked event is found by its message when the delivery is recorded; only parked ones carry one, so the index is partial.</summary>
+    public const string ProviderMessageIndex = "ix_provider_events_provider_message";
 
-    public void Configure(EntityTypeBuilder<ProviderEventRow> builder)
+    public const string ProviderMessageFilter = "provider_message_id IS NOT NULL";
+
+    public const int EventIdLength = ProviderEvent.EventIdLength;
+
+    public void Configure(EntityTypeBuilder<ProviderEvent> builder)
     {
         builder.ToTable(Table, table =>
         {
@@ -43,5 +49,6 @@ internal sealed class ProviderEventRowConfiguration : IEntityTypeConfiguration<P
             .HasConversion(StoredEnum<DeliveryFeedback>.Converter).HasMaxLength(StoredEnum<DeliveryFeedback>.MaxLength);
         builder.Property(e => e.OccurredAt).HasColumnName("occurred_at");
         builder.HasIndex(e => e.ReceivedAt).HasDatabaseName(ReceivedAtIndex);
+        builder.HasIndex(e => new { e.Provider, e.ProviderMessageId }).HasDatabaseName(ProviderMessageIndex).HasFilter(ProviderMessageFilter);
     }
 }

@@ -45,10 +45,10 @@ public sealed class OpenApiContractTests
         }
     }
 
-    /// <summary>The real Api (its composition and its settings file, not a copy), asked for its document; nothing connects.</summary>
+    /// <summary>The real Api (its module lists, its settings file and a deploy's secrets), asked for its document; nothing connects.</summary>
     internal static async Task<(HttpStatusCode Status, JsonElement Document)> ServeAsync()
     {
-        await using var app = await ApiHost.StartAsync();
+        await using var app = await ApiHost.StartAsync(Modules.Services, Modules.Endpoints, ApiHost.Deployed);
         using var response = await app.GetTestClient().GetAsync("/openapi/v1.json");
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         return (response.StatusCode, document.RootElement.Clone());

@@ -8,6 +8,7 @@ api:
     ConnectionStrings__Notifications="Host=localhost;Port=${POSTGRES_PORT:-5432};Database=frappe;Username=frappe_notifications;Password=$FRAPPE_NOTIFICATIONS_PASSWORD" \
     Notifications__AddressHash__CurrentKeyId=1 \
     Notifications__AddressHash__Keys__1="$FRAPPE_NOTIFICATIONS_ADDRESS_HASH_KEY" \
+    Notifications__Email__Resend__WebhookSecret="$FRAPPE_NOTIFICATIONS_WEBHOOK_SECRET" \
     Http__Console__Origins="${FRAPPE_CONSOLE_ORIGINS:-http://localhost:5173}" \
     dotnet run --project src/Hosts/Frappe.Api
 
