@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using DotNet.Testcontainers.Builders;
@@ -79,7 +78,7 @@ public static class TestReuse
 
     private static string KeyOf(string fixture)
     {
-        var app = Assembly.GetEntryAssembly()?.GetName().Name ?? "tests";
+        var app = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name ?? "tests";
         var worktree = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(RepositoryRoot.FullPath)))[..10];
         return $"{worktree}.{app}.{fixture}";
     }

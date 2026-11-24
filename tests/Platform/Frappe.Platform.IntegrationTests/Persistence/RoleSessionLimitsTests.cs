@@ -1,4 +1,5 @@
 using Frappe.Persistence;
+using Frappe.Testing.Containers;
 using Npgsql;
 
 namespace Frappe.Platform.IntegrationTests.Persistence;

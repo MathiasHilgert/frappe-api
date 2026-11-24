@@ -2,6 +2,7 @@ using System.Diagnostics.Metrics;
 using Frappe.Aggregates;
 using Frappe.Persistence;
 using Frappe.Platform.Testing.Observability;
+using Frappe.Testing.Containers;
 using Frappe.UseCases;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;

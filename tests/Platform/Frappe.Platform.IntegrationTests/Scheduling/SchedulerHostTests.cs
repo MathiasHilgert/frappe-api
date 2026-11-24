@@ -1,5 +1,5 @@
-using Frappe.Platform.IntegrationTests.Persistence;
 using Frappe.Scheduling;
+using Frappe.Testing.Containers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
