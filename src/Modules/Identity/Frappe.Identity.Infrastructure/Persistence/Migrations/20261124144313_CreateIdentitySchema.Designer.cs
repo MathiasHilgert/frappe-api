@@ -28,6 +28,78 @@ partial class CreateIdentitySchema
 
         NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+        modelBuilder.Entity("Frappe.Identity.Domain.Codes.EmailChangeUndo", b =>
+            {
+                b.Property<Guid>("Id")
+                    .HasColumnType("uuid")
+                    .HasColumnName("id");
+
+                b.Property<Instant>("ExpiresAt")
+                    .HasColumnType("timestamp with time zone")
+                    .HasColumnName("expires_at");
+
+                b.Property<Instant?>("InvalidatedAt")
+                    .HasColumnType("timestamp with time zone")
+                    .HasColumnName("invalidated_at");
+
+                b.Property<Instant>("IssuedAt")
+                    .HasColumnType("timestamp with time zone")
+                    .HasColumnName("issued_at");
+
+                b.Property<string>("NewAddress")
+                    .IsRequired()
+                    .HasMaxLength(254)
+                    .HasColumnType("character varying(254)")
+                    .HasColumnName("new_address");
+
+                b.Property<string>("OldAddress")
+                    .IsRequired()
+                    .HasMaxLength(254)
+                    .HasColumnType("character varying(254)")
+                    .HasColumnName("old_address");
+
+                b.Property<Guid>("PrincipalId")
+                    .HasColumnType("uuid")
+                    .HasColumnName("principal_id");
+
+                b.Property<Instant?>("RedeemedAt")
+                    .HasColumnType("timestamp with time zone")
+                    .HasColumnName("redeemed_at");
+
+                b.Property<byte[]>("TokenHmac")
+                    .IsRequired()
+                    .HasColumnType("bytea")
+                    .HasColumnName("token_hmac");
+
+                b.Property<uint>("xmin")
+                    .IsConcurrencyToken()
+                    .ValueGeneratedOnAddOrUpdate()
+                    .HasColumnType("xid")
+                    .HasColumnName("xmin");
+
+                b.HasKey("Id")
+                    .HasName("pk_email_change_undos");
+
+                b.HasIndex("ExpiresAt")
+                    .HasDatabaseName("ix_email_change_undos_expires_at");
+
+                b.HasIndex(new[] { "PrincipalId", "OldAddress", "NewAddress" }, "ux_email_change_undos_live")
+                    .IsUnique()
+                    .HasDatabaseName("ux_email_change_undos_live")
+                    .HasFilter("redeemed_at IS NULL AND invalidated_at IS NULL");
+
+                b.ToTable("email_change_undos", "identity", t =>
+                    {
+                        t.HasCheckConstraint("ck_email_change_undos_expires_after_issued", "expires_at > issued_at");
+
+                        t.HasCheckConstraint("ck_email_change_undos_invalidated_after_issued", "invalidated_at IS NULL OR invalidated_at >= issued_at");
+
+                        t.HasCheckConstraint("ck_email_change_undos_redeemed_in_window", "redeemed_at IS NULL OR (redeemed_at >= issued_at AND redeemed_at <= expires_at)");
+
+                        t.HasCheckConstraint("ck_email_change_undos_token_hmac_length", "octet_length(token_hmac) = 32");
+                    });
+            });
+
         modelBuilder.Entity("Frappe.Identity.Domain.Codes.OneTimeCode", b =>
             {
                 b.Property<Guid>("Id")
@@ -320,8 +392,8 @@ partial class CreateIdentitySchema
                     .HasColumnName("principal_id");
 
                 b.Property<string>("RevocationReason")
-                    .HasMaxLength(17)
-                    .HasColumnType("character varying(17)")
+                    .HasMaxLength(19)
+                    .HasColumnType("character varying(19)")
                     .HasColumnName("revocation_reason");
 
                 b.Property<Instant?>("RevokedAt")
@@ -376,7 +448,7 @@ partial class CreateIdentitySchema
 
                         t.HasCheckConstraint("ck_sessions_revocation_pair", "(revoked_at IS NULL) = (revocation_reason IS NULL)");
 
-                        t.HasCheckConstraint("ck_sessions_revocation_reason", "revocation_reason IN ('logout', 'revoked_by_holder', 'others_revoked', 'password_changed', 'password_reset', 'email_changed')");
+                        t.HasCheckConstraint("ck_sessions_revocation_reason", "revocation_reason IN ('logout', 'revoked_by_holder', 'others_revoked', 'password_changed', 'password_reset', 'email_changed', 'email_change_undone')");
 
                         t.HasCheckConstraint("ck_sessions_seen_after_opened", "opened_at <= last_seen_at");
 
@@ -505,6 +577,16 @@ partial class CreateIdentitySchema
 
                         t.HasCheckConstraint("ck_outbox_messages_published_settled", "published_at IS NULL OR (leased_until IS NULL AND last_error IS NULL)");
                     });
+            });
+
+        modelBuilder.Entity("Frappe.Identity.Domain.Codes.EmailChangeUndo", b =>
+            {
+                b.HasOne("Frappe.Identity.Domain.Principals.Principal", null)
+                    .WithMany()
+                    .HasForeignKey("PrincipalId")
+                    .OnDelete(DeleteBehavior.Cascade)
+                    .IsRequired()
+                    .HasConstraintName("fk_email_change_undos_principal_id");
             });
 
         modelBuilder.Entity("Frappe.Identity.Domain.Codes.OneTimeCode", b =>

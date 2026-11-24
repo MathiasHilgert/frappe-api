@@ -8,8 +8,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Frappe.Identity.Infrastructure.Owners;
 
 /// <summary>
-/// What a refused commit means for a unit that sent a verification or a password reset code (UOW-05): a registration (S3), a resend (S6) or a reset
-/// request (S11). Two of them raced for
+/// What a refused commit means for a unit that sent a verification or a password reset code (UOW-05): a registration (S3), a resend (S6), a reset
+/// request (S11) or an email change request (S15, in both branches). Two of them raced for
 /// the same address, the same pending owner or the same live code, and the other committed first. The caller is told what a repeat tells
 /// ("201" and "202 always"), so the loser drops everything it staged, including the outbox rows that would mail a code that never existed,
 /// and its command succeeds. The winner's code and password stand, as if the loser had come first. A unit that sent no such code (a
@@ -36,12 +36,22 @@ internal static class OwnerRejections
             ? CommitResolution.Reject(new CommitConflictException("Another request took the address first.", failure.Exception))
             : null;
 
+    /// <summary>
+    /// The unit was a request to change the address (S15), whichever branch it took: it staged an email change code (a free address), or only
+    /// invalidated the live one (a taken address, which stages none). A confirmation is never one of them: it modifies the address.
+    /// </summary>
+    private static bool AskedForEmailChange(DbContext context, List<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<OneTimeCode>> codes) =>
+        !context.ChangeTracker.Entries<EmailIdentifier>().Any(entry => entry.State != EntityState.Unchanged)
+        && codes.Any(entry => entry.Entity.Purpose == CodePurpose.EmailChange
+            && (entry.State == EntityState.Added || (entry.State == EntityState.Modified && entry.Entity.InvalidatedAt is not null)));
+
     private static CommitResolution? DropWhatWasStaged(CommitFailure failure)
     {
         var context = failure.Context;
-        var sentVerificationCode = context.ChangeTracker.Entries<OneTimeCode>()
+        var codes = context.ChangeTracker.Entries<OneTimeCode>().ToList();
+        var sentVerificationCode = codes
             .Any(entry => entry.State == EntityState.Added && entry.Entity.Purpose is CodePurpose.EmailVerification or CodePurpose.PasswordReset);
-        if (!sentVerificationCode)
+        if (!sentVerificationCode && !AskedForEmailChange(context, codes))
         {
             return null;
         }

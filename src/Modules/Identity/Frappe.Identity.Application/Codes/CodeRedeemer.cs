@@ -8,12 +8,12 @@ using NodaTime;
 namespace Frappe.Identity.Application.Codes;
 
 /// <summary>
-/// Redeems a typed one-time code (S5). Every attempt takes guess slots first, in the limiter: two keyed by principal and purpose (10 a day
-/// from the caller's network prefix, then 100 a day from every network, the second spent only when the first allowed the attempt) and then
-/// one keyed by the code's id (5 per code). A failed <c>Result</c> rolls its unit of work back, so a counter in the database would never grow.
-/// Only then is the text compared, in fixed time. When the slots are gone, or the code is wrong, expired, used or replaced, or there is no
-/// code, the answer is the same <see cref="IdentityErrorCodes.CodeInvalid"/>: it tells nothing about which. When guesses cannot be counted
-/// (the counter is down) none is judged and the answer is <see cref="IdentityErrorCodes.AttemptsUnavailable"/>.
+/// Redeems a typed one-time code (S5). Every attempt takes guess slots first, in the limiter (a missing code costs what a wrong one does): two keyed
+/// by principal and purpose (10 a day from the caller's network prefix, then 100 a day from every network, the second spent only when the first
+/// allowed the attempt) and then one keyed by the code's id (5 per code). A failed <c>Result</c> rolls its unit of work back, so a counter in the
+/// database would never grow. Only then is the text compared, in fixed time. When the slots are gone, or the code is wrong, expired, used or
+/// replaced, or there is no code, the answer is the same <see cref="IdentityErrorCodes.CodeInvalid"/>: it tells nothing about which. When guesses
+/// cannot be counted (the counter is down) none is judged and the answer is <see cref="IdentityErrorCodes.AttemptsUnavailable"/>.
 /// </summary>
 public sealed class CodeRedeemer(IOneTimeCodes codes, ICodeHasher hasher, IAttemptLimiter limiter, TimeProvider time)
 {
@@ -26,15 +26,15 @@ public sealed class CodeRedeemer(IOneTimeCodes codes, ICodeHasher hasher, IAttem
     public async Task<Result<RedeemedCode>> RedeemAsync(Guid principalId, CodePurpose purpose, string? candidate, IPAddress? client,
         CancellationToken cancellationToken)
     {
+        if (await TakePrincipalSlotsAsync(principalId, purpose, client, cancellationToken) is { } spent)
+        {
+            return Result.Failure<RedeemedCode>([spent]);
+        }
+
         var code = await codes.LiveOfAsync(principalId, purpose, cancellationToken);
         if (code is null)
         {
             return Invalid();
-        }
-
-        if (await TakePrincipalSlotsAsync(code.PrincipalId, purpose, client, cancellationToken) is { } spent)
-        {
-            return Result.Failure<RedeemedCode>([spent]);
         }
 
         if (await TakeSlotAsync(CodeLimits.Guess, CodeLimits.GuessSubject(code), cancellationToken) is { } exhausted)

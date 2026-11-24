@@ -255,6 +255,61 @@ public sealed class EmailChangeTests(PostgresServer server)
         (await host.OutboxAsync()).Last(e => e.Type == Issued && e.Data.GetProperty("purpose").GetString() == "password_reset")
             .Data.GetProperty("code").GetString()!;
 
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task Two_requests_at_once_both_answer_whether_the_address_is_free_or_taken(bool taken)
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using (var setup = OwnersHost.Over(owner))
+            {
+                var (id, _) = await ActiveOwnerAsync(setup);
+                await ActiveOwnerAsync(setup, "bob@example.com");
+                if (taken)
+                {
+                    await setup.RequestEmailChangeAsync(id, "free@example.com");
+                }
+            }
+
+            await using var host = OwnersHost.Over(owner, new OwnersHost.RaceGate(2));
+            await using var db = host.Context();
+            var principal = (await db.EmailIdentifiers.AsNoTracking().SingleAsync(i => i.NormalizedAddress == "ana@example.com")).PrincipalId;
+            var target = taken ? "bob@example.com" : "new@example.com";
+
+            // Act
+            var answers = await Task.WhenAll(host.RequestEmailChangeAsync(principal, target), host.RequestEmailChangeAsync(principal, target));
+
+            // Assert
+            await Assert.That(answers.All(a => a.IsSuccess)).IsTrue();
+        });
+    }
+
+    [Test]
+    public async Task A_wrong_confirmation_spends_the_same_guesses_after_a_taken_address_as_after_a_free_one()
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using var host = OwnersHost.Over(owner);
+            var (id, session) = await ActiveOwnerAsync(host);
+            await ActiveOwnerAsync(host, "bob@example.com");
+            var free = await host.RequestEmailChangeAsync(id, "new@example.com");
+            var start = host.Limiter.HitsOfFlow(CodeLimits.GuessPerPrincipal.Name);
+            await host.ConfirmEmailChangeAsync(id, session.Id, free.Value.Id.ToString(), "000000");
+            var afterFree = host.Limiter.HitsOfFlow(CodeLimits.GuessPerPrincipal.Name) - start;
+            var takenRequest = await host.RequestEmailChangeAsync(id, "bob@example.com");
+
+            // Act
+            await host.ConfirmEmailChangeAsync(id, session.Id, takenRequest.Value.Id.ToString(), "000000");
+
+            // Assert
+            await Assert.That(afterFree).IsGreaterThan(0);
+            await Assert.That(host.Limiter.HitsOfFlow(CodeLimits.GuessPerPrincipal.Name)).IsEqualTo(start + (afterFree * 2));
+        });
+    }
+
     private static async Task<string> LastVerificationCodeAsync(OwnersHost host) =>
         (await host.OutboxAsync()).Last(e => e.Type == Issued && e.Data.GetProperty("purpose").GetString() == "email_verification")
             .Data.GetProperty("code").GetString()!;

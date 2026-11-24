@@ -24,6 +24,8 @@ internal static class CodesRegistration
             services.TryAddScoped<IOneTimeCodes, EfOneTimeCodes>();
             services.TryAddScoped<CodeIssuer>();
             services.TryAddScoped<CodeRedeemer>();
+            services.TryAddScoped<IEmailChangeUndos, EfEmailChangeUndos>();
+            services.TryAddScoped<EmailChangeUndoTokens>();
             return services;
         }
     }

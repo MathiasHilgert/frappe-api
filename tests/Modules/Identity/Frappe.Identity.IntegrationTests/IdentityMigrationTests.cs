@@ -36,7 +36,8 @@ public sealed class IdentityMigrationTests(PostgresServer server)
             // Assert
             await Assert.That(tables).IsEquivalentTo(
                 [
-                    "__ef_migrations_history", "email_identifiers", "inbox_messages", "one_time_codes", "outbox_messages", "owners",
+                    "__ef_migrations_history", "email_change_undos", "email_identifiers", "inbox_messages", "one_time_codes", "outbox_messages",
+                    "owners",
                     "password_credentials", "principals", "sessions",
                 ]);
         });
@@ -96,15 +97,18 @@ public sealed class IdentityMigrationTests(PostgresServer server)
             // Act
             var indexes = await NamesAsync(owner, """
                 SELECT indexname FROM pg_indexes WHERE schemaname = 'identity'
-                  AND tablename IN ('principals', 'email_identifiers', 'password_credentials', 'sessions', 'one_time_codes', 'owners')
+                  AND tablename IN ('principals', 'email_identifiers', 'password_credentials', 'sessions', 'one_time_codes',
+                  'email_change_undos', 'owners')
                 """);
 
             // Assert
             await Assert.That(indexes).IsEquivalentTo(
                 [
-                    "pk_principals", "pk_email_identifiers", "pk_password_credentials", "pk_sessions", "pk_one_time_codes", "pk_owners",
+                    "pk_principals", "pk_email_identifiers", "pk_password_credentials", "pk_sessions", "pk_one_time_codes", "pk_email_change_undos",
+                    "pk_owners",
                     "ux_email_identifiers_normalized_address", "ux_email_identifiers_principal_id", "ux_sessions_token_hash",
                     "ix_sessions_principal_id", "ix_sessions_ended_at", "ux_one_time_codes_live", "ix_one_time_codes_expires_at",
+                    "ux_email_change_undos_live", "ix_email_change_undos_expires_at",
                     "ix_owners_registered_at",
                 ]);
         });
