@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.3.0](https://github.com/MathiasHilgert/frappe-api/compare/v0.2.1...v0.3.0) (2026-11-24)
+
+
+### Features
+
+* **notifications:** add the notifications module with email delivery through resend ([#27](https://github.com/MathiasHilgert/frappe-api/issues/27)) ([314e174](https://github.com/MathiasHilgert/frappe-api/commit/314e1740796670e9a07cfb05eace01780ef3c69b))
+
+
+### Bug fixes
+
+* **notifications:** enforce delivery invariants in the schema and survive hash-key rotation ([#35](https://github.com/MathiasHilgert/frappe-api/issues/35)) ([fdcacfb](https://github.com/MathiasHilgert/frappe-api/commit/fdcacfb37cc17a1118b212074b60bcbdf58077a6))
+* **notifications:** validate every payload and recipient before anything is sent ([#32](https://github.com/MathiasHilgert/frappe-api/issues/32)) ([4fe2bcf](https://github.com/MathiasHilgert/frappe-api/commit/4fe2bcfa6f9c645f8167b2460e0c0006d6c6fb29))
+* **notifications:** verify unsubscribe tokens before rate limiting and guard email texts at startup ([#33](https://github.com/MathiasHilgert/frappe-api/issues/33)) ([cc90c7c](https://github.com/MathiasHilgert/frappe-api/commit/cc90c7cba5ceba7cc0c75e4c4a01cce74dd4ad0c))
+
+
+### Refactoring
+
+* **messaging:** move outbox storage and broker declarations out of the broker assembly ([#20](https://github.com/MathiasHilgert/frappe-api/issues/20)) ([fff175c](https://github.com/MathiasHilgert/frappe-api/commit/fff175cb9eecb243f9c2aaf4a6acdcfe16f202dd))
+
+
+### Documentation
+
+* **conventions:** adopt the rule updates the notifications module proved ([#30](https://github.com/MathiasHilgert/frappe-api/issues/30)) ([364d2e9](https://github.com/MathiasHilgert/frappe-api/commit/364d2e95aa3480f0c83e069c4e05a053ec8ad56c))
+
+
+### Continuous integration
+
+* **image:** scan the image only when its dockerfile or dependencies change ([#36](https://github.com/MathiasHilgert/frappe-api/issues/36)) ([1f7d246](https://github.com/MathiasHilgert/frappe-api/commit/1f7d2467d141f403c881e5ba827e1549150c9531))
+
 ## [0.2.1](https://github.com/MathiasHilgert/frappe-api/compare/v0.2.0...v0.2.1) (2026-11-23)
 
 
