@@ -79,13 +79,7 @@ internal static class OwnerEndpoints
     {
         var command = new VerifyOwnerEmail(
             ownerId, body?.Code, httpContext.Request.Headers[HeaderNames.UserAgent].ToString(), httpContext.Connection.RemoteIpAddress);
-        return (await handler.HandleAsync(command, cancellationToken)).ToTypedHttpResult(opened =>
-        {
-            var absolute = opened.AbsoluteExpiresAt.ToDateTimeOffset();
-            IdentitySessionCookie.Append(httpContext.Response, opened.Token.Value, absolute);
-            return TypedResults.Created(
-                (string?)null, new OpenedSessionResponse(opened.Id, opened.Token.Value, opened.IdleExpiresAt.ToDateTimeOffset(), absolute));
-        });
+        return (await handler.HandleAsync(command, cancellationToken)).ToTypedHttpResult(opened => SessionAnswers.Created(httpContext, opened));
     }
 
     private static async Task<Results<Accepted, ErrorsProblemHttpResult>> ResendAsync(

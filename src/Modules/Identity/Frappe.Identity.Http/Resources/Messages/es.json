@@ -1,10 +1,16 @@
 {
-  "identity.attempts.unavailable": "No se pueden verificar códigos en este momento. Inténtalo de nuevo en un momento.",
+  "identity.attempts.unavailable": "No se pueden verificar los intentos en este momento. Inténtalo de nuevo en un momento.",
   "identity.code.invalid": "El código no es válido: es incorrecto, venció, ya se usó o lo reemplazó uno más nuevo, o no se envió a esta cuenta. Pide uno nuevo.",
+  "identity.credentials.invalid": "El correo electrónico o la contraseña no son correctos.",
   "identity.email.invalid": "El email falta o no es una dirección válida.",
+  "identity.kind.owner": "Titular",
+  "identity.locale.unsupported": "Frappé no está escrito en ese idioma. Usa uno de en, es, es-AR, es-MX o pt-BR.",
   "identity.name.invalid": "El nombre necesita un nombre de pila y, junto con el apellido, tener como máximo 60 caracteres y ningún enlace (http, www. o ://).",
+  "identity.owner.verification_pending": "El correo electrónico todavía no está verificado. Se le envió un código nuevo: verifícalo con él.",
   "identity.password.breached": "Esta contraseña aparece en una lista pública de contraseñas filtradas. Elige otra.",
   "identity.password.too_long": "La contraseña es demasiado larga: puede tener como máximo {max} caracteres.",
   "identity.password.too_short": "La contraseña es demasiado corta: necesita al menos {min} caracteres.",
+  "identity.profile.changed": "El perfil cambió desde que lo leíste. Léelo de nuevo y repite el cambio.",
+  "identity.session.forbidden": "Esta sesión no puede usar esta ruta.",
   "identity.session.invalid": "La sesión falta, venció o fue revocada, o la solicitud envió dos veces su cookie de sesión. Inicia sesión de nuevo."
 }

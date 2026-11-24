@@ -1,8 +1,12 @@
 using System.Net;
 using System.Text.Json;
 using Frappe.Http;
+using Frappe.Identity.Application.Owners;
+using Frappe.Identity.Application.Owners.GetMe;
+using Frappe.Identity.Application.Owners.LogInOwner;
 using Frappe.Identity.Application.Owners.RegisterOwner;
 using Frappe.Identity.Application.Owners.ResendOwnerVerification;
+using Frappe.Identity.Application.Owners.UpdateMe;
 using Frappe.Identity.Application.Owners.VerifyOwnerEmail;
 using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Application.Sessions.GetCurrentSession;
@@ -254,6 +258,9 @@ public sealed class IdentityOwnerRouteTests
 
             // The session routes of the same module are mapped too; nothing here calls them.
             services.AddSingleton<ICommandHandler<LogOut, Unit>>(new Unused<LogOut, Unit>());
+            services.AddSingleton<ICommandHandler<LogInOwner, LogInOutcome>>(new Unused<LogInOwner, LogInOutcome>());
+            services.AddSingleton<IQueryHandler<GetMe, OwnerProfile>>(new UnusedQuery<GetMe, OwnerProfile>());
+            services.AddSingleton<ICommandHandler<UpdateMe, Unit>>(new Unused<UpdateMe, Unit>());
             services.AddSingleton<IQueryHandler<GetCurrentSession, CurrentSessionView>>(new UnusedQuery());
         }
     }
@@ -303,6 +310,14 @@ public sealed class IdentityOwnerRouteTests
     private sealed class UnusedQuery : IQueryHandler<GetCurrentSession, CurrentSessionView>
     {
         public Task<Result<CurrentSessionView>> HandleAsync(GetCurrentSession query, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("No test calls this route.");
+    }
+
+    /// <summary>A query of a route this suite never calls, registered so the route can be mapped.</summary>
+    private sealed class UnusedQuery<TQuery, TResult> : IQueryHandler<TQuery, TResult>
+        where TQuery : IQuery<TResult>
+    {
+        public Task<Result<TResult>> HandleAsync(TQuery query, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("No test calls this route.");
     }
 

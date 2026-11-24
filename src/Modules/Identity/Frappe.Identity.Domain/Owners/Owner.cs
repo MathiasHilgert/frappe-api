@@ -118,4 +118,25 @@ public sealed class Owner : AggregateRoot
         ArgumentException.ThrowIfNullOrWhiteSpace(email);
         Raise(new OwnerRegistrationAttempted(email, Locale.Value, now));
     }
+
+    /// <summary>
+    /// Records that the owner proved their password at <paramref name="now"/>; <paramref name="verificationPending"/> says no session opened
+    /// because the address is not proven yet.
+    /// </summary>
+    public void RecordLogIn(bool verificationPending, Instant now) => Raise(new OwnerLoggedIn(PrincipalId, verificationPending, now));
+
+    /// <summary>Changes the name the owner is called by.</summary>
+    public void Rename(OwnerName name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        GivenName = name.Given;
+        FamilyName = name.Family;
+    }
+
+    /// <summary>Changes the language of the mail and messages the owner receives.</summary>
+    public void ChangeLocale(LanguageTag locale)
+    {
+        ArgumentNullException.ThrowIfNull(locale);
+        Locale = locale;
+    }
 }

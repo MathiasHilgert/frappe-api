@@ -1,0 +1,32 @@
+info:
+  name: Change the profile without a session (401)
+  type: http
+  seq: 14
+
+http:
+  method: PATCH
+  url: "{{baseUrl}}/v1/identity/me"
+  headers:
+    - name: Content-Type
+      value: application/merge-patch+json
+    - name: If-Match
+      value: '"1"'
+  body:
+    type: json
+    data: |-
+      { "name": { "given": "Bruno" }, "locale": "es-AR" }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "401"
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"identity.session.invalid"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `PATCH /v1/identity/me` takes a JSON Merge Patch (`application/merge-patch+json`) of `name.given`, `name.family` (`null` removes it) and `locale` (a BCP 47 tag Frappe is written in), and answers `200` with the whole profile and its new `ETag`. `If-Match` is optional: a tag that is no longer the profile's changes nothing and answers `412 identity.profile.changed`. An unknown or repeated member is `400 http.bad_request`; a name that is too long or holds a link is `400 identity.name.invalid`; a language Frappe is not written in is `422 identity.locale.unsupported`. A request with a session needs a verified owner, so the Api's integration tests cover those.

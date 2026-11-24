@@ -30,11 +30,14 @@ internal static class OwnersRegistration
             services.TryAddScoped<IEmailIdentifiers, EfEmailIdentifiers>();
             services.TryAddScoped<IPasswordCredentials, EfPasswordCredentials>();
             services.TryAddScoped<IOwners, EfOwners>();
+            services.TryAddScoped<IOwnerReads, EfOwnerReads>();
             services.CountOnCommit<OwnerRegistered, IdentityMetrics>((metrics, registered) =>
                 metrics.Registered(registered.Replaced ? RegistrationOutcome.Replaced : RegistrationOutcome.Created));
             services.CountOnCommit<OwnerRegistrationAttempted, IdentityMetrics>((metrics, _) => metrics.Registered(RegistrationOutcome.Taken));
             services.CountOnCommit<OwnerCodeIssued, IdentityMetrics>((metrics, issued) =>
                 metrics.CodeIssued(StoredEnum<CodePurpose>.ToText(issued.Purpose)));
+            services.CountOnCommit<OwnerLoggedIn, IdentityMetrics>((metrics, loggedIn) =>
+                metrics.LoggedIn(loggedIn.VerificationPending ? LoginOutcome.Pending : LoginOutcome.Opened));
             services.CountOnCommit<OwnerVerified, IdentityMetrics>((metrics, _) => metrics.Verified(VerificationOutcome.Verified));
             return services;
         }

@@ -30,6 +30,15 @@ public sealed class IdentityMetrics
     /// <summary>Counter: email verifications, by outcome (<c>verified</c>, <c>invalid</c> or <c>unavailable</c>).</summary>
     public const string VerificationsMetric = "frappe.identity.verifications";
 
+    /// <summary>Counter: log-in attempts, by outcome (<c>opened</c>, <c>pending</c>, <c>invalid</c> or <c>throttled</c>).</summary>
+    public const string LoginsMetric = "frappe.identity.logins";
+
+    /// <summary>Counter: sessions opened, by audience.</summary>
+    public const string SessionsOpenedMetric = "frappe.identity.sessions.opened";
+
+    /// <summary>The audience tag of <see cref="SessionsOpenedMetric"/>: <c>console</c> today.</summary>
+    public const string AudienceTag = "frappe.audience";
+
     /// <summary>Counter: one-time codes issued, by purpose.</summary>
     public const string CodesIssuedMetric = "frappe.identity.codes.issued";
 
@@ -49,6 +58,8 @@ public sealed class IdentityMetrics
     private readonly Counter<long> _registrations;
     private readonly Counter<long> _verifications;
     private readonly Counter<long> _codesIssued;
+    private readonly Counter<long> _logins;
+    private readonly Counter<long> _sessionsOpened;
 
     public IdentityMetrics(IMeterFactory meters)
     {
@@ -68,6 +79,8 @@ public sealed class IdentityMetrics
         _verifications = meter.CreateCounter<long>(
             VerificationsMetric, unit: "{verification}", description: "Owner email verifications, by outcome.");
         _codesIssued = meter.CreateCounter<long>(CodesIssuedMetric, unit: "{code}", description: "One-time codes issued, by purpose.");
+        _logins = meter.CreateCounter<long>(LoginsMetric, unit: "{login}", description: "Log-in attempts, by outcome.");
+        _sessionsOpened = meter.CreateCounter<long>(SessionsOpenedMetric, unit: "{session}", description: "Sessions opened, by audience.");
     }
 
     /// <summary>A password was hashed or verified in <paramref name="elapsed"/>.</summary>
@@ -91,6 +104,12 @@ public sealed class IdentityMetrics
     public void Verified(VerificationOutcome outcome) =>
         _verifications.Add(1, new KeyValuePair<string, object?>(OutcomeTag, OutcomeName(outcome)));
 
+    /// <summary>A log-in attempt ended with <paramref name="outcome"/>.</summary>
+    public void LoggedIn(LoginOutcome outcome) => _logins.Add(1, new KeyValuePair<string, object?>(OutcomeTag, OutcomeName(outcome)));
+
+    /// <summary>A session opened for <paramref name="audience"/> (the name its stored form uses).</summary>
+    public void SessionOpened(string audience) => _sessionsOpened.Add(1, new KeyValuePair<string, object?>(AudienceTag, audience));
+
     /// <summary>A one-time code was issued for <paramref name="purpose"/> (the name its stored form uses).</summary>
     public void CodeIssued(string purpose) => _codesIssued.Add(1, new KeyValuePair<string, object?>(PurposeTag, purpose));
 
@@ -99,6 +118,15 @@ public sealed class IdentityMetrics
         RegistrationOutcome.Created => "created",
         RegistrationOutcome.Replaced => "replaced",
         RegistrationOutcome.Taken => "taken",
+        _ => throw new UnreachableException($"Unknown outcome {outcome}."),
+    };
+
+    internal static string OutcomeName(LoginOutcome outcome) => outcome switch
+    {
+        LoginOutcome.Opened => "opened",
+        LoginOutcome.Pending => "pending",
+        LoginOutcome.Invalid => "invalid",
+        LoginOutcome.Throttled => "throttled",
         _ => throw new UnreachableException($"Unknown outcome {outcome}."),
     };
 

@@ -1,0 +1,35 @@
+info:
+  name: Log in as a pending owner (403)
+  type: http
+  seq: 12
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/identity/sessions"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      { "email": "{{email}}", "password": "{{password}}" }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "403"
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"identity.owner.verification_pending"'
+    - expression: res.body.errors[0].parameters.ownerId
+      operator: eq
+      value: "{{ownerId}}"
+    - expression: res.headers['set-cookie']
+      operator: isUndefined
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  Run it after **Register an owner (201)**, which sets `email`, `password` and `ownerId`. The owner is pending (their address is not verified), the password is right, so no session opens: a new code is mailed and the answer is `403 identity.owner.verification_pending` whose `parameters.ownerId` is the id to verify with (`POST /v1/identity/owners/{ownerId}/verification`). This is the only answer that says an owner exists, and only to whoever gave that owner's right password.

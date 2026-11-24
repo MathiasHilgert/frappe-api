@@ -1,3 +1,4 @@
+using System.Globalization;
 using Frappe.Identity.Application.Owners;
 using Frappe.Identity.Domain.Owners;
 using Frappe.Identity.Infrastructure.Persistence;
@@ -10,6 +11,9 @@ internal sealed class EfOwners(IdentityDbContext db) : IOwners
 {
     public Task<Owner?> FindAsync(Guid principalId, CancellationToken cancellationToken) =>
         db.Owners.SingleOrDefaultAsync(o => o.PrincipalId == principalId, cancellationToken);
+
+    public string VersionOf(Owner owner) =>
+        db.Entry(owner).Property<uint>("xmin").OriginalValue.ToString(CultureInfo.InvariantCulture);
 
     public void Add(Owner owner) => db.Owners.Add(owner);
 }

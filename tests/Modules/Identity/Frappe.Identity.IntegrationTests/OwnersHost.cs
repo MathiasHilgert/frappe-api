@@ -2,8 +2,12 @@ using System.Text.Json;
 using Frappe.Identity.Application.Credentials;
 using Frappe.Identity.Application.Identifiers;
 using Frappe.Identity.Application.Limits;
+using Frappe.Identity.Application.Owners;
+using Frappe.Identity.Application.Owners.GetMe;
+using Frappe.Identity.Application.Owners.LogInOwner;
 using Frappe.Identity.Application.Owners.RegisterOwner;
 using Frappe.Identity.Application.Owners.ResendOwnerVerification;
+using Frappe.Identity.Application.Owners.UpdateMe;
 using Frappe.Identity.Application.Owners.VerifyOwnerEmail;
 using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Domain.Credentials;
@@ -99,6 +103,42 @@ internal sealed class OwnersHost : IAsyncDisposable
         await using var scope = _provider.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<ICommandHandler<ResendOwnerVerification, Unit>>()
             .HandleAsync(new ResendOwnerVerification(ownerId), default);
+    }
+
+    /// <summary>
+    /// Logs in. A refusal waits for the fake clock, so the clock is moved on, ten milliseconds at a time, while the call waits: a refusal that
+    /// ends before 500 ms of fake time have passed ended before its floor (hashing takes far less fake time than that).
+    /// </summary>
+    public async Task<Result<LogInOutcome>> LogInAsync(string? email, string? password)
+    {
+        var task = StartLogInAsync(email, password);
+        while (!task.IsCompleted)
+        {
+            Time.Advance(TimeSpan.FromMilliseconds(10));
+            await Task.Delay(5);
+        }
+
+        return await task;
+    }
+
+    /// <summary>Starts a log-in and leaves it running: one that succeeds is complete at once, a refusal waits for the clock.</summary>
+    public async Task<Result<LogInOutcome>> StartLogInAsync(string? email, string? password)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<ICommandHandler<LogInOwner, LogInOutcome>>()
+            .HandleAsync(new LogInOwner(email, password, "agent", System.Net.IPAddress.Parse("203.0.113.7")), default);
+    }
+
+    public async Task<Result<OwnerProfile>> MeAsync(Guid principalId)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<IQueryHandler<GetMe, OwnerProfile>>().HandleAsync(new GetMe(principalId), default);
+    }
+
+    public async Task<Result<Unit>> UpdateMeAsync(UpdateMe command)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<ICommandHandler<UpdateMe, Unit>>().HandleAsync(command, default);
     }
 
     public IdentityDbContext Context() =>
