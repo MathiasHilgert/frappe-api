@@ -26,8 +26,8 @@ internal static class EmailChangeUndoEndpoints
                 .RequireRateLimiting(IdentityHttp.EmailChangeUndoRateLimitPolicy)
                 .WithSummary("Undo an email change from the notice")
                 .WithDescription(
-                    "Restores the address the change replaced, proven, with the single-use token of the notice sent to it (valid "
-                    + "7 days): every session of the owner is revoked, so the owner logs in again, and every "
+                    "Restores the earlier address as verified, using the single-use token in the link of the notice mailed to that "
+                    + "address (valid 7 days): every session of the owner is revoked, so the owner logs in again, and every "
                     + "live code of the owner stops working. A change made later has its own token, which stops working too. 422 "
                     + "identity.undo.invalid, one answer and one time (never sooner than "
                     + $"{EmailChangeUndoLimits.Floor.TotalMilliseconds:0} ms), for a token that is malformed, unknown, wrong, expired, used or "

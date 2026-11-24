@@ -16,6 +16,8 @@ public sealed class EmailChangeUndoTokens(IEmailChangeUndos undos, ICodeHasher h
 
     private const int MaxSecretLength = 64;
 
+    private const int IdLength = 32;
+
     /// <summary>
     /// A new token for the change of <paramref name="oldAddress"/> to <paramref name="newAddress"/> (both normalized) of
     /// <paramref name="principalId"/>, in plain text: it exists only here and in the event that mails it.
@@ -36,9 +38,8 @@ public sealed class EmailChangeUndoTokens(IEmailChangeUndos undos, ICodeHasher h
     /// </summary>
     public async Task<EmailChangeUndo?> FindLiveAsync(string? token, CancellationToken cancellationToken)
     {
-        var parts = token?.Split('.');
-        var secret = parts is [var id, var text] && text.Length is > 0 and <= MaxSecretLength && Guid.TryParseExact(id, "N", out _) ? parts[1] : null;
-        var found = secret is null ? null : await undos.FindAsync(Guid.ParseExact(parts![0], "N"), cancellationToken);
+        var (id, secret) = Parse(token);
+        var found = id is null ? null : await undos.FindAsync(id.Value, cancellationToken);
         if (found is null)
         {
             _ = hasher.Hash(secret ?? "-");
@@ -47,5 +48,17 @@ public sealed class EmailChangeUndoTokens(IEmailChangeUndos undos, ICodeHasher h
 
         var now = Instant.FromDateTimeOffset(time.GetUtcNow());
         return hasher.Matches(found.TokenHmac, secret!) && found.IsLive(now) ? found : null;
+    }
+
+    // The length is bounded before the split: the input is anonymous and unbounded.
+    private static (Guid? Id, string? Secret) Parse(string? token)
+    {
+        if (token is null or { Length: > IdLength + 1 + MaxSecretLength })
+        {
+            return (null, null);
+        }
+
+        var parts = token.Split('.');
+        return parts is [var id, { Length: > 0 } secret] && Guid.TryParseExact(id, "N", out var guid) ? (guid, secret) : (null, null);
     }
 }
