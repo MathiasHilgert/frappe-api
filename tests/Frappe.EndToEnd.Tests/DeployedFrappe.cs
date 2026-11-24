@@ -24,6 +24,15 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
     // The same images deploy/compose.yaml runs.
     private const string PostgresImage = "postgis/postgis:18-3.7-alpine";
     private const string NatsImage = "nats:2.11-alpine";
+
+    /// <summary>A local-only address hash key (base64, 37 bytes) for the throwaway deployment; it protects nothing.</summary>
+    private const string AddressHashKey = "bG9jYWwtb25seS1hZGRyZXNzLWhhc2gta2V5LW9mLTM5LWJ5dGVz";
+
+    /// <summary>A local-only signing secret (base64) for the throwaway deployment's Resend webhook; it protects nothing.</summary>
+    private const string UnsubscribeKey = "bG9jYWwtb25seS11bnN1YnNjcmliZS1zaWduaW5nLWtleSEh";
+
+    private const string WebhookSigning = "bG9jYWwtb25seS1yZXNlbmQtd2ViaG9vay1zaWduaW5nLXNlY3JldCEh";
+
     private const string ValkeyImage = "valkey/valkey:8-alpine";
 
     /// <summary>Every wait gives up instead of hanging the session (Testcontainers waits forever by default).</summary>
@@ -31,6 +40,8 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
 
     private readonly string _ownerPassword = Secret();
     private readonly string _schedulerPassword = Secret();
+    private readonly string _notificationsPassword = Secret();
+    private readonly string _notificationsWorkerPassword = Secret();
     private readonly List<IContainer> _containers = [];
 
     private INetwork? _network;
@@ -93,7 +104,13 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
 
         _api = Track(new ContainerBuilder(_image)
             .WithNetwork(_network)
+            .WithEnvironment("ConnectionStrings__Notifications",
+                $"Host=postgres;Database=frappe;Username=frappe_notifications;Password={_notificationsPassword}")
             .WithEnvironment("ConnectionStrings__Valkey", "valkey:6379")
+            .WithEnvironment("Notifications__AddressHash__CurrentKeyId", "1")
+            .WithEnvironment("Notifications__AddressHash__Keys__1", AddressHashKey)
+            .WithEnvironment("Notifications__Email__Resend__WebhookSecret", WebhookSigning)
+            .WithEnvironment("Notifications__Unsubscribe__SigningKey", UnsubscribeKey)
             .WithPortBinding(8080, true)
             .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => r.ForPort(8080).ForPath("/health/live"), Bounded))
             .Build());
@@ -101,8 +118,16 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
             .WithNetwork(_network)
             .WithEntrypoint("/app/worker/Frappe.Worker")
             .WithEnvironment("ConnectionStrings__Scheduler", $"Host=postgres;Database=frappe;Username=frappe_scheduler;Password={_schedulerPassword}")
+            .WithEnvironment("ConnectionStrings__Notifications",
+                $"Host=postgres;Database=frappe;Username=frappe_notifications_worker;Password={_notificationsWorkerPassword}")
             .WithEnvironment("ConnectionStrings__Valkey", "valkey:6379")
             .WithEnvironment("ConnectionStrings__Nats", "nats://nats:4222")
+            .WithEnvironment("Notifications__AddressHash__CurrentKeyId", "1")
+            .WithEnvironment("Notifications__AddressHash__Keys__1", AddressHashKey)
+            .WithEnvironment("Notifications__Unsubscribe__SigningKey", UnsubscribeKey)
+            .WithEnvironment("Notifications__Unsubscribe__PageUrl", "http://localhost:5173/unsubscribe")
+            .WithEnvironment("Notifications__Unsubscribe__ApiBaseUrl", "http://localhost:8080/")
+            .WithEnvironment("Notifications__Email__Sender", "Logging")
             .Build());
 
         try
@@ -125,6 +150,8 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
             .WithEntrypoint("/app/migrator/Frappe.Migrator")
             .WithEnvironment("ConnectionStrings__Owner", $"Host=postgres;Database=frappe;Username=frappe_owner;Password={_ownerPassword}")
             .WithEnvironment("Roles__Scheduler__Password", _schedulerPassword)
+            .WithEnvironment("Roles__Notifications__Password", _notificationsPassword)
+            .WithEnvironment("Roles__NotificationsWorker__Password", _notificationsWorkerPassword)
             .Build());
         try
         {

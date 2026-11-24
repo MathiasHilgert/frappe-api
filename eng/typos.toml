@@ -8,6 +8,7 @@ extend-exclude = [
   "**/Migrations/**",
   "contracts/**",
   "**/Resources/Messages/**",
+  "**/Texts/**",
   "**/Fixtures/**",
   "src/Platform/Frappe.Localization/KnownLanguages.Tags.cs",
   "deploy/observability/**",

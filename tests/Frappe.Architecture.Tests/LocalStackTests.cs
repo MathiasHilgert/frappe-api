@@ -25,6 +25,22 @@ public sealed partial class LocalStackTests
     [GeneratedRegex(@"^([A-Z][A-Z0-9_]*)=(.*)$", RegexOptions.Multiline)]
     private static partial Regex Assignment();
 
+    /// <summary>
+    /// A placeholder says it is local by starting with <c>local-only-</c>, or, for a value that must be base64 (a key), by decoding to text
+    /// that does.
+    /// </summary>
+    private static bool SaysLocal(string value)
+    {
+        if (value.StartsWith("local-only-", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var bytes = new byte[value.Length];
+        return Convert.TryFromBase64String(value, bytes, out var written)
+            && System.Text.Encoding.UTF8.GetString(bytes, 0, written).StartsWith("local-only-", StringComparison.Ordinal);
+    }
+
     private static async Task<string> ComposeServicesAsync()
     {
         var compose = await File.ReadAllTextAsync(Deploy("compose.yaml"));
@@ -44,7 +60,7 @@ public sealed partial class LocalStackTests
     }
 
     [Test]
-    public async Task Grafana_is_provisioned_with_its_datasources_and_no_dashboard_or_alert()
+    public async Task Grafana_is_provisioned_with_its_datasources_the_notifications_dashboard_and_the_alert_rules()
     {
         // Act
         var provisioning = Deploy("observability/grafana/provisioning");
@@ -57,8 +73,14 @@ public sealed partial class LocalStackTests
         // Assert
         using (Assert.Multiple())
         {
-            await Assert.That(folders).IsEquivalentTo(["datasources"]);
-            await Assert.That(files).IsEquivalentTo([Path.Combine("datasources", "datasources.yaml")]);
+            await Assert.That(folders).IsEquivalentTo(["alerting", "dashboards", "datasources"]);
+            await Assert.That(files).IsEquivalentTo(
+            [
+                Path.Combine("alerting", "frappe-alerts.yaml"),
+                Path.Combine("dashboards", "dashboards.yaml"),
+                Path.Combine("dashboards", "notifications.json"),
+                Path.Combine("datasources", "datasources.yaml"),
+            ]);
             await Assert.That(datasources).Contains("uid: mimir").And.Contains("uid: loki").And.Contains("uid: tempo");
         }
     }
@@ -91,7 +113,7 @@ public sealed partial class LocalStackTests
                 || entry.Name.Contains("SECRET", StringComparison.Ordinal) || entry.Name.Contains("TOKEN", StringComparison.Ordinal))
             .ToArray();
         var offenders = secrets
-            .Where(entry => entry.Value.Length > 0 && !entry.Value.StartsWith("local-only-", StringComparison.Ordinal))
+            .Where(entry => entry.Value.Length > 0 && !SaysLocal(entry.Value))
             .Select(entry => entry.Name);
 
         // Assert

@@ -1,0 +1,44 @@
+info:
+  name: Receive a delivery delayed webhook (204)
+  type: http
+  seq: 16
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/notifications/webhooks/resend"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: text
+    data: '{"type":"email.delivery_delayed","created_at":"2026-11-24T10:00:00.000Z","data":{"email_id":"re_bruno_delayed","to":["bruno-delayed@example.com"]}}'
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Signs the call as Resend (Svix) does: HMAC-SHA256 of "{id}.{timestamp}.{body}" under the secret's decoded bytes. The signature
+        // is recomputed on every run because the Api refuses a call whose timestamp is more than five minutes old.
+        const CryptoJS = require('crypto-js');
+        const id = 'msg_bruno_' + Date.now();
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+        // The body is sent exactly as written (a text body), already compact, so serializing the parsed object gives the same bytes: keep it compact.
+        const body = JSON.stringify(req.getBody());
+        const secret = bru.getEnvVar('webhookSecret').replace(/^whsec_/, '');
+        const signature = CryptoJS.HmacSHA256(`${id}.${timestamp}.${body}`, CryptoJS.enc.Base64.parse(secret));
+        req.setHeader('svix-id', id);
+        req.setHeader('svix-timestamp', timestamp);
+        req.setHeader('svix-signature', 'v1,' + CryptoJS.enc.Base64.stringify(signature));
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "204"
+    - expression: res.headers['cache-control']
+      operator: contains
+      value: '"no-store"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  A signed `email.delivery_delayed` event for a message the Api does not know: 204, parked.

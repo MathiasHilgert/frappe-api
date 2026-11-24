@@ -6,3 +6,9 @@ variables:
   - name: language
     value: es-AR
     description: Accept-Language of every request (en, es, es-AR, es-MX or pt-BR).
+  - name: webhookSecret
+    value: bG9jYWwtb25seS1yZXNlbmQtd2ViaG9vay1zaWduaW5nLXNlY3JldCEh
+    description: The signing secret of Resend's webhook that the Api in this environment holds; the local-only placeholder of deploy/.env.example. The Notifications requests sign their calls with it.
+  - name: unsubscribeKey
+    value: bG9jYWwtb25seS11bnN1YnNjcmliZS1zaWduaW5nLWtleSEh
+    description: The signing key of unsubscribe tokens that the Api in this environment holds; the local-only placeholder of deploy/.env.example. The unsubscribe request signs its token with it.

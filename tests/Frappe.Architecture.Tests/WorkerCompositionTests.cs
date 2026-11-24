@@ -24,6 +24,13 @@ public sealed class WorkerCompositionTests
         ["ConnectionStrings:Scheduler"] = "Host=unreachable.invalid;Database=frappe;Username=frappe_scheduler",
         ["ConnectionStrings:Valkey"] = "unreachable.invalid:6379",
         ["ConnectionStrings:Nats"] = "nats://unreachable.invalid:4222",
+        ["ConnectionStrings:Notifications"] = "Host=unreachable.invalid;Database=frappe;Username=frappe_notifications_worker",
+        ["Notifications:AddressHash:CurrentKeyId"] = "1",
+        ["Notifications:AddressHash:Keys:1"] = "bG9jYWwtb25seS1hZGRyZXNzLWhhc2gta2V5LW9mLTM5LWJ5dGVz",
+        ["Notifications:Unsubscribe:SigningKey"] = "bG9jYWwtb25seS11bnN1YnNjcmliZS1zaWduaW5nLWtleSEh",
+        ["Notifications:Unsubscribe:PageUrl"] = "http://localhost:5173/unsubscribe",
+        ["Notifications:Unsubscribe:ApiBaseUrl"] = "http://localhost:8080/",
+        ["Notifications:Email:Resend:ApiKey"] = "re_local_only_placeholder",
     };
 
     private static IHost Build(Dictionary<string, string?> settings, IReadOnlyCollection<IModule>? modules = null,
@@ -47,7 +54,7 @@ public sealed class WorkerCompositionTests
     public async Task The_Worker_starts_with_zero_modules_and_runs_the_scheduler_and_the_tcp_probes()
     {
         // Arrange
-        using var host = Build(Deployed);
+        using var host = Build(Deployed, []);
 
         // Act
         await ValidateAsync(host);
@@ -57,7 +64,6 @@ public sealed class WorkerCompositionTests
         // Assert
         using (Assert.Multiple())
         {
-            await Assert.That(Frappe.Worker.Modules.All).IsEmpty();
             await Assert.That(hosted).Contains("QuartzHostedService");
             await Assert.That(publishers).Contains("TcpProbePublisher");
         }
@@ -67,7 +73,7 @@ public sealed class WorkerCompositionTests
     public async Task Readiness_counts_the_scheduler_and_NATS_as_critical_and_Valkey_as_optional()
     {
         // Arrange
-        using var host = Build(Deployed);
+        using var host = Build(Deployed, []);
 
         // Act
         var registrations = host.Services.GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value.Registrations
@@ -88,7 +94,7 @@ public sealed class WorkerCompositionTests
     public async Task The_scheduler_job_store_is_a_database_participant_the_Migrator_provisions()
     {
         // Arrange
-        using var host = Build(Deployed);
+        using var host = Build(Deployed, []);
 
         // Act
         var participant = host.Services.GetServices<IDatabaseParticipant>().Single();
@@ -107,7 +113,7 @@ public sealed class WorkerCompositionTests
         // Arrange
         var settings = new Dictionary<string, string?>(Deployed);
         settings.Remove("ConnectionStrings:Scheduler");
-        using var host = Build(settings);
+        using var host = Build(settings, []);
 
         // Act
         var thrown = await Assert.ThrowsAsync<AggregateException>(() => ValidateAsync(host));
@@ -115,6 +121,145 @@ public sealed class WorkerCompositionTests
         // Assert
         await Assert.That(thrown?.InnerExceptions.OfType<OptionsValidationException>().Select(failure => failure.Message))
             .Contains(message => message.Contains("ConnectionStrings:Scheduler", StringComparison.Ordinal));
+    }
+
+    [Test]
+    public async Task The_Worker_with_its_real_module_lists_validates_and_runs_the_relay_and_the_notifications_database()
+    {
+        // Arrange
+        using var host = Build(Deployed);
+
+        // Act
+        await ValidateAsync(host);
+        var hosted = host.Services.GetServices<IHostedService>().Select(service => service.GetType().Name).ToArray();
+        var ready = host.Services.GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value.Registrations
+            .Where(registration => registration.Tags.Contains(HealthProbes.Ready))
+            .Select(registration => registration.Name)
+            .ToArray();
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(Frappe.Worker.Modules.All.Select(module => module.GetType().Name))
+                .IsEquivalentTo(
+                    ["NotificationsModule", "NotificationsWorkerModule", "AccountKindsModule", "MarketingKindsModule", "EmailChannelWorkerModule"]);
+            await Assert.That(hosted).Contains("OutboxRelayService`1");
+            await Assert.That(hosted).Contains("JetStreamConsumer`2");
+            await Assert.That(ready).Contains("notifications-database");
+        }
+    }
+
+    [Test]
+    public async Task The_Worker_with_its_real_module_lists_and_no_notifications_connection_fails_the_start_naming_its_key()
+    {
+        // Arrange
+        var settings = new Dictionary<string, string?>(Deployed);
+        settings.Remove("ConnectionStrings:Notifications");
+        using var host = Build(settings);
+
+        // Act
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ValidateAsync(host));
+
+        // Assert
+        await Assert.That(thrown?.Message).Contains("ConnectionStrings:Notifications");
+    }
+
+    [Test]
+    public async Task The_Worker_with_Resend_selected_and_no_key_fails_the_start_naming_the_key()
+    {
+        // Arrange
+        var settings = new Dictionary<string, string?>(Deployed);
+        settings.Remove("Notifications:Email:Resend:ApiKey");
+        using var host = Build(settings);
+
+        // Act
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ValidateAsync(host));
+
+        // Assert
+        await Assert.That(thrown?.Message)
+            .Contains("Configuration 'Notifications:Email:Resend:ApiKey' must be set when 'Notifications:Email:Sender' is Resend.");
+    }
+
+    [Test]
+    public async Task The_Worker_with_the_logging_sender_needs_no_provider_key_and_sends_through_it()
+    {
+        // Arrange
+        var settings = new Dictionary<string, string?>(Deployed) { ["Notifications:Email:Sender"] = "Logging" };
+        settings.Remove("Notifications:Email:Resend:ApiKey");
+        using var host = Build(settings);
+
+        // Act
+        await ValidateAsync(host);
+
+        // Assert
+        await Assert.That(host.Services.GetRequiredService<Frappe.Notifications.Channels.Email.IEmailSender>().GetType().Name)
+            .IsEqualTo("LoggingEmailSender");
+    }
+
+    [Test]
+    public async Task The_Worker_with_no_address_hash_key_fails_the_start_naming_the_key()
+    {
+        // Arrange
+        var settings = new Dictionary<string, string?>(Deployed);
+        settings.Remove("Notifications:AddressHash:Keys:1");
+        using var host = Build(settings);
+
+        // Act
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ValidateAsync(host));
+
+        // Assert
+        await Assert.That(thrown?.Message).Contains("Notifications:AddressHash:CurrentKeyId");
+    }
+
+    [Test]
+    [Arguments("Notifications:Unsubscribe:SigningKey")]
+    [Arguments("Notifications:Unsubscribe:PageUrl")]
+    [Arguments("Notifications:Unsubscribe:ApiBaseUrl")]
+    public async Task The_Worker_with_no_unsubscribe_setting_fails_the_start_naming_the_key(string key)
+    {
+        // Arrange
+        var settings = new Dictionary<string, string?>(Deployed);
+        settings.Remove(key);
+        using var host = Build(settings);
+
+        // Act
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ValidateAsync(host));
+
+        // Assert
+        await Assert.That(thrown?.Message).Contains(key);
+    }
+
+    [Test]
+    [Arguments("Notifications:Purge:Cron", "not a cron")]
+    [Arguments("Notifications:Purge:DeliveryDays", "0")]
+    [Arguments("Notifications:Purge:ProviderEventDays", "5000")]
+    [Arguments("Notifications:Purge:SendRequestDays", "0")]
+    [Arguments("Notifications:Purge:BatchSize", "0")]
+    public async Task The_Worker_with_an_invalid_purge_setting_fails_the_start_naming_the_key(string key, string value)
+    {
+        // Arrange
+        var settings = new Dictionary<string, string?>(Deployed) { [key] = value };
+        using var host = Build(settings);
+
+        // Act
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ValidateAsync(host));
+
+        // Assert
+        await Assert.That(thrown?.Message).Contains(key);
+    }
+
+    [Test]
+    public async Task The_Worker_runs_the_notifications_purge_nightly_at_four_UTC_unless_configured()
+    {
+        // Arrange
+        using var host = Build(Deployed);
+
+        // Act
+        await ValidateAsync(host);
+        var schedule = host.Services.GetRequiredService<IOptionsMonitor<Frappe.Scheduling.CronScheduleOptions>>().Get("Notifications:Purge");
+
+        // Assert
+        await Assert.That(schedule.Cron).IsEqualTo("0 0 4 * * ?");
     }
 
     [Test]

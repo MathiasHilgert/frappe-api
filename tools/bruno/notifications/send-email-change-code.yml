@@ -1,0 +1,45 @@
+info:
+  name: Send an email change code (202)
+  type: http
+  seq: 9
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/notifications/sends"
+  headers:
+    - name: Idempotency-Key
+      value: bruno-send-email-change-code
+      description: The same key sends once; its request identity is derived from it.
+  body:
+    type: json
+    data: |-
+      {
+        "kind": "email_change_code",
+        "payload": {
+          "email": "delivered@resend.dev",
+          "language": "es-AR",
+          "name": "Ana",
+          "code": "482913"
+        }
+      }
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Development only: the compose stack runs as Production and does not map the route.
+        if (bru.getEnvName() === 'Stack') {
+          bru.runner.skipRequest();
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "202"
+    - expression: res.headers.location
+      operator: isUndefined
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `POST /v1/notifications/sends` with the sample of `email_change_code` to Resend's `delivered` test inbox: 202. Development only (skipped against Stack).

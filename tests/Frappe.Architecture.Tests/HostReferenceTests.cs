@@ -121,6 +121,22 @@ public sealed class HostReferenceTests
     }
 
     [Test]
+    public async Task The_Migrator_loads_the_notifications_database_but_neither_its_web_layer_nor_its_email_or_content_plug_ins()
+    {
+        // Act
+        var closure = Closure(Migrator).Keys;
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(closure).Contains("Frappe.Notifications.Infrastructure");
+            await Assert.That(closure).DoesNotContain("Frappe.Notifications.Http");
+            await Assert.That(closure.Where(name => name.StartsWith("Frappe.Notifications.Channels", StringComparison.Ordinal))).IsEmpty();
+            await Assert.That(closure.Where(name => name.StartsWith("Frappe.Notifications.Kinds", StringComparison.Ordinal))).IsEmpty();
+        }
+    }
+
+    [Test]
     public async Task The_Api_and_the_Worker_reference_no_other_host_and_not_the_Migrator()
     {
         // Act

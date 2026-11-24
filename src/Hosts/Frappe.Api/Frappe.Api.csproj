@@ -5,6 +5,10 @@
     <ProjectReference Include="../../Platform/Frappe.Modules/Frappe.Modules.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Observability/Frappe.Observability.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Observability.Hosting/Frappe.Observability.Hosting.csproj" />
+    <ProjectReference Include="../../Modules/Notifications/Frappe.Notifications.Infrastructure/Frappe.Notifications.Infrastructure.csproj" />
+    <ProjectReference Include="../../Modules/Notifications/Frappe.Notifications.Http/Frappe.Notifications.Http.csproj" />
+    <ProjectReference Include="../../Modules/Notifications/Kinds/Frappe.Notifications.Kinds.Account/Frappe.Notifications.Kinds.Account.csproj" />
+    <ProjectReference Include="../../Modules/Notifications/Kinds/Frappe.Notifications.Kinds.Marketing/Frappe.Notifications.Kinds.Marketing.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />

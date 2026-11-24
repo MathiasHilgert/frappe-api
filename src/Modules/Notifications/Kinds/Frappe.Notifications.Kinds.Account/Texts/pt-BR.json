@@ -1,0 +1,29 @@
+{
+  "account_activation_code": {
+    "subject": "Seu código do Frappé: {Code}",
+    "preheader": "Digite para ativar sua conta. Expira em 15 minutos.",
+    "heading": "Ative sua conta",
+    "intro": "Olá {Name}. Digite este código na tela em que você se cadastrou.",
+    "expires": "Expira em 15 minutos",
+    "single_use": "Uso único",
+    "footer": "Se você não criou uma conta no Frappé, ignore este e-mail: sem o código ninguém pode usá-la."
+  },
+  "password_reset_code": {
+    "subject": "Seu código para trocar a senha: {Code}",
+    "preheader": "Use para escolher uma senha nova. Expira em 15 minutos.",
+    "heading": "Troque sua senha",
+    "intro": "Use este código para escolher uma senha nova. Ao trocá-la, todas as suas sessões são encerradas.",
+    "expires": "Expira em 15 minutos",
+    "single_use": "Uso único",
+    "footer": "Não foi você? Sua senha continua a mesma e você pode ignorar este e-mail."
+  },
+  "email_change_code": {
+    "subject": "Seu código para confirmar seu novo e-mail: {Code}",
+    "preheader": "Confirme para começar a usá-lo. Expira em 15 minutos.",
+    "heading": "Confirme seu novo e-mail",
+    "intro": "Até você confirmar, continua entrando com seu e-mail anterior.",
+    "expires": "Expira em 15 minutos",
+    "single_use": "Uso único",
+    "footer": "Se você não pediu esta mudança, ignore este e-mail e nada acontece."
+  }
+}

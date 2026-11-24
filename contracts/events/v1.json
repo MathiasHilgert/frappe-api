@@ -4,5 +4,39 @@
     "title": "Frappé integration events",
     "version": "1"
   },
-  "paths": {}
+  "paths": {
+    "/frappe.notifications.notification_requested.v1": {
+      "get": {
+        "operationId": "NotificationRequested",
+        "summary": "Payload (CloudEvents data) of frappe.notifications.notification_requested.v1",
+        "responses": {
+          "200": {
+            "description": "Frappe.Notifications.Contracts.NotificationRequested",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "payload": true
+                  },
+                  "required": [
+                    "requestId",
+                    "kind",
+                    "payload"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 }

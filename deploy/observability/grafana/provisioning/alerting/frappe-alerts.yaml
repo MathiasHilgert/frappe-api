@@ -1,0 +1,52 @@
+# Alert rules as code (OBS-15, OBS-16): every rule has a summary, a description and a runbook, reads Mimir or Loki, and keeps `noDataState: OK`.
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: notifications
+    folder: Frappe
+    interval: 1m
+    rules:
+      # Sends that failed before the provider took them, plus hard bounces, over everything sent or failed in 15 minutes. The floor of 20
+      # keeps a quiet hour from paging on one bad send (OBS-17: the arm after `or` counts series born inside the window).
+      - uid: frappe-notifications-failed-bounced-ratio
+        title: Notifications failed or bounced above 5%
+        condition: C
+        for: 10m
+        noDataState: OK
+        execErrState: OK
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: mimir
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                (
+                  (sum(increase(frappe_notifications_deliveries_total{frappe_outcome="failed"}[15m]) or frappe_notifications_deliveries_total{frappe_outcome="failed"} unless frappe_notifications_deliveries_total{frappe_outcome="failed"} offset 15m) or vector(0))
+                  + (sum(increase(frappe_notifications_provider_events_total{type="permanent_failure"}[15m]) or frappe_notifications_provider_events_total{type="permanent_failure"} unless frappe_notifications_provider_events_total{type="permanent_failure"} offset 15m) or vector(0))
+                )
+                / (sum(increase(frappe_notifications_deliveries_total{frappe_outcome=~"sent|failed"}[15m]) or frappe_notifications_deliveries_total{frappe_outcome=~"sent|failed"} unless frappe_notifications_deliveries_total{frappe_outcome=~"sent|failed"} offset 15m) >= 20)
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0.05] }
+        annotations:
+          summary: More than 5% of notifications failed to send or bounced in the last 15 minutes.
+          description: >-
+            The share of deliveries that failed before the provider accepted them, plus hard bounces the provider reported, is above 5% of
+            what was sent or failed in 15 minutes, with at least 20 attempts. Complaints and provider suppressions are not counted.
+          runbook: >-
+            Open the Notifications dashboard (row Errors) and read which kind fails. A rise in failed means the provider rejected the request
+            or the key is wrong: read the Worker's logs for `notifications` around the first failure and check the Resend API key and the
+            sender domain. A rise in permanent_failure means addresses bounce: check the sender's reputation in the Resend dashboard. The
+            failure codes of one hour: SELECT failure_reason, kind, count(*) FROM notifications.deliveries WHERE status = 'failed' AND
+            created_at > now() - interval '1 hour' GROUP BY 1, 2 ORDER BY 3 DESC;
+        labels: { module: notifications, severity: page }

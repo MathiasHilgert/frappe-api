@@ -1,0 +1,6 @@
+{
+  "notifications.kind.unknown": "The notification kind “{kind}” is missing or does not exist.",
+  "notifications.payload.invalid": "The payload is not the one the kind “{kind}” takes. The parameter fields lists what to fix.",
+  "notifications.unsubscribe_token.invalid": "The unsubscribe link is not valid: its token is missing or was not issued here.",
+  "notifications.webhook_signature.invalid": "The webhook call is not authentic: its signature is missing, wrong or too old."
+}

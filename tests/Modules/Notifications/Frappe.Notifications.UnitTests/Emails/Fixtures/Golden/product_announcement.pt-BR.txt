@@ -1,0 +1,9 @@
+Frappé ya acepta pagos
+
+Ahora podés cobrar desde la app.
+
+Ver novidades: https://frappe.example/news
+
+--
+Escrevemos porque você tem uma conta no Frappé.
+Parar de receber novidades: https://frappe.example/unsubscribe?c=marketing

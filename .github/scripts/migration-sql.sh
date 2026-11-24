@@ -26,5 +26,7 @@ find src -type d -name Migrations -not -path '*/bin/*' -not -path '*/obj/*' | so
   to=$(ids_here "$migrations" | tail -n1)
   name=$(basename "$project")
   echo "$name: $(echo "$new" | wc -l) new migration(s), ${from:-empty database} → $to"
+  # `dotnet ef` builds the project but does not restore it, and this job runs no restore of its own.
+  dotnet restore "$project" --verbosity quiet
   dotnet ef migrations script "${from:-0}" "$to" --project "$project" --output "$out/$name.sql"
 done

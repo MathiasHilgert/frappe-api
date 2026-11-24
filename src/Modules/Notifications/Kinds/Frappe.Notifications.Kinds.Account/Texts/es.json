@@ -1,0 +1,29 @@
+{
+  "account_activation_code": {
+    "subject": "Tu código de Frappé: {Code}",
+    "preheader": "Escríbelo para activar tu cuenta. Caduca en 15 minutos.",
+    "heading": "Activa tu cuenta",
+    "intro": "Hola {Name}. Escribe este código en la pantalla donde te registraste.",
+    "expires": "Caduca en 15 minutos",
+    "single_use": "Un solo uso",
+    "footer": "Si no creaste una cuenta en Frappé, ignora este correo: sin el código nadie puede usarla."
+  },
+  "password_reset_code": {
+    "subject": "Tu código para cambiar la contraseña: {Code}",
+    "preheader": "Úsalo para elegir una contraseña nueva. Caduca en 15 minutos.",
+    "heading": "Cambia tu contraseña",
+    "intro": "Usa este código para elegir una contraseña nueva. Al cambiarla se cierran todas tus sesiones.",
+    "expires": "Caduca en 15 minutos",
+    "single_use": "Un solo uso",
+    "footer": "¿No lo pediste? Tu contraseña sigue igual y puedes ignorar este correo."
+  },
+  "email_change_code": {
+    "subject": "Tu código para confirmar tu correo nuevo: {Code}",
+    "preheader": "Confírmalo para empezar a usarlo. Caduca en 15 minutos.",
+    "heading": "Confirma tu correo nuevo",
+    "intro": "Hasta que lo confirmes, sigues entrando con tu correo anterior.",
+    "expires": "Caduca en 15 minutos",
+    "single_use": "Un solo uso",
+    "footer": "Si no pediste este cambio, ignora este correo y no pasa nada."
+  }
+}

@@ -17,7 +17,7 @@ out_root=$2
 dump_directory() {
   case "$1" in
     quartz) echo "src/Platform/Frappe.Scheduling" ;;
-    *) find src/Modules -mindepth 4 -maxdepth 4 -type d -name Persistence -path "*/Frappe.*.Infrastructure/Persistence" 2> /dev/null \
+    *) find src/Modules -mindepth 3 -maxdepth 3 -type d -name Persistence -path "*/Frappe.*.Infrastructure/Persistence" 2> /dev/null \
          | while read -r dir; do
              module=$(basename "$(dirname "$dir")" | sed -E 's/^Frappe\.(.*)\.Infrastructure$/\1/' | tr '[:upper:]' '[:lower:]')
              [ "$module" = "$1" ] && echo "$dir"

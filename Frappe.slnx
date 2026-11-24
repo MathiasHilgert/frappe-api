@@ -30,6 +30,16 @@
     <Project Path="src/Hosts/Frappe.Migrator/Frappe.Migrator.csproj" />
     <Project Path="src/Hosts/Frappe.Worker/Frappe.Worker.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Notifications/">
+    <Project Path="src/Modules/Notifications/Frappe.Notifications.Domain/Frappe.Notifications.Domain.csproj" />
+    <Project Path="src/Modules/Notifications/Frappe.Notifications.Application/Frappe.Notifications.Application.csproj" />
+    <Project Path="src/Modules/Notifications/Frappe.Notifications.Contracts/Frappe.Notifications.Contracts.csproj" />
+    <Project Path="src/Modules/Notifications/Frappe.Notifications.Infrastructure/Frappe.Notifications.Infrastructure.csproj" />
+    <Project Path="src/Modules/Notifications/Frappe.Notifications.Http/Frappe.Notifications.Http.csproj" />
+    <Project Path="src/Modules/Notifications/Channels/Frappe.Notifications.Channels.Email/Frappe.Notifications.Channels.Email.csproj" />
+    <Project Path="src/Modules/Notifications/Kinds/Frappe.Notifications.Kinds.Account/Frappe.Notifications.Kinds.Account.csproj" />
+    <Project Path="src/Modules/Notifications/Kinds/Frappe.Notifications.Kinds.Marketing/Frappe.Notifications.Kinds.Marketing.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Frappe.Architecture.Tests/Frappe.Architecture.Tests.csproj" />
     <Project Path="tests/Frappe.EndToEnd.Tests/Frappe.EndToEnd.Tests.csproj" />
@@ -37,6 +47,10 @@
   <Folder Name="/tests/Hosts/">
     <Project Path="tests/Hosts/Frappe.Api.IntegrationTests/Frappe.Api.IntegrationTests.csproj" />
     <Project Path="tests/Hosts/Frappe.Migrator.IntegrationTests/Frappe.Migrator.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Notifications/">
+    <Project Path="tests/Modules/Notifications/Frappe.Notifications.IntegrationTests/Frappe.Notifications.IntegrationTests.csproj" />
+    <Project Path="tests/Modules/Notifications/Frappe.Notifications.UnitTests/Frappe.Notifications.UnitTests.csproj" />
   </Folder>
   <Folder Name="/tests/Platform/">
     <Project Path="tests/Platform/Frappe.Platform.IntegrationTests/Frappe.Platform.IntegrationTests.csproj" />

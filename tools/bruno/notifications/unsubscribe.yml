@@ -1,0 +1,45 @@
+info:
+  name: Unsubscribe in one click (204)
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/notifications/unsubscriptions"
+  body:
+    type: form-urlencoded
+    data:
+      - name: List-Unsubscribe
+        value: One-Click
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Signs the link's token as the Api does: "<key id>.<payload>.<mac>" in base64url, the payload being the category and the recipient key
+        // and the MAC an HMAC-SHA256 of "frappe.notifications.unsubscribe.v1\n<key id>\n<payload>" under the key's decoded bytes. The token
+        // is the call's only credential, so the environment's `unsubscribeKey` must be the Api's signing key.
+        const CryptoJS = require('crypto-js');
+        const base64Url = (words) => CryptoJS.enc.Base64.stringify(words).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        const keyId = '1';
+        const payload = 'marketing\nref:bruno:collection';
+        const mac = CryptoJS.HmacSHA256(`frappe.notifications.unsubscribe.v1\n${keyId}\n${payload}`, CryptoJS.enc.Base64.parse(bru.getEnvVar('unsubscribeKey')));
+        const token = [keyId, base64Url(CryptoJS.enc.Utf8.parse(payload)), base64Url(mac)].join('.');
+        req.setUrl(req.getUrl() + '?token=' + token);
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "204"
+    - expression: res.headers['cache-control']
+      operator: contains
+      value: '"no-store"'
+    - expression: res.headers['location']
+      operator: isUndefined
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  The one-click unsubscribe of RFC 8058, as a mail client posts it: the `List-Unsubscribe=One-Click` form and the signed token in the query.
+  The `before-request` script signs a token for the recipient `ref:bruno:collection` with the environment's `unsubscribeKey`, so the request
+  works against any Api that holds that key; doing it again is a 204 too. It never redirects.

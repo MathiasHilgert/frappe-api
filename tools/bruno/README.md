@@ -10,6 +10,7 @@ requests are here; a module adds a folder of its own.
 | Health | `/health/live`, `/health/ready`, `/health/startup` |
 | HTTP Conventions | The 404 Problem Details of an unknown route |
 | OpenAPI | `/openapi/v1.json` |
+| Notifications | `POST /v1/notifications/sends`, Development only: its requests skip themselves against `Stack`, which runs as Production; `POST /v1/notifications/webhooks/resend`, signed by its own script; `POST /v1/notifications/unsubscriptions`, its token signed by its own script |
 
 The 503 body of a failing probe is pinned by the Api's integration tests, not by this collection, which only sees a healthy stack.
 
@@ -29,7 +30,9 @@ Both define the same variables, so a request works the same against either.
 | Local | `http://localhost:5080` | `just infra up`, `just db migrate` and `just run api` |
 | Stack | `http://localhost:8080` | `just stack up` (if you moved `API_PORT` in `deploy/.env`, change `baseUrl`) |
 
-The other variable, `language` (`es-AR`), is sent as `Accept-Language` by every request. The collection holds no secrets.
+The variable `language` (`es-AR`) is sent as `Accept-Language` by every request. `webhookSecret` and `unsubscribeKey` are the local-only
+placeholders of `deploy/.env.example`, which the webhook and unsubscribe requests sign with; the collection holds no real secret, and an
+environment that points at a deploy with its own secrets sets its own.
 
 ## Run it from the command line
 

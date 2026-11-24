@@ -40,7 +40,13 @@ public static class ApiComposition
 
             builder.AddFrappeTelemetry(
                 "frappe-api",
-                traces => traces.AddAspNetCoreInstrumentation(options => options.Filter = context => !IsInfrastructurePath(context.Request.Path)),
+                traces => traces.AddAspNetCoreInstrumentation(options =>
+                {
+                    options.Filter = context => !IsInfrastructurePath(context.Request.Path);
+
+                    // A query that carries a credential (the one-click unsubscribe token) shows redacted in traces (SEC-09).
+                    options.EnrichWithHttpRequest = RequestTelemetry.RedactQuery;
+                }),
                 meters => meters.AddAspNetCoreInstrumentation());
 
             // An outgoing request whose URL carries personal data shows a redacted URL in traces.

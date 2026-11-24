@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Notifications.UnitTests" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Texts/*.json" LogicalName="frappe.notification_texts/%(Filename)%(Extension)" WithCulture="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../Channels/Frappe.Notifications.Channels.Email/Frappe.Notifications.Channels.Email.csproj" />
+    <ProjectReference Include="../../Frappe.Notifications.Application/Frappe.Notifications.Application.csproj" />
+    <ProjectReference Include="../../../../Platform/Frappe.Modules/Frappe.Modules.csproj" />
+    <ProjectReference Include="../../Frappe.Notifications.Domain/Frappe.Notifications.Domain.csproj" />
+  </ItemGroup>
+</Project>

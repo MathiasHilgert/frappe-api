@@ -263,7 +263,9 @@ public sealed class MessagingRegistrationTests
             .AddMessagePurge<InboxTestContext>("first")
             .AddIntegrationEventConsumer<InboxTestContext, SomethingHappened>("test", "test-reader")
             .AddIntegrationEventHandler<SomethingHappened, IdleHandler>("test-reader")
-            .AddIntegrationEventHandler<SomethingHappened, OtherHandler>("test-reader");
+            .AddBeforeClaimHandler<SomethingHappened, EarlyStep>("test-reader")
+            .AddIntegrationEventHandler<SomethingHappened, OtherHandler>("test-reader")
+            .AddAfterCommitHandler<SomethingHappened, HookStep>("test-reader");
         using var host = builder.Build();
 
         // Act
@@ -278,6 +280,8 @@ public sealed class MessagingRegistrationTests
             await Assert.That(host.Services.GetServices<IHostedService>()).IsEmpty();
             await Assert.That(host.Services.GetServices<ProducerModule>()).IsEmpty();
             await Assert.That(host.Services.GetKeyedService<IIntegrationEventHandler<SomethingHappened>>("test-reader")).IsNull();
+            await Assert.That(host.Services.GetKeyedService<IBeforeClaimHandler<SomethingHappened>>("test-reader")).IsNull();
+            await Assert.That(host.Services.GetKeyedServices<IAfterCommitHandler<SomethingHappened>>("test-reader")).IsEmpty();
         }
     }
 
@@ -285,22 +289,53 @@ public sealed class MessagingRegistrationTests
     public async Task Declarations_made_before_and_after_the_transport_materialize_the_same()
     {
         // Arrange
+        static void Declare(IServiceCollection services) => services
+            .AddOutboxRelay<InboxTestContext>("first")
+            .AddIntegrationEventConsumer<InboxTestContext, SomethingHappened>("test", "test-reader")
+            .AddBeforeClaimHandler<SomethingHappened, EarlyStep>("test-reader")
+            .AddIntegrationEventHandler<SomethingHappened, IdleHandler>("test-reader")
+            .AddAfterCommitHandler<SomethingHappened, HookStep>("test-reader");
         await using var before = Build(services =>
         {
-            services.AddOutboxRelay<InboxTestContext>("first");
+            Declare(services);
             services.AddJetStream("nats://localhost:4222", "tests");
         });
         await using var after = Build(services =>
         {
             services.AddJetStream("nats://localhost:4222", "tests");
-            services.AddOutboxRelay<InboxTestContext>("first");
+            Declare(services);
         });
 
         // Act
-        var names = new[] { before, after }.Select(p => p.GetServices<ProducerModule>().Select(m => m.Name).Single()).ToList();
+        var providers = new[] { before, after };
+        var names = providers.Select(p => p.GetServices<ProducerModule>().Select(m => m.Name).Single()).ToList();
+        using var scopeBefore = before.CreateScope();
+        using var scopeAfter = after.CreateScope();
+        var scopes = new[] { scopeBefore.ServiceProvider, scopeAfter.ServiceProvider };
 
         // Assert
-        await Assert.That(names).IsEquivalentTo(["first", "first"]);
+        using (Assert.Multiple())
+        {
+            await Assert.That(names).IsEquivalentTo(["first", "first"]);
+            foreach (var scope in scopes)
+            {
+                await Assert.That(scope.GetKeyedService<IBeforeClaimHandler<SomethingHappened>>("test-reader")).IsTypeOf<EarlyStep>();
+                await Assert.That(scope.GetKeyedService<IIntegrationEventHandler<SomethingHappened>>("test-reader")).IsTypeOf<IdleHandler>();
+                await Assert.That(scope.GetKeyedServices<IAfterCommitHandler<SomethingHappened>>("test-reader").Single()).IsTypeOf<HookStep>();
+            }
+        }
+    }
+
+    /// <summary>A before-claim step the declarations register; it never runs here.</summary>
+    private sealed class EarlyStep : IBeforeClaimHandler<SomethingHappened>
+    {
+        public Task HandleAsync(SomethingHappened integrationEvent, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    /// <summary>An after-commit step the declarations register; it never runs here.</summary>
+    private sealed class HookStep : IAfterCommitHandler<SomethingHappened>
+    {
+        public Task HandleAsync(SomethingHappened integrationEvent, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     /// <summary>A second handler, for a consumer that must refuse it.</summary>

@@ -1,7 +1,7 @@
 # Frappé locally: the three hosts from one image, their infrastructure and the LGTM observability stack.
 # Usage: cp deploy/.env.example deploy/.env (fill it in), then `just stack up` (or `docker compose -f deploy/compose.yaml
 # up -d --build`). Every port is published on the host; each one can be moved in deploy/.env when it is taken.
-# Grafana starts with its datasources only: no dashboard or alert is provisioned until a module ships its own.
+# Grafana starts with its datasources, the dashboards of provisioning/dashboards and the alert rules of provisioning/alerting.
 name: frappe
 
 x-frappe-image: &frappe-image
@@ -68,6 +68,8 @@ services:
       DOTNET_gcServer: "0"
       ConnectionStrings__Owner: Host=postgres;Database=frappe;Username=${POSTGRES_OWNER_USER:?set it in .env};Password=${POSTGRES_OWNER_PASSWORD:?set it in .env}
       Roles__Scheduler__Password: ${FRAPPE_SCHEDULER_PASSWORD:?set it in .env}
+      Roles__Notifications__Password: ${FRAPPE_NOTIFICATIONS_PASSWORD:?set it in .env}
+      Roles__NotificationsWorker__Password: ${FRAPPE_NOTIFICATIONS_WORKER_PASSWORD:?set it in .env}
 
   api:
     <<: *frappe-image
@@ -87,6 +89,14 @@ services:
       <<: *otel
       OTEL_SERVICE_NAME: frappe-api
       ConnectionStrings__Valkey: valkey:6379
+      ConnectionStrings__Notifications: Host=postgres;Database=frappe;Username=frappe_notifications;Password=${FRAPPE_NOTIFICATIONS_PASSWORD:?set it in .env}
+      # The key addresses are hashed with (S12, S13); CurrentKeyId names it, and a rotation adds a key and moves the id.
+      Notifications__AddressHash__CurrentKeyId: "1"
+      Notifications__AddressHash__Keys__1: ${FRAPPE_NOTIFICATIONS_ADDRESS_HASH_KEY:?set it in .env}
+      # The key unsubscribe links are signed with (S5, S12): the Api verifies the token of a one-click unsubscribe with it, the Worker signs with it.
+      Notifications__Unsubscribe__SigningKey: ${FRAPPE_NOTIFICATIONS_UNSUBSCRIBE_KEY:?set it in .env}
+      # The signing secret of Resend's webhook (S12): the Api refuses to start without it, and answers 400 to a call not signed with it.
+      Notifications__Email__Resend__WebhookSecret: ${FRAPPE_NOTIFICATIONS_WEBHOOK_SECRET:?set it in .env}
       # The console's origins, comma separated: credentialed CORS and unsafe requests with the session cookie.
       Http__Console__Origins: ${FRAPPE_CONSOLE_ORIGINS:-http://localhost:5173}
       # Requests one client address may make per window (Http:RateLimit). CI raises it so the whole Bruno collection runs from one address.
@@ -104,8 +114,18 @@ services:
       <<: *otel
       OTEL_SERVICE_NAME: frappe-worker
       ConnectionStrings__Scheduler: Host=postgres;Database=frappe;Username=frappe_scheduler;Password=${FRAPPE_SCHEDULER_PASSWORD:?set it in .env}
+      ConnectionStrings__Notifications: Host=postgres;Database=frappe;Username=frappe_notifications_worker;Password=${FRAPPE_NOTIFICATIONS_WORKER_PASSWORD:?set it in .env}
       ConnectionStrings__Valkey: valkey:6379
       ConnectionStrings__Nats: nats://nats:4222
+      Notifications__AddressHash__CurrentKeyId: "1"
+      Notifications__AddressHash__Keys__1: ${FRAPPE_NOTIFICATIONS_ADDRESS_HASH_KEY:?set it in .env}
+      # The links of a marketing email (S5): signed with the Api's key, to the frontend page and to the Api's one-click route.
+      Notifications__Unsubscribe__SigningKey: ${FRAPPE_NOTIFICATIONS_UNSUBSCRIBE_KEY:?set it in .env}
+      Notifications__Unsubscribe__PageUrl: ${FRAPPE_NOTIFICATIONS_UNSUBSCRIBE_PAGE_URL:?set it in .env}
+      Notifications__Unsubscribe__ApiBaseUrl: ${FRAPPE_NOTIFICATIONS_API_URL:?set it in .env}
+      # Emails are only logged unless .env selects Resend (Notifications__Email__Sender=Resend) and holds its key. Never commit the key.
+      Notifications__Email__Sender: ${Notifications__Email__Sender:-Logging}
+      Notifications__Email__Resend__ApiKey: ${Notifications__Email__Resend__ApiKey:-}
     healthcheck:
       # The Worker serves no HTTP: its readiness port (8082) is open only while every critical dependency answers.
       test: ["CMD", "/app/worker/Frappe.Worker", "--probe", "tcp://localhost:8082"]
@@ -144,7 +164,7 @@ services:
     volumes: ["./observability/mimir.yaml:/etc/mimir/config.yaml:ro", "mimir-data:/data"]
     ports: ["127.0.0.1:${MIMIR_PORT:-9009}:9009"]
 
-  # Grafana reads its datasources from provisioning/datasources and nothing else: no dashboard, no alert rule.
+  # Grafana reads its datasources, dashboards and alert rules from provisioning/, all versioned as code.
   grafana:
     image: grafana/grafana:13.2.4
     restart: unless-stopped
