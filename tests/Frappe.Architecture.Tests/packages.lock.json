@@ -632,12 +632,50 @@
           "TUnit.Core": "1.81.10"
         }
       },
+      "frappe.access.application": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Access.Contracts": "[1.0.0, )",
+          "Frappe.Access.Domain": "[1.0.0, )",
+          "Frappe.UseCases": "[1.0.0, )"
+        }
+      },
+      "frappe.access.contracts": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Results": "[1.0.0, )",
+          "Frappe.UseCases": "[1.0.0, )"
+        }
+      },
+      "frappe.access.domain": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Results": "[1.0.0, )"
+        }
+      },
+      "frappe.access.http": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Access.Application": "[1.0.0, )",
+          "Frappe.Http": "[1.0.0, )"
+        }
+      },
+      "frappe.access.infrastructure": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Access.Application": "[1.0.0, )",
+          "Frappe.Modules": "[1.0.0, )",
+          "Frappe.Observability": "[1.0.0, )"
+        }
+      },
       "frappe.aggregates": {
         "type": "Project"
       },
       "frappe.api": {
         "type": "Project",
         "dependencies": {
+          "Frappe.Access.Http": "[1.0.0, )",
+          "Frappe.Access.Infrastructure": "[1.0.0, )",
           "Frappe.Caching": "[1.0.0, )",
           "Frappe.Http": "[1.0.0, )",
           "Frappe.Identity.Http": "[1.0.0, )",
@@ -686,6 +724,7 @@
       "frappe.identity.application": {
         "type": "Project",
         "dependencies": {
+          "Frappe.Access.Contracts": "[1.0.0, )",
           "Frappe.Identity.Domain": "[1.0.0, )",
           "Frappe.Results": "[1.0.0, )",
           "Frappe.UseCases": "[1.0.0, )"
@@ -793,6 +832,7 @@
       "frappe.notifications.application": {
         "type": "Project",
         "dependencies": {
+          "Frappe.Access.Contracts": "[1.0.0, )",
           "Frappe.Notifications.Domain": "[1.0.0, )",
           "Frappe.Results": "[1.0.0, )",
           "Frappe.UseCases": "[1.0.0, )"
@@ -933,6 +973,7 @@
       "frappe.worker": {
         "type": "Project",
         "dependencies": {
+          "Frappe.Access.Infrastructure": "[1.0.0, )",
           "Frappe.Caching": "[1.0.0, )",
           "Frappe.Health": "[1.0.0, )",
           "Frappe.Identity.Infrastructure": "[1.0.0, )",

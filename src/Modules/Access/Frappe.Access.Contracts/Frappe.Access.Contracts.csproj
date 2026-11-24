@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../../../Platform/Frappe.UseCases/Frappe.UseCases.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Results/Frappe.Results.csproj" />  </ItemGroup>
+</Project>

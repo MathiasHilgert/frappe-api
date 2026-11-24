@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.Http;
 using Frappe.Identity.Http.Credentials;
 using Frappe.Identity.Http.Owners;
@@ -11,7 +12,8 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Frappe.Identity.Http;
 
 /// <summary>
-/// The HTTP facet of Identity: the session scheme and its policy, which only routes that ask for a session use (SEC-01), the error texts, and
+/// The HTTP facet of Identity: the session scheme and its policy, which only routes that ask for a session use (SEC-01), the caller read
+/// from it, the error texts, and
 /// the routes under <c>/v1/identity</c>.
 /// </summary>
 public sealed class IdentityHttp : IHttpModule
@@ -68,6 +70,8 @@ public sealed class IdentityHttp : IHttpModule
         services.AddFrappeRateLimitPolicy(PasswordResetRateLimitPolicy, PasswordResetRateLimitPolicy, PasswordResetRateLimit);
         services.AddFrappeRateLimitPolicy(EmailChangeUndoRateLimitPolicy, EmailChangeUndoRateLimitPolicy, EmailChangeUndoRateLimit);
         services.AddSessionAuthentication();
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICaller, SessionCaller>();
         services.AddOwnerPolicy();
         services.Configure<OpenApiOptions>("v1", options => options.AddSchemaTransformer<MySessionListDocumentation>());
     }

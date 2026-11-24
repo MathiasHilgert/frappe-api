@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Worker">
   <ItemGroup>
+    <ProjectReference Include="../../Modules/Access/Frappe.Access.Infrastructure/Frappe.Access.Infrastructure.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Caching/Frappe.Caching.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Health/Frappe.Health.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Modules/Frappe.Modules.csproj" />

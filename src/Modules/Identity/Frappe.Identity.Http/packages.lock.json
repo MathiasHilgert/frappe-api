@@ -211,6 +211,13 @@
         "resolved": "9.0.10",
         "contentHash": "9gv5z71xaWWmcGEs4bXdreIhKp2kYLK2fvPK5gQkgnWMYvZ8ieaxKofDjxL3scZiEYfi/yW2nJTiKV2awcWEdA=="
       },
+      "frappe.access.contracts": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Results": "[1.0.0, )",
+          "Frappe.UseCases": "[1.0.0, )"
+        }
+      },
       "frappe.aggregates": {
         "type": "Project"
       },
@@ -245,6 +252,7 @@
       "frappe.identity.application": {
         "type": "Project",
         "dependencies": {
+          "Frappe.Access.Contracts": "[1.0.0, )",
           "Frappe.Identity.Domain": "[1.0.0, )",
           "Frappe.Results": "[1.0.0, )",
           "Frappe.UseCases": "[1.0.0, )"

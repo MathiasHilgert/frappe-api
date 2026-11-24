@@ -92,6 +92,7 @@ internal sealed class OwnersHost : IAsyncDisposable
         services.RemoveAll<IBreachedPasswords>();
         services.AddSingleton<IBreachedPasswords>(breached);
         services.AddSingleton<IAttemptLimiter>(limiter);
+        services.AddSingleton<IUseCaseGate, AllowAllUseCaseGate>();
         services.AddHandlers(typeof(IEmailIdentifiers).Assembly);
         if (saving is not null)
         {

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
+using Frappe.Access.Infrastructure;
 using Frappe.Http;
 using Frappe.Identity.Application.Credentials;
 using Frappe.Identity.Application.Sessions;
@@ -54,7 +55,9 @@ internal sealed class IdentitySessionHost : IAsyncDisposable
         var store = new SessionStore();
         var unitOfWork = new CountingUnitOfWork();
         var time = new SettableClock(Start.ToDateTimeOffset());
-        IModule[] modules = extra is null ? [new SessionModule(store, unitOfWork, time)] : [new SessionModule(store, unitOfWork, time), extra];
+        IModule[] modules = extra is null
+            ? [new AccessModule(), new SessionModule(store, unitOfWork, time)]
+            : [new AccessModule(), new SessionModule(store, unitOfWork, time), extra];
         var app = await ApiHost.StartAsync(modules, [new IdentityHttp(), new ProbeHttp()], Settings, logs: logs);
         return new IdentitySessionHost(app, store, unitOfWork, time);
     }

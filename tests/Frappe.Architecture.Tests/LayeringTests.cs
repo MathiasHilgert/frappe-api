@@ -27,6 +27,8 @@ public sealed class LayeringTests
     private static readonly Assembly NotificationsInfrastructure = typeof(Frappe.Notifications.Infrastructure.NotificationsModule).Assembly;
     private static readonly Assembly IdentityHttp = typeof(Frappe.Identity.Http.IdentityHttp).Assembly;
     private static readonly Assembly IdentityInfrastructure = typeof(Frappe.Identity.Infrastructure.IdentityModule).Assembly;
+    private static readonly Assembly AccessHttp = typeof(Frappe.Access.Http.AccessHttp).Assembly;
+    private static readonly Assembly AccessInfrastructure = typeof(Frappe.Access.Infrastructure.AccessModule).Assembly;
 
     /// <summary>Anything an inner layer must never know about.</summary>
     private static readonly string[] Infrastructure =
@@ -68,6 +70,8 @@ public sealed class LayeringTests
     [Arguments("Frappe.Identity.Domain")]
     [Arguments("Frappe.Identity.Application")]
     [Arguments("Frappe.Identity.Contracts")]
+    [Arguments("Frappe.Access.Application")]
+    [Arguments("Frappe.Access.Contracts")]
     public async Task A_modules_inner_layers_know_nothing_about_infrastructure(string assemblyName)
     {
         // Arrange
@@ -83,10 +87,16 @@ public sealed class LayeringTests
     [Test]
     [Arguments("Notifications")]
     [Arguments("Identity")]
+    [Arguments("Access")]
     public async Task A_modules_Http_project_serves_use_cases_without_reaching_the_database_or_the_broker(string module)
     {
         // Arrange
-        var http = module == "Identity" ? IdentityHttp : NotificationsHttp;
+        var http = module switch
+        {
+            "Identity" => IdentityHttp,
+            "Access" => AccessHttp,
+            _ => NotificationsHttp,
+        };
 
         // Act
         var result = Types.InAssembly(http).ShouldNot().HaveDependencyOnAny(
@@ -100,10 +110,16 @@ public sealed class LayeringTests
     [Test]
     [Arguments("Notifications")]
     [Arguments("Identity")]
+    [Arguments("Access")]
     public async Task A_modules_Infrastructure_reaches_no_web_stack(string module)
     {
         // Arrange
-        var infrastructure = module == "Identity" ? IdentityInfrastructure : NotificationsInfrastructure;
+        var infrastructure = module switch
+        {
+            "Identity" => IdentityInfrastructure,
+            "Access" => AccessInfrastructure,
+            _ => NotificationsInfrastructure,
+        };
 
         // Act
         var result = Types.InAssembly(infrastructure).ShouldNot().HaveDependencyOnAny(
@@ -184,6 +200,27 @@ public sealed class LayeringTests
 
         // Assert
         await Assert.That(notificationsReferences).IsEmpty();
+    }
+
+    [Test]
+    [Arguments("Frappe.Access.Application")]
+    [Arguments("Frappe.Access.Contracts")]
+    [Arguments("Frappe.Access.Infrastructure")]
+    [Arguments("Frappe.Access.Http")]
+    public async Task Access_references_no_other_module_S1(string assemblyName)
+    {
+        // Arrange
+        var assembly = System.Reflection.Assembly.Load(assemblyName);
+
+        // Act
+        var moduleReferences = assembly.GetReferencedAssemblies()
+            .Select(reference => reference.Name ?? string.Empty)
+            .Where(name => name.StartsWith("Frappe.Identity.", StringComparison.Ordinal)
+                || name.StartsWith("Frappe.Notifications.", StringComparison.Ordinal))
+            .ToList();
+
+        // Assert
+        await Assert.That(moduleReferences).IsEmpty();
     }
 
     [Test]

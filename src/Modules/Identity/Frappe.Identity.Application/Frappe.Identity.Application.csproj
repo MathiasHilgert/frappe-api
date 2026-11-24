@@ -3,6 +3,7 @@
     <InternalsVisibleTo Include="Frappe.Identity.UnitTests" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="../../Access/Frappe.Access.Contracts/Frappe.Access.Contracts.csproj" />
     <ProjectReference Include="../Frappe.Identity.Domain/Frappe.Identity.Domain.csproj" />
     <ProjectReference Include="../../../Platform/Frappe.UseCases/Frappe.UseCases.csproj" />
     <ProjectReference Include="../../../Platform/Frappe.Results/Frappe.Results.csproj" />

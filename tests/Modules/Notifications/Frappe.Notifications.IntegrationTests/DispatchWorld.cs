@@ -4,6 +4,7 @@ using Frappe.Notifications.Infrastructure.Persistence;
 using Frappe.Notifications.Kinds.Account;
 using Frappe.Testing;
 using Frappe.Testing.Containers;
+using Frappe.UseCases;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -39,6 +40,7 @@ internal sealed class DispatchWorld : IAsyncDisposable
         var services = new ServiceCollection();
         services.AddLogging(logging => logging.AddProvider(Logs));
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection(settings).Build());
+        services.AddSingleton<IUseCaseGate, AllowAllUseCaseGate>();
         new NotificationsModule().AddServices(services);
         new AccountKindsModule().AddServices(services);
         if (worker)

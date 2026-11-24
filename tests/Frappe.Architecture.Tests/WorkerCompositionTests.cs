@@ -145,12 +145,34 @@ public sealed class WorkerCompositionTests
             await Assert.That(Frappe.Worker.Modules.All.Select(module => module.GetType().Name))
                 .IsEquivalentTo(
                 [
-                    "IdentityModule", "IdentityWorkerModule", "NotificationsModule", "NotificationsWorkerModule", "AccountKindsModule",
+                    "AccessModule", "AccessWorkerModule", "IdentityModule", "IdentityWorkerModule", "NotificationsModule",
+                    "NotificationsWorkerModule", "AccountKindsModule",
                     "MarketingKindsModule", "IdentityProducerModule", "EmailChannelWorkerModule",
                 ]);
             await Assert.That(hosted).Contains("OutboxRelayService`1");
             await Assert.That(hosted).Contains("JetStreamConsumer`2");
             await Assert.That(ready).Contains("notifications-database").And.Contains("identity-database");
+        }
+    }
+
+    [Test]
+    public async Task The_Worker_runs_every_use_case_as_the_system_caller_and_has_no_other_caller()
+    {
+        // Arrange
+        using var host = Build(Deployed);
+
+        // Act
+        await ValidateAsync(host);
+        var callers = host.Services.GetServices<Frappe.Access.Contracts.ICaller>().ToArray();
+        using var scope = host.Services.CreateScope();
+        var gate = scope.ServiceProvider.GetRequiredService<Frappe.UseCases.IUseCaseGate>();
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(callers).HasSingleItem();
+            await Assert.That(callers[0]).IsEqualTo(Frappe.Access.Contracts.Caller.System);
+            await Assert.That(gate.GetType().Name).IsEqualTo("AccessGate");
         }
     }
 

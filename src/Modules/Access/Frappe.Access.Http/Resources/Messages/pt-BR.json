@@ -1,0 +1,5 @@
+{
+  "access.action.forbidden": "Você não tem permissão para fazer isto.",
+  "access.resource.not_found": "O recurso não existe ou não está disponível para você.",
+  "access.step_up.required": "Esta ação precisa de uma verificação recente da senha. Confirme sua senha nesta sessão e repita a solicitação."
+}

@@ -522,6 +522,13 @@
           "TUnit.Core": "1.81.10"
         }
       },
+      "frappe.access.contracts": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Results": "[1.0.0, )",
+          "Frappe.UseCases": "[1.0.0, )"
+        }
+      },
       "frappe.aggregates": {
         "type": "Project"
       },
@@ -535,6 +542,7 @@
       "frappe.identity.application": {
         "type": "Project",
         "dependencies": {
+          "Frappe.Access.Contracts": "[1.0.0, )",
           "Frappe.Identity.Domain": "[1.0.0, )",
           "Frappe.Results": "[1.0.0, )",
           "Frappe.UseCases": "[1.0.0, )"
@@ -613,6 +621,7 @@
       "frappe.notifications.application": {
         "type": "Project",
         "dependencies": {
+          "Frappe.Access.Contracts": "[1.0.0, )",
           "Frappe.Notifications.Domain": "[1.0.0, )",
           "Frappe.Results": "[1.0.0, )",
           "Frappe.UseCases": "[1.0.0, )"

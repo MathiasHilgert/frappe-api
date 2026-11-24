@@ -45,6 +45,7 @@ public sealed class SessionPersistenceTests(PostgresServer server)
         services.AddSingleton<TimeProvider>(time);
         new IdentityModule().AddServices(services);
         services.AddSessions();
+        services.AddSingleton<IUseCaseGate, AllowAllUseCaseGate>();
         services.AddHandlers(typeof(ISessions).Assembly);
         return services.BuildServiceProvider();
     }

@@ -1,0 +1,5 @@
+{
+  "access.action.forbidden": "You are not allowed to do this.",
+  "access.resource.not_found": "The resource does not exist or is not available to you.",
+  "access.step_up.required": "This action needs a recent password check. Step up the session with your password and repeat the request."
+}

@@ -19,6 +19,7 @@ public sealed class UnitOfWorkPipelineTests
             .AddLogging()
             .AddMetrics()
             .AddKeyedScoped<IUnitOfWork>("platform", (_, _) => unitOfWork)
+            .AddSingleton<IUseCaseGate>(new RecordingUseCaseGate())
             .AddHandlers(typeof(UnitOfWorkPipelineTests).Assembly)
             .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
 
@@ -178,6 +179,7 @@ public sealed class UnitOfWorkPipelineTests
             .AddLogging()
             .AddMetrics()
             .AddKeyedScoped<IUnitOfWork>("another-module", (_, _) => new RecordingUnitOfWork())
+            .AddSingleton<IUseCaseGate>(new RecordingUseCaseGate())
             .AddHandlers(typeof(UnitOfWorkPipelineTests).Assembly)
             .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
 

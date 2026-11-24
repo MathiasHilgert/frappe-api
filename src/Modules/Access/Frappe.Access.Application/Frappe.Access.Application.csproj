@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Access.Infrastructure" />
+    <InternalsVisibleTo Include="Frappe.Access.UnitTests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.Access.Domain/Frappe.Access.Domain.csproj" />
+    <ProjectReference Include="../Frappe.Access.Contracts/Frappe.Access.Contracts.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.UseCases/Frappe.UseCases.csproj" />
+  </ItemGroup>
+</Project>
