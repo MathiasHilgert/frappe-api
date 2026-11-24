@@ -52,6 +52,9 @@ A change can have several kinds; ask every block they trigger.
 | Failure | `feature`, `cross-module`, `operational` | Partial failure, retries, duplicates, concurrent requests, redelivery, what the user sees |
 | Craft | every kind but `docs` | Is there a well-known library already in `Directory.Packages.props` or widely used by the .NET community for this; what senior idiomatic C# for this repo looks like (existing patterns to copy); what is likely to change (vendor, rule, country, format) and where a seam pays off: propose the fitting pattern from `.agents/skills/frappe-conventions/rules/design.md` |
 
+When the user shows a design (mockup, artifact, screenshot, design system), ask for the brand sources behind it before the first visual question
+(design system, logo files, fonts): a mockup's page fonts are not the brand's. Do not ask a typography or color question the design system answers.
+
 Never ask a block that is not mandatory for the kinds in play (no metrics questions for a docs change).
 
 ## Exit
