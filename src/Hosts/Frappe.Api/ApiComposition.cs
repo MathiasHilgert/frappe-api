@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Frappe.Caching;
 using Frappe.Http;
 using Frappe.Http.OpenApi;
+using Frappe.Identity.Http.Sessions;
 using Frappe.Modules;
 using Frappe.Observability;
 using Frappe.Observability.Hosting;
@@ -22,7 +23,8 @@ namespace Frappe.Api;
 /// backplane prefix, for sharing one Valkey between environments; <c>Http:RateLimit</c>; <c>Http:ForwardedHeaders</c>; and
 /// <c>Http:OpenApi</c>, the title, version and description of the document. <c>Http:Console:Origins</c> (comma separated, empty
 /// by default) names the console's origins: the only ones that get credentialed CORS answers and may send unsafe requests with
-/// the session cookie.
+/// the session cookie. <c>Identity:Sessions:IdleTimeout</c> (default 12 hours) and <c>AbsoluteTimeout</c> (default 30 days) set how long a
+/// session lives.
 /// </summary>
 public static class ApiComposition
 {
@@ -57,6 +59,10 @@ public static class ApiComposition
                 .AddFrappeCaching()
                 .AddFrappeOpenApi();
 
+            // No default scheme (SEC-01): a module that authenticates registers its scheme, and only routes that ask for it use it.
+            builder.Services.AddAuthentication();
+            builder.Services.AddAuthorization();
+
             foreach (var module in modules)
             {
                 module.AddServices(builder.Services);
@@ -85,6 +91,12 @@ public static class ApiComposition
 
             // Forwarded headers come first inside, so the rate limiter and the logs see the client behind a trusted proxy.
             app.UseFrappeHttp();
+
+            // Authentication, then the console origin check for what the session cookie carries, then authorization: the origin answer
+            // outweighs a 401, and a bearer request is never origin-checked (SEC-03).
+            app.UseAuthentication();
+            app.UseConsoleOriginCheck(IdentitySessionCookie.IsCarriedBy);
+            app.UseAuthorization();
             app.MapFrappeHealth();
             app.MapOpenApi().AnswerHead();
             var title = app.Services.GetRequiredService<IOptions<ApiDocumentOptions>>().Value.Title;

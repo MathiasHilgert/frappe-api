@@ -1,0 +1,27 @@
+info:
+  name: Log out without a session (401)
+  type: http
+  seq: 3
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/v1/identity/sessions/current"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "401"
+    - expression: res.headers['www-authenticate']
+      operator: eq
+      value: '"Bearer"'
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"identity.session.invalid"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `DELETE /v1/identity/sessions/current` needs a session. With one it answers 204 and, for a console cookie request, clears the cookie (the request
+  must then come from a console origin, `403 http.origin.forbidden` otherwise); without one it is the same 401 as any other session route.

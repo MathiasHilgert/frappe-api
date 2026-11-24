@@ -1,5 +1,6 @@
 using System.Net;
 using Frappe.Aggregates;
+using Frappe.Identity.Domain.Principals;
 using NodaTime;
 
 // EF Core materializes the aggregate through its private constructor and setters.
@@ -12,6 +13,9 @@ namespace Frappe.Identity.Domain.Sessions;
 /// </summary>
 public sealed class Session : AggregateRoot
 {
+    /// <summary>The longest user agent kept ("El texto completo"): the length the column allows.</summary>
+    public const int UserAgentMaxLength = 512;
+
     private Session()
     {
         TokenHash = null!;
@@ -29,10 +33,11 @@ public sealed class Session : AggregateRoot
         CredentialStamp = credentialStamp;
         OpenedAt = now;
         LastSeenAt = now;
-        IdleExpiresAt = now + idleTimeout;
         AbsoluteExpiresAt = now + absoluteTimeout;
+        IdleExpiresAt = Instant.Min(now + idleTimeout, AbsoluteExpiresAt);
         UserAgent = userAgent;
         IpPrefix = ipPrefix;
+        Raise(new SessionOpened(principalId, id, audience, now));
     }
 
     /// <summary>UUIDv7 made by the application (DATA-02).</summary>
@@ -86,4 +91,51 @@ public sealed class Session : AggregateRoot
         return new Session(
             Guid.CreateVersion7(), principalId, tokenHash, audience, credentialStamp, now, idleTimeout, absoluteTimeout, userAgent, ipPrefix);
     }
+
+    /// <summary>
+    /// Whether this session lets <paramref name="principal"/> in at <paramref name="now"/>: it is the principal's own, not ended or revoked,
+    /// neither expiry reached, the principal active and its credential stamp still the one the session was opened under.
+    /// </summary>
+    public bool IsActiveFor(Instant now, Principal principal)
+    {
+        ArgumentNullException.ThrowIfNull(principal);
+        return principal.Id == PrincipalId && AccessFor(principal).IsActiveAt(now);
+    }
+
+    /// <summary>
+    /// Records that the session was used at <paramref name="now"/> and pushes its idle expiry to <paramref name="idleTimeout"/> after it,
+    /// never past the absolute expiry and never earlier than it already was. A session that is revoked or ended is left alone.
+    /// </summary>
+    public void Touch(Instant now, Duration idleTimeout)
+    {
+        if (RevokedAt is not null || EndedAt is not null)
+        {
+            return;
+        }
+
+        LastSeenAt = Instant.Max(LastSeenAt, now);
+        IdleExpiresAt = Instant.Max(IdleExpiresAt, Instant.Min(now + idleTimeout, AbsoluteExpiresAt));
+    }
+
+    /// <summary>
+    /// Revokes the session for <paramref name="reason"/> at <paramref name="now"/>; doing it again, or on an ended session, changes nothing.
+    /// A logout raises <see cref="SessionClosed"/>, any other reason <see cref="SessionRevoked"/>.
+    /// </summary>
+    public void Revoke(RevocationReason reason, Instant now)
+    {
+        if (RevokedAt is not null || EndedAt is not null)
+        {
+            return;
+        }
+
+        RevokedAt = now;
+        RevocationReason = reason;
+        Raise(reason == Sessions.RevocationReason.Logout
+            ? new SessionClosed(PrincipalId, Id, now)
+            : new SessionRevoked(PrincipalId, Id, reason, now));
+    }
+
+    private SessionAccess AccessFor(Principal principal) => new(
+        Id, PrincipalId, principal.Kind, principal.Status, principal.CredentialStamp, CredentialStamp, Methods, LastSeenAt, IdleExpiresAt,
+        AbsoluteExpiresAt, EndedAt, RevokedAt, StepUpUntil);
 }

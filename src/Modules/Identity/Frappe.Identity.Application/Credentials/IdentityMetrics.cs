@@ -21,6 +21,9 @@ public sealed class IdentityMetrics
     /// <summary>Counter: attempts an attempt limiter could not count because its store was unreachable, by flow.</summary>
     public const string LimiterUnavailableMetric = "identity.limiter.unavailable";
 
+    /// <summary>Counter: touches of a session that lost the race to another request of the same session (harmless, expected).</summary>
+    public const string SessionTouchLostMetric = "frappe.identity.session_touch.lost";
+
     /// <summary>The flow tag of <see cref="LimiterUnavailableMetric"/>: the name of a declared limit flow, a small fixed set.</summary>
     public const string FlowTag = "frappe.flow";
 
@@ -30,6 +33,7 @@ public sealed class IdentityMetrics
     private readonly Histogram<double> _passwordHashDuration;
     private readonly Histogram<double> _breachCheckDuration;
     private readonly Counter<long> _limiterUnavailable;
+    private readonly Counter<long> _sessionTouchLost;
 
     public IdentityMetrics(IMeterFactory meters)
     {
@@ -41,6 +45,9 @@ public sealed class IdentityMetrics
             BreachCheckDurationMetric, unit: "s", description: "Seconds the breach list took to answer, by outcome.");
         _limiterUnavailable = meter.CreateCounter<long>(
             LimiterUnavailableMetric, description: "Attempts the limiter could not count because its store was unreachable, by flow.");
+        _sessionTouchLost = meter.CreateCounter<long>(
+            SessionTouchLostMetric, unit: "{touch}",
+            description: "Touches of a session that lost the race to another request of the same session.");
     }
 
     /// <summary>A password was hashed or verified in <paramref name="elapsed"/>.</summary>
@@ -52,6 +59,9 @@ public sealed class IdentityMetrics
 
     /// <summary>An attempt of <paramref name="flow"/> could not be counted: the store was unreachable (its failure mode decided the rest).</summary>
     public void LimiterUnavailable(string flow) => _limiterUnavailable.Add(1, new KeyValuePair<string, object?>(FlowTag, flow));
+
+    /// <summary>A touch of a session lost the race to another request of the same session and committed nothing.</summary>
+    public void SessionTouchLost() => _sessionTouchLost.Add(1);
 
     /// <summary>The tag value of an outcome; each is named, none falls back (OBS-05).</summary>
     internal static string OutcomeName(BreachCheckOutcome outcome) => outcome switch

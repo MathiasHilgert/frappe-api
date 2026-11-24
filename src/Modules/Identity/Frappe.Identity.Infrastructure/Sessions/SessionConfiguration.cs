@@ -19,7 +19,7 @@ internal sealed class SessionConfiguration : IEntityTypeConfiguration<Session>
     public const string ForeignKey = "fk_sessions_principal_id";
 
     /// <summary>The longest user agent kept ("El texto completo").</summary>
-    public const int UserAgentLength = 512;
+    public const int UserAgentLength = Session.UserAgentMaxLength;
 
     public const string AudienceCheck = "ck_sessions_audience";
 

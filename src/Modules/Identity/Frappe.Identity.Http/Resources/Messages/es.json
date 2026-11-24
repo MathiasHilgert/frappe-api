@@ -1,0 +1,3 @@
+{
+  "identity.session.invalid": "La sesión falta, venció o fue revocada, o la solicitud envió dos veces su cookie de sesión. Inicia sesión de nuevo."
+}
