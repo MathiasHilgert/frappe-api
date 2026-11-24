@@ -18,6 +18,8 @@ For a chain the Workflow returned `done`:
 3. Cut one branch per slice at its last commit (`git branch <type>/<topic>-<nn>-<slug> <sha>`), push them atomically, open the PRs (PR 1 targets
    main, PR k targets PR k-1's branch; title = the slice's `feat(...)` header, never the first commit of the range), then link them as a native
    GitHub stack: `gh stack link <pr1> ... <prN>` (extension `github/gh-stack`). Each Summary lists the chain.
+   The branch type must equal the title type (a `fix(...)` slice goes on `fix/...`; the conventions check fails otherwise). Never rename a
+   branch that has an open PR: GitHub closes the PR. If a stack needs a PR replaced, `gh stack unstack <n>` and link the full list again.
 4. Merge the whole stack at once with `gh stack merge <top pr> --yes` once every PR is green and QA passed: GitHub merges the stack atomically (all
    or nothing), so there is no retargeting or rebasing between merges. PRs added later go on top with `gh stack link <stack#> <pr>`.
 
