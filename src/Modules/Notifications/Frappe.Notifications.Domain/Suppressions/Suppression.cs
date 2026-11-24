@@ -1,7 +1,7 @@
 using Frappe.Notifications.Domain.Deliveries;
 using NodaTime;
 
-// EF Core materializes the entity through its private constructor and setters; behavior arrives with the feedback handling.
+// EF Core materializes the entity through its private constructor and setters.
 #pragma warning disable S1144, S3453
 namespace Frappe.Notifications.Domain.Suppressions;
 
@@ -12,6 +12,20 @@ public sealed class Suppression
     {
         Channel = null!;
         AddressHash = null!;
+    }
+
+    private Suppression(
+        ChannelName channel, AddressHash hash, SuppressionReason reason, SuppressionSource source, DeliveryProvider? provider,
+        string? providerEventId, Instant now)
+    {
+        Channel = channel.Value;
+        AddressHash = hash.Value;
+        HashKeyId = hash.KeyId;
+        Reason = reason;
+        Source = source;
+        Provider = provider;
+        ProviderEventId = providerEventId;
+        CreatedAt = now;
     }
 
     public string Channel { get; private set; }
@@ -33,4 +47,14 @@ public sealed class Suppression
     public string? ProviderEventId { get; private set; }
 
     public Instant CreatedAt { get; private set; }
+
+    /// <summary>Stops contacting an address over a channel; the provider and its event are given when a provider reported it.</summary>
+    public static Suppression Add(
+        ChannelName channel, AddressHash hash, SuppressionReason reason, SuppressionSource source, Instant now,
+        DeliveryProvider? provider = null, string? providerEventId = null)
+    {
+        ArgumentNullException.ThrowIfNull(channel);
+        ArgumentNullException.ThrowIfNull(hash);
+        return new Suppression(channel, hash, reason, source, provider, providerEventId, now);
+    }
 }

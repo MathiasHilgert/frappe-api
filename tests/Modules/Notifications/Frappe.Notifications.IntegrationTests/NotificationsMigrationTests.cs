@@ -30,18 +30,22 @@ public sealed class NotificationsMigrationTests(PostgresServer server)
     {
         await MigratedNotifications.RunAsync(server, async owner =>
         {
-            // Act
-            await MigratedNotifications.MigrateAsync(owner);
+            // Arrange
             await using var context = new NotificationsDbContext(
                 ModuleDatabase.Options<NotificationsDbContext>(owner, NotificationsDbContext.Schema));
+            var appliedFirst = (await context.Database.GetAppliedMigrationsAsync()).ToList();
+
+            // Act
+            await MigratedNotifications.MigrateAsync(owner);
             var pending = await context.Database.GetPendingMigrationsAsync();
-            var applied = await context.Database.GetAppliedMigrationsAsync();
+            var applied = (await context.Database.GetAppliedMigrationsAsync()).ToList();
 
             // Assert
             using (Assert.Multiple())
             {
                 await Assert.That(pending).IsEmpty();
-                await Assert.That(applied.Count()).IsEqualTo(1);
+                await Assert.That(applied).IsEquivalentTo(appliedFirst);
+                await Assert.That(applied).IsNotEmpty();
                 await Assert.That(context.Database.HasPendingModelChanges()).IsFalse();
             }
         });

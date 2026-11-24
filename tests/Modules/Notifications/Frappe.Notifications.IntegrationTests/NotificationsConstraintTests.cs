@@ -179,4 +179,33 @@ public sealed class NotificationsConstraintTests(PostgresServer server)
             }
         });
     }
+
+    [Test]
+    [Arguments("provider_events", "pk_provider_events")]
+    [Arguments("preferences", "pk_preferences")]
+    [Arguments("suppressions", "pk_suppressions")]
+    public async Task A_second_row_with_the_same_primary_key_is_refused(string table, string constraint)
+    {
+        await MigratedNotifications.RunAsync(server, async owner =>
+        {
+            // Arrange
+            var sql = table switch
+            {
+                "provider_events" => Insert(table, ValidEvent),
+                "preferences" => Insert(table, ValidPreference),
+                _ => Insert(table, ValidSuppression),
+            };
+            await ScratchDatabase.ExecuteAsync(owner, sql);
+
+            // Act
+            var refused = await Assert.ThrowsAsync<PostgresException>(() => ScratchDatabase.ExecuteAsync(owner, sql));
+
+            // Assert
+            using (Assert.Multiple())
+            {
+                await Assert.That(refused!.SqlState).IsEqualTo(PostgresErrorCodes.UniqueViolation);
+                await Assert.That(refused.ConstraintName).IsEqualTo(constraint);
+            }
+        });
+    }
 }
