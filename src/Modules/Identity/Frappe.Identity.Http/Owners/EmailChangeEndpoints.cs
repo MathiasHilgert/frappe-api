@@ -33,7 +33,8 @@ internal static class EmailChangeEndpoints
                     + "stepped up (403 identity.step_up.required). The old address keeps working until the change is confirmed. It answers 202 "
                     + "with an id to confirm with, for an address that a verified owner holds as for a free one (that code is not sent and its id "
                     + $"confirms nothing), and never sooner than {EmailChangeLimits.Floor.TotalMilliseconds:0} ms, so neither the answer nor "
-                    + $"its time says which. {CodeLimits.Send.Limit} requests an hour are allowed (429 http.rate_limited with Retry-After). 400 "
+                    + $"its time says which. {CodeLimits.Send.Limit} requests an hour are allowed (429 identity.code.send_limited with "
+                    + "Retry-After). 400 "
                     + "identity.email.invalid for an address that is malformed. 401 identity.session.invalid without a valid session; 403 "
                     + "identity.session.forbidden when the session is not an owner's.")
                 .ProducesProblem(StatusCodes.Status400BadRequest)

@@ -2389,7 +2389,7 @@
           "Identity"
         ],
         "summary": "Ask to change the email address",
-        "description": "Mails a 6-digit code to the new address and tells the old one about the request. The session must have stepped up (403 identity.step_up.required). The old address keeps working until the change is confirmed. It answers 202 with an id to confirm with, for an address that a verified owner holds as for a free one (that code is not sent and its id confirms nothing), and never sooner than 500 ms, so neither the answer nor its time says which. 5 requests an hour are allowed (429 http.rate_limited with Retry-After). 400 identity.email.invalid for an address that is malformed. 401 identity.session.invalid without a valid session; 403 identity.session.forbidden when the session is not an owner's.",
+        "description": "Mails a 6-digit code to the new address and tells the old one about the request. The session must have stepped up (403 identity.step_up.required). The old address keeps working until the change is confirmed. It answers 202 with an id to confirm with, for an address that a verified owner holds as for a free one (that code is not sent and its id confirms nothing), and never sooner than 500 ms, so neither the answer nor its time says which. 5 requests an hour are allowed (429 identity.code.send_limited with Retry-After). 400 identity.email.invalid for an address that is malformed. 401 identity.session.invalid without a valid session; 403 identity.session.forbidden when the session is not an owner's.",
         "operationId": "RequestEmailChange",
         "parameters": [
           {

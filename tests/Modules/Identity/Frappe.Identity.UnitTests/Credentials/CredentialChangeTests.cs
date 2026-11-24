@@ -58,6 +58,24 @@ public sealed class CredentialChangeTests
     }
 
     [Test]
+    public async Task A_session_past_its_idle_expiry_that_nobody_swept_is_left_alone()
+    {
+        // Arrange
+        var (principal, kept, stale) = Seed();
+        _time.SetUtcNow(new DateTimeOffset(2026, 11, 25, 1, 0, 0, TimeSpan.Zero));
+
+        // Act
+        await Change().ApplyAsync(principal, RevocationReason.PasswordChanged, kept.Id, default);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(stale.RevokedAt).IsNull();
+            await Assert.That(stale.DomainEvents).IsEmpty();
+        }
+    }
+
+    [Test]
     public async Task With_no_session_to_keep_every_session_is_revoked_for_the_reason()
     {
         // Arrange

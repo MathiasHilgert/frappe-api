@@ -49,6 +49,9 @@ internal sealed class OneTimeCodeConfiguration : IEntityTypeConfiguration<OneTim
     /// <summary>The purge reads codes past their expiry.</summary>
     public const string ExpiresAtIndex = "ix_one_time_codes_expires_at";
 
+    /// <summary>The foreign key's cascade and the per-principal lookups read codes by principal.</summary>
+    public const string PrincipalIndex = "ix_one_time_codes_principal_id";
+
     // Stored as the 32 bytes; the comparer reads them, so a copy of an unchanged value is never seen as a change.
     private static readonly ValueConverter<CodeHmac, byte[]> CodeHmacConverter = new(
         hmac => hmac.ToArray(), bytes => CodeHmac.Create(bytes).Value);
@@ -78,5 +81,6 @@ internal sealed class OneTimeCodeConfiguration : IEntityTypeConfiguration<OneTim
         builder.HasOne<Principal>().WithMany().HasForeignKey(c => c.PrincipalId).HasConstraintName(ForeignKey).OnDelete(DeleteBehavior.Cascade);
         builder.HasIndex(c => new { c.PrincipalId, c.Purpose }, LiveIndex).HasDatabaseName(LiveIndex).IsUnique().HasFilter(LiveFilter);
         builder.HasIndex(c => c.ExpiresAt).HasDatabaseName(ExpiresAtIndex);
+        builder.HasIndex(c => c.PrincipalId).HasDatabaseName(PrincipalIndex);
     }
 }
