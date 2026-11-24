@@ -44,6 +44,9 @@ public sealed partial record RecipientKey
 
     public override string ToString() => Value;
 
-    [GeneratedRegex(@"^(ref:[a-z_]+:[^\p{C}]+|addr:[0-9]+:[0-9a-f]{64})\z", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 100)]
+    [GeneratedRegex(
+        @"^(ref:[a-z_]{1,40}:(?!\s+\z)[^\p{C}]{1,100}|addr:[0-9]+:[0-9a-f]{64})\z",
+        RegexOptions.CultureInvariant,
+        matchTimeoutMilliseconds: 100)]
     private static partial Regex Spelling();
 }

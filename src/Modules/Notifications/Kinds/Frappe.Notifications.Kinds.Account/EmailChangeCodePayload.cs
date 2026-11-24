@@ -1,3 +1,5 @@
+using Frappe.Notifications.Application.Kinds;
+
 namespace Frappe.Notifications.Kinds.Account;
 
 /// <summary>
@@ -6,9 +8,12 @@ namespace Frappe.Notifications.Kinds.Account;
 /// </summary>
 /// <param name="Email">The address the code goes to; it is the subject of the fact (S3).</param>
 /// <param name="Language">The recipient's language tag (<c>es-AR</c>); empty or unknown gets the default.</param>
-/// <param name="Name">What to call the person.</param>
+/// <param name="Name">What to call the person: at most 60 characters and nothing that looks like a link.</param>
 /// <param name="Code">The verification code, as text.</param>
-public sealed record EmailChangeCodePayload(string Email, string? Language, string Name, string Code)
+public sealed record EmailChangeCodePayload(string Email, string? Language, string Name, string Code) : IPayloadRules
 {
+    /// <inheritdoc />
+    public IReadOnlyList<string> InvalidFields() => PayloadText.IsPersonName(Name) ? [] : ["name"];
+
     public override string ToString() => "EmailChangeCodePayload { Email = ***, Language = " + Language + ", Name = ***, Code = *** }";
 }

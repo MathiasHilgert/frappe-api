@@ -21,7 +21,7 @@ public static class NotificationPayloads
     };
 
     /// <summary>The payload as <see cref="NotificationKind.PayloadType"/>, or the error naming the fields that are wrong.</summary>
-    public static Result<object> Read(NotificationKind kind, JsonElement payload)
+    public static Result<object> Read(NotificationKind kind, JsonElement payload, IEnumerable<INotificationPayloadCheck> checks)
     {
         ArgumentNullException.ThrowIfNull(kind);
         if (payload.ValueKind != JsonValueKind.Object)
@@ -44,10 +44,32 @@ public static class NotificationPayloads
             return Invalid(kind, ["payload"]);
         }
 
+        return Validate(kind, value, checks);
+    }
+
+    /// <summary>
+    /// The one validation both entry paths share: <paramref name="value"/> must be the kind's payload with every required field, within its own
+    /// rules, name a recipient, and pass every channel's trial. It names fields, never values.
+    /// </summary>
+    public static Result<object> Validate(NotificationKind kind, object value, IEnumerable<INotificationPayloadCheck> checks)
+    {
+        ArgumentNullException.ThrowIfNull(kind);
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentNullException.ThrowIfNull(checks);
+        if (!kind.PayloadType.IsInstanceOfType(value))
+        {
+            return Invalid(kind, ["payload"]);
+        }
+
         var missing = MissingFields(value);
         if (missing.Length > 0)
         {
             return Invalid(kind, missing);
+        }
+
+        if (value is IPayloadRules rules && rules.InvalidFields() is { Count: > 0 } broken)
+        {
+            return Invalid(kind, [.. broken]);
         }
 
         try
@@ -57,6 +79,11 @@ public static class NotificationPayloads
         catch (ArgumentException)
         {
             return Invalid(kind, ["recipient"]);
+        }
+
+        if (!checks.All(check => check.Accepts(kind, value)))
+        {
+            return Invalid(kind, ["payload"]);
         }
 
         return value;

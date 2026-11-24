@@ -5,6 +5,7 @@ using Frappe.Notifications.Infrastructure;
 using Frappe.Notifications.Infrastructure.Messaging;
 using Frappe.Notifications.Infrastructure.Persistence;
 using Frappe.Notifications.Kinds.Account;
+using Frappe.Notifications.Kinds.Marketing;
 using Frappe.Testing.Containers;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -164,6 +165,64 @@ public sealed class ProducerTests(PostgresServer server)
     }
 
     [Test]
+    public async Task A_valid_item_followed_by_an_invalid_one_sends_nothing_and_throws_without_echoing_the_payload()
+    {
+        await MigratedNotifications.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using var worker = Worker(owner);
+
+            // Act and assert
+            var thrown = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => ConsumeAsync(worker, Guid.CreateVersion7(), new OrderPlaced("second@example.com", "000000")));
+            using (Assert.Multiple())
+            {
+                await Assert.That(thrown!.Message).Contains("account_activation_code").And.DoesNotContain("second@example.com");
+                await Assert.That(await DeliveriesAsync(owner)).IsEqualTo(0);
+                await Assert.That(worker.Logs.Entries.Count(e => e.Message.Contains("was not sent", StringComparison.Ordinal))).IsEqualTo(0);
+            }
+        });
+    }
+
+    [Test]
+    public async Task A_valid_item_followed_by_one_with_a_url_that_is_not_https_sends_nothing()
+    {
+        await MigratedNotifications.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using var worker = Worker(owner);
+
+            // Act and assert
+            var thrown = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => ConsumeAsync(worker, Guid.CreateVersion7(), new OrderPlaced("http@example.com", "000000")));
+            using (Assert.Multiple())
+            {
+                await Assert.That(thrown!.Message).Contains("product_announcement").And.DoesNotContain("http@example.com");
+                await Assert.That(await DeliveriesAsync(owner)).IsEqualTo(0);
+            }
+        });
+    }
+
+    [Test]
+    public async Task A_payload_with_a_missing_field_throws_naming_the_field_and_sends_nothing()
+    {
+        await MigratedNotifications.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using var worker = Worker(owner);
+
+            // Act and assert
+            var thrown = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => ConsumeAsync(worker, Guid.CreateVersion7(), new OrderPlaced("blank@example.com", " ")));
+            using (Assert.Multiple())
+            {
+                await Assert.That(thrown!.Message).Contains("invalid fields: code").And.DoesNotContain("blank@example.com");
+                await Assert.That(await DeliveriesAsync(owner)).IsEqualTo(0);
+            }
+        });
+    }
+
+    [Test]
     public async Task A_fact_handled_outside_a_consumer_has_no_message_id_to_send_under_and_throws()
     {
         await MigratedNotifications.RunAsync(server, async owner =>
@@ -191,6 +250,10 @@ public sealed class ProducerTests(PostgresServer server)
             "" => [],
             "twice@example.com" => [Activation(integrationEvent), Activation(integrationEvent)],
             "nope@example.com" => [new ProducedNotification("not_a_kind", new object())],
+            "second@example.com" => [Activation(integrationEvent), ProducedNotification.Of<AccountActivationCode, AccountActivationCodePayload>(
+                new AccountActivationCodePayload(integrationEvent.Email, "es-AR", new string('x', 61), integrationEvent.Code))],
+            "http@example.com" => [Activation(integrationEvent), ProducedNotification.Of<ProductAnnouncement, ProductAnnouncementPayload>(
+                new ProductAnnouncementPayload(integrationEvent.Email, "es-AR", "Ana", "News", "More", "http://frappe.example/news"))],
             "wrong@example.com" => [new ProducedNotification(AccountActivationCode.Kind, new object())],
             _ => [Activation(integrationEvent)],
         };

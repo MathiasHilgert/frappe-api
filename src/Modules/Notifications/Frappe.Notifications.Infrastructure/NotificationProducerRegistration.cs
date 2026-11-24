@@ -33,7 +33,7 @@ public static class NotificationProducerRegistration
         /// <see langword="null"/>.
         /// </param>
         /// <exception cref="InvalidOperationException">
-        /// The event has no integration event type, or the consumer name is not Notifications' own.
+        /// The event has no integration event type, the consumer name is not Notifications' own, or the event already has a mapper.
         /// </exception>
         public IServiceCollection AddNotificationProducer<TEvent, TMapper>(string consumerName, string? section = null)
             where TEvent : IIntegrationEvent
@@ -44,6 +44,12 @@ public static class NotificationProducerRegistration
             if (!consumerName.StartsWith(ConsumerPrefix, StringComparison.Ordinal))
             {
                 throw new InvalidOperationException($"Producer consumer '{consumerName}' must be named '{ConsumerPrefix}<producer>-<purpose>'.");
+            }
+
+            if (services.Any(descriptor => descriptor.ServiceType == typeof(INotificationProducer<TEvent>)))
+            {
+                throw new InvalidOperationException(
+                    $"{typeof(TEvent).Name} already has a notification producer: one mapper per event, so a fact cannot be mapped twice.");
             }
 
             services.TryAddScoped<CurrentMessage>();

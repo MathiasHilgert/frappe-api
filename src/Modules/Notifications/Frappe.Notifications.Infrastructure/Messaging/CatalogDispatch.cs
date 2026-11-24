@@ -1,5 +1,7 @@
+using System.Text.Json;
 using Frappe.Notifications.Application.Dispatching;
 using Frappe.Notifications.Application.Kinds;
+using Frappe.Results;
 
 namespace Frappe.Notifications.Infrastructure.Messaging;
 
@@ -9,7 +11,8 @@ namespace Frappe.Notifications.Infrastructure.Messaging;
 /// where an operator sees it: the producer validated both when it accepted the fact, so this is a deploy skew, never something to drop
 /// silently. Nothing it throws carries the payload (S13).
 /// </summary>
-internal sealed class CatalogDispatch(NotificationCatalog catalog, NotificationDispatcher dispatcher)
+internal sealed class CatalogDispatch(
+    NotificationCatalog catalog, NotificationDispatcher dispatcher, IEnumerable<INotificationPayloadCheck> checks)
 {
     /// <summary>The kind named <paramref name="kindName"/>.</summary>
     /// <exception cref="InvalidOperationException">This host's catalog does not have it.</exception>
@@ -23,6 +26,12 @@ internal sealed class CatalogDispatch(NotificationCatalog catalog, NotificationD
 
         return kind;
     }
+
+    /// <summary>The payload of an explicit request as the kind's, or the error naming its fields.</summary>
+    public Result<object> Read(NotificationKind kind, JsonElement payload) => NotificationPayloads.Read(kind, payload, checks);
+
+    /// <summary>A produced payload checked as the explicit path checks its own.</summary>
+    public Result<object> Validate(NotificationKind kind, object payload) => NotificationPayloads.Validate(kind, payload, checks);
 
     /// <summary>Dispatches one request; its source message id makes a redelivery send nothing again (S14).</summary>
     public Task DispatchAsync(Guid sourceMessageId, NotificationKind kind, object payload, CancellationToken cancellationToken) =>
