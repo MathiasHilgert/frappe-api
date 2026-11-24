@@ -1,0 +1,8 @@
+Your account email changed
+
+Hi Ana. The email of your account was changed and this address no longer signs in. If it was not you, undo the change: the button works once and expires in 7 days.
+
+Undo the change: https://console.example.com/undo-email-change?token=sample
+
+--
+If it was you, ignore this email. If it was not, undo it and then change your password.

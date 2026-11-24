@@ -162,6 +162,7 @@ public sealed class EmailChannelTests
                 ("email_change_code", NotificationCategory.Security),
                 ("registration_attempted", NotificationCategory.Security),
                 ("email_change_requested", NotificationCategory.Security),
+                ("email_changed", NotificationCategory.Transactional),
                 ("product_announcement", NotificationCategory.Marketing),
             ]);
         }

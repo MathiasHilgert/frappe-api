@@ -11,7 +11,7 @@ public sealed partial class RenderedKindsTests
     private static readonly string[] Kinds =
     [
         "account_activation_code", "password_reset_code", "email_change_code", "registration_attempted", "email_change_requested",
-        "product_announcement",
+        "email_changed", "product_announcement",
     ];
 
     /// <summary>Every color of the design system's light and dark tokens an email may use.</summary>
@@ -131,7 +131,7 @@ public sealed partial class RenderedKindsTests
             await Assert.That(HexColors().Matches(email.Html).Select(match => match.Value.ToLowerInvariant()).Distinct().Except(Tokens))
                 .IsEmpty();
             await Assert.That(UnwantedColorFunctions().IsMatch(email.Html)).IsFalse();
-            await Assert.That(email.Html.Contains("#6b1730", StringComparison.Ordinal)).IsEqualTo(kind == "product_announcement");
+            await Assert.That(email.Html.Contains("#6b1730", StringComparison.Ordinal)).IsEqualTo(kind is "product_announcement" or "email_changed");
         }
     }
 
@@ -169,7 +169,7 @@ public sealed partial class RenderedKindsTests
         var email = await SendAsync(world, kind, language);
 
         // Assert
-        var isAnnouncement = kind == "product_announcement";
+        var isAnnouncement = kind is "product_announcement" or "email_changed";
         var hasCode = kind.EndsWith("_code", StringComparison.Ordinal);
         using (Assert.Multiple())
         {
@@ -342,6 +342,42 @@ public sealed partial class RenderedKindsTests
             await Assert.That(email.To.Value).IsEqualTo("ana@example.com");
             await Assert.That(email.Text).Contains("Hola Ana. Se pidió cambiar el email de tu cuenta a n***@example.com.");
             await Assert.That(email.Text).Contains("Si no fuiste vos, cambiá tu contraseña ahora");
+        }
+    }
+
+    [Test]
+    public async Task The_email_changed_mail_has_one_undo_button_to_the_console_and_names_no_new_address()
+    {
+        // Arrange
+        await using var world = new EmailWorld();
+
+        // Act
+        var email = await SendAsync(world, "email_changed", "es-AR");
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(email.To.Value).IsEqualTo("ana@example.com");
+            await Assert.That(email.Subject).IsEqualTo("Se cambió tu email de Frappé");
+            await Assert.That(email.Html).Contains("href=\"https://console.example.com/undo-email-change?token=sample\"");
+            await Assert.That(email.Text).Contains("Deshacer el cambio");
+        }
+    }
+
+    [Test]
+    [Arguments("https://console.example.com/undo-email-change?token=t", true)]
+    [Arguments("http://console.example.com/undo-email-change?token=t", false)]
+    [Arguments("undo", false)]
+    public async Task The_undo_url_must_be_an_absolute_https_url_and_the_payload_prints_nothing_private(string url, bool valid)
+    {
+        // Arrange
+        var payload = new EmailChangedPayload("ana@example.com", "es-AR", "Ana", url);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(payload.InvalidFields().Count == 0).IsEqualTo(valid);
+            await Assert.That(payload.ToString()).DoesNotContain("ana@example.com").And.DoesNotContain("token").And.DoesNotContain("Ana ");
         }
     }
 

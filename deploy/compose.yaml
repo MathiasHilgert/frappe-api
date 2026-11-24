@@ -139,6 +139,7 @@ services:
       Notifications__Unsubscribe__RetiredKeys__2:
       Notifications__Unsubscribe__PageUrl: ${FRAPPE_NOTIFICATIONS_UNSUBSCRIBE_PAGE_URL:?set it in .env}
       Notifications__Unsubscribe__ApiBaseUrl: ${FRAPPE_NOTIFICATIONS_API_URL:?set it in .env}
+      Notifications__Links__ConsoleUrl: ${FRAPPE_NOTIFICATIONS_CONSOLE_URL:?set it in .env}
       # Emails are only logged unless .env selects Resend (Notifications__Email__Sender=Resend) and holds its key. Never commit the key.
       Notifications__Email__Sender: ${Notifications__Email__Sender:-Logging}
       Notifications__Email__Resend__ApiKey: ${Notifications__Email__Resend__ApiKey:-}

@@ -9,7 +9,9 @@ public static class AccountNotificationServices
 {
     extension(IServiceCollection services)
     {
-        /// <summary>Adds the three code kinds, <see cref="RegistrationAttempted"/> and <see cref="EmailChangeRequested"/>.</summary>
+        /// <summary>
+        /// Adds the three code kinds, <see cref="RegistrationAttempted"/>, <see cref="EmailChangeRequested"/> and <see cref="EmailChanged"/>.
+        /// </summary>
         public IServiceCollection AddAccountNotifications()
         {
             services.AddSingleton<INotificationTextSource>(new EmbeddedNotificationTextSource(typeof(AccountActivationCode).Assembly));
@@ -18,6 +20,7 @@ public static class AccountNotificationServices
             services.AddSingleton(NotificationKind.Of<EmailChangeCode, EmailChangeCodePayload>());
             services.AddSingleton(NotificationKind.Of<RegistrationAttempted, RegistrationAttemptedPayload>());
             services.AddSingleton(NotificationKind.Of<EmailChangeRequested, EmailChangeRequestedPayload>());
+            services.AddSingleton(NotificationKind.Of<EmailChanged, EmailChangedPayload>());
             return services;
         }
     }
