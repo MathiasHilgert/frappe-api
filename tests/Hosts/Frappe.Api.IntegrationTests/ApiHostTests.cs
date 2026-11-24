@@ -144,8 +144,10 @@ public sealed class ApiHostTests
         using (Assert.Multiple())
         {
             await Assert.That(Modules.Services.Select(module => module.GetType().Name))
-                .Contains("NotificationsModule").And.Contains("IdentityModule").And.Contains("IdentityLimitsValkeyModule");
-            await Assert.That(Modules.Endpoints.Select(module => module.GetType().Name)).Contains("NotificationsHttp").And.Contains("IdentityHttp");
+                .Contains("NotificationsModule").And.Contains("IdentityModule").And.Contains("IdentityLimitsValkeyModule")
+                .And.Contains("AccessModule");
+            await Assert.That(Modules.Endpoints.Select(module => module.GetType().Name))
+                .Contains("NotificationsHttp").And.Contains("IdentityHttp").And.Contains("AccessHttp");
             await Assert.That(live.StatusCode).IsEqualTo(HttpStatusCode.OK);
         }
     }
@@ -204,6 +206,26 @@ public sealed class ApiHostTests
 
         // Assert
         await Assert.That(thrown?.Message).Contains("Identity:Codes:Key");
+    }
+
+    [Test]
+    public async Task The_Api_with_its_real_module_lists_gates_every_handler_and_takes_its_caller_from_the_session()
+    {
+        // Arrange
+        await using var app = await ApiHost.StartAsync(Modules.Services, Modules.Endpoints, new Dictionary<string, string?>(ApiHost.Deployed));
+        using var scope = app.Services.CreateScope();
+
+        // Act
+        var callers = scope.ServiceProvider.GetServices<Frappe.Access.Contracts.ICaller>().ToArray();
+        var gate = scope.ServiceProvider.GetRequiredService<Frappe.UseCases.IUseCaseGate>();
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(callers.Select(caller => caller.GetType().Name)).IsEquivalentTo(["SessionCaller"]);
+            await Assert.That(callers[0].PrincipalId).IsNull();
+            await Assert.That(gate.GetType().Name).IsEqualTo("AccessGate");
+        }
     }
 
     [Test]

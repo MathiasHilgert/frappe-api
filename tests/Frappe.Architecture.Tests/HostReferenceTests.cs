@@ -152,6 +152,36 @@ public sealed class HostReferenceTests
     }
 
     [Test]
+    public async Task The_Migrator_loads_no_access_infrastructure_or_web_layer()
+    {
+        // Act
+        var closure = Closure(Migrator).Keys;
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(closure).DoesNotContain("Frappe.Access.Infrastructure");
+            await Assert.That(closure).DoesNotContain("Frappe.Access.Http");
+        }
+    }
+
+    [Test]
+    public async Task The_Worker_runs_access_without_its_web_layer_and_the_Api_serves_it_with_it()
+    {
+        // Act
+        var worker = Closure(Worker).Keys;
+        var api = Closure(Api).Keys;
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(worker).Contains("Frappe.Access.Infrastructure");
+            await Assert.That(worker).DoesNotContain("Frappe.Access.Http");
+            await Assert.That(api).Contains("Frappe.Access.Infrastructure").And.Contains("Frappe.Access.Http");
+        }
+    }
+
+    [Test]
     public async Task The_Worker_runs_identity_without_its_web_layer_and_without_the_valkey_limits_only_the_Api_has()
     {
         // Act

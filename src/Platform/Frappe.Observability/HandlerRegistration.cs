@@ -12,7 +12,8 @@ public static class HandlerRegistration
     {
         /// <summary>
         /// Registers every command and query handler found in <paramref name="assemblies"/> as a scoped service,
-        /// already wrapped by the platform pipeline: every command runs in its module's unit of work
+        /// already wrapped by the platform pipeline: every request passes the host's <see cref="IUseCaseGate"/> (a host with none fails when it
+        /// resolves a handler), every command runs in its module's unit of work
         /// (<see cref="TransactionalCommandHandler{TCommand, TResult}"/>), and every handler is instrumented. Callers resolve the
         /// port interface, never the class.
         /// Registering the same assembly twice is harmless; a second handler for the same port is a startup error,
@@ -54,13 +55,14 @@ public static class HandlerRegistration
     }
 
     /// <summary>
-    /// The decorators of each port, innermost first. Instrumentation is outermost, so a command's span and duration
-    /// include its commit and an exception thrown by the commit is logged like any other.
+    /// The decorators of each port, innermost first: <c>Instrumented → Gated → Transactional → handler</c>. Instrumentation is outermost, so a
+    /// command's span and duration include its commit and an exception thrown by the commit is logged like any other. The gate sits inside the
+    /// span and outside the transaction: a denial is traced, and begins no unit of work.
     /// </summary>
     private static readonly (Type Port, Type[] Decorators)[] Ports =
     [
-        (typeof(ICommandHandler<,>), [typeof(TransactionalCommandHandler<,>), typeof(InstrumentedCommandHandler<,>)]),
-        (typeof(IQueryHandler<,>), [typeof(InstrumentedQueryHandler<,>)]),
+        (typeof(ICommandHandler<,>), [typeof(TransactionalCommandHandler<,>), typeof(GatedCommandHandler<,>), typeof(InstrumentedCommandHandler<,>)]),
+        (typeof(IQueryHandler<,>), [typeof(GatedQueryHandler<,>), typeof(InstrumentedQueryHandler<,>)]),
     ];
 
     private static HandlerRegistry RegistryOf(IServiceCollection services)

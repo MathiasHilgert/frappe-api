@@ -12,15 +12,19 @@ namespace Frappe.Platform.UnitTests.Observability;
 public sealed class HandlerPipelineTests : IDisposable
 {
     private readonly TelemetryCapture _capture = new();
+    private readonly RecordingUnitOfWork _unitOfWork = new();
     private readonly ServiceProvider _services;
+    private readonly RecordingUseCaseGate _gate;
 
     public HandlerPipelineTests()
     {
+        _gate = new RecordingUseCaseGate(_unitOfWork);
         _services = new ServiceCollection()
             .AddLogging(logging => logging.AddProvider(new CaptureLoggerProvider(_capture)))
             .AddMetrics()
             // Commands run in their module's unit of work; this suite looks at telemetry, so any one will do.
-            .AddKeyedScoped<IUnitOfWork>("platform", (_, _) => new RecordingUnitOfWork())
+            .AddKeyedScoped<IUnitOfWork>("platform", (_, _) => _unitOfWork)
+            .AddSingleton<IUseCaseGate>(_gate)
             .AddHandlers(typeof(HandlerPipelineTests).Assembly)
             .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
     }
@@ -138,6 +142,74 @@ public sealed class HandlerPipelineTests : IDisposable
     }
 
     [Test]
+    public async Task The_gate_sits_inside_the_span_and_outside_the_unit_of_work_Instrumented_Gated_Transactional_handler()
+    {
+        // Arrange
+        using var scope = _services.CreateScope();
+        var handler = scope.ServiceProvider.GetRequiredService<ICommandHandler<AcceptedCommand, string>>();
+
+        // Act
+        var result = await handler.HandleAsync(new AcceptedCommand("g"), CancellationToken.None);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(result.Value).IsEqualTo("accepted:g");
+            await Assert.That(string.Join("; ", _gate.Calls)).IsEqualTo(
+                "admit AcceptedCommand after 0 unit-of-work calls; complete AcceptedCommand succeeded=True after 2 unit-of-work calls");
+            await Assert.That(string.Join(",", _unitOfWork.Calls)).IsEqualTo("begin,commit");
+            await Assert.That(_capture.SingleSpan("command AcceptedCommand").GetTagItem(FrappeTelemetry.Tags.Outcome)).IsEqualTo("success");
+        }
+    }
+
+    [Test]
+    public async Task A_command_the_gate_refuses_never_runs_never_begins_a_unit_of_work_and_is_traced_as_a_failure()
+    {
+        // Arrange
+        _gate.Refusal = new ForbiddenError("test.forbidden");
+        using var scope = _services.CreateScope();
+        var handler = scope.ServiceProvider.GetRequiredService<ICommandHandler<AcceptedCommand, string>>();
+
+        // Act
+        var result = await handler.HandleAsync(new AcceptedCommand("h"), CancellationToken.None);
+
+        // Assert
+        var span = _capture.SingleSpan("command AcceptedCommand");
+        using (Assert.Multiple())
+        {
+            await Assert.That(result.IsSuccess).IsFalse();
+            await Assert.That(result.Errors.Single()).IsEqualTo(new ForbiddenError("test.forbidden"));
+            await Assert.That(_unitOfWork.Calls).IsEmpty();
+            await Assert.That(string.Join("; ", _gate.Calls)).IsEqualTo("admit AcceptedCommand after 0 unit-of-work calls");
+            await Assert.That(span.GetTagItem(FrappeTelemetry.Tags.Outcome)).IsEqualTo("failure");
+            await Assert.That(span.GetTagItem(FrappeTelemetry.Tags.ErrorCode)).IsEqualTo("test.forbidden");
+        }
+    }
+
+    [Test]
+    public async Task A_query_the_gate_refuses_never_runs_and_a_query_it_admits_is_completed()
+    {
+        // Arrange
+        using var scope = _services.CreateScope();
+        var handler = scope.ServiceProvider.GetRequiredService<IQueryHandler<Ping, string>>();
+        var admitted = await handler.HandleAsync(new Ping("q"), CancellationToken.None);
+        _gate.Refusal = new ForbiddenError("test.forbidden");
+
+        // Act
+        var refused = await handler.HandleAsync(new Ping("q"), CancellationToken.None);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(admitted.Value).IsEqualTo("pong:q");
+            await Assert.That(refused.Errors.Single().Code).IsEqualTo("test.forbidden");
+            await Assert.That(string.Join("; ", _gate.Calls)).IsEqualTo(
+                "admit Ping after 0 unit-of-work calls; complete Ping succeeded=True after 0 unit-of-work calls; "
+                + "admit Ping after 0 unit-of-work calls");
+        }
+    }
+
+    [Test]
     public async Task Caller_cancellation_is_not_an_incident()
     {
         // Arrange
@@ -168,6 +240,7 @@ public sealed class HandlerPipelineTests : IDisposable
         using var services = new ServiceCollection()
             .AddLogging()
             .AddMetrics()
+            .AddSingleton<IUseCaseGate>(new RecordingUseCaseGate())
             .AddHandlers(typeof(HandlerPipelineTests).Assembly)
             .AddHandlers(typeof(HandlerPipelineTests).Assembly)
             .BuildServiceProvider();
@@ -202,6 +275,7 @@ public sealed class HandlerPipelineTests : IDisposable
             .AddLogging()
             .AddMetrics()
             .AddKeyedScoped<IQueryHandler<Ping, string>, ConflictingPingHandler<int>>("alternative")
+            .AddSingleton<IUseCaseGate>(new RecordingUseCaseGate())
             .AddHandlers(typeof(HandlerPipelineTests).Assembly)
             .BuildServiceProvider();
         using var scope = services.CreateScope();

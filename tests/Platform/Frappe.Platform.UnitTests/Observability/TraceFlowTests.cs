@@ -24,6 +24,7 @@ public sealed class TraceFlowTests
         builder.Services
             .AddMetrics()
             .AddKeyedScoped<IUnitOfWork>("platform", (_, _) => new RecordingUnitOfWork())
+            .AddSingleton<IUseCaseGate>(new RecordingUseCaseGate())
             .AddHandlers(typeof(TraceFlowTests).Assembly);
 
         var app = builder.Build();

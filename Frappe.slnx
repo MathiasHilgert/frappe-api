@@ -30,6 +30,13 @@
     <Project Path="src/Hosts/Frappe.Migrator/Frappe.Migrator.csproj" />
     <Project Path="src/Hosts/Frappe.Worker/Frappe.Worker.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Access/">
+    <Project Path="src/Modules/Access/Frappe.Access.Domain/Frappe.Access.Domain.csproj" />
+    <Project Path="src/Modules/Access/Frappe.Access.Application/Frappe.Access.Application.csproj" />
+    <Project Path="src/Modules/Access/Frappe.Access.Contracts/Frappe.Access.Contracts.csproj" />
+    <Project Path="src/Modules/Access/Frappe.Access.Infrastructure/Frappe.Access.Infrastructure.csproj" />
+    <Project Path="src/Modules/Access/Frappe.Access.Http/Frappe.Access.Http.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/Identity/">
     <Project Path="src/Modules/Identity/Frappe.Identity.Domain/Frappe.Identity.Domain.csproj" />
     <Project Path="src/Modules/Identity/Frappe.Identity.Application/Frappe.Identity.Application.csproj" />
@@ -56,6 +63,9 @@
   <Folder Name="/tests/Hosts/">
     <Project Path="tests/Hosts/Frappe.Api.IntegrationTests/Frappe.Api.IntegrationTests.csproj" />
     <Project Path="tests/Hosts/Frappe.Migrator.IntegrationTests/Frappe.Migrator.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/Access/">
+    <Project Path="tests/Modules/Access/Frappe.Access.UnitTests/Frappe.Access.UnitTests.csproj" />
   </Folder>
   <Folder Name="/tests/Modules/Identity/">
     <Project Path="tests/Modules/Identity/Frappe.Identity.IntegrationTests/Frappe.Identity.IntegrationTests.csproj" />
