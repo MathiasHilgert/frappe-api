@@ -39,8 +39,8 @@ internal sealed class LogInOwnerHandler(
     {
         ArgumentNullException.ThrowIfNull(command);
         var email = Email.Create(command.Email);
-        var subject = email.IsSuccess ? email.Value.NormalizedAddress : command.Email;
-        if (await CountAttemptAsync(subject, command.ClientAddress, cancellationToken) is { } refused)
+        var typed = email.IsSuccess ? email.Value.NormalizedAddress : command.Email;
+        if (await CountAttemptAsync(typed, command.ClientAddress, cancellationToken) is { } refused)
         {
             return refused;
         }
@@ -67,10 +67,14 @@ internal sealed class LogInOwnerHandler(
     /// <summary>Counts the attempt; the error that refuses it, or <see langword="null"/> when it may go on.</summary>
     private async Task<Error?> CountAttemptAsync(string? typedAddress, IPAddress? client, CancellationToken cancellationToken)
     {
-        // Both flows are hit before any lookup, whether the address exists or not, so neither answer nor cost reveals it.
-        var byNetwork = await limiter.HitAsync(LogInLimits.Attempt, LogInLimits.Subject(typedAddress, client), cancellationToken);
-        var byEmail = await limiter.HitAsync(LogInLimits.AttemptByEmail, LogInLimits.Subject(typedAddress), cancellationToken);
-        var verdict = byNetwork.Outcome != AttemptOutcome.Allowed ? byNetwork : byEmail;
+        // Flows are hit before any lookup, whether the address exists or not, so neither answer nor cost reveals it.
+        // The per-email flow is charged only when the network flow allowed the attempt, so one source cannot spend the owner's cap.
+        var verdict = await limiter.HitAsync(LogInLimits.Attempt, LogInLimits.Subject(typedAddress, client), cancellationToken);
+        if (verdict.Outcome == AttemptOutcome.Allowed)
+        {
+            verdict = await limiter.HitAsync(LogInLimits.AttemptByEmail, LogInLimits.Subject(typedAddress), cancellationToken);
+        }
+
         switch (verdict.Outcome)
         {
             case AttemptOutcome.Unavailable:

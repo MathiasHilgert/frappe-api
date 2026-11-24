@@ -35,8 +35,8 @@ internal static class LogInEndpoints
                     + "identity.owner.verification_pending, whose parameters.ownerId is the id to verify with. An address that tries too often "
                     + $"is throttled with 429 http.rate_limited and Retry-After ({LogInLimits.Attempt.Limit} attempts per address from one "
                     + $"network in {LogInLimits.Attempt.Window.TotalMinutes:0} minutes, and {LogInLimits.AttemptByEmail.Limit} per address from "
-                    + $"any network in {LogInLimits.AttemptByEmail.Window.TotalHours:0} hour, whatever their outcome), and so is a client "
-                    + "address that logs in "
+                    + $"any network in {LogInLimits.AttemptByEmail.Window.TotalHours:0} hour, whatever their outcome), "
+                    + $"and so is a client address that logs in "
                     + "too often; there is no lockout beyond the window. 503 identity.attempts.unavailable while attempts cannot be counted.")
                 .ProducesProblem(StatusCodes.Status401Unauthorized)
                 .ProducesProblem(StatusCodes.Status403Forbidden)
