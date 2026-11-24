@@ -117,6 +117,37 @@ public sealed class UnsubscribeTokensTests
     }
 
     [Test]
+    public async Task A_token_that_is_the_same_signed_bytes_written_another_way_is_refused()
+    {
+        // Arrange
+        var tokens = TestUnsubscribeTokens.Create();
+        var token = tokens.Issue(Key(Ref), NotificationCategory.Marketing);
+        var parts = token.Split('.');
+        const string Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+        var last = parts[2][^1];
+        var sameBits = Alphabet[Alphabet.IndexOf(last, StringComparison.Ordinal) ^ 1];
+        string[] variants =
+        [
+            "0" + token,
+            $"{parts[0]}.{parts[1]}.{parts[2]}=",
+            $"{parts[0]}.{parts[1]}=.{parts[2]}",
+            $"{parts[0]}.{parts[1]}.{parts[2][..^1]}{sameBits}",
+            $" {token}",
+            $"{token} ",
+        ];
+
+        // Act
+        var results = variants.Select(tokens.Verify).ToArray();
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(tokens.Verify(token).IsSuccess).IsTrue();
+            await Assert.That(results.All(r => !r.IsSuccess)).IsTrue();
+        }
+    }
+
+    [Test]
     [Arguments(null)]
     [Arguments("")]
     [Arguments("   ")]

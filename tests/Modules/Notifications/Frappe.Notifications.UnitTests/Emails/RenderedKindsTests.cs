@@ -1,8 +1,6 @@
 using System.Text.RegularExpressions;
 using Frappe.Notifications.Channels.Email;
 using Frappe.Testing;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Frappe.Notifications.UnitTests.Emails;
 
@@ -302,26 +300,6 @@ public sealed partial class RenderedKindsTests
                 .IsEqualTo("<https://api.frappe.example/v1/notifications/unsubscriptions?token=t0k3n>");
             await Assert.That(email.Headers["List-Unsubscribe-Post"]).IsEqualTo("List-Unsubscribe=One-Click");
             await Assert.That(email.Html).Contains("href=\"https://frappe.example/news\"");
-        }
-    }
-
-    [Test]
-    public async Task A_marketing_mail_is_never_rendered_without_a_way_to_unsubscribe()
-    {
-        // Arrange
-        await using var world = new EmailWorld(services => services
-            .RemoveAll<IEmailUnsubscribeLinks>()
-            .AddSingleton<IEmailUnsubscribeLinks, UnconfiguredUnsubscribeLinks>());
-
-        // Act
-        var thrown = await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await world.Channel.DeliverAsync(world.ItemOf("product_announcement"), CancellationToken.None));
-
-        // Assert
-        using (Assert.Multiple())
-        {
-            await Assert.That(thrown!.Message).Contains("IEmailUnsubscribeLinks");
-            await Assert.That(world.Sender.Sent).IsEmpty();
         }
     }
 }

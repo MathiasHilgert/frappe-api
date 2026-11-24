@@ -36,7 +36,7 @@ public sealed class EmbeddedNotificationTextSource : INotificationTextSource
     /// <summary>The languages that have a file.</summary>
     public IReadOnlyCollection<LanguageTag> Languages => _byLanguage.Keys;
 
-    /// <summary>The kinds of <paramref name="language"/>'s file; empty when it has none.</summary>
+    /// <inheritdoc />
     public IReadOnlyCollection<string> KindsOf(LanguageTag language) =>
         _byLanguage.TryGetValue(language, out var kinds) ? kinds.Keys : [];
 

@@ -21,7 +21,13 @@ public sealed class EmailComposer(IcuNotificationTexts texts)
     }
 
     /// <summary>The kind's draft for <paramref name="payload"/>, in <paramref name="requested"/> or the language it falls back to.</summary>
-    /// <exception cref="InvalidOperationException">The kind has no email, has no texts, or is Security and carries a link.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// The kind has no email or has no texts.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    /// The kind's draft cannot be built for this payload (a link that is not https, a blank label), or the kind is Security and does not
+    /// return a <see cref="SecureEmail"/>. The channel fails both for good.
+    /// </exception>
     public ComposedEmail Compose(NotificationKind kind, object payload, LanguageTag? requested)
     {
         ArgumentNullException.ThrowIfNull(kind);
@@ -29,9 +35,10 @@ public sealed class EmailComposer(IcuNotificationTexts texts)
         var draftOf = DraftOf(kind) ?? throw new InvalidOperationException($"Notification kind '{kind.Name}' cannot be sent by email.");
         var kindTexts = texts.For(kind.Name, requested);
         var draft = draftOf(payload, kindTexts);
-        if (draft.HasAction && !kind.Category.AllowsLinks)
+        if (!kind.Category.AllowsLinks && draft is not SecureEmail)
         {
-            throw new InvalidOperationException($"Notification kind '{kind.Name}' is {kind.Category} and must not carry a link.");
+            throw new SecurityEmailWithLinkException(
+                $"Notification kind '{kind.Name}' is {kind.Category} and must not carry a link: it returns a SecureEmail (Email.Secure).");
         }
 
         return new ComposedEmail(draft, kindTexts.Language);

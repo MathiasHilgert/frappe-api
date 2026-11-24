@@ -4,7 +4,7 @@ namespace Frappe.Notifications.Channels.Email;
 
 /// <summary>
 /// Makes the unsubscribe links of a Marketing mail (S5, S9): the one-click URL and the page of the frontend, both carrying the signed token.
-/// <see cref="SignedUnsubscribeLinks"/> is the implementation a host registers; <see cref="UnconfiguredUnsubscribeLinks"/> stands for none.
+/// <see cref="SignedUnsubscribeLinks"/> is the implementation a host registers.
 /// </summary>
 public interface IEmailUnsubscribeLinks
 {

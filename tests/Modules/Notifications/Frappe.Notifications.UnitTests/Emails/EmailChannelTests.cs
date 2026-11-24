@@ -262,4 +262,56 @@ public sealed class EmailChannelTests
         // Assert
         await Assert.That(failure).IsNull();
     }
+
+    [Test]
+    public async Task A_draft_that_cannot_be_composed_for_its_payload_fails_for_good_and_sends_nothing()
+    {
+        // Arrange
+        await using var world = new EmailWorld(WithKind<BadLinkNotification>(TextsOf("bad_link", ("subject", "Hola"))));
+
+        // Act
+        var outcome = await world.Channel.DeliverAsync(world.ItemOf("bad_link"), CancellationToken.None);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(outcome).IsEqualTo(new ChannelOutcome.Failed(DeliveryFailureReason.ProviderRejected));
+            await Assert.That(world.Sender.Sent).IsEmpty();
+        }
+    }
+
+    [Test]
+    public async Task A_security_kind_that_returns_a_standard_email_stops_the_host_at_startup()
+    {
+        // Arrange
+        await using var world = new EmailWorld(WithKind<StandardSecurityNotification>(TextsOf("standard_security", ("subject", "Hola"))));
+
+        // Act
+        var failure = await StartAsync(world);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(failure).IsTypeOf<InvalidOperationException>();
+            await Assert.That(failure!.Message).Contains("standard_security");
+            await Assert.That(failure.Message).Contains("SecureEmail");
+        }
+    }
+
+    [Test]
+    public async Task A_security_kind_that_returns_a_standard_email_at_send_time_fails_for_good()
+    {
+        // Arrange
+        await using var world = new EmailWorld(WithKind<StandardSecurityNotification>(TextsOf("standard_security", ("subject", "Hola"))));
+
+        // Act
+        var outcome = await world.Channel.DeliverAsync(world.ItemOf("standard_security"), CancellationToken.None);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(outcome).IsEqualTo(new ChannelOutcome.Failed(DeliveryFailureReason.ProviderRejected));
+            await Assert.That(world.Sender.Sent).IsEmpty();
+        }
+    }
 }
