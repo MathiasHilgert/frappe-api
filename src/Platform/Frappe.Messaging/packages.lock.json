@@ -337,6 +337,22 @@
           "MessageFormat": "[8.0.0, )"
         }
       },
+      "frappe.messaging.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.IntegrationEvents": "[1.0.0, )",
+          "Frappe.Persistence": "[1.0.0, )"
+        }
+      },
+      "frappe.messaging.storage": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Aggregates": "[1.0.0, )",
+          "Frappe.IntegrationEvents": "[1.0.0, )",
+          "Frappe.Persistence": "[1.0.0, )",
+          "Npgsql": "[10.0.3, )"
+        }
+      },
       "frappe.persistence": {
         "type": "Project",
         "dependencies": {

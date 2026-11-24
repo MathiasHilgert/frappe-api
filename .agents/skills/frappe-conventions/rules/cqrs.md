@@ -30,7 +30,7 @@
   TResult>` or `IQueryHandler<TQuery, TResult>`, never the handler class, and never call another handler's class.
 - **Why:** Resolving the port is what gives every call the pipeline (unit of work, instrumentation); a class reference bypasses it.
 - **Enforced by:** `HandlerPipelineTests` `A_second_handler_for_the_same_port_is_rejected_at_registration`; LayeringTests
-  `The_http_adapter_reaches_use_cases_only_through_the_application_layer`.
+  `The_http_adapter_reaches_use_cases_only_through_the_application_layer` (planned).
 - **Good:** `ICommandHandler<AddSubdivisionAlias, SubdivisionAliasView> handler` injected into the endpoint. **Bad:** `new
   AddSubdivisionAliasHandler(...)` or injecting `AddSubdivisionAliasHandler`.
 - **Status:** in force.
@@ -108,7 +108,7 @@
   rows, claiming work) may be set-based SQL in an Infrastructure job; that job is idempotent and its XML doc says what it touches and why it is not a
   command.
 - **Why:** A write outside the pipeline skips validation, domain events, outbox and metrics.
-- **Enforced by:** LayeringTests `Application_ports_leave_saving_to_the_unit_of_work`; review for Infrastructure `SaveChangesAsync` calls.
+- **Enforced by:** LayeringTests `Application_ports_leave_saving_to_the_unit_of_work` (planned); review for Infrastructure `SaveChangesAsync` calls.
 - **Good:** `MessagePurger<TContext>` and `CredentialPurger` (idempotent batched deletes, documented). **Bad:** `SnapshotSync` staging a run and
   calling `db.SaveChangesAsync` itself.
 - **Status:** in force.

@@ -1,6 +1,6 @@
 using Frappe.Aggregates;
 using Frappe.IntegrationEvents;
-using Frappe.Messaging.Outbox;
+using Frappe.Messaging.Storage.Outbox;
 using Frappe.Persistence;
 using Frappe.Platform.Testing.Messaging;
 using Microsoft.EntityFrameworkCore.Infrastructure;

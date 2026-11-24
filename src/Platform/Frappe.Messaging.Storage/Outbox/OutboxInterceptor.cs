@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using NodaTime;
 
-namespace Frappe.Messaging.Outbox;
+namespace Frappe.Messaging.Storage.Outbox;
 
 /// <summary>
 /// Right before a save, takes the pending domain events of every tracked aggregate, translates them and adds them

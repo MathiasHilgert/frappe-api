@@ -98,7 +98,7 @@
   TInstrument>(e => tags)` instead of one-off handlers. A platform test walks every `Frappe.*` meter: name `frappe.<module>.*`, unit, description,
   tags from an allow-list. Existing metric names are kept.
 - **Why:** typed tags remove misspelled or unbounded tags at compile time; one helper keeps OBS-06 uniform.
-- **Enforced by:** `MeterConventionTests` in `tests/Frappe.Architecture.Tests`; `CountOnCommit` (`CountOnCommitRegistration.cs`).
+- **Enforced by:** `MeterConventionTests` (planned) in `tests/Frappe.Architecture.Tests`; `CountOnCommit` (`CountOnCommitRegistration.cs`).
 - **Good:** `[Counter<long>(typeof(SyncRunTags), Name = "frappe.orders.sync.runs")] public static partial SyncRuns CreateSyncRuns(Meter meter);`
   **Bad:**
   `_syncRuns.Add(1, new("frappe.outcome", name), new("source", s));` with hand-typed keys.
@@ -165,7 +165,7 @@
   Grafana rule in `deploy/observability/grafana/provisioning/alerting/frappe-alerts.yaml`: datasource `loki` or `mimir` only, no `$$`, `noDataState:
   OK`, its `uid` listed in `AlertProvisioningTests`.
 - **Why:** a failure metric nobody alerts on is discovered by users.
-- **Enforced by:** `AlertProvisioningTests`.
+- **Enforced by:** `AlertProvisioningTests` (planned).
 - **Good:** `- uid: frappe-mail-failed-configuration` plus the uid in the test's expected list **Bad:** `frappe.messaging.outbox.parked` with no rule.
 - **Status:** in force.
 
@@ -174,7 +174,7 @@
 - **Rule:** Each rule has `summary`, `description` and `runbook` annotations; `runbook` says what to look at, what to do, and the exact SQL or
   command. Operational knowledge with no alert to hang on is dropped.
 - **Why:** the runbook is read at the moment the alert fires, not searched for in a wiki.
-- **Enforced by:** `AlertProvisioningTests.Every_rule_carries_a_summary_a_description_and_a_runbook`.
+- **Enforced by:** `AlertProvisioningTests.Every_rule_carries_a_summary_a_description_and_a_runbook` (planned).
 - **Good:** `runbook: Read the failure in the Worker's logs ... replay them to their stream once the fix is live.` **Bad:** an alert with only
   `summary`.
 - **Status:** in force.
@@ -193,8 +193,9 @@
 - **Rule:** Each module defines an availability SLO and a latency SLO over the existing HTTP server metrics, filtered by its routes, and ships
   multi-window, multi-burn-rate alerts as code (fast: 1 h and 5 m at 14.4×; slow: 6 h and 30 m at 6×) in the provisioned alert file.
 - **Why:** burn-rate alerts page on budget at risk, not on every blip.
-- **Enforced by:** `AlertProvisioningTests` (expected rules list an availability and a latency fast/slow pair for each module with routes: Billing
-  and Orders by `/v1/{module}/`, Shipping by its flat prefix `/v1/business.*` in its own test; a module with flat routes selects its route prefix, see
+- **Enforced by:** `AlertProvisioningTests` (planned) (expected rules list an availability and a latency fast/slow pair for each module with
+  routes: Billing and Orders by `/v1/{module}/`, Shipping by its flat prefix `/v1/business.*` in its own test;
+  a module with flat routes selects its route prefix, see
   HTTP-02).
 - **Good:** `uid: frappe-orders-availability-fast-burn` **Bad:** `5xx > 0` as the only HTTP alert.
 - **Status:** in force.
@@ -204,7 +205,7 @@
 - **Rule:** Each module has a versioned Grafana JSON under `deploy/observability/grafana/provisioning/dashboards/` with traffic, errors, latency,
   business metrics and messaging rows, provisioned at startup. A test fails when a business metric of the module appears in no panel query.
 - **Why:** a metric no panel shows is not watched.
-- **Enforced by:** `DashboardProvisioningTests.Every_business_metric_of_the_module_is_in_a_panel_query`.
+- **Enforced by:** `DashboardProvisioningTests.Every_business_metric_of_the_module_is_in_a_panel_query` (planned).
 - **Good:** `dashboards/billing.json` querying `frappe_billing_owners_registered_total` **Bad:** a dashboard built by hand in the UI.
 - **Status:** in force.
 

@@ -49,7 +49,7 @@ module's data: see `criteria`.
 
 - **Rule:** Domain never references its Application project nor `Frappe.UseCases`.
 - **Why:** the model must not depend on how it is orchestrated.
-- **Enforced by:** `LayeringTests.The_domain_does_not_depend_on_its_use_cases`.
+- **Enforced by:** `LayeringTests.The_domain_does_not_depend_on_its_use_cases` (planned).
 - **Good:** `Principal.ActivateOwner()` returns `Result<Unit>`. **Bad:** an aggregate taking an `ICommand` or a handler.
 - **Status:** in force.
 
@@ -58,9 +58,9 @@ module's data: see `criteria`.
 - **Rule:** `*.Infrastructure` never depends on ASP.NET Core. `*.Http` dispatches commands and queries through Application ports and never references
   Infrastructure, EF, Npgsql, `Frappe.Persistence`, `Frappe.Caching` or Redis.
 - **Why:** transport and storage change independently; an endpoint that reads a table bypasses the use case's rules.
-- **Enforced by:** `LayeringTests.Infrastructure_adapters_do_not_serve_http`,
-  `LayeringTests.The_http_adapter_reaches_use_cases_only_through_the_application_layer` (covers Billing.Http only; extend to every `*.Http`,
-  planned).
+- **Enforced by:** `LayeringTests.Infrastructure_adapters_do_not_serve_http` (planned),
+  `LayeringTests.The_http_adapter_reaches_use_cases_only_through_the_application_layer` (planned; the Billing-only version is gone with the
+  module: write it over every `*.Http`).
 - **Good:** endpoint → `IQueryHandler<GetRegion, RegionView>`. **Bad:** endpoint injecting `OrdersDbContext`.
 - **Status:** in force.
 
@@ -70,8 +70,9 @@ module's data: see `criteria`.
   isolation allow-list. Never another module's Domain, Application, Infrastructure, Http, tables or services.
 - **Why:** each module can change its internals, schema and deployment without breaking others; the allow-list makes every new dependency a reviewed
   decision.
-- **Enforced by:** today `LayeringTests.Only_Billings_mail_package_reaches_Billings_contracts_from_another_module` and
-  `Billing_knows_nothing_about_mailing` (Billing only); one generic module-isolation ArchTest with an allow-list over every production assembly
+- **Enforced by:** `LayeringTests.Only_Billings_mail_package_reaches_Billings_contracts_from_another_module` and
+  `Billing_knows_nothing_about_mailing` (both planned: no Billing or Mailing module exists yet);
+  one generic module-isolation ArchTest with an allow-list over every production assembly
   (planned).
 - **Good:** `Frappe.Mailing.Billing` → `Frappe.Billing.Contracts` (allow-listed). **Bad:** `Frappe.Orders.Application` →
   `Frappe.Billing.Application`.
@@ -83,8 +84,8 @@ module's data: see `criteria`.
   records in and out, implemented over the owner's own query handlers, and missing data is an answer, never an exception or a silent default. Reacting
   to another module's change uses its integration events (see `events`). A local copy fed by events is allowed only under CRIT-05.
 - **Why:** the owner keeps its rules and its model private; a query port answers with current data without a second source of truth.
-- **Enforced by:** `LayeringTests.A_module_contract_exposes_nothing_but_its_public_types` + ARCH-05 test (planned); review for read-only and "missing
-  is an answer".
+- **Enforced by:** `LayeringTests.A_module_contract_exposes_nothing_but_its_public_types` (planned) + ARCH-05 test
+  (both planned); review for read-only and "missing is an answer".
 - **Good:** `IOrdersQueries.IsBusinessDayAsync(...)` answers `CalendarStatus.NotCovered` for a calendar Orders does not hold. **Bad:** a port method
   that writes, returns an Orders aggregate, or answers "no shipments" when Orders has no data.
 - **Status:** in force.
@@ -129,8 +130,8 @@ module's data: see `criteria`.
 
 - **Rule:** tracing and exporters are platform work; modules declare business metrics through `IMeterFactory` only (see `observability`).
 - **Why:** one telemetry pipeline, configured once.
-- **Enforced by:** `LayeringTests.Modules_contain_no_tracing_or_exporter_code` (does not load Orders.Http nor the Orders source packages; add them,
-  planned).
+- **Enforced by:** `LayeringTests.Modules_contain_no_tracing_or_exporter_code` (planned; cover every module project, Orders.Http and the Orders source
+  packages included).
 - **Good:** `OrdersMetrics` over `IMeterFactory`. **Bad:** `new ActivitySource("Frappe.Orders")` in a handler.
 - **Status:** in force.
 
@@ -138,7 +139,7 @@ module's data: see `criteria`.
 
 - **Rule:** no Application port declares `SaveChangesAsync`; the unit of work commits each command once (see `uow`).
 - **Why:** a port that saves commits half a command.
-- **Enforced by:** `LayeringTests.Application_ports_leave_saving_to_the_unit_of_work`.
+- **Enforced by:** `LayeringTests.Application_ports_leave_saving_to_the_unit_of_work` (planned).
 - **Good:** `IPrincipals.Add(principal)`. **Bad:** `IPrincipals.SaveAsync()`.
 - **Status:** in force.
 
@@ -148,7 +149,7 @@ module's data: see `criteria`.
   STR-04.
 - **Why:** adding a region or a producer adds a package; it never edits the core.
 - **Enforced by:** `LayeringTests.Source_packages_declare_and_never_reach_the_pipeline_or_the_database`, `Orders_core_never_knows_a_source_package`,
-  `Mailing_core_knows_no_producer_module`.
+  `Mailing_core_knows_no_producer_module` (all planned: no Orders or Mailing module exists yet).
 - **Good:** `Frappe.Orders.Regions.Argentina` → Orders core. **Bad:** `OrdersModule` calling `AddArgentinaCalendar()`.
 - **Status:** in force.
 

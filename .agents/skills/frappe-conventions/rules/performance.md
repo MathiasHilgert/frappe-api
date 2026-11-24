@@ -19,7 +19,7 @@
   `statement_timeout` 30 s, `idle_in_transaction_session_timeout` at least 1 min. A connection string setting wins over the defaults. A new pool (job
   store, readiness) gets an explicit limit.
 - **Why:** Replicas × pools must stay under `max_connections`; the server cancels a runaway statement before the client gives up.
-- **Enforced by:** `DatabaseOptionsValidator` | `MigratorTests` (`Every_login_role_gets_the_configured_session_timeouts`).
+- **Enforced by:** `DatabaseOptionsValidator` | `MigratorTests` (`Every_login_role_gets_the_configured_session_timeouts` (planned)).
 - **Good:** `ModuleDatabase.WithConnectionLimits`. **Bad:** a raw `NpgsqlDataSource` with the default pool of 100.
 - **Status:** in force.
 
@@ -38,7 +38,7 @@
 - **Rule:** A command's writes are staged and written by the unit of work's single `SaveChanges` (outbox rows included) and committed together. Reads
   and calls to other systems happen before the transaction opens. Nothing but `EfUnitOfWork` and `InboxConsumer` calls `SaveChangesAsync`.
 - **Why:** Short transactions hold locks and connections for milliseconds; one SaveChanges is one round trip batch and one atomic outcome.
-- **Enforced by:** `LayeringTests` (`Application_ports_leave_saving_to_the_unit_of_work`) | review.
+- **Enforced by:** `LayeringTests` (`Application_ports_leave_saving_to_the_unit_of_work` (planned)) | review.
 - **Good:** `EfUnitOfWork.SaveChangesAsync`. **Bad:** `await db.SaveChangesAsync(ct)` in `SnapshotSync` or `OrdersSeeding`.
 - **Status:** in force.
 
@@ -91,7 +91,7 @@
 - **Rule:** A purge deletes by key from a `LIMIT n` subselect (default 1000 per statement), each batch its own short statement, filtered on an indexed
   column, until a batch comes back short; scheduled nightly by the Worker.
 - **Why:** Short statements hold few locks and keep replication lag and vacuum steady; running twice at once only finds less.
-- **Enforced by:** review | `CredentialPurgeTests`.
+- **Enforced by:** review | `CredentialPurgeTests` (planned).
 - **Good:** `MessagePurger`: `DELETE FROM ... WHERE id IN (SELECT id FROM ... WHERE published_at < {0} LIMIT {1})`. **Bad:** `DELETE FROM
   outbox_messages WHERE published_at < now() - interval '7 days'`.
 - **Status:** in force.

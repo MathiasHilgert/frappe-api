@@ -19,6 +19,7 @@ public sealed class LayeringTests
     private static readonly Assembly Http = typeof(Frappe.Http.HttpRegistration).Assembly;
     private static readonly Assembly Persistence = typeof(Frappe.Persistence.ModuleDatabase).Assembly;
     private static readonly Assembly Messaging = typeof(Frappe.Messaging.MessagingMetrics).Assembly;
+    private static readonly Assembly MessagingStorage = typeof(Frappe.Messaging.Storage.Relay.RelayRoles).Assembly;
     private static readonly Assembly Observability = typeof(Frappe.Observability.FrappeTelemetry).Assembly;
     private static readonly Assembly Scheduling = typeof(Frappe.Scheduling.SchedulingRegistration).Assembly;
     private static readonly Assembly Worker = typeof(Frappe.Worker.WorkerComposition).Assembly;
@@ -92,6 +93,20 @@ public sealed class LayeringTests
 
         // Assert
         await AssertAsync(result, "Messaging depends on the scheduler, the web stack or telemetry code");
+    }
+
+    [Test]
+    public async Task Messaging_storage_maps_the_outbox_and_inbox_without_the_broker_the_web_stack_or_the_scheduler()
+    {
+        // Act
+        var result = Types.InAssembly(MessagingStorage)
+            .ShouldNot().HaveDependencyOnAny(
+                "NATS", "Frappe.Messaging.Hosting", "Frappe.Messaging.JetStream", "Frappe.Scheduling", "Frappe.Http", "Frappe.Observability",
+                "Microsoft.AspNetCore", "Quartz")
+            .GetResult();
+
+        // Assert
+        await AssertAsync(result, "Messaging storage depends on the broker, the scheduler or the web stack");
     }
 
     [Test]

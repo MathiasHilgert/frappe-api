@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using Frappe.Messaging.Outbox;
+using Frappe.Messaging.Storage.Outbox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

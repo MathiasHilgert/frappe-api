@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
-namespace Frappe.Messaging.Outbox;
+namespace Frappe.Messaging.Storage.Outbox;
 
 /// <summary>Names and shapes the outbox table every module owns, so each module maps it the same way.</summary>
 public static class OutboxModel

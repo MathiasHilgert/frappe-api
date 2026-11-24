@@ -1,4 +1,4 @@
-using Frappe.Messaging.Relay;
+using Frappe.Messaging.Storage.Relay;
 using Frappe.Platform.Testing.Messaging;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;

@@ -2,7 +2,7 @@ using System.Diagnostics;
 using Frappe.Aggregates;
 using Frappe.IntegrationEvents;
 using Frappe.Messaging;
-using Frappe.Messaging.Outbox;
+using Frappe.Messaging.Storage.Outbox;
 using Frappe.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

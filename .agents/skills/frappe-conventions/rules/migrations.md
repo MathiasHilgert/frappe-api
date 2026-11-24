@@ -70,8 +70,8 @@
 - **Rule:** A migration writes table names, constraint names, predicates and index definitions as literals. It never references configuration, model
   or platform types (`SessionConfiguration`, `OutboxModel`), not even for a name.
 - **Why:** A migration is frozen history; reading a constant rewrites what an old migration does when the model later changes.
-- **Enforced by:** `MigrationTests` (a source scan of the hand-written migration files, comments included; C# inlines constants, so an assembly check
-  cannot see them).
+- **Enforced by:** `MigrationTests` (planned) (a source scan of the hand-written migration files, comments included; C# inlines constants, so an
+  assembly check cannot see them).
 - **Good:** `IndexParkedOutboxRows`: `"CREATE INDEX CONCURRENTLY ix_outbox_messages_parked ON orders.outbox_messages (sequence) WHERE ..."`. **Bad:**
   `private const string Table = "orders." + OutboxModel.Table;`, `{SessionConfiguration.PasswordStampCheck}`.
 - **Status:** in force.
@@ -113,8 +113,8 @@
 - **Rule:** Only the Migrator runs DDL, as the schema owner, under an advisory lock. It creates every login role `NOINHERIT NOCREATEDB NOCREATEROLE`
   with a SCRAM verifier, and sets `statement_timeout` and `idle_in_transaction_session_timeout` on each from `DatabaseOptions`.
 - **Why:** A compromised or buggy Api cannot change the schema; two Migrators started together cannot race.
-- **Enforced by:** `MigratorTests` (`Only_a_SCRAM_verifier_reaches_the_server...`, `Two_Migrators_started_together_both_succeed`,
-  `Every_login_role_gets_the_configured_session_timeouts`).
+- **Enforced by:** `MigratorTests` (`Only_a_SCRAM_verifier_reaches_the_server...`, `Two_Migrators_started_together_both_succeed` (planned),
+  `Every_login_role_gets_the_configured_session_timeouts` (planned)).
 - **Good:** `ModuleRoles`. **Bad:** the Api calling `Database.MigrateAsync()`.
 - **Status:** in force.
 
@@ -132,9 +132,9 @@
 - **Rule:** A role that needs less than its module's DML (a relay, a purge) gets column-level `UPDATE` and `EXECUTE` on `SECURITY DEFINER` functions
   with `search_path` pinned and `EXECUTE` revoked from `PUBLIC`.
 - **Why:** The relay can publish and purge but cannot read or change business rows.
-- **Enforced by:** `MigratorTests` (Billing and Shipping relay roles) | `CredentialPurgeTests` | the `RelayRoles` statement test.
-- **Good:** `RelayRoles.GrantAsync` (Frappe.Messaging) called by `BillingMigration` and `ShippingMigration`; the module passes only its schema,
-  role and purge functions. **Bad:** the relay logging in as the module role.
+- **Enforced by:** `MigratorTests` (Billing and Shipping relay roles) | `CredentialPurgeTests` (planned) | the `RelayRoles` statement test.
+- **Good:** `RelayRoles.GrantAsync` (Frappe.Messaging.Storage) called by `BillingMigration` and `ShippingMigration`; the module passes only its
+  schema, role and purge functions. **Bad:** the relay logging in as the module role.
 - **Status:** in force.
 
 ## MIG-13 · CI upgrades the base database with the branch's Migrator

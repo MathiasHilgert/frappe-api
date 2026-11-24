@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Frappe.IntegrationEvents;
 using Frappe.Messaging;
+using Frappe.Messaging.Abstractions;
 using Frappe.Messaging.Hosting;
 using Frappe.Messaging.Inbox;
 using Frappe.Platform.Testing.Messaging;
@@ -38,6 +39,7 @@ public sealed class InboxConsumerTests(InboxDatabase database)
         var options = await database.CreateAsync();
         var log = new StepLog();
         var services = new ServiceCollection().AddSingleton(log).AddScoped(_ => new InboxTestContext(options));
+        services.AddJetStream("nats://localhost:4222", "tests"); // the steps below are declarations; a transport materializes them
         steps(services);
         return (services.BuildServiceProvider(), log);
     }

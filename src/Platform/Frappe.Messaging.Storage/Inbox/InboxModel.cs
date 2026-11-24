@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
-namespace Frappe.Messaging.Inbox;
+namespace Frappe.Messaging.Storage.Inbox;
 
 /// <summary>Names and shapes the inbox table every module owns, so each module maps it the same way.</summary>
 public static class InboxModel

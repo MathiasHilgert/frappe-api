@@ -11,6 +11,8 @@
     <ProjectReference Include="../Frappe.Aggregates/Frappe.Aggregates.csproj" />
     <ProjectReference Include="../Frappe.IntegrationEvents/Frappe.IntegrationEvents.csproj" />
     <ProjectReference Include="../Frappe.Persistence/Frappe.Persistence.csproj" />
+    <ProjectReference Include="../Frappe.Messaging.Storage/Frappe.Messaging.Storage.csproj" />
+    <ProjectReference Include="../Frappe.Messaging.Abstractions/Frappe.Messaging.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" />

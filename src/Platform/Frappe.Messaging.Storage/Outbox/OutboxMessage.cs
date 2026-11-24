@@ -1,6 +1,7 @@
-using Frappe.Messaging.Outbox;
+using Frappe.Messaging.Storage.Outbox;
 using NodaTime;
 
+// Exception to ARCH-15: EF names an entity by its CLR full name and every module snapshot records Frappe.Messaging.<Name>.
 namespace Frappe.Messaging;
 
 /// <summary>

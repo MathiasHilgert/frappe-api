@@ -158,7 +158,7 @@
 - **Rule:** `IIntegrationEventHandler` writes only inside the consumer transaction (throw = retry); cache evictions and other visibility effects go in
   an idempotent `IAfterCommitHandler`; slow external calls go in `IBeforeClaimHandler` with an idempotency key.
 - **Why:** no transaction waits on a third party, and retries never repeat an external effect.
-- **Enforced by:** BillingMailConsumerTests + review.
+- **Enforced by:** BillingMailConsumerTests (planned) + review.
 - **Good:** sending mail in `IBeforeClaimHandler` with the message id as idempotency key. **Bad:** an HTTP call inside `IIntegrationEventHandler`.
 - **Status:** in force.
 
@@ -242,6 +242,9 @@
 ## EVT-25 · Every module has outbox, relay and inbox
 
 - **Rule:** Every module maps `AddOutbox()` and `AddInbox()`, registers its outbox relay and purge, and has a translator, from day one.
+  The registration calls (`AddOutboxRelay`, `AddIntegrationEventConsumer`, the step handlers, `AddMessagePurge`) live in
+  `Frappe.Messaging.Abstractions` and only declare: the module's Infrastructure never references `Frappe.Messaging` or NATS, and the Worker's
+  `AddJetStream` materializes them.
 - **Why:** uniform modules; publishing an event later needs no messaging setup.
 - **Enforced by:** review.
 - **Good:** `OrdersMessaging`: `AddOutboxRelay<OrdersDbContext>(...).AddMessagePurge<OrdersDbContext>(...)`. **Bad:** a module with outbox tables and

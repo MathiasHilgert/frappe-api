@@ -52,7 +52,7 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 - **Rule:** a package that plugs into a module's core is `Frappe.<Module>.<Kind>.<Name>` in `src/Modules/<Module>/<Kind>/`, with `<Kind>` plural
   (`Regions`, `Sources`, `Producers`). Dependency direction: ARCH-14.
 - **Why:** the name says what the package plugs in and where its siblings live.
-- **Enforced by:** `PlugInNamingTests` (tests/Frappe.Architecture.Tests); review.
+- **Enforced by:** `PlugInNamingTests` (planned) (tests/Frappe.Architecture.Tests); review.
 - **Good:** `Frappe.Orders.Regions.Argentina`. **Bad:** `Frappe.Orders.Global` (→ `Frappe.Orders.Sources.Global`), `Frappe.Mailing.Billing` (→
   `Frappe.Mailing.Producers.Billing`).
 - **Status:** in force.
@@ -90,7 +90,7 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 - **Rule:** `*Row` is an Infrastructure persistence type for data with no business behavior: reference catalogs, read projections, technical records.
   It never extends `AggregateRoot` and never raises domain events.
 - **Why:** the suffix tells a reader there are no rules to look for.
-- **Enforced by:** `LayeringTests.Only_sealed_types_in_a_domain_project_derive_from_AggregateRoot`.
+- **Enforced by:** `LayeringTests.Only_sealed_types_in_a_domain_project_derive_from_AggregateRoot` (planned).
 - **Good:** `RegionNameRow`. **Bad:** `RegionRow`, `SubdivisionRow`, `SyncRunRow` extending `AggregateRoot`.
 - **Status:** in force.
 
@@ -118,7 +118,9 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 ## STR-11 · Each layer exposes its host facet from one fixed class
 
 - **Rule:** Infrastructure: `public sealed class <M>Module : IModule` and `<M>Database : IDatabaseModule`, with internal `<M>PersistenceRegistration`
-  behind them; Application: `<M>QueriesRegistration` (the `I<M>Queries` facade); Http: `public sealed class <M>Http : IHttpModule` with route mapping;
+  behind them; an Infrastructure that runs in the Worker only (relay, consumers, senders, jobs) adds
+  `public sealed class <M>WorkerModule : IModule`, listed by the Worker alone, never by the Api or the Migrator;
+  Application: `<M>QueriesRegistration` (the `I<M>Queries` facade); Http: `public sealed class <M>Http : IHttpModule` with route mapping;
   a plug-in: its own `IModule`. Handlers are registered by `AddHandlers(assembly)`, never one by one.
 - **Why:** composition is found in one place per layer, and hosts only list the facets (ARCH-11).
 - **Enforced by:** `LayeringTests`; review.

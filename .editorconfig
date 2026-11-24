@@ -87,13 +87,13 @@ dotnet_diagnostic.SA1649.severity = warning
 # The outbox and inbox entities keep namespace Frappe.Messaging although they live in Outbox/ and Inbox/: EF Core
 # names an entity type by its CLR full name, and every module's model snapshot records "Frappe.Messaging.OutboxMessage"
 # and "Frappe.Messaging.InboxMessage". Moving them would make every module add a migration.
-[src/Platform/Frappe.Messaging/Outbox/OutboxMessage.cs]
+[src/Platform/Frappe.Messaging.Storage/Outbox/OutboxMessage.cs]
 dotnet_diagnostic.IDE0130.severity = none
 
-[src/Platform/Frappe.Messaging/Inbox/InboxMessage.cs]
+[src/Platform/Frappe.Messaging.Storage/Inbox/InboxMessage.cs]
 dotnet_diagnostic.IDE0130.severity = none
 
-[src/Platform/Frappe.Messaging/{Outbox/OutboxMessage,Inbox/InboxMessage}.cs]
+[src/Platform/Frappe.Messaging.Storage/{Outbox/OutboxMessage,Inbox/InboxMessage}.cs]
 # S1144/S3453: EF Core materializes these entities through their private constructor and private setters.
 dotnet_diagnostic.S1144.severity = none
 dotnet_diagnostic.S3453.severity = none
