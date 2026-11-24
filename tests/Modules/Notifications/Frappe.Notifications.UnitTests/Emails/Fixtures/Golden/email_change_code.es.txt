@@ -1,6 +1,6 @@
 Confirma tu correo nuevo
 
-Hola Ana, introduce este código para confirmar que este correo es tuyo.
+Hasta que lo confirmes, sigues entrando con tu correo anterior.
 
 482913
 

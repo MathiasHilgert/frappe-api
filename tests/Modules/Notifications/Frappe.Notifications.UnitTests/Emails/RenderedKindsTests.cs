@@ -12,6 +12,10 @@ public sealed partial class RenderedKindsTests
     private static readonly string[] Kinds =
         ["account_activation_code", "password_reset_code", "email_change_code", "product_announcement"];
 
+    /// <summary>Every color of the design system's light and dark tokens an email may use.</summary>
+    private static readonly string[] Tokens =
+        ["#f5f2f3", "#151013", "#ffffff", "#201a1d", "#1f1418", "#f4eef0", "#665860", "#b8aab1", "#e3dbe0", "#3a3036", "#6b1730", "#f2c4d1"];
+
     private static readonly string[] Languages = ["es-AR", "es", "en", "pt-BR"];
 
     public static IEnumerable<(string Kind, string Language)> Everything() =>
@@ -22,14 +26,14 @@ public sealed partial class RenderedKindsTests
     [GeneratedRegex("#[0-9a-fA-F]{3,8}\\b", RegexOptions.None, 1000)]
     private static partial Regex HexColors();
 
-    [GeneratedRegex("\\b(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\\(", RegexOptions.IgnoreCase, 1000)]
-    private static partial Regex ColorFunctions();
+    [GeneratedRegex("\\b(gradient|hsla?|hwb|lab|lch|oklab|oklch|color)\\(", RegexOptions.IgnoreCase, 1000)]
+    private static partial Regex UnwantedColorFunctions();
 
-    [GeneratedRegex("(?:^|[;\"])\\s*(?:color|background|background-color|border(?:-[a-z]+)*)\\s*:\\s*([^;\"]*)", RegexOptions.IgnoreCase, 1000)]
-    private static partial Regex ColorDeclarations();
+    [GeneratedRegex("href=\"[^\"]*", RegexOptions.None, 1000)]
+    private static partial Regex Hrefs();
 
-    [GeneratedRegex("[a-z]+", RegexOptions.IgnoreCase, 1000)]
-    private static partial Regex Words();
+    [GeneratedRegex("text-align:center", RegexOptions.None, 1000)]
+    private static partial Regex CenteredText();
 
     [GeneratedRegex("border:2px solid", RegexOptions.None, 1000)]
     private static partial Regex CodeBoxes();
@@ -89,9 +93,10 @@ public sealed partial class RenderedKindsTests
         {
             await Assert.That(email.Subject).Contains("482913");
             await Assert.That(CodeBoxes().Count(email.Html)).IsEqualTo(6);
-            await Assert.That(email.Html).Contains("width:84px;height:84px");
+            await Assert.That(email.Html).Contains("width=\"56\" height=\"56\"");
             await Assert.That(email.Html).DoesNotContain("<a ");
-            await Assert.That(email.Html).DoesNotContain("href");
+            await Assert.That(Hrefs().Matches(email.Html).Select(match => match.Value))
+                .All().Satisfy(href => href.StartsWith("href=\"https://fonts.g", StringComparison.Ordinal));
             await Assert.That(email.Text).DoesNotContain("http");
             await Assert.That(email.Headers).IsEmpty();
         }
@@ -99,7 +104,7 @@ public sealed partial class RenderedKindsTests
 
     [Test]
     [MethodDataSource(nameof(Everything))]
-    public async Task The_mail_uses_black_and_white_only(string kind, string language)
+    public async Task The_mail_uses_only_the_frappe_color_tokens_and_no_gradients(string kind, string language)
     {
         // Arrange
         await using var world = new EmailWorld();
@@ -108,15 +113,82 @@ public sealed partial class RenderedKindsTests
         var email = await SendAsync(world, kind, language);
 
         // Assert
-        await Assert.That(HexColors().Matches(email.Html).Select(match => match.Value.ToLowerInvariant()).Distinct())
-            .IsEquivalentTo(["#000000", "#ffffff"]);
-        await Assert.That(ColorFunctions().IsMatch(email.Html)).IsFalse();
-        var namedColors = ColorDeclarations().Matches(email.Html)
-            .SelectMany(match => Words().Matches(HexColors().Replace(match.Groups[1].Value, string.Empty))
-                .Select(word => word.Value.ToLowerInvariant()))
-            .Where(word => word is not ("black" or "white" or "transparent" or "solid" or "none" or "px" or "separate" or "collapse"))
-            .Distinct();
-        await Assert.That(namedColors).IsEmpty();
+        using (Assert.Multiple())
+        {
+            await Assert.That(HexColors().Matches(email.Html).Select(match => match.Value.ToLowerInvariant()).Distinct().Except(Tokens))
+                .IsEmpty();
+            await Assert.That(UnwantedColorFunctions().IsMatch(email.Html)).IsFalse();
+            await Assert.That(email.Html.Contains("#6b1730", StringComparison.Ordinal)).IsEqualTo(kind == "product_announcement");
+        }
+    }
+
+    [Test]
+    [MethodDataSource(nameof(Everything))]
+    public async Task The_mail_follows_the_light_and_the_dark_scheme_with_the_two_official_logos(string kind, string language)
+    {
+        // Arrange
+        await using var world = new EmailWorld();
+
+        // Act
+        var email = await SendAsync(world, kind, language);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(email.Html).Contains("<meta name=\"color-scheme\" content=\"light dark\">");
+            await Assert.That(email.Html).Contains("<meta name=\"supported-color-schemes\" content=\"light dark\">");
+            await Assert.That(email.Html).Contains("@media (prefers-color-scheme:dark)");
+            await Assert.That(email.Html).Contains("[data-ogsc]").And.Contains("[data-ogsb]");
+            await Assert.That(email.Html).Contains("src=\"cid:" + EmailInlineImage.LightLogoId + "\"")
+                .And.Contains("src=\"cid:" + EmailInlineImage.DarkLogoId + "\"");
+            await Assert.That(email.Html).Contains("display:none;mso-hide:all");
+        }
+    }
+
+    [Test]
+    [MethodDataSource(nameof(Everything))]
+    public async Task The_elements_the_dark_rules_target_carry_their_classes(string kind, string language)
+    {
+        // Arrange
+        await using var world = new EmailWorld();
+
+        // Act
+        var email = await SendAsync(world, kind, language);
+
+        // Assert
+        var isAnnouncement = kind == "product_announcement";
+        using (Assert.Multiple())
+        {
+            foreach (var name in new[] { "bg-ground", "bg-surface", "ink", "muted" })
+            {
+                await Assert.That(email.Html).Contains(name);
+            }
+
+            await Assert.That(email.Html.Contains("class=\"btn\"", StringComparison.Ordinal)).IsEqualTo(isAnnouncement);
+            await Assert.That(email.Html.Contains("class=\"btn-text\"", StringComparison.Ordinal)).IsEqualTo(isAnnouncement);
+            await Assert.That(email.Html.Contains("class=\"box\"", StringComparison.Ordinal)).IsEqualTo(!isAnnouncement);
+        }
+    }
+
+    [Test]
+    [MethodDataSource(nameof(Everything))]
+    public async Task The_mail_uses_the_brand_fonts_and_keeps_everything_left_aligned(string kind, string language)
+    {
+        // Arrange
+        await using var world = new EmailWorld();
+
+        // Act
+        var email = await SendAsync(world, kind, language);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(email.Html).Contains("family=Bricolage+Grotesque").And.Contains("family=Hanken+Grotesk");
+            await Assert.That(email.Html).Contains("font-family:Bricolage Grotesque,system-ui");
+            await Assert.That(email.Html).Contains("font-family:Hanken Grotesk,system-ui");
+            await Assert.That(email.Html).DoesNotContain("Roboto").And.DoesNotContain("Inter").And.DoesNotContain("Poppins");
+            await Assert.That(CenteredText().Count(email.Html)).IsEqualTo(kind == "product_announcement" ? 0 : 6);
+        }
     }
 
     [Test]
@@ -215,8 +287,10 @@ public sealed partial class RenderedKindsTests
         using (Assert.Multiple())
         {
             await Assert.That(email.Html).Contains("href=\"https://frappe.example/unsubscribe?c=marketing\"");
-            await Assert.That(email.Html).Contains("Dejar de recibir estos mails");
-            await Assert.That(email.Text).Contains("Dejar de recibir estos mails: https://frappe.example/unsubscribe?c=marketing");
+            await Assert.That(email.Text).Contains("Te escribimos porque tenés una cuenta en Frappé.");
+            await Assert.That(email.Html).Contains(">Dejar de recibir novedades</a>");
+            await Assert.That(email.Html).Contains("Ver novedades");
+            await Assert.That(email.Text).Contains("Dejar de recibir novedades: https://frappe.example/unsubscribe?c=marketing");
             await Assert.That(email.Headers["List-Unsubscribe"])
                 .IsEqualTo("<https://api.frappe.example/v1/notifications/unsubscriptions?token=t0k3n>");
             await Assert.That(email.Headers["List-Unsubscribe-Post"]).IsEqualTo("List-Unsubscribe=One-Click");

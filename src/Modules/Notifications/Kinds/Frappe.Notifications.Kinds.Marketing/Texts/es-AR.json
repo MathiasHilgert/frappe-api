@@ -2,8 +2,6 @@
   "product_announcement": {
     "subject": "Novedades de Frappé: {Headline}",
     "preheader": "Mirá lo nuevo que preparamos.",
-    "intro": "Hola {Name}, tenemos novedades para contarte.",
-    "cta": "Ver las novedades",
-    "footer": "Te escribimos para contarte las novedades de Frappé."
+    "cta": "Ver novedades"
   }
 }

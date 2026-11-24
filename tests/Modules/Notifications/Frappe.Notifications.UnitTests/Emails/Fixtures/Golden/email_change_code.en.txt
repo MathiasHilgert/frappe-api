@@ -1,6 +1,6 @@
 Confirm your new email
 
-Hi Ana, enter this code to confirm that this email is yours.
+Until you confirm it, you keep signing in with your previous email.
 
 482913
 

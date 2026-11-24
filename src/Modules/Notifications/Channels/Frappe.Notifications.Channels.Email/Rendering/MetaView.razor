@@ -1,4 +1,12 @@
-<p style="margin:0;font-size:13px;line-height:20px;text-align:center;color:#000000;">@string.Join(" · ", Items)</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr>
+<td class="rule muted" align="left" style="padding:16px 0 0 0;border-top:1px solid #e3dbe0;font-family:Hanken Grotesk,system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;line-height:18px;font-weight:400;text-align:left;color:#665860;">@Items[0]</td>
+@if (Items.Count > 1)
+{
+<td class="rule muted" align="right" style="padding:16px 0 0 0;border-top:1px solid #e3dbe0;font-family:Hanken Grotesk,system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;line-height:18px;font-weight:400;text-align:right;color:#665860;">@string.Join(" · ", Items.Skip(1))</td>
+}
+</tr>
+</table>
 
 @code {
     [Parameter, EditorRequired]

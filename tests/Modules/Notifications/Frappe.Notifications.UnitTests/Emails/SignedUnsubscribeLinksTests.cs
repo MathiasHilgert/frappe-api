@@ -119,7 +119,7 @@ public sealed class SignedUnsubscribeLinksTests
         using (Assert.Multiple())
         {
             await Assert.That(email.Headers).IsEmpty();
-            await Assert.That(email.Html).DoesNotContain("href=");
+            await Assert.That(email.Html).DoesNotContain("<a ");
             await Assert.That(email.Text).DoesNotContain("http");
         }
     }

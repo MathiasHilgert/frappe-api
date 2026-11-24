@@ -81,6 +81,30 @@ public sealed class ResendEmailSenderTests : IDisposable
     }
 
     [Test]
+    public async Task The_email_carries_both_logos_as_inline_attachments_named_by_the_cid_references()
+    {
+        // Arrange
+        _handler.Respond(HttpStatusCode.OK, """{"id":"re_msg_1"}""");
+
+        // Act
+        await Sender().SendAsync(Email(), default);
+
+        // Assert
+        using var json = JsonDocument.Parse(_handler.Received.Single().Body);
+        var attachments = json.RootElement.GetProperty("attachments").EnumerateArray().ToArray();
+        using (Assert.Multiple())
+        {
+            await Assert.That(attachments.Select(a => a.GetProperty("content_id").GetString()!))
+                .IsEquivalentTo([EmailInlineImage.LightLogoId, EmailInlineImage.DarkLogoId]);
+            await Assert.That(attachments.Select(a => a.GetProperty("filename").GetString()!))
+                .IsEquivalentTo(["frappe-logo-light.png", "frappe-logo-dark.png"]);
+            await Assert.That(attachments.Select(a => a.GetProperty("content_type").GetString()!).Distinct()).IsEquivalentTo(["image/png"]);
+            await Assert.That(attachments.Select(a => Convert.FromBase64String(a.GetProperty("content").GetString()!)[1..4])
+                .Select(Convert.ToHexString).Distinct()).IsEquivalentTo(["504E47"]);
+        }
+    }
+
+    [Test]
     public async Task An_email_without_extra_headers_sends_no_headers_object()
     {
         // Arrange

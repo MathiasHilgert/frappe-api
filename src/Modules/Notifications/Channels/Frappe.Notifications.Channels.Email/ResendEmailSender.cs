@@ -29,6 +29,13 @@ public sealed partial class ResendEmailSender(
 
     private const string InvalidConflict = "invalid_idempotent_request";
 
+    /// <summary>The inline logos the HTML references by <c>cid:</c>, encoded once: the same bytes on every attempt.</summary>
+    private static readonly ResendAttachment[] Logos =
+    [
+        .. EmailInlineImage.Logos.Select(image => new ResendAttachment(
+            image.FileName, Convert.ToBase64String(image.Bytes), image.ContentId, image.ContentType)),
+    ];
+
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -38,7 +45,13 @@ public sealed partial class ResendEmailSender(
     {
         ArgumentNullException.ThrowIfNull(email);
         var body = new ResendRequest(
-            options.Value.From, [email.To.Value], email.Subject, email.Html, email.Text, email.Headers.Count == 0 ? null : email.Headers);
+            options.Value.From,
+            [email.To.Value],
+            email.Subject,
+            email.Html,
+            email.Text,
+            email.Headers.Count == 0 ? null : email.Headers,
+            Logos);
         using var request = new HttpRequestMessage(HttpMethod.Post, "emails") { Content = JsonContent.Create(body, options: Json) };
         request.Headers.TryAddWithoutValidation("Idempotency-Key", email.IdempotencyKey);
 
@@ -119,7 +132,20 @@ public sealed partial class ResendEmailSender(
     [LoggerMessage(Level = LogLevel.Error, Message = "Resend answered {Status} {Error}: one idempotency key reached it with two different bodies")]
     private static partial void LogIdempotencyConflict(ILogger logger, int status, string error);
 
-    /// <summary>The body Resend's <c>POST /emails</c> takes: who it is from and for, what it says in both formats and its extra headers.</summary>
+    /// <summary>The body Resend's <c>POST /emails</c> takes: sender, recipient, both formats, extra headers and inline images.</summary>
     private sealed record ResendRequest(
-        string From, string[] To, string Subject, string Html, string Text, IReadOnlyDictionary<string, string>? Headers);
+        string From,
+        string[] To,
+        string Subject,
+        string Html,
+        string Text,
+        IReadOnlyDictionary<string, string>? Headers,
+        ResendAttachment[] Attachments);
+
+    /// <summary>An inline image: Resend shows it where the HTML says <c>cid:</c> followed by <paramref name="ContentId"/>.</summary>
+    private sealed record ResendAttachment(
+        string Filename,
+        string Content,
+        [property: JsonPropertyName("content_id")] string ContentId,
+        [property: JsonPropertyName("content_type")] string ContentType);
 }

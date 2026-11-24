@@ -6,7 +6,7 @@ namespace Frappe.Notifications.Kinds.Marketing;
 /// </summary>
 /// <param name="Email">The address of a recipient with no account (S3).</param>
 /// <param name="Language">The recipient's language tag (<c>es-AR</c>); empty or unknown gets the default.</param>
-/// <param name="Name">What to call the person.</param>
+/// <param name="Name">Kept in the producer contract for a personal greeting; the mail does not show it today.</param>
 /// <param name="Headline">The title of the news, also in the subject.</param>
 /// <param name="Summary">One paragraph about it.</param>
 /// <param name="Url">The absolute https page that tells more.</param>

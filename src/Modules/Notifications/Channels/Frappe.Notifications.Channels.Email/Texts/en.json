@@ -1,6 +1,6 @@
 {
   "email_channel": {
-    "unsubscribe_text": "You get this email because your address is on our news list.",
-    "unsubscribe_label": "Stop receiving these emails"
+    "unsubscribe_text": "We are writing to you because you have a Frappé account.",
+    "unsubscribe_label": "Stop receiving news"
   }
 }
