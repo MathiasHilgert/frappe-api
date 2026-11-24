@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Notifications.UnitTests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../Frappe.Notifications.Domain/Frappe.Notifications.Domain.csproj" />
+    <ProjectReference Include="../../Frappe.Notifications.Application/Frappe.Notifications.Application.csproj" />
+    <ProjectReference Include="../../../../Platform/Frappe.Localization/Frappe.Localization.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Texts/*.json" LogicalName="frappe.notification_texts/%(Filename)%(Extension)" WithCulture="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+  </ItemGroup>
+</Project>

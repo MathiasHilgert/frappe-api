@@ -1,0 +1,29 @@
+{
+  "account_activation_code": {
+    "subject": "Your Frappé code: {Code}",
+    "preheader": "Use this code to activate your account.",
+    "heading": "Activate your account",
+    "intro": "Hi {Name}, enter this code to activate your Frappé account.",
+    "expires": "Expires in 15 minutes",
+    "single_use": "Single use",
+    "footer": "If you did not create a Frappé account, ignore this email: nobody can use it without the code."
+  },
+  "password_reset_code": {
+    "subject": "Your code to change your password: {Code}",
+    "preheader": "Use this code to choose a new password.",
+    "heading": "Change your password",
+    "intro": "Hi {Name}, enter this code to choose a new password for Frappé.",
+    "expires": "Expires in 15 minutes",
+    "single_use": "Single use",
+    "footer": "Did you not ask for this? Your password stays the same and you can ignore this email."
+  },
+  "email_change_code": {
+    "subject": "Your code to confirm your new email: {Code}",
+    "preheader": "Use this code to confirm your new email.",
+    "heading": "Confirm your new email",
+    "intro": "Hi {Name}, enter this code to confirm that this email is yours.",
+    "expires": "Expires in 15 minutes",
+    "single_use": "Single use",
+    "footer": "If you did not ask for this change, ignore this email and nothing happens."
+  }
+}

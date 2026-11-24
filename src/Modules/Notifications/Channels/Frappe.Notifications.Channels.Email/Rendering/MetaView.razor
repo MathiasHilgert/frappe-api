@@ -1,0 +1,6 @@
+<p style="margin:0;font-size:13px;line-height:20px;text-align:center;color:#000000;">@string.Join(" · ", Items)</p>
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<string> Items { get; set; } = [];
+}

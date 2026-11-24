@@ -1,0 +1,9 @@
+<div style="text-align:center;"><a href="@Url.AbsoluteUri" style="display:inline-block;padding:14px 28px;border-radius:8px;background:#000000;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;">@Label</a></div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public Uri Url { get; set; } = default!;
+}

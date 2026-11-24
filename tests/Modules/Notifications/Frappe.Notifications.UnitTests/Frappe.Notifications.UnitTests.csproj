@@ -4,6 +4,9 @@
   <ItemGroup>
     <ProjectReference Include="../../../../src/Modules/Notifications/Frappe.Notifications.Domain/Frappe.Notifications.Domain.csproj" />
     <ProjectReference Include="../../../../src/Modules/Notifications/Frappe.Notifications.Infrastructure/Frappe.Notifications.Infrastructure.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Notifications/Channels/Frappe.Notifications.Channels.Email/Frappe.Notifications.Channels.Email.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Notifications/Kinds/Frappe.Notifications.Kinds.Account/Frappe.Notifications.Kinds.Account.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Notifications/Kinds/Frappe.Notifications.Kinds.Marketing/Frappe.Notifications.Kinds.Marketing.csproj" />
     <ProjectReference Include="../../../Shared/Frappe.Testing/Frappe.Testing.csproj" />
   </ItemGroup>
   <ItemGroup>
