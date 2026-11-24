@@ -191,10 +191,6 @@ internal sealed class IdentitySessionHost : IAsyncDisposable
 
         public Task<Session?> FindAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(Sessions.SingleOrDefault(s => s.Id == id));
 
-        public Task<IReadOnlyList<Session>> ListLiveOfAsync(Guid principalId, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<Session>>(
-                [.. Sessions.Where(s => s.PrincipalId == principalId && s.RevokedAt is null && s.EndedAt is null)]);
-
         public Task<IReadOnlyList<Session>> ListLiveOfAsync(Guid principalId, Instant now, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<Session>>([.. Sessions.Where(s => s.PrincipalId == principalId && s.IsLiveAt(now))]);
 

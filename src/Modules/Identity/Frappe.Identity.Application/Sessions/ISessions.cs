@@ -10,14 +10,8 @@ public interface ISessions
     Task<Session?> FindAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Every session of <paramref name="principalId"/> that is neither revoked nor ended, tracked for change, so a credential change can revoke
-    /// or restamp each through its aggregate (and so raise its events) in the unit that changes the credential. No bulk SQL (UOW-03).
-    /// </summary>
-    Task<IReadOnlyList<Session>> ListLiveOfAsync(Guid principalId, CancellationToken cancellationToken);
-
-    /// <summary>
     /// The sessions of <paramref name="principalId"/> that are live at <paramref name="now"/> (not revoked, not ended, neither expiry reached),
-    /// tracked for change, so revoking one goes through its aggregate and raises its events (S13).
+    /// tracked for change, so revoking or restamping one goes through its aggregate and raises its events (S13). No bulk SQL (UOW-03).
     /// </summary>
     Task<IReadOnlyList<Session>> ListLiveOfAsync(Guid principalId, Instant now, CancellationToken cancellationToken);
 

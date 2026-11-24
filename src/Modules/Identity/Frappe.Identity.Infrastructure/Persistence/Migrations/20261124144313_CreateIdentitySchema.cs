@@ -317,6 +317,12 @@ public partial class CreateIdentitySchema : Migration
             column: "expires_at");
 
         migrationBuilder.CreateIndex(
+            name: "ix_one_time_codes_principal_id",
+            schema: "identity",
+            table: "one_time_codes",
+            column: "principal_id");
+
+        migrationBuilder.CreateIndex(
             name: "ux_one_time_codes_live",
             schema: "identity",
             table: "one_time_codes",

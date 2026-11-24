@@ -157,6 +157,9 @@ partial class CreateIdentitySchema
                 b.HasIndex("ExpiresAt")
                     .HasDatabaseName("ix_one_time_codes_expires_at");
 
+                b.HasIndex("PrincipalId")
+                    .HasDatabaseName("ix_one_time_codes_principal_id");
+
                 b.HasIndex(new[] { "PrincipalId", "Purpose" }, "ux_one_time_codes_live")
                     .IsUnique()
                     .HasDatabaseName("ux_one_time_codes_live")
