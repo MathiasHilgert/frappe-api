@@ -17,11 +17,12 @@ internal static class ApiHost
     public static async Task<WebApplication> StartAsync(
         IReadOnlyCollection<IModule>? modules = null,
         IReadOnlyCollection<IHttpModule>? endpoints = null,
-        IReadOnlyDictionary<string, string?>? settings = null)
+        IReadOnlyDictionary<string, string?>? settings = null,
+        string environment = "Testing")
     {
         modules ??= [];
         endpoints ??= [];
-        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Testing" });
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = environment });
         builder.Configuration.Sources.Clear();
         builder.Configuration.AddJsonFile(Path.Combine(RepositoryRoot.FullPath, "src/Hosts/Frappe.Api/appsettings.json"), optional: false);
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["ConnectionStrings:Valkey"] = UnreachableValkey });

@@ -16,18 +16,25 @@ public sealed class AddressHashOptionsValidator : IValidateOptions<AddressHashOp
 
         foreach (var (id, key) in options.Keys)
         {
-            var bytes = new byte[AddressHashOptions.MinKeyBytes * 2];
             if (id <= 0)
             {
                 failures.Add($"{AddressHashOptions.Section}:Keys:{id} must have a positive id.");
             }
 
-            if (!Convert.TryFromBase64String(key ?? string.Empty, bytes, out var written) || written < AddressHashOptions.MinKeyBytes)
+            if (!IsBase64OfAtLeast(key, AddressHashOptions.MinKeyBytes))
             {
                 failures.Add($"{AddressHashOptions.Section}:Keys:{id} must be base64 of at least {AddressHashOptions.MinKeyBytes} bytes.");
             }
         }
 
         return failures.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(failures);
+    }
+
+    /// <summary>Whether <paramref name="key"/> decodes from base64 to at least <paramref name="minimum"/> bytes, however long it is.</summary>
+    private static bool IsBase64OfAtLeast(string? key, int minimum)
+    {
+        var text = key ?? string.Empty;
+        var bytes = new byte[(text.Length / 4 * 3) + 3];
+        return Convert.TryFromBase64String(text, bytes, out var written) && written >= minimum;
     }
 }

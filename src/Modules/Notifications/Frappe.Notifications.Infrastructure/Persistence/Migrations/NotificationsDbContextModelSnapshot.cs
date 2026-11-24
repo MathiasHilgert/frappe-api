@@ -17,7 +17,7 @@ partial class NotificationsDbContextModelSnapshot : ModelSnapshot
     // If you encounter a merge conflict in the line below, it means you need to
     // discard one of the migration branches and recreate its migrations on top of
     // the other branch. See https://aka.ms/efcore-docs-migrations-conflicts for more info.
-    public override string LastMigrationId => "20261124002908_CreateNotificationsSchema";
+    public override string LastMigrationId => "20261124021149_AddSendRequests";
 
     protected override void BuildModel(ModelBuilder modelBuilder)
     {
@@ -303,6 +303,34 @@ partial class NotificationsDbContextModelSnapshot : ModelSnapshot
                         t.HasCheckConstraint("ck_preferences_only_marketing", "category = 'marketing'");
 
                         t.HasCheckConstraint("ck_preferences_recipient_key_format", "recipient_key ~ '^(ref:[a-z_]+:.+|addr:[0-9]+:[0-9a-f]{64})$'");
+                    });
+            });
+
+        modelBuilder.Entity("Frappe.Notifications.Domain.Requests.SendRequest", b =>
+            {
+                b.Property<Guid>("Id")
+                    .HasColumnType("uuid")
+                    .HasColumnName("id");
+
+                b.Property<string>("Kind")
+                    .IsRequired()
+                    .HasMaxLength(100)
+                    .HasColumnType("character varying(100)")
+                    .HasColumnName("kind");
+
+                b.Property<Instant>("RequestedAt")
+                    .HasColumnType("timestamp with time zone")
+                    .HasColumnName("requested_at");
+
+                b.HasKey("Id")
+                    .HasName("pk_send_requests");
+
+                b.HasIndex("RequestedAt")
+                    .HasDatabaseName("ix_send_requests_requested_at");
+
+                b.ToTable("send_requests", "notifications", t =>
+                    {
+                        t.HasCheckConstraint("ck_send_requests_kind_format", "kind ~ '^[a-z][a-z0-9_]*$'");
                     });
             });
 

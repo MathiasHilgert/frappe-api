@@ -1,0 +1,4 @@
+{
+  "notifications.kind.unknown": "No existe un tipo de notificación llamado «{kind}».",
+  "notifications.payload.invalid": "El contenido no es el que toma el tipo «{kind}». El parámetro fields indica qué corregir."
+}

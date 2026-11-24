@@ -10,6 +10,7 @@ requests are here; a module adds a folder of its own.
 | Health | `/health/live`, `/health/ready`, `/health/startup` |
 | HTTP Conventions | The 404 Problem Details of an unknown route |
 | OpenAPI | `/openapi/v1.json` |
+| Notifications | `POST /v1/notifications/sends`, Development only: its requests skip themselves against `Stack`, which runs as Production |
 
 The 503 body of a failing probe is pinned by the Api's integration tests, not by this collection, which only sees a healthy stack.
 

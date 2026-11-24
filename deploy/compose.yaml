@@ -90,6 +90,9 @@ services:
       OTEL_SERVICE_NAME: frappe-api
       ConnectionStrings__Valkey: valkey:6379
       ConnectionStrings__Notifications: Host=postgres;Database=frappe;Username=frappe_notifications;Password=${FRAPPE_NOTIFICATIONS_PASSWORD:?set it in .env}
+      # The key addresses are hashed with (S12, S13); CurrentKeyId names it, and a rotation adds a key and moves the id.
+      Notifications__AddressHash__CurrentKeyId: "1"
+      Notifications__AddressHash__Keys__1: ${FRAPPE_NOTIFICATIONS_ADDRESS_HASH_KEY:?set it in .env}
       # The console's origins, comma separated: credentialed CORS and unsafe requests with the session cookie.
       Http__Console__Origins: ${FRAPPE_CONSOLE_ORIGINS:-http://localhost:5173}
       # Requests one client address may make per window (Http:RateLimit). CI raises it so the whole Bruno collection runs from one address.
@@ -110,6 +113,11 @@ services:
       ConnectionStrings__Notifications: Host=postgres;Database=frappe;Username=frappe_notifications_worker;Password=${FRAPPE_NOTIFICATIONS_WORKER_PASSWORD:?set it in .env}
       ConnectionStrings__Valkey: valkey:6379
       ConnectionStrings__Nats: nats://nats:4222
+      Notifications__AddressHash__CurrentKeyId: "1"
+      Notifications__AddressHash__Keys__1: ${FRAPPE_NOTIFICATIONS_ADDRESS_HASH_KEY:?set it in .env}
+      # Emails are only logged unless .env selects Resend (Notifications__Email__Sender=Resend) and holds its key. Never commit the key.
+      Notifications__Email__Sender: ${Notifications__Email__Sender:-Logging}
+      Notifications__Email__Resend__ApiKey: ${Notifications__Email__Resend__ApiKey:-}
     healthcheck:
       # The Worker serves no HTTP: its readiness port (8082) is open only while every critical dependency answers.
       test: ["CMD", "/app/worker/Frappe.Worker", "--probe", "tcp://localhost:8082"]

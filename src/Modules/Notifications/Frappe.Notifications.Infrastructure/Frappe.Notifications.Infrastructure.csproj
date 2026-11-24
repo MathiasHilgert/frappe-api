@@ -11,6 +11,7 @@
     <ProjectReference Include="../../../Platform/Frappe.Persistence/Frappe.Persistence.csproj" />
     <ProjectReference Include="../../../Platform/Frappe.Messaging.Storage/Frappe.Messaging.Storage.csproj" />
     <ProjectReference Include="../../../Platform/Frappe.Messaging.Abstractions/Frappe.Messaging.Abstractions.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Observability/Frappe.Observability.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- dotnet ef reads the design-time factory through it; nothing of it ships. -->

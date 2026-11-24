@@ -9,6 +9,8 @@ using Frappe.Notifications.Infrastructure.Addresses;
 using Frappe.Notifications.Infrastructure.Dispatching;
 using Frappe.Notifications.Infrastructure.Messaging;
 using Frappe.Notifications.Infrastructure.Persistence;
+using Frappe.Notifications.Infrastructure.Requests;
+using Frappe.Observability;
 using Frappe.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -35,6 +37,8 @@ public sealed class NotificationsModule : IModule
             Name, NotificationsDbContext.Schema, (provider, options) => options.UseOutbox(provider, Name));
         services.AddOutboxRelay<NotificationsDbContext>(Name);
         services.AddMessagePurge<NotificationsDbContext>(Name);
+        services.AddScoped<ISendRequests, EfSendRequests>();
+        services.AddHandlers(typeof(ISendRequests).Assembly);
         AddDispatch(services);
     }
 
@@ -44,7 +48,7 @@ public sealed class NotificationsModule : IModule
     /// </summary>
     private static void AddDispatch(IServiceCollection services)
     {
-        services.AddOptions<AddressHashOptions>().BindConfiguration(AddressHashOptions.Section);
+        services.AddOptions<AddressHashOptions>().BindConfiguration(AddressHashOptions.Section).ValidateOnStart();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<AddressHashOptions>, AddressHashOptionsValidator>());
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<IAddressHasher, HmacAddressHasher>();

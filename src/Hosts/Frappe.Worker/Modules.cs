@@ -1,5 +1,8 @@
 using Frappe.Modules;
+using Frappe.Notifications.Channels.Email;
 using Frappe.Notifications.Infrastructure;
+using Frappe.Notifications.Kinds.Account;
+using Frappe.Notifications.Kinds.Marketing;
 
 namespace Frappe.Worker;
 
@@ -7,5 +10,12 @@ namespace Frappe.Worker;
 public static class Modules
 {
     /// <summary>Every module the Worker hosts, in registration order.</summary>
-    public static IReadOnlyCollection<IModule> All { get; } = [new NotificationsModule()];
+    public static IReadOnlyCollection<IModule> All { get; } =
+    [
+        new NotificationsModule(),
+        new NotificationsWorkerModule(),
+        new AccountKindsModule(),
+        new MarketingKindsModule(),
+        new EmailChannelWorkerModule(),
+    ];
 }

@@ -22,6 +22,15 @@ public sealed partial class RenderedKindsTests
     [GeneratedRegex("#[0-9a-fA-F]{3,8}\\b", RegexOptions.None, 1000)]
     private static partial Regex HexColors();
 
+    [GeneratedRegex("\\b(rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\\(", RegexOptions.IgnoreCase, 1000)]
+    private static partial Regex ColorFunctions();
+
+    [GeneratedRegex("(?:^|[;\"])\\s*(?:color|background|background-color|border(?:-[a-z]+)*)\\s*:\\s*([^;\"]*)", RegexOptions.IgnoreCase, 1000)]
+    private static partial Regex ColorDeclarations();
+
+    [GeneratedRegex("[a-z]+", RegexOptions.IgnoreCase, 1000)]
+    private static partial Regex Words();
+
     [GeneratedRegex("border:2px solid", RegexOptions.None, 1000)]
     private static partial Regex CodeBoxes();
 
@@ -101,6 +110,12 @@ public sealed partial class RenderedKindsTests
         // Assert
         await Assert.That(HexColors().Matches(email.Html).Select(match => match.Value.ToLowerInvariant()).Distinct())
             .IsEquivalentTo(["#000000", "#ffffff"]);
+        await Assert.That(ColorFunctions().IsMatch(email.Html)).IsFalse();
+        var namedColors = ColorDeclarations().Matches(email.Html)
+            .SelectMany(match => Words().Matches(HexColors().Replace(match.Groups[1].Value, string.Empty)).Select(word => word.Value.ToLowerInvariant()))
+            .Where(word => word is not ("black" or "white" or "transparent" or "solid" or "none" or "px" or "separate" or "collapse"))
+            .Distinct();
+        await Assert.That(namedColors).IsEmpty();
     }
 
     [Test]

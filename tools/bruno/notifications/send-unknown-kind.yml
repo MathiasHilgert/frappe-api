@@ -1,0 +1,46 @@
+info:
+  name: Unknown kind (400)
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/notifications/sends"
+  body:
+    type: json
+    data: |-
+      {
+        "kind": "no_such_kind",
+        "payload": {}
+      }
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Development only: the compose stack runs as Production and does not map the route.
+        if (bru.getEnvName() === 'Stack') {
+          bru.runner.skipRequest();
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "400"
+    - expression: res.headers['content-type']
+      operator: startsWith
+      value: '"application/problem+json"'
+    - expression: res.body.type
+      operator: eq
+      value: '"urn:frappe:problem:invalid-value"'
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"notifications.kind.unknown"'
+    - expression: res.body.errors[0].parameters.kind
+      operator: eq
+      value: '"no_such_kind"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  A kind the catalog does not know: 400 Problem Details whose error `code` is `notifications.kind.unknown`. Development only (skipped against Stack).

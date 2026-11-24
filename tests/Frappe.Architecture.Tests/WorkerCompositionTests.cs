@@ -25,6 +25,9 @@ public sealed class WorkerCompositionTests
         ["ConnectionStrings:Valkey"] = "unreachable.invalid:6379",
         ["ConnectionStrings:Nats"] = "nats://unreachable.invalid:4222",
         ["ConnectionStrings:Notifications"] = "Host=unreachable.invalid;Database=frappe;Username=frappe_notifications_worker",
+        ["Notifications:AddressHash:CurrentKeyId"] = "1",
+        ["Notifications:AddressHash:Keys:1"] = "bG9jYWwtb25seS1hZGRyZXNzLWhhc2gta2V5LTMyLWJ5dGVzIQ==",
+        ["Notifications:Email:Resend:ApiKey"] = "re_local_only_placeholder",
     };
 
     private static IHost Build(Dictionary<string, string?> settings, IReadOnlyCollection<IModule>? modules = null,
@@ -135,8 +138,10 @@ public sealed class WorkerCompositionTests
         using (Assert.Multiple())
         {
             await Assert.That(Frappe.Worker.Modules.All.Select(module => module.GetType().Name))
-                .IsEquivalentTo(["NotificationsModule"]);
+                .IsEquivalentTo(
+                    ["NotificationsModule", "NotificationsWorkerModule", "AccountKindsModule", "MarketingKindsModule", "EmailChannelWorkerModule"]);
             await Assert.That(hosted).Contains("OutboxRelayService`1");
+            await Assert.That(hosted).Contains("JetStreamConsumer`2");
             await Assert.That(ready).Contains("notifications-database");
         }
     }
@@ -154,6 +159,53 @@ public sealed class WorkerCompositionTests
 
         // Assert
         await Assert.That(thrown?.Message).Contains("ConnectionStrings:Notifications");
+    }
+
+    [Test]
+    public async Task The_Worker_with_Resend_selected_and_no_key_fails_the_start_naming_the_key()
+    {
+        // Arrange
+        var settings = new Dictionary<string, string?>(Deployed);
+        settings.Remove("Notifications:Email:Resend:ApiKey");
+        using var host = Build(settings);
+
+        // Act
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ValidateAsync(host));
+
+        // Assert
+        await Assert.That(thrown?.Message)
+            .Contains("Configuration 'Notifications:Email:Resend:ApiKey' must be set when 'Notifications:Email:Sender' is Resend.");
+    }
+
+    [Test]
+    public async Task The_Worker_with_the_logging_sender_needs_no_provider_key_and_sends_through_it()
+    {
+        // Arrange
+        var settings = new Dictionary<string, string?>(Deployed) { ["Notifications:Email:Sender"] = "Logging" };
+        settings.Remove("Notifications:Email:Resend:ApiKey");
+        using var host = Build(settings);
+
+        // Act
+        await ValidateAsync(host);
+
+        // Assert
+        await Assert.That(host.Services.GetRequiredService<Frappe.Notifications.Channels.Email.IEmailSender>().GetType().Name)
+            .IsEqualTo("LoggingEmailSender");
+    }
+
+    [Test]
+    public async Task The_Worker_with_no_address_hash_key_fails_the_start_naming_the_key()
+    {
+        // Arrange
+        var settings = new Dictionary<string, string?>(Deployed);
+        settings.Remove("Notifications:AddressHash:Keys:1");
+        using var host = Build(settings);
+
+        // Act
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ValidateAsync(host));
+
+        // Assert
+        await Assert.That(thrown?.Message).Contains("Notifications:AddressHash:CurrentKeyId");
     }
 
     [Test]

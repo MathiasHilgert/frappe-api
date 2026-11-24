@@ -1,0 +1,48 @@
+info:
+  name: Invalid payload (400)
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/notifications/sends"
+  body:
+    type: json
+    data: |-
+      {
+        "kind": "account_activation_code",
+        "payload": {
+          "language": "es-AR"
+        }
+      }
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Development only: the compose stack runs as Production and does not map the route.
+        if (bru.getEnvName() === 'Stack') {
+          bru.runner.skipRequest();
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "400"
+    - expression: res.headers['content-type']
+      operator: startsWith
+      value: '"application/problem+json"'
+    - expression: res.body.type
+      operator: eq
+      value: '"urn:frappe:problem:invalid-value"'
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"notifications.payload.invalid"'
+    - expression: res.body.errors[0].parameters.fields
+      operator: isArray
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  A payload missing the fields of its kind: 400 Problem Details whose error `code` is `notifications.payload.invalid`, with the fields to fix in
+  `parameters.fields`. Development only (skipped against Stack).

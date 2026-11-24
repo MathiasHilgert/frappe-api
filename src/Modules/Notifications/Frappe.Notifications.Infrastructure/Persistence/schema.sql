@@ -96,6 +96,13 @@ CREATE TABLE notifications.provider_events (
     CONSTRAINT ck_provider_events_provider CHECK (((provider)::text = 'resend'::text))
 );
 
+CREATE TABLE notifications.send_requests (
+    id uuid NOT NULL,
+    kind character varying(100) NOT NULL,
+    requested_at timestamp with time zone NOT NULL,
+    CONSTRAINT ck_send_requests_kind_format CHECK (((kind)::text ~ '^[a-z][a-z0-9_]*$'::text))
+);
+
 CREATE TABLE notifications.suppressions (
     channel character varying(30) NOT NULL,
     address_hash bytea NOT NULL,
@@ -130,6 +137,9 @@ ALTER TABLE ONLY notifications.preferences
 ALTER TABLE ONLY notifications.provider_events
     ADD CONSTRAINT pk_provider_events PRIMARY KEY (provider, event_id);
 
+ALTER TABLE ONLY notifications.send_requests
+    ADD CONSTRAINT pk_send_requests PRIMARY KEY (id);
+
 ALTER TABLE ONLY notifications.suppressions
     ADD CONSTRAINT pk_suppressions PRIMARY KEY (channel, address_hash);
 
@@ -144,6 +154,8 @@ CREATE INDEX ix_outbox_messages_published_at ON notifications.outbox_messages US
 CREATE INDEX ix_outbox_messages_relayable ON notifications.outbox_messages USING btree (sequence) WHERE ((published_at IS NULL) AND ((attempts = 0) OR (next_attempt_at IS NOT NULL)));
 
 CREATE INDEX ix_provider_events_received_at ON notifications.provider_events USING btree (received_at);
+
+CREATE INDEX ix_send_requests_requested_at ON notifications.send_requests USING btree (requested_at);
 
 CREATE UNIQUE INDEX ux_deliveries_message_kind_recipient_channel ON notifications.deliveries USING btree (source_message_id, kind, recipient_key, channel) NULLS NOT DISTINCT;
 
@@ -180,6 +192,8 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE notifications.provider_events TO frap
 GRANT DELETE ON TABLE notifications.provider_events TO frappe_notifications_worker;
 
 GRANT SELECT(received_at) ON TABLE notifications.provider_events TO frappe_notifications_worker;
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE notifications.send_requests TO frappe_notifications;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE notifications.suppressions TO frappe_notifications;
 GRANT SELECT ON TABLE notifications.suppressions TO frappe_notifications_worker;

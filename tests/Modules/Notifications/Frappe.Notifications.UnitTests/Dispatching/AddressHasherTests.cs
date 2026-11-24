@@ -99,6 +99,20 @@ public sealed class AddressHasherTests
     }
 
     [Test]
+    public async Task A_key_longer_than_sixty_four_bytes_is_valid()
+    {
+        // Arrange
+        var options = new AddressHashOptions { CurrentKeyId = 1 };
+        options.Keys[1] = Convert.ToBase64String(Enumerable.Repeat((byte)5, 96).ToArray());
+
+        // Act
+        var result = new AddressHashOptionsValidator().Validate(null, options);
+
+        // Assert
+        await Assert.That(result.Succeeded).IsTrue();
+    }
+
+    [Test]
     public async Task No_configured_keys_fails_startup()
     {
         // Act
