@@ -4,7 +4,7 @@ export const meta = {
   whenToUse: 'Launched by the /forge skill after the grill and the plan are approved; never directly.',
   phases: [
     { title: 'Write', detail: 'one forge-writer per task, test-first, CI checks before returning' },
-    { title: 'Review', detail: 'critics chosen from the changed paths, then the arbiter' },
+    { title: 'Review', detail: 'critics chosen by shape, risk and the diff, then the arbiter' },
     { title: 'Correct', detail: 'one correction round on the arbiter blockers, recheck limited to them' },
     { title: 'QA', detail: 'forge-qa on an isolated Docker slot through Bruno' },
   ],
@@ -20,10 +20,12 @@ export const meta = {
 // apply: advisories to apply on a resume, by id or by title (ids are renumbered whenever critics rerun); they reach ONLY the
 //   correction prompt, so a resume that only adds apply replays writer, critics and arbiter from cache.
 // task.brief: stable per-task context written at launch (never edit it between a run and its resume: it is part of every cache key).
-// task: { id, title, specs, worktree, branch, surfaces: [glob], profile: docs|tests|mechanical|small|standard|deep, contract: bool, qa: bool,
-//         effort: low|medium|high (writer effort, default low), files: [path or path:lines] (assembled context the writer reads first),
+// task: { id, title, specs, worktree, branch, surfaces: [glob], profile: docs|tests|fix|refactor|crud (old names small|mechanical|standard|deep
+//         still work), risk: standard|critical (default from kinds), contract: bool, qa: bool, model: sonnet|opus (writer model; default
+//         opus when critical), effort: low|medium|high (writer effort, default low, high when critical), files: [path or path:lines] (assembled context the writer reads first),
 //         codemods: bool (the orchestrator already ran scripts/codemods/run.sh in the worktree),
-//         kinds: [docs|tests|small|feature|contract|data|cross-module|security|operational] (from the grill; makes lenses mandatory),
+//         kinds: [docs|tests|small|feature|contract|data|data-migration|money|cross-module|security|operational] (from the grill; makes
+//         lenses mandatory; security, money, data-migration and cross-module make the task critical),
 //         signals: (review mode only) the output of scripts/review/signals.py for the PR's diff }
 // lensStats: { [lens]: { findings, blockers, advisories } } running totals from Engram forge/metrics/critics (demotes noisy lenses)
 // pitfalls: [string] extra known pitfalls from Engram for this run, on top of references/pitfalls.md
@@ -69,11 +71,46 @@ const SUPPRESSIONS = A.suppressions || []
 // Priority when the cap drops critics: earlier wins. Lenses that catch wrong behavior outrank style: a reviewer asked
 // for problems always finds some, and style findings crowd out the ones that matter, so craft goes last.
 const ORDER = ['correctness', 'security', 'data', 'contracts', 'tests', 'performance', 'dx', 'observability', 'architecture', 'craft']
-const CAP = { docs: 2, tests: 1, mechanical: 2, small: 3, standard: 5, deep: 6 }
-// Writer effort: the orchestrator sets task.effort per slice when it plans (low | medium | high); low is the default.
-// Most of a writer's time is generating tokens, and effort is the main control on how much it generates. Corrections
-// and QA fixes run at the slice's effort.
-const writerEffort = t => t.effort || 'low'
+// Two axes decide how much process a task gets. The SHAPE (fix | refactor | crud, plus docs and tests) decides the
+// process: which critics always run, whether the arbiter runs without findings, when QA runs. The RISK (standard |
+// critical) decides review depth: critical makes security and data mandatory, leaves room for more critics, forces
+// QA and puts the writer on Opus at high effort. A module is a plan, not a shape: each of its slices carries its own.
+// critics: the shape's own lenses (mandatory). arbiter 'findings': skipped when the critics found nothing.
+// qa: 'never' | 'endpoint' (only when an endpoint changed) | 'runtime' (when runtime code changed).
+const SHAPES = {
+  docs: { critics: [], cap: 2, arbiter: 'always', qa: 'never' },
+  tests: { critics: [], cap: 1, arbiter: 'always', qa: 'never' },
+  fix: { critics: ['correctness'], arbiter: 'findings', qa: 'endpoint' },
+  refactor: { critics: ['craft', 'architecture'], arbiter: 'findings', qa: 'never' },
+  crud: { critics: ['correctness', 'contracts'], arbiter: 'always', qa: 'runtime' },
+}
+// Old profile names keep working.
+const ALIASES = { small: { shape: 'fix' }, mechanical: { shape: 'refactor' }, standard: { shape: 'crud' }, deep: { shape: 'crud', critical: true } }
+// Kinds that make any task critical, and what critical adds.
+const CRITICAL_KINDS = ['security', 'money', 'data-migration', 'cross-module']
+const CRITICAL_LENSES = ['security', 'data']
+const CRITICAL_CAP = 6
+// { shape, critical } of a profile name (new or old), the task's kinds and its declared risk.
+function resolveProfile(profile, kinds, risk) {
+  const alias = ALIASES[profile] || {}
+  const shape = alias.shape || (SHAPES[profile] ? profile : 'crud')
+  const critical = shape !== 'docs' && shape !== 'tests' &&
+    (!!alias.critical || risk === 'critical' || (kinds || []).some(k => CRITICAL_KINDS.includes(k)))
+  return { shape, critical }
+}
+const planOf = t => resolveProfile(t.profile, t.kinds, t.risk)
+// Writer model and effort: critical slices run on Opus at high effort; everything else on Sonnet at low effort. The
+// orchestrator may set task.model (opus for a module's foundation chain) and task.effort per slice. Corrections and QA
+// fixes run at the slice's model and effort.
+const writerEffort = t => t.effort || (planOf(t).critical ? 'high' : 'low')
+const writerModel = t => t.model || (planOf(t).critical ? 'opus' : 'sonnet')
+// What the writer is told about its shape (task.profile in the prompt); the specs and the brief still decide the work.
+const SHAPE_RULES = {
+  fix: 'start from a failing regression test that reproduces the bug; minimal diff; no contract change.',
+  refactor: 'run codemods first when the change is mechanical; no change under contracts/** and no test assertion changed or removed (either one turns this task into crud and a deeper review).',
+  crud: 'start from `just scaffold crud <Module> <Entity>` when it fits; tests are the invariants as unit tests, one integration test per use case and the contract snapshot.',
+}
+const CRITICAL_RULE = 'critical: about 20 tests per use case, plus property tests on parsers and money calculations.'
 
 const isDoc = p => /\.md$/.test(p)
 const isTest = p => /^tests\//.test(p)
@@ -83,14 +120,26 @@ const isRuntime = p => /^src\/|^deploy\//.test(p)
 function effectiveProfile(planned, paths) {
   if (paths.length && paths.every(isDoc)) return 'docs'
   if (paths.length && paths.every(p => isTest(p) || isDoc(p))) return 'tests'
-  return planned || 'standard'
+  return planned || 'crud'
+}
+
+// A refactor promises the same contracts and the same tests. A diff under contracts/** or a removed assertion (the
+// tests signal of scripts/review/signals.py on a removed line) breaks that promise: the task is reviewed as crud.
+const removedLine = e => /^\S+(?: \(removed\))? -/.test(e)
+function refactorBreak(paths, signals) {
+  const contract = paths.find(p => /^contracts\//.test(p))
+  if (contract) return `diff under contracts/ (${contract})`
+  const removed = (((signals && signals.lenses) || {}).tests || []).find(removedLine)
+  return removed ? `removed assertion (${removed})` : null
 }
 
 // Layer 1, the plan: each change kind the grill recorded on the task (task.kinds) makes its lenses mandatory. A mandatory
-// lens is never dropped by the profile cap.
+// lens is never dropped by the cap.
 const KIND_LENSES = {
   security: ['security'],
   data: ['data', 'performance'],
+  'data-migration': ['data', 'performance'],
+  money: ['tests'],
   contract: ['contracts', 'dx'],
   'cross-module': ['architecture', 'contracts'],
   operational: ['performance', 'observability'],
@@ -107,38 +156,45 @@ const demoted = lens => {
   return ((s.blockers || 0) + (s.advisories || 0)) / s.findings < DEMOTE_MAX_KEPT_SHARE
 }
 
-// Deterministic selector in three layers: the plan's kinds (mandatory), the content of the diff (layer 2: the
-// signals scripts/review/signals.py found in changed lines), and the changed paths. Correctness always runs.
-// Optional lenses fill the cap in this order: content signal before path only, useful before demoted, then ORDER.
-function select(paths, contract, profile, kinds, signals) {
+// Deterministic selector. Mandatory: the shape's own critics, the plan's kinds (layer 1) and, when critical, security
+// and data. At standard risk nothing else runs. Critical leaves room up to CRITICAL_CAP for optional lenses from the
+// content of the diff (layer 2: the signals scripts/review/signals.py found in changed lines) and the changed paths,
+// in this order: content signal before path only, useful before demoted (layer 3, lensStats), then ORDER.
+// profile: a shape or an old name; risk: 'critical' to aggravate a task the kinds do not already make critical.
+function select(paths, contract, profile, kinds, signals, risk) {
+  let { shape, critical } = resolveProfile(profile, kinds, risk)
+  const escalated = shape === 'refactor' ? refactorBreak(paths, signals) : null
+  if (escalated) shape = 'crud'
   const has = re => paths.some(p => re.test(p))
   const srcCount = paths.filter(p => /^src\//.test(p)).length
   const why = {}
   const add = (set, lens, reason) => { set.add(lens); (why[lens] = why[lens] || []).push(reason) }
   const mandatory = new Set()
-  add(mandatory, 'correctness', 'always')
+  for (const lens of SHAPES[shape].critics) add(mandatory, lens, `shape ${shape}`)
   for (const k of kinds || []) for (const lens of KIND_LENSES[k] || []) add(mandatory, lens, `kind ${k}`)
+  if (critical) for (const lens of CRITICAL_LENSES) add(mandatory, lens, 'critical')
   const content = new Set()
-  for (const [lens, evidence] of Object.entries((signals && signals.lenses) || {})) {
-    if (ORDER.includes(lens) && (evidence || []).length) add(content, lens, `content: ${evidence[0]}`)
-  }
   const set = new Set()
-  if (profile === 'docs') {
+  // docs and tests keep their own small caps, filled by content and path as before.
+  if (shape === 'docs' || shape === 'tests' || critical) {
+    for (const [lens, evidence] of Object.entries((signals && signals.lenses) || {})) {
+      if (ORDER.includes(lens) && (evidence || []).length) add(content, lens, `content: ${evidence[0]}`)
+    }
+  }
+  if (shape === 'docs') {
     if (has(/^contracts\/|^tools\/bruno\//)) { add(set, 'contracts', 'path'); add(set, 'dx', 'path') }
-    mandatory.delete('correctness')
-  } else if (profile === 'tests') {
+  } else if (shape === 'tests') {
     add(set, 'tests', 'path')
-    mandatory.delete('correctness')
-  } else {
+  } else if (critical) {
     pathLenses(paths, contract, srcCount, has, (lens) => add(set, lens, 'path'))
   }
-  const cap = CAP[profile] || 4
+  const cap = critical ? CRITICAL_CAP : (SHAPES[shape].cap || 0)
   const optional = ORDER.filter(c => !mandatory.has(c) && (content.has(c) || set.has(c)))
     .sort((a, b) => (content.has(b) - content.has(a)) || (demoted(a) - demoted(b)) || (ORDER.indexOf(a) - ORDER.indexOf(b)))
   const room = Math.max(0, cap - mandatory.size)
   const kept = [...ORDER.filter(c => mandatory.has(c)), ...optional.slice(0, room)]
   for (const c of optional) if (demoted(c)) why[c].push('demoted by lensStats')
-  return { kept, dropped: optional.slice(room), why, mandatory: ORDER.filter(c => mandatory.has(c)) }
+  return { kept, dropped: optional.slice(room), why, mandatory: ORDER.filter(c => mandatory.has(c)), shape, critical, cap, escalated }
 }
 
 // The path layer: file names that point at a lens.
@@ -291,7 +347,7 @@ async function role(name, prompt, opts) {
     return await agent(preamble + prompt, { ...opts, agentType: name })
   } catch (unregistered) {
     log(`${name} is not registered in this session; running it from its definition file`)
-    return await agent(preamble + prompt, { effort: ROLE_EFFORT[name] || 'medium', ...opts, model: ROLE_MODEL[name] || 'sonnet' })
+    return await agent(preamble + prompt, { effort: ROLE_EFFORT[name] || 'medium', ...opts, model: opts.model || ROLE_MODEL[name] || 'sonnet' })
   }
 }
 
@@ -324,10 +380,14 @@ function context(t, withAnswers = false, blind = false) {
       ? `Do not read the task journal, the writer's notes or the Log of the feature document: judge the code against the specs alone.`
       : `Task journal: ${journal(t)} — read it first; append your section to ${journalTarget(t)} when you finish (see ${A.repo}/.agents/skills/forge/references/communication.md).`,
     t.codemods ? `Codemods already ran in this worktree (collection expressions, target-typed new, file-scoped namespaces, sealing): their changes are uncommitted; keep them and do not redo that work.` : '',
-    `Profile: ${t.profile || 'standard'}.`,
     t.chainOf ? `Gate base: this slice's parent. Record \`git -C ${t.worktree} rev-parse HEAD\` before your first edit and pass it as \`gate.sh --base <that sha>\`, so the gate checks only this slice (earlier slices' fixups and migrations are not yours).` : '',
     answer,
   ].join('\n')
+}
+
+function profileLine(t) {
+  const p = planOf(t)
+  return `Profile: ${p.shape}${p.critical ? ' + critical' : ''}. ${SHAPE_RULES[p.shape] || ''}${p.critical ? ` ${CRITICAL_RULE}` : ''}`
 }
 
 // Layer 2 of the critic selector: the writer runs the signals script last and returns its output untouched.
@@ -349,8 +409,8 @@ async function write(t) {
   }
   if (!t.brief) log(`${t.id}: no brief: the writer starts by exploring (orientation was 20-25% of writer time)`)
   const out = await role('forge-writer',
-    `${context(t, true)}\nImplement this task.${t.chainOf ? `\nChain slice: once your final gate passes, commit this slice and nothing else: \`git -C ${t.worktree} add -A && git -C ${t.worktree} commit -m "${t.commit}"\` (no attribution lines), and return its sha in \`commit\`. Never push, rebase or amend.` : ''}\n${signalsStep(t)}\n\n${surfaces(t)}`,
-    { schema: WRITER, label: `write:${t.id}`, phase: 'Write', effort: writerEffort(t) })
+    `${context(t, true)}\n${profileLine(t)}\nImplement this task.${t.chainOf ? `\nChain slice: once your final gate passes, commit this slice and nothing else: \`git -C ${t.worktree} add -A && git -C ${t.worktree} commit -m "${t.commit}"\` (no attribution lines), and return its sha in \`commit\`. Never push, rebase or amend.` : ''}\n${signalsStep(t)}\n\n${surfaces(t)}`,
+    { schema: WRITER, label: `write:${t.id}`, phase: 'Write', effort: writerEffort(t), model: writerModel(t) })
   if (!out) return { task: t, stop: true, reason: 'writer returned nothing' }
   const blocking = (out.decisions || []).filter(d => d.blocking)
   if (out.status === 'needs_input' || out.status === 'blocked' || blocking.length) return { task: t, write: out, stop: true, reason: blocking.length ? 'decision needed' : out.status }
@@ -361,24 +421,26 @@ async function write(t) {
 async function review(r) {
   if (stopped(r)) return r
   if (MODE === 'write') return { ...r, writeOnly: true }
-  if (MODE === 'qa') return { ...r, profile: r.task.profile || 'standard' }
+  if (MODE === 'qa') return { ...r, profile: planOf(r.task).shape, critical: planOf(r.task).critical }
   const t = r.task
   const ruled = Object.keys(RULINGS[t.id] || {})
   if (r.fromDone && DONE[t.id].reviewed) {
     // pendingFixes: what an earlier run's arbiter asked for and no correction applied yet (it stopped first).
     const blockers = [...(DONE[t.id].pendingFixes || []), ...ruled.map(id => rulingItem(t.id, id))]
     if (blockers.length) log(`${t.id}: reviewed earlier; the correction applies ${blockers.length} item(s): ${blockers.map(b => b.id).join(', ')}`)
-    return { ...r, profile: t.profile || 'standard', critics: [], verdict: { verdict: blockers.length ? 'fix' : 'pass', blockers, advisories: [], dropped: [] } }
+    return { ...r, profile: planOf(t).shape, critical: planOf(t).critical, critics: [], verdict: { verdict: blockers.length ? 'fix' : 'pass', blockers, advisories: [], dropped: [] } }
   }
   const paths = r.write.changedPaths || []
-  const profile = effectiveProfile(t.profile, paths)
-  if (profile !== (t.profile || 'standard')) log(`${t.id}: planned ${t.profile || 'standard'}, diff is ${profile}`)
-  if (!r.write.signals) log(`${t.id}: no content signals returned; selecting critics by kinds and paths only`)
-  const { kept, dropped, why, mandatory } = select(paths, r.write.contractChanged, profile, t.kinds, r.write.signals)
+  const planned = planOf(t)
+  const { kept, dropped, why, mandatory, shape, critical, cap, escalated } =
+    select(paths, r.write.contractChanged, effectiveProfile(t.profile, paths), t.kinds, r.write.signals, t.risk)
+  const profile = shape
+  if (shape !== planned.shape) log(`${t.id}: planned ${planned.shape}, reviewed as ${shape}${escalated ? ` (refactor broken: ${escalated})` : ' (diff is ' + shape + '-only)'}`)
+  if (!r.write.signals && (critical || planned.shape === 'refactor')) log(`${t.id}: no content signals returned; ${critical ? 'filling the critical room by paths only' : 'a removed assertion cannot be detected, only a contracts diff'}`)
   const selection = Object.fromEntries([...kept, ...dropped].map(c => [c, { run: kept.includes(c), why: why[c] }]))
-  log(`${t.id}: critics ${kept.map(c => `${c} (${why[c].join('; ')})`).join(', ') || 'none'}`)
-  if (dropped.length) log(`${t.id}: ${profile} caps critics at ${CAP[profile]}; not run: ${dropped.join(', ')}`)
-  if (!kept.length) { log(`${t.id}: ${profile} change, no critic needed`); return { ...r, profile, critics: [], selection, verdict: { verdict: 'pass', blockers: [], advisories: [], dropped: [] } } }
+  log(`${t.id}: ${shape}${critical ? ' + critical' : ''}; critics ${kept.map(c => `${c} (${why[c].join('; ')})`).join(', ') || 'none'}`)
+  if (dropped.length) log(`${t.id}: critical caps critics at ${cap}; not run: ${dropped.join(', ')}`)
+  if (!kept.length) { log(`${t.id}: ${profile} change, no critic needed`); return { ...r, profile, critical, critics: [], selection, verdict: { verdict: 'pass', blockers: [], advisories: [], dropped: [] } } }
   const runCritic = c =>
     role(`critic-${c}`, `${context(t, false, true)}\nReview this change through your lens, against the task's specs.${c === 'craft' ? '' : ' Skip style, naming and formatting: that is the craft lens.'} Return in ruledOut[] the plausible concerns you checked and dismissed, each with the code that dismisses it.\nChanged paths:\n${paths.join('\n')}\nToken economy: start from \`git -C ${t.worktree} diff ${range(r)} --stat\`, then read the diff one file at a time (\`git diff ${range(r)} -- <file>\`)${r.write.commit ? ` — this is ONE slice of a chain: the writer is already building the next slice in this worktree, so read files as of the slice (\`git show ${r.write.commit}:<path>\`), never the working tree` : ''} only for files your lens covers; read code with codegraph_explore or Read with offset/limit, never \`cat\` a whole file or dump the whole diff. Return findings only, no restated code.`,
       { schema: FINDINGS, label: `${c}:${t.id}`, phase: 'Review' })
@@ -392,16 +454,19 @@ async function review(r) {
     failed = kept.filter(c => !reports.some(x => x.critic === c))
   }
   const failedMandatory = failed.filter(c => mandatory.includes(c))
-  if (failedMandatory.length) return { ...r, profile, critics: kept, selection, criticsFailed: failed, stop: true, reason: `mandatory critic not run: ${failedMandatory.join(', ')}` }
+  if (failedMandatory.length) return { ...r, profile, critical, critics: kept, selection, criticsFailed: failed, stop: true, reason: `mandatory critic not run: ${failedMandatory.join(', ')}` }
   if (failed.length) log(`${t.id}: critics not run (failed twice): ${failed.join(', ')}`)
   const findings = reports.flatMap(rep => rep.findings.map(f => ({ critic: rep.critic, ...f })))
   const ruledOut = reports.flatMap(rep => (rep.ruledOut || []).map(x => ({ critic: rep.critic, ...x })))
   const proposals = [...(r.write.conventions || []), ...reports.flatMap(rep => (rep.conventions || []).map(c => ({ critic: rep.critic, ...c })))]
   // The arbiter sees the user's answers to the writer's decisions, so it never raises a decision the user already settled.
-  const verdict = await role('forge-arbiter',
+  // fix and refactor: the arbiter only runs when there is something to judge.
+  const skipArbiter = SHAPES[shape].arbiter === 'findings' && !findings.length
+  if (skipArbiter) log(`${t.id}: no findings; ${shape} skips the arbiter${proposals.length ? ` (${proposals.length} convention proposal(s) not judged)` : ''}`)
+  const verdict = skipArbiter ? { verdict: 'pass', blockers: [], advisories: [], dropped: [] } : await role('forge-arbiter',
     `${context(t, true)}\nWriter's notes: ${r.write.notes || 'none'}\nJudge these findings (${findings.length}) from critics ${kept.filter(c => !failed.includes(c)).join(', ')}.${failed.length ? ` Critics that did NOT run (they failed; this is not "zero findings", say so in your verdict): ${failed.join(', ')}.` : ''} When a blocker needs a product or trade-off choice, return it as a decision instead of guessing. Keep every finding's original id: each one ends in exactly one of blockers, advisories or dropped (a merged duplicate goes to dropped with reason "duplicate of <id>"), so the run can measure each critic.\n${JSON.stringify(findings)}\nConcerns the critics ruled out (${ruledOut.length}): re-check only the shaky ones (no file:line, evidence that does not cover every caller, or that contradicts the code); revive a real one as a finding with id <lens>-r<n> and list it in revived[].\n${JSON.stringify(ruledOut)}\nUser suppressions (${SUPPRESSIONS.length}): drop a non-blocking finding that matches one, with reason "suppressed: <rule>"; never suppress a blocker.\n${JSON.stringify(SUPPRESSIONS)}\nConvention proposals (${proposals.length}): verify each against the code and the rule; return in conventions[] only the proven ones, duplicates merged.\n${JSON.stringify(proposals)}`,
     { schema: VERDICT, label: `arbiter:${t.id}`, phase: 'Review' })
-  if (!verdict) return { ...r, profile, critics: kept, selection, criticsFailed: failed, stop: true, reason: 'arbiter returned nothing' }
+  if (!verdict) return { ...r, profile, critical, critics: kept, selection, criticsFailed: failed, stop: true, reason: 'arbiter returned nothing' }
   const stats = criticStats(kept, reports, verdict)
   // A decision the user already ruled on is not a stop: it becomes a blocker the correction round fixes. A ruling this
   // run's arbiter did not raise again still applies (critics are not deterministic).
@@ -411,8 +476,8 @@ async function review(r) {
     verdict.blockers = [...(verdict.blockers || []), ...ruled.map(id => rulingItem(t.id, id, raised.find(d => d.id === id)))]
     verdict.verdict = 'fix'
   }
-  if ((verdict.decisions || []).some(d => d.blocking)) return { ...r, profile, critics: kept, droppedCritics: dropped, verdict, stats, selection, criticsFailed: failed, stop: true, reason: 'decision needed' }
-  return { ...r, profile, critics: kept, droppedCritics: dropped, verdict, stats, selection, criticsFailed: failed }
+  if ((verdict.decisions || []).some(d => d.blocking)) return { ...r, profile, critical, critics: kept, droppedCritics: dropped, verdict, stats, selection, criticsFailed: failed, stop: true, reason: 'decision needed' }
+  return { ...r, profile, critical, critics: kept, droppedCritics: dropped, verdict, stats, selection, criticsFailed: failed }
 }
 
 // What each critic's findings became after the arbiter: the data to prune or promote critics with, instead of guessing.
@@ -460,8 +525,8 @@ async function fixStage(r) {
   const toFix = [...blockers, ...chosen]
   if (chosen.length) log(`${t.id}: applying ${chosen.length} advisory(ies) (auto or accepted): ${chosen.map(a => a.id).join(', ')}`)
   const fixed = await role('forge-writer',
-    `${context(t, true)}\nCorrection round: fix every item below (blockers, plus advisories that are auto-applied or the user chose; each carries the critic's evidence), nothing else, then check with \`test-class.sh\` on the classes you touched and finish with \`gate.sh --rerun\` (writer rules 6 and 6-bis).${r.write.commit ? `\nChain slice: the findings are about slice ${r.write.commit}; later slices may already sit on top of it, keep them building. Commit the fix as \`git -C ${t.worktree} commit -am "fixup! ${t.commit}"\` (add new files first), so the orchestrator folds it into that slice, and return its sha in \`commit\`.` : ''}\n${JSON.stringify(toFix)}\n\n${surfaces(t)}`,
-    { schema: WRITER, label: `correct:${t.id}`, phase: 'Correct', effort: writerEffort(t) })
+    `${context(t, true)}\n${profileLine(t)}\nCorrection round: fix every item below (blockers, plus advisories that are auto-applied or the user chose; each carries the critic's evidence), nothing else, then check with \`test-class.sh\` on the classes you touched and finish with \`gate.sh --rerun\` (writer rules 6 and 6-bis).${r.write.commit ? `\nChain slice: the findings are about slice ${r.write.commit}; later slices may already sit on top of it, keep them building. Commit the fix as \`git -C ${t.worktree} commit -am "fixup! ${t.commit}"\` (add new files first), so the orchestrator folds it into that slice, and return its sha in \`commit\`.` : ''}\n${JSON.stringify(toFix)}\n\n${surfaces(t)}`,
+    { schema: WRITER, label: `correct:${t.id}`, phase: 'Correct', effort: writerEffort(t), model: writerModel(t) })
   if (!fixed || fixed.status !== 'done') return { ...r, correction: fixed, stop: true, reason: 'correction not done' }
   // What the fix still needs: a recheck only when blockers were fixed; a fix review unless every item was an
   // autoApply advisory (by definition no behavior, contract, schema or security change).
@@ -496,16 +561,21 @@ async function qa(r) {
   if (MODE === 'review') { log(`${r.task.id}: QA skipped (review mode)`); return { ...r, qaSkipped: true } }
   const t = r.task
   const runtime = (r.write.changedPaths || []).some(isRuntime)
-  const profile = r.profile || t.profile || 'standard'
+  const profile = r.profile || planOf(t).shape
+  const critical = r.critical !== undefined ? !!r.critical : planOf(t).critical
   const endpoint = (r.write.changedPaths || []).some(p => /\/Http\/|Endpoints\.cs$/.test(p))
-  const wanted = t.qa === false ? false : t.qa === true || profile === 'deep' || r.write.contractChanged || endpoint
+  // Critical always runs QA; otherwise task.qa decides when set, then the shape: crud on any runtime change (a Bruno
+  // smoke), fix only when an endpoint changed, refactor never.
+  const rule = (SHAPES[profile] || SHAPES.crud).qa
+  const byShape = rule === 'runtime' || (rule === 'endpoint' && endpoint)
+  const wanted = critical || (t.qa === false ? false : t.qa === true || byShape)
   if (!wanted || !runtime || profile === 'docs' || profile === 'tests') {
-    log(`${t.id}: QA skipped (${!runtime ? 'no runtime change' : profile === 'docs' || profile === 'tests' ? profile + ' change' : 'not requested'})`)
+    log(`${t.id}: QA skipped (${!runtime ? 'no runtime change' : profile === 'docs' || profile === 'tests' ? profile + ' change' : t.qa === false ? 'not requested' : `${profile} does not call for it`})`)
     return { ...r, qaSkipped: true }
   }
   if (DEFER_QA) {
     log(`${t.id}: QA deferred: open the PRs, then run mode 'qa' while CI runs`)
-    return { ...r, qaPending: { id: t.id, title: t.title, specs: t.specs, worktree: t.worktree, branch: t.branch, surfaces: t.surfaces, profile, contract: !!r.write.contractChanged, qa: true, changedPaths: r.write.changedPaths || [], slices: t.slices, journalOf: t.journalOf, brief: t.brief } }
+    return { ...r, qaPending: { id: t.id, title: t.title, specs: t.specs, worktree: t.worktree, branch: t.branch, surfaces: t.surfaces, profile, risk: critical ? 'critical' : t.risk, kinds: t.kinds, contract: !!r.write.contractChanged, qa: true, changedPaths: r.write.changedPaths || [], slices: t.slices, journalOf: t.journalOf, brief: t.brief } }
   }
   const run = () => role('forge-qa',
     `${context(t)}\nExercise this change end to end on a slot. Writer's notes: ${r.write.notes || 'none'}\nCorrection applied before QA: ${r.correction ? (r.correction.notes || 'yes') + ' — ' + (r.correction.changedPaths || []).join(', ') : 'none'}\nArbiter advisories: ${JSON.stringify((r.verdict && r.verdict.advisories) || [])}\nChanged paths:\n${(r.write.changedPaths || []).join('\n')}`,
@@ -514,8 +584,8 @@ async function qa(r) {
   if (result && (result.decisions || []).some(d => d.blocking)) return { ...r, qa: result, stop: true, reason: 'decision needed' }
   if (result && result.status === 'fail' && result.defects.length) {
     const fixed = await role('forge-writer',
-      `${context(t)}\nQA found these defects at runtime; fix them (test-first), then finish with \`gate.sh --rerun\` (writer rule 6-bis):\n${JSON.stringify(result.defects)}${t.slices ? `\nChain: commit each fix as \`fixup! <header>\` of the slice that introduced the defect, one of: ${t.slices.join(' | ')}.` : ''}\n\n${surfaces(t)}`,
-      { schema: WRITER, label: `qa-fix:${t.id}`, phase: 'QA', effort: writerEffort(t) })
+      `${context(t)}\n${profileLine(t)}\nQA found these defects at runtime; fix them (test-first), then finish with \`gate.sh --rerun\` (writer rule 6-bis):\n${JSON.stringify(result.defects)}${t.slices ? `\nChain: commit each fix as \`fixup! <header>\` of the slice that introduced the defect, one of: ${t.slices.join(' | ')}.` : ''}\n\n${surfaces(t)}`,
+      { schema: WRITER, label: `qa-fix:${t.id}`, phase: 'QA', effort: writerEffort(t), model: writerModel(t) })
     if (fixed && fixed.status === 'done') {
       const check = await reviewFix(r, fixed, result.defects, 'QA fix', 'QA')
       if (!check.ok) return { ...r, qa: result, qaFix: fixed, fixReview: check.verdict, stop: true, reason: check.reason || 'QA fix introduced blockers' }
@@ -526,6 +596,11 @@ async function qa(r) {
   const stop = !result || result.status !== 'pass'
   return { ...r, qa: result, stop, reason: stop ? `qa ${result ? result.status : 'missing'}` : undefined }
 }
+
+// The shape a chain head is QA'd as: the slice whose shape asks the most of QA (crud, then fix, then refactor); docs or
+// tests only when every slice is.
+const QA_RANK = ['crud', 'fix', 'refactor', 'tests', 'docs']
+const headShape = shapes => QA_RANK.find(s => shapes.includes(s)) || 'crud'
 
 // One chain, one worktree. Iteration k runs in parallel: the writer of slice k, the critics of slice k-1 (they read
 // by sha) and the verification of slice k-2's correction (also by sha). Only the correction writer of slice k-1 needs
@@ -571,7 +646,7 @@ async function runChain(chain) {
     ...last,
     task: { ...last.task, id: `${last.task.id}-head`, title: `chain head of ${chain.map(t => t.id).join(', ')}`, qa: done.some(r => r.task.qa) ? true : undefined, slices: slices.map(t => t.commit), journalOf: slices.map(t => t.id), chainOf: undefined },
     write: { ...last.write, changedPaths: [...new Set(done.flatMap(r => r.write.changedPaths || []))], contractChanged: done.some(r => r.write.contractChanged) },
-    profile: done.some(r => r.profile === 'deep') ? 'deep' : last.profile,
+    profile: headShape(done.map(r => r.profile)), critical: done.some(r => r.critical),
     // The head is not a new review: never count the last slice's critic stats or fix review twice.
     stats: undefined, fixReview: undefined, selection: undefined, criticsFailed: undefined, correction: undefined, recheck: undefined,
   }
@@ -640,6 +715,7 @@ return {
     stopped: !!r.stop,
     reason: r.reason,
     profile: r.profile,
+    critical: r.critical,
     critics: r.critics,
     qaSkipped: !!r.qaSkipped,
     qaPending: r.qaPending,

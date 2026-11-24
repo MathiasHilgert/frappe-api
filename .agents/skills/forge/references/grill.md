@@ -17,6 +17,18 @@ Goal: leave the interview with specs a stranger could implement and a user who h
   different change gets the same outcome, whether it is worth doing at all. When it is not, say it plainly with a decision card ("no lo haría,
   porque…" with the alternative). The user decides; once they insist, build what they asked, well.
 
+## 0. Depth follows the shape
+
+Pick the task's shape early (`references/plan.md`, Shape and risk per task); it caps how much you ask:
+
+- `fix`: zero or one question. The bug and the expected behavior usually come with the request; ask only what the code cannot answer.
+- `refactor`: brief, only Scope and Hexagonal layers.
+- `crud`: brief, only Scope, Hexagonal layers and Contract and DX.
+- a module: the full grill below, every decision of the module upfront.
+- `docs` and `tests`: as below.
+
+A critical kind (`security`, `money`, `data-migration`, `cross-module`) adds the blocks that kind triggers below, whatever the shape.
+
 ## 1. Classify the change first (decides which blocks are mandatory)
 
 Infer it from the request and confirm in one question only if unclear.
@@ -29,8 +41,10 @@ Infer it from the request and confirm in one question only if unclear.
 | `feature` | new behavior in a module |
 | `contract` | adds/changes/removes a route, payload, error code, event or option |
 | `data` | new table/column/index, migration, retention, backfill |
-| `cross-module` | one module needs another's data or reacts to it |
-| `security` | auth, permissions, grants, secrets, anything anonymous |
+| `data-migration` | a migration that changes rows already stored (backfill, column move, type change); makes the task critical |
+| `money` | prices, balances, payments, invoices, any calculation of money; makes the task critical |
+| `cross-module` | one module needs another's data or reacts to it; makes the task critical |
+| `security` | auth, permissions, grants, secrets, anything anonymous; makes the task critical |
 | `operational` | config, pools, deploy, Worker jobs, performance work |
 
 A change can have several kinds; ask every block they trigger.
@@ -43,7 +57,7 @@ A change can have several kinds; ask every block they trigger.
 | Docs accuracy | `docs` | Audience; which behavior the text must match (verify it in code); what to remove |
 | Hexagonal layers | every kind but `docs`/`tests` | Which layer owns each rule: domain (pure rules, no HTTP, no EF, no status codes), application (use cases, ports), infrastructure (adapters), Http (status codes, routes). Which existing port or use case is reused; what new port is needed and why |
 | Module communication | `cross-module`, `feature` touching two modules | Integration event (async, durable outbox/inbox), a `*.Contracts` query port (sync, ADR 0002/0003), or a local projection/view fed by events? Consistency window the user accepts. Which existing events can we subscribe to (read `contracts/events/v1.json`)? Which events must we emit, with what payload and durability? |
-| Data design | `data`, `feature` that stores | Entities and ownership; normal form and every deliberate denormalization (why); keys (UUIDv7), uniqueness and constraints; lifecycle (status + `disabled_at`, no naive soft delete) and retention; expected row counts and growth; queries per operation and the index each needs; migration of existing rows and rollout order |
+| Data design | `data`, `data-migration`, `feature` that stores | Entities and ownership; normal form and every deliberate denormalization (why); keys (UUIDv7), uniqueness and constraints; lifecycle (status + `disabled_at`, no naive soft delete) and retention; expected row counts and growth; queries per operation and the index each needs; migration of existing rows and rollout order |
 | Contract and DX | `contract` | Routes in the repo's style (context segment, `/me`, cursor paging, `code`+`name`, Problem Details codes); run `critic-dx` on the proposal before writing specs; breaking or additive; OpenAPI + events contract + Bruno updates |
 | Performance | `data`, `operational`, any hot path | Round trips per request, caching and its eviction, transactions without I/O, pools, behavior at 10× and 100× the data |
 | Security | `security`, any new route | Who may call it; 404 vs 403; what must not leak (responses, logs, metrics, events); grants |
@@ -55,9 +69,11 @@ A change can have several kinds; ask every block they trigger.
 When the user shows a design (mockup, artifact, screenshot, design system), ask for the brand sources behind it before the first visual question
 (design system, logo files, fonts): a mockup's page fonts are not the brand's. Do not ask a typography or color question the design system answers.
 
-Never ask a block that is not mandatory for the kinds in play (no metrics questions for a docs change).
+Never ask a block that is not mandatory for the kinds in play (no metrics questions for a docs change), and never more than the shape allows
+(section 0).
 
 ## Exit
 
 Stop when every mandatory block has an answer or an explicit "not in this change". Summarize decisions in a table (block → decision) and ask for go.
-The kinds you classified travel with each task as `kinds` (`references/plan.md`): they decide which critics are mandatory.
+The kinds you classified travel with each task as `kinds` (`references/plan.md`): they decide which critics are mandatory and whether the task is
+critical. The kinds `small` and `feature` are not shapes: the shape goes in the task's `profile`.

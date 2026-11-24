@@ -3,8 +3,8 @@
 ## ODD document (`odd/tasks/<feature>.md`, git-ignored)
 
 Order: two-line header (objective, branches, runner); `## Specs` with numbered `S#` quoting the user's strings and examples verbatim; `## Tasks` one
-line each (ID, `S#`, wave, worktree, profile, contract, qa, status, commit); `## Log` with `L1` = the user's request verbatim, then decisions verbatim
-with dates.
+line each (ID, `S#`, wave, worktree, shape, risk, contract, qa, status, commit); `## Log` with `L1` = the user's request verbatim, then decisions
+verbatim with dates.
 
 ## Impact (before the design review)
 
@@ -27,6 +27,10 @@ with "review this proposed design, there is no diff yet":
 - `critic-security` when a task has the kind `security`, as an **attacker pass**. For every route, it answers in a table two questions: "what does
   comparing two answers reveal (enumeration through status, body, id, timing or mail)?" and "what can someone take over with what this answer or the
   mail gives them?".
+Which design critics run depends on the shape (Shape and risk per task, below): `fix` and `refactor` skip the design review; a `crud` runs
+`critic-dx` only when it adds routes; a module runs `dx`, `architecture`, `data` and `security`. For a critical task, the attacker pass also answers,
+for each secret or personal datum: where does it rest (tables, outbox, streams, backups, logs), who can read it and for how long compared to its
+useful life.
 Fix the design from their findings, then show the plan. A design flaw found by a critic after the code exists costs a stop, a correction and the
 slices built on top of it. In identity, the id a repeated registration returned stopped the chain at slice 6 of 11.
 
@@ -74,8 +78,8 @@ design, one design review, one feature document. No questions mid-run: anything 
 ## Chains
 
 - Merges stay squash with the PR body as the commit body so `git log` and `git blame` reach the why.
-- The module is cut into **slices** before go. A slice is one capability with its code, tests and docs, about **800-1500 authored lines** and
-  **at most 3-4 responsibilities**, that leaves main working; its `commit` header is its future PR title. The cuts are written in the feature
+- The module is cut into **slices** before go. A slice is one capability with its code, tests and docs, within its shape's PR size and with **at
+  most 3-4 responsibilities**, that leaves main working; its `commit` header is its future PR title. The cuts are written in the feature
   document and shown in the briefing. A writer generates one file at a time: a slice with 7 responsibilities took 22 minutes of which tools were 5.
   Do not pile a previous slice's carry-overs onto a slice that is already full: give them their own slice.
 - A running chain may be stopped to apply better briefs to the slices not yet started, but only after the writer in flight has committed and its
@@ -99,8 +103,8 @@ design, one design review, one feature document. No questions mid-run: anything 
 - Files every chain edits (`Frappe.slnx`, `Directory.Packages.props`, test `.csproj` files and `packages.lock.json`) are expected merge points,
   not a reason to serialize: the orchestrator resolves them by taking the union of both sides and then runs `dotnet restore --force-evaluate` to
   regenerate the lock files.
-- Profile per slice by risk: `deep` for schema changes on existing rows, security or contract breaks; `standard` for features; `small` for internal
-  logic with good tests. Do not give every slice `deep`.
+- Shape and risk per slice (Shape and risk per task, below): most slices are `crud` or `fix`; only slices with a critical kind are critical. Do not
+  make every slice critical.
 - **Freeze the seams in the foundation.** Fan-out only pays when the parallel branches cannot change what they share. The foundation fixes the ports,
   the schema and migrations, the event contracts and the test fixtures. Each shared file (DI registration, `IdentityHttp`-style route lists,
   OpenAPI, migrations) has one owner: the branches only append next to existing lines. After the fan-in, the full suite runs once on the merged head,
@@ -111,9 +115,11 @@ design, one design review, one feature document. No questions mid-run: anything 
 Most of a writer's time is spent generating tokens (about 100k per slice at roughly 90 tokens per second). Two inputs decide how much it generates,
 and both are set by the orchestrator per slice:
 
-- **`effort`** (`low` | `medium` | `high`, default `low`; user decision). Raise it only for a named reason, recorded in the tasks table:
+- **`effort`** (`low` | `medium` | `high`; default `low`, `high` for a critical task; user decision). Raise it only for a named reason, recorded
+  in the tasks table:
   - `medium` for concurrency, locking or a security rule with an attack in the specs;
-  - `high` only for a slice that already failed review at a lower effort.
+  - `high` for a slice that already failed review at a lower effort.
+- **`model`** (`sonnet` | `opus`; default `sonnet`, `opus` for a critical task). Set `opus` on the slices of a module's foundation chain.
   Lower effort trims thinking, comments and extra tool calls; the gate and the critics still catch what it misses.
 - **`files`** (the assembled context): the exact files, with line ranges when large, that the slice needs to read: the ports and aggregates it
   uses, the closest existing example to copy, and its test fixture. Build it with `codegraph_explore` while planning. The writer reads them in one
@@ -130,41 +136,70 @@ The writer also stops when done (`agents/forge-writer.md`, rule 9a): no reviews 
 
 ## PR budget (planned before go, shown in the briefing)
 
-- Chains: one PR per slice (800-1500 authored lines). Below, the budget for a single task outside a chain.
-- Budget: about **400 authored changed lines per PR** (additions + deletions), not counting generated files (EF `*.Designer.cs`, model snapshots,
-  `packages.lock.json`, `contracts/**` regenerated contracts). A planning heuristic, never a hard gate: a behavior that is clearer whole may exceed
-  it, say why.
-- Forecast the authored lines per task. Under budget: one PR per task (or one PR for the feature when the tasks are small). Over budget: slice into a
-  chain of PRs, each one reviewable alone, with its tests and docs, in dependency order.
-- Chain strategy (ask once with a decision card, save it in `forge/<feature>/decisions`): `stacked-to-main` (each PR targets the previous branch,
-  merged in order into main) or `feature-branch-chain` (PRs target a feature branch merged to main at the end). Load the `chained-pr` skill before
-  creating the chain.
-- A task whose risk is high (data migration of existing rows, security, contract break) gets its own PR so it can be reviewed and reverted alone.
+- Every slice is its own PR, stacked on the one before (`references/delivery.md`). Its size follows its shape: `fix` under 200 lines, `refactor`
+  under 500 lines per folder, `crud` under 500 lines of `src/`.
+- Count authored changed lines (additions + deletions), not generated files (EF `*.Designer.cs`, model snapshots, `packages.lock.json`,
+  `contracts/**` regenerated contracts). A planning heuristic, never a hard gate: a behavior that is clearer whole may exceed it, say why.
+- Forecast the authored lines per task. Within its shape's size: one PR for the task. Over it: slice into stacked PRs, each one reviewable alone,
+  with its tests and docs, in dependency order. Never one PR for a whole feature.
+- Stacks are always `stacked-to-main`: each PR targets the previous slice's branch and the stack merges into main (`references/delivery.md`). Load
+  the `chained-pr` skill before creating the stack.
+- A critical task, or one that breaks a contract, gets its own PR so it can be reviewed and reverted alone.
 
-## Profile per task (decides depth; the Workflow also checks the real diff)
+## Shape and risk per task (decides depth; the Workflow also checks the real diff)
 
-| Profile | When | Critics | QA |
-|---|---|---|---|
-| `docs` | only docs/comments | none, or `contracts` + `dx` if `contracts/**` or `tools/bruno/**` changed | no |
-| `tests` | only tests | `tests` | no |
-| `mechanical` | convention or style alignment with no behavior change; run `scripts/codemods/run.sh <worktree> <folders>` first and set `codemods: true`; split a large area by folder into parallel tasks; writer effort `low` | `correctness` + `craft` (cap 2) | no |
-| `small` | understood fix, no contract, no schema | selector, cap 3 | only if an endpoint's behavior changed |
-| `standard` | feature work | selector, cap 5 | if runtime behavior changed |
-| `deep` | security, data migration of existing rows, cross-module, or the user asked | selector, cap 6 | yes |
+Don't kill flies with cannons: the process grows with the change. Each task gets a **shape**, which decides the process, and a **risk**, which
+decides how deep the review goes. Both go in the tasks table and in the Workflow args (`profile` holds the shape, `risk` the risk).
 
-The selector (in `assets/forge.workflow.js`, tested by `node scripts/review/selector.test.mjs`) works in three layers:
+### Shapes
 
-1. **Plan:** each task carries `kinds` from the grill. `security` → security; `data` → data + performance; `contract` → contracts + dx; `cross-module`
-   → architecture + contracts; `operational` → performance + observability. These and correctness are mandatory: the cap never drops them.
-2. **Content:** the writer's last step runs `scripts/review/signals.py`, which scans the changed lines (authorization calls, migrations, locks and
-   transactions, routes, metrics and logs, removed assertions…) and returns evidence per lens. A lens with content evidence outranks one triggered
-   only by a path.
-3. **Data:** `lensStats` (from Engram `forge/metrics/critics`) demotes a lens with 30+ findings of which the arbiter kept under 20 %: it runs only
-   when the cap leaves room. Never a mandatory one.
-Optional lenses fill the cap by content first, then path, undemoted before demoted, then this priority: correctness, security, data, contracts, tests,
-performance, dx, observability, architecture, craft (style last). Any changed test file brings the tests critic. Every task's result carries
-`selection` with the reason each critic ran or was dropped. The Workflow never runs more than the profile allows and downgrades automatically when the
-diff turns out to be docs- or tests-only; it logs every skipped critic or QA with the reason.
+| Shape | When | Grill | Design review | Writer starts from | Critics | Arbiter | QA | Writer | PR size |
+|---|---|---|---|---|---|---|---|---|---|
+| `fix` | an understood bug, no contract change | 0-1 question | none | a failing regression test; minimal diff | `correctness` | only if there are findings | only if an endpoint changed | Sonnet | under 200 lines |
+| `refactor` | same behavior, better code | brief: Scope, Layers | none | codemods first when the change is mechanical (`scripts/codemods/run.sh <worktree> <folders>`, `codemods: true`); split a large area by folder into parallel tasks | `craft` + `architecture` | only if there are findings | none | Sonnet, effort `low` | under 500 lines per folder |
+| `crud` | a new or changed use case, entity or route | brief: Scope, Layers, Contract | `critic-dx` only when routes are new | `just scaffold crud <Module> <Entity>` | `correctness` + `contracts` | yes | a Bruno smoke | Sonnet | under 500 lines of `src/` |
+| `docs` | only docs or comments | Docs accuracy | none | | none, or `contracts` + `dx` if `contracts/**` or `tools/bruno/**` changed | yes | no | Sonnet | |
+| `tests` | only tests | Scope | none | | `tests` | yes | no | Sonnet | |
+
+- A **`fix`** never changes a contract; if it must, it is a `crud`.
+- A **`refactor`** must not change contracts or test assertions, and the Workflow checks it mechanically: any diff under `contracts/**`, or a removed
+  assertion (the tests signal that `scripts/review/signals.py` reports on a removed line), turns the task into a `crud` for review and logs why.
+- A **`crud`** is tested with the invariants as unit tests, one integration test per use case and the contract snapshot.
+- A **module** is not a shape but a plan: module document → design review (`dx`, `architecture`, `data`, `security`) → a foundation chain (its writer
+  on Opus: set `"model": "opus"` on those slices) → slices, each with its own shape → one PR per slice, stacked (`references/delivery.md`). QA runs
+  once, on the head of the stack.
+
+Old profile names still work: `small` is `fix`, `mechanical` is `refactor`, `standard` is `crud`, and `deep` is `crud` with risk `critical`. A task
+without a profile is a `crud`.
+
+### Risk: `standard` or `critical`
+
+A task is **critical** when its kinds include `security`, `money`, `data-migration` (existing rows change) or `cross-module`, or when you set
+`"risk": "critical"` (the user asked for depth). Critical adds on top of any shape except `docs` and `tests`:
+
+- the `security` and `data` critics are mandatory;
+- the design review's attacker pass also asks, for each secret or personal datum: where does it rest (tables, outbox, streams, backups, logs), who
+  can read it and for how long compared to its useful life;
+- QA always runs, whatever `qa` says;
+- the writer runs on Opus at effort `high`;
+- about 20 tests per use case, plus property tests on parsers and money calculations.
+
+### How the Workflow picks critics
+
+The selector lives in `assets/forge.workflow.js` and is tested by `node scripts/review/selector.test.mjs`.
+
+1. **Mandatory:** the shape's critics, the lenses each kind calls for (`security` → security; `data` and `data-migration` → data + performance;
+   `money` → tests; `contract` → contracts + dx; `cross-module` → architecture + contracts; `operational` → performance + observability) and, when
+   critical, security + data. Nothing ever drops a mandatory critic, and one that fails twice stops the task.
+2. **Standard risk:** nothing else runs. A `crud` that only touches use cases still gets exactly `correctness` + `contracts`.
+3. **Critical:** optional critics fill the room up to 6. The writer's last step runs `scripts/review/signals.py`, which scans the changed lines
+   (authorization calls, migrations, locks and transactions, routes, metrics and logs, removed assertions…) and returns evidence per lens; a lens
+   with evidence in the content outranks one triggered only by a path. `lensStats` (from Engram `forge/metrics/critics`) demotes a lens with 30+
+   findings of which the arbiter kept under 20 %: it runs only when room is left. Ties follow this priority: correctness, security, data,
+   contracts, tests, performance, dx, observability, architecture, craft (style last).
+
+Every task's result carries its `profile` (the shape it was reviewed as), `critical`, and `selection` with the reason each critic ran or was dropped.
+The Workflow downgrades to `docs` or `tests` when the diff turns out to be only that, and logs every skipped critic, arbiter or QA with the reason.
 
 ## Workflow args
 
@@ -176,13 +211,13 @@ diff turns out to be docs- or tests-only; it logs every skipped critic or QA wit
   "base": "origin/main",
   "answers": {},
   "apply": {},
-  "chains": [[{ "id": "S1", "title": "...", "specs": "S1-S3", "worktree": "<wt>", "branch": "feat/<module-topic>", "commit": "feat(<scope>): <summary>", "surfaces": ["..."], "profile": "standard", "kinds": ["feature", "contract"], "contract": true, "qa": true, "effort": "low", "files": ["src/Modules/X/.../Port.cs", "src/Modules/X/.../Example.cs:20-80"] }]],
+  "chains": [[{ "id": "S1", "title": "...", "specs": "S1-S3", "worktree": "<wt>", "branch": "feat/<module-topic>", "commit": "feat(<scope>): <summary>", "surfaces": ["..."], "profile": "crud", "kinds": ["feature", "contract"], "contract": true, "qa": true, "files": ["src/Modules/X/.../Port.cs", "src/Modules/X/.../Example.cs:20-80"] }]],
   "waves": [[{
     "id": "T1", "title": "...", "specs": "S1-S2",
     "worktree": "<worktrees>/<slug>",
     "branch": "feat/<slug>",
     "surfaces": ["src/Modules/X/**", "tests/Modules/X/**", "contracts/**", "tools/bruno/x/**"],
-    "profile": "standard", "kinds": ["feature", "contract"], "contract": true, "qa": true
+    "profile": "fix", "kinds": ["security"], "risk": "critical", "contract": false
   }]],
   "lensStats": { "craft": { "findings": 42, "blockers": 0, "advisories": 6 } },
   "deferQa": true,

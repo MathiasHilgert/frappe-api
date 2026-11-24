@@ -8,12 +8,14 @@ const AsyncFn = Object.getPrototypeOf(async function () {}).constructor
 
 const finding = (id, severity = 'major') => ({ id, severity, confidence: 90, file: 'a.cs', line: 1, title: 't', evidence: 'e', failure: 'f', fix: 'x' })
 
-// behavior: { failCritic: { [lens]: times }, fixBug: bool, ruledOut: bool, revive: bool }
+// behavior: { failCritic: { [lens]: times }, fixBug: bool, ruledOut: bool, revive: bool, clean: bool (critics find nothing),
+//   unregistered: bool (agent types are not registered: role() falls back to a general agent) }
 async function run(args, behavior = {}) {
   const calls = []
   const failures = { ...(behavior.failCritic || {}) }
   const agent = async (prompt, o) => {
-    calls.push({ label: o.label, prompt, effort: o.effort })
+    calls.push({ label: o.label, prompt, effort: o.effort, model: o.model })
+    if (behavior.unregistered && o.agentType) throw new Error('unregistered')
     if (behavior.delay) await new Promise(r => setTimeout(r, behavior.delay))
     const l = o.label
     if (l.startsWith('write:')) return { status: 'done', changedPaths: ['src/M/Http/Endpoints.cs', 'src/M/Application/Uc.cs', 'tests/M/T.cs'], contractChanged: true, checks: [], decisions: [], notes: 'WRITER-NOTES-MARKER', commit: prompt.includes('Chain slice') ? 'sha' + calls.length : undefined }
@@ -32,7 +34,7 @@ async function run(args, behavior = {}) {
     if (l.startsWith('qa:')) return { status: 'pass', scenarios: [], defects: [], decisions: [] }
     const lens = l.split(':')[0]
     if (failures[lens] > 0) { failures[lens]--; return null }
-    return { summary: '', checked: [], findings: [finding(`${lens}-1`)], ruledOut: behavior.ruledOut ? [{ concern: `${lens} concern`, evidence: 'guarded at b.cs:3' }] : [] }
+    return { summary: '', checked: [], findings: behavior.clean ? [] : [finding(`${lens}-1`)], ruledOut: behavior.ruledOut ? [{ concern: `${lens} concern`, evidence: 'guarded at b.cs:3' }] : [] }
   }
   const parallel = fns => Promise.all(fns.map(f => f()))
   const pipeline = (items, ...stages) => Promise.all(items.map(async it => { let r = it; for (const s of stages) r = await s(r); return r }))
@@ -56,12 +58,12 @@ const check = (name, ok, detail = '') => { if (!ok) fails++; console.log(ok ? 'P
   check('a clean run passes', out.status === 'done', out.status)
 }
 {
-  const { out, calls } = await run({ ...base, waves: [[task()]] }, { failCritic: { dx: 1 } })
+  const { out, calls } = await run({ ...base, waves: [[task({ profile: 'deep' })]] }, { failCritic: { dx: 1 } })
   check('a critic that fails once is retried', calls.filter(c => c.label === 'dx:T1').length === 2)
   check('a retried critic counts as run', !(out.tasks[0].criticsFailed || []).length, JSON.stringify(out.tasks[0].criticsFailed))
 }
 {
-  const { out, calls } = await run({ ...base, waves: [[task()]] }, { failCritic: { dx: 2 } })
+  const { out, calls } = await run({ ...base, waves: [[task({ profile: 'deep' })]] }, { failCritic: { dx: 2 } })
   const arbiter = calls.find(c => c.label.startsWith('arbiter:'))
   check('an optional critic that fails twice is reported, not zero', out.tasks[0].criticsFailed.includes('dx') && arbiter.prompt.includes('did NOT run') && arbiter.prompt.includes('dx'))
   check('the run goes on without it', out.status === 'done', out.status)
@@ -78,7 +80,7 @@ const check = (name, ok, detail = '') => { if (!ok) fails++; console.log(ok ? 'P
   check('critics never get the suppressions', calls.filter(c => /^(correctness|security):/.test(c.label)).every(c => !c.prompt.includes('XML docs on private members')))
 }
 {
-  const { out } = await run({ ...base, waves: [[task()]] }, { revive: true })
+  const { out } = await run({ ...base, waves: [[task({ profile: 'deep' })]] }, { revive: true })
   const sec = out.criticStats.find(s => s.critic === 'security')
   check('revived findings are counted per critic', sec && sec.revived === 1, JSON.stringify(sec))
 }
@@ -171,5 +173,50 @@ const check = (name, ok, detail = '') => { if (!ok) fails++; console.log(ok ? 'P
 {
   const { calls } = await run({ ...base, answers: { T1: { D1: 'ANSWER-MARKER' } }, waves: [[task()]] })
   check('the arbiter sees the user answers so it never asks again', calls.find(c => c.label === 'arbiter:T1').prompt.includes('ANSWER-MARKER'))
+}
+{
+  // fix and refactor: the arbiter runs only when the critics found something.
+  const { out, calls } = await run({ ...base, waves: [[task({ profile: 'fix' })]] }, { clean: true })
+  check('fix without findings skips the arbiter', !calls.some(c => c.label.startsWith('arbiter:')) && out.status === 'done', calls.map(c => c.label).join(' '))
+  check('fix runs correctness only', out.tasks[0].critics.join() === 'correctness', JSON.stringify(out.tasks[0].critics))
+  const found = await run({ ...base, waves: [[task({ profile: 'fix' })]] })
+  check('fix with findings runs the arbiter', found.calls.some(c => c.label === 'arbiter:T1'))
+  const crud = await run({ ...base, waves: [[task({ profile: 'crud' })]] }, { clean: true })
+  check('crud runs the arbiter even without findings', crud.calls.some(c => c.label === 'arbiter:T1'))
+  const ruled = await run({ ...base, rulings: { T1: { D1: 'RULING-MARKER' } }, waves: [[task({ profile: 'small' })]] }, { clean: true })
+  check('a ruling still reaches the correction when the arbiter is skipped', (ruled.calls.find(c => c.label === 'correct:T1') || { prompt: '' }).prompt.includes('RULING-MARKER'), ruled.calls.map(c => c.label).join(' '))
+  check('critic stats still count a skipped arbiter', ruled.out.criticStats.some(s => s.critic === 'correctness'), JSON.stringify(ruled.out.criticStats))
+}
+{
+  // Writer model and effort follow the risk; the orchestrator can still set them per slice.
+  const { calls } = await run({ ...base, waves: [[task({ kinds: ['money'] }), task({ id: 'T2', profile: 'fix' }), task({ id: 'T3', profile: 'crud', model: 'opus' })]] })
+  const w = id => calls.find(c => c.label === `write:${id}`)
+  check('a critical writer runs on opus at high effort', w('T1').model === 'opus' && w('T1').effort === 'high', JSON.stringify(w('T1')))
+  check('its correction follows', calls.find(c => c.label === 'correct:T1').model === 'opus')
+  check('a fix writer runs on sonnet at low effort', w('T2').model === 'sonnet' && w('T2').effort === 'low', JSON.stringify(w('T2')))
+  check('task.model overrides (module foundation)', w('T3').model === 'opus')
+  check('the writer is told its shape', w('T2').prompt.includes('Profile: fix') && w('T2').prompt.includes('failing regression test') && w('T1').prompt.includes('critical'))
+  const fb = await run({ ...base, waves: [[task({ profile: 'deep' })]] }, { unregistered: true })
+  check('the unregistered fallback keeps the opus writer', fb.calls.filter(c => c.label === 'write:T1').every(c => c.model === 'opus'), JSON.stringify(fb.calls.filter(c => c.label === 'write:T1')))
+}
+{
+  // QA by shape and risk (the fake writer changes an endpoint).
+  const r = await run({ ...base, deferQa: true, waves: [[task({ profile: 'refactor', qa: undefined }), task({ id: 'T2', profile: 'fix', qa: undefined }), task({ id: 'T3', profile: 'crud', kinds: ['security'], qa: false })]] })
+  const t = id => r.out.tasks.find(x => x.id === id)
+  check('refactor never runs QA', !t('T1').qaPending)
+  check('fix runs QA when an endpoint changed', !!t('T2').qaPending)
+  check('critical always runs QA, even with qa: false', !!t('T3').qaPending && t('T3').qaPending.risk === 'critical', JSON.stringify(t('T3').qaPending))
+  const chain = [task({ id: 'S1', commit: 'feat(x): a', profile: 'deep' }), task({ id: 'S2', commit: 'feat(x): b', profile: 'standard' })]
+  const c = await run({ ...base, deferQa: true, chains: [chain] })
+  const head = c.out.tasks.find(x => x.id === 'S2-head')
+  check('a chain with a critical slice keeps QA on its head', !!(head && head.qaPending), JSON.stringify(c.out.tasks.map(x => x.id)))
+  // The head is QA'd as its most demanding slice, not its last one.
+  const mixed = [task({ id: 'S1', commit: 'feat(x): a', profile: 'crud', qa: undefined }), task({ id: 'S2', commit: 'refactor(x): b', profile: 'refactor', qa: undefined })]
+  const m = await run({ ...base, deferQa: true, chains: [mixed] })
+  check('a chain ending in a refactor still gets QA for its crud slice', !!(m.out.tasks.find(x => x.id === 'S2-head') || {}).qaPending, JSON.stringify(m.out.tasks.map(x => x.id)))
+}
+{
+  const { calls } = await run({ ...base, waves: [[task({ profile: 'fix' })]] })
+  check('critics are not told the writer rules', calls.filter(c => c.label === 'correctness:T1').every(c => !c.prompt.includes('Profile:')))
 }
 process.exit(fails ? 1 : 0)

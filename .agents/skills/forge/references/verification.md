@@ -64,7 +64,7 @@ Haiku's raw speed is lost to extra turns, so no role uses it.
 
 | Role | Model | Effort |
 |---|---|---|
-| Writer | sonnet | `task.effort`, set by the orchestrator per slice; `low` by default (`references/plan.md`, Writer effort and context) |
+| Writer | sonnet; opus for a critical task or a module's foundation chain (`task.model`) | `task.effort`, set by the orchestrator per slice; `low` by default, `high` for a critical task (`references/plan.md`, Writer effort and context) |
 | Arbiter | opus | medium |
 | Critics correctness, security, data (also the fix review after a correction or a QA fix) | opus | medium |
 | Critics architecture, contracts, dx, performance | sonnet | medium |
@@ -86,7 +86,8 @@ double cache-write cost for nothing.
 
 - Every forge agent sets `omitClaudeMd: true`: the global CLAUDE.md (~24k tokens of orchestrator rules) was loaded by every agent and re-read on every
   turn, ~25-30% of all tokens. What a role needs lives in its definition and the task prompt.
-- Critics, arbiter and QA set `maxTurns`; the arbiter runs at `medium`; `deep` caps critics at 6, `standard` at 5. The correctness, security and data
+- Critics, arbiter and QA set `maxTurns`; the arbiter runs at `medium`; a critical task runs at most 6 critics plus any mandatory ones beyond that, a
+  standard one only its shape's and its kinds' critics. The correctness, security and data
   critics run on Opus: a judge favors code written by its own model, so the lenses that block a change must not share the writers' model. Judge the
   cost with `criticStats` from real runs (`references/retro.md`) before moving any lens back.
 - Tool output stays in context for every later turn: critics read the diff `--stat` first and one file at a time, code through codegraph or `Read`
