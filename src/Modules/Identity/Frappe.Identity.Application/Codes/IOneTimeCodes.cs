@@ -12,6 +12,9 @@ public interface IOneTimeCodes
     /// </summary>
     Task<OneTimeCode?> LiveOfAsync(Guid principalId, CodePurpose purpose, CancellationToken cancellationToken);
 
+    /// <summary>Every code of <paramref name="principalId"/> that holds a live slot, whatever its purpose, tracked for change.</summary>
+    Task<IReadOnlyList<OneTimeCode>> LiveOfAsync(Guid principalId, CancellationToken cancellationToken);
+
     /// <summary>The code <paramref name="id"/> whatever its state, tracked for change, or <see langword="null"/> when there is none.</summary>
     Task<OneTimeCode?> FindAsync(Guid id, CancellationToken cancellationToken);
 

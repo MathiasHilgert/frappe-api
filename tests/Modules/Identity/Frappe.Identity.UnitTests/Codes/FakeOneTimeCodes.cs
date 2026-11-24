@@ -11,6 +11,9 @@ internal sealed class FakeOneTimeCodes : IOneTimeCodes
     public Task<OneTimeCode?> LiveOfAsync(Guid principalId, CodePurpose purpose, CancellationToken cancellationToken) =>
         Task.FromResult(Stored.SingleOrDefault(c => c.PrincipalId == principalId && c.Purpose == purpose && c.HoldsLiveSlot));
 
+    public Task<IReadOnlyList<OneTimeCode>> LiveOfAsync(Guid principalId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<OneTimeCode>>([.. Stored.Where(c => c.PrincipalId == principalId && c.HoldsLiveSlot)]);
+
     public Task<OneTimeCode?> FindAsync(Guid id, CancellationToken cancellationToken) =>
         Task.FromResult(Stored.SingleOrDefault(c => c.Id == id));
 

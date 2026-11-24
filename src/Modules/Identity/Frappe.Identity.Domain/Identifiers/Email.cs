@@ -29,7 +29,10 @@ public sealed record Email
         return IsAddress(address) ? new Email(address!) : Error.InvalidValue(IdentityErrorCodes.EmailInvalid);
     }
 
-    public override string ToString() => "***" + Address[Address.IndexOf(At, StringComparison.Ordinal)..];
+    /// <summary>The address with its local part hidden (<c>***@domain</c>): safe to show in a notice.</summary>
+    public string Masked => "***" + Address[Address.IndexOf(At, StringComparison.Ordinal)..];
+
+    public override string ToString() => Masked;
 
     private static bool IsAddress(string? address)
     {

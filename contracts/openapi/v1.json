@@ -2383,6 +2383,453 @@
         }
       }
     },
+    "/v1/identity/me/email-changes": {
+      "post": {
+        "tags": [
+          "Identity"
+        ],
+        "summary": "Ask to change the email address",
+        "description": "Mails a 6-digit code to the new address and tells the old one about the request. The session must have stepped up (403 identity.step_up.required). The old address keeps working until the change is confirmed. It answers 202 with an id to confirm with, for an address that a verified owner holds as for a free one (that code is not sent and its id confirms nothing), and never sooner than 500 ms, so neither the answer nor its time says which. 5 requests an hour are allowed (429 http.rate_limited with Retry-After). 400 identity.email.invalid for an address that is malformed. 401 identity.session.invalid without a valid session; 403 identity.session.forbidden when the session is not an owner's.",
+        "operationId": "RequestEmailChange",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RequestEmailChangeRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "headers": {
+              "Cache-Control": {
+                "description": "no-store: no cache may keep the answer, and it carries no validator.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailChangeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "description": "The scheme to authenticate with: Bearer (the session token; a browser sends it in the session cookie).",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: http.origin.forbidden when the request carries the session cookie without an Origin among the console's (a bearer token is never checked).",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable: a database the operation needs is not answering (platform.database.unavailable); the same request may succeed after Retry-After.",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before trying again (30).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict: other writers kept changing the same data while the operation committed (platform.persistence.commit_conflict); nothing was written and the same request may succeed when sent again.",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type: the body is not in a media type the operation reads (see its requestBody).",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/identity/me/email-changes/{changeId}/confirmation": {
+      "post": {
+        "tags": [
+          "Identity"
+        ],
+        "summary": "Confirm the change of the email address",
+        "description": "Replaces the address with the one the code was mailed to: the new address is proven, every other session of the owner is revoked (the one of the request keeps working) and every other live code of the owner stops working. A pending owner who registered with that address is deleted. 422 identity.code.invalid for a code that is wrong, expired, used or replaced, for an id that is unknown, made up, malformed or not the caller's, and for an address a verified owner holds meanwhile: a code takes 5 guesses, an owner 10 a day from one network and 100 a day from all of them. 503 identity.attempts.unavailable when guesses cannot be counted. 401 and 403 as the request.",
+        "operationId": "ConfirmEmailChange",
+        "parameters": [
+          {
+            "name": "changeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ConfirmEmailChangeRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content",
+            "headers": {
+              "Cache-Control": {
+                "description": "no-store: no cache may keep the answer, and it carries no validator.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "description": "The scheme to authenticate with: Bearer (the session token; a browser sends it in the session cookie).",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before trying again (30).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict: other writers kept changing the same data while the operation committed (platform.persistence.commit_conflict); nothing was written and the same request may succeed when sent again.",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type: the body is not in a media type the operation reads (see its requestBody).",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: http.origin.forbidden when the request carries the session cookie without an Origin among the console's (a bearer token is never checked).",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/notifications/webhooks/resend": {
       "post": {
         "tags": [
@@ -2826,6 +3273,20 @@
           }
         }
       },
+      "ConfirmEmailChangeRequest": {
+        "required": [
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "ConfirmPasswordResetRequest": {
         "required": [
           "code",
@@ -2874,6 +3335,18 @@
               "string"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "EmailChangeResponse": {
+        "required": [
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -3204,6 +3677,20 @@
             ]
           },
           "password": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RequestEmailChangeRequest": {
+        "required": [
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
             "type": [
               "null",
               "string"

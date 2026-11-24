@@ -1,5 +1,6 @@
 using Frappe.Aggregates;
 using Frappe.Identity.Domain.Codes;
+using Frappe.Identity.Domain.Identifiers;
 using Frappe.Localization;
 using Frappe.Results;
 using NodaTime;
@@ -107,6 +108,20 @@ public sealed class Owner : AggregateRoot
         ArgumentException.ThrowIfNullOrWhiteSpace(plaintext);
         Raise(new OwnerCodeIssued(PrincipalId, purpose, email, MailedName, Locale.Value, plaintext, now));
     }
+
+    /// <summary>
+    /// Records that the owner asked to change the address <paramref name="oldAddress"/> to <paramref name="newEmail"/>: the old address is told
+    /// (S15), with the new one masked.
+    /// </summary>
+    public void RecordEmailChangeRequested(string oldAddress, Email newEmail, Instant now)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(oldAddress);
+        ArgumentNullException.ThrowIfNull(newEmail);
+        Raise(new OwnerEmailChangeRequested(PrincipalId, oldAddress, newEmail.Masked, MailedName, Locale.Value, now));
+    }
+
+    /// <summary>Records that the owner confirmed the new address at <paramref name="now"/> and it replaced the old one (S15).</summary>
+    public void RecordEmailChanged(Instant now) => Raise(new OwnerEmailChanged(PrincipalId, now));
 
     /// <summary>Records that somebody tried to register this verified owner's address; the owner gets a notice in their language (S3).</summary>
     public void RecordRegistrationAttempted(string email, Instant now)

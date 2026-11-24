@@ -4,9 +4,11 @@ using Frappe.Identity.Application.Credentials.ChangePassword;
 using Frappe.Identity.Application.Identifiers;
 using Frappe.Identity.Application.Limits;
 using Frappe.Identity.Application.Owners;
+using Frappe.Identity.Application.Owners.ConfirmEmailChange;
 using Frappe.Identity.Application.Owners.GetMe;
 using Frappe.Identity.Application.Owners.LogInOwner;
 using Frappe.Identity.Application.Owners.RegisterOwner;
+using Frappe.Identity.Application.Owners.RequestEmailChange;
 using Frappe.Identity.Application.Owners.RequestPasswordReset;
 using Frappe.Identity.Application.Owners.ResendOwnerVerification;
 using Frappe.Identity.Application.Owners.ResetPassword;
@@ -185,6 +187,21 @@ internal sealed class OwnersHost : IAsyncDisposable
         await using var scope = _provider.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<ICommandHandler<ResetPassword, Unit>>()
             .HandleAsync(new ResetPassword(resetId, code, replacement, System.Net.IPAddress.Parse(client)), default);
+    }
+
+    public async Task<Result<EmailChangeRequested>> RequestEmailChangeAsync(Guid principalId, string? newEmail)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<ICommandHandler<RequestEmailChange, EmailChangeRequested>>()
+            .HandleAsync(new RequestEmailChange(principalId, newEmail), default);
+    }
+
+    public async Task<Result<Unit>> ConfirmEmailChangeAsync(
+        Guid principalId, Guid sessionId, string? changeId, string? code, string client = "203.0.113.7")
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<ICommandHandler<ConfirmEmailChange, Unit>>()
+            .HandleAsync(new ConfirmEmailChange(principalId, sessionId, changeId, code, System.Net.IPAddress.Parse(client)), default);
     }
 
     /// <summary>Whether the token of <paramref name="session"/> still lets its holder in, as the authentication of every request decides.</summary>
