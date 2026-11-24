@@ -1,5 +1,7 @@
 using Frappe.Http;
 using Frappe.Modules;
+using Frappe.Notifications.Http;
+using Frappe.Notifications.Infrastructure;
 
 namespace Frappe.Api;
 
@@ -7,8 +9,8 @@ namespace Frappe.Api;
 public static class Modules
 {
     /// <summary>The services of every module the Api hosts, in registration order.</summary>
-    public static IReadOnlyCollection<IModule> Services { get; } = [];
+    public static IReadOnlyCollection<IModule> Services { get; } = [new NotificationsModule()];
 
     /// <summary>The HTTP facet of every module the Api serves: its services and its endpoints under <c>/v1</c>.</summary>
-    public static IReadOnlyCollection<IHttpModule> Endpoints { get; } = [];
+    public static IReadOnlyCollection<IHttpModule> Endpoints { get; } = [new NotificationsHttp()];
 }

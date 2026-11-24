@@ -31,6 +31,8 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
 
     private readonly string _ownerPassword = Secret();
     private readonly string _schedulerPassword = Secret();
+    private readonly string _notificationsPassword = Secret();
+    private readonly string _notificationsWorkerPassword = Secret();
     private readonly List<IContainer> _containers = [];
 
     private INetwork? _network;
@@ -93,6 +95,8 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
 
         _api = Track(new ContainerBuilder(_image)
             .WithNetwork(_network)
+            .WithEnvironment("ConnectionStrings__Notifications",
+                $"Host=postgres;Database=frappe;Username=frappe_notifications;Password={_notificationsPassword}")
             .WithEnvironment("ConnectionStrings__Valkey", "valkey:6379")
             .WithPortBinding(8080, true)
             .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => r.ForPort(8080).ForPath("/health/live"), Bounded))
@@ -101,6 +105,8 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
             .WithNetwork(_network)
             .WithEntrypoint("/app/worker/Frappe.Worker")
             .WithEnvironment("ConnectionStrings__Scheduler", $"Host=postgres;Database=frappe;Username=frappe_scheduler;Password={_schedulerPassword}")
+            .WithEnvironment("ConnectionStrings__Notifications",
+                $"Host=postgres;Database=frappe;Username=frappe_notifications_worker;Password={_notificationsWorkerPassword}")
             .WithEnvironment("ConnectionStrings__Valkey", "valkey:6379")
             .WithEnvironment("ConnectionStrings__Nats", "nats://nats:4222")
             .Build());
@@ -125,6 +131,8 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
             .WithEntrypoint("/app/migrator/Frappe.Migrator")
             .WithEnvironment("ConnectionStrings__Owner", $"Host=postgres;Database=frappe;Username=frappe_owner;Password={_ownerPassword}")
             .WithEnvironment("Roles__Scheduler__Password", _schedulerPassword)
+            .WithEnvironment("Roles__Notifications__Password", _notificationsPassword)
+            .WithEnvironment("Roles__NotificationsWorker__Password", _notificationsWorkerPassword)
             .Build());
         try
         {

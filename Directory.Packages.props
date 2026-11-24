@@ -17,6 +17,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="$(DotNetVersion)" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="$(EfCoreVersion)" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="$(EfCoreVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(EfCoreVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="$(DotNetVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="$(DotNetVersion)" />
     <!-- Transitive through EF Core rc.3 (a ">=" range); pinned here so only EF Core itself stays on the release candidate. -->

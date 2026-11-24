@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Notifications in process (TEST-02): no Docker, database, broker or cache. Whatever needs one belongs in
+       Frappe.Notifications.IntegrationTests. -->
+  <ItemGroup>
+    <ProjectReference Include="../../../../src/Modules/Notifications/Frappe.Notifications.Domain/Frappe.Notifications.Domain.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Notifications/Frappe.Notifications.Infrastructure/Frappe.Notifications.Infrastructure.csproj" />
+    <ProjectReference Include="../../../Shared/Frappe.Testing/Frappe.Testing.csproj" />
+  </ItemGroup>
+</Project>

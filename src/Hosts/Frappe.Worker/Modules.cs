@@ -1,4 +1,5 @@
 using Frappe.Modules;
+using Frappe.Notifications.Infrastructure;
 
 namespace Frappe.Worker;
 
@@ -6,5 +7,5 @@ namespace Frappe.Worker;
 public static class Modules
 {
     /// <summary>Every module the Worker hosts, in registration order.</summary>
-    public static IReadOnlyCollection<IModule> All { get; } = [];
+    public static IReadOnlyCollection<IModule> All { get; } = [new NotificationsModule()];
 }

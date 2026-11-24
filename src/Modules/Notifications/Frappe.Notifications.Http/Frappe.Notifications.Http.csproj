@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.Notifications.Application/Frappe.Notifications.Application.csproj" />
+    <ProjectReference Include="../Frappe.Notifications.Contracts/Frappe.Notifications.Contracts.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Http/Frappe.Http.csproj" />
+  </ItemGroup>
+</Project>

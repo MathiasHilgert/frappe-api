@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Notifications.UnitTests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.Notifications.Domain/Frappe.Notifications.Domain.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.UseCases/Frappe.UseCases.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Results/Frappe.Results.csproj" />
+  </ItemGroup>
+</Project>

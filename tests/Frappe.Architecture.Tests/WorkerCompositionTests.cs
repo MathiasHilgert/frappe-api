@@ -24,6 +24,7 @@ public sealed class WorkerCompositionTests
         ["ConnectionStrings:Scheduler"] = "Host=unreachable.invalid;Database=frappe;Username=frappe_scheduler",
         ["ConnectionStrings:Valkey"] = "unreachable.invalid:6379",
         ["ConnectionStrings:Nats"] = "nats://unreachable.invalid:4222",
+        ["ConnectionStrings:Notifications"] = "Host=unreachable.invalid;Database=frappe;Username=frappe_notifications_worker",
     };
 
     private static IHost Build(Dictionary<string, string?> settings, IReadOnlyCollection<IModule>? modules = null,
@@ -47,7 +48,7 @@ public sealed class WorkerCompositionTests
     public async Task The_Worker_starts_with_zero_modules_and_runs_the_scheduler_and_the_tcp_probes()
     {
         // Arrange
-        using var host = Build(Deployed);
+        using var host = Build(Deployed, []);
 
         // Act
         await ValidateAsync(host);
@@ -57,7 +58,6 @@ public sealed class WorkerCompositionTests
         // Assert
         using (Assert.Multiple())
         {
-            await Assert.That(Frappe.Worker.Modules.All).IsEmpty();
             await Assert.That(hosted).Contains("QuartzHostedService");
             await Assert.That(publishers).Contains("TcpProbePublisher");
         }
@@ -67,7 +67,7 @@ public sealed class WorkerCompositionTests
     public async Task Readiness_counts_the_scheduler_and_NATS_as_critical_and_Valkey_as_optional()
     {
         // Arrange
-        using var host = Build(Deployed);
+        using var host = Build(Deployed, []);
 
         // Act
         var registrations = host.Services.GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value.Registrations
@@ -88,7 +88,7 @@ public sealed class WorkerCompositionTests
     public async Task The_scheduler_job_store_is_a_database_participant_the_Migrator_provisions()
     {
         // Arrange
-        using var host = Build(Deployed);
+        using var host = Build(Deployed, []);
 
         // Act
         var participant = host.Services.GetServices<IDatabaseParticipant>().Single();
@@ -107,7 +107,7 @@ public sealed class WorkerCompositionTests
         // Arrange
         var settings = new Dictionary<string, string?>(Deployed);
         settings.Remove("ConnectionStrings:Scheduler");
-        using var host = Build(settings);
+        using var host = Build(settings, []);
 
         // Act
         var thrown = await Assert.ThrowsAsync<AggregateException>(() => ValidateAsync(host));
@@ -115,6 +115,45 @@ public sealed class WorkerCompositionTests
         // Assert
         await Assert.That(thrown?.InnerExceptions.OfType<OptionsValidationException>().Select(failure => failure.Message))
             .Contains(message => message.Contains("ConnectionStrings:Scheduler", StringComparison.Ordinal));
+    }
+
+    [Test]
+    public async Task The_Worker_with_its_real_module_lists_validates_and_runs_the_relay_and_the_notifications_database()
+    {
+        // Arrange
+        using var host = Build(Deployed);
+
+        // Act
+        await ValidateAsync(host);
+        var hosted = host.Services.GetServices<IHostedService>().Select(service => service.GetType().Name).ToArray();
+        var ready = host.Services.GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value.Registrations
+            .Where(registration => registration.Tags.Contains(HealthProbes.Ready))
+            .Select(registration => registration.Name)
+            .ToArray();
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(Frappe.Worker.Modules.All.Select(module => module.GetType().Name))
+                .IsEquivalentTo(["NotificationsModule"]);
+            await Assert.That(hosted).Contains("OutboxRelayService`1");
+            await Assert.That(ready).Contains("notifications-database");
+        }
+    }
+
+    [Test]
+    public async Task The_Worker_with_its_real_module_lists_and_no_notifications_connection_fails_the_start_naming_its_key()
+    {
+        // Arrange
+        var settings = new Dictionary<string, string?>(Deployed);
+        settings.Remove("ConnectionStrings:Notifications");
+        using var host = Build(settings);
+
+        // Act
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ValidateAsync(host));
+
+        // Assert
+        await Assert.That(thrown?.Message).Contains("ConnectionStrings:Notifications");
     }
 
     [Test]

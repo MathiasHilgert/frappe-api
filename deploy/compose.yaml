@@ -68,6 +68,8 @@ services:
       DOTNET_gcServer: "0"
       ConnectionStrings__Owner: Host=postgres;Database=frappe;Username=${POSTGRES_OWNER_USER:?set it in .env};Password=${POSTGRES_OWNER_PASSWORD:?set it in .env}
       Roles__Scheduler__Password: ${FRAPPE_SCHEDULER_PASSWORD:?set it in .env}
+      Roles__Notifications__Password: ${FRAPPE_NOTIFICATIONS_PASSWORD:?set it in .env}
+      Roles__NotificationsWorker__Password: ${FRAPPE_NOTIFICATIONS_WORKER_PASSWORD:?set it in .env}
 
   api:
     <<: *frappe-image
@@ -87,6 +89,7 @@ services:
       <<: *otel
       OTEL_SERVICE_NAME: frappe-api
       ConnectionStrings__Valkey: valkey:6379
+      ConnectionStrings__Notifications: Host=postgres;Database=frappe;Username=frappe_notifications;Password=${FRAPPE_NOTIFICATIONS_PASSWORD:?set it in .env}
       # The console's origins, comma separated: credentialed CORS and unsafe requests with the session cookie.
       Http__Console__Origins: ${FRAPPE_CONSOLE_ORIGINS:-http://localhost:5173}
       # Requests one client address may make per window (Http:RateLimit). CI raises it so the whole Bruno collection runs from one address.
@@ -104,6 +107,7 @@ services:
       <<: *otel
       OTEL_SERVICE_NAME: frappe-worker
       ConnectionStrings__Scheduler: Host=postgres;Database=frappe;Username=frappe_scheduler;Password=${FRAPPE_SCHEDULER_PASSWORD:?set it in .env}
+      ConnectionStrings__Notifications: Host=postgres;Database=frappe;Username=frappe_notifications_worker;Password=${FRAPPE_NOTIFICATIONS_WORKER_PASSWORD:?set it in .env}
       ConnectionStrings__Valkey: valkey:6379
       ConnectionStrings__Nats: nats://nats:4222
     healthcheck:

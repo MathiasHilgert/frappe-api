@@ -16,7 +16,8 @@ internal static class ApiHost
 
     public static async Task<WebApplication> StartAsync(
         IReadOnlyCollection<IModule>? modules = null,
-        IReadOnlyCollection<IHttpModule>? endpoints = null)
+        IReadOnlyCollection<IHttpModule>? endpoints = null,
+        IReadOnlyDictionary<string, string?>? settings = null)
     {
         modules ??= [];
         endpoints ??= [];
@@ -24,6 +25,7 @@ internal static class ApiHost
         builder.Configuration.Sources.Clear();
         builder.Configuration.AddJsonFile(Path.Combine(RepositoryRoot.FullPath, "src/Hosts/Frappe.Api/appsettings.json"), optional: false);
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["ConnectionStrings:Valkey"] = UnreachableValkey });
+        builder.Configuration.AddInMemoryCollection(settings ?? new Dictionary<string, string?>());
         builder.Logging.ClearProviders();
         builder.WebHost.UseTestServer();
         builder.AddFrappeApi(modules, endpoints);

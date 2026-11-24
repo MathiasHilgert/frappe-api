@@ -21,6 +21,8 @@ public sealed class MigratorTests(PostgresServer server)
 {
     private const string SchedulerRole = "frappe_scheduler";
     private const string SchedulerPassword = "scheduler-test-password";
+    private const string NotificationsRole = "frappe_notifications";
+    private const string NotificationsWorkerRole = "frappe_notifications_worker";
 
     private const string QuartzSchemas = "SELECT count(*) FROM information_schema.schemata WHERE schema_name = 'quartz'";
 
@@ -44,13 +46,44 @@ public sealed class MigratorTests(PostgresServer server)
             // Assert
             using (Assert.Multiple())
             {
-                await Assert.That(Modules.All).IsEmpty();
                 await Assert.That(exitCode).IsEqualTo(0);
                 await Assert.That(schema).IsEqualTo(1L);
                 await Assert.That(tables).IsNotEqualTo(0L);
                 await Assert.That(login).IsTrue();
                 await Assert.That(jobs).IsEqualTo(0L);
                 await Assert.That(ddl!.SqlState).IsEqualTo(PostgresErrorCodes.InsufficientPrivilege);
+            }
+        });
+    }
+
+    [Test]
+    public async Task With_its_real_module_list_it_sets_up_Notifications_with_the_Api_and_the_Worker_roles()
+    {
+        await ScratchDatabase.RunAsync(server, [SchedulerRole, NotificationsRole, NotificationsWorkerRole], async owner =>
+        {
+            // Arrange
+            var settings = MigratorHost.Settings(owner, SchedulerPassword);
+            settings["Roles:Notifications:Password"] = "notifications-test-password";
+            settings["Roles:NotificationsWorker:Password"] = "notifications-worker-test-password";
+            using var host = MigratorHost.Build(settings, Modules.All);
+
+            // Act
+            var exitCode = await host.RunMigrationAsync();
+            var api = ScratchDatabase.LoginOf(owner, NotificationsRole, "notifications-test-password");
+            var worker = ScratchDatabase.LoginOf(owner, NotificationsWorkerRole, "notifications-worker-test-password");
+            var apiRows = await ScratchDatabase.ScalarAsync(api, "SELECT count(*) FROM notifications.deliveries");
+            var workerRows = await ScratchDatabase.ScalarAsync(worker, "SELECT count(*) FROM notifications.suppressions");
+            var workerDenied = await Assert.ThrowsAsync<PostgresException>(
+                () => ScratchDatabase.ScalarAsync(worker, "SELECT event_id FROM notifications.provider_events"));
+
+            // Assert
+            using (Assert.Multiple())
+            {
+                await Assert.That(Modules.All.Select(module => module.Name)).IsEquivalentTo(["notifications"]);
+                await Assert.That(exitCode).IsEqualTo(0);
+                await Assert.That(apiRows).IsEqualTo(0L);
+                await Assert.That(workerRows).IsEqualTo(0L);
+                await Assert.That(workerDenied!.SqlState).IsEqualTo(PostgresErrorCodes.InsufficientPrivilege);
             }
         });
     }
