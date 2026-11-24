@@ -67,6 +67,7 @@
 ## HTTP-04 · Every operation is named, summarized, described and declares its problems
 
 - **Rule:** Chain `WithName` (PascalCase operationId), `WithSummary`, `WithDescription` and `ProducesProblem` for every non-default status.
+  The OpenAPI contract is generated from the hosts' real module lists, so a module route missing from it fails OpenApiContractTests.
 - **Why:** the OpenAPI document is the client's only manual; clients generate code from operationIds.
 - **Enforced by:** Spectral (planned) + OpenApiContractTests.
 - **Good:** `.WithName("LogIn").WithSummary("Log in").WithDescription(...).ProducesProblem(401)`. **Bad:** a `MapGet` with no metadata.
@@ -270,6 +271,8 @@
 
 - **Rule:** A creation command a client may retry enables the platform `Idempotency-Key` piece per endpoint: the first answer is stored 24 h and
   replayed for the same key; the header is documented in OpenAPI.
+  A name-based request identity (derived from stable input rather than random) uses a shared UUIDv5 helper in the platform (planned); SHA-1 is
+  acceptable there because it names, not protects.
 - **Why:** a retried POST after a timeout must not create twice.
 - **Enforced by:** review.
 - **Good:** `POST /v1/...` with `Idempotency-Key: 7f3c...` answered twice with the same 201 and Location. **Bad:** a client-side dedupe guess or a

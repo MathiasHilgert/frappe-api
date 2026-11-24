@@ -51,15 +51,17 @@
 - **Rule:** Every aggregate's configuration maps Postgres `xmin` as its row version. When an aggregate has independent writers (a reset and a rehash,
   a rename and a rehash), keep `xmin` and let the module's commit rules (UOW-05) read the stored row back and repair a conflict on fields the command
   never depended on; never add per-column tokens for that. A lost conflict surfaces as an `ICommitRejection` (CQRS-05). No `SELECT … FOR UPDATE`
-  fences.
+  fences. Insert-only tables (rows are never `UPDATE`d; a retention purge `DELETE` is allowed) are exempt from the `xmin` concurrency token.
+  An explicit Postgres lock is allowed only with the safeguards of the exception below: scoped to one key, transaction-scoped where possible (a
+  session lock names who releases it), marked `// Exception to UOW-04: <reason>` and tested with parallel commits.
 - **Why:** One optimistic token per aggregate, the convention Npgsql documents, catches every lost update with no schema column and no hand-kept list
   of fields.
-- **Enforced by:** ArchTest (planned) over the EF model: every `AggregateRoot` entity has a row-version property.
+- **Enforced by:** ArchTest (planned) over the EF model: every `AggregateRoot` that is ever updated has a row-version property; insert-only
+  aggregates are skipped by a named marker.
 - **Good:** `builder.Property<uint>("xmin").HasColumnName("xmin").IsRowVersion();` (`ShipmentCalendarConfiguration`). **Bad:** `owner.Property(o =>
   o.PasswordChangedAt).IsConcurrencyToken();` with no `xmin` and no justification; `FOR UPDATE` fences in `BillingDbContext`.
-- **Exception: a counted limit under concurrency (Shipping cap, D10 "Candado + excepción anotada"):** `xmin` protects a row that exists; a limit
-  over a count of rows ("at most N shipments per customer") has no row to version, and two commits that each read `N-1` would both pass. The one
-  allowed
+- **Exception: a counted limit under concurrency (Shipping cap, D10 "Candado + excepción anotada"):** `xmin` protects a row that exists; a limit over
+  a count of rows ("at most N shipments per customer") has no row to version, and two commits that each read `N-1` would both pass. The one allowed
   lock is a **transaction-scoped advisory lock** (`pg_advisory_xact_lock(<module namespace int>, hashtext(<owner key>))`) taken inside the commit's
   transaction by an in-unit `IDomainEventHandler` (UOW-02), then the count in a second statement, rejecting with an `ICommitRejection`. It is not
   `SELECT … FOR UPDATE` on rows, it releases itself when the transaction ends, and it serializes only the creations of one owner. Each use is marked
