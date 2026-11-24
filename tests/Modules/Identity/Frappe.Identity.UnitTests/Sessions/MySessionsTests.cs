@@ -38,10 +38,10 @@ public sealed class MySessionsTests
         var oldest = Add(store, caller, Duration.Zero, Chrome);
         var current = Add(store, caller, Duration.FromMinutes(10), "curl/8");
         Add(store, other, Duration.FromMinutes(5), Chrome);
-        var handler = new ListMySessionsHandler(store, Now);
+        var handler = new ListMySessionsHandler(store, Now, FakeCaller.Of(caller.Id, current.Id));
 
         // Act
-        var result = await handler.HandleAsync(new ListMySessions(caller.Id, current.Id, 50, null), default);
+        var result = await handler.HandleAsync(new ListMySessions(50, null), default);
 
         // Assert
         using (Assert.Multiple())
@@ -68,10 +68,10 @@ public sealed class MySessionsTests
         var live = Add(store, caller, Duration.FromMinutes(1));
         Add(store, caller, Duration.FromMinutes(2)).Revoke(RevocationReason.Logout, Opened + Duration.FromMinutes(3));
         Add(store, caller, -Duration.FromHours(20));
-        var handler = new ListMySessionsHandler(store, Now);
+        var handler = new ListMySessionsHandler(store, Now, FakeCaller.Of(caller.Id, live.Id));
 
         // Act
-        var result = await handler.HandleAsync(new ListMySessions(caller.Id, live.Id, 50, null), default);
+        var result = await handler.HandleAsync(new ListMySessions(50, null), default);
 
         // Assert
         await Assert.That(result.Value.Items.Select(i => i.Id).ToArray()).IsEquivalentTo([live.Id]);
@@ -84,12 +84,12 @@ public sealed class MySessionsTests
         var store = new FakeSessions();
         var caller = ActivePrincipal();
         var sessions = Enumerable.Range(1, 5).Select(i => Add(store, caller, Duration.FromMinutes(i))).Reverse().ToArray();
-        var handler = new ListMySessionsHandler(store, Now);
+        var handler = new ListMySessionsHandler(store, Now, FakeCaller.Of(caller.Id, sessions[0].Id));
 
         // Act
-        var first = (await handler.HandleAsync(new ListMySessions(caller.Id, sessions[0].Id, 2, null), default)).Value;
-        var second = (await handler.HandleAsync(new ListMySessions(caller.Id, sessions[0].Id, 2, first.Next), default)).Value;
-        var third = (await handler.HandleAsync(new ListMySessions(caller.Id, sessions[0].Id, 2, second.Next), default)).Value;
+        var first = (await handler.HandleAsync(new ListMySessions(2, null), default)).Value;
+        var second = (await handler.HandleAsync(new ListMySessions(2, first.Next), default)).Value;
+        var third = (await handler.HandleAsync(new ListMySessions(2, second.Next), default)).Value;
 
         // Assert
         using (Assert.Multiple())
@@ -168,10 +168,10 @@ public sealed class MySessionsTests
         var first = Add(store, caller, Duration.FromMinutes(2));
         var second = Add(store, caller, Duration.FromMinutes(3));
         var foreign = Add(store, ActivePrincipal(), Duration.FromMinutes(4));
-        var handler = new RevokeMyOtherSessionsHandler(store, Now);
+        var handler = new RevokeMyOtherSessionsHandler(store, Now, FakeCaller.Of(caller.Id, current.Id));
 
         // Act
-        var result = await handler.HandleAsync(new RevokeMyOtherSessions(caller.Id, current.Id), default);
+        var result = await handler.HandleAsync(new RevokeMyOtherSessions(), default);
 
         // Assert
         using (Assert.Multiple())
@@ -191,10 +191,10 @@ public sealed class MySessionsTests
         var store = new FakeSessions();
         var caller = ActivePrincipal();
         var current = Add(store, caller, Duration.FromMinutes(1));
-        var handler = new RevokeMyOtherSessionsHandler(store, Now);
+        var handler = new RevokeMyOtherSessionsHandler(store, Now, FakeCaller.Of(caller.Id, current.Id));
 
         // Act
-        var result = await handler.HandleAsync(new RevokeMyOtherSessions(caller.Id, current.Id), default);
+        var result = await handler.HandleAsync(new RevokeMyOtherSessions(), default);
 
         // Assert
         using (Assert.Multiple())

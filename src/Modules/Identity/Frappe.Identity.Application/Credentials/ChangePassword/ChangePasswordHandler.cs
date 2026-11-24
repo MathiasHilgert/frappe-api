@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Credentials;
@@ -20,12 +21,13 @@ internal sealed class ChangePasswordHandler(
     PasswordPolicy policy,
     IPasswordHasher hasher,
     CredentialChange change,
-    TimeProvider time) : ICommandHandler<ChangePassword, Unit>
+    TimeProvider time,
+    ICaller caller) : ICommandHandler<ChangePassword, Unit>
 {
     public async Task<Result<Unit>> HandleAsync(ChangePassword command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
-        var principal = await principals.FindAsync(command.PrincipalId, cancellationToken);
+        var principal = await principals.FindAsync(caller.RequiredPrincipalId, cancellationToken);
         if (principal is null)
         {
             return new UnauthenticatedError(IdentityErrorCodes.SessionInvalid);
@@ -52,7 +54,7 @@ internal sealed class ChangePasswordHandler(
 
         var now = Instant.FromDateTimeOffset(time.GetUtcNow());
         credential.Change(hasher.Hash(accepted.Value), now);
-        await change.ApplyAsync(principal, RevocationReason.PasswordChanged, command.SessionId, cancellationToken);
+        await change.ApplyAsync(principal, RevocationReason.PasswordChanged, caller.RequiredSessionId, cancellationToken);
         return Unit.Value;
     }
 }

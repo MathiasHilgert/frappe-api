@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Owners;
 using Frappe.Localization;
@@ -11,12 +12,12 @@ namespace Frappe.Identity.Application.Owners.UpdateMe;
 /// A precondition that no longer holds is reported only when the patch itself is valid (HTTP-20); the row's own version also guards the commit,
 /// so a change that slips in between is refused as a conflict.
 /// </summary>
-internal sealed class UpdateMeHandler(IOwners owners) : ICommandHandler<UpdateMe, Unit>
+internal sealed class UpdateMeHandler(IOwners owners, ICaller caller) : ICommandHandler<UpdateMe, Unit>
 {
     public async Task<Result<Unit>> HandleAsync(UpdateMe command, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(command);
-        var owner = await owners.FindAsync(command.PrincipalId, cancellationToken);
+        var owner = await owners.FindAsync(caller.RequiredPrincipalId, cancellationToken);
         if (owner is null)
         {
             return new UnauthenticatedError(IdentityErrorCodes.SessionInvalid);

@@ -16,9 +16,9 @@ public sealed class OwnerProfileTests(PostgresServer server)
 {
     private static Patched<string> Text(string? value) => new(value);
 
-    private static UpdateMe Patch(
+    private static (Guid Id, UpdateMe Command) Patch(
         Guid id, Patched<string>? given = null, Patched<string>? family = null, Patched<string>? locale = null, string[]? ifMatch = null) =>
-        new(id, given, family, locale, ifMatch);
+        (id, new UpdateMe(given, family, locale, ifMatch));
 
     [Test]
     public async Task The_profile_has_the_owners_name_address_language_and_the_version_of_their_row()
@@ -250,7 +250,7 @@ public sealed class OwnerProfileTests(PostgresServer server)
 
             // Act
             var result = await host.UpdateMeAsync(Patch(id, given: Text("Ana"), ifMatch: [stale]));
-            var unreadable = await host.UpdateMeAsync(new UpdateMe(id, Text("Ana"), null, null, []));
+            var unreadable = await host.UpdateMeAsync((id, new UpdateMe(Text("Ana"), null, null, [])));
 
             // Assert
             using (Assert.Multiple())

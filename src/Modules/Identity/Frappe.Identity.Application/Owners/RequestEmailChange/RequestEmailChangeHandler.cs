@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.Identity.Application.Codes;
 using Frappe.Identity.Application.Identifiers;
 using Frappe.Identity.Application.Principals;
@@ -19,7 +20,7 @@ namespace Frappe.Identity.Application.Owners.RequestEmailChange;
 /// (<see cref="EmailChangeLimits.Floor"/>).
 /// </summary>
 internal sealed class RequestEmailChangeHandler(
-    IPrincipals principals, IOwners owners, IEmailIdentifiers identifiers, CodeIssuer codes, TimeProvider time)
+    IPrincipals principals, IOwners owners, IEmailIdentifiers identifiers, CodeIssuer codes, TimeProvider time, ICaller caller)
     : ICommandHandler<RequestEmailChange, EmailChangeRequested>
 {
     public async Task<Result<EmailChangeRequested>> HandleAsync(RequestEmailChange command, CancellationToken cancellationToken)
@@ -31,7 +32,7 @@ internal sealed class RequestEmailChangeHandler(
             return Result.Failure<EmailChangeRequested>(email.Errors);
         }
 
-        if (await LoadAsync(command.PrincipalId, cancellationToken) is not var (principal, owner, current))
+        if (await LoadAsync(caller.RequiredPrincipalId, cancellationToken) is not var (principal, owner, current))
         {
             return new UnauthenticatedError(IdentityErrorCodes.SessionInvalid);
         }

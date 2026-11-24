@@ -93,6 +93,7 @@ internal sealed class OwnersHost : IAsyncDisposable
         services.AddSingleton<IBreachedPasswords>(breached);
         services.AddSingleton<IAttemptLimiter>(limiter);
         services.AddSingleton<IUseCaseGate, AllowAllUseCaseGate>();
+        FakeCaller.AddTo(services);
         services.AddHandlers(typeof(IEmailIdentifiers).Assembly);
         if (saving is not null)
         {
@@ -154,13 +155,15 @@ internal sealed class OwnersHost : IAsyncDisposable
     public async Task<Result<OwnerProfile>> MeAsync(Guid principalId)
     {
         await using var scope = _provider.CreateAsyncScope();
-        return await scope.ServiceProvider.GetRequiredService<IQueryHandler<GetMe, OwnerProfile>>().HandleAsync(new GetMe(principalId), default);
+        FakeCaller.ActAs(scope.ServiceProvider, principalId);
+        return await scope.ServiceProvider.GetRequiredService<IQueryHandler<GetMe, OwnerProfile>>().HandleAsync(new GetMe(), default);
     }
 
-    public async Task<Result<Unit>> UpdateMeAsync(UpdateMe command)
+    public async Task<Result<Unit>> UpdateMeAsync((Guid Id, UpdateMe Command) patch)
     {
         await using var scope = _provider.CreateAsyncScope();
-        return await scope.ServiceProvider.GetRequiredService<ICommandHandler<UpdateMe, Unit>>().HandleAsync(command, default);
+        FakeCaller.ActAs(scope.ServiceProvider, patch.Id);
+        return await scope.ServiceProvider.GetRequiredService<ICommandHandler<UpdateMe, Unit>>().HandleAsync(patch.Command, default);
     }
 
     /// <summary>Changes a password. A wrong current one waits for its floor on the fake clock.</summary>
@@ -168,8 +171,9 @@ internal sealed class OwnersHost : IAsyncDisposable
         await SettleAsync(async () =>
         {
             await using var scope = _provider.CreateAsyncScope();
+            FakeCaller.ActAs(scope.ServiceProvider, principalId, sessionId);
             return await scope.ServiceProvider.GetRequiredService<ICommandHandler<ChangePassword, Unit>>()
-                .HandleAsync(new ChangePassword(principalId, sessionId, current, replacement), default);
+                .HandleAsync(new ChangePassword(current, replacement), default);
         });
 
     /// <summary>Steps a session up. A wrong password waits for its floor on the fake clock.</summary>
@@ -177,16 +181,18 @@ internal sealed class OwnersHost : IAsyncDisposable
         await SettleAsync(async () =>
         {
             await using var scope = _provider.CreateAsyncScope();
+            FakeCaller.ActAs(scope.ServiceProvider, principalId, sessionId);
             return await scope.ServiceProvider.GetRequiredService<ICommandHandler<StepUp, SteppedUp>>()
-                .HandleAsync(new StepUp(principalId, sessionId, password), default);
+                .HandleAsync(new StepUp(password), default);
         });
 
     /// <summary>The session as its holder sees it now.</summary>
     public async Task<Result<CurrentSessionView>> CurrentAsync(Guid sessionId)
     {
         await using var scope = _provider.CreateAsyncScope();
+        FakeCaller.ActAs(scope.ServiceProvider, null, sessionId);
         return await scope.ServiceProvider.GetRequiredService<IQueryHandler<GetCurrentSession, CurrentSessionView>>()
-            .HandleAsync(new GetCurrentSession(sessionId), default);
+            .HandleAsync(new GetCurrentSession(), default);
     }
 
     public async Task<Result<PasswordResetRequested>> RequestResetAsync(string? email)
@@ -207,16 +213,18 @@ internal sealed class OwnersHost : IAsyncDisposable
     public async Task<Result<EmailChangeRequested>> RequestEmailChangeAsync(Guid principalId, string? newEmail)
     {
         await using var scope = _provider.CreateAsyncScope();
+        FakeCaller.ActAs(scope.ServiceProvider, principalId);
         return await scope.ServiceProvider.GetRequiredService<ICommandHandler<RequestEmailChange, EmailChangeRequested>>()
-            .HandleAsync(new RequestEmailChange(principalId, newEmail), default);
+            .HandleAsync(new RequestEmailChange(newEmail), default);
     }
 
     public async Task<Result<Unit>> ConfirmEmailChangeAsync(
         Guid principalId, Guid sessionId, string? changeId, string? code, string client = "203.0.113.7")
     {
         await using var scope = _provider.CreateAsyncScope();
+        FakeCaller.ActAs(scope.ServiceProvider, principalId, sessionId);
         return await scope.ServiceProvider.GetRequiredService<ICommandHandler<ConfirmEmailChange, Unit>>()
-            .HandleAsync(new ConfirmEmailChange(principalId, sessionId, changeId, code, System.Net.IPAddress.Parse(client)), default);
+            .HandleAsync(new ConfirmEmailChange(changeId, code, System.Net.IPAddress.Parse(client)), default);
     }
 
     public async Task<Result<Unit>> UndoEmailChangeAsync(string? token)

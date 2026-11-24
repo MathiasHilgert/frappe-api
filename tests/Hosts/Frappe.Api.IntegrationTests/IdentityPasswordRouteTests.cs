@@ -43,7 +43,7 @@ public sealed class IdentityPasswordRouteTests
         // Arrange
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
-        var (principal, session, token) = host.Seed();
+        var (_, _, token) = host.Seed();
         using var client = host.App.GetTestClient();
 
         // Act
@@ -57,8 +57,6 @@ public sealed class IdentityPasswordRouteTests
             await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.NoContent);
             await Assert.That(response.Headers.Location).IsNull();
             await Assert.That(response.Headers.CacheControl?.NoStore).IsTrue();
-            await Assert.That(command.PrincipalId).IsEqualTo(principal.Id);
-            await Assert.That(command.SessionId).IsEqualTo(session.Id);
             await Assert.That(command.CurrentPassword).IsEqualTo("old one");
             await Assert.That(command.NewPassword).IsEqualTo("new one");
             await Assert.That(command.ToString()).DoesNotContain("old one").And.DoesNotContain("new one");

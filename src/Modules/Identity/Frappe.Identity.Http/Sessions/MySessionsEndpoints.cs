@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.Http;
 using Frappe.Identity.Application.Sessions.ListMySessions;
 using Frappe.Identity.Application.Sessions.RevokeMyOtherSessions;
@@ -64,17 +65,14 @@ internal static class MySessionsEndpoints
     private const string Scope = "identity.me.sessions";
 
     private static async Task<Results<Ok<MySessionListResponse>, ErrorsProblemHttpResult>> ListAsync(
-        HttpContext httpContext,
+        ICaller caller,
         IQueryHandler<ListMySessions, MySessionsPage> handler,
         [DocumentedParameter(Format = ParameterFormat.WholeNumber, Minimum = PageLimits.Min, Maximum = PageLimits.Max)] string? limit,
         [DocumentedParameter] string? cursor,
         CancellationToken cancellationToken)
     {
-        var principal = SessionPolicy.RequiredPrincipalIdOf(httpContext.User);
-        var session = SessionClaims.RequiredSessionIdOf(httpContext.User);
-
         // A cursor is bound to the caller's own list, so it cannot carry a position into another principal's.
-        var scope = $"{Scope}:{principal}";
+        var scope = $"{Scope}:{caller.RequiredPrincipalId}";
         var request = PageRequest.Bind<SessionCursorPosition>(limit, cursor, scope, SessionCursorPosition.IsValid);
         if (!request.IsSuccess)
         {
@@ -82,7 +80,7 @@ internal static class MySessionsEndpoints
         }
 
         var after = request.Value.After is { } position ? SessionCursorPosition.ToApplication(position) : null;
-        var page = await handler.HandleAsync(new ListMySessions(principal, session, request.Value.Limit, after), cancellationToken);
+        var page = await handler.HandleAsync(new ListMySessions(request.Value.Limit, after), cancellationToken);
         return page.ToTypedHttpResult(view =>
         {
             var next = view.Next is { } end ? SessionCursorPosition.Of(end) : null;
@@ -106,11 +104,9 @@ internal static class MySessionsEndpoints
     }
 
     private static async Task<Results<NoContent, ErrorsProblemHttpResult>> RevokeOthersAsync(
-        HttpContext httpContext, ICommandHandler<RevokeMyOtherSessions, Unit> handler, CancellationToken cancellationToken)
+        ICommandHandler<RevokeMyOtherSessions, Unit> handler, CancellationToken cancellationToken)
     {
-        var principal = SessionPolicy.RequiredPrincipalIdOf(httpContext.User);
-        var session = SessionClaims.RequiredSessionIdOf(httpContext.User);
-        return (await handler.HandleAsync(new RevokeMyOtherSessions(principal, session), cancellationToken))
+        return (await handler.HandleAsync(new RevokeMyOtherSessions(), cancellationToken))
             .ToTypedHttpResult(_ => TypedResults.NoContent());
     }
 }

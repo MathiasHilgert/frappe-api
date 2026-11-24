@@ -38,11 +38,9 @@ internal static class StepUpEndpoints
     }
 
     private static async Task<Results<Created<StepUpResponse>, ErrorsProblemHttpResult>> StepUpAsync(
-        [FromBody] StepUpRequest? body, HttpContext httpContext, ICommandHandler<StepUp, SteppedUp> handler, CancellationToken cancellationToken)
+        [FromBody] StepUpRequest? body, ICommandHandler<StepUp, SteppedUp> handler, CancellationToken cancellationToken)
     {
-        var principal = SessionPolicy.RequiredPrincipalIdOf(httpContext.User);
-        var session = SessionClaims.RequiredSessionIdOf(httpContext.User);
-        var stepped = await handler.HandleAsync(new StepUp(principal, session, body?.Password), cancellationToken);
+        var stepped = await handler.HandleAsync(new StepUp(body?.Password), cancellationToken);
         return stepped.ToTypedHttpResult(done => TypedResults.Created((string?)null, new StepUpResponse(done.ValidUntil.ToDateTimeOffset())));
     }
 }
