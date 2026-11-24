@@ -73,7 +73,7 @@ if printf '%s\n' "${changed[@]}" | grep -q '/Migrations/' && [ -x .github/script
   # migration-sql.sh reads the base as origin/<ref> (CI passes the branch name): point a scratch remote ref at the gate's base, so a
   # slice gated against its parent commit or against origin/main sees only its own migrations as new.
   git update-ref refs/remotes/origin/forge-gate-base "$(git rev-parse "$base")"
-  cmd[squawk]="out=\$(mktemp -d) && .github/scripts/migration-sql.sh forge-gate-base \"\$out\" && npx -y squawk-cli@2.72.0 --config eng/squawk.toml \"\$out\"/*.sql"
+  cmd[squawk]="out=\$(mktemp -d) && .github/scripts/migration-sql.sh forge-gate-base \"\$out\" && { ls \"\$out\"/*.sql >/dev/null 2>&1 || exit 0; } && npx -y squawk-cli@2.72.0 --config eng/squawk.toml \"\$out\"/*.sql"
 fi
 # Pending EF model changes, only for modules the change touched.
 while read -r factory; do
