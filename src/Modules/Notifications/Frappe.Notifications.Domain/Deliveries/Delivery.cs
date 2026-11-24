@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using Frappe.Aggregates;
 using Frappe.Localization;
+using Frappe.Results;
 using NodaTime;
 
-// EF Core materializes the aggregate through its private constructor and setters; behavior arrives with the pipeline.
+// EF Core materializes the aggregate through its private constructor and setters.
 #pragma warning disable S1144, S3453
 namespace Frappe.Notifications.Domain.Deliveries;
 
@@ -17,6 +19,21 @@ public sealed class Delivery : AggregateRoot
         Kind = null!;
         Channel = null!;
         RecipientKey = null!;
+    }
+
+    private Delivery(Guid id, DeliveryTarget target, DeliveryStatus status, Instant now)
+    {
+        Id = id;
+        SourceMessageId = target.SourceMessageId;
+        Kind = target.Kind;
+        Category = target.Category;
+        Channel = target.Channel.Value;
+        RecipientKey = target.RecipientKey.Value;
+        AddressHash = target.AddressHash?.Value;
+        HashKeyId = target.AddressHash?.KeyId;
+        Status = status;
+        CreatedAt = now;
+        StatusChangedAt = now;
     }
 
     /// <summary>UUIDv7 made by the application (DATA-02).</summary>
@@ -63,4 +80,82 @@ public sealed class Delivery : AggregateRoot
     public Instant? DeliveredAt { get; private set; }
 
     public Instant StatusChangedAt { get; private set; }
+
+    /// <summary>A delivery the provider took: it waits for the provider's feedback.</summary>
+    public static Delivery Sent(
+        Guid id, DeliveryTarget target, DeliveryProvider provider, string providerMessageId, LanguageTag? localeServed, Instant now)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerMessageId);
+        return new Delivery(id, target, DeliveryStatus.Sent, now)
+        {
+            Provider = provider,
+            ProviderMessageId = providerMessageId,
+            LocaleServed = localeServed,
+            SentAt = now,
+        };
+    }
+
+    /// <summary>A delivery that will never be sent, for a coded reason.</summary>
+    public static Delivery Failed(Guid id, DeliveryTarget target, DeliveryFailureReason reason, Instant now)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return new Delivery(id, target, DeliveryStatus.Failed, now) { FailureReason = reason };
+    }
+
+    /// <summary>A delivery whose recipient reference no directory resolved (S3): final, never retried.</summary>
+    public static Delivery Unresolved(Guid id, DeliveryTarget target, Instant now)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return new Delivery(id, target, DeliveryStatus.Unresolved, now);
+    }
+
+    /// <summary>
+    /// Moves the delivery as the provider reports. Allowed: sent to delivered, bounced, complained or delayed; delayed to delivered or
+    /// bounced; delivered to complained. Anything else is refused, so a terminal status never regresses; repeating the current status
+    /// and a provider suppression (which says nothing about this message) change nothing.
+    /// </summary>
+    public Result<Unit> Apply(DeliveryFeedback feedback, Instant now)
+    {
+        var target = feedback switch
+        {
+            DeliveryFeedback.Delivered => DeliveryStatus.Delivered,
+            DeliveryFeedback.PermanentFailure => DeliveryStatus.Bounced,
+            DeliveryFeedback.Complaint => DeliveryStatus.Complained,
+            DeliveryFeedback.Delayed => DeliveryStatus.Delayed,
+            DeliveryFeedback.SuppressedByProvider => (DeliveryStatus?)null,
+            _ => throw new UnreachableException($"Unknown feedback {feedback}."),
+        };
+
+        if (target is null || target == Status)
+        {
+            return Unit.Value;
+        }
+
+        if (!CanMoveTo(target.Value))
+        {
+            return Error.RuleViolation(
+                "notifications.delivery.transition_not_allowed",
+                ("from", Status.ToString()),
+                ("feedback", feedback.ToString()));
+        }
+
+        Status = target.Value;
+        StatusChangedAt = now;
+        if (target == DeliveryStatus.Delivered)
+        {
+            DeliveredAt = now;
+        }
+
+        return Unit.Value;
+    }
+
+    private bool CanMoveTo(DeliveryStatus target) => Status switch
+    {
+        DeliveryStatus.Sent => target is DeliveryStatus.Delivered or DeliveryStatus.Bounced or DeliveryStatus.Complained or DeliveryStatus.Delayed,
+        DeliveryStatus.Delayed => target is DeliveryStatus.Delivered or DeliveryStatus.Bounced,
+        DeliveryStatus.Delivered => target is DeliveryStatus.Complained,
+        DeliveryStatus.Bounced or DeliveryStatus.Complained or DeliveryStatus.Failed or DeliveryStatus.Unresolved => false,
+        _ => throw new UnreachableException($"Unknown status {Status}."),
+    };
 }

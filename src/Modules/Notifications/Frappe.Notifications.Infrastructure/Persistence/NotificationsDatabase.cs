@@ -61,7 +61,10 @@ public sealed class NotificationsDatabase : IDatabaseModule
 
     /// <summary>
     /// Leaves the Worker's role with the relay's and the purge's grants (<see cref="RelayRoles"/>, which first revokes everything the
-    /// role held) plus <see cref="WorkerStatements"/>, in one transaction.
+    /// role held) plus <see cref="WorkerStatements"/>. These run in two transactions: <see cref="RelayRoles"/> commits its own, then
+    /// <see cref="WorkerStatements"/> run in a second one. Between the two commits the role holds only the relay grants, never more than
+    /// the final set, so a failure in between fails closed. A single transaction needs a <see cref="RelayRoles"/> overload that takes
+    /// extra statements or a transaction (a follow-up in Platform).
     /// </summary>
     private static async Task GrantWorkerAsync(NpgsqlConnection owner, CancellationToken cancellationToken)
     {

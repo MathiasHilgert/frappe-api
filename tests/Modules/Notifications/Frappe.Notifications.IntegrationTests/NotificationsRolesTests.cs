@@ -117,6 +117,30 @@ public sealed class NotificationsRolesTests(PostgresServer server)
     }
 
     [Test]
+    [Arguments("api")]
+    [Arguments("worker")]
+    public async Task Neither_role_reaches_the_quartz_schema_or_creates_objects_in_public(string which)
+    {
+        await MigratedNotifications.RunAsync(server, async owner =>
+        {
+            // Arrange
+            var role = which == "api" ? NotificationsDatabase.ApiRole : NotificationsDatabase.WorkerRole;
+            await ScratchDatabase.ExecuteAsync(owner, "CREATE SCHEMA IF NOT EXISTS quartz");
+
+            // Act
+            var quartz = (bool)(await ScratchDatabase.ScalarAsync(owner, $"SELECT has_schema_privilege('{role}', 'quartz', 'USAGE')"))!;
+            var publicCreate = (bool)(await ScratchDatabase.ScalarAsync(owner, $"SELECT has_schema_privilege('{role}', 'public', 'CREATE')"))!;
+
+            // Assert
+            using (Assert.Multiple())
+            {
+                await Assert.That(quartz).IsFalse();
+                await Assert.That(publicCreate).IsFalse();
+            }
+        });
+    }
+
+    [Test]
     public async Task The_Worker_purges_old_deliveries_and_provider_events_by_their_dates_and_cannot_read_another_provider_event_column()
     {
         await MigratedNotifications.RunAsync(server, async owner =>
