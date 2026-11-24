@@ -51,9 +51,13 @@ public sealed record OwnerName
             : name;
     }
 
-    /// <summary>A control (Cc) or format (Cf) character: it hides text or reorders what is around it (line breaks, bidi marks, zero-width).</summary>
+    /// <summary>
+    /// A control (Cc), format (Cf), line separator (Zl) or paragraph separator (Zp) character: it hides text, breaks a line or reorders what
+    /// is around it (bidi marks, zero-width).
+    /// </summary>
     private static bool IsInvisible(Rune rune) =>
-        Rune.GetUnicodeCategory(rune) is UnicodeCategory.Control or UnicodeCategory.Format;
+        Rune.GetUnicodeCategory(rune)
+            is UnicodeCategory.Control or UnicodeCategory.Format or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator;
 
     public override string ToString() => "***";
 }
