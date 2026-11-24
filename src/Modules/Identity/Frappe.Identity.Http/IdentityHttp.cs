@@ -72,5 +72,6 @@ public sealed class IdentityHttp : IHttpModule
         identity.MapMeEndpoints();
         identity.MapPasswordChangeEndpoints();
         identity.MapPasswordResetEndpoints();
+        identity.MapEmailChangeEndpoints();
     }
 }

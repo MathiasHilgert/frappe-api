@@ -3,9 +3,11 @@ using System.Text.Json;
 using Frappe.Http;
 using Frappe.Identity.Application.Credentials.ChangePassword;
 using Frappe.Identity.Application.Owners;
+using Frappe.Identity.Application.Owners.ConfirmEmailChange;
 using Frappe.Identity.Application.Owners.GetMe;
 using Frappe.Identity.Application.Owners.LogInOwner;
 using Frappe.Identity.Application.Owners.RegisterOwner;
+using Frappe.Identity.Application.Owners.RequestEmailChange;
 using Frappe.Identity.Application.Owners.RequestPasswordReset;
 using Frappe.Identity.Application.Owners.ResendOwnerVerification;
 using Frappe.Identity.Application.Owners.ResetPassword;
@@ -319,6 +321,8 @@ public sealed class IdentityOwnerRouteTests
             services.AddSingleton<ICommandHandler<RequestPasswordReset, PasswordResetRequested>>(
                 new Unused<RequestPasswordReset, PasswordResetRequested>());
             services.AddSingleton<ICommandHandler<ResetPassword, Unit>>(new Unused<ResetPassword, Unit>());
+            services.AddSingleton<ICommandHandler<RequestEmailChange, EmailChangeRequested>>(new Unused<RequestEmailChange, EmailChangeRequested>());
+            services.AddSingleton<ICommandHandler<ConfirmEmailChange, Unit>>(new Unused<ConfirmEmailChange, Unit>());
             services.AddSingleton<ICommandHandler<LogInOwner, LogInOutcome>>(new Unused<LogInOwner, LogInOutcome>());
             services.AddSingleton<IQueryHandler<GetMe, OwnerProfile>>(new UnusedQuery<GetMe, OwnerProfile>());
             services.AddSingleton<ICommandHandler<UpdateMe, Unit>>(new Unused<UpdateMe, Unit>());

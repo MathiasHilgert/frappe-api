@@ -12,6 +12,10 @@ internal sealed class EfOneTimeCodes(IdentityDbContext db) : IOneTimeCodes
         db.OneTimeCodes.SingleOrDefaultAsync(
             c => c.PrincipalId == principalId && c.Purpose == purpose && c.RedeemedAt == null && c.InvalidatedAt == null, cancellationToken);
 
+    public async Task<IReadOnlyList<OneTimeCode>> LiveOfAsync(Guid principalId, CancellationToken cancellationToken) =>
+        await db.OneTimeCodes.Where(c => c.PrincipalId == principalId && c.RedeemedAt == null && c.InvalidatedAt == null)
+            .ToListAsync(cancellationToken);
+
     public Task<OneTimeCode?> FindAsync(Guid id, CancellationToken cancellationToken) =>
         db.OneTimeCodes.SingleOrDefaultAsync(c => c.Id == id, cancellationToken);
 

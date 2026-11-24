@@ -1,0 +1,33 @@
+info:
+  name: Confirm an email change without a session (401)
+  type: http
+  seq: 22
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/identity/me/email-changes/0192b5f0-0000-7000-8000-000000000001/confirmation"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      { "code": "123456" }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "401"
+    - expression: res.headers['www-authenticate']
+      operator: eq
+      value: '"Bearer"'
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"identity.session.invalid"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `POST /v1/identity/me/email-changes/{changeId}/confirmation` needs an owner's session. With one it spends the code mailed to the new address: `204`, the address is replaced and proven, the other sessions are revoked, and a pending owner holding the address is deleted. `422 identity.code.invalid` for a wrong, expired, used or replaced code, an unknown id or an address a verified owner holds. That needs a verified owner, so the Api's integration tests cover it.
