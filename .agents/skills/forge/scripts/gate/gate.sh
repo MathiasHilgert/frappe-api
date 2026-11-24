@@ -33,8 +33,16 @@ stamp="$state/stamp"
 mapfile -t changed < <({ git diff --name-only "$base"...HEAD; git ls-files -mo --exclude-standard; } | sort -u | while read -r f; do [ -e "$f" ] && echo "$f"; done)
 mapfile -t cs < <(printf '%s\n' "${changed[@]}" | grep -E '\.cs$' || true)
 
-echo "== build"
-if ! dotnet build Frappe.slnx --no-restore --nologo -v q -clp:ErrorsOnly --tl:off >"$state/build.log" 2>&1; then
+# Several gates (parallel chains) share one machine: each takes cores / active gates for MSBuild nodes and TUnit parallelism,
+# so they do not fight for the CPU. A gate registers its pid; entries of dead gates are dropped.
+gates="${XDG_RUNTIME_DIR:-/tmp}/forge-gates"
+mkdir -p "$gates" && touch "$gates/$$" && trap 'rm -f "$gates/$$"' EXIT
+for g in "$gates"/*; do kill -0 "${g##*/}" 2>/dev/null || rm -f "$g"; done
+active=$(find "$gates" -type f | wc -l)
+share=$(( $(nproc) / (active > 0 ? active : 1) )); [ "$share" -lt 1 ] && share=1
+export TUNIT_MAX_PARALLEL_TESTS="$share"
+echo "== build ($active gate(s) running; $share cores each)"
+if ! dotnet build Frappe.slnx --no-restore --nologo -v q -clp:ErrorsOnly --tl:off -m:"$share" >"$state/build.log" 2>&1; then
   grep -E 'error' "$state/build.log" | sed -E 's#^.*/(src|tests)/#\1/#' | sort -u | head -40
   echo "FAIL build (log: $state/build.log)"
   exit 1

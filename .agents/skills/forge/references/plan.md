@@ -101,6 +101,31 @@ design, one design review, one feature document. No questions mid-run: anything 
   regenerate the lock files.
 - Profile per slice by risk: `deep` for schema changes on existing rows, security or contract breaks; `standard` for features; `small` for internal
   logic with good tests. Do not give every slice `deep`.
+- **Freeze the seams in the foundation.** Fan-out only pays when the parallel branches cannot change what they share. The foundation fixes the ports,
+  the schema and migrations, the event contracts and the test fixtures. Each shared file (DI registration, `IdentityHttp`-style route lists,
+  OpenAPI, migrations) has one owner: the branches only append next to existing lines. After the fan-in, the full suite runs once on the merged head,
+  because slices that pass alone can still break when combined.
+
+## Writer effort and context
+
+Most of a writer's time is spent generating tokens (about 100k per slice at roughly 90 tokens per second). Two inputs decide how much it generates,
+and both are set by the orchestrator per slice:
+- **`effort`** (`low` | `medium` | `high`, default `low`; user decision). Raise it only for a named reason, recorded in the tasks table:
+  - `medium` for concurrency, locking or a security rule with an attack in the specs;
+  - `high` only for a slice that already failed review at a lower effort.
+  Lower effort trims thinking, comments and extra tool calls; the gate and the critics still catch what it misses.
+- **`files`** (the assembled context): the exact files, with line ranges when large, that the slice needs to read: the ports and aggregates it
+  uses, the closest existing example to copy, and its test fixture. Build it with `codegraph_explore` while planning. The writer reads them in one
+  batch and explores beyond them only for an open question. The `brief` keeps the what and the why; `files` replaces "Read first" lists.
+The writer also stops when done (`agents/forge-writer.md`, rule 9a): no reviews of its own, no tests, docs or files beyond the specs.
+
+## Review by risk
+
+- Critics are lenses chosen by the slice's kinds and diff, never all of them. A finding needs `file:line`, a failure scenario and a severity, or the
+  arbiter drops it; the recheck reads only the correction diff.
+- A rule that a test can check belongs in a test, not a lens: architecture in `LayeringTests` and `HostReferenceTests`, conventions in analyzers,
+  contracts in the `just contracts update` diff, auth flows in pre-written RED tests (enumeration, lockout, code brute force, email-change takeover)
+  added in the foundation. Each lens turned into a test is a lens the selector can drop.
 
 ## PR budget (planned before go, shown in the briefing)
 
@@ -150,7 +175,7 @@ diff turns out to be docs- or tests-only; it logs every skipped critic or QA wit
   "base": "origin/main",
   "answers": {},
   "apply": {},
-  "chains": [[{ "id": "S1", "title": "...", "specs": "S1-S3", "worktree": "<wt>", "branch": "feat/<module-topic>", "commit": "feat(<scope>): <summary>", "surfaces": ["..."], "profile": "standard", "kinds": ["feature", "contract"], "contract": true, "qa": true }]],
+  "chains": [[{ "id": "S1", "title": "...", "specs": "S1-S3", "worktree": "<wt>", "branch": "feat/<module-topic>", "commit": "feat(<scope>): <summary>", "surfaces": ["..."], "profile": "standard", "kinds": ["feature", "contract"], "contract": true, "qa": true, "effort": "low", "files": ["src/Modules/X/.../Port.cs", "src/Modules/X/.../Example.cs:20-80"] }]],
   "waves": [[{
     "id": "T1", "title": "...", "specs": "S1-S2",
     "worktree": "<worktrees>/<slug>",

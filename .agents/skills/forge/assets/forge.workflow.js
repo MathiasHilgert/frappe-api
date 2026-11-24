@@ -21,6 +21,7 @@ export const meta = {
 //   correction prompt, so a resume that only adds apply replays writer, critics and arbiter from cache.
 // task.brief: stable per-task context written at launch (never edit it between a run and its resume: it is part of every cache key).
 // task: { id, title, specs, worktree, branch, surfaces: [glob], profile: docs|tests|mechanical|small|standard|deep, contract: bool, qa: bool,
+//         effort: low|medium|high (writer effort, default low), files: [path or path:lines] (assembled context the writer reads first),
 //         codemods: bool (the orchestrator already ran scripts/codemods/run.sh in the worktree),
 //         kinds: [docs|tests|small|feature|contract|data|cross-module|security|operational] (from the grill; makes lenses mandatory),
 //         signals: (review mode only) the output of scripts/review/signals.py for the PR's diff }
@@ -69,8 +70,10 @@ const SUPPRESSIONS = A.suppressions || []
 // for problems always finds some, and style findings crowd out the ones that matter, so craft goes last.
 const ORDER = ['correctness', 'security', 'data', 'contracts', 'tests', 'performance', 'dx', 'observability', 'architecture', 'craft']
 const CAP = { docs: 2, tests: 1, mechanical: 2, small: 3, standard: 5, deep: 6 }
-// Reasoning effort per profile (code.claude.com/docs/en/model-config: lower effort is faster for straightforward tasks).
-const EFFORT = { mechanical: 'low', docs: 'low', tests: 'low' }
+// Writer effort: the orchestrator sets task.effort per slice when it plans (low | medium | high); low is the default.
+// Most of a writer's time is generating tokens, and effort is the main control on how much it generates. Corrections
+// and QA fixes run at the slice's effort.
+const writerEffort = t => t.effort || 'low'
 
 const isDoc = p => /\.md$/.test(p)
 const isTest = p => /^tests\//.test(p)
@@ -302,22 +305,26 @@ const journalTarget = t => journalPath(t.journalOf && t.journalOf.length ? t.jou
 function context(t, withAnswers = false, blind = false) {
   const a = withAnswers ? ANSWERS[t.id] : undefined
   const answer = a ? `\nThe user decided (apply these, do not ask again): ${typeof a === 'string' ? a : JSON.stringify(a)}\n` : ''
+  // Stable lines first: every agent of the run shares this prefix, so it is served from the prompt cache.
   return [
     `Repository main checkout: ${A.repo}`,
+    `Conventions: read ${A.repo}/.agents/skills/frappe-conventions/SKILL.md (an index) and load only the rule files your task or diff needs; cite rule ids. A rule you think is wrong: keep following it and return conventions[] as that file describes.`,
+    `Never ask the user anything: return decisions[] in the format of communication.md; take non-blocking ones with the recommended option.`,
+    `Known pitfalls: read ${A.repo}/.agents/skills/forge/references/pitfalls.md first.${(A.pitfalls || []).length ? ' Also: ' + A.pitfalls.join(' ') : ''}`,
+    `<use_parallel_tool_calls>When several tool calls do not depend on each other, make them all in the same turn. Change files with Edit on the lines that change, never by rewriting the whole file.</use_parallel_tool_calls>`,
     `Worktree: ${t.worktree} (branch ${t.branch}, base ${baseOf(t)})`,
     t.brief ? `Feature document: ${A.featureDoc} — the task brief below is your starting point; from the document read only the header, the specs ${t.specs} and the Design parts of this task, and open the rest only when the brief leaves a question.` : `Feature document: ${A.featureDoc} — read it from the top until "## Log".`,
     `Task ${t.id}: ${t.title} — specs ${t.specs}.`,
     t.chainOf ? `Chain slice ${t.chainIndex + 1} of ${t.chainOf} on ${t.branch}: earlier slices are already committed on this branch; build on them and touch only this slice's scope.` : '',
     t.brief ? `Task brief from the orchestrator: ${t.brief}` : '',
     `Public contract change expected: ${t.contract ? 'yes (update OpenAPI/events via just contracts update and tools/bruno)' : 'no'}.`,
-    `Conventions: read ${A.repo}/.agents/skills/frappe-conventions/SKILL.md (an index) and load only the rule files your task or diff needs; cite rule ids. A rule you think is wrong: keep following it and return conventions[] as that file describes.`,
+    t.files && t.files.length ? `Assembled context (the orchestrator chose these for this task; read them first, in one parallel batch, and treat them as enough): ${t.files.join(', ')}. Anything else: codegraph_explore (projectPath = the worktree) or Read with offset/limit, never cat a whole file.` : '',
     blind
       ? `Do not read the task journal, the writer's notes or the Log of the feature document: judge the code against the specs alone.`
       : `Task journal: ${journal(t)} — read it first; append your section to ${journalTarget(t)} when you finish (see ${A.repo}/.agents/skills/forge/references/communication.md).`,
-    `Never ask the user anything: return decisions[] in the format of communication.md; take non-blocking ones with the recommended option.`,
-    `Known pitfalls: read ${A.repo}/.agents/skills/forge/references/pitfalls.md first.${(A.pitfalls || []).length ? ' Also: ' + A.pitfalls.join(' ') : ''}`,
     t.codemods ? `Codemods already ran in this worktree (collection expressions, target-typed new, file-scoped namespaces, sealing): their changes are uncommitted; keep them and do not redo that work.` : '',
-    `Profile: ${t.profile || 'standard'}. <use_parallel_tool_calls>When several tool calls do not depend on each other, make them all in the same turn. Change files with Edit on the lines that change, never by rewriting the whole file.</use_parallel_tool_calls>`,
+    `Profile: ${t.profile || 'standard'}.`,
+    t.chainOf ? `Gate base: this slice's parent. Record \`git -C ${t.worktree} rev-parse HEAD\` before your first edit and pass it as \`gate.sh --base <that sha>\`, so the gate checks only this slice (earlier slices' fixups and migrations are not yours).` : '',
     answer,
   ].join('\n')
 }
@@ -342,7 +349,7 @@ async function write(t) {
   if (!t.brief) log(`${t.id}: no brief: the writer starts by exploring (orientation was 20-25% of writer time)`)
   const out = await role('forge-writer',
     `${context(t, true)}\nImplement this task.${t.chainOf ? `\nChain slice: once your final gate passes, commit this slice and nothing else: \`git -C ${t.worktree} add -A && git -C ${t.worktree} commit -m "${t.commit}"\` (no attribution lines), and return its sha in \`commit\`. Never push, rebase or amend.` : ''}\n${signalsStep(t)}\n\n${surfaces(t)}`,
-    { schema: WRITER, label: `write:${t.id}`, phase: 'Write', ...(EFFORT[t.profile] ? { effort: EFFORT[t.profile] } : {}) })
+    { schema: WRITER, label: `write:${t.id}`, phase: 'Write', effort: writerEffort(t) })
   if (!out) return { task: t, stop: true, reason: 'writer returned nothing' }
   const blocking = (out.decisions || []).filter(d => d.blocking)
   if (out.status === 'needs_input' || out.status === 'blocked' || blocking.length) return { task: t, write: out, stop: true, reason: blocking.length ? 'decision needed' : out.status }
@@ -452,7 +459,7 @@ async function fixStage(r) {
   if (chosen.length) log(`${t.id}: applying ${chosen.length} advisory(ies) (auto or accepted): ${chosen.map(a => a.id).join(', ')}`)
   const fixed = await role('forge-writer',
     `${context(t, true)}\nCorrection round: fix every item below (blockers, plus advisories that are auto-applied or the user chose; each carries the critic's evidence), nothing else, then check with \`test-class.sh\` on the classes you touched and finish with \`gate.sh --rerun\` (writer rules 6 and 6-bis).${r.write.commit ? `\nChain slice: the findings are about slice ${r.write.commit}; later slices may already sit on top of it, keep them building. Commit the fix as \`git -C ${t.worktree} commit -am "fixup! ${t.commit}"\` (add new files first), so the orchestrator folds it into that slice, and return its sha in \`commit\`.` : ''}\n${JSON.stringify(toFix)}\n\n${surfaces(t)}`,
-    { schema: WRITER, label: `correct:${t.id}`, phase: 'Correct' })
+    { schema: WRITER, label: `correct:${t.id}`, phase: 'Correct', effort: writerEffort(t) })
   if (!fixed || fixed.status !== 'done') return { ...r, correction: fixed, stop: true, reason: 'correction not done' }
   // What the fix still needs: a recheck only when blockers were fixed; a fix review unless every item was an
   // autoApply advisory (by definition no behavior, contract, schema or security change).
@@ -506,7 +513,7 @@ async function qa(r) {
   if (result && result.status === 'fail' && result.defects.length) {
     const fixed = await role('forge-writer',
       `${context(t)}\nQA found these defects at runtime; fix them (test-first), then finish with \`gate.sh --rerun\` (writer rule 6-bis):\n${JSON.stringify(result.defects)}${t.slices ? `\nChain: commit each fix as \`fixup! <header>\` of the slice that introduced the defect, one of: ${t.slices.join(' | ')}.` : ''}\n\n${surfaces(t)}`,
-      { schema: WRITER, label: `qa-fix:${t.id}`, phase: 'QA' })
+      { schema: WRITER, label: `qa-fix:${t.id}`, phase: 'QA', effort: writerEffort(t) })
     if (fixed && fixed.status === 'done') {
       const check = await reviewFix(r, fixed, result.defects, 'QA fix', 'QA')
       if (!check.ok) return { ...r, qa: result, qaFix: fixed, fixReview: check.verdict, stop: true, reason: check.reason || 'QA fix introduced blockers' }

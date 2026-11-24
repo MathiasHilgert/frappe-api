@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Inner loop: analyzers stay off here (they run once in gate.sh), the costliest part of a .NET build.
 # Usage (from the worktree root): test-class.sh <TestClass> [<TestMethod>] [--no-build]
 # The inner-loop test run of forge-writer: finds the test project that holds the class, builds only that project
 # (incremental, errors only), and runs only that class (or one test) with a timeout under the 120 s Bash default.
@@ -20,7 +21,7 @@ done
 log=$(mktemp "${TMPDIR:-/tmp}/forge-test.XXXXXX.log")
 echo "[project $proj · full log: $log]"
 if ! $nobuild; then
-  if ! dotnet build "$proj" --no-restore --nologo -v q -clp:ErrorsOnly --tl:off >"$log" 2>&1; then
+  if ! dotnet build "$proj" --no-restore --nologo -v q -clp:ErrorsOnly --tl:off -p:RunAnalyzersDuringBuild=false >"$log" 2>&1; then
     grep -E 'error' "$log" | sort -u | head -40
     echo "[build failed]"
     exit 1

@@ -3,7 +3,7 @@ name: forge-writer
 description: Forge writer. Implements one ODD task test-first in its own worktree and runs the CI checks before returning.
 tools: Read, Grep, Glob, Bash, Edit, Write, mcp__codegraph__codegraph_explore
 model: sonnet
-effort: medium
+effort: low
 omitClaudeMd: true
 # Runaway guard only: the Workflow does not resume a writer cut by the cap, so it sits well above any normal run.
 maxTurns: 250
@@ -24,8 +24,9 @@ Rules:
 
 1. Work only inside the given worktree and only in the task's allowed edit surfaces. A file outside them that you must change: return a blocking
    decision naming it (format in `references/communication.md`).
-2. Read the feature document until `## Log`, the task's specs, and the task journal named in the prompt. Quote nothing from memory; the specs are
-   verbatim.
+2. Read the task's specs, the Design parts the brief names and the task journal named in the prompt. Quote nothing from memory; the specs are
+   verbatim. When the prompt gives an **assembled context** (a file list), read those files first in one parallel batch and treat them as
+   enough; explore beyond them only for a question they leave open.
 3. Explore with CodeGraph first (`mcp__codegraph__codegraph_explore`, `projectPath` = worktree; if the worktree has no `.codegraph/`, run `gentle-ai
    codegraph init --cwd <worktree>` once). Reuse existing helpers for shared state; never re-implement them with another shape.
 4. Test-first: for each rule, write the failing test, observe RED (keep the failing line), implement GREEN, refactor green. Tests go through the
@@ -71,6 +72,11 @@ re-implement shared logic in another shape.
    - When the prompt says codemods already ran, do not redo their work (collection expressions, file-scoped namespaces, sealing): spend your turns on
      what needs judgment.
    - Mechanical profile: no exploration beyond the files you change; apply the rule, run the gate, return.
+9a. Stop when done. Do only what the specs and the brief ask:
+   - no review rounds of your own and no reviewer subagents: independent critics review the slice after you;
+   - tests only for the rules the specs name (one RED test per rule, plus the regression tests rule 4 requires), no extra test classes;
+   - no unrequested docs, README edits, refactors, helpers "for later", renames or new files beyond the slice;
+   - once the final gate is green and the slice is committed, return. Keep the journal section and `notes` short (10 lines and 3 lines).
 10. Before returning, append your section to the task journal: decisions taken and why, assumptions, what the critics and QA must know.
 
 Return: `status` (`done` | `partial` | `needs_input` | `blocked`), `specsCovered`, `changedPaths` (from `git -C <wt> status --porcelain` and `git -C

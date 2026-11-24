@@ -13,7 +13,7 @@ async function run(args, behavior = {}) {
   const calls = []
   const failures = { ...(behavior.failCritic || {}) }
   const agent = async (prompt, o) => {
-    calls.push({ label: o.label, prompt })
+    calls.push({ label: o.label, prompt, effort: o.effort })
     if (behavior.delay) await new Promise(r => setTimeout(r, behavior.delay))
     const l = o.label
     if (l.startsWith('write:')) return { status: 'done', changedPaths: ['src/M/Http/Endpoints.cs', 'src/M/Application/Uc.cs', 'tests/M/T.cs'], contractChanged: true, checks: [], decisions: [], notes: 'WRITER-NOTES-MARKER', commit: prompt.includes('Chain slice') ? 'sha' + calls.length : undefined }
@@ -159,5 +159,13 @@ const check = (name, ok, detail = '') => { if (!ok) fails++; console.log(ok ? 'P
   const next = await run({ ...base, done: { S1: out.tasks.find(x => x.id === 'S1').done, S2: s2.done }, chains: [chain] })
   const labels = next.calls.map(c => c.label)
   check('the next run corrects them without new critics', labels.includes('correct:S2') && !labels.includes('correctness:S2') && next.calls.find(c => c.label === 'correct:S2').prompt.includes('correctness-1'), labels.join(' '))
+}
+{
+  const { calls } = await run({ ...base, waves: [[task({ files: ['src/M/A.cs:10-40'] }), task({ id: 'T2', effort: 'medium' })]] })
+  check('writers default to low effort', calls.find(c => c.label === 'write:T1').effort === 'low')
+  check('the orchestrator can raise a slice effort, corrections follow it', calls.find(c => c.label === 'write:T2').effort === 'medium' && calls.find(c => c.label === 'correct:T2').effort === 'medium')
+  check('the assembled context reaches the writer', calls.find(c => c.label === 'write:T1').prompt.includes('Assembled context') && calls.find(c => c.label === 'write:T1').prompt.includes('src/M/A.cs:10-40'))
+  const w1 = calls.find(c => c.label === 'write:T1').prompt, w2 = calls.find(c => c.label === 'write:T2').prompt
+  check('writers of different slices share a stable prompt prefix', w1.slice(0, 600) === w2.slice(0, 600))
 }
 process.exit(fails ? 1 : 0)
