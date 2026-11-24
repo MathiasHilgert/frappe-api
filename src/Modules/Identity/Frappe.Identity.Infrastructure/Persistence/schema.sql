@@ -228,6 +228,11 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE identity.inbox_messages TO frappe_ide
 GRANT SELECT,DELETE ON TABLE identity.inbox_messages TO frappe_identity_worker;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE identity.one_time_codes TO frappe_identity;
+GRANT DELETE ON TABLE identity.one_time_codes TO frappe_identity_worker;
+
+GRANT SELECT(id) ON TABLE identity.one_time_codes TO frappe_identity_worker;
+
+GRANT SELECT(expires_at) ON TABLE identity.one_time_codes TO frappe_identity_worker;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE identity.outbox_messages TO frappe_identity;
 GRANT SELECT,INSERT,DELETE ON TABLE identity.outbox_messages TO frappe_identity_worker;
@@ -246,11 +251,35 @@ GRANT ALL ON SEQUENCE identity.outbox_messages_sequence_seq TO frappe_identity;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE identity.owners TO frappe_identity;
 
+GRANT SELECT(principal_id) ON TABLE identity.owners TO frappe_identity_worker;
+
+GRANT SELECT(registered_at) ON TABLE identity.owners TO frappe_identity_worker;
+
+GRANT SELECT(verified_at) ON TABLE identity.owners TO frappe_identity_worker;
+
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE identity.password_credentials TO frappe_identity;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE identity.principals TO frappe_identity;
+GRANT DELETE ON TABLE identity.principals TO frappe_identity_worker;
+
+GRANT SELECT(id) ON TABLE identity.principals TO frappe_identity_worker;
+
+GRANT SELECT(status) ON TABLE identity.principals TO frappe_identity_worker;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE identity.sessions TO frappe_identity;
+GRANT DELETE ON TABLE identity.sessions TO frappe_identity_worker;
+
+GRANT SELECT(id) ON TABLE identity.sessions TO frappe_identity_worker;
+
+GRANT SELECT(principal_id) ON TABLE identity.sessions TO frappe_identity_worker;
+
+GRANT SELECT(idle_expires_at) ON TABLE identity.sessions TO frappe_identity_worker;
+
+GRANT SELECT(absolute_expires_at) ON TABLE identity.sessions TO frappe_identity_worker;
+
+GRANT SELECT(ended_at),UPDATE(ended_at) ON TABLE identity.sessions TO frappe_identity_worker;
+
+GRANT SELECT(revoked_at) ON TABLE identity.sessions TO frappe_identity_worker;
 
 ALTER DEFAULT PRIVILEGES FOR ROLE frappe_owner IN SCHEMA identity GRANT ALL ON SEQUENCES TO frappe_identity;
 

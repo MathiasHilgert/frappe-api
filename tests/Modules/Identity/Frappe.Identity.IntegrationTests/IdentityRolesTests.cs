@@ -6,7 +6,8 @@ namespace Frappe.Identity.IntegrationTests;
 
 /// <summary>
 /// What each Identity login role may do, as the full table-by-privilege matrix (MIG-11, MIG-12): the Api's role has data access on the schema
-/// and no DDL; the Worker's role has the relay's grants plus the outbox insert, and no grant on a business table at all.
+/// and no DDL; the Worker's role has the relay's grants, the outbox insert and, on the business tables the sweep and the purge touch, exactly
+/// their columns and deletes (S16): never a hash, a token, an address, a name or a user agent.
 /// </summary>
 [ClassDataSource<PostgresServer>(Shared = SharedType.PerTestSession)]
 [NotInParallel]
@@ -23,13 +24,23 @@ public sealed class IdentityRolesTests(PostgresServer server)
 
     private static readonly string[] OutboxRelayColumns = ["published_at", "attempts", "next_attempt_at", "leased_until", "last_error"];
 
+    /// <summary>The columns the Worker may read, and the one it may update: what the sweep and the purge need and no more (S16).</summary>
+    private static readonly Dictionary<string, string[]> WorkerReadColumns = new()
+    {
+        ["sessions"] = ["absolute_expires_at", "ended_at", "id", "idle_expires_at", "principal_id", "revoked_at"],
+        ["one_time_codes"] = ["expires_at", "id"],
+        ["owners"] = ["principal_id", "registered_at", "verified_at"],
+        ["principals"] = ["id", "status"],
+    };
+
     private static readonly string[] Dml = ["SELECT", "INSERT", "UPDATE", "DELETE"];
 
     private static Dictionary<string, string[]> ApiGrants() =>
         new[] { "outbox_messages", "inbox_messages" }.Concat(BusinessTables).ToDictionary(table => table, _ => Dml)
             .Append(new("__ef_migrations_history", [])).ToDictionary();
 
-    private static readonly Dictionary<string, string[]> WorkerGrants = BusinessTables.ToDictionary(table => table, _ => Array.Empty<string>())
+    private static readonly Dictionary<string, string[]> WorkerGrants = BusinessTables
+        .ToDictionary(table => table, table => table is "sessions" or "one_time_codes" or "principals" ? new[] { "DELETE" } : [])
         .Concat(new Dictionary<string, string[]>
         {
             ["outbox_messages"] = ["SELECT", "INSERT", "DELETE"],
@@ -51,7 +62,7 @@ public sealed class IdentityRolesTests(PostgresServer server)
     }
 
     [Test]
-    public async Task The_Worker_role_holds_the_relay_grants_and_the_outbox_insert_and_nothing_on_any_business_table()
+    public async Task The_Worker_role_holds_the_relay_grants_the_outbox_insert_and_only_the_deletes_of_the_purge()
     {
         await MigratedIdentity.RunAsync(server, async owner =>
         {
@@ -64,26 +75,34 @@ public sealed class IdentityRolesTests(PostgresServer server)
     }
 
     [Test]
-    public async Task The_Worker_updates_only_the_outbox_relay_columns_and_no_column_of_a_business_table()
+    public async Task The_Worker_reads_and_updates_only_the_columns_of_the_sweep_and_the_purge()
     {
         await MigratedIdentity.RunAsync(server, async owner =>
         {
             // Act
             var outbox = await ColumnPrivilegesAsync(owner, IdentityDatabase.WorkerRole, "outbox_messages", "UPDATE");
-            var anyBusinessColumn = new List<string>();
+            var readable = new Dictionary<string, string[]>();
+            var updatable = new Dictionary<string, string[]>();
+            var insertable = new List<string>();
             foreach (var table in BusinessTables)
             {
-                foreach (var privilege in new[] { "SELECT", "UPDATE", "INSERT" })
-                {
-                    anyBusinessColumn.AddRange(await ColumnPrivilegesAsync(owner, IdentityDatabase.WorkerRole, table, privilege));
-                }
+                var selectable = await ColumnPrivilegesAsync(owner, IdentityDatabase.WorkerRole, table, "SELECT");
+                readable[table] = [.. selectable.Order(StringComparer.Ordinal)];
+                updatable[table] = await ColumnPrivilegesAsync(owner, IdentityDatabase.WorkerRole, table, "UPDATE");
+                insertable.AddRange(await ColumnPrivilegesAsync(owner, IdentityDatabase.WorkerRole, table, "INSERT"));
             }
 
             // Assert
             using (Assert.Multiple())
             {
                 await Assert.That(outbox).IsEquivalentTo(OutboxRelayColumns);
-                await Assert.That(anyBusinessColumn).IsEmpty();
+                foreach (var table in BusinessTables)
+                {
+                    await Assert.That(readable[table]).IsEquivalentTo(WorkerReadColumns.GetValueOrDefault(table, []));
+                    await Assert.That(updatable[table]).IsEquivalentTo(table == "sessions" ? new[] { "ended_at" } : []);
+                }
+
+                await Assert.That(insertable).IsEmpty();
             }
         });
     }
@@ -105,9 +124,21 @@ public sealed class IdentityRolesTests(PostgresServer server)
             var sequence = (bool)(await ScratchDatabase.ScalarAsync(
                 owner, $"SELECT has_sequence_privilege('{IdentityDatabase.WorkerRole}', '{Sequence}', 'USAGE')"))!;
             var readsSessions = await Assert.ThrowsAsync<PostgresException>(
-                () => ScratchDatabase.ExecuteAsync(worker, "SELECT count(*) FROM identity.sessions"));
+                () => ScratchDatabase.ExecuteAsync(worker, "SELECT token_hash FROM identity.sessions"));
             var readsEmails = await Assert.ThrowsAsync<PostgresException>(
                 () => ScratchDatabase.ExecuteAsync(worker, "SELECT address FROM identity.email_identifiers"));
+            var secrets = new List<string?>();
+            foreach (var column in new[]
+            {
+                "identity.password_credentials.hash", "identity.one_time_codes.code_hmac", "identity.one_time_codes.target",
+                "identity.owners.given_name", "identity.owners.family_name", "identity.sessions.user_agent", "identity.sessions.ip_prefix",
+            })
+            {
+                var parts = column.Split('.');
+                var denied = await Assert.ThrowsAsync<PostgresException>(
+                    () => ScratchDatabase.ExecuteAsync(worker, $"SELECT {parts[2]} FROM {parts[0]}.{parts[1]}"));
+                secrets.Add(denied?.SqlState);
+            }
 
             // Assert
             using (Assert.Multiple())
@@ -116,6 +147,7 @@ public sealed class IdentityRolesTests(PostgresServer server)
                 await Assert.That(sequence).IsFalse();
                 await Assert.That(readsSessions!.SqlState).IsEqualTo(PostgresErrorCodes.InsufficientPrivilege);
                 await Assert.That(readsEmails!.SqlState).IsEqualTo(PostgresErrorCodes.InsufficientPrivilege);
+                await Assert.That(secrets).IsEquivalentTo(Enumerable.Repeat<string?>(PostgresErrorCodes.InsufficientPrivilege, secrets.Count));
             }
         });
     }
@@ -176,13 +208,19 @@ public sealed class IdentityRolesTests(PostgresServer server)
         {
             // Arrange
             await ScratchDatabase.ExecuteAsync(owner, $"GRANT SELECT ON identity.sessions TO {IdentityDatabase.WorkerRole}");
+            await ScratchDatabase.ExecuteAsync(owner, $"GRANT SELECT (token_hash) ON identity.sessions TO {IdentityDatabase.WorkerRole}");
 
             // Act
             await MigratedIdentity.MigrateAsync(owner);
             var held = await HeldAsync(owner, IdentityDatabase.WorkerRole);
+            var sessionColumns = await ColumnPrivilegesAsync(owner, IdentityDatabase.WorkerRole, "sessions", "SELECT");
 
             // Assert
-            await Assert.That(held).IsEquivalentTo(Matrix(WorkerGrants));
+            using (Assert.Multiple())
+            {
+                await Assert.That(held).IsEquivalentTo(Matrix(WorkerGrants));
+                await Assert.That(sessionColumns).IsEquivalentTo(WorkerReadColumns["sessions"]);
+            }
         });
     }
 

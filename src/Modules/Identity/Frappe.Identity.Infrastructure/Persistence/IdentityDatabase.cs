@@ -7,7 +7,8 @@ namespace Frappe.Identity.Infrastructure.Persistence;
 
 /// <summary>
 /// The Identity database as the Migrator sees it: schema <c>identity</c> migrated as the owner, the Api's role <c>frappe_identity</c> with data
-/// access on the schema, and the Worker's narrow role <c>frappe_identity_worker</c>, which reads and writes none of the module's business data.
+/// access on the schema, and the Worker's narrow role <c>frappe_identity_worker</c>, which reads and writes only the columns of the sweep and
+/// the purge.
 /// </summary>
 public sealed class IdentityDatabase : IDatabaseModule
 {
@@ -17,7 +18,7 @@ public sealed class IdentityDatabase : IDatabaseModule
     /// <summary>The name of the Api's role under <c>Roles</c> in the Migrator's configuration.</summary>
     public const string ApiRoleConfigName = "Identity";
 
-    /// <summary>The Worker's login role: the relay and, as the jobs arrive, the sweep and the purge, and nothing else.</summary>
+    /// <summary>The Worker's login role: the relay, the sweep and the purge, and nothing else.</summary>
     public const string WorkerRole = "frappe_identity_worker";
 
     /// <summary>The name of the Worker's role under <c>Roles</c> in the Migrator's configuration.</summary>
@@ -45,11 +46,21 @@ public sealed class IdentityDatabase : IDatabaseModule
 
     /// <summary>
     /// The statements that add what the Worker does on top of the relay's grants, in order: it writes outbox rows, because the sweep and the
-    /// purge raise their events through the aggregates. No business table is granted yet; the sweep and the purge ask for their columns.
+    /// purge raise their facts through the aggregates, and it holds, per business table, exactly the columns the sweep and the purge read and
+    /// write (S16). Nothing is granted on a hash, a token, an address, a name or a user agent, and none of the identifier, credential or owner
+    /// tables is granted at all: deleting a principal reaches them by the foreign keys' cascade, which Postgres runs as the table's owner.
     /// </summary>
     internal static IReadOnlyList<string> WorkerStatements(string schema) =>
     [
         $"GRANT INSERT ON TABLE {schema}.outbox_messages TO {WorkerRole}",
+        $"GRANT SELECT (id, principal_id, idle_expires_at, absolute_expires_at, ended_at, revoked_at) ON TABLE {schema}.sessions TO {WorkerRole}",
+        $"GRANT UPDATE (ended_at) ON TABLE {schema}.sessions TO {WorkerRole}",
+        $"GRANT DELETE ON TABLE {schema}.sessions TO {WorkerRole}",
+        $"GRANT SELECT (id, expires_at) ON TABLE {schema}.one_time_codes TO {WorkerRole}",
+        $"GRANT DELETE ON TABLE {schema}.one_time_codes TO {WorkerRole}",
+        $"GRANT SELECT (principal_id, registered_at, verified_at) ON TABLE {schema}.owners TO {WorkerRole}",
+        $"GRANT SELECT (id, status) ON TABLE {schema}.principals TO {WorkerRole}",
+        $"GRANT DELETE ON TABLE {schema}.principals TO {WorkerRole}",
     ];
 
     /// <summary>

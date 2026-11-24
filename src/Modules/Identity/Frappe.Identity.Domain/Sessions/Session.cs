@@ -175,4 +175,42 @@ public sealed class Session : AggregateRoot
     private SessionAccess AccessFor(Principal principal) => new(
         Id, PrincipalId, principal.Kind, principal.Status, principal.CredentialStamp, CredentialStamp, Methods, LastSeenAt, IdleExpiresAt,
         AbsoluteExpiresAt, EndedAt, RevokedAt, StepUpUntil);
+
+    /// <summary>
+    /// A session as the sweep sees it: only the facts it is allowed to read (the Worker's role holds no grant on the token, the address or
+    /// the user agent), so it can end and raise the fact but is never saved afresh. The sweep writes the end itself, guarded, and tracks this
+    /// only so the fact reaches the outbox in the same transaction.
+    /// </summary>
+    public static Session SeenBySweep(Guid id, Guid principalId, Instant idleExpiresAt, Instant absoluteExpiresAt, Instant? revokedAt) =>
+        new()
+        {
+            Id = id,
+            PrincipalId = principalId,
+            IdleExpiresAt = idleExpiresAt,
+            AbsoluteExpiresAt = absoluteExpiresAt,
+            RevokedAt = revokedAt,
+        };
+
+    /// <summary>
+    /// Ends the session at <paramref name="now"/>, the sweep's work once it expired or was revoked; it counts the purge's clock and never
+    /// goes before the revocation. An expired one raises <see cref="SessionEnded"/> (idle, unless the absolute expiry is the limit that
+    /// applied); a revoked one raises nothing, its revocation was published. Ending twice changes nothing.
+    /// </summary>
+    public void End(Instant now)
+    {
+        if (EndedAt is not null)
+        {
+            return;
+        }
+
+        if (RevokedAt is { } revokedAt)
+        {
+            EndedAt = Instant.Max(now, revokedAt);
+            return;
+        }
+
+        EndedAt = now;
+        Raise(new SessionEnded(
+            PrincipalId, Id, IdleExpiresAt < AbsoluteExpiresAt ? SessionEndReason.Idle : SessionEndReason.Absolute, now));
+    }
 }
