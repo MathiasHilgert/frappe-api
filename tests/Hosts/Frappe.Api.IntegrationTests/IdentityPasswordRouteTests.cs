@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Frappe.Access.Contracts;
 using Frappe.Identity.Application.Credentials;
 using Frappe.Identity.Application.Credentials.ChangePassword;
 using Frappe.Identity.Application.Owners.RequestPasswordReset;
@@ -43,7 +44,7 @@ public sealed class IdentityPasswordRouteTests
         // Arrange
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
-        var (_, _, token) = host.Seed();
+        var (principal, session, token) = host.Seed();
         using var client = host.App.GetTestClient();
 
         // Act
@@ -57,6 +58,7 @@ public sealed class IdentityPasswordRouteTests
             await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.NoContent);
             await Assert.That(response.Headers.Location).IsNull();
             await Assert.That(response.Headers.CacheControl?.NoStore).IsTrue();
+            await Assert.That(fakes.Callers.Single()).IsEqualTo((principal.Id, session.Id));
             await Assert.That(command.CurrentPassword).IsEqualTo("old one");
             await Assert.That(command.NewPassword).IsEqualTo("new one");
             await Assert.That(command.ToString()).DoesNotContain("old one").And.DoesNotContain("new one");
@@ -209,6 +211,11 @@ public sealed class IdentityPasswordRouteTests
     /// <summary>What the faked use cases saw and the answers they give.</summary>
     private sealed class Fakes
     {
+        /// <summary>The principal and session the use cases saw through the caller.</summary>
+        public List<(Guid Principal, Guid Session)> Callers { get; } = [];
+
+        public void Seen(ICaller caller) => Callers.Add((caller.RequiredPrincipalId, caller.RequiredSessionId));
+
         public List<ChangePassword> Changes { get; } = [];
 
         public List<RequestPasswordReset> Requests { get; } = [];
@@ -227,7 +234,7 @@ public sealed class IdentityPasswordRouteTests
     {
         public void AddServices(IServiceCollection services)
         {
-            services.AddFakeCommand<ChangePassword, Unit>(new Change(fakes));
+            services.AddFakeCommand<ChangePassword, Unit>(new Change(fakes), fakes.Seen);
             services.AddFakeCommand<RequestPasswordReset, PasswordResetRequested>(new Request(fakes));
             services.AddFakeCommand<ResetPassword, Unit>(new Confirm(fakes));
         }

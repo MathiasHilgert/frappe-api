@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.Results;
 using Frappe.UseCases;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,18 +11,18 @@ namespace Frappe.Api.IntegrationTests;
 /// </summary>
 internal static class GatedFakes
 {
-    public static IServiceCollection AddFakeCommand<TCommand, TResult>(this IServiceCollection services, ICommandHandler<TCommand, TResult> fake)
+    public static IServiceCollection AddFakeCommand<TCommand, TResult>(this IServiceCollection services, ICommandHandler<TCommand, TResult> fake, Action<ICaller>? seen = null)
         where TCommand : ICommand<TResult> =>
         services.AddScoped<ICommandHandler<TCommand, TResult>>(provider =>
-            new GatedFakeCommand<TCommand, TResult>(fake, provider.GetRequiredService<IUseCaseGate>()));
+            new GatedFakeCommand<TCommand, TResult>(fake, provider.GetRequiredService<IUseCaseGate>(), seen, provider));
 
-    public static IServiceCollection AddFakeQuery<TQuery, TResult>(this IServiceCollection services, IQueryHandler<TQuery, TResult> fake)
+    public static IServiceCollection AddFakeQuery<TQuery, TResult>(this IServiceCollection services, IQueryHandler<TQuery, TResult> fake, Action<ICaller>? seen = null)
         where TQuery : IQuery<TResult> =>
         services.AddScoped<IQueryHandler<TQuery, TResult>>(provider =>
-            new GatedFakeQuery<TQuery, TResult>(fake, provider.GetRequiredService<IUseCaseGate>()));
+            new GatedFakeQuery<TQuery, TResult>(fake, provider.GetRequiredService<IUseCaseGate>(), seen, provider));
 
     /// <summary>A faked command behind the gate.</summary>
-    private sealed class GatedFakeCommand<TCommand, TResult>(ICommandHandler<TCommand, TResult> inner, IUseCaseGate gate)
+    private sealed class GatedFakeCommand<TCommand, TResult>(ICommandHandler<TCommand, TResult> inner, IUseCaseGate gate, Action<ICaller>? seen, IServiceProvider provider)
         : ICommandHandler<TCommand, TResult>
         where TCommand : ICommand<TResult>
     {
@@ -32,6 +33,7 @@ internal static class GatedFakes
                 return refusal;
             }
 
+            seen?.Invoke(provider.GetRequiredService<ICaller>());
             var succeeded = false;
             try
             {
@@ -47,7 +49,7 @@ internal static class GatedFakes
     }
 
     /// <summary>A faked query behind the gate.</summary>
-    private sealed class GatedFakeQuery<TQuery, TResult>(IQueryHandler<TQuery, TResult> inner, IUseCaseGate gate) : IQueryHandler<TQuery, TResult>
+    private sealed class GatedFakeQuery<TQuery, TResult>(IQueryHandler<TQuery, TResult> inner, IUseCaseGate gate, Action<ICaller>? seen, IServiceProvider provider) : IQueryHandler<TQuery, TResult>
         where TQuery : IQuery<TResult>
     {
         public async Task<Result<TResult>> HandleAsync(TQuery query, CancellationToken cancellationToken)
@@ -57,6 +59,7 @@ internal static class GatedFakes
                 return refusal;
             }
 
+            seen?.Invoke(provider.GetRequiredService<ICaller>());
             var succeeded = false;
             try
             {

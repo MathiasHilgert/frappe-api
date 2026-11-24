@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Frappe.Access.Contracts;
 using Frappe.Identity.Application.Owners;
 using Frappe.Identity.Application.Owners.GetMe;
 using Frappe.Identity.Application.Owners.UpdateMe;
@@ -62,7 +63,7 @@ public sealed class IdentityMeRouteTests
         // Arrange
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
-        var (principal, _, token) = host.Seed();
+        var (principal, session, token) = host.Seed();
         fakes.Current = Profile(principal.Id, version: "4242");
         using var client = host.App.GetTestClient();
 
@@ -80,6 +81,7 @@ public sealed class IdentityMeRouteTests
             await Assert.That(english.Headers.ETag?.Tag).IsEqualTo("\"4242\"");
             await Assert.That(english.Headers.ETag?.IsWeak).IsFalse();
             await Assert.That(fakes.Reads).Count().IsEqualTo(2);
+            await Assert.That(fakes.Callers).IsEquivalentTo([(principal.Id, session.Id), (principal.Id, session.Id)]);
             await Assert.That(body.GetProperty("id").GetGuid()).IsEqualTo(principal.Id);
             await Assert.That(body.GetProperty("kind").GetProperty("code").GetString()).IsEqualTo("owner");
             await Assert.That(body.GetProperty("kind").GetProperty("name").GetString()).IsEqualTo("Owner");
@@ -130,7 +132,7 @@ public sealed class IdentityMeRouteTests
         // Arrange
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
-        var (principal, _, token) = host.Seed();
+        var (principal, session, token) = host.Seed();
         fakes.Current = Profile(principal.Id, version: "1");
         fakes.AfterUpdate = Profile(principal.Id, version: "2", given: "Anabel");
         using var client = host.App.GetTestClient();
@@ -147,6 +149,7 @@ public sealed class IdentityMeRouteTests
             await Assert.That(response.Headers.ETag?.Tag).IsEqualTo("\"2\"");
             await Assert.That(response.Headers.CacheControl?.NoStore).IsTrue();
             await Assert.That(body.GetProperty("name").GetProperty("given").GetString()).IsEqualTo("Anabel");
+            await Assert.That(fakes.Callers.Last()).IsEqualTo((principal.Id, session.Id));
             await Assert.That(command.Given).IsEqualTo(new Patched<string>("Anabel"));
             await Assert.That(command.Family).IsEqualTo(new Patched<string>(null));
             await Assert.That(command.Locale).IsEqualTo(new Patched<string>("pt-BR"));
@@ -160,7 +163,7 @@ public sealed class IdentityMeRouteTests
         // Arrange
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
-        var (principal, _, token) = host.Seed();
+        var (principal, session, token) = host.Seed();
         fakes.Current = Profile(principal.Id, version: "1");
         using var client = host.App.GetTestClient();
 
@@ -193,7 +196,7 @@ public sealed class IdentityMeRouteTests
         // Arrange
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
-        var (principal, _, token) = host.Seed();
+        var (principal, session, token) = host.Seed();
         fakes.Current = Profile(principal.Id, version: "1");
         using var client = host.App.GetTestClient();
 
@@ -219,7 +222,7 @@ public sealed class IdentityMeRouteTests
         // Arrange
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
-        var (principal, _, token) = host.Seed();
+        var (principal, session, token) = host.Seed();
         fakes.Current = Profile(principal.Id, version: "1");
         using var client = host.App.GetTestClient();
 
@@ -242,7 +245,7 @@ public sealed class IdentityMeRouteTests
         // Arrange
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
-        var (principal, _, token) = host.Seed();
+        var (principal, session, token) = host.Seed();
         fakes.Current = Profile(principal.Id, version: "1");
         using var client = host.App.GetTestClient();
 
@@ -267,7 +270,7 @@ public sealed class IdentityMeRouteTests
         // Arrange
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
-        var (principal, _, token) = host.Seed();
+        var (principal, session, token) = host.Seed();
         fakes.Current = Profile(principal.Id, version: "1");
         fakes.Refusal = code switch
         {
@@ -321,6 +324,11 @@ public sealed class IdentityMeRouteTests
     /// <summary>What the faked use cases saw and the answers they give.</summary>
     private sealed class Fakes
     {
+        /// <summary>The principal and session the use cases saw through the caller.</summary>
+        public List<(Guid Principal, Guid Session)> Callers { get; } = [];
+
+        public void Seen(ICaller caller) => Callers.Add((caller.RequiredPrincipalId, caller.RequiredSessionId));
+
         public List<GetMe> Reads { get; } = [];
 
         public List<UpdateMe> Updates { get; } = [];
@@ -340,8 +348,8 @@ public sealed class IdentityMeRouteTests
     {
         public void AddServices(IServiceCollection services)
         {
-            services.AddFakeQuery<GetMe, OwnerProfile>(new Read(fakes));
-            services.AddFakeCommand<UpdateMe, Unit>(new Update(fakes));
+            services.AddFakeQuery<GetMe, OwnerProfile>(new Read(fakes), fakes.Seen);
+            services.AddFakeCommand<UpdateMe, Unit>(new Update(fakes), fakes.Seen);
             if (kind is not null)
             {
                 services.AddFakeQuery<AuthenticateSession, SessionPrincipal>(new Authenticate(kind));

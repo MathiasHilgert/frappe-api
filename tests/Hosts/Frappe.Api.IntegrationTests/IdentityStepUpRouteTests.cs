@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Frappe.Access.Contracts;
 using Frappe.Identity.Application.Credentials;
 using Frappe.Identity.Application.Sessions.StepUp;
 using Frappe.Modules;
@@ -48,7 +49,7 @@ public sealed class IdentityStepUpRouteTests
         // Arrange
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
-        var (_, _, token) = host.Seed();
+        var (principal, session, token) = host.Seed();
         using var client = host.App.GetTestClient();
 
         // Act
@@ -63,6 +64,7 @@ public sealed class IdentityStepUpRouteTests
             await Assert.That(response.Headers.Location).IsNull();
             await Assert.That(response.Headers.CacheControl?.NoStore).IsTrue();
             await Assert.That(body.GetProperty("validUntil").GetDateTimeOffset()).IsEqualTo(Fakes.ValidUntil.ToDateTimeOffset());
+            await Assert.That(fakes.Callers.Single()).IsEqualTo((principal.Id, session.Id));
             await Assert.That(command.Password).IsEqualTo("my password");
             await Assert.That(command.ToString()).DoesNotContain("my password");
         }
@@ -163,6 +165,11 @@ public sealed class IdentityStepUpRouteTests
     /// <summary>What the faked use case saw and the answer it gives.</summary>
     private sealed class Fakes
     {
+        /// <summary>The principal and session the use cases saw through the caller.</summary>
+        public List<(Guid Principal, Guid Session)> Callers { get; } = [];
+
+        public void Seen(ICaller caller) => Callers.Add((caller.RequiredPrincipalId, caller.RequiredSessionId));
+
         public static readonly Instant ValidUntil = Instant.FromUtc(2026, 11, 24, 12, 5);
 
         public List<StepUp> Commands { get; } = [];
@@ -174,7 +181,7 @@ public sealed class IdentityStepUpRouteTests
     private sealed class FakesModule(Fakes fakes) : IModule
     {
         public void AddServices(IServiceCollection services) =>
-            services.AddFakeCommand<StepUp, SteppedUp>(new Handler(fakes));
+            services.AddFakeCommand<StepUp, SteppedUp>(new Handler(fakes), fakes.Seen);
     }
 
     /// <summary>The step-up use case, standing in for the real one.</summary>
