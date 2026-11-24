@@ -1,6 +1,7 @@
 using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Notifications.Infrastructure.Persistence;
 using Frappe.Persistence;
+using Frappe.Testing.Containers;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -14,7 +15,7 @@ public sealed class NotificationsMigrationTests(PostgresServer server)
     [Test]
     public async Task The_migration_creates_the_module_schema_with_its_tables_and_its_outbox_and_inbox()
     {
-        await MigratedNotifications.RunAsync(server, async owner =>
+        await MigratedNotifications.RunFreshAsync(server, async owner =>
         {
             // Act
             var tables = await TablesAsync(owner);
@@ -31,7 +32,7 @@ public sealed class NotificationsMigrationTests(PostgresServer server)
     [Test]
     public async Task The_migrated_database_matches_the_model_and_a_rerun_changes_nothing()
     {
-        await MigratedNotifications.RunAsync(server, async owner =>
+        await MigratedNotifications.RunFreshAsync(server, async owner =>
         {
             // Arrange
             await using var context = new NotificationsDbContext(

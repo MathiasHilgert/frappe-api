@@ -1,4 +1,5 @@
 using Frappe.Notifications.Infrastructure.Retention;
+using Frappe.Testing.Containers;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Frappe.Notifications.IntegrationTests;
