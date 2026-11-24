@@ -86,6 +86,54 @@ public sealed class IdentityOwnerRouteTests
     }
 
     [Test]
+    public async Task A_retry_with_the_same_key_and_body_replays_the_stored_201_and_runs_the_use_case_once()
+    {
+        // Arrange
+        var fakes = new Fakes { Replays = true };
+        await using var app = await StartAsync(fakes);
+        using var client = app.GetTestClient();
+
+        // Act
+        using var first = await client.SendAsync(Post("/v1/identity/owners", Registration, key: "retry-1"));
+        using var retry = await client.SendAsync(Post("/v1/identity/owners", Registration, key: "retry-1"));
+        using var firstBody = JsonDocument.Parse(await first.Content.ReadAsStringAsync());
+        using var retryBody = JsonDocument.Parse(await retry.Content.ReadAsStringAsync());
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(first.StatusCode).IsEqualTo(HttpStatusCode.Created);
+            await Assert.That(retry.StatusCode).IsEqualTo(HttpStatusCode.Created);
+            await Assert.That(retryBody.RootElement.GetProperty("id").GetGuid()).IsEqualTo(firstBody.RootElement.GetProperty("id").GetGuid());
+            await Assert.That(fakes.Registrations).HasSingleItem();
+        }
+    }
+
+    [Test]
+    public async Task The_same_key_with_another_body_is_refused_and_the_use_case_does_not_run_again()
+    {
+        // Arrange
+        var fakes = new Fakes { Replays = true };
+        await using var app = await StartAsync(fakes);
+        using var client = app.GetTestClient();
+        var other = new { name = new { given = "Luz" }, email = "luz@example.com", password = "correct horse battery" };
+
+        // Act
+        using var first = await client.SendAsync(Post("/v1/identity/owners", Registration, key: "reused-1"));
+        using var reused = await client.SendAsync(Post("/v1/identity/owners", other, key: "reused-1"));
+        using var problem = JsonDocument.Parse(await reused.Content.ReadAsStringAsync());
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(first.StatusCode).IsEqualTo(HttpStatusCode.Created);
+            await Assert.That(reused.StatusCode).IsEqualTo(HttpStatusCode.UnprocessableEntity);
+            await Assert.That(problem.RootElement.GetProperty("errors")[0].GetProperty("code").GetString()).IsEqualTo(IdempotencyKey.ReusedCode);
+            await Assert.That(fakes.Registrations).HasSingleItem();
+        }
+    }
+
+    [Test]
     public async Task A_language_nobody_serves_is_resolved_to_english_and_never_refused()
     {
         // Arrange
@@ -239,6 +287,9 @@ public sealed class IdentityOwnerRouteTests
 
         public Error? Registered { get; init; }
 
+        /// <summary>Whether the host keeps the answers of idempotent requests (its own in-memory store) instead of claiming every key.</summary>
+        public bool Replays { get; init; }
+
         public Error? Verified { get; init; }
 
         public Guid SessionId { get; } = Guid.CreateVersion7();
@@ -251,7 +302,8 @@ public sealed class IdentityOwnerRouteTests
     {
         public void AddServices(IServiceCollection services)
         {
-            services.AddSingleton<IIdempotencyStore, OpenStore>();
+            services.AddSingleton<IIdempotencyStore>(fakes.Replays ? new ReplayStore() : new OpenStore());
+
             services.AddSingleton<ICommandHandler<RegisterOwner, RegisteredOwner>>(new Register(fakes));
             services.AddSingleton<ICommandHandler<VerifyOwnerEmail, OpenedSession>>(new Verify(fakes));
             services.AddSingleton<ICommandHandler<ResendOwnerVerification, Unit>>(new Resend(fakes));
@@ -331,5 +383,41 @@ public sealed class IdentityOwnerRouteTests
             ValueTask.CompletedTask;
 
         public ValueTask ReleaseAsync(string key, CancellationToken cancellationToken) => ValueTask.CompletedTask;
+    }
+
+    /// <summary>An idempotency store that keeps answers and replays them, and refuses a key used with another body.</summary>
+    private sealed class ReplayStore : IIdempotencyStore
+    {
+        private readonly Dictionary<string, (string Fingerprint, StoredResponse? Response)> _entries = [];
+
+        public ValueTask<IdempotencyClaim> ClaimAsync(string key, string fingerprint, CancellationToken cancellationToken)
+        {
+            if (!_entries.TryGetValue(key, out var found))
+            {
+                _entries[key] = (fingerprint, null);
+                return ValueTask.FromResult(new IdempotencyClaim(IdempotencyOutcome.Claimed));
+            }
+
+            if (found.Fingerprint != fingerprint)
+            {
+                return ValueTask.FromResult(new IdempotencyClaim(IdempotencyOutcome.Reused));
+            }
+
+            return ValueTask.FromResult(found.Response is null
+                ? new IdempotencyClaim(IdempotencyOutcome.InFlight)
+                : new IdempotencyClaim(IdempotencyOutcome.Replay, found.Response));
+        }
+
+        public ValueTask CompleteAsync(string key, string fingerprint, StoredResponse response, CancellationToken cancellationToken)
+        {
+            _entries[key] = (fingerprint, response);
+            return ValueTask.CompletedTask;
+        }
+
+        public ValueTask ReleaseAsync(string key, CancellationToken cancellationToken)
+        {
+            _entries.Remove(key);
+            return ValueTask.CompletedTask;
+        }
     }
 }

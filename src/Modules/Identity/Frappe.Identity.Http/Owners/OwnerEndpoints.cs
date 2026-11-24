@@ -1,8 +1,11 @@
 using Frappe.Http;
+using Frappe.Identity.Application.Codes;
 using Frappe.Identity.Application.Owners.RegisterOwner;
 using Frappe.Identity.Application.Owners.ResendOwnerVerification;
 using Frappe.Identity.Application.Owners.VerifyOwnerEmail;
 using Frappe.Identity.Application.Sessions;
+using Frappe.Identity.Domain.Credentials;
+using Frappe.Identity.Domain.Owners;
 using Frappe.Identity.Http.Sessions;
 using Frappe.Results;
 using Frappe.UseCases;
@@ -31,14 +34,17 @@ internal static class OwnerEndpoints
                 .RequireRateLimiting(IdentityHttp.RegistrationRateLimitPolicy)
                 .WithSummary("Register an owner")
                 .WithDescription(
-                    "Registers an owner with a name, an email address and a password, and mails a six-digit code to the address. The language "
+                    $"Registers an owner with a name, an email address and a password, and mails a {CodeIssuer.Digits}-digit code to the "
+                    + "address. The language "
                     + "of the mail is the one the request negotiates from Accept-Language (an unknown one is answered in English, never "
                     + "refused). It answers 201 with an id to verify the address with. The answer is the same for an address that is new, "
-                    + "one a pending owner holds (the new registration takes it over, and the old code stops working) and one a verified "
-                    + "owner holds (nothing is written and that owner is told by mail), so it never reveals whether an address is registered. "
-                    + "The same Idempotency-Key registers once. 400 identity.email.invalid or identity.name.invalid (a name is at most 60 "
-                    + "characters, given plus family, and holds no http, www. or ://), 422 for a password that is too short, too long or "
-                    + "breached.")
+                    + "one a pending owner holds (the new registration replaces it, so the id and the code it was given stop working) and "
+                    + "one a verified "
+                    + "owner holds (nothing is written and that owner is told by mail); each answer carries a new id, so it never reveals whether an "
+                    + "address is registered. "
+                    + "The same Idempotency-Key registers once. 400 identity.email.invalid or identity.name.invalid (a name is at most "
+                    + $"{OwnerName.MaxMailedLength} characters, given plus family, and holds no http, www. or ://), 422 for a password that is "
+                    + $"shorter than {Password.MinLength} or longer than {Password.MaxLength} characters or breached.")
                 .ProducesProblem(StatusCodes.Status400BadRequest)
                 .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
@@ -49,8 +55,8 @@ internal static class OwnerEndpoints
                     "Proves the address with the code that was mailed: the owner becomes active and a session opens, so the owner needs no "
                     + "log-in. The session is in the body (send its token as Authorization: Bearer) and, for the web console, in the "
                     + "session cookie. 422 identity.code.invalid for a code that is wrong, expired, used or replaced and for an id that is "
-                    + "unknown or malformed (one answer for all of them); a code takes five guesses. 503 identity.attempts.unavailable when "
-                    + "guesses cannot be counted.")
+                    + $"unknown or malformed (one answer for all of them); a code takes {CodeLimits.Guess.Limit} guesses. 503 "
+                    + "identity.attempts.unavailable when guesses cannot be counted.")
                 .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
                 .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
@@ -59,7 +65,8 @@ internal static class OwnerEndpoints
                 .WithSummary("Resend an owner's verification code")
                 .WithDescription(
                     "Mails a new verification code to a pending owner, which replaces the one before it. It answers 202 always, for an id that "
-                    + "is unknown, malformed, verified or over its budget of five codes an hour, so it reveals nothing about which owners exist.");
+                    + $"is unknown, malformed, verified or over its budget of {CodeLimits.Send.Limit} codes an hour, so it reveals nothing "
+                    + "about which owners exist.");
         }
     }
 

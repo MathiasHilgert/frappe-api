@@ -35,25 +35,30 @@ public sealed class OwnerTests
     }
 
     [Test]
-    public async Task Replacing_a_pending_owner_takes_the_new_name_and_language_and_restarts_the_purge_clock()
+    public async Task Replacing_a_pending_owner_makes_a_new_owner_of_the_new_principal_with_the_new_name_and_a_restarted_purge_clock()
     {
         // Arrange
         var owner = Pending();
         owner.DequeueDomainEvents();
         var later = Start + Duration.FromDays(3);
+        var principalId = Guid.CreateVersion7();
 
         // Act
-        var result = owner.Replace(OwnerName.Create("Luz", null).Value, LanguageTag.Create("pt-BR").Value, later);
+        var result = owner.ReplaceWith(principalId, OwnerName.Create("Luz", null).Value, LanguageTag.Create("pt-BR").Value, later);
 
         // Assert
+        var replacement = result.Value;
         using (Assert.Multiple())
         {
             await Assert.That(result.IsSuccess).IsTrue();
-            await Assert.That(owner.GivenName).IsEqualTo("Luz");
-            await Assert.That(owner.FamilyName).IsNull();
-            await Assert.That(owner.Locale.Value).IsEqualTo("pt-BR");
-            await Assert.That(owner.RegisteredAt).IsEqualTo(later);
-            await Assert.That(owner.DomainEvents.OfType<OwnerRegistered>().Single().Replaced).IsTrue();
+            await Assert.That(replacement.PrincipalId).IsEqualTo(principalId);
+            await Assert.That(replacement.GivenName).IsEqualTo("Luz");
+            await Assert.That(replacement.FamilyName).IsNull();
+            await Assert.That(replacement.Locale.Value).IsEqualTo("pt-BR");
+            await Assert.That(replacement.RegisteredAt).IsEqualTo(later);
+            await Assert.That(replacement.DomainEvents.OfType<OwnerRegistered>().Single().Replaced).IsTrue();
+            await Assert.That(owner.GivenName).IsEqualTo("Ana");
+            await Assert.That(owner.DomainEvents).IsEmpty();
         }
     }
 
@@ -65,7 +70,7 @@ public sealed class OwnerTests
         owner.Verify(Start + Duration.FromMinutes(1));
 
         // Act
-        var result = owner.Replace(Ana, Spanish, Start + Duration.FromDays(1));
+        var result = owner.ReplaceWith(Guid.CreateVersion7(), Ana, Spanish, Start + Duration.FromDays(1));
 
         // Assert
         using (Assert.Multiple())

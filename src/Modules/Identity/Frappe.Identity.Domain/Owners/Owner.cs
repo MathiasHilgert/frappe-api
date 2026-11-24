@@ -20,14 +20,14 @@ public sealed class Owner : AggregateRoot
         Locale = null!;
     }
 
-    private Owner(Guid principalId, string givenName, string? familyName, LanguageTag locale, Instant now)
+    private Owner(Guid principalId, string givenName, string? familyName, LanguageTag locale, bool replaced, Instant now)
     {
         PrincipalId = principalId;
         GivenName = givenName;
         FamilyName = familyName;
         Locale = locale;
         RegisteredAt = now;
-        Raise(new OwnerRegistered(principalId, Replaced: false, now));
+        Raise(new OwnerRegistered(principalId, replaced, now));
     }
 
     /// <summary>The principal it belongs to; also its key.</summary>
@@ -61,14 +61,15 @@ public sealed class Owner : AggregateRoot
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(givenName);
         ArgumentNullException.ThrowIfNull(locale);
-        return new Owner(principalId, givenName, familyName, locale, now);
+        return new Owner(principalId, givenName, familyName, locale, replaced: false, now);
     }
 
     /// <summary>
-    /// A newer registration of the same address takes this pending owner over: new name and language, and the purge clock restarts. The
-    /// caller replaces the password and the code. A verified owner is never replaced.
+    /// A newer registration of the same address takes this pending owner over: the owner it becomes is a new one, of the new principal
+    /// <paramref name="principalId"/>, with the new name and language, and its purge clock starts at <paramref name="now"/>. This owner is left
+    /// as it is; the caller drops it with its principal, so the id it was told stops working. A verified owner is never replaced.
     /// </summary>
-    public Result<Unit> Replace(OwnerName name, LanguageTag locale, Instant now)
+    public Result<Owner> ReplaceWith(Guid principalId, OwnerName name, LanguageTag locale, Instant now)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(locale);
@@ -77,12 +78,7 @@ public sealed class Owner : AggregateRoot
             return Error.RuleViolation(IdentityErrorCodes.OwnerNotPending);
         }
 
-        GivenName = name.Given;
-        FamilyName = name.Family;
-        Locale = locale;
-        RegisteredAt = now;
-        Raise(new OwnerRegistered(PrincipalId, Replaced: true, now));
-        return Unit.Value;
+        return new Owner(principalId, name.Given, name.Family, locale, replaced: true, now);
     }
 
     /// <summary>
