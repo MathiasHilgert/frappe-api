@@ -168,5 +168,9 @@ public sealed class SessionCommandTests
             Task.FromResult<Frappe.Identity.Domain.Sessions.SessionAccess?>(null);
 
         public Task<CurrentSession?> FindCurrentAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult<CurrentSession?>(current);
+
+        public Task<IReadOnlyList<ListedSession>> ListLiveAsync(
+            Guid principalId, NodaTime.Instant now, int limit, SessionPosition? after, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("This port only answers the current session.");
     }
 }

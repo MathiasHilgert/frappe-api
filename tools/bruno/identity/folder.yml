@@ -29,6 +29,8 @@ docs:
     - **Log in as a pending owner (403):** run after **Register an owner**: `identity.owner.verification_pending` with the owner id.
     - **Get / change the profile without a session (401):** `GET` and `PATCH /v1/identity/me`.
     - **Step up the session without a session (401):** `POST /v1/identity/sessions/current/step-ups`.
+    - **List my sessions / revoke one / revoke the others without a session (401):** `GET /v1/identity/me/sessions`,
+      `DELETE /v1/identity/me/sessions/{sessionId}` and `DELETE /v1/identity/me/sessions/others`.
 
     The 200 and 204 examples (a session, the profile, logging out) need a verified owner and are covered by the Api's integration tests.
   type: text/markdown

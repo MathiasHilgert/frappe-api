@@ -15,5 +15,6 @@
   "identity.session.forbidden": "Esta sessão não pode usar esta rota.",
   "identity.session.invalid": "A sessão está ausente, expirou ou foi revogada, ou a requisição enviou o cookie de sessão duas vezes. Entre novamente.",
   "identity.step_up.required": "Esta ação precisa de uma verificação recente da senha. Confirme sua senha nesta sessão e repita a solicitação.",
-  "identity.undo.invalid": "Este link não funciona: está errado, expirou, já foi usado ou foi substituído, ou outra conta tem agora o endereço anterior."
+  "identity.undo.invalid": "Este link não funciona: está errado, expirou, já foi usado ou foi substituído, ou outra conta tem agora o endereço anterior.",
+  "identity.session.not_found": "A sessão não existe, não é sua ou já terminou."
 }

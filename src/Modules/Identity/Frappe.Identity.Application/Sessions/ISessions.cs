@@ -1,4 +1,5 @@
 using Frappe.Identity.Domain.Sessions;
+using NodaTime;
 
 namespace Frappe.Identity.Application.Sessions;
 
@@ -13,6 +14,12 @@ public interface ISessions
     /// or restamp each through its aggregate (and so raise its events) in the unit that changes the credential. No bulk SQL (UOW-03).
     /// </summary>
     Task<IReadOnlyList<Session>> ListLiveOfAsync(Guid principalId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The sessions of <paramref name="principalId"/> that are live at <paramref name="now"/> (not revoked, not ended, neither expiry reached),
+    /// tracked for change, so revoking one goes through its aggregate and raises its events (S13).
+    /// </summary>
+    Task<IReadOnlyList<Session>> ListLiveOfAsync(Guid principalId, Instant now, CancellationToken cancellationToken);
 
     /// <summary>Stages <paramref name="session"/> to be inserted with the unit of work.</summary>
     void Add(Session session);

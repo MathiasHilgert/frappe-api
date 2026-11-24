@@ -2,6 +2,7 @@ using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Domain.Sessions;
 using Frappe.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace Frappe.Identity.Infrastructure.Sessions;
 
@@ -13,6 +14,11 @@ internal sealed class EfSessions(IdentityDbContext db) : ISessions
 
     public async Task<IReadOnlyList<Session>> ListLiveOfAsync(Guid principalId, CancellationToken cancellationToken) =>
         await db.Sessions.Where(s => s.PrincipalId == principalId && s.RevokedAt == null && s.EndedAt == null).ToListAsync(cancellationToken);
+    public async Task<IReadOnlyList<Session>> ListLiveOfAsync(Guid principalId, Instant now, CancellationToken cancellationToken) =>
+        await db.Sessions
+            .Where(s => s.PrincipalId == principalId && s.RevokedAt == null && s.EndedAt == null && s.IdleExpiresAt > now
+                && s.AbsoluteExpiresAt > now)
+            .ToListAsync(cancellationToken);
 
     public void Add(Session session) => db.Sessions.Add(session);
 }

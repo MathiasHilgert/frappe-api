@@ -3,6 +3,7 @@ using Frappe.Identity.Http.Credentials;
 using Frappe.Identity.Http.Owners;
 using Frappe.Identity.Http.Sessions;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.OpenApi;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -68,6 +69,7 @@ public sealed class IdentityHttp : IHttpModule
         services.AddFrappeRateLimitPolicy(EmailChangeUndoRateLimitPolicy, EmailChangeUndoRateLimitPolicy, EmailChangeUndoRateLimit);
         services.AddSessionAuthentication();
         services.AddOwnerPolicy();
+        services.Configure<OpenApiOptions>("v1", options => options.AddSchemaTransformer<MySessionListDocumentation>());
     }
 
     /// <inheritdoc />
@@ -84,5 +86,6 @@ public sealed class IdentityHttp : IHttpModule
         identity.MapPasswordResetEndpoints();
         identity.MapEmailChangeEndpoints();
         identity.MapEmailChangeUndoEndpoints();
+        identity.MapMySessionsEndpoints();
     }
 }

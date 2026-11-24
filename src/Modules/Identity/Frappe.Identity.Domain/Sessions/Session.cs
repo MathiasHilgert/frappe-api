@@ -105,6 +105,9 @@ public sealed class Session : AggregateRoot
         return principal.Id == PrincipalId && AccessFor(principal).IsActiveAt(now);
     }
 
+    /// <summary>Whether the session is neither revoked nor ended and has reached neither expiry at <paramref name="now"/>.</summary>
+    public bool IsLiveAt(Instant now) => RevokedAt is null && EndedAt is null && now < IdleExpiresAt && now < AbsoluteExpiresAt;
+
     /// <summary>
     /// Records that the session was used at <paramref name="now"/> and pushes its idle expiry to <paramref name="idleTimeout"/> after it,
     /// never past the absolute expiry and never earlier than it already was. A session that is revoked or ended is left alone.

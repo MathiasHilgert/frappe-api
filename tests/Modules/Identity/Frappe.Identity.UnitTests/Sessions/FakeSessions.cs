@@ -1,6 +1,7 @@
 using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Domain.Principals;
 using Frappe.Identity.Domain.Sessions;
+using NodaTime;
 
 namespace Frappe.Identity.UnitTests.Sessions;
 
@@ -23,7 +24,19 @@ internal sealed class FakeSessions : ISessions, ISessionReads
     public Task<IReadOnlyList<Session>> ListLiveOfAsync(Guid principalId, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<Session>>([.. Stored.Where(s => s.PrincipalId == principalId && s.RevokedAt is null && s.EndedAt is null)]);
 
+    public Task<IReadOnlyList<Session>> ListLiveOfAsync(Guid principalId, Instant now, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<Session>>([.. Stored.Where(s => s.PrincipalId == principalId && s.IsLiveAt(now))]);
+
     public void Add(Session session) => Stored.Add(session);
+
+    public Task<IReadOnlyList<ListedSession>> ListLiveAsync(
+        Guid principalId, Instant now, int limit, SessionPosition? after, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<ListedSession>>([.. Stored
+            .Where(s => s.PrincipalId == principalId && s.IsLiveAt(now))
+            .OrderByDescending(s => s.OpenedAt).ThenBy(s => s.Id)
+            .Where(s => after is null || s.OpenedAt < after.OpenedAt || (s.OpenedAt == after.OpenedAt && s.Id.CompareTo(after.Id) > 0))
+            .Take(limit)
+            .Select(s => new ListedSession(s.Id, s.OpenedAt, s.LastSeenAt, s.UserAgent, s.IpPrefix))]);
 
     public Task<SessionAccess?> FindAccessAsync(byte[] tokenHash, CancellationToken cancellationToken)
     {

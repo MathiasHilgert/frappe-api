@@ -2,6 +2,7 @@ using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Domain.Sessions;
 using Frappe.Identity.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using NodaTime;
 
 namespace Frappe.Identity.Infrastructure.Sessions;
 
@@ -41,4 +42,23 @@ internal sealed class EfSessionReads(IdentityDbContext db) : ISessionReads
             .Where(s => s.Id == id)
             .Select(s => new CurrentSession(s.Id, s.IdleExpiresAt, s.AbsoluteExpiresAt, s.StepUpUntil))
             .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<ListedSession>> ListLiveAsync(
+        Guid principalId, Instant now, int limit, SessionPosition? after, CancellationToken cancellationToken)
+    {
+        var live = db.Sessions.AsNoTracking()
+            .Where(s => s.PrincipalId == principalId && s.RevokedAt == null && s.EndedAt == null && s.IdleExpiresAt > now
+                && s.AbsoluteExpiresAt > now);
+        if (after is not null)
+        {
+            var (openedAt, id) = after;
+            live = live.Where(s => s.OpenedAt < openedAt || (s.OpenedAt == openedAt && s.Id.CompareTo(id) > 0));
+        }
+
+        return await live
+            .OrderByDescending(s => s.OpenedAt).ThenBy(s => s.Id)
+            .Take(limit)
+            .Select(s => new ListedSession(s.Id, s.OpenedAt, s.LastSeenAt, s.UserAgent, s.IpPrefix))
+            .ToListAsync(cancellationToken);
+    }
 }
