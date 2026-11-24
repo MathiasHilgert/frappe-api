@@ -68,6 +68,8 @@ services:
       DOTNET_gcServer: "0"
       ConnectionStrings__Owner: Host=postgres;Database=frappe;Username=${POSTGRES_OWNER_USER:?set it in .env};Password=${POSTGRES_OWNER_PASSWORD:?set it in .env}
       Roles__Scheduler__Password: ${FRAPPE_SCHEDULER_PASSWORD:?set it in .env}
+      Roles__Identity__Password: ${FRAPPE_IDENTITY_PASSWORD:?set it in .env}
+      Roles__IdentityWorker__Password: ${FRAPPE_IDENTITY_WORKER_PASSWORD:?set it in .env}
       Roles__Notifications__Password: ${FRAPPE_NOTIFICATIONS_PASSWORD:?set it in .env}
       Roles__NotificationsWorker__Password: ${FRAPPE_NOTIFICATIONS_WORKER_PASSWORD:?set it in .env}
 
@@ -89,6 +91,7 @@ services:
       <<: *otel
       OTEL_SERVICE_NAME: frappe-api
       ConnectionStrings__Valkey: valkey:6379
+      ConnectionStrings__Identity: Host=postgres;Database=frappe;Username=frappe_identity;Password=${FRAPPE_IDENTITY_PASSWORD:?set it in .env}
       ConnectionStrings__Notifications: Host=postgres;Database=frappe;Username=frappe_notifications;Password=${FRAPPE_NOTIFICATIONS_PASSWORD:?set it in .env}
       # The key addresses are hashed with (S12, S13); CurrentKeyId names it, and a rotation adds a key and moves the id.
       Notifications__AddressHash__CurrentKeyId: "1"
@@ -119,6 +122,7 @@ services:
       <<: *otel
       OTEL_SERVICE_NAME: frappe-worker
       ConnectionStrings__Scheduler: Host=postgres;Database=frappe;Username=frappe_scheduler;Password=${FRAPPE_SCHEDULER_PASSWORD:?set it in .env}
+      ConnectionStrings__Identity: Host=postgres;Database=frappe;Username=frappe_identity_worker;Password=${FRAPPE_IDENTITY_WORKER_PASSWORD:?set it in .env}
       ConnectionStrings__Notifications: Host=postgres;Database=frappe;Username=frappe_notifications_worker;Password=${FRAPPE_NOTIFICATIONS_WORKER_PASSWORD:?set it in .env}
       ConnectionStrings__Valkey: valkey:6379
       ConnectionStrings__Nats: nats://nats:4222

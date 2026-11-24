@@ -40,6 +40,8 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
 
     private readonly string _ownerPassword = Secret();
     private readonly string _schedulerPassword = Secret();
+    private readonly string _identityPassword = Secret();
+    private readonly string _identityWorkerPassword = Secret();
     private readonly string _notificationsPassword = Secret();
     private readonly string _notificationsWorkerPassword = Secret();
     private readonly List<IContainer> _containers = [];
@@ -104,6 +106,7 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
 
         _api = Track(new ContainerBuilder(_image)
             .WithNetwork(_network)
+            .WithEnvironment("ConnectionStrings__Identity", $"Host=postgres;Database=frappe;Username=frappe_identity;Password={_identityPassword}")
             .WithEnvironment("ConnectionStrings__Notifications",
                 $"Host=postgres;Database=frappe;Username=frappe_notifications;Password={_notificationsPassword}")
             .WithEnvironment("ConnectionStrings__Valkey", "valkey:6379")
@@ -118,6 +121,8 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
             .WithNetwork(_network)
             .WithEntrypoint("/app/worker/Frappe.Worker")
             .WithEnvironment("ConnectionStrings__Scheduler", $"Host=postgres;Database=frappe;Username=frappe_scheduler;Password={_schedulerPassword}")
+            .WithEnvironment("ConnectionStrings__Identity",
+                $"Host=postgres;Database=frappe;Username=frappe_identity_worker;Password={_identityWorkerPassword}")
             .WithEnvironment("ConnectionStrings__Notifications",
                 $"Host=postgres;Database=frappe;Username=frappe_notifications_worker;Password={_notificationsWorkerPassword}")
             .WithEnvironment("ConnectionStrings__Valkey", "valkey:6379")
@@ -150,6 +155,8 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
             .WithEntrypoint("/app/migrator/Frappe.Migrator")
             .WithEnvironment("ConnectionStrings__Owner", $"Host=postgres;Database=frappe;Username=frappe_owner;Password={_ownerPassword}")
             .WithEnvironment("Roles__Scheduler__Password", _schedulerPassword)
+            .WithEnvironment("Roles__Identity__Password", _identityPassword)
+            .WithEnvironment("Roles__IdentityWorker__Password", _identityWorkerPassword)
             .WithEnvironment("Roles__Notifications__Password", _notificationsPassword)
             .WithEnvironment("Roles__NotificationsWorker__Password", _notificationsWorkerPassword)
             .Build());

@@ -1,3 +1,4 @@
+using Frappe.Identity.Infrastructure.Persistence;
 using Frappe.Notifications.Infrastructure.Persistence;
 using Frappe.Persistence;
 
@@ -10,5 +11,5 @@ namespace Frappe.Migrator;
 public static class Modules
 {
     /// <summary>Every module database the Migrator sets up, in order.</summary>
-    public static IReadOnlyCollection<IDatabaseModule> All { get; } = [new NotificationsDatabase()];
+    public static IReadOnlyCollection<IDatabaseModule> All { get; } = [new IdentityDatabase(), new NotificationsDatabase()];
 }

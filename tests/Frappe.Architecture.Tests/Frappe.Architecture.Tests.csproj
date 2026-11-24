@@ -5,6 +5,11 @@
     <ProjectReference Include="../../src/Hosts/Frappe.Api/Frappe.Api.csproj" />
     <ProjectReference Include="../../src/Hosts/Frappe.Migrator/Frappe.Migrator.csproj" />
     <ProjectReference Include="../../src/Hosts/Frappe.Worker/Frappe.Worker.csproj" />
+    <ProjectReference Include="../../src/Modules/Identity/Frappe.Identity.Domain/Frappe.Identity.Domain.csproj" />
+    <ProjectReference Include="../../src/Modules/Identity/Frappe.Identity.Application/Frappe.Identity.Application.csproj" />
+    <ProjectReference Include="../../src/Modules/Identity/Frappe.Identity.Contracts/Frappe.Identity.Contracts.csproj" />
+    <ProjectReference Include="../../src/Modules/Identity/Frappe.Identity.Infrastructure/Frappe.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="../../src/Modules/Identity/Frappe.Identity.Http/Frappe.Identity.Http.csproj" />
     <ProjectReference Include="../../src/Modules/Notifications/Frappe.Notifications.Domain/Frappe.Notifications.Domain.csproj" />
     <ProjectReference Include="../../src/Modules/Notifications/Frappe.Notifications.Application/Frappe.Notifications.Application.csproj" />
     <ProjectReference Include="../../src/Modules/Notifications/Frappe.Notifications.Contracts/Frappe.Notifications.Contracts.csproj" />

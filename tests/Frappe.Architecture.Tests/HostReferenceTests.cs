@@ -137,6 +137,51 @@ public sealed class HostReferenceTests
     }
 
     [Test]
+    public async Task The_Migrator_loads_the_identity_database_but_neither_its_web_layer_nor_its_valkey_limits()
+    {
+        // Act
+        var closure = Closure(Migrator).Keys;
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(closure).Contains("Frappe.Identity.Infrastructure");
+            await Assert.That(closure).DoesNotContain("Frappe.Identity.Http");
+            await Assert.That(closure).DoesNotContain("Frappe.Identity.Limits.Valkey");
+        }
+    }
+
+    [Test]
+    public async Task The_Worker_runs_identity_without_its_web_layer_and_without_the_valkey_limits_only_the_Api_has()
+    {
+        // Act
+        var closure = Closure(Worker).Keys;
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(closure).Contains("Frappe.Identity.Infrastructure");
+            await Assert.That(closure).DoesNotContain("Frappe.Identity.Http");
+            await Assert.That(closure).DoesNotContain("Frappe.Identity.Limits.Valkey");
+        }
+    }
+
+    [Test]
+    public async Task The_Api_serves_identity_with_its_web_layer_and_its_valkey_limits()
+    {
+        // Act
+        var closure = Closure(Api).Keys;
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(closure).Contains("Frappe.Identity.Infrastructure");
+            await Assert.That(closure).Contains("Frappe.Identity.Http");
+            await Assert.That(closure).Contains("Frappe.Identity.Limits.Valkey");
+        }
+    }
+
+    [Test]
     public async Task The_Api_and_the_Worker_reference_no_other_host_and_not_the_Migrator()
     {
         // Act

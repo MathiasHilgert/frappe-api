@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Identity.UnitTests" />
+    <InternalsVisibleTo Include="Frappe.Identity.IntegrationTests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.Identity.Domain/Frappe.Identity.Domain.csproj" />
+    <ProjectReference Include="../Frappe.Identity.Application/Frappe.Identity.Application.csproj" />
+    <ProjectReference Include="../Frappe.Identity.Contracts/Frappe.Identity.Contracts.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Modules/Frappe.Modules.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Persistence/Frappe.Persistence.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Messaging.Storage/Frappe.Messaging.Storage.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Messaging.Abstractions/Frappe.Messaging.Abstractions.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Observability/Frappe.Observability.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Scheduling/Frappe.Scheduling.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Argon2id hashing (the hasher arrives with the password slice). -->
+    <PackageReference Include="Geralt" />
+    <!-- dotnet ef reads the design-time factory through it; nothing of it ships. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+  </ItemGroup>
+</Project>

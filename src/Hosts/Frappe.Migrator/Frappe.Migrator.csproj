@@ -6,6 +6,7 @@
     <ProjectReference Include="../../Platform/Frappe.Persistence/Frappe.Persistence.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Scheduling/Frappe.Scheduling.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Observability.Hosting/Frappe.Observability.Hosting.csproj" />
+    <ProjectReference Include="../../Modules/Identity/Frappe.Identity.Infrastructure/Frappe.Identity.Infrastructure.csproj" />
     <ProjectReference Include="../../Modules/Notifications/Frappe.Notifications.Infrastructure/Frappe.Notifications.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>

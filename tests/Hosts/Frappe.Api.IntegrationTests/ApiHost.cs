@@ -17,6 +17,7 @@ internal static class ApiHost
     /// <summary>What a deploy sets for the real module lists: the database and the hash, unsubscribe and webhook keys.</summary>
     public static readonly Dictionary<string, string?> Deployed = new()
     {
+        ["ConnectionStrings:Identity"] = "Host=unreachable.invalid;Database=frappe;Username=frappe_identity",
         ["ConnectionStrings:Notifications"] = "Host=unreachable.invalid;Database=frappe;Username=frappe_notifications",
         ["Notifications:AddressHash:CurrentKeyId"] = "1",
         ["Notifications:AddressHash:Keys:1"] = "bG9jYWwtb25seS1hZGRyZXNzLWhhc2gta2V5LW9mLTM5LWJ5dGVz",

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Api.IntegrationTests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.Identity.Application/Frappe.Identity.Application.csproj" />
+    <ProjectReference Include="../Frappe.Identity.Contracts/Frappe.Identity.Contracts.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Http/Frappe.Http.csproj" />
+  </ItemGroup>
+</Project>

@@ -7,6 +7,7 @@
     <ProjectReference Include="../../Platform/Frappe.Observability.Hosting/Frappe.Observability.Hosting.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Messaging/Frappe.Messaging.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Scheduling/Frappe.Scheduling.csproj" />
+    <ProjectReference Include="../../Modules/Identity/Frappe.Identity.Infrastructure/Frappe.Identity.Infrastructure.csproj" />
     <ProjectReference Include="../../Modules/Notifications/Frappe.Notifications.Infrastructure/Frappe.Notifications.Infrastructure.csproj" />
     <ProjectReference Include="../../Modules/Notifications/Channels/Frappe.Notifications.Channels.Email/Frappe.Notifications.Channels.Email.csproj" />
     <ProjectReference Include="../../Modules/Notifications/Kinds/Frappe.Notifications.Kinds.Account/Frappe.Notifications.Kinds.Account.csproj" />

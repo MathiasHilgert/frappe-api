@@ -21,6 +21,8 @@ public sealed class MigratorTests(PostgresServer server)
 {
     private const string SchedulerRole = "frappe_scheduler";
     private const string SchedulerPassword = "scheduler-test-password";
+    private const string IdentityRole = "frappe_identity";
+    private const string IdentityWorkerRole = "frappe_identity_worker";
     private const string NotificationsRole = "frappe_notifications";
     private const string NotificationsWorkerRole = "frappe_notifications_worker";
 
@@ -57,18 +59,26 @@ public sealed class MigratorTests(PostgresServer server)
     }
 
     [Test]
-    public async Task With_its_real_module_list_it_sets_up_Notifications_with_the_Api_and_the_Worker_roles()
+    public async Task With_its_real_module_list_it_sets_up_Identity_and_Notifications_with_the_Api_and_the_Worker_roles()
     {
-        await ScratchDatabase.RunAsync(server, [SchedulerRole, NotificationsRole, NotificationsWorkerRole], async owner =>
+        string[] roles = [SchedulerRole, IdentityRole, IdentityWorkerRole, NotificationsRole, NotificationsWorkerRole];
+        await ScratchDatabase.RunAsync(server, roles, async owner =>
         {
             // Arrange
             var settings = MigratorHost.Settings(owner, SchedulerPassword);
+            settings["Roles:Identity:Password"] = "identity-test-password";
+            settings["Roles:IdentityWorker:Password"] = "identity-worker-test-password";
             settings["Roles:Notifications:Password"] = "notifications-test-password";
             settings["Roles:NotificationsWorker:Password"] = "notifications-worker-test-password";
             using var host = MigratorHost.Build(settings, Modules.All);
 
             // Act
             var exitCode = await host.RunMigrationAsync();
+            var identityApi = ScratchDatabase.LoginOf(owner, IdentityRole, "identity-test-password");
+            var identityWorker = ScratchDatabase.LoginOf(owner, IdentityWorkerRole, "identity-worker-test-password");
+            var identityRows = await ScratchDatabase.ScalarAsync(identityApi, "SELECT count(*) FROM identity.principals");
+            var identityWorkerDenied = await Assert.ThrowsAsync<PostgresException>(
+                () => ScratchDatabase.ScalarAsync(identityWorker, "SELECT count(*) FROM identity.sessions"));
             var api = ScratchDatabase.LoginOf(owner, NotificationsRole, "notifications-test-password");
             var worker = ScratchDatabase.LoginOf(owner, NotificationsWorkerRole, "notifications-worker-test-password");
             var apiRows = await ScratchDatabase.ScalarAsync(api, "SELECT count(*) FROM notifications.deliveries");
@@ -79,7 +89,9 @@ public sealed class MigratorTests(PostgresServer server)
             // Assert
             using (Assert.Multiple())
             {
-                await Assert.That(Modules.All.Select(module => module.Name)).IsEquivalentTo(["notifications"]);
+                await Assert.That(Modules.All.Select(module => module.Name)).IsEquivalentTo(["identity", "notifications"]);
+                await Assert.That(identityRows).IsEqualTo(0L);
+                await Assert.That(identityWorkerDenied!.SqlState).IsEqualTo(PostgresErrorCodes.InsufficientPrivilege);
                 await Assert.That(exitCode).IsEqualTo(0);
                 await Assert.That(apiRows).IsEqualTo(0L);
                 await Assert.That(workerRows).IsEqualTo(0L);

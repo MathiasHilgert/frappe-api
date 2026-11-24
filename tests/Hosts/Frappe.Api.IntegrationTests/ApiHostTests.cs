@@ -143,8 +143,9 @@ public sealed class ApiHostTests
         // Assert
         using (Assert.Multiple())
         {
-            await Assert.That(Modules.Services.Select(module => module.GetType().Name)).Contains("NotificationsModule");
-            await Assert.That(Modules.Endpoints.Select(module => module.GetType().Name)).Contains("NotificationsHttp");
+            await Assert.That(Modules.Services.Select(module => module.GetType().Name))
+                .Contains("NotificationsModule").And.Contains("IdentityModule").And.Contains("IdentityLimitsValkeyModule");
+            await Assert.That(Modules.Endpoints.Select(module => module.GetType().Name)).Contains("NotificationsHttp").And.Contains("IdentityHttp");
             await Assert.That(live.StatusCode).IsEqualTo(HttpStatusCode.OK);
         }
     }
@@ -161,6 +162,20 @@ public sealed class ApiHostTests
 
         // Assert
         await Assert.That(thrown?.Message).Contains("ConnectionStrings:Notifications");
+    }
+
+    [Test]
+    public async Task The_Api_with_its_real_module_lists_and_no_identity_connection_fails_the_start_naming_its_key()
+    {
+        // Arrange
+        var settings = new Dictionary<string, string?>(ApiHost.Deployed);
+        settings.Remove("ConnectionStrings:Identity");
+
+        // Act
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ApiHost.StartAsync(Modules.Services, Modules.Endpoints, settings));
+
+        // Assert
+        await Assert.That(thrown?.Message).Contains("ConnectionStrings:Identity");
     }
 
     [Test]
