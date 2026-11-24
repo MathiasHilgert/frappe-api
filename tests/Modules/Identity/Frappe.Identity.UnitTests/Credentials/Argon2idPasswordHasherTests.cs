@@ -157,7 +157,7 @@ public sealed class Argon2idPasswordHasherTests
         using var listener = new MeterListener();
         listener.InstrumentPublished = (instrument, l) =>
         {
-            if (instrument.Meter.Scope == factory && instrument.Name == "identity.password_hash.duration")
+            if (instrument.Meter.Scope == factory && instrument.Name == "frappe.identity.password_hash.duration")
             {
                 l.EnableMeasurementEvents(instrument);
             }
@@ -174,7 +174,7 @@ public sealed class Argon2idPasswordHasherTests
         using (Assert.Multiple())
         {
             await Assert.That(recorded.Count).IsEqualTo(2);
-            await Assert.That(recorded.All(r => r is { Name: "identity.password_hash.duration", Unit: "s" } && r.Value > 0)).IsTrue();
+            await Assert.That(recorded.All(r => r is { Name: "frappe.identity.password_hash.duration", Unit: "s" } && r.Value > 0)).IsTrue();
         }
     }
 }

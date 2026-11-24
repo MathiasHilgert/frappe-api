@@ -100,7 +100,7 @@ public sealed class PasswordPolicyTests
         using (Assert.Multiple())
         {
             await Assert.That(fixture.Durations.Single()).IsEqualTo(0.25);
-            await Assert.That(fixture.Instrument!.Name).IsEqualTo("identity.breach_check.duration");
+            await Assert.That(fixture.Instrument!.Name).IsEqualTo("frappe.identity.breach_check.duration");
             await Assert.That(fixture.Instrument.Unit).IsEqualTo("s");
             await Assert.That(fixture.Instrument.Meter.Name).IsEqualTo("Frappe.Identity");
         }
@@ -129,7 +129,7 @@ public sealed class PasswordPolicyTests
             Breached = new FakeBreached(answer, () => time.Advance(takes ?? TimeSpan.Zero));
             _listener.InstrumentPublished = (instrument, listener) =>
             {
-                if (instrument.Meter.Scope == factory && instrument.Name == "identity.breach_check.duration")
+                if (instrument.Meter.Scope == factory && instrument.Name == "frappe.identity.breach_check.duration")
                 {
                     Instrument = instrument;
                     listener.EnableMeasurementEvents(instrument);
