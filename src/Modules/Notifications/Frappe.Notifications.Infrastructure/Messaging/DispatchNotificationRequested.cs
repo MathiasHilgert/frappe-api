@@ -1,5 +1,4 @@
 using Frappe.Messaging.Abstractions;
-using Frappe.Notifications.Application.Kinds;
 using Frappe.Notifications.Contracts;
 
 namespace Frappe.Notifications.Infrastructure.Messaging;
@@ -18,7 +17,7 @@ internal sealed class DispatchNotificationRequested(CatalogDispatch dispatch)
     {
         ArgumentNullException.ThrowIfNull(integrationEvent);
         var kind = dispatch.Require(integrationEvent.RequestId, integrationEvent.Kind);
-        var payload = NotificationPayloads.Read(kind, integrationEvent.Payload);
+        var payload = dispatch.Read(kind, integrationEvent.Payload);
         if (!payload.IsSuccess)
         {
             throw new InvalidOperationException(

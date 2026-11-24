@@ -47,6 +47,21 @@ public sealed class NotificationProducerRegistrationTests
     }
 
     [Test]
+    public async Task A_second_mapper_for_the_same_event_is_refused_at_startup()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddNotificationProducer<OrderPlaced, OrderPlacedMapper>("notifications-orders-confirmation");
+
+        // Act
+        var thrown = Assert.Throws<InvalidOperationException>(
+            () => services.AddNotificationProducer<OrderPlaced, OrderPlacedMapper>("notifications-orders-receipt"));
+
+        // Assert
+        await Assert.That(thrown.Message).Contains(nameof(OrderPlaced));
+    }
+
+    [Test]
     public async Task An_event_with_no_integration_event_type_is_refused_naming_it()
     {
         // Act

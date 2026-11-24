@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Frappe.Notifications.Application.Kinds;
 using Frappe.Notifications.Application.Requests.SendNotification;
+using Frappe.Notifications.Channels.Email;
 using Frappe.Notifications.Domain.Requests;
 using Frappe.Notifications.Kinds.Account;
 using Frappe.Notifications.Kinds.Marketing;
@@ -25,7 +26,12 @@ public sealed class SendNotificationTests
                 NotificationKind.Of<AccountActivationCode, AccountActivationCodePayload>(),
                 NotificationKind.Of<ProductAnnouncement, ProductAnnouncementPayload>()]),
             requests,
-            Clock);
+            Clock,
+            [new EmailPayloadCheck(new EmailComposer(new IcuNotificationTexts(
+            [
+                new EmbeddedNotificationTextSource(typeof(AccountActivationCode).Assembly),
+                new EmbeddedNotificationTextSource(typeof(ProductAnnouncement).Assembly),
+            ])))]);
 
     private static JsonElement Json(string json) => JsonElement.Parse(json);
 
@@ -115,6 +121,67 @@ public sealed class SendNotificationTests
             await Assert.That(notAnObject.Errors.Single().Code).IsEqualTo("notifications.payload.invalid");
             await Assert.That(requests.Staged).IsEmpty();
             await Assert.That(string.Join(' ', unknown.Errors.Select(e => e.ToString()))).DoesNotContain("hunter2");
+        }
+    }
+
+    [Test]
+    public async Task A_url_that_is_not_absolute_https_is_refused_at_the_request_naming_the_kind_and_nothing_is_staged()
+    {
+        // Arrange
+        var requests = new FakeSendRequests();
+        var payload = Json("""{"email":"a@b.co","name":"Ana","headline":"News","summary":"More","url":"http://frappe.example/news"}""");
+
+        // Act
+        var result = await HandlerOver(requests).HandleAsync(new SendNotification(RequestId, "product_announcement", payload), default);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(result.Errors.Single().Code).IsEqualTo("notifications.payload.invalid");
+            await Assert.That(FieldsOf(result)).IsEquivalentTo(["payload"]);
+            await Assert.That(requests.Staged).IsEmpty();
+        }
+    }
+
+    [Test]
+    [Arguments("Visit http://evil.example")]
+    [Arguments("www.evil.example")]
+    [Arguments("evil://x")]
+    [Arguments("HTTP://x")]
+    [Arguments("0123456789012345678901234567890123456789012345678901234567890")]
+    public async Task A_name_that_is_too_long_or_looks_like_a_link_is_refused_naming_the_name_field(string name)
+    {
+        // Arrange
+        var requests = new FakeSendRequests();
+        var payload = Json($$"""{"email":"a@b.co","name":"{{name}}","code":"482913"}""");
+
+        // Act
+        var result = await HandlerOver(requests).HandleAsync(new SendNotification(RequestId, "account_activation_code", payload), default);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(result.Errors.Single().Code).IsEqualTo("notifications.payload.invalid");
+            await Assert.That(FieldsOf(result)).IsEquivalentTo(["name"]);
+            await Assert.That(requests.Staged).IsEmpty();
+        }
+    }
+
+    [Test]
+    public async Task A_name_of_exactly_sixty_characters_is_accepted()
+    {
+        // Arrange
+        var requests = new FakeSendRequests();
+        var payload = Json($$"""{"email":"a@b.co","name":"{{new string('n', 60)}}","code":"482913"}""");
+
+        // Act
+        var result = await HandlerOver(requests).HandleAsync(new SendNotification(RequestId, "account_activation_code", payload), default);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(result.IsSuccess).IsTrue();
+            await Assert.That(requests.Staged).HasSingleItem();
         }
     }
 

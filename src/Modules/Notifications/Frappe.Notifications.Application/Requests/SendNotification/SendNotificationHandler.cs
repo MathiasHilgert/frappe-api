@@ -13,7 +13,8 @@ namespace Frappe.Notifications.Application.Requests.SendNotification;
 /// identity succeeds without staging anything, so an HTTP retry collapses. Accepting stages a request that raises the event the dispatch
 /// consumes; the unit of work saves it, with the outbox row, in one transaction.
 /// </summary>
-internal sealed class SendNotificationHandler(NotificationCatalog catalog, ISendRequests requests, IClock clock)
+internal sealed class SendNotificationHandler(
+    NotificationCatalog catalog, ISendRequests requests, IClock clock, IEnumerable<INotificationPayloadCheck> checks)
     : ICommandHandler<SendNotification, Unit>
 {
     public async Task<Result<Unit>> HandleAsync(SendNotification command, CancellationToken cancellationToken)
@@ -24,7 +25,7 @@ internal sealed class SendNotificationHandler(NotificationCatalog catalog, ISend
             return Error.InvalidValue("notifications.kind.unknown", ("kind", command.Kind));
         }
 
-        var payload = NotificationPayloads.Read(kind, command.Payload);
+        var payload = NotificationPayloads.Read(kind, command.Payload, checks);
         if (!payload.IsSuccess)
         {
             return Result.Failure<Unit>(payload.Errors);

@@ -161,6 +161,38 @@ public sealed class NotificationsRouteTests
     }
 
     [Test]
+    public async Task With_the_real_module_lists_an_action_url_that_is_not_https_is_answered_as_an_invalid_payload()
+    {
+        // Arrange
+        await using var app = await ApiHost.StartAsync(
+            [.. Frappe.Api.Modules.Services, new OpenStoreModule()], Frappe.Api.Modules.Endpoints, ApiHost.Deployed, "Development");
+        using var client = app.GetTestClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, Route)
+        {
+            Content = JsonContent.Create(new
+            {
+                kind = "product_announcement",
+                payload = new { email = "ana@example.com", name = "Ana", headline = "News", summary = "More", url = "http://frappe.example/news" },
+            }),
+        };
+        request.Headers.Add("Idempotency-Key", "key-http");
+
+        // Act
+        using var response = await client.SendAsync(request);
+        using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        // Assert
+        var error = problem.RootElement.GetProperty("errors")[0];
+        using (Assert.Multiple())
+        {
+            await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
+            await Assert.That(error.GetProperty("code").GetString()).IsEqualTo("notifications.payload.invalid");
+            await Assert.That(error.GetProperty("parameters").GetProperty("fields").EnumerateArray().Select(f => f.GetString()!))
+                .IsEquivalentTo(["payload"]);
+        }
+    }
+
+    [Test]
     public async Task In_Development_the_contract_documents_the_operation_with_its_accepted_answer()
     {
         // Arrange
@@ -217,6 +249,12 @@ public sealed class NotificationsRouteTests
             services.AddSingleton<ICommandHandler<SendNotification, Unit>>(handler);
             services.AddSingleton<IIdempotencyStore, OpenStore>();
         }
+    }
+
+    /// <summary>Replaces only the idempotency store (it needs Valkey), leaving the real handler and its checks in place.</summary>
+    private sealed class OpenStoreModule : IModule
+    {
+        public void AddServices(IServiceCollection services) => services.AddSingleton<IIdempotencyStore, OpenStore>();
     }
 
     /// <summary>An idempotency store that claims every key and replays nothing.</summary>

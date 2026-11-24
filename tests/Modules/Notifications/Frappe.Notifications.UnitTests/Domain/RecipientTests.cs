@@ -33,6 +33,8 @@ public sealed class RecipientTests
     [Arguments("Account")]
     [Arguments("account1")]
     [Arguments("")]
+    [Arguments("user\n")]
+    [Arguments("abcdefghijklmnopqrstuvwxyzabcdefghijklmno")]
     public async Task A_reference_with_a_kind_that_is_not_lower_snake_letters_is_a_bug_of_the_author(string kind)
     {
         // Act
@@ -97,6 +99,7 @@ public sealed class RecipientTests
     [Test]
     [Arguments("ref:account:42")]
     [Arguments("ref:order_line:a b/c")]
+    [Arguments("ref:account:José Ñandú")]
     [Arguments("addr:12:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")]
     public async Task A_key_reads_back_from_its_stored_spelling(string text)
     {
@@ -124,6 +127,46 @@ public sealed class RecipientTests
     [Arguments("addr:x:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")]
     [Arguments("addr:1:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0")]
     public async Task Text_that_is_not_a_stored_key_is_refused(string? text)
+    {
+        // Act
+        var key = RecipientKey.Parse(text);
+
+        // Assert
+        await Assert.That(key.IsSuccess).IsFalse();
+    }
+
+    [Test]
+    public async Task A_reference_kind_longer_than_the_cap_is_refused_and_the_longest_key_fits_its_column()
+    {
+        // Arrange
+        var longest = new ReferenceRecipient(new string('a', ReferenceRecipient.MaxKindLength), new string('1', ReferenceRecipient.MaxIdLength));
+
+        // Act
+        var tooLong = Assert.Throws<ArgumentException>(() => Recipient.Reference(new string('a', ReferenceRecipient.MaxKindLength + 1), "1"));
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(tooLong).IsNotNull();
+            await Assert.That(RecipientKey.Of(longest).Value.Length).IsLessThanOrEqualTo(RecipientKey.MaxLength);
+            await Assert.That(RecipientKey.Parse(RecipientKey.Of(longest).Value).IsSuccess).IsTrue();
+        }
+    }
+
+    [Test]
+    public async Task A_reference_id_with_a_control_character_is_refused_as_the_key_would_not_read_back()
+    {
+        // Act
+        var thrown = Assert.Throws<ArgumentException>(() => Recipient.Reference("account", "4\u00002"));
+
+        // Assert
+        await Assert.That(thrown).IsNotNull();
+    }
+
+    [Test]
+    [Arguments("ref:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:1")]
+    [Arguments("ref:account: ")]
+    public async Task A_key_that_a_reference_could_not_build_is_refused(string text)
     {
         // Act
         var key = RecipientKey.Parse(text);
