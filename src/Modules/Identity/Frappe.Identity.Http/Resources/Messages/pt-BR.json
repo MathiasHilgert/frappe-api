@@ -8,6 +8,7 @@
   "identity.name.invalid": "O nome precisa de um nome próprio e, junto com o sobrenome, ter no máximo 60 caracteres e nenhum link (http, www. ou ://).",
   "identity.owner.verification_pending": "O e-mail ainda não foi verificado. Um novo código foi enviado: verifique o e-mail com ele.",
   "identity.password.breached": "Esta senha aparece em uma lista pública de senhas vazadas. Escolha outra.",
+  "identity.password.incorrect": "A senha atual não está correta.",
   "identity.password.too_long": "A senha é longa demais: pode ter no máximo {max} caracteres.",
   "identity.password.too_short": "A senha é curta demais: precisa ter pelo menos {min} caracteres.",
   "identity.profile.changed": "O perfil mudou desde que você o leu. Leia-o de novo e repita a alteração.",

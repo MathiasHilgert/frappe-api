@@ -45,6 +45,18 @@ public sealed class IdentityMetrics
     /// <summary>The purpose tag of <see cref="CodesIssuedMetric"/>: <c>email_verification</c>, <c>password_reset</c>, <c>email_change</c>.</summary>
     public const string PurposeTag = "frappe.purpose";
 
+    /// <summary>Counter: passwords replaced, by kind (<c>change</c> by the signed-in holder, <c>reset</c> with a code).</summary>
+    public const string PasswordChangesMetric = "frappe.identity.password_changes";
+
+    /// <summary>The kind tag of <see cref="PasswordChangesMetric"/>.</summary>
+    public const string KindTag = "frappe.kind";
+
+    /// <summary>Counter: sessions revoked, by reason (the stored name of a revocation reason other than <c>logout</c>).</summary>
+    public const string SessionsRevokedMetric = "frappe.identity.sessions.revoked";
+
+    /// <summary>The reason tag of <see cref="SessionsRevokedMetric"/>: a small fixed set.</summary>
+    public const string ReasonTag = "frappe.reason";
+
     /// <summary>The flow tag of <see cref="LimiterUnavailableMetric"/>: the name of a declared limit flow, a small fixed set.</summary>
     public const string FlowTag = "frappe.flow";
 
@@ -60,6 +72,8 @@ public sealed class IdentityMetrics
     private readonly Counter<long> _codesIssued;
     private readonly Counter<long> _logins;
     private readonly Counter<long> _sessionsOpened;
+    private readonly Counter<long> _passwordChanges;
+    private readonly Counter<long> _sessionsRevoked;
 
     public IdentityMetrics(IMeterFactory meters)
     {
@@ -81,6 +95,10 @@ public sealed class IdentityMetrics
         _codesIssued = meter.CreateCounter<long>(CodesIssuedMetric, unit: "{code}", description: "One-time codes issued, by purpose.");
         _logins = meter.CreateCounter<long>(LoginsMetric, unit: "{login}", description: "Log-in attempts, by outcome.");
         _sessionsOpened = meter.CreateCounter<long>(SessionsOpenedMetric, unit: "{session}", description: "Sessions opened, by audience.");
+        _passwordChanges = meter.CreateCounter<long>(
+            PasswordChangesMetric, unit: "{change}", description: "Passwords replaced, by kind (change or reset).");
+        _sessionsRevoked = meter.CreateCounter<long>(
+            SessionsRevokedMetric, unit: "{session}", description: "Sessions revoked, by reason.");
     }
 
     /// <summary>A password was hashed or verified in <paramref name="elapsed"/>.</summary>
@@ -109,6 +127,13 @@ public sealed class IdentityMetrics
 
     /// <summary>A session opened for <paramref name="audience"/> (the name its stored form uses).</summary>
     public void SessionOpened(string audience) => _sessionsOpened.Add(1, new KeyValuePair<string, object?>(AudienceTag, audience));
+
+    /// <summary>A password was replaced; <paramref name="reset"/> says it was with a reset code rather than by its signed-in holder.</summary>
+    public void PasswordChanged(bool reset) =>
+        _passwordChanges.Add(1, new KeyValuePair<string, object?>(KindTag, reset ? "reset" : "change"));
+
+    /// <summary>A session was revoked for <paramref name="reason"/> (the name its stored form uses).</summary>
+    public void SessionRevoked(string reason) => _sessionsRevoked.Add(1, new KeyValuePair<string, object?>(ReasonTag, reason));
 
     /// <summary>A one-time code was issued for <paramref name="purpose"/> (the name its stored form uses).</summary>
     public void CodeIssued(string purpose) => _codesIssued.Add(1, new KeyValuePair<string, object?>(PurposeTag, purpose));

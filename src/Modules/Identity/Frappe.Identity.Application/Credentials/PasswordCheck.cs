@@ -29,12 +29,7 @@ public sealed class PasswordCheck(IPasswordHasher hasher, TimeProvider time)
             return true;
         }
 
-        var remaining = RefusalFloor - time.GetElapsedTime(started);
-        if (remaining > TimeSpan.Zero)
-        {
-            await Task.Delay(remaining, time, cancellationToken);
-        }
-
+        await ResponseFloor.HoldAsync(time, started, RefusalFloor, cancellationToken);
         return false;
     }
 

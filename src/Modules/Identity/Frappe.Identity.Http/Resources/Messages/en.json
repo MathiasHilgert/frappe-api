@@ -8,6 +8,7 @@
   "identity.name.invalid": "The name needs a given name and, together with the family name, at most 60 characters, with no link (http, www. or ://).",
   "identity.owner.verification_pending": "The email address is not verified yet. A new code was sent to it: verify the address with it.",
   "identity.password.breached": "This password appears in a public list of leaked passwords. Choose another one.",
+  "identity.password.incorrect": "The current password is not right.",
   "identity.password.too_long": "The password is too long: it can have at most {max} characters.",
   "identity.password.too_short": "The password is too short: it needs at least {min} characters.",
   "identity.profile.changed": "The profile changed since you read it. Read it again and repeat the change.",

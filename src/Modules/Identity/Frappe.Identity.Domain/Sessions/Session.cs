@@ -135,6 +135,20 @@ public sealed class Session : AggregateRoot
             : new SessionRevoked(PrincipalId, Id, reason, now));
     }
 
+    /// <summary>
+    /// Opens the session under <paramref name="stamp"/>, the principal's new credential stamp, so a credential change the holder made from
+    /// this session does not end it. A session that is revoked or ended stays as it is.
+    /// </summary>
+    public void Restamp(Guid stamp)
+    {
+        if (RevokedAt is not null || EndedAt is not null)
+        {
+            return;
+        }
+
+        CredentialStamp = stamp;
+    }
+
     private SessionAccess AccessFor(Principal principal) => new(
         Id, PrincipalId, principal.Kind, principal.Status, principal.CredentialStamp, CredentialStamp, Methods, LastSeenAt, IdleExpiresAt,
         AbsoluteExpiresAt, EndedAt, RevokedAt, StepUpUntil);

@@ -1,4 +1,5 @@
 using Frappe.Http;
+using Frappe.Identity.Http.Credentials;
 using Frappe.Identity.Http.Owners;
 using Frappe.Identity.Http.Sessions;
 using Microsoft.AspNetCore.Builder;
@@ -23,6 +24,9 @@ public sealed class IdentityHttp : IHttpModule
     /// <summary>The rate-limit policy of log-ins per client address, with its own budget apart from the anonymous one.</summary>
     public const string LogInRateLimitPolicy = "Identity:LogIn:RateLimit";
 
+    /// <summary>The rate-limit policy of password reset requests and confirmations per client address, with its own budget.</summary>
+    public const string PasswordResetRateLimitPolicy = "Identity:PasswordReset:RateLimit";
+
     private const string Prefix = "/identity";
 
     /// <summary>
@@ -37,6 +41,12 @@ public sealed class IdentityHttp : IHttpModule
     /// </summary>
     private static readonly AnonymousRateLimit LogInRateLimit = new(20, TimeSpan.FromMinutes(1));
 
+    /// <summary>
+    /// What one client address may ask of the reset routes per window by default (<c>Identity:PasswordReset:RateLimit:PermitLimit</c> and
+    /// <c>Window</c> change it): a request may send a mail and a confirmation asks the breach list, so the budget is well below the anonymous one.
+    /// </summary>
+    private static readonly AnonymousRateLimit PasswordResetRateLimit = new(10, TimeSpan.FromMinutes(1));
+
     /// <inheritdoc />
     public void AddServices(IServiceCollection services)
     {
@@ -45,6 +55,7 @@ public sealed class IdentityHttp : IHttpModule
         services.TryAddSingleton(TimeProvider.System);
         services.AddFrappeRateLimitPolicy(RegistrationRateLimitPolicy, RegistrationRateLimitPolicy, RegistrationRateLimit);
         services.AddFrappeRateLimitPolicy(LogInRateLimitPolicy, LogInRateLimitPolicy, LogInRateLimit);
+        services.AddFrappeRateLimitPolicy(PasswordResetRateLimitPolicy, PasswordResetRateLimitPolicy, PasswordResetRateLimit);
         services.AddSessionAuthentication();
         services.AddOwnerPolicy();
     }
@@ -58,5 +69,7 @@ public sealed class IdentityHttp : IHttpModule
         identity.MapOwnerEndpoints();
         identity.MapLogInEndpoints();
         identity.MapMeEndpoints();
+        identity.MapPasswordChangeEndpoints();
+        identity.MapPasswordResetEndpoints();
     }
 }

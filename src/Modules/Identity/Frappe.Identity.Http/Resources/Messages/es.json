@@ -8,6 +8,7 @@
   "identity.name.invalid": "El nombre necesita un nombre de pila y, junto con el apellido, tener como máximo 60 caracteres y ningún enlace (http, www. o ://).",
   "identity.owner.verification_pending": "El correo electrónico todavía no está verificado. Se le envió un código nuevo: verifícalo con él.",
   "identity.password.breached": "Esta contraseña aparece en una lista pública de contraseñas filtradas. Elige otra.",
+  "identity.password.incorrect": "La contraseña actual no es correcta.",
   "identity.password.too_long": "La contraseña es demasiado larga: puede tener como máximo {max} caracteres.",
   "identity.password.too_short": "La contraseña es demasiado corta: necesita al menos {min} caracteres.",
   "identity.profile.changed": "El perfil cambió desde que lo leíste. Léelo de nuevo y repite el cambio.",

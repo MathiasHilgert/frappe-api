@@ -3,6 +3,7 @@ using Frappe.Identity.Application.Identifiers;
 using Frappe.Identity.Application.Owners;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Domain.Codes;
+using Frappe.Identity.Domain.Credentials;
 using Frappe.Identity.Domain.Owners;
 using Frappe.Identity.Infrastructure.Credentials;
 using Frappe.Identity.Infrastructure.Identifiers;
@@ -38,6 +39,8 @@ internal static class OwnersRegistration
                 metrics.CodeIssued(StoredEnum<CodePurpose>.ToText(issued.Purpose)));
             services.CountOnCommit<OwnerLoggedIn, IdentityMetrics>((metrics, loggedIn) =>
                 metrics.LoggedIn(loggedIn.VerificationPending ? LoginOutcome.Pending : LoginOutcome.Opened));
+            services.CountOnCommit<PasswordChanged, IdentityMetrics>((metrics, _) => metrics.PasswordChanged(reset: false));
+            services.CountOnCommit<PasswordReset, IdentityMetrics>((metrics, _) => metrics.PasswordChanged(reset: true));
             services.CountOnCommit<OwnerVerified, IdentityMetrics>((metrics, _) => metrics.Verified(VerificationOutcome.Verified));
             return services;
         }
