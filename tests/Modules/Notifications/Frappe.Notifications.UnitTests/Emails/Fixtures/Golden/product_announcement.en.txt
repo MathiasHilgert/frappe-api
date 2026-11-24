@@ -1,0 +1,14 @@
+Frappé ya acepta pagos
+
+Hi Ana, we have news for you.
+
+Ahora podés cobrar desde la app.
+
+See what is new: https://frappe.example/news
+
+--
+We write to tell you about the latest news from Frappé.
+
+--
+You get this email because your address is on our news list.
+Stop receiving these emails: https://frappe.example/unsubscribe?c=marketing

@@ -36,6 +36,9 @@
     <Project Path="src/Modules/Notifications/Frappe.Notifications.Contracts/Frappe.Notifications.Contracts.csproj" />
     <Project Path="src/Modules/Notifications/Frappe.Notifications.Infrastructure/Frappe.Notifications.Infrastructure.csproj" />
     <Project Path="src/Modules/Notifications/Frappe.Notifications.Http/Frappe.Notifications.Http.csproj" />
+    <Project Path="src/Modules/Notifications/Channels/Frappe.Notifications.Channels.Email/Frappe.Notifications.Channels.Email.csproj" />
+    <Project Path="src/Modules/Notifications/Kinds/Frappe.Notifications.Kinds.Account/Frappe.Notifications.Kinds.Account.csproj" />
+    <Project Path="src/Modules/Notifications/Kinds/Frappe.Notifications.Kinds.Marketing/Frappe.Notifications.Kinds.Marketing.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Frappe.Architecture.Tests/Frappe.Architecture.Tests.csproj" />

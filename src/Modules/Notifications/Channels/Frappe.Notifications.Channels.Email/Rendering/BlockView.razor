@@ -1,0 +1,28 @@
+@switch (Block)
+{
+    case EmailBlock.Heading heading:
+        <HeadingView Text="@heading.Text" />
+        break;
+    case EmailBlock.Paragraph paragraph:
+        <ParagraphView Text="@paragraph.Text" />
+        break;
+    case EmailBlock.Code codeBlock:
+        <CodeView Value="@codeBlock.Value" />
+        break;
+    case EmailBlock.Meta meta:
+        <MetaView Items="meta.Items" />
+        break;
+    case EmailBlock.Footer footer:
+        <FooterView Text="@footer.Text" />
+        break;
+    case EmailBlock.Action action:
+        <ActionView Label="@action.Label" Url="action.Url" />
+        break;
+    default:
+        throw new InvalidOperationException($"Unknown email block {Block.GetType().Name}.");
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public EmailBlock Block { get; set; } = default!;
+}
