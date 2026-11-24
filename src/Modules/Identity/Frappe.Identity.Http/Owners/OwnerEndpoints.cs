@@ -54,7 +54,9 @@ internal static class OwnerEndpoints
                     "Proves the address with the code that was mailed: the owner becomes active and a session opens, so the owner needs no "
                     + "log-in. The session is in the body (send its token as Authorization: Bearer) and, for the web console, in the "
                     + "session cookie. 422 identity.code.invalid for a code that is wrong, expired, used or replaced and for an id that is "
-                    + $"unknown or malformed (one answer for all of them); a code takes {CodeLimits.Guess.Limit} guesses. 503 "
+                    + $"unknown or malformed (one answer for all of them); a code takes {CodeLimits.Guess.Limit} guesses and an owner "
+                    + $"{CodeLimits.GuessPerPrincipal.Limit} a day from one network and {CodeLimits.GuessPerPrincipalAnywhere.Limit} a day from all "
+                    + "of them across all their codes. 503 "
                     + "identity.attempts.unavailable when guesses cannot be counted.")
                 .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
                 .ProducesProblem(StatusCodes.Status503ServiceUnavailable);

@@ -33,7 +33,8 @@ internal static class PasswordResetEndpoints
                     $"Mails a {CodeIssuer.Digits}-digit code to the verified owner who has this address. It answers 202 always with an id to "
                     + "confirm the reset with, for an address that is unknown, malformed, not verified or over its budget of "
                     + $"{CodeLimits.Send.Limit} codes an hour as for one that was sent a code (the id of an address that was sent none is "
-                    + "made up and confirms nothing), and never sooner than half a second, so neither the answer nor its time says which. "
+                    + $"made up and confirms nothing), and never sooner than {PasswordResetLimits.Floor.TotalMilliseconds:0} ms, "
+                    + "so neither the answer nor its time says which. "
                     + "The language of the mail is the owner's own.");
 
             routes.MapPost("/password-resets/{resetId}/confirmation", ConfirmAsync)
@@ -45,7 +46,8 @@ internal static class PasswordResetEndpoints
                     + $"password has {Password.MinLength} to {Password.MaxLength} characters and is not in a public breach list (422 "
                     + "identity.password.too_short, too_long or breached). 422 identity.code.invalid for a code that is wrong, expired, used "
                     + "or replaced and for an id that is unknown, made up or malformed (one answer for all of them): a code takes "
-                    + $"{CodeLimits.Guess.Limit} guesses and an owner {CodeLimits.GuessPerPrincipal.Limit} a day across all their codes. "
+                    + $"{CodeLimits.Guess.Limit} guesses, an owner {CodeLimits.GuessPerPrincipal.Limit} a day from one network "
+                    + $"and {CodeLimits.GuessPerPrincipalAnywhere.Limit} a day from all of them across all their codes. "
                     + "503 identity.attempts.unavailable when guesses cannot be counted, for every id alike.")
                 .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
                 .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
@@ -65,7 +67,8 @@ internal static class PasswordResetEndpoints
 
     private static async Task<Results<NoContent, ErrorsProblemHttpResult>> ConfirmAsync(
         string resetId, [FromBody] ConfirmPasswordResetRequest? body, ICommandHandler<ResetPassword, Unit> handler,
-        CancellationToken cancellationToken) =>
-        (await handler.HandleAsync(new ResetPassword(resetId, body?.Code, body?.NewPassword), cancellationToken))
+        HttpContext httpContext, CancellationToken cancellationToken) =>
+        (await handler.HandleAsync(
+            new ResetPassword(resetId, body?.Code, body?.NewPassword, httpContext.Connection.RemoteIpAddress), cancellationToken))
             .ToTypedHttpResult(_ => TypedResults.NoContent());
 }

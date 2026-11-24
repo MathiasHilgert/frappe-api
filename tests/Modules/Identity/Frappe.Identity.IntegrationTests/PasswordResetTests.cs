@@ -294,7 +294,42 @@ public sealed class PasswordResetTests(PostgresServer server)
                 await Assert.That(guesses).IsEqualTo(CodeLimits.GuessPerPrincipal.Limit);
                 await Assert.That(right.Errors.Single().Code).IsEqualTo(IdentityErrorCodes.CodeInvalid);
                 await Assert.That(stored.RedeemedAt).IsNull();
-                await Assert.That(host.Limiter.HitsOf(CodeLimits.GuessPerPrincipal.Name, $"PasswordReset:{id:N}"))
+                await Assert.That(host.Limiter.HitsOf(CodeLimits.GuessPerPrincipal.Name, $"PasswordReset:{id:N}:203.0.113.0/24"))
+                    .IsEqualTo(CodeLimits.GuessPerPrincipal.Limit + 1);
+            }
+        });
+    }
+
+    [Test]
+    public async Task One_network_exhausting_its_guesses_does_not_block_the_owner_from_another_network()
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using var host = OwnersHost.Over(owner);
+            var (id, _) = await ActiveOwnerAsync(host);
+            for (var round = 0; round < 3; round++)
+            {
+                var attacked = (await host.RequestResetAsync("ana@example.com")).Value.Id;
+                var real = await host.LastCodeAsync();
+                for (var i = 0; i < 4; i++)
+                {
+                    await host.ResetPasswordAsync(attacked.ToString(), WrongCodeFor(real), NewPassword, "198.51.100.9");
+                }
+            }
+
+            // Act
+            var fresh = (await host.RequestResetAsync("ana@example.com")).Value.Id;
+            var code = await host.LastCodeAsync();
+            var blocked = await host.ResetPasswordAsync(fresh.ToString(), code, NewPassword, "198.51.100.9");
+            var owners = await host.ResetPasswordAsync(fresh.ToString(), code, NewPassword, "192.0.2.50");
+
+            // Assert
+            using (Assert.Multiple())
+            {
+                await Assert.That(blocked.Errors.Single().Code).IsEqualTo(IdentityErrorCodes.CodeInvalid);
+                await Assert.That(owners.IsSuccess).IsTrue();
+                await Assert.That(host.Limiter.HitsOf(CodeLimits.GuessPerPrincipalAnywhere.Name, $"PasswordReset:{id:N}"))
                     .IsEqualTo(CodeLimits.GuessPerPrincipal.Limit + 1);
             }
         });

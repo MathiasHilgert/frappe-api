@@ -1,7 +1,6 @@
 using System.Net;
 using System.Text.Json;
 using Frappe.Identity.Application.Credentials.ChangePassword;
-using Frappe.Identity.Application.Sessions.StepUp;
 using Frappe.Identity.Application.Owners;
 using Frappe.Identity.Application.Owners.GetMe;
 using Frappe.Identity.Application.Owners.LogInOwner;
@@ -14,6 +13,7 @@ using Frappe.Identity.Application.Owners.VerifyOwnerEmail;
 using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Application.Sessions.GetCurrentSession;
 using Frappe.Identity.Application.Sessions.LogOut;
+using Frappe.Identity.Application.Sessions.StepUp;
 using Frappe.Identity.Http;
 using Frappe.Identity.Http.Sessions;
 using Frappe.Modules;
