@@ -332,4 +332,52 @@ public sealed class SessionTests
         // Assert
         await Assert.That(session.CredentialStamp).IsEqualTo(opened);
     }
+
+    [Test]
+    public async Task Stepping_up_opens_a_five_minute_window_from_completion_that_use_never_extends_and_a_new_step_up_renews()
+    {
+        // Arrange
+        var session = SessionOf(ActivePrincipal());
+        session.DequeueDomainEvents();
+        var at = Opened + Duration.FromMinutes(1);
+
+        // Act
+        var stepped = session.StepUp(at);
+        var until = session.StepUpUntil;
+        session.Touch(at + Duration.FromMinutes(4), Duration.FromHours(12));
+        var afterUse = session.StepUpUntil;
+        var renewed = session.StepUp(at + Duration.FromMinutes(4));
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(stepped).IsTrue();
+            await Assert.That(until).IsEqualTo(at + Duration.FromMinutes(5));
+            await Assert.That(afterUse).IsEqualTo(until);
+            await Assert.That(renewed).IsTrue();
+            await Assert.That(session.StepUpUntil).IsEqualTo(at + Duration.FromMinutes(9));
+            await Assert.That(session.DomainEvents.OfType<StepUpCompleted>().Select(e => e.ValidUntil))
+                .IsEquivalentTo([at + Duration.FromMinutes(5), at + Duration.FromMinutes(9)]);
+        }
+    }
+
+    [Test]
+    public async Task A_revoked_session_does_not_step_up()
+    {
+        // Arrange
+        var session = SessionOf(ActivePrincipal());
+        session.Revoke(RevocationReason.Logout, Opened + Duration.FromMinutes(1));
+        session.DequeueDomainEvents();
+
+        // Act
+        var stepped = session.StepUp(Opened + Duration.FromMinutes(2));
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(stepped).IsFalse();
+            await Assert.That(session.StepUpUntil).IsNull();
+            await Assert.That(session.DomainEvents).IsEmpty();
+        }
+    }
 }

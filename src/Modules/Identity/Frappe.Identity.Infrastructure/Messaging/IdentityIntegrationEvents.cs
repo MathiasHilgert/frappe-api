@@ -25,6 +25,8 @@ internal sealed class IdentityIntegrationEvents : IIntegrationEventTranslator
         SessionClosed closed => [new Published.SessionClosed(closed.PrincipalId, closed.SessionId, closed.At.ToDateTimeOffset())],
         SessionRevoked revoked => [new Published.SessionRevoked(
             revoked.PrincipalId, revoked.SessionId, StoredEnum<RevocationReason>.ToText(revoked.Reason), revoked.At.ToDateTimeOffset())],
+        StepUpCompleted stepped => [new Published.StepUpCompleted(
+            stepped.PrincipalId, stepped.SessionId, stepped.ValidUntil.ToDateTimeOffset(), stepped.At.ToDateTimeOffset())],
         PasswordChanged changed => [new PublishedCredentials.PasswordChanged(changed.PrincipalId, changed.At.ToDateTimeOffset())],
         PasswordReset reset => [new PublishedCredentials.PasswordReset(reset.PrincipalId, reset.At.ToDateTimeOffset())],
         OwnerRegistered registered => [new PublishedOwners.OwnerRegistered(registered.OwnerId, registered.At.ToDateTimeOffset())],

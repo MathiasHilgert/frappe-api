@@ -14,6 +14,8 @@ using Frappe.Identity.Application.Owners.UpdateMe;
 using Frappe.Identity.Application.Owners.VerifyOwnerEmail;
 using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Application.Sessions.AuthenticateSession;
+using Frappe.Identity.Application.Sessions.GetCurrentSession;
+using Frappe.Identity.Application.Sessions.StepUp;
 using Frappe.Identity.Domain.Credentials;
 using Frappe.Identity.Infrastructure;
 using Frappe.Identity.Infrastructure.Codes;
@@ -158,6 +160,23 @@ internal sealed class OwnersHost : IAsyncDisposable
             return await scope.ServiceProvider.GetRequiredService<ICommandHandler<ChangePassword, Unit>>()
                 .HandleAsync(new ChangePassword(principalId, sessionId, current, replacement), default);
         });
+
+    /// <summary>Steps a session up. A wrong password waits for the fake clock, which is moved on while the call waits.</summary>
+    public async Task<Result<SteppedUp>> StepUpAsync(Guid principalId, Guid sessionId, string? password) =>
+        await SettleAsync(async () =>
+        {
+            await using var scope = _provider.CreateAsyncScope();
+            return await scope.ServiceProvider.GetRequiredService<ICommandHandler<StepUp, SteppedUp>>()
+                .HandleAsync(new StepUp(principalId, sessionId, password), default);
+        });
+
+    /// <summary>The session as its holder sees it now.</summary>
+    public async Task<Result<CurrentSessionView>> CurrentAsync(Guid sessionId)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<IQueryHandler<GetCurrentSession, CurrentSessionView>>()
+            .HandleAsync(new GetCurrentSession(sessionId), default);
+    }
 
     public async Task<Result<PasswordResetRequested>> RequestResetAsync(string? email)
     {

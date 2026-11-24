@@ -66,6 +66,7 @@ public sealed class IdentityHttp : IHttpModule
         ArgumentNullException.ThrowIfNull(v1);
         var identity = v1.MapGroup(Prefix);
         identity.MapSessionEndpoints();
+        identity.MapStepUpEndpoints();
         identity.MapOwnerEndpoints();
         identity.MapLogInEndpoints();
         identity.MapMeEndpoints();

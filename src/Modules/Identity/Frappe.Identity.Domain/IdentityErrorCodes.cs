@@ -32,6 +32,11 @@ public static class IdentityErrorCodes
     /// </summary>
     public const string SessionInvalid = "identity.session.invalid";
 
+    /// <summary>
+    /// The route needs a recent password check and the session has none, or its window ran out (403): step the session up and repeat the request.
+    /// </summary>
+    public const string StepUpRequired = "identity.step_up.required";
+
     /// <summary>An email address is missing or is not shaped like one.</summary>
     public const string EmailInvalid = "identity.email.invalid";
 

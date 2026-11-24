@@ -13,5 +13,6 @@
   "identity.password.too_short": "The password is too short: it needs at least {min} characters.",
   "identity.profile.changed": "The profile changed since you read it. Read it again and repeat the change.",
   "identity.session.forbidden": "This session is not allowed to use this route.",
-  "identity.session.invalid": "The session is missing, expired or was revoked, or the request sent its session cookie twice. Log in again."
+  "identity.session.invalid": "The session is missing, expired or was revoked, or the request sent its session cookie twice. Log in again.",
+  "identity.step_up.required": "This action needs a recent password check. Step up the session with your password and repeat the request."
 }
