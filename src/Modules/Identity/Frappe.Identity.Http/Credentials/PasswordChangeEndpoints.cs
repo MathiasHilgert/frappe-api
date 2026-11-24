@@ -27,7 +27,8 @@ internal static class PasswordChangeEndpoints
                 .WithSummary("Change the password")
                 .WithDescription(
                     "Replaces the password of the caller. The current password is asked again: 422 identity.password.incorrect when it is not "
-                    + $"the one the caller has (never faster than half a second), and {PasswordRecheck.Flow.Limit} tries in "
+                    + $"the one the caller has (never faster than {PasswordCheck.RefusalFloor.TotalMilliseconds:0} ms), and "
+                    + $"{PasswordRecheck.Flow.Limit} tries in "
                     + $"{PasswordRecheck.Flow.Window.TotalMinutes:0} minutes are allowed, whatever their outcome, then 429 http.rate_limited "
                     + "with Retry-After (503 identity.attempts.unavailable while tries cannot be counted). The new one has "
                     + $"{Password.MinLength} to {Password.MaxLength} characters and is not in a public breach list (422 "

@@ -179,11 +179,12 @@ internal sealed class OwnersHost : IAsyncDisposable
             .HandleAsync(new RequestPasswordReset(email), default);
     }
 
-    public async Task<Result<Unit>> ResetPasswordAsync(string? resetId, string? code, string? replacement)
+    public async Task<Result<Unit>> ResetPasswordAsync(
+        string? resetId, string? code, string? replacement, string client = "203.0.113.7")
     {
         await using var scope = _provider.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<ICommandHandler<ResetPassword, Unit>>()
-            .HandleAsync(new ResetPassword(resetId, code, replacement), default);
+            .HandleAsync(new ResetPassword(resetId, code, replacement, System.Net.IPAddress.Parse(client)), default);
     }
 
     /// <summary>Whether the token of <paramref name="session"/> still lets its holder in, as the authentication of every request decides.</summary>

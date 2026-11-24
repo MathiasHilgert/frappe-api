@@ -55,7 +55,7 @@ internal sealed class VerifyOwnerEmailHandler(
             return Invalid();
         }
 
-        var redeemed = await redeemer.RedeemAsync(id, CodePurpose.EmailVerification, command.Code, cancellationToken);
+        var redeemed = await redeemer.RedeemAsync(id, CodePurpose.EmailVerification, command.Code, command.ClientAddress, cancellationToken);
         if (!redeemed.IsSuccess)
         {
             return Result.Failure<OpenedSession>(redeemed.Errors);

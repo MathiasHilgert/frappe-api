@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Frappe.Http;
 using Frappe.Identity.Application.Credentials;
 using Frappe.Identity.Application.Sessions;
@@ -84,6 +85,20 @@ internal sealed class IdentitySessionHost : IAsyncDisposable
         public override DateTimeOffset GetUtcNow() => _now;
 
         public void Advance(TimeSpan by) => _now += by;
+
+        /// <summary>When set, every timestamp is this one, so no time seems to pass between two of them.</summary>
+        public long? FrozenTimestamp { get; set; }
+
+        /// <summary>The due times of every timer created, in order.</summary>
+        public ConcurrentQueue<TimeSpan> Waits { get; } = new();
+
+        public override long GetTimestamp() => FrozenTimestamp ?? base.GetTimestamp();
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            Waits.Enqueue(dueTime);
+            return base.CreateTimer(callback, state, dueTime, period);
+        }
     }
 
     /// <summary>The ports of Identity's sessions over memory, the real handlers behind them.</summary>

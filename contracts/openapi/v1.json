@@ -782,7 +782,7 @@
           "Identity"
         ],
         "summary": "Verify an owner's email",
-        "description": "Proves the address with the code that was mailed: the owner becomes active and a session opens, so the owner needs no log-in. The session is in the body (send its token as Authorization: Bearer) and, for the web console, in the session cookie. 422 identity.code.invalid for a code that is wrong, expired, used or replaced and for an id that is unknown or malformed (one answer for all of them); a code takes 5 guesses. 503 identity.attempts.unavailable when guesses cannot be counted.",
+        "description": "Proves the address with the code that was mailed: the owner becomes active and a session opens, so the owner needs no log-in. The session is in the body (send its token as Authorization: Bearer) and, for the web console, in the session cookie. 422 identity.code.invalid for a code that is wrong, expired, used or replaced and for an id that is unknown or malformed (one answer for all of them); a code takes 5 guesses and an owner 10 a day from one network and 100 a day from all of them across all their codes. 503 identity.attempts.unavailable when guesses cannot be counted.",
         "operationId": "VerifyOwnerEmail",
         "parameters": [
           {
@@ -1794,7 +1794,7 @@
           "Identity"
         ],
         "summary": "Change the password",
-        "description": "Replaces the password of the caller. The current password is asked again: 422 identity.password.incorrect when it is not the one the caller has (never faster than half a second), and 10 tries in 15 minutes are allowed, whatever their outcome, then 429 http.rate_limited with Retry-After (503 identity.attempts.unavailable while tries cannot be counted). The new one has 10 to 128 characters and is not in a public breach list (422 identity.password.too_short, too_long or breached). Every other session of the caller is revoked at once; the one the request used keeps working with the same token. It answers 204. 401 identity.session.invalid without a valid session.",
+        "description": "Replaces the password of the caller. The current password is asked again: 422 identity.password.incorrect when it is not the one the caller has (never faster than 500 ms), and 10 tries in 15 minutes are allowed, whatever their outcome, then 429 http.rate_limited with Retry-After (503 identity.attempts.unavailable while tries cannot be counted). The new one has 10 to 128 characters and is not in a public breach list (422 identity.password.too_short, too_long or breached). Every other session of the caller is revoked at once; the one the request used keeps working with the same token. It answers 204. 401 identity.session.invalid without a valid session.",
         "operationId": "ChangePassword",
         "parameters": [
           {
@@ -2010,7 +2010,7 @@
           "Identity"
         ],
         "summary": "Ask for a password reset code",
-        "description": "Mails a 6-digit code to the verified owner who has this address. It answers 202 always with an id to confirm the reset with, for an address that is unknown, malformed, not verified or over its budget of 5 codes an hour as for one that was sent a code (the id of an address that was sent none is made up and confirms nothing), and never sooner than half a second, so neither the answer nor its time says which. The language of the mail is the owner's own.",
+        "description": "Mails a 6-digit code to the verified owner who has this address. It answers 202 always with an id to confirm the reset with, for an address that is unknown, malformed, not verified or over its budget of 5 codes an hour as for one that was sent a code (the id of an address that was sent none is made up and confirms nothing), and never sooner than 500 ms, so neither the answer nor its time says which. The language of the mail is the owner's own.",
         "operationId": "RequestPasswordReset",
         "parameters": [
           {
@@ -2190,7 +2190,7 @@
           "Identity"
         ],
         "summary": "Reset a password with its code",
-        "description": "Sets a new password with the code that was mailed: every session of the owner is revoked, so the owner logs in again. The password has 10 to 128 characters and is not in a public breach list (422 identity.password.too_short, too_long or breached). 422 identity.code.invalid for a code that is wrong, expired, used or replaced and for an id that is unknown, made up or malformed (one answer for all of them): a code takes 5 guesses and an owner 10 a day across all their codes. 503 identity.attempts.unavailable when guesses cannot be counted, for every id alike.",
+        "description": "Sets a new password with the code that was mailed: every session of the owner is revoked, so the owner logs in again. The password has 10 to 128 characters and is not in a public breach list (422 identity.password.too_short, too_long or breached). 422 identity.code.invalid for a code that is wrong, expired, used or replaced and for an id that is unknown, made up or malformed (one answer for all of them): a code takes 5 guesses, an owner 10 a day from one network and 100 a day from all of them across all their codes. 503 identity.attempts.unavailable when guesses cannot be counted, for every id alike.",
         "operationId": "ConfirmPasswordReset",
         "parameters": [
           {

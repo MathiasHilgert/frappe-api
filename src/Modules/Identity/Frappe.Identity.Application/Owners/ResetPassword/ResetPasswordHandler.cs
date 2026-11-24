@@ -36,7 +36,8 @@ internal sealed class ResetPasswordHandler(
             return Result.Failure<Unit>(accepted.Errors);
         }
 
-        var redeemed = await redeemer.RedeemByIdAsync(command.ResetId, CodePurpose.PasswordReset, command.Code, cancellationToken);
+        var redeemed = await redeemer.RedeemByIdAsync(
+            command.ResetId, CodePurpose.PasswordReset, command.Code, command.ClientAddress, cancellationToken);
         if (!redeemed.IsSuccess)
         {
             return Result.Failure<Unit>(redeemed.Errors);
