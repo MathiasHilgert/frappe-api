@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Inner loop: analyzers stay off here (they run once in gate.sh), the costliest part of a .NET build.
 # Usage (from the worktree root): test-class.sh <TestClass> [<TestMethod>] [--no-build]
 # The inner-loop test run of forge-writer: finds the test project that holds the class, builds only that project
 # (incremental, errors only), and runs only that class (or one test) with a timeout under the 120 s Bash default.
@@ -20,7 +21,7 @@ done
 log=$(mktemp "${TMPDIR:-/tmp}/forge-test.XXXXXX.log")
 echo "[project $proj · full log: $log]"
 if ! $nobuild; then
-  if ! dotnet build "$proj" --no-restore --nologo -v q -clp:ErrorsOnly --tl:off >"$log" 2>&1; then
+  if ! dotnet build "$proj" --no-restore --nologo -v q -clp:ErrorsOnly --tl:off -p:RunAnalyzersDuringBuild=false >"$log" 2>&1; then
     grep -E 'error' "$log" | sort -u | head -40
     echo "[build failed]"
     exit 1
@@ -28,14 +29,14 @@ if ! $nobuild; then
 fi
 filter="/*/*/${cls}/${method:-*}"
 # Integration classes start containers: keep FRAPPE_TEST_REUSE as the developer set it (one session per worktree).
-timeout 110 dotnet test --project "$proj" --no-build --timeout 100s --maximum-failed-tests 10 \
+timeout 60 dotnet test --project "$proj" --no-build --timeout 50s --maximum-failed-tests 10 \
   --minimum-expected-tests 1 --treenode-filter "$filter" >>"$log" 2>&1
 rc=$?
 if [ "$rc" -eq 0 ]; then
   grep -E -i '^\s*(total|error|correcto|succeeded|passed|failed|omitido|skipped|duraci|duration)' "$log" | tail -6
 else
   grep -E -i 'failed|error|exception|assert|expected|but was|  at |exit code|c[oó]digo de salida' "$log" | head -60
-  [ "$rc" -eq 124 ] && echo "[killed at 110 s: the class hangs or its containers are slow; read the log]"
+  [ "$rc" -eq 124 ] && echo "[killed at 60 s: a test class must finish in under a minute. Read the log and find the slow test (real waits, real hashing, many round trips) before running it again; never rerun it unchanged]"
 fi
 echo "[exit $rc]"
 exit "$rc"

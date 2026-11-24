@@ -6,8 +6,9 @@
 # changed migrations,
 # pending EF model changes of the touched modules, and every test app the change can break (affected.py). Prints one
 # line per step and, for a failure, its first relevant lines and log path. Exit 0 only when every step passed.
-#   --coverage  also run coverage.sh (changed-line coverage, CI's 80% bar): runs every test project, so use it once before the final
-#            commit when production code changed.
+#   --coverage  also check changed-line coverage (CI's 80% bar): the affected test apps collect coverage in their one run, then
+#            diff-cover reads the reports. Use it once before the final commit when production code changed.
+#   The end-to-end tests (they build the Docker image) run only when deploy/, src/Hosts/ or the shared build files changed; CI runs them always.
 #   --rerun  after fixing: rebuild, then rerun only the steps that failed last time plus the test apps affected by files
 #            changed since then. Never rerun the whole gate by hand.
 # State lives in the git dir (never tracked): <git-dir>/forge-gate/. Give the Bash call a 600000 ms timeout.
@@ -33,8 +34,22 @@ stamp="$state/stamp"
 mapfile -t changed < <({ git diff --name-only "$base"...HEAD; git ls-files -mo --exclude-standard; } | sort -u | while read -r f; do [ -e "$f" ] && echo "$f"; done)
 mapfile -t cs < <(printf '%s\n' "${changed[@]}" | grep -E '\.cs$' || true)
 
-echo "== build"
-if ! dotnet build Frappe.slnx --no-restore --nologo -v q -clp:ErrorsOnly --tl:off >"$state/build.log" 2>&1; then
+# Several gates (parallel chains) share one machine: each takes cores / active gates for MSBuild nodes and TUnit parallelism,
+# so they do not fight for the CPU. A gate registers its pid; entries of dead gates are dropped.
+gates="${XDG_RUNTIME_DIR:-/tmp}/forge-gates"
+mkdir -p "$gates" && touch "$gates/$$" && trap 'rm -f "$gates/$$"' EXIT
+for g in "$gates"/*; do kill -0 "${g##*/}" 2>/dev/null || rm -f "$g"; done
+active=$(find "$gates" -type f | wc -l)
+share=$(( $(nproc) / (active > 0 ? active : 1) )); [ "$share" -lt 1 ] && share=1
+export TUNIT_MAX_PARALLEL_TESTS="$share"
+# A fresh worktree, or a checkout that gained a project since its last restore, has no assets file for it: restore once instead of
+# failing the build with NETSDK1004.
+if git ls-files '*.csproj' | while read -r p; do [ -f "$(dirname "$p")/obj/project.assets.json" ] || { echo missing; break; }; done | grep -q missing; then
+  echo "== restore (a project has never been restored here)"
+  dotnet restore Frappe.slnx -v q >"$state/restore.log" 2>&1 || { tail -20 "$state/restore.log"; echo "FAIL restore"; exit 1; }
+fi
+echo "== build ($active gate(s) running; $share cores each)"
+if ! dotnet build Frappe.slnx --no-restore --nologo -v q -clp:ErrorsOnly --tl:off -m:"$share" >"$state/build.log" 2>&1; then
   grep -E 'error' "$state/build.log" | sed -E 's#^.*/(src|tests)/#\1/#' | sort -u | head -40
   echo "FAIL build (log: $state/build.log)"
   exit 1
@@ -60,11 +75,11 @@ fi
 if [ -f .github/scripts/conventions.mjs ] && command -v node >/dev/null; then
   cmd[commits]="node $(printf '%q' "$here/commits.mjs") $(printf '%q' "$base")"
 fi
-if $coverage; then
-  cmd[coverage]="env -u FRAPPE_TEST_REUSE $(printf '%q' "$here/coverage.sh") $(printf '%q' "$base")"
-fi
 if printf '%s\n' "${changed[@]}" | grep -q '/Migrations/' && [ -x .github/scripts/migration-sql.sh ] && [ -f eng/squawk.toml ]; then
-  cmd[squawk]="out=\$(mktemp -d) && .github/scripts/migration-sql.sh $(printf '%q' "$base") \"\$out\" && npx -y squawk-cli@2.72.0 --config eng/squawk.toml \"\$out\"/*.sql"
+  # migration-sql.sh reads the base as origin/<ref> (CI passes the branch name): point a scratch remote ref at the gate's base, so a
+  # slice gated against its parent commit or against origin/main sees only its own migrations as new.
+  git update-ref refs/remotes/origin/forge-gate-base "$(git rev-parse "$base")"
+  cmd[squawk]="out=\$(mktemp -d) && .github/scripts/migration-sql.sh forge-gate-base \"\$out\" && { ls \"\$out\"/*.sql >/dev/null 2>&1 || exit 0; } && npx -y squawk-cli@2.72.0 --config eng/squawk.toml \"\$out\"/*.sql"
 fi
 # Pending EF model changes, only for modules the change touched.
 while read -r factory; do
@@ -76,8 +91,20 @@ while read -r factory; do
   cmd["ef:$(basename "$project")"]="dotnet tool restore >/dev/null && dotnet ef migrations has-pending-model-changes --project $(printf '%q' "$project") --no-build"
 done < <(grep -rl --include='*.cs' 'IDesignTimeDbContextFactory' src 2>/dev/null || true)
 mapfile -t apps < <(python3 -I "$here/affected.py" "$root" "${changed[@]}")
+# The end-to-end tests build the Docker image (about 2.5 minutes). CI always runs them; the gate runs them only when what the image
+# packs or how it is deployed changed.
+if ! printf '%s\n' "${changed[@]}" | grep -qE '^deploy/|^src/Hosts/|Dockerfile|^Directory\.(Build|Packages)\.props$|^global\.json$'; then
+  mapfile -t apps < <(printf '%s\n' "${apps[@]}" | grep -v 'Frappe.EndToEnd.Tests$')
+fi
+# --coverage: the test steps collect coverage themselves, so no test app runs twice; diff-cover reads their reports after the wait.
+covdir="$state/coverage"
+$coverage && mkdir -p "$covdir"
 for app in "${apps[@]}"; do
-  [ -n "$app" ] && cmd["tests:$(basename "$app")"]="timeout 540 dotnet test --project $(printf '%q' "$app") --no-build --timeout 8m --maximum-failed-tests 10"
+  [ -n "$app" ] || continue
+  name=$(basename "$app")
+  extra=""
+  $coverage && extra=" --results-directory-layout per-module --results-directory $(printf '%q' "$covdir") -- --coverage --coverage-output-format cobertura --coverage-output $name.cobertura.xml"
+  cmd["tests:$name"]="timeout 540 dotnet test --project $(printf '%q' "$app") --no-build --timeout 8m --maximum-failed-tests 10$extra"
 done
 
 # --rerun: the steps that failed last time, plus the test apps affected by files changed since the last gate.
@@ -117,5 +144,17 @@ for step in $(printf '%s\n' "${selected[@]}" | sort); do
     grep -E -i 'error|fail|exception|assert|expected|but was|warn(ing)? [A-Z]+[0-9]+|  at ' "$state/$step.log" | head -25 | sed 's/^/  /'
   fi
 done
+if $coverage && [ "$status" -eq 0 ]; then
+  mapfile -t reports < <(find "$covdir" -name '*.cobertura.xml')
+  if [ ${#reports[@]} -eq 0 ]; then
+    status=1; echo "FAIL coverage (no report produced)"
+  elif uvx --from diff-cover==9.2.0 diff-cover "${reports[@]}" --compare-branch "$base" --exclude "tests/*" "*/Migrations/*" "tools/**" \
+      --fail-under 80 >"$state/coverage.log" 2>&1; then
+    echo "PASS coverage ($(grep -E '^Coverage:' "$state/coverage.log" | head -1))"
+  else
+    status=1; echo "FAIL coverage (changed lines under 80%, log: $state/coverage.log)"
+    grep -E "^Coverage:|^Total|%\): Missing" "$state/coverage.log" | head -20 | sed 's/^/  /'
+  fi
+fi
 [ "$status" -eq 0 ] && echo "gate: all green" || echo "gate: fix the failures, then run gate.sh --rerun"
 exit "$status"

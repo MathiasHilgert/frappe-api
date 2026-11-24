@@ -21,14 +21,32 @@ export const meta = {
 //   correction prompt, so a resume that only adds apply replays writer, critics and arbiter from cache.
 // task.brief: stable per-task context written at launch (never edit it between a run and its resume: it is part of every cache key).
 // task: { id, title, specs, worktree, branch, surfaces: [glob], profile: docs|tests|mechanical|small|standard|deep, contract: bool, qa: bool,
+//         effort: low|medium|high (writer effort, default low), files: [path or path:lines] (assembled context the writer reads first),
 //         codemods: bool (the orchestrator already ran scripts/codemods/run.sh in the worktree),
 //         kinds: [docs|tests|small|feature|contract|data|cross-module|security|operational] (from the grill; makes lenses mandatory),
 //         signals: (review mode only) the output of scripts/review/signals.py for the PR's diff }
 // lensStats: { [lens]: { findings, blockers, advisories } } running totals from Engram forge/metrics/critics (demotes noisy lenses)
 // pitfalls: [string] extra known pitfalls from Engram for this run, on top of references/pitfalls.md
+// done: { [taskId]: { commit, changedPaths, contractChanged, signals, reviewed } } slices an earlier run already committed
+//   (copy them from that run's tasks[]). Their writer never runs again; `reviewed: true` also skips their critics. This is how a
+//   run continues: launch FRESH with `done` instead of resumeFromRunId, because the Workflow cache is positional and a chain
+//   starts agents concurrently, so a resume replays only up to the first call whose order or args moved.
+// rulings: { [taskId]: { [decisionId]: string | { title, context, answer } } } the user's answers to blocking decisions the
+//   ARBITER or QA raised about committed code. They never reach the writer (it does not rerun on top of its own commit and
+//   the slices after it): they become blockers the correction round fixes as a `fixup!`.
+// task.base: the base of a chain that starts from another chain's head (fan-out after a foundation chain); default args.base.
 const A = args || {}
 const BASE = A.base || 'origin/main'
+const baseOf = t => t.base || BASE
 const ANSWERS = A.answers || {}
+const DONE = A.done || {}
+const RULINGS = A.rulings || {}
+// A ruling as a blocker the correction round fixes. `d` is the decision the arbiter raised, when this run raised it again.
+const rulingItem = (taskId, id, d) => {
+  const v = RULINGS[taskId][id]
+  const answer = typeof v === 'string' ? v : v.answer
+  return { id: `ruling-${id}`, file: '', title: (d && d.title) || (v && v.title) || `user ruling ${id}`, evidence: (d && d.context) || (v && v.context) || '', fix: `The user decided: ${answer}. Apply it to the committed code.` }
+}
 // Advisories the user chose to apply after a pass: { [taskId]: [advisoryId] }. Relaunch with resumeFromRunId so the
 // writer, critics and arbiter replay from cache and only the correction round runs.
 const APPLY = A.apply || {}
@@ -52,8 +70,10 @@ const SUPPRESSIONS = A.suppressions || []
 // for problems always finds some, and style findings crowd out the ones that matter, so craft goes last.
 const ORDER = ['correctness', 'security', 'data', 'contracts', 'tests', 'performance', 'dx', 'observability', 'architecture', 'craft']
 const CAP = { docs: 2, tests: 1, mechanical: 2, small: 3, standard: 5, deep: 6 }
-// Reasoning effort per profile (code.claude.com/docs/en/model-config: lower effort is faster for straightforward tasks).
-const EFFORT = { mechanical: 'low', docs: 'low', tests: 'low' }
+// Writer effort: the orchestrator sets task.effort per slice when it plans (low | medium | high); low is the default.
+// Most of a writer's time is generating tokens, and effort is the main control on how much it generates. Corrections
+// and QA fixes run at the slice's effort.
+const writerEffort = t => t.effort || 'low'
 
 const isDoc = p => /\.md$/.test(p)
 const isTest = p => /^tests\//.test(p)
@@ -285,43 +305,52 @@ const journalTarget = t => journalPath(t.journalOf && t.journalOf.length ? t.jou
 function context(t, withAnswers = false, blind = false) {
   const a = withAnswers ? ANSWERS[t.id] : undefined
   const answer = a ? `\nThe user decided (apply these, do not ask again): ${typeof a === 'string' ? a : JSON.stringify(a)}\n` : ''
+  // Stable lines first: every agent of the run shares this prefix, so it is served from the prompt cache.
   return [
     `Repository main checkout: ${A.repo}`,
-    `Worktree: ${t.worktree} (branch ${t.branch}, base ${BASE})`,
+    `Conventions: read ${A.repo}/.agents/skills/frappe-conventions/SKILL.md (an index) and load only the rule files your task or diff needs; cite rule ids. A rule you think is wrong: keep following it and return conventions[] as that file describes.`,
+    `Never ask the user anything: return decisions[] in the format of communication.md; take non-blocking ones with the recommended option.`,
+    `Known pitfalls: read ${A.repo}/.agents/skills/forge/references/pitfalls.md first.${(A.pitfalls || []).length ? ' Also: ' + A.pitfalls.join(' ') : ''}`,
+    `Forge scripts (gate.sh, test-class.sh, signals.py, codemods): always run them by their path in the main checkout, ${A.repo}/.agents/skills/forge/scripts/..., from the worktree root. The worktree's own copy may be older.`,
+    `<use_parallel_tool_calls>When several tool calls do not depend on each other, make them all in the same turn. Change files with Edit on the lines that change, never by rewriting the whole file.</use_parallel_tool_calls>`,
+    `Worktree: ${t.worktree} (branch ${t.branch}, base ${baseOf(t)})`,
     t.brief ? `Feature document: ${A.featureDoc} — the task brief below is your starting point; from the document read only the header, the specs ${t.specs} and the Design parts of this task, and open the rest only when the brief leaves a question.` : `Feature document: ${A.featureDoc} — read it from the top until "## Log".`,
     `Task ${t.id}: ${t.title} — specs ${t.specs}.`,
     t.chainOf ? `Chain slice ${t.chainIndex + 1} of ${t.chainOf} on ${t.branch}: earlier slices are already committed on this branch; build on them and touch only this slice's scope.` : '',
     t.brief ? `Task brief from the orchestrator: ${t.brief}` : '',
     `Public contract change expected: ${t.contract ? 'yes (update OpenAPI/events via just contracts update and tools/bruno)' : 'no'}.`,
-    `Conventions: read ${A.repo}/.agents/skills/frappe-conventions/SKILL.md (an index) and load only the rule files your task or diff needs; cite rule ids. A rule you think is wrong: keep following it and return conventions[] as that file describes.`,
+    t.files && t.files.length ? `Assembled context (the orchestrator chose these for this task; read them first, in one parallel batch, and treat them as enough): ${t.files.join(', ')}. Anything else: codegraph_explore (projectPath = the worktree) or Read with offset/limit, never cat a whole file.` : '',
     blind
       ? `Do not read the task journal, the writer's notes or the Log of the feature document: judge the code against the specs alone.`
       : `Task journal: ${journal(t)} — read it first; append your section to ${journalTarget(t)} when you finish (see ${A.repo}/.agents/skills/forge/references/communication.md).`,
-    `Never ask the user anything: return decisions[] in the format of communication.md; take non-blocking ones with the recommended option.`,
-    `Known pitfalls: read ${A.repo}/.agents/skills/forge/references/pitfalls.md first.${(A.pitfalls || []).length ? ' Also: ' + A.pitfalls.join(' ') : ''}`,
     t.codemods ? `Codemods already ran in this worktree (collection expressions, target-typed new, file-scoped namespaces, sealing): their changes are uncommitted; keep them and do not redo that work.` : '',
-    `Profile: ${t.profile || 'standard'}. <use_parallel_tool_calls>When several tool calls do not depend on each other, make them all in the same turn. Change files with Edit on the lines that change, never by rewriting the whole file.</use_parallel_tool_calls>`,
+    `Profile: ${t.profile || 'standard'}.`,
+    t.chainOf ? `Gate base: this slice's parent. Record \`git -C ${t.worktree} rev-parse HEAD\` before your first edit and pass it as \`gate.sh --base <that sha>\`, so the gate checks only this slice (earlier slices' fixups and migrations are not yours).` : '',
     answer,
   ].join('\n')
 }
 
 // Layer 2 of the critic selector: the writer runs the signals script last and returns its output untouched.
-const signalsStep = t => `Last step, after your final gate${t.chainOf ? ' and the slice commit' : ''}: run \`python3 -I ${A.repo}/.agents/skills/forge/scripts/review/signals.py --worktree ${t.worktree} ${t.chainOf ? '--commit <your slice sha>' : `--base ${BASE}`}\` and return its JSON unchanged in \`signals\` (it decides which critics review you; never edit it).`
+const signalsStep = t => `Last step, after your final gate${t.chainOf ? ' and the slice commit' : ''}: run \`python3 -I ${A.repo}/.agents/skills/forge/scripts/review/signals.py --worktree ${t.worktree} ${t.chainOf ? '--commit <your slice sha>' : `--base ${baseOf(t)}`}\` and return its JSON unchanged in \`signals\` (it decides which critics review you; never edit it).`
 
 const surfaces = t => `## Allowed edit surfaces\n${(t.surfaces || []).join('\n')}\n`
 
 function stopped(r) { return !r || r.stop }
 // What critics review: a chain slice is its own commit; anything else is the whole branch against the base.
-const range = r => r.write && r.write.commit ? `${r.write.commit}^ ${r.write.commit}` : BASE
+const range = r => r.write && r.write.commit ? `${r.write.commit}^ ${r.write.commit}` : baseOf(r.task)
 
 async function write(t) {
+  if (DONE[t.id]) {
+    log(`${t.id}: committed in an earlier run (${DONE[t.id].commit || 'no sha'}); writer skipped${DONE[t.id].reviewed ? ', review skipped' : ''}`)
+    return { task: t, write: { status: 'done', changedPaths: [], contractChanged: false, checks: [], decisions: [], ...DONE[t.id], notes: `Committed in an earlier run as ${DONE[t.id].commit}.` }, fromDone: true }
+  }
   if (MODE === 'review' || MODE === 'qa') {
     return { task: t, write: { status: 'done', changedPaths: t.changedPaths || [], contractChanged: !!t.contract, signals: t.signals, notes: MODE === 'qa' ? `QA of the open PRs ${t.pr || ''}.` : `Open PR ${t.pr || ''}: review its diff against ${BASE}.` } }
   }
   if (!t.brief) log(`${t.id}: no brief: the writer starts by exploring (orientation was 20-25% of writer time)`)
   const out = await role('forge-writer',
     `${context(t, true)}\nImplement this task.${t.chainOf ? `\nChain slice: once your final gate passes, commit this slice and nothing else: \`git -C ${t.worktree} add -A && git -C ${t.worktree} commit -m "${t.commit}"\` (no attribution lines), and return its sha in \`commit\`. Never push, rebase or amend.` : ''}\n${signalsStep(t)}\n\n${surfaces(t)}`,
-    { schema: WRITER, label: `write:${t.id}`, phase: 'Write', ...(EFFORT[t.profile] ? { effort: EFFORT[t.profile] } : {}) })
+    { schema: WRITER, label: `write:${t.id}`, phase: 'Write', effort: writerEffort(t) })
   if (!out) return { task: t, stop: true, reason: 'writer returned nothing' }
   const blocking = (out.decisions || []).filter(d => d.blocking)
   if (out.status === 'needs_input' || out.status === 'blocked' || blocking.length) return { task: t, write: out, stop: true, reason: blocking.length ? 'decision needed' : out.status }
@@ -334,6 +363,13 @@ async function review(r) {
   if (MODE === 'write') return { ...r, writeOnly: true }
   if (MODE === 'qa') return { ...r, profile: r.task.profile || 'standard' }
   const t = r.task
+  const ruled = Object.keys(RULINGS[t.id] || {})
+  if (r.fromDone && DONE[t.id].reviewed) {
+    // pendingFixes: what an earlier run's arbiter asked for and no correction applied yet (it stopped first).
+    const blockers = [...(DONE[t.id].pendingFixes || []), ...ruled.map(id => rulingItem(t.id, id))]
+    if (blockers.length) log(`${t.id}: reviewed earlier; the correction applies ${blockers.length} item(s): ${blockers.map(b => b.id).join(', ')}`)
+    return { ...r, profile: t.profile || 'standard', critics: [], verdict: { verdict: blockers.length ? 'fix' : 'pass', blockers, advisories: [], dropped: [] } }
+  }
   const paths = r.write.changedPaths || []
   const profile = effectiveProfile(t.profile, paths)
   if (profile !== (t.profile || 'standard')) log(`${t.id}: planned ${t.profile || 'standard'}, diff is ${profile}`)
@@ -361,11 +397,20 @@ async function review(r) {
   const findings = reports.flatMap(rep => rep.findings.map(f => ({ critic: rep.critic, ...f })))
   const ruledOut = reports.flatMap(rep => (rep.ruledOut || []).map(x => ({ critic: rep.critic, ...x })))
   const proposals = [...(r.write.conventions || []), ...reports.flatMap(rep => (rep.conventions || []).map(c => ({ critic: rep.critic, ...c })))]
+  // The arbiter sees the user's answers to the writer's decisions, so it never raises a decision the user already settled.
   const verdict = await role('forge-arbiter',
-    `${context(t)}\nWriter's notes: ${r.write.notes || 'none'}\nJudge these findings (${findings.length}) from critics ${kept.filter(c => !failed.includes(c)).join(', ')}.${failed.length ? ` Critics that did NOT run (they failed; this is not "zero findings", say so in your verdict): ${failed.join(', ')}.` : ''} When a blocker needs a product or trade-off choice, return it as a decision instead of guessing. Keep every finding's original id: each one ends in exactly one of blockers, advisories or dropped (a merged duplicate goes to dropped with reason "duplicate of <id>"), so the run can measure each critic.\n${JSON.stringify(findings)}\nConcerns the critics ruled out (${ruledOut.length}): re-check only the shaky ones (no file:line, evidence that does not cover every caller, or that contradicts the code); revive a real one as a finding with id <lens>-r<n> and list it in revived[].\n${JSON.stringify(ruledOut)}\nUser suppressions (${SUPPRESSIONS.length}): drop a non-blocking finding that matches one, with reason "suppressed: <rule>"; never suppress a blocker.\n${JSON.stringify(SUPPRESSIONS)}\nConvention proposals (${proposals.length}): verify each against the code and the rule; return in conventions[] only the proven ones, duplicates merged.\n${JSON.stringify(proposals)}`,
+    `${context(t, true)}\nWriter's notes: ${r.write.notes || 'none'}\nJudge these findings (${findings.length}) from critics ${kept.filter(c => !failed.includes(c)).join(', ')}.${failed.length ? ` Critics that did NOT run (they failed; this is not "zero findings", say so in your verdict): ${failed.join(', ')}.` : ''} When a blocker needs a product or trade-off choice, return it as a decision instead of guessing. Keep every finding's original id: each one ends in exactly one of blockers, advisories or dropped (a merged duplicate goes to dropped with reason "duplicate of <id>"), so the run can measure each critic.\n${JSON.stringify(findings)}\nConcerns the critics ruled out (${ruledOut.length}): re-check only the shaky ones (no file:line, evidence that does not cover every caller, or that contradicts the code); revive a real one as a finding with id <lens>-r<n> and list it in revived[].\n${JSON.stringify(ruledOut)}\nUser suppressions (${SUPPRESSIONS.length}): drop a non-blocking finding that matches one, with reason "suppressed: <rule>"; never suppress a blocker.\n${JSON.stringify(SUPPRESSIONS)}\nConvention proposals (${proposals.length}): verify each against the code and the rule; return in conventions[] only the proven ones, duplicates merged.\n${JSON.stringify(proposals)}`,
     { schema: VERDICT, label: `arbiter:${t.id}`, phase: 'Review' })
   if (!verdict) return { ...r, profile, critics: kept, selection, criticsFailed: failed, stop: true, reason: 'arbiter returned nothing' }
   const stats = criticStats(kept, reports, verdict)
+  // A decision the user already ruled on is not a stop: it becomes a blocker the correction round fixes. A ruling this
+  // run's arbiter did not raise again still applies (critics are not deterministic).
+  if (ruled.length) {
+    const raised = (verdict.decisions || []).filter(d => d.blocking && ruled.includes(d.id))
+    verdict.decisions = (verdict.decisions || []).filter(d => !raised.includes(d))
+    verdict.blockers = [...(verdict.blockers || []), ...ruled.map(id => rulingItem(t.id, id, raised.find(d => d.id === id)))]
+    verdict.verdict = 'fix'
+  }
   if ((verdict.decisions || []).some(d => d.blocking)) return { ...r, profile, critics: kept, droppedCritics: dropped, verdict, stats, selection, criticsFailed: failed, stop: true, reason: 'decision needed' }
   return { ...r, profile, critics: kept, droppedCritics: dropped, verdict, stats, selection, criticsFailed: failed }
 }
@@ -390,7 +435,7 @@ async function reviewFix(r, fixed, items, label, phase) {
   const t = r.task
   const scope = fixed.commit
     ? `the fix commit (\`git -C ${t.worktree} show ${fixed.commit}\`)`
-    : `what the fix changed in ${(fixed.changedPaths || []).join(', ') || 'the worktree'} (\`git -C ${t.worktree} diff ${BASE} -- <file>\`, read against the items below)`
+    : `what the fix changed in ${(fixed.changedPaths || []).join(', ') || 'the worktree'} (\`git -C ${t.worktree} diff ${baseOf(t)} -- <file>\`, read against the items below)`
   const rep = await role('critic-correctness',
     `${context(t, false, true)}\nA ${label} just changed this task to fix the items below. Review ONLY ${scope}. Report only defects the fix itself introduced; never repeat the items.\nItems fixed:\n${JSON.stringify(items)}`,
     { schema: FINDINGS, label: `fix-review:${t.id}`, phase })
@@ -416,7 +461,7 @@ async function fixStage(r) {
   if (chosen.length) log(`${t.id}: applying ${chosen.length} advisory(ies) (auto or accepted): ${chosen.map(a => a.id).join(', ')}`)
   const fixed = await role('forge-writer',
     `${context(t, true)}\nCorrection round: fix every item below (blockers, plus advisories that are auto-applied or the user chose; each carries the critic's evidence), nothing else, then check with \`test-class.sh\` on the classes you touched and finish with \`gate.sh --rerun\` (writer rules 6 and 6-bis).${r.write.commit ? `\nChain slice: the findings are about slice ${r.write.commit}; later slices may already sit on top of it, keep them building. Commit the fix as \`git -C ${t.worktree} commit -am "fixup! ${t.commit}"\` (add new files first), so the orchestrator folds it into that slice, and return its sha in \`commit\`.` : ''}\n${JSON.stringify(toFix)}\n\n${surfaces(t)}`,
-    { schema: WRITER, label: `correct:${t.id}`, phase: 'Correct' })
+    { schema: WRITER, label: `correct:${t.id}`, phase: 'Correct', effort: writerEffort(t) })
   if (!fixed || fixed.status !== 'done') return { ...r, correction: fixed, stop: true, reason: 'correction not done' }
   // What the fix still needs: a recheck only when blockers were fixed; a fix review unless every item was an
   // autoApply advisory (by definition no behavior, contract, schema or security change).
@@ -470,7 +515,7 @@ async function qa(r) {
   if (result && result.status === 'fail' && result.defects.length) {
     const fixed = await role('forge-writer',
       `${context(t)}\nQA found these defects at runtime; fix them (test-first), then finish with \`gate.sh --rerun\` (writer rule 6-bis):\n${JSON.stringify(result.defects)}${t.slices ? `\nChain: commit each fix as \`fixup! <header>\` of the slice that introduced the defect, one of: ${t.slices.join(' | ')}.` : ''}\n\n${surfaces(t)}`,
-      { schema: WRITER, label: `qa-fix:${t.id}`, phase: 'QA' })
+      { schema: WRITER, label: `qa-fix:${t.id}`, phase: 'QA', effort: writerEffort(t) })
     if (fixed && fixed.status === 'done') {
       const check = await reviewFix(r, fixed, result.defects, 'QA fix', 'QA')
       if (!check.ok) return { ...r, qa: result, qaFix: fixed, fixReview: check.verdict, stop: true, reason: check.reason || 'QA fix introduced blockers' }
@@ -496,7 +541,8 @@ async function runChain(chain) {
     verifying = null
     if (verified) {
       done.push(verified)
-      if (stopped(verified)) { done.push({ ...(w || { task: t }), stop: true, reason: `waiting on ${verified.task.id}` }); return done }
+      // The review of the previous slice finished in the same step: keep it (verdict, decisions), never drop it.
+      if (stopped(verified)) { if (prev) done.push(stopped(prev) ? prev : { ...prev, stop: true, reason: `waiting on ${verified.task.id}` }); done.push({ ...(w || { task: t }), stop: true, reason: `waiting on ${verified.task.id}` }); return done }
     }
     if (prev) {
       const f = await fixStage(prev)
@@ -552,11 +598,14 @@ if ((A.chains || []).length && !outcome.some(r => r.stop)) {
   chains.forEach(c => outcome.push(...(c || [])))
 }
 
+// source tells the orchestrator where an answer goes: 'writer' → answers (the writer reruns), anything else → rulings
+// (a fixup on the committed slice, nothing reruns).
+const tag = (xs, source) => (xs || []).map(d => ({ ...d, source }))
 const decisions = outcome.flatMap(r => [
-  ...((r.write && r.write.decisions) || []),
-  ...((r.verdict && r.verdict.decisions) || []),
-  ...((r.fixReview && r.fixReview.decisions) || []),
-  ...((r.qa && r.qa.decisions) || []),
+  ...(r.fromDone ? [] : tag(r.write && r.write.decisions, 'writer')),
+  ...tag(r.verdict && r.verdict.decisions, 'arbiter'),
+  ...tag(r.fixReview && r.fixReview.decisions, 'arbiter'),
+  ...tag(r.qa && r.qa.decisions, 'qa'),
 ].map(d => ({ feature: A.feature, task: r.task.id, ...d })))
 
 // Per critic across the run: findings returned and what the arbiter made of them (precision = (blockers + advisories) / findings).
@@ -597,7 +646,18 @@ return {
     droppedCritics: r.droppedCritics,
     criticsFailed: r.criticsFailed,
     selection: r.selection,
-    write: r.write && { status: r.write.status, specsCovered: r.write.specsCovered, changedPaths: r.write.changedPaths, docsUpdated: r.write.docsUpdated, checks: r.write.checks, scratch: r.write.scratch },
+    write: r.write && { status: r.write.status, commit: r.write.commit, specsCovered: r.write.specsCovered, changedPaths: r.write.changedPaths, contractChanged: r.write.contractChanged, signals: r.write.signals, docsUpdated: r.write.docsUpdated, checks: r.write.checks, scratch: r.write.scratch },
+    // Ready-made entry for args.done of the next fresh run: reviewed when the review and its correction finished, or when
+    // it stopped only on a decision (the ruling the user gives becomes the correction).
+    done: r.write && r.write.status === 'done' && r.write.commit && !r.task.id.endsWith('-head')
+      ? {
+        commit: r.write.commit, changedPaths: r.write.changedPaths || [], contractChanged: !!r.write.contractChanged, signals: r.write.signals,
+        reviewed: !!r.verdict && (!r.stop || r.reason === 'decision needed' || /^waiting on /.test(r.reason || '')),
+        // The arbiter's blockers and auto-applied advisories that no correction applied yet, so the next run fixes them.
+        pendingFixes: r.verdict && !r.correction ? [...(r.verdict.blockers || []).filter(b => !String(b.id).startsWith('ruling-')), ...(r.verdict.advisories || []).filter(a => a.autoApply)] : undefined,
+      }
+      : undefined,
+    correction: r.correction && { commit: r.correction.commit, status: r.correction.status },
     verdict: r.verdict && { verdict: r.verdict.verdict, blockers: r.verdict.blockers, advisories: r.verdict.advisories, followups: r.verdict.followups },
     recheck: r.recheck,
     fixReview: r.fixReview && { blockers: r.fixReview.blockers, advisories: r.fixReview.advisories },

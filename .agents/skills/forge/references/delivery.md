@@ -7,16 +7,21 @@ continue. Without runtime changes nothing is pending and delivery is as below.
 
 For a chain the Workflow returned `done`:
 
-1. Fold the fixups: `git -C <wt> -c sequence.editor=: rebase -i --autosquash origin/main`. Correction writers work on the head, so a fixup for
-   slice k can carry text of slice k+1 and conflict. On a conflict, abort and rebuild one commit per slice from the trees at the slice boundaries
-   (`git commit-tree <last commit before slice k+1>^{tree} -p <parent>` with slice k's message); check the final tree equals the head's.
+1. Fold the fixups with `GIT_SEQUENCE_EDITOR="python3 -I <repo>/.agents/skills/forge/scripts/delivery/fold-todo.py" git -C <wt> rebase -i
+   origin/main`. Correction writers work on the head, so a fixup for slice k often touches files that slices after k changed; moving it under k
+   conflicts. The script moves a fixup under its slice only when no commit it would jump over touched one of its files, and keeps the others in
+   place as `fix(<scope>): follow up on <slice>` commits (they land in the PR whose range holds them; its Summary says so). It also amends every
+   commit once so the local commit-msg hook strips AI trailers. Check the final tree equals the head's (`git diff <old head> HEAD` is empty).
 2. Run `just pr-check` on the head, then on **every slice commit**: a stacked PR merges alone, so each slice must build and pass CI alone. A slice
    that does not gets joined with the next one into one PR (say so in its Summary) instead of being fixed slice by slice. `pr-check` checks one
    commit type per range: run it per type range when a chain mixes `refactor` and `feat` slices.
-3. Cut one branch per slice at its commit (`git branch <type>/<topic>-<n> <sha>`) and open stacked PRs (`chained-pr` skill): PR 1 targets main, PR k
-   targets PR k-1's branch; each Summary lists the chain.
-4. Merge in order with `scripts/delivery/merge-queue.sh` (squash; the commit carries the PR body). After PR k merges, GitHub retargets PR k+1 to main:
-   `git rebase --onto origin/main <old PR k head> <PR k+1 branch>`, push with `--force-with-lease`, continue.
+3. Cut one branch per slice at its last commit (`git branch <type>/<topic>-<nn>-<slug> <sha>`), push them atomically, open the PRs (PR 1 targets
+   main, PR k targets PR k-1's branch; title = the slice's `feat(...)` header, never the first commit of the range), then link them as a native
+   GitHub stack: `gh stack link <pr1> ... <prN>` (extension `github/gh-stack`). Each Summary lists the chain.
+   The branch type must equal the title type (a `fix(...)` slice goes on `fix/...`; the conventions check fails otherwise). Never rename a
+   branch that has an open PR: GitHub closes the PR. If a stack needs a PR replaced, `gh stack unstack <n>` and link the full list again.
+4. Merge the whole stack at once with `gh stack merge <top pr> --yes` once every PR is green and QA passed: GitHub merges the stack atomically (all
+   or nothing), so there is no retargeting or rebasing between merges. PRs added later go on top with `gh stack link <stack#> <pr>`.
 
 For each task the Workflow returned `done` (verdict pass or blockers resolved, QA pass or not required):
 

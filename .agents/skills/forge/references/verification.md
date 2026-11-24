@@ -64,7 +64,7 @@ Haiku's raw speed is lost to extra turns, so no role uses it.
 
 | Role | Model | Effort |
 |---|---|---|
-| Writer | sonnet | per profile: `low` for mechanical/docs/tests, `medium` otherwise |
+| Writer | sonnet | `task.effort`, set by the orchestrator per slice; `low` by default (`references/plan.md`, Writer effort and context) |
 | Arbiter | opus | medium |
 | Critics correctness, security, data (also the fix review after a correction or a QA fix) | opus | medium |
 | Critics architecture, contracts, dx, performance | sonnet | medium |

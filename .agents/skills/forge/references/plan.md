@@ -23,8 +23,12 @@ with "review this proposed design, there is no diff yet":
 
 - `critic-dx` when routes or payloads change;
 - `critic-architecture` for any code change (layers, module communication, libraries);
-- `critic-data` when the schema changes.
-Fix the design from their findings, then show the plan.
+- `critic-data` when the schema changes;
+- `critic-security` when a task has the kind `security`, as an **attacker pass**. For every route, it answers in a table two questions: "what does
+  comparing two answers reveal (enumeration through status, body, id, timing or mail)?" and "what can someone take over with what this answer or the
+  mail gives them?".
+Fix the design from their findings, then show the plan. A design flaw found by a critic after the code exists costs a stop, a correction and the
+slices built on top of it. In identity, the id a repeated registration returned stopped the chain at slice 6 of 11.
 
 **Composition dry run (new module or platform change).** Before launch, check that the design composes: build the Api, Worker and Migrator with
 the planned project references (an empty module skeleton is enough) and run `HostReferenceTests` and `LayeringTests`. A closure the tests forbid
@@ -83,13 +87,46 @@ design, one design review, one feature document. No questions mid-run: anything 
 - Parallel chains come from the real dependency graph, not from guesses: read the `ProjectReference` edges of `src/**/*.csproj` and
   `tests/**/*.csproj` and group the slices by the projects they touch. Slices whose projects do not depend on each other (neither directly nor
   through a shared project that one of them changes) go in separate chains on separate worktrees, each based on the last common slice, and run
-  at the same time (`chains: [[...], [...]]`); a slice that references a project another slice changes stays after it in the same chain. Never two
-  chains on the same module.
+  at the same time (`chains: [[...], [...]]`); a slice that references a project another slice changes stays after it in the same chain.
+- **Foundation, then fan-out (inside one module).** A chain runs its slices one after another, so its wall time is the sum of them all. Cut a module
+  into a short **foundation chain** (the schema, the shared aggregates and ports, and every seam the features share) and **feature slices** that
+  depend only on the foundation. Once the foundation passes, give each feature slice its own worktree, branched from the foundation head, and run
+  them all as parallel chains with `task.base` set to that head. A feature that needs another feature (for example, an email change that needs
+  step-up) stays behind it in the same chain.
+  - The route list, the dependency-injection list, the message resources, `contracts/` and Bruno are expected merge points, never a reason to
+    serialize. The orchestrator merges the branches in order, keeps both sides of the list conflicts, then runs `just contracts update` once.
+  - Watch the machine: each parallel chain runs its own Testcontainers gate. Above three or four parallel chains, the gates fight for the CPU.
 - Files every chain edits (`Frappe.slnx`, `Directory.Packages.props`, test `.csproj` files and `packages.lock.json`) are expected merge points,
   not a reason to serialize: the orchestrator resolves them by taking the union of both sides and then runs `dotnet restore --force-evaluate` to
   regenerate the lock files.
 - Profile per slice by risk: `deep` for schema changes on existing rows, security or contract breaks; `standard` for features; `small` for internal
   logic with good tests. Do not give every slice `deep`.
+- **Freeze the seams in the foundation.** Fan-out only pays when the parallel branches cannot change what they share. The foundation fixes the ports,
+  the schema and migrations, the event contracts and the test fixtures. Each shared file (DI registration, `IdentityHttp`-style route lists,
+  OpenAPI, migrations) has one owner: the branches only append next to existing lines. After the fan-in, the full suite runs once on the merged head,
+  because slices that pass alone can still break when combined.
+
+## Writer effort and context
+
+Most of a writer's time is spent generating tokens (about 100k per slice at roughly 90 tokens per second). Two inputs decide how much it generates,
+and both are set by the orchestrator per slice:
+
+- **`effort`** (`low` | `medium` | `high`, default `low`; user decision). Raise it only for a named reason, recorded in the tasks table:
+  - `medium` for concurrency, locking or a security rule with an attack in the specs;
+  - `high` only for a slice that already failed review at a lower effort.
+  Lower effort trims thinking, comments and extra tool calls; the gate and the critics still catch what it misses.
+- **`files`** (the assembled context): the exact files, with line ranges when large, that the slice needs to read: the ports and aggregates it
+  uses, the closest existing example to copy, and its test fixture. Build it with `codegraph_explore` while planning. The writer reads them in one
+  batch and explores beyond them only for an open question. The `brief` keeps the what and the why; `files` replaces "Read first" lists.
+The writer also stops when done (`agents/forge-writer.md`, rule 9a): no reviews of its own, no tests, docs or files beyond the specs.
+
+## Review by risk
+
+- Critics are lenses chosen by the slice's kinds and diff, never all of them. A finding needs `file:line`, a failure scenario and a severity, or the
+  arbiter drops it; the recheck reads only the correction diff.
+- A rule that a test can check belongs in a test, not a lens: architecture in `LayeringTests` and `HostReferenceTests`, conventions in analyzers,
+  contracts in the `just contracts update` diff, auth flows in pre-written RED tests (enumeration, lockout, code brute force, email-change takeover)
+  added in the foundation. Each lens turned into a test is a lens the selector can drop.
 
 ## PR budget (planned before go, shown in the briefing)
 
@@ -139,7 +176,7 @@ diff turns out to be docs- or tests-only; it logs every skipped critic or QA wit
   "base": "origin/main",
   "answers": {},
   "apply": {},
-  "chains": [[{ "id": "S1", "title": "...", "specs": "S1-S3", "worktree": "<wt>", "branch": "feat/<module-topic>", "commit": "feat(<scope>): <summary>", "surfaces": ["..."], "profile": "standard", "kinds": ["feature", "contract"], "contract": true, "qa": true }]],
+  "chains": [[{ "id": "S1", "title": "...", "specs": "S1-S3", "worktree": "<wt>", "branch": "feat/<module-topic>", "commit": "feat(<scope>): <summary>", "surfaces": ["..."], "profile": "standard", "kinds": ["feature", "contract"], "contract": true, "qa": true, "effort": "low", "files": ["src/Modules/X/.../Port.cs", "src/Modules/X/.../Example.cs:20-80"] }]],
   "waves": [[{
     "id": "T1", "title": "...", "specs": "S1-S2",
     "worktree": "<worktrees>/<slug>",
@@ -155,5 +192,19 @@ diff turns out to be docs- or tests-only; it logs every skipped critic or QA wit
 
 Every task gets `kinds`: the grill's change kinds that apply to THAT task, not the whole feature (a task with no migration is not `data`). `lensStats`
 is the current total from Engram `forge/metrics/critics` and `suppressions` the list in `forge/review/suppressions`; omit either when empty. Pass
-`args` as a JSON object, not a string. Create `odd/tasks/<feature>.journal/` before launching. To pass the user's choices back, add `"answers": {"T1":
-{"D1": "<chosen label> — <user's words verbatim>"}}` and relaunch with `resumeFromRunId`.
+`args` as a JSON object, not a string. Create `odd/tasks/<feature>.journal/` before launching.
+
+**Save the args, continue fresh.**
+
+- At launch, write the exact args to `odd/tasks/<feature>.args.json`. Every relaunch builds its args from that file (Read), never by retyping them,
+  and never from a notification, which HTML-escapes `<`/`>`. One escaped brief changed every cache key after it, and slices already done ran again.
+- `resumeFromRunId` only for a run with no chains (waves) where only `apply` changes. A chain starts agents concurrently and the Workflow cache is
+  positional, so a resume reruns from the first call whose order moved.
+- To continue a chain, launch **fresh** (no `resumeFromRunId`) with the saved args plus `done`: for every slice already committed, the `done` entry
+  the last result returned in `tasks[].done` (`{commit, changedPaths, contractChanged, signals, reviewed}`). A done slice never reruns its writer; a
+  reviewed one never reruns its critics.
+- Where the user's choice goes depends on the `source` of the decision:
+  - `writer` (the writer stopped before committing): `"answers": {"T1": {"D1": "<chosen label> — <user's words verbatim>"}}`. The writer reruns
+    with the answer.
+  - `arbiter` or `qa` (about committed code): `"rulings": {"T1": {"D1": {"title": "...", "answer": "<chosen label> — <user's words>"}}}`. The
+    correction round applies it as a `fixup!` of that slice. Nothing reruns, and the slices on top of it keep building.

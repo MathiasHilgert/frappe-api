@@ -40,13 +40,13 @@ product code itself.
 
 | Situation | Action |
 |---|---|
-| A module, or a feature over one PR | Plan the whole module at once (one grill, one schema, every decision upfront) and run it as a **chain**: one branch, one commit per planned slice, critics on slice k while slice k+1 is written, QA once on the head (`references/plan.md`, Chains). Independent modules run as parallel chains |
+| A module, or a feature over one PR | Plan the whole module at once (one grill, one schema, every decision upfront). Cut it into a short foundation chain, then feature chains in parallel worktrees branched from its head (`references/plan.md`, Foundation, then fan-out). Each runs as a **chain**: one branch, one commit per planned slice, critics on slice k while slice k+1 is written, QA once on the head (`references/plan.md`, Chains). Independent modules run as parallel chains |
 | Profile `docs` or `tests` | Skip design review; one task; no QA |
 | Profile `mechanical` (style/convention alignment, no behavior change) | Run `scripts/codemods/run.sh <worktree> <folders>` first, set `codemods: true`, split big areas by folder into parallel tasks; writer runs at effort `low` |
 | Profile `small` | Brief grill (Scope, Layers, Craft); QA only if an endpoint changed |
-| Workflow returns `needs_input` | One `AskUserQuestion` per blocking decision, add `answers[taskId][decisionId]`, relaunch with `resumeFromRunId` (answers rerun the writer by design). Static per-task context goes in `task.brief` at launch, never in `answers` |
+| Workflow returns `needs_input` | One `AskUserQuestion` per blocking decision. A decision whose `source` is `writer` goes in `answers[taskId][decisionId]` (the writer reruns); one whose `source` is `arbiter` or `qa` goes in `rulings` (a `fixup!`, nothing reruns). Relaunch FRESH from `odd/tasks/<feature>.args.json` plus `done` from `tasks[].done`, never by retyping the args or with `resumeFromRunId` on a chain (`references/plan.md`, Save the args). Static per-task context goes in `task.brief` at launch, never in `answers` |
 | Planning waves | Waves are for small independent tasks only. Tasks that change the same aggregate or module go in one chain, never in parallel branches |
-| Workflow `done` with advisories worth applying | The arbiter marks cheap advisories `autoApply` and the correction round already applied them. Only the rest reach the user: one decision card; on yes relaunch with `resumeFromRunId`, the SAME `answers` and task `brief`, and `apply[taskId]` holding advisory ids or titles (titles survive renumbering). Never put advisory text in `answers` or `brief`: they are part of every cache key, and changing them reruns writer, critics and QA |
+| Workflow `done` with advisories worth applying | The arbiter marks cheap advisories `autoApply` and the correction round already applied them. Only the rest reach the user: one decision card; on yes, for waves relaunch with `resumeFromRunId`, the SAME `answers` and task `brief`, and `apply[taskId]` holding advisory ids or titles (titles survive renumbering); for chains relaunch fresh with `done` and each accepted advisory as a `rulings` entry of its slice (title, evidence and fix as the answer). Never put advisory text in `answers` or `brief`: they are part of every cache key, and changing them reruns writer, critics and QA |
 | Workflow returns `needs_decision` | Turn open blockers or QA defects into decision requests and ask them the same way |
 | Speed over depth (user asked) | Review per PR: run `mode: "write"`, open the PRs, then `mode: "review"` with each task's `changedPaths`, `pr` and `signals` (run `scripts/review/signals.py --worktree <wt> --base origin/main` yourself) while CI runs; fix blockers only; advisories go to one final sweep |
 | All tasks `done` | Deliver per `references/delivery.md`: with `deferQa: true` (the default launch), open the PRs first and run `mode: "qa"` on the `qaPending` entries while CI runs |
@@ -59,7 +59,8 @@ product code itself.
 2. **Design review and plan** (`references/plan.md`): write `odd/tasks/<feature>.md`, run the design critics, fix the design, set each task's profile,
    contract and QA flags, split into waves and PRs within the budget; show the TL briefing (`references/briefing.md`); wait for go.
 3. **Prepare**: per chain (or per wave task) `git worktree add ../frappe-api-worktrees/<slug> -b <type>/<slug> origin/main`, then `gentle-ai codegraph
-   init --cwd <worktree>`.
+   init --cwd <worktree>`. Once per clone, install `scripts/hooks/commit-msg` as `$(git rev-parse --git-common-dir)/hooks/commit-msg`:
+   subagents get an attribution instruction from the harness, and CI rejects those trailers.
 4. **Launch** `Workflow({ scriptPath: "<repo>/.agents/skills/forge/assets/forge.workflow.js", args })` with `deferQa: true`, `kinds` on every task,
    and `lensStats` and `suppressions` from Engram (`references/plan.md`). Critics review blind (specs and code, never the writer's story), list what
    they ruled out, and a critic that fails is retried once and never counts as zero findings. End the turn; resume on its notification. Roles you
@@ -90,7 +91,7 @@ next step. After delivery: PRs, merges, follow-ups.
 - `scripts/hooks/writer_guard.py` — forge-writer hook: denies whole-file rewrites of tracked files (Write tool, `>`, `tee`, Python `open(..., 'w')`),
   trims unpiped dotnet/just output (`run_trimmed.sh`); tests: `writer_guard.test.sh`
 - `scripts/gate/gate.sh` — the writer's final gate in one call (build once, checks and affected test apps in parallel, `--rerun` only what failed);
-  `scripts/gate/test-class.sh` — one test class under a 110 s timeout; `scripts/gate/affected.py` — test apps a change can break
+  `scripts/gate/test-class.sh` — one test class under a 60 s timeout; `scripts/gate/affected.py` — test apps a change can break
 - `scripts/metrics/followup_fixes.py` — outcome metric: share of changes that needed a `Fixes:` follow-up within 60 days
 - `scripts/review/workflow.test.mjs` — behavior tests of the review stage against a fake agent
 - `scripts/codemods/run.sh` — deterministic fixes run before a mechanical writer
