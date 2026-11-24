@@ -54,6 +54,28 @@ public sealed class ProviderFeedbackMetricsTests
     }
 
     [Test]
+    public async Task The_time_to_delivered_histogram_records_seconds_by_kind_and_channel()
+    {
+        // Arrange
+        using var provider = new ServiceCollection().AddMetrics().BuildServiceProvider();
+        var factory = provider.GetRequiredService<IMeterFactory>();
+        using var capture = new MetricCapture(factory);
+        var metrics = new ProviderFeedbackMetrics(factory);
+
+        // Act
+        metrics.RecordTimeToDelivered("account_activation_code", "email", TimeSpan.FromMilliseconds(2500));
+
+        // Assert
+        var measurement = capture.Of("frappe.notifications.delivery.time_to_delivered").Single();
+        using (Assert.Multiple())
+        {
+            await Assert.That(measurement.Value).IsEqualTo(2.5);
+            await Assert.That(measurement.Tags["kind"]).IsEqualTo("account_activation_code");
+            await Assert.That(measurement.Tags["channel"]).IsEqualTo("email");
+        }
+    }
+
+    [Test]
     public async Task Every_feedback_has_a_named_type_tag()
     {
         // Act

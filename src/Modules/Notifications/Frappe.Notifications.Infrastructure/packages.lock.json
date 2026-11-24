@@ -293,6 +293,17 @@
           "Npgsql": "10.0.3"
         }
       },
+      "Quartz": {
+        "type": "Transitive",
+        "resolved": "4.7.2",
+        "contentHash": "5LgZrEMqzTf19eflFusXiJLjhQxRUYrIlasTSWaxmiAkpQrPfrZcxf+t1mV0QbE7g9qtXdh9lV6yItjoZFUCKw==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration.Binder": "10.0.0",
+          "Microsoft.Extensions.DependencyInjection": "10.0.0",
+          "Microsoft.Extensions.Diagnostics.HealthChecks": "10.0.0",
+          "Microsoft.Extensions.Options.ConfigurationExtensions": "10.0.0"
+        }
+      },
       "StyleCop.Analyzers.Unstable": {
         "type": "Transitive",
         "resolved": "1.2.0.556",
@@ -439,6 +450,15 @@
       "frappe.results": {
         "type": "Project"
       },
+      "frappe.scheduling": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Health": "[1.0.0, )",
+          "Frappe.Persistence": "[1.0.0, )",
+          "Npgsql": "[10.0.3, )",
+          "Quartz.Extensions.Hosting": "[4.7.2, )"
+        }
+      },
       "frappe.usecases": {
         "type": "Project",
         "dependencies": {
@@ -574,6 +594,15 @@
         "dependencies": {
           "Npgsql.EntityFrameworkCore.PostgreSQL": "11.0.0-rc.3",
           "Npgsql.NodaTime": "10.0.3"
+        }
+      },
+      "Quartz.Extensions.Hosting": {
+        "type": "CentralTransitive",
+        "requested": "[4.7.2, )",
+        "resolved": "4.7.2",
+        "contentHash": "rwm2UubBph+aIW58KA9ua8lZWivdwrcelTcHXFBsARUfXTlZJ+uBEqBsMmbWnJP5QZ+NJt73DLtf7ejdHtd4cQ==",
+        "dependencies": {
+          "Quartz": "4.7.2"
         }
       }
     },

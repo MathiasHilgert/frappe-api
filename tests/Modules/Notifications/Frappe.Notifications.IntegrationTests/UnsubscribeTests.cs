@@ -1,11 +1,15 @@
 using System.Diagnostics.Metrics;
+using System.Text.Json;
 using Frappe.Notifications.Application.Dispatching;
 using Frappe.Notifications.Application.Ports;
 using Frappe.Notifications.Application.Requests.Unsubscribe;
+using Frappe.Notifications.Contracts;
 using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Notifications.Domain.Preferences;
 using Frappe.Notifications.Infrastructure.Dispatching;
+using Frappe.Notifications.Infrastructure.Messaging;
 using Frappe.Notifications.Infrastructure.Persistence;
+using Frappe.Notifications.Kinds.Marketing;
 using Frappe.Persistence;
 using Frappe.Results;
 using Frappe.Testing;
@@ -24,6 +28,23 @@ namespace Frappe.Notifications.IntegrationTests;
 public sealed class UnsubscribeTests(PostgresServer server)
 {
     private static readonly RecipientKey Ana = RecipientKey.Parse("ref:account:42").Value;
+
+    private static readonly JsonElement MarketingPayload = JsonElement.Parse(
+        """
+        {"email":"ana@example.com","language":"es-AR","name":"Ana","headline":"Pagos",
+         "summary":"Ya podes cobrar","url":"https://frappe.example/pagos"}
+        """);
+
+    private static readonly JsonElement SecurityPayload =
+        JsonElement.Parse("""{"email":"ana@example.com","language":"es-AR","name":"Ana","code":"482913"}""");
+
+    private static async Task DispatchAsync(DispatchWorld worker, string kind, JsonElement payload)
+    {
+        await using var scope = worker.Services.CreateAsyncScope();
+        var step = ActivatorUtilities.CreateInstance<DispatchNotificationRequested>(scope.ServiceProvider);
+        await step.HandleAsync(new NotificationRequested(Guid.CreateVersion7(), kind, payload), CancellationToken.None);
+        await scope.ServiceProvider.GetRequiredService<NotificationsDbContext>().SaveChangesAsync();
+    }
 
     private static async Task<Result<Unit>> UnsubscribeAsync(DispatchWorld api, string? token)
     {
@@ -172,6 +193,38 @@ public sealed class UnsubscribeTests(PostgresServer server)
                 await Assert.That(amongKeys).IsTrue();
                 await Assert.That(onlyTheOther).IsFalse();
                 await Assert.That(otherCategory).IsFalse();
+            }
+        });
+    }
+
+    [Test]
+    public async Task After_the_link_is_used_a_marketing_request_is_opted_out_and_counted_while_a_security_one_is_delivered()
+    {
+        await MigratedNotifications.RunAsync(server, async owner =>
+        {
+            // Arrange: a first marketing send shows the recipient key the worker derives for the address; its token is what the email carries.
+            await using var api = DispatchWorld.ForApi(owner);
+            await using var worker = DispatchWorld.ForWorker(
+                owner, new Dictionary<string, string?>(), services => new MarketingKindsModule().AddServices(services));
+            using var capture = new MetricCapture(worker.Services.GetRequiredService<IMeterFactory>());
+            await DispatchAsync(worker, "product_announcement", MarketingPayload);
+            var stored = (string)(await ScratchDatabase.ScalarAsync(owner, "SELECT recipient_key FROM notifications.deliveries"))!;
+            var key = RecipientKey.Parse(stored).Value;
+            var unsubscribed = await UnsubscribeAsync(api, TokenFor(api, key));
+
+            // Act
+            await DispatchAsync(worker, "product_announcement", MarketingPayload);
+            await DispatchAsync(worker, "account_activation_code", SecurityPayload);
+
+            // Assert
+            var outcomes = capture.Of("frappe.notifications.deliveries")
+                .Select(m => ((string)m.Tags["kind"]!, (string)m.Tags["frappe.outcome"]!)).ToList();
+            using (Assert.Multiple())
+            {
+                await Assert.That(unsubscribed.IsSuccess).IsTrue();
+                await Assert.That(outcomes).IsEquivalentTo(
+                    [("product_announcement", "sent"), ("product_announcement", "opted_out"), ("account_activation_code", "sent")]);
+                await Assert.That((long)(await ScratchDatabase.ScalarAsync(owner, "SELECT count(*) FROM notifications.deliveries"))!).IsEqualTo(2);
             }
         });
     }

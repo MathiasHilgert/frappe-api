@@ -145,6 +145,12 @@ public sealed class Delivery : AggregateRoot
         if (target == DeliveryStatus.Delivered)
         {
             DeliveredAt = now;
+            if (SentAt is { } sentAt)
+            {
+                // The provider's clock may be a little behind ours: a negative wait is no wait.
+                var elapsed = (now - sentAt).ToTimeSpan();
+                Raise(new DeliveryDelivered(Kind, Channel, elapsed < TimeSpan.Zero ? TimeSpan.Zero : elapsed));
+            }
         }
 
         return Unit.Value;

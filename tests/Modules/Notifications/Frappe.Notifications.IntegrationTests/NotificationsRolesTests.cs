@@ -12,7 +12,10 @@ namespace Frappe.Notifications.IntegrationTests;
 public sealed class NotificationsRolesTests(PostgresServer server)
 {
     private static readonly string[] Tables =
-        ["deliveries", "suppressions", "preferences", "provider_events", "outbox_messages", "inbox_messages", "__ef_migrations_history"];
+        [
+            "deliveries", "suppressions", "preferences", "provider_events", "send_requests", "outbox_messages", "inbox_messages",
+            "__ef_migrations_history",
+        ];
 
     private const string Sequence = "notifications.outbox_messages_sequence_seq";
 
@@ -23,6 +26,7 @@ public sealed class NotificationsRolesTests(PostgresServer server)
     private static readonly Dictionary<string, string[]> ApiGrants = new()
     {
         ["deliveries"] = ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        ["send_requests"] = ["SELECT", "INSERT", "UPDATE", "DELETE"],
         ["suppressions"] = ["SELECT", "INSERT", "UPDATE", "DELETE"],
         ["preferences"] = ["SELECT", "INSERT", "UPDATE", "DELETE"],
         ["provider_events"] = ["SELECT", "INSERT", "UPDATE", "DELETE"],
@@ -37,6 +41,7 @@ public sealed class NotificationsRolesTests(PostgresServer server)
         ["suppressions"] = ["SELECT"],
         ["preferences"] = ["SELECT"],
         ["provider_events"] = ["DELETE"],
+        ["send_requests"] = ["SELECT", "DELETE"],
         ["outbox_messages"] = ["SELECT", "DELETE"],
         ["inbox_messages"] = ["SELECT", "INSERT", "DELETE"],
         ["__ef_migrations_history"] = [],

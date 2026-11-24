@@ -116,6 +116,40 @@ public sealed class DeliveryTransitionTests
     }
 
     [Test]
+    public async Task The_first_delivered_feedback_raises_the_time_from_sent_to_delivered_once_and_a_delay_first_changes_nothing()
+    {
+        // Arrange
+        var delivery = InStatus(DeliveryStatus.Sent);
+        delivery.Apply(DeliveryFeedback.Delayed, Later.Plus(Duration.FromMinutes(1)));
+
+        // Act
+        delivery.Apply(DeliveryFeedback.Delivered, Later);
+        delivery.Apply(DeliveryFeedback.Delivered, Later.Plus(Duration.FromMinutes(1)));
+
+        // Assert
+        var raised = delivery.DomainEvents.OfType<DeliveryDelivered>().Single();
+        using (Assert.Multiple())
+        {
+            await Assert.That(raised.Kind).IsEqualTo("test_security");
+            await Assert.That(raised.Channel).IsEqualTo("mail");
+            await Assert.That(raised.TimeToDelivered).IsEqualTo(TimeSpan.FromMinutes(5));
+        }
+    }
+
+    [Test]
+    public async Task A_delivery_the_provider_reports_before_it_was_sent_has_a_zero_time_to_delivered()
+    {
+        // Arrange
+        var delivery = InStatus(DeliveryStatus.Sent);
+
+        // Act
+        delivery.Apply(DeliveryFeedback.Delivered, Sent.Minus(Duration.FromSeconds(2)));
+
+        // Assert
+        await Assert.That(delivery.DomainEvents.OfType<DeliveryDelivered>().Single().TimeToDelivered).IsEqualTo(TimeSpan.Zero);
+    }
+
+    [Test]
     public async Task Repeating_the_current_status_and_a_provider_suppression_change_nothing_and_succeed()
     {
         // Arrange

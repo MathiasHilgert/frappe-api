@@ -475,6 +475,17 @@
           "System.Threading.RateLimiting": "8.0.0"
         }
       },
+      "Quartz": {
+        "type": "Transitive",
+        "resolved": "4.7.2",
+        "contentHash": "5LgZrEMqzTf19eflFusXiJLjhQxRUYrIlasTSWaxmiAkpQrPfrZcxf+t1mV0QbE7g9qtXdh9lV6yItjoZFUCKw==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration.Binder": "10.0.0",
+          "Microsoft.Extensions.DependencyInjection": "10.0.0",
+          "Microsoft.Extensions.Diagnostics.HealthChecks": "10.0.0",
+          "Microsoft.Extensions.Options.ConfigurationExtensions": "10.0.0"
+        }
+      },
       "StackExchange.Redis": {
         "type": "Transitive",
         "resolved": "2.10.1",
@@ -648,7 +659,8 @@
           "Frappe.Notifications.Contracts": "[1.0.0, )",
           "Frappe.Notifications.Domain": "[1.0.0, )",
           "Frappe.Observability": "[1.0.0, )",
-          "Frappe.Persistence": "[1.0.0, )"
+          "Frappe.Persistence": "[1.0.0, )",
+          "Frappe.Scheduling": "[1.0.0, )"
         }
       },
       "frappe.notifications.kinds.account": {
@@ -704,6 +716,15 @@
       },
       "frappe.results": {
         "type": "Project"
+      },
+      "frappe.scheduling": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Health": "[1.0.0, )",
+          "Frappe.Persistence": "[1.0.0, )",
+          "Npgsql": "[10.0.3, )",
+          "Quartz.Extensions.Hosting": "[4.7.2, )"
+        }
       },
       "frappe.testing": {
         "type": "Project",
@@ -973,6 +994,15 @@
         "contentHash": "1ngVOV2ZYqFy38g2g+vZ50poeF66GJtinITBDB7TNRP4fmrDxYYyPfs1uGrPHkhJJRV5I7mElPFOctvlatu41w==",
         "dependencies": {
           "OpenTelemetry.Api": "[1.20.1, 2.0.0)"
+        }
+      },
+      "Quartz.Extensions.Hosting": {
+        "type": "CentralTransitive",
+        "requested": "[4.7.2, )",
+        "resolved": "4.7.2",
+        "contentHash": "rwm2UubBph+aIW58KA9ua8lZWivdwrcelTcHXFBsARUfXTlZJ+uBEqBsMmbWnJP5QZ+NJt73DLtf7ejdHtd4cQ==",
+        "dependencies": {
+          "Quartz": "4.7.2"
         }
       },
       "Scalar.AspNetCore": {

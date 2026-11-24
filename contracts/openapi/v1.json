@@ -245,6 +245,7 @@
           {
             "name": "token",
             "in": "query",
+            "description": "The opaque signed token of the unsubscribe link in the email. A missing one is answered 400.",
             "schema": {
               "type": "string"
             }
@@ -541,7 +542,8 @@
             "type": [
               "null",
               "string"
-            ]
+            ],
+            "description": "Always One-Click (RFC 8058). The route ignores the value."
           }
         }
       }

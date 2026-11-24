@@ -17,6 +17,9 @@ public sealed class ProviderFeedbackMetrics
     /// <summary>Counter: addresses suppressed, by reason.</summary>
     public const string SuppressionsMetric = "frappe.notifications.suppressions";
 
+    /// <summary>Histogram: seconds from a delivery's send to the provider reporting it delivered, by kind and channel.</summary>
+    public const string TimeToDeliveredMetric = "frappe.notifications.delivery.time_to_delivered";
+
     public const string TypeTag = "type";
 
     public const string MatchedTag = "matched";
@@ -27,6 +30,8 @@ public sealed class ProviderFeedbackMetrics
 
     private readonly Counter<long> _suppressions;
 
+    private readonly Histogram<double> _timeToDelivered;
+
     public ProviderFeedbackMetrics(IMeterFactory meters)
     {
         ArgumentNullException.ThrowIfNull(meters);
@@ -35,12 +40,21 @@ public sealed class ProviderFeedbackMetrics
             ProviderEventsMetric, unit: "{event}", description: "Provider events recorded, by type and whether their delivery was found.");
         _suppressions = meter.CreateCounter<long>(
             SuppressionsMetric, unit: "{suppression}", description: "Addresses suppressed, by reason.");
+        _timeToDelivered = meter.CreateHistogram<double>(
+            TimeToDeliveredMetric,
+            unit: "s",
+            description: "Time from a delivery's send to the provider reporting it delivered, by kind and channel.",
+            advice: new InstrumentAdvice<double> { HistogramBucketBoundaries = [1, 2, 5, 10, 30, 60, 120, 300, 900, 3600] });
     }
 
     public void CountProviderEvent(DeliveryFeedback feedback, bool matched) =>
         _providerEvents.Add(1, new(TypeTag, TypeName(feedback)), new(MatchedTag, matched));
 
     public void CountSuppression(SuppressionReason reason) => _suppressions.Add(1, new KeyValuePair<string, object?>(ReasonTag, ReasonName(reason)));
+
+    public void RecordTimeToDelivered(string kind, string channel, TimeSpan elapsed) =>
+        _timeToDelivered.Record(elapsed.TotalSeconds, new KeyValuePair<string, object?>(NotificationsMetrics.KindTag, kind),
+            new KeyValuePair<string, object?>(NotificationsMetrics.ChannelTag, channel));
 
     /// <summary>The tag value of what a provider said; each is named, none falls back (OBS-05).</summary>
     internal static string TypeName(DeliveryFeedback feedback) => feedback switch

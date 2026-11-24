@@ -2,6 +2,7 @@ using Frappe.Messaging.Storage.Relay;
 using Frappe.Notifications.Infrastructure.Deliveries;
 using Frappe.Notifications.Infrastructure.Preferences;
 using Frappe.Notifications.Infrastructure.ProviderEvents;
+using Frappe.Notifications.Infrastructure.Requests;
 using Frappe.Notifications.Infrastructure.Suppressions;
 using Frappe.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -57,6 +58,9 @@ public sealed class NotificationsDatabase : IDatabaseModule
         $"GRANT SELECT ON TABLE {schema}.{PreferenceConfiguration.Table} TO {WorkerRole}",
         $"GRANT DELETE ON TABLE {schema}.{ProviderEventConfiguration.Table} TO {WorkerRole}",
         $"GRANT SELECT (received_at) ON TABLE {schema}.{ProviderEventConfiguration.Table} TO {WorkerRole}",
+
+        // The purge of send requests (S11) picks rows by their physical identity, which needs the table's SELECT; the table holds no payload (S13).
+        $"GRANT SELECT, DELETE ON TABLE {schema}.{SendRequestConfiguration.Table} TO {WorkerRole}",
 
         // Flow 3: recording a delivery applies what the provider reported before it existed (read only: the event record stays, it dedupes).
         $"GRANT SELECT (provider, provider_message_id, feedback, occurred_at) ON TABLE {schema}.{ProviderEventConfiguration.Table} TO {WorkerRole}",

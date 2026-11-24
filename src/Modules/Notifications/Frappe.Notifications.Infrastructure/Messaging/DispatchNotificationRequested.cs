@@ -1,5 +1,4 @@
 using Frappe.Messaging.Abstractions;
-using Frappe.Notifications.Application.Dispatching;
 using Frappe.Notifications.Application.Kinds;
 using Frappe.Notifications.Contracts;
 
@@ -12,18 +11,13 @@ namespace Frappe.Notifications.Infrastructure.Messaging;
 /// again. A kind or payload this host does not know throws, so the message is retried and then dead-lettered where an operator sees it:
 /// the Api validated both when it accepted the request, so this is a deploy skew, never something to drop silently.
 /// </summary>
-internal sealed class DispatchNotificationRequested(NotificationCatalog catalog, NotificationDispatcher dispatcher)
+internal sealed class DispatchNotificationRequested(CatalogDispatch dispatch)
     : IBeforeClaimHandler<NotificationRequested>
 {
     public async Task HandleAsync(NotificationRequested integrationEvent, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(integrationEvent);
-        if (!catalog.TryGet(integrationEvent.Kind, out var kind))
-        {
-            throw new InvalidOperationException(
-                $"Notification request {integrationEvent.RequestId} names kind '{integrationEvent.Kind}', which this host's catalog does not have.");
-        }
-
+        var kind = dispatch.Require(integrationEvent.RequestId, integrationEvent.Kind);
         var payload = NotificationPayloads.Read(kind, integrationEvent.Payload);
         if (!payload.IsSuccess)
         {
@@ -31,6 +25,6 @@ internal sealed class DispatchNotificationRequested(NotificationCatalog catalog,
                 $"Notification request {integrationEvent.RequestId} of kind '{kind.Name}' carries a payload that is not the kind's.");
         }
 
-        await dispatcher.DispatchAsync(new NotificationRequest(integrationEvent.RequestId, kind, payload.Value), cancellationToken);
+        await dispatch.DispatchAsync(integrationEvent.RequestId, kind, payload.Value, cancellationToken);
     }
 }

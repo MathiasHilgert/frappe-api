@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Frappe.Http;
 using Frappe.Notifications.Application.Requests.Unsubscribe;
 using Frappe.Results;
@@ -41,7 +42,7 @@ internal static class UnsubscribeEndpoints
     }
 
     private static async Task<Results<NoContent, ErrorsProblemHttpResult>> HandleAsync(
-        [FromQuery] string? token,
+        [FromQuery, Description("The opaque signed token of the unsubscribe link in the email. A missing one is answered 400.")] string? token,
         ICommandHandler<Unsubscribe, Unit> handler,
         UnsubscribeTokenLimiter limiter,
         CancellationToken cancellationToken)

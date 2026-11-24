@@ -13,7 +13,11 @@ internal sealed class EfDeliveryStaging(NotificationsDbContext db) : IDeliverySt
         ArgumentNullException.ThrowIfNull(target);
         var channel = target.Channel.Value;
         var key = target.RecipientKey.Value;
-        return db.Deliveries.AsNoTracking().AnyAsync(
+
+        // A second item of the same fact for the same target is staged but not saved yet: the database cannot see it.
+        var staged = db.Deliveries.Local.Any(
+            d => d.SourceMessageId == target.SourceMessageId && d.Kind == target.Kind && d.RecipientKey == key && d.Channel == channel);
+        return staged ? Task.FromResult(true) : db.Deliveries.AsNoTracking().AnyAsync(
             d => d.SourceMessageId == target.SourceMessageId && d.Kind == target.Kind && d.RecipientKey == key && d.Channel == channel,
             cancellationToken);
     }

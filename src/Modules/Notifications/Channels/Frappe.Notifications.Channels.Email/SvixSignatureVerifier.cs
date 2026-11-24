@@ -1,6 +1,6 @@
-using Frappe.Notifications.Application.Feedback;
 using System.Security.Cryptography;
 using System.Text;
+using Frappe.Notifications.Application.Feedback;
 using Microsoft.Extensions.Options;
 
 namespace Frappe.Notifications.Channels.Email;
@@ -8,7 +8,8 @@ namespace Frappe.Notifications.Channels.Email;
 /// <summary>
 /// Verifies the Svix signature Resend signs its webhooks with: HMAC-SHA256, under the secret's decoded bytes, of
 /// <c>{svix-id}.{svix-timestamp}.{raw body}</c>, compared in constant time with every <c>v1,</c> candidate of <c>svix-signature</c> (the
-/// header lists several while a secret rotates). A timestamp more than <see cref="WebhookSignature.Tolerance"/> from now is refused, so a captured call
+/// header lists several while a secret rotates). A timestamp more than <see cref="WebhookSignature.Tolerance"/> from now is refused, so a
+/// captured call
 /// cannot be replayed later.
 /// </summary>
 internal sealed class SvixSignatureVerifier

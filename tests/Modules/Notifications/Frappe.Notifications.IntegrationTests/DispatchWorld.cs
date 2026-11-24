@@ -17,7 +17,8 @@ internal sealed class DispatchWorld : IAsyncDisposable
 {
     private readonly ServiceProvider _provider;
 
-    private DispatchWorld(string connectionString, bool worker)
+    private DispatchWorld(
+        string connectionString, bool worker, IReadOnlyDictionary<string, string?>? more = null, Action<IServiceCollection>? configure = null)
     {
         var settings = new Dictionary<string, string?>
         {
@@ -29,6 +30,11 @@ internal sealed class DispatchWorld : IAsyncDisposable
             ["Notifications:Unsubscribe:ApiBaseUrl"] = "https://api.frappe.example/",
             ["Notifications:Email:Sender"] = "Logging",
         };
+        foreach (var (key, value) in more ?? new Dictionary<string, string?>())
+        {
+            settings[key] = value;
+        }
+
         var services = new ServiceCollection();
         services.AddLogging(logging => logging.AddProvider(Logs));
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection(settings).Build());
@@ -40,6 +46,7 @@ internal sealed class DispatchWorld : IAsyncDisposable
             new EmailChannelWorkerModule().AddServices(services);
         }
 
+        configure?.Invoke(services);
         _provider = services.BuildServiceProvider();
     }
 
@@ -54,6 +61,10 @@ internal sealed class DispatchWorld : IAsyncDisposable
     /// <summary>The Worker's composition connected as the Worker's role.</summary>
     public static DispatchWorld ForWorker(string owner) =>
         new(ScratchDatabase.LoginOf(owner, NotificationsDatabase.WorkerRole, MigratedNotifications.WorkerPassword), worker: true);
+
+    /// <summary>The Worker's composition with settings and services of the test on top: a producer plug-in, a retention.</summary>
+    public static DispatchWorld ForWorker(string owner, IReadOnlyDictionary<string, string?> more, Action<IServiceCollection>? configure = null) =>
+        new(ScratchDatabase.LoginOf(owner, NotificationsDatabase.WorkerRole, MigratedNotifications.WorkerPassword), worker: true, more, configure);
 
     public async ValueTask DisposeAsync()
     {

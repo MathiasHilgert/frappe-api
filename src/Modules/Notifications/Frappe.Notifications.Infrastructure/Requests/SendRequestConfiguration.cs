@@ -16,7 +16,7 @@ internal sealed class SendRequestConfiguration : IEntityTypeConfiguration<SendRe
 
     public const string KindFormatSql = "kind ~ '^[a-z][a-z0-9_]*$'";
 
-    /// <summary>The purge reads requests older than a cutoff. N7 adds the purge by <c>requested_at</c> (S11); its role needs DELETE.</summary>
+    /// <summary>The purge (S11) deletes requests older than a cutoff by <c>requested_at</c>, in batches.</summary>
     public const string RequestedAtIndex = "ix_send_requests_requested_at";
 
     public const int KindLength = 100;

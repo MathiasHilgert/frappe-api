@@ -60,7 +60,7 @@ public sealed partial class LocalStackTests
     }
 
     [Test]
-    public async Task Grafana_is_provisioned_with_its_datasources_and_no_dashboard_or_alert()
+    public async Task Grafana_is_provisioned_with_its_datasources_the_notifications_dashboard_and_the_alert_rules()
     {
         // Act
         var provisioning = Deploy("observability/grafana/provisioning");
@@ -73,8 +73,14 @@ public sealed partial class LocalStackTests
         // Assert
         using (Assert.Multiple())
         {
-            await Assert.That(folders).IsEquivalentTo(["datasources"]);
-            await Assert.That(files).IsEquivalentTo([Path.Combine("datasources", "datasources.yaml")]);
+            await Assert.That(folders).IsEquivalentTo(["alerting", "dashboards", "datasources"]);
+            await Assert.That(files).IsEquivalentTo(
+            [
+                Path.Combine("alerting", "frappe-alerts.yaml"),
+                Path.Combine("dashboards", "dashboards.yaml"),
+                Path.Combine("dashboards", "notifications.json"),
+                Path.Combine("datasources", "datasources.yaml"),
+            ]);
             await Assert.That(datasources).Contains("uid: mimir").And.Contains("uid: loki").And.Contains("uid: tempo");
         }
     }

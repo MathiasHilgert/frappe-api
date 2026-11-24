@@ -1,0 +1,9 @@
+# Every JSON beside this file is a dashboard as code (OBS-19): provisioned at startup, read-only in the UI.
+apiVersion: 1
+providers:
+  - name: frappe
+    type: file
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards

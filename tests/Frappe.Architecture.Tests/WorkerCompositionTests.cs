@@ -230,6 +230,39 @@ public sealed class WorkerCompositionTests
     }
 
     [Test]
+    [Arguments("Notifications:Purge:Cron", "not a cron")]
+    [Arguments("Notifications:Purge:DeliveryDays", "0")]
+    [Arguments("Notifications:Purge:ProviderEventDays", "5000")]
+    [Arguments("Notifications:Purge:SendRequestDays", "0")]
+    [Arguments("Notifications:Purge:BatchSize", "0")]
+    public async Task The_Worker_with_an_invalid_purge_setting_fails_the_start_naming_the_key(string key, string value)
+    {
+        // Arrange
+        var settings = new Dictionary<string, string?>(Deployed) { [key] = value };
+        using var host = Build(settings);
+
+        // Act
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ValidateAsync(host));
+
+        // Assert
+        await Assert.That(thrown?.Message).Contains(key);
+    }
+
+    [Test]
+    public async Task The_Worker_runs_the_notifications_purge_nightly_at_four_UTC_unless_configured()
+    {
+        // Arrange
+        using var host = Build(Deployed);
+
+        // Act
+        await ValidateAsync(host);
+        var schedule = host.Services.GetRequiredService<IOptionsMonitor<Frappe.Scheduling.CronScheduleOptions>>().Get("Notifications:Purge");
+
+        // Assert
+        await Assert.That(schedule.Cron).IsEqualTo("0 0 4 * * ?");
+    }
+
+    [Test]
     public async Task A_module_contributes_a_job_and_a_meter_view_through_its_services()
     {
         // Arrange

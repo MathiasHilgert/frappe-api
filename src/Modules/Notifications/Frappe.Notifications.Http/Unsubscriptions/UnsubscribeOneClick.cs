@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Text.Json.Serialization;
 
 namespace Frappe.Notifications.Http.Unsubscriptions;
@@ -6,6 +7,7 @@ namespace Frappe.Notifications.Http.Unsubscriptions;
 public sealed class UnsubscribeOneClick
 {
     /// <summary>Always <c>One-Click</c>.</summary>
+    [Description("Always One-Click (RFC 8058). The route ignores the value.")]
     [JsonPropertyName("List-Unsubscribe")]
     public string? ListUnsubscribe { get; init; }
 }

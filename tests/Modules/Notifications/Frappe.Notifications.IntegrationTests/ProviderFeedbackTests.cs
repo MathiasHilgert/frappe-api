@@ -316,6 +316,36 @@ public sealed class ProviderFeedbackTests(PostgresServer server)
     }
 
     [Test]
+    public async Task The_first_delivered_report_records_the_time_from_sent_to_delivered_once_after_the_commit()
+    {
+        await MigratedNotifications.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using var worker = DispatchWorld.ForWorker(owner);
+            await using var api = DispatchWorld.ForApi(owner);
+            using var capture = new MetricCapture(api.Services.GetRequiredService<IMeterFactory>());
+            var requestId = Guid.CreateVersion7();
+            await DispatchAsync(worker, requestId);
+            var messageId = MessageIdOf(worker, requestId);
+
+            // Act
+            await ReportAsync(api, "evt_1", messageId, DeliveryFeedback.Delayed);
+            await ReportAsync(api, "evt_2", messageId, DeliveryFeedback.Delivered);
+            await ReportAsync(api, "evt_2", messageId, DeliveryFeedback.Delivered);
+            await ReportAsync(api, "evt_3", messageId, DeliveryFeedback.Delivered);
+
+            // Assert
+            var measurement = capture.Of("frappe.notifications.delivery.time_to_delivered").Single();
+            using (Assert.Multiple())
+            {
+                await Assert.That(measurement.Value).IsGreaterThanOrEqualTo(0);
+                await Assert.That(measurement.Tags["kind"]).IsEqualTo(Kind);
+                await Assert.That(measurement.Tags["channel"]).IsEqualTo("email");
+            }
+        });
+    }
+
+    [Test]
     public async Task Two_writers_that_record_the_same_event_or_move_the_same_delivery_at_once_leave_the_loser_a_conflict_and_write_nothing_twice()
     {
         await MigratedNotifications.RunAsync(server, async owner =>

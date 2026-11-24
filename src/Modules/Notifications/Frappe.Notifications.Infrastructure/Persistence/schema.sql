@@ -204,6 +204,7 @@ GRANT SELECT(feedback) ON TABLE notifications.provider_events TO frappe_notifica
 GRANT SELECT(occurred_at) ON TABLE notifications.provider_events TO frappe_notifications_worker;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE notifications.send_requests TO frappe_notifications;
+GRANT SELECT,DELETE ON TABLE notifications.send_requests TO frappe_notifications_worker;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE notifications.suppressions TO frappe_notifications;
 GRANT SELECT ON TABLE notifications.suppressions TO frappe_notifications_worker;

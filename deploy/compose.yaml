@@ -1,7 +1,7 @@
 # Frappé locally: the three hosts from one image, their infrastructure and the LGTM observability stack.
 # Usage: cp deploy/.env.example deploy/.env (fill it in), then `just stack up` (or `docker compose -f deploy/compose.yaml
 # up -d --build`). Every port is published on the host; each one can be moved in deploy/.env when it is taken.
-# Grafana starts with its datasources only: no dashboard or alert is provisioned until a module ships its own.
+# Grafana starts with its datasources, the dashboards of provisioning/dashboards and the alert rules of provisioning/alerting.
 name: frappe
 
 x-frappe-image: &frappe-image
@@ -164,7 +164,7 @@ services:
     volumes: ["./observability/mimir.yaml:/etc/mimir/config.yaml:ro", "mimir-data:/data"]
     ports: ["127.0.0.1:${MIMIR_PORT:-9009}:9009"]
 
-  # Grafana reads its datasources from provisioning/datasources and nothing else: no dashboard, no alert rule.
+  # Grafana reads its datasources, dashboards and alert rules from provisioning/, all versioned as code.
   grafana:
     image: grafana/grafana:13.2.4
     restart: unless-stopped

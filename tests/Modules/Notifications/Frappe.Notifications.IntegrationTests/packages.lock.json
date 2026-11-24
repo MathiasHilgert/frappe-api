@@ -494,6 +494,17 @@
           "System.Threading.RateLimiting": "8.0.0"
         }
       },
+      "Quartz": {
+        "type": "Transitive",
+        "resolved": "4.7.2",
+        "contentHash": "5LgZrEMqzTf19eflFusXiJLjhQxRUYrIlasTSWaxmiAkpQrPfrZcxf+t1mV0QbE7g9qtXdh9lV6yItjoZFUCKw==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration.Binder": "10.0.0",
+          "Microsoft.Extensions.DependencyInjection": "10.0.0",
+          "Microsoft.Extensions.Diagnostics.HealthChecks": "10.0.0",
+          "Microsoft.Extensions.Options.ConfigurationExtensions": "10.0.0"
+        }
+      },
       "SharpZipLib": {
         "type": "Transitive",
         "resolved": "1.4.2",
@@ -526,11 +537,6 @@
         "type": "Transitive",
         "resolved": "1.81.10",
         "contentHash": "1DEAWwQpiuN8tRSOSbBmwEfrfA1p2N3OjpO2pYcbhVF6erdyED+JKT7Vq9YXpb50w/Ttc+4iRI+A20oC3NN8pA=="
-      },
-      "TUnit.Core": {
-        "type": "Transitive",
-        "resolved": "1.81.10",
-        "contentHash": "j8JWWkOrqREW3J1rkejL8MOLzFwNuGY+HCdI5gxIVN60sK5xlSWd6VY7DBpmEal5W/hi72rAnSsQhF0e7BTWIw=="
       },
       "TUnit.Engine": {
         "type": "Transitive",
@@ -625,10 +631,20 @@
           "Frappe.Notifications.Contracts": "[1.0.0, )",
           "Frappe.Notifications.Domain": "[1.0.0, )",
           "Frappe.Observability": "[1.0.0, )",
-          "Frappe.Persistence": "[1.0.0, )"
+          "Frappe.Persistence": "[1.0.0, )",
+          "Frappe.Scheduling": "[1.0.0, )"
         }
       },
       "frappe.notifications.kinds.account": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Modules": "[1.0.0, )",
+          "Frappe.Notifications.Application": "[1.0.0, )",
+          "Frappe.Notifications.Channels.Email": "[1.0.0, )",
+          "Frappe.Notifications.Domain": "[1.0.0, )"
+        }
+      },
+      "frappe.notifications.kinds.marketing": {
         "type": "Project",
         "dependencies": {
           "Frappe.Modules": "[1.0.0, )",
@@ -659,6 +675,15 @@
       "frappe.results": {
         "type": "Project"
       },
+      "frappe.scheduling": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Health": "[1.0.0, )",
+          "Frappe.Persistence": "[1.0.0, )",
+          "Npgsql": "[10.0.3, )",
+          "Quartz.Extensions.Hosting": "[4.7.2, )"
+        }
+      },
       "frappe.testing": {
         "type": "Project",
         "dependencies": {
@@ -670,7 +695,9 @@
         "dependencies": {
           "Frappe.Testing": "[1.0.0, )",
           "Npgsql": "[10.0.3, )",
-          "Testcontainers": "[4.16.0, )"
+          "TUnit.Core": "[1.81.10, )",
+          "Testcontainers": "[4.16.0, )",
+          "Testcontainers.PostgreSql": "[4.16.0, )"
         }
       },
       "frappe.usecases": {
@@ -843,6 +870,15 @@
           "Npgsql.NodaTime": "10.0.3"
         }
       },
+      "Quartz.Extensions.Hosting": {
+        "type": "CentralTransitive",
+        "requested": "[4.7.2, )",
+        "resolved": "4.7.2",
+        "contentHash": "rwm2UubBph+aIW58KA9ua8lZWivdwrcelTcHXFBsARUfXTlZJ+uBEqBsMmbWnJP5QZ+NJt73DLtf7ejdHtd4cQ==",
+        "dependencies": {
+          "Quartz": "4.7.2"
+        }
+      },
       "Testcontainers": {
         "type": "CentralTransitive",
         "requested": "[4.16.0, )",
@@ -854,6 +890,12 @@
           "SSH.NET": "2026.0.0",
           "SharpZipLib": "1.4.2"
         }
+      },
+      "TUnit.Core": {
+        "type": "CentralTransitive",
+        "requested": "[1.81.10, )",
+        "resolved": "1.81.10",
+        "contentHash": "j8JWWkOrqREW3J1rkejL8MOLzFwNuGY+HCdI5gxIVN60sK5xlSWd6VY7DBpmEal5W/hi72rAnSsQhF0e7BTWIw=="
       }
     },
     "net11.0/linux-arm64": {

@@ -39,6 +39,7 @@ public sealed class NotificationsDatabaseTests
             "GRANT SELECT ON TABLE notifications.preferences TO frappe_notifications_worker",
             "GRANT DELETE ON TABLE notifications.provider_events TO frappe_notifications_worker",
             "GRANT SELECT (received_at) ON TABLE notifications.provider_events TO frappe_notifications_worker",
+            "GRANT SELECT, DELETE ON TABLE notifications.send_requests TO frappe_notifications_worker",
             "GRANT SELECT (provider, provider_message_id, feedback, occurred_at) ON TABLE notifications.provider_events "
             + "TO frappe_notifications_worker",
         ]);
