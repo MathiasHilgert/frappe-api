@@ -20,6 +20,9 @@ public sealed class IdentityHttp : IHttpModule
     /// <summary>The rate-limit policy of registrations, with its own budget apart from the anonymous one.</summary>
     public const string RegistrationRateLimitPolicy = "Identity:Registration:RateLimit";
 
+    /// <summary>The rate-limit policy of log-ins per client address, with its own budget apart from the anonymous one.</summary>
+    public const string LogInRateLimitPolicy = "Identity:LogIn:RateLimit";
+
     private const string Prefix = "/identity";
 
     /// <summary>
@@ -28,6 +31,12 @@ public sealed class IdentityHttp : IHttpModule
     /// </summary>
     private static readonly AnonymousRateLimit RegistrationRateLimit = new(10, TimeSpan.FromMinutes(1));
 
+    /// <summary>
+    /// What one client address may attempt to log in per window by default (<c>Identity:LogIn:RateLimit:PermitLimit</c> and <c>Window</c> change
+    /// it): each attempt hashes a password, so the budget is well below the anonymous one. The address typed is limited apart, in the limiter.
+    /// </summary>
+    private static readonly AnonymousRateLimit LogInRateLimit = new(20, TimeSpan.FromMinutes(1));
+
     /// <inheritdoc />
     public void AddServices(IServiceCollection services)
     {
@@ -35,7 +44,9 @@ public sealed class IdentityHttp : IHttpModule
         services.AddErrorMessages(typeof(IdentityHttp).Assembly);
         services.TryAddSingleton(TimeProvider.System);
         services.AddFrappeRateLimitPolicy(RegistrationRateLimitPolicy, RegistrationRateLimitPolicy, RegistrationRateLimit);
+        services.AddFrappeRateLimitPolicy(LogInRateLimitPolicy, LogInRateLimitPolicy, LogInRateLimit);
         services.AddSessionAuthentication();
+        services.AddOwnerPolicy();
     }
 
     /// <inheritdoc />
@@ -45,5 +56,7 @@ public sealed class IdentityHttp : IHttpModule
         var identity = v1.MapGroup(Prefix);
         identity.MapSessionEndpoints();
         identity.MapOwnerEndpoints();
+        identity.MapLogInEndpoints();
+        identity.MapMeEndpoints();
     }
 }

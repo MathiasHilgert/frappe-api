@@ -25,5 +25,9 @@ docs:
     - **Log out without a session (401):** `DELETE /v1/identity/sessions/current` with no credential.
     - **Log out with the session cookie and no console origin (403):** `http.origin.forbidden`, a dummy cookie is enough.
 
-    The 200 and 204 examples (a session, then logging out) are deferred to the log-in route.
+    - **Log in with wrong credentials (401):** `POST /v1/identity/sessions`, `identity.credentials.invalid`, never faster than half a second.
+    - **Log in as a pending owner (403):** run after **Register an owner**: `identity.owner.verification_pending` with the owner id.
+    - **Get / change the profile without a session (401):** `GET` and `PATCH /v1/identity/me`.
+
+    The 200 and 204 examples (a session, the profile, logging out) need a verified owner and are covered by the Api's integration tests.
   type: text/markdown

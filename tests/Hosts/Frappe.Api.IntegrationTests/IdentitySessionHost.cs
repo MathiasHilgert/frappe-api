@@ -46,13 +46,13 @@ internal sealed class IdentitySessionHost : IAsyncDisposable
 
     public SettableClock Time { get; }
 
-    public static async Task<IdentitySessionHost> StartAsync(ILoggerProvider? logs = null)
+    public static async Task<IdentitySessionHost> StartAsync(ILoggerProvider? logs = null, IModule? extra = null)
     {
         var store = new SessionStore();
         var unitOfWork = new CountingUnitOfWork();
         var time = new SettableClock(Start.ToDateTimeOffset());
-        var app = await ApiHost.StartAsync(
-            [new SessionModule(store, unitOfWork, time)], [new IdentityHttp(), new ProbeHttp()], Settings, logs: logs);
+        IModule[] modules = extra is null ? [new SessionModule(store, unitOfWork, time)] : [new SessionModule(store, unitOfWork, time), extra];
+        var app = await ApiHost.StartAsync(modules, [new IdentityHttp(), new ProbeHttp()], Settings, logs: logs);
         return new IdentitySessionHost(app, store, unitOfWork, time);
     }
 

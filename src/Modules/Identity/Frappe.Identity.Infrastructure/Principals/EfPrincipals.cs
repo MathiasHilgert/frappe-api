@@ -12,4 +12,6 @@ internal sealed class EfPrincipals(IdentityDbContext db) : IPrincipals
         db.Principals.SingleOrDefaultAsync(p => p.Id == id, cancellationToken);
 
     public void Add(Principal principal) => db.Principals.Add(principal);
+
+    public void Remove(Principal principal) => db.Principals.Remove(principal);
 }

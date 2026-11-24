@@ -16,9 +16,9 @@ namespace Frappe.Identity.Application.Owners.RegisterOwner;
 
 /// <summary>
 /// Handles <see cref="RegisterOwner"/>. Everything that can be refused is checked, and the password hashed, before the address is looked up,
-/// so a taken address costs the caller what a new one does and a refusal never says whether the address exists (SEC-06). A pending owner
-/// takes over only when a new code can be sent; a refused send budget leaves it as it was, since the old code would still work with a
-/// password the new registrant did not choose. The unique index decides two registrations of one new address (<c>OwnerRejections</c>).
+/// so a taken address costs the caller what a new one does and a refusal never says whether the address exists (SEC-06). Every answer
+/// carries a fresh id, whatever holds the address, so the id tells nothing; a pending owner is replaced by a new principal, so the id and the
+/// code it was given stop working. The unique index decides two registrations of one new address (<c>OwnerRejections</c>).
 /// </summary>
 internal sealed class RegisterOwnerHandler(
     IEmailIdentifiers identifiers,
@@ -46,27 +46,11 @@ internal sealed class RegisterOwnerHandler(
         var locale = ServedLocale(command.Locale);
         var now = Instant.FromDateTimeOffset(time.GetUtcNow());
         var existing = await identifiers.FindByAddressAsync(email.Value.NormalizedAddress, cancellationToken);
-        return existing is null
-            ? await RegisterNewAsync(email.Value, name.Value, hash, locale, now, cancellationToken)
-            : await AnswerForTakenAsync(existing, name.Value, hash, locale, now, cancellationToken);
-    }
+        if (existing is null)
+        {
+            return await RegisterAsync(email.Value, name.Value, hash, locale, now, replaced: null, cancellationToken);
+        }
 
-    private async Task<Result<RegisteredOwner>> RegisterNewAsync(
-        Email email, OwnerName name, PasswordHash hash, LanguageTag locale, Instant now, CancellationToken cancellationToken)
-    {
-        var principal = Principal.Create(PrincipalKind.Owner, PrincipalStatus.Pending, now);
-        principals.Add(principal);
-        identifiers.Add(EmailIdentifier.Create(principal.Id, email.Address, email.NormalizedAddress, verifiedAt: null));
-        credentials.Add(PasswordCredential.Set(principal.Id, hash, now));
-        var owner = Owner.Register(principal.Id, name, locale, now);
-        owners.Add(owner);
-        await IssueCodeAsync(owner, email.Address, email.NormalizedAddress, now, cancellationToken);
-        return new RegisteredOwner(principal.Id);
-    }
-
-    private async Task<Result<RegisteredOwner>> AnswerForTakenAsync(
-        EmailIdentifier existing, OwnerName name, PasswordHash hash, LanguageTag locale, Instant now, CancellationToken cancellationToken)
-    {
         var owner = await owners.FindAsync(existing.PrincipalId, cancellationToken);
         if (owner is null)
         {
@@ -80,31 +64,41 @@ internal sealed class RegisterOwnerHandler(
             return new RegisteredOwner(Guid.CreateVersion7());
         }
 
-        // The send budget is asked first: a refusal stages nothing, so the pending owner and its live code stay untouched.
-        var issued = await codes.IssueAsync(owner.PrincipalId, CodePurpose.EmailVerification, existing.NormalizedAddress, cancellationToken);
-        if (!issued.IsSuccess)
-        {
-            return new RegisteredOwner(owner.PrincipalId);
-        }
+        return await RegisterAsync(email.Value, name.Value, hash, locale, now, owner, cancellationToken);
+    }
 
-        var replaced = owner.Replace(name, locale, now);
-        if (!replaced.IsSuccess)
+    /// <summary>
+    /// Registers a new principal for the address. When <paramref name="replaced"/> holds the address, its principal goes in the same unit
+    /// with its address, password, owner and codes, so the id and the code it was given stop working and the one answered here is as new as
+    /// any other. The send budget counts per principal, so the new one starts with a fresh budget.
+    /// </summary>
+    private async Task<Result<RegisteredOwner>> RegisterAsync(
+        Email email, OwnerName name, PasswordHash hash, LanguageTag locale, Instant now, Owner? replaced, CancellationToken cancellationToken)
+    {
+        var principal = Principal.Create(PrincipalKind.Owner, PrincipalStatus.Pending, now);
+        Owner owner;
+        if (replaced is null)
         {
-            return Result.Failure<RegisteredOwner>(replaced.Errors);
-        }
-
-        var credential = await credentials.FindAsync(owner.PrincipalId, cancellationToken);
-        if (credential is null)
-        {
-            credentials.Add(PasswordCredential.Set(owner.PrincipalId, hash, now));
+            owner = Owner.Register(principal.Id, name, locale, now);
         }
         else
         {
-            credential.Replace(hash, now);
+            var replacement = replaced.ReplaceWith(principal.Id, name, locale, now);
+            if (!replacement.IsSuccess)
+            {
+                return Result.Failure<RegisteredOwner>(replacement.Errors);
+            }
+
+            owner = replacement.Value;
+            principals.Remove((await principals.FindAsync(replaced.PrincipalId, cancellationToken))!);
         }
 
-        owner.RecordCodeIssued(CodePurpose.EmailVerification, existing.Address, issued.Value.Plaintext, now);
-        return new RegisteredOwner(owner.PrincipalId);
+        principals.Add(principal);
+        identifiers.Add(EmailIdentifier.Create(principal.Id, email.Address, email.NormalizedAddress, verifiedAt: null));
+        credentials.Add(PasswordCredential.Set(principal.Id, hash, now));
+        owners.Add(owner);
+        await IssueCodeAsync(owner, email.Address, email.NormalizedAddress, now, cancellationToken);
+        return new RegisteredOwner(principal.Id);
     }
 
     private async Task IssueCodeAsync(Owner owner, string address, string normalizedAddress, Instant now, CancellationToken cancellationToken)

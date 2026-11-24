@@ -15,7 +15,8 @@ namespace Frappe.Identity.Application.Codes;
 /// </summary>
 public sealed class CodeIssuer(IOneTimeCodes codes, ICodeHasher hasher, IAttemptLimiter limiter, TimeProvider time)
 {
-    private const int Digits = 6;
+    /// <summary>How many digits a code has.</summary>
+    public const int Digits = 6;
 
     private const int Combinations = 1_000_000;
 

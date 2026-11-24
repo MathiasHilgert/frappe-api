@@ -1,0 +1,26 @@
+info:
+  name: Get the profile without a session (401)
+  type: http
+  seq: 13
+
+http:
+  method: GET
+  url: "{{baseUrl}}/v1/identity/me"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "401"
+    - expression: res.headers['www-authenticate']
+      operator: eq
+      value: '"Bearer"'
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"identity.session.invalid"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `GET /v1/identity/me` needs an owner's session. With one it answers `200` with `{ id, kind: { code, name }, name: { given, family }, email, locale: { code, name } }` (the locale names itself, whatever `Accept-Language`) and a strong `ETag` that names this version of the profile; that needs a verified owner, so the Api's integration tests cover it. A session that is not an owner's is `403 identity.session.forbidden`.

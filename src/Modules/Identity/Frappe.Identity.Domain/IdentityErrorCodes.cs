@@ -35,6 +35,24 @@ public static class IdentityErrorCodes
     /// <summary>A name is missing its given part, is longer than a mail can greet with, or looks like a link.</summary>
     public const string NameInvalid = "identity.name.invalid";
 
+    /// <summary>
+    /// A log-in named an address and password that do not belong together: a wrong password, an unknown address and an address that cannot log in
+    /// all answer this one code, so the caller learns nothing about which it was (SEC-06).
+    /// </summary>
+    public const string CredentialsInvalid = "identity.credentials.invalid";
+
+    /// <summary>The password was right but the owner's address is not verified: a new code was sent (parameter <c>ownerId</c>).</summary>
+    public const string OwnerVerificationPending = "identity.owner.verification_pending";
+
+    /// <summary>The session is valid but its principal may not use the route (it is not the kind the route serves).</summary>
+    public const string SessionForbidden = "identity.session.forbidden";
+
+    /// <summary>The profile changed since the <c>If-Match</c> tag the caller sent was read.</summary>
+    public const string ProfileChanged = "identity.profile.changed";
+
+    /// <summary>A language tag is well formed but Frappé is not written in it.</summary>
+    public const string LocaleUnsupported = "identity.locale.unsupported";
+
     /// <summary>A code hash is not 32 bytes (parameter <c>length</c>); a bug of the caller, never shown to a client.</summary>
     internal const string CodeHmacLength = "identity.code.hmac_length";
 

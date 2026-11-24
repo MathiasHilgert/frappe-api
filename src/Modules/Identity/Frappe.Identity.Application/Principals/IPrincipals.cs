@@ -10,4 +10,7 @@ public interface IPrincipals
 
     /// <summary>Stages <paramref name="principal"/> to be inserted with the unit of work.</summary>
     void Add(Principal principal);
+
+    /// <summary>Stages <paramref name="principal"/> to be deleted with the unit of work, and with it everything that belongs to it.</summary>
+    void Remove(Principal principal);
 }

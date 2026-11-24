@@ -26,6 +26,9 @@ runtime:
         const stamp = Date.now() + '-' + Math.floor(Math.random() * 1e6);
         bru.setVar('email', `bruno-${stamp}@example.com`);
         bru.setVar('password', `bruno-${stamp}-${Math.random().toString(36).slice(2)}-pw`);
+        // The failing registrations that run next overwrite email and password: the requests that need this owner read these two.
+        bru.setVar('ownerEmail', bru.getVar('email'));
+        bru.setVar('ownerPassword', bru.getVar('password'));
     - type: after-response
       code: |-
         bru.setVar('ownerId', res.body.id);
