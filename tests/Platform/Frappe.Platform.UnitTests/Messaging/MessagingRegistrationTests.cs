@@ -1,4 +1,5 @@
 using Frappe.IntegrationEvents;
+using Frappe.Messaging.Abstractions;
 using Frappe.Messaging.Hosting;
 using Frappe.Messaging.JetStream;
 using Frappe.Messaging.Relay;
@@ -45,7 +46,7 @@ public sealed class MessagingRegistrationTests
     {
         // Arrange
         await using var provider = Build(
-            services => services.AddMessagePurge<InboxTestContext>("test", "Custom:Retention"),
+            services => services.AddJetStream("nats://localhost:4222", "tests").AddMessagePurge<InboxTestContext>("test", "Custom:Retention"),
             ("Custom:Retention:OutboxDays", "3"),
             ("Custom:Retention:BatchSize", "25"));
 
@@ -67,7 +68,7 @@ public sealed class MessagingRegistrationTests
     {
         // Arrange
         await using var provider = Build(
-            services => services.AddMessagePurge<InboxTestContext>("test", "Custom:Retention"),
+            services => services.AddJetStream("nats://localhost:4222", "tests").AddMessagePurge<InboxTestContext>("test", "Custom:Retention"),
             ("Custom:Retention:InboxDays", "1"));
 
         // Act
@@ -197,8 +198,9 @@ public sealed class MessagingRegistrationTests
     public async Task A_consumer_keeps_the_default_backoff_when_none_is_configured()
     {
         // Arrange
-        await using var provider = Build(services =>
-            services.AddIntegrationEventConsumer<InboxTestContext, SomethingHappened>("test", "test-reader"));
+        await using var provider = Build(services => services
+            .AddJetStream("nats://localhost:4222", "tests")
+            .AddIntegrationEventConsumer<InboxTestContext, SomethingHappened>("test", "test-reader"));
 
         // Act
         var options = provider.GetRequiredService<IOptionsMonitor<JetStreamConsumerOptions>>().Get("test-reader");
@@ -249,6 +251,62 @@ public sealed class MessagingRegistrationTests
             await Assert.That(second.MaxAttempts).IsEqualTo(3);
             await Assert.That(second.RetryBackoff).IsEquivalentTo([TimeSpan.FromSeconds(9)]);
         }
+    }
+
+    [Test]
+    public async Task Declarations_in_a_host_without_a_transport_resolve_nothing_and_the_host_starts()
+    {
+        // Arrange
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true });
+        builder.Services
+            .AddOutboxRelay<InboxTestContext>("first")
+            .AddMessagePurge<InboxTestContext>("first")
+            .AddIntegrationEventConsumer<InboxTestContext, SomethingHappened>("test", "test-reader")
+            .AddIntegrationEventHandler<SomethingHappened, IdleHandler>("test-reader")
+            .AddIntegrationEventHandler<SomethingHappened, OtherHandler>("test-reader");
+        using var host = builder.Build();
+
+        // Act
+        await host.StartAsync();
+        await host.StopAsync();
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(host.Services.GetService<OutboxRelay<InboxTestContext>>()).IsNull();
+            await Assert.That(host.Services.GetService<MessagePurger<InboxTestContext>>()).IsNull();
+            await Assert.That(host.Services.GetServices<IHostedService>()).IsEmpty();
+            await Assert.That(host.Services.GetServices<ProducerModule>()).IsEmpty();
+            await Assert.That(host.Services.GetKeyedService<IIntegrationEventHandler<SomethingHappened>>("test-reader")).IsNull();
+        }
+    }
+
+    [Test]
+    public async Task Declarations_made_before_and_after_the_transport_materialize_the_same()
+    {
+        // Arrange
+        await using var before = Build(services =>
+        {
+            services.AddOutboxRelay<InboxTestContext>("first");
+            services.AddJetStream("nats://localhost:4222", "tests");
+        });
+        await using var after = Build(services =>
+        {
+            services.AddJetStream("nats://localhost:4222", "tests");
+            services.AddOutboxRelay<InboxTestContext>("first");
+        });
+
+        // Act
+        var names = new[] { before, after }.Select(p => p.GetServices<ProducerModule>().Select(m => m.Name).Single()).ToList();
+
+        // Assert
+        await Assert.That(names).IsEquivalentTo(["first", "first"]);
+    }
+
+    /// <summary>A second handler, for a consumer that must refuse it.</summary>
+    private sealed class OtherHandler : IIntegrationEventHandler<SomethingHappened>
+    {
+        public Task HandleAsync(SomethingHappened integrationEvent, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     [Test]

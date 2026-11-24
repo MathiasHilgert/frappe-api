@@ -38,7 +38,7 @@
 - **Rule:** A command's writes are staged and written by the unit of work's single `SaveChanges` (outbox rows included) and committed together. Reads
   and calls to other systems happen before the transaction opens. Nothing but `EfUnitOfWork` and `InboxConsumer` calls `SaveChangesAsync`.
 - **Why:** Short transactions hold locks and connections for milliseconds; one SaveChanges is one round trip batch and one atomic outcome.
-- **Enforced by:** `LayeringTests` (`Application_ports_leave_saving_to_the_unit_of_work`) | review.
+- **Enforced by:** `LayeringTests` (`Application_ports_leave_saving_to_the_unit_of_work` (planned)) | review.
 - **Good:** `EfUnitOfWork.SaveChangesAsync`. **Bad:** `await db.SaveChangesAsync(ct)` in `SnapshotSync` or `OrdersSeeding`.
 - **Status:** in force.
 

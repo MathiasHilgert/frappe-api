@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Messaging" />
+    <InternalsVisibleTo Include="Frappe.Platform.UnitTests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.IntegrationEvents/Frappe.IntegrationEvents.csproj" />
+    <ProjectReference Include="../Frappe.Persistence/Frappe.Persistence.csproj" />
+  </ItemGroup>
+</Project>

@@ -15,7 +15,7 @@
 - **Rule:** Each module registers one unit of work over its own context with `AddUnitOfWork<TContext>(Module)`, keyed by the module name. Handlers and
   Application ports stage changes (`Add`, aggregate transitions) and never save; the pipeline commits once per command.
 - **Why:** One commit per command keeps aggregates, outbox rows and events atomic; a port that saves splits the command into partial commits.
-- **Enforced by:** LayeringTests `Application_ports_leave_saving_to_the_unit_of_work`; `UnitOfWorkPipelineTests`
+- **Enforced by:** LayeringTests `Application_ports_leave_saving_to_the_unit_of_work` (planned); `UnitOfWorkPipelineTests`
   `A_succeeding_command_is_committed_once`, `A_command_of_a_module_without_a_unit_of_work_fails_naming_the_module_instead_of_saving_nothing`.
 - **Good:** `.AddUnitOfWork<OrdersDbContext>(OrdersDbContext.Module)`; `void Add(ShipmentCalendar calendar); // the unit of work saves it`. **Bad:**
   `Task

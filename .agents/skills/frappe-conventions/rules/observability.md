@@ -193,8 +193,9 @@
 - **Rule:** Each module defines an availability SLO and a latency SLO over the existing HTTP server metrics, filtered by its routes, and ships
   multi-window, multi-burn-rate alerts as code (fast: 1 h and 5 m at 14.4×; slow: 6 h and 30 m at 6×) in the provisioned alert file.
 - **Why:** burn-rate alerts page on budget at risk, not on every blip.
-- **Enforced by:** `AlertProvisioningTests` (planned) (expected rules list an availability and a latency fast/slow pair for each module with routes: Billing
-  and Orders by `/v1/{module}/`, Shipping by its flat prefix `/v1/business.*` in its own test; a module with flat routes selects its route prefix, see
+- **Enforced by:** `AlertProvisioningTests` (planned) (expected rules list an availability and a latency fast/slow pair for each module with
+  routes: Billing and Orders by `/v1/{module}/`, Shipping by its flat prefix `/v1/business.*` in its own test;
+  a module with flat routes selects its route prefix, see
   HTTP-02).
 - **Good:** `uid: frappe-orders-availability-fast-burn` **Bad:** `5xx > 0` as the only HTTP alert.
 - **Status:** in force.

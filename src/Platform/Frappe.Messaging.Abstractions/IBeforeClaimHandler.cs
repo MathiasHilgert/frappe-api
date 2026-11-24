@@ -1,6 +1,6 @@
 using Frappe.IntegrationEvents;
 
-namespace Frappe.Messaging.Inbox;
+namespace Frappe.Messaging.Abstractions;
 
 /// <summary>
 /// A step a consumer runs before it claims the message, with no database transaction open: the place for a slow call to

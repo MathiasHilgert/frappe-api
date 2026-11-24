@@ -337,6 +337,13 @@
           "MessageFormat": "[8.0.0, )"
         }
       },
+      "frappe.messaging.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.IntegrationEvents": "[1.0.0, )",
+          "Frappe.Persistence": "[1.0.0, )"
+        }
+      },
       "frappe.messaging.storage": {
         "type": "Project",
         "dependencies": {

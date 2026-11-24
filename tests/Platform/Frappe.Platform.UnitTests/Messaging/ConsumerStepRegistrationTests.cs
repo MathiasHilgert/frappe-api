@@ -1,6 +1,6 @@
 using Frappe.IntegrationEvents;
+using Frappe.Messaging.Abstractions;
 using Frappe.Messaging.Hosting;
-using Frappe.Messaging.Inbox;
 using Frappe.Platform.Testing.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -14,6 +14,8 @@ namespace Frappe.Platform.UnitTests.Messaging;
 /// </summary>
 public sealed class ConsumerStepRegistrationTests
 {
+    private const string NatsUrl = "nats://localhost:4222";
+
     private static HostApplicationBuilder Builder() =>
         Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true });
 
@@ -22,6 +24,7 @@ public sealed class ConsumerStepRegistrationTests
     {
         // Arrange
         var builder = Builder();
+        builder.Services.AddJetStream(NatsUrl, "tests");
         builder.Services.AddAfterCommitHandler<SomethingHappened, HookA>("b-cache");
         using var host = builder.Build();
 
@@ -41,7 +44,7 @@ public sealed class ConsumerStepRegistrationTests
     public async Task A_second_handler_for_the_same_consumer_fails_instead_of_replacing_the_first()
     {
         // Arrange
-        var services = new ServiceCollection().AddIntegrationEventHandler<SomethingHappened, HandlerA>("a-projection");
+        var services = new ServiceCollection().AddJetStream(NatsUrl, "tests").AddIntegrationEventHandler<SomethingHappened, HandlerA>("a-projection");
 
         // Act
         var failure = Assert.Throws<InvalidOperationException>(() =>
@@ -61,7 +64,7 @@ public sealed class ConsumerStepRegistrationTests
     public async Task The_same_after_commit_step_registered_twice_for_one_consumer_fails_instead_of_running_twice()
     {
         // Arrange
-        var services = new ServiceCollection().AddAfterCommitHandler<SomethingHappened, HookA>("b-cache");
+        var services = new ServiceCollection().AddJetStream(NatsUrl, "tests").AddAfterCommitHandler<SomethingHappened, HookA>("b-cache");
 
         // Act
         var failure = Assert.Throws<InvalidOperationException>(() =>
@@ -80,7 +83,7 @@ public sealed class ConsumerStepRegistrationTests
     public async Task A_second_before_claim_step_for_the_same_consumer_fails_instead_of_replacing_the_first()
     {
         // Arrange
-        var services = new ServiceCollection().AddBeforeClaimHandler<SomethingHappened, EarlyA>("a-mailer");
+        var services = new ServiceCollection().AddJetStream(NatsUrl, "tests").AddBeforeClaimHandler<SomethingHappened, EarlyA>("a-mailer");
 
         // Act
         var failure = Assert.Throws<InvalidOperationException>(() =>
@@ -102,6 +105,7 @@ public sealed class ConsumerStepRegistrationTests
         // Arrange
         var builder = Builder();
         builder.Services
+            .AddJetStream(NatsUrl, "tests")
             .AddAfterCommitHandler<SomethingHappened, HookA>("a-projection")
             .AddIntegrationEventConsumer<InboxTestContext, SomethingHappened>("test", "a-projection")
             .AddIntegrationEventHandler<SomethingHappened, HandlerA>("a-projection")

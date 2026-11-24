@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Frappe.IntegrationEvents;
+using Frappe.Messaging.Abstractions;
 using Frappe.Messaging.Hosting;
 using Frappe.Messaging.Relay;
 using Frappe.Platform.Testing.Messaging;

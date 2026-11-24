@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Frappe.IntegrationEvents;
 using Frappe.Messaging;
+using Frappe.Messaging.Abstractions;
 using Frappe.Messaging.Hosting;
 using Frappe.Messaging.Inbox;
 using Frappe.Messaging.JetStream;
@@ -72,6 +73,7 @@ public sealed class JetStreamConsumerMetricsTests(InboxDatabase database, NatsSe
         var options = unreachable ?? await database.CreateAsync();
         var consumerName = "test-" + Guid.NewGuid().ToString("N")[..8];
         var collection = new ServiceCollection().AddMetrics().AddScoped(_ => new InboxTestContext(options));
+        collection.AddJetStream("nats://localhost:4222", "tests"); // declarations are inert without a transport
         steps(collection, consumerName);
         var services = collection.BuildServiceProvider();
         var factory = services.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>();

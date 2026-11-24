@@ -70,8 +70,8 @@
 - **Rule:** A migration writes table names, constraint names, predicates and index definitions as literals. It never references configuration, model
   or platform types (`SessionConfiguration`, `OutboxModel`), not even for a name.
 - **Why:** A migration is frozen history; reading a constant rewrites what an old migration does when the model later changes.
-- **Enforced by:** `MigrationTests` (planned) (a source scan of the hand-written migration files, comments included; C# inlines constants, so an assembly check
-  cannot see them).
+- **Enforced by:** `MigrationTests` (planned) (a source scan of the hand-written migration files, comments included; C# inlines constants, so an
+  assembly check cannot see them).
 - **Good:** `IndexParkedOutboxRows`: `"CREATE INDEX CONCURRENTLY ix_outbox_messages_parked ON orders.outbox_messages (sequence) WHERE ..."`. **Bad:**
   `private const string Table = "orders." + OutboxModel.Table;`, `{SessionConfiguration.PasswordStampCheck}`.
 - **Status:** in force.

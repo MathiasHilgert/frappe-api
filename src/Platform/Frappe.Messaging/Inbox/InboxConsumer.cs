@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Frappe.IntegrationEvents;
+using Frappe.Messaging.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

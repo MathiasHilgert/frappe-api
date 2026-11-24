@@ -14,6 +14,7 @@
     <Project Path="src/Platform/Frappe.Http/Frappe.Http.csproj" />
     <Project Path="src/Platform/Frappe.IntegrationEvents/Frappe.IntegrationEvents.csproj" />
     <Project Path="src/Platform/Frappe.Localization/Frappe.Localization.csproj" />
+    <Project Path="src/Platform/Frappe.Messaging.Abstractions/Frappe.Messaging.Abstractions.csproj" />
     <Project Path="src/Platform/Frappe.Messaging/Frappe.Messaging.csproj" />
     <Project Path="src/Platform/Frappe.Messaging.Storage/Frappe.Messaging.Storage.csproj" />
     <Project Path="src/Platform/Frappe.Modules/Frappe.Modules.csproj" />

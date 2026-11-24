@@ -1,10 +1,10 @@
-namespace Frappe.Messaging.Inbox;
+namespace Frappe.Messaging.Abstractions;
 
 /// <summary>
 /// The message the consumer of this scope is handling, for a handler that needs more than the event: its CloudEvents
 /// <see cref="Id"/>, stable across redeliveries (the outbox row's id), is a natural idempotency key for an external call
 /// (an external provider), and <see cref="Consumer"/> names the inbox it is recorded in. A module that wants it registers it
-/// scoped; <see cref="InboxConsumer{TContext, TEvent}"/> fills it before the handler runs. <see langword="null"/> outside a consumer.
+/// scoped; the consumer of the Worker fills it before the handler runs. <see langword="null"/> outside a consumer.
 /// </summary>
 public sealed class CurrentMessage
 {

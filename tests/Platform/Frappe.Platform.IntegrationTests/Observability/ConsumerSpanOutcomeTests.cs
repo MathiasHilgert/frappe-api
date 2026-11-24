@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using Frappe.IntegrationEvents;
 using Frappe.Messaging;
+using Frappe.Messaging.Abstractions;
 using Frappe.Messaging.Hosting;
 using Frappe.Messaging.Inbox;
 using Frappe.Platform.IntegrationTests.Messaging;
@@ -37,6 +38,7 @@ public sealed class ConsumerSpanOutcomeTests(InboxDatabase database)
         var consumerName = $"span-probe-{Guid.NewGuid():N}";
         var options = await database.CreateAsync();
         var services = new ServiceCollection().AddSingleton(new StepLog()).AddScoped(_ => new InboxTestContext(options));
+        services.AddJetStream("nats://localhost:4222", "tests"); // declarations are inert without a transport
         steps(consumerName, services);
         await using var provider = services.BuildServiceProvider();
         var spans = new ConcurrentBag<Activity>();

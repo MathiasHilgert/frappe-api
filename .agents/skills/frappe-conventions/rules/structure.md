@@ -118,7 +118,7 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 ## STR-11 · Each layer exposes its host facet from one fixed class
 
 - **Rule:** Infrastructure: `public sealed class <M>Module : IModule` and `<M>Database : IDatabaseModule`, with internal `<M>PersistenceRegistration`
-  behind them; an Infrastructure that runs in the Worker only (relay, consumers, jobs) adds
+  behind them; an Infrastructure that runs in the Worker only (relay, consumers, senders, jobs) adds
   `public sealed class <M>WorkerModule : IModule`, listed by the Worker alone, never by the Api or the Migrator;
   Application: `<M>QueriesRegistration` (the `I<M>Queries` facade); Http: `public sealed class <M>Http : IHttpModule` with route mapping;
   a plug-in: its own `IModule`. Handlers are registered by `AddHandlers(assembly)`, never one by one.
