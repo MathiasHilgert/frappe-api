@@ -1,3 +1,4 @@
+using Frappe.Identity.Infrastructure.Credentials;
 using Frappe.Identity.Infrastructure.Messaging;
 using Frappe.Identity.Infrastructure.Persistence;
 using Frappe.Messaging.Storage.Outbox;
@@ -20,6 +21,7 @@ public sealed class IdentityModule : IModule
     public void AddServices(IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+        services.AddPasswords();
         services.AddKeyedSingleton<IIntegrationEventTranslator, IdentityIntegrationEvents>(Name);
         services.AddModuleDatabase<IdentityDbContext>(
             Name, IdentityDbContext.Schema, (provider, options) => options.UseOutbox(provider, Name));

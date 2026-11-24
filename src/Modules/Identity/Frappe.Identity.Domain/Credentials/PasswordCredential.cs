@@ -26,9 +26,17 @@ public sealed class PasswordCredential : AggregateRoot
     public Instant ChangedAt { get; private set; }
 
     /// <summary>The password of <paramref name="principalId"/>, set at <paramref name="now"/>.</summary>
-    public static PasswordCredential Create(Guid principalId, string hash, Instant now)
+    public static PasswordCredential Set(Guid principalId, PasswordHash hash, Instant now)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(hash);
-        return new PasswordCredential(principalId, hash, now);
+        ArgumentNullException.ThrowIfNull(hash);
+        return new PasswordCredential(principalId, hash.Value, now);
+    }
+
+    /// <summary>Puts <paramref name="hash"/> in place of the current one, at <paramref name="now"/>.</summary>
+    public void Replace(PasswordHash hash, Instant now)
+    {
+        ArgumentNullException.ThrowIfNull(hash);
+        Hash = hash.Value;
+        ChangedAt = now;
     }
 }

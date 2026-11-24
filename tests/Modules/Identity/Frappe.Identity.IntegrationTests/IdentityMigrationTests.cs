@@ -167,7 +167,7 @@ public sealed class IdentityMigrationTests(PostgresServer server)
             var now = Instant.FromUtc(2026, 11, 24, 12, 0);
             var principal = Principal.Create(PrincipalKind.Owner, PrincipalStatus.Pending, now);
             var email = EmailIdentifier.Create(principal.Id, "Ana@Example.com", "ana@example.com", null);
-            var credential = PasswordCredential.Create(principal.Id, "$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA", now);
+            var credential = PasswordCredential.Set(principal.Id, new PasswordHash("$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA"), now);
             var tokenHash = new byte[32];
             tokenHash[0] = 7;
             var session = Session.Open(
