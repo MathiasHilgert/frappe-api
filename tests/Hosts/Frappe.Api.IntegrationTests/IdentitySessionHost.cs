@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Net;
 using Frappe.Http;
 using Frappe.Identity.Application.Credentials;
 using Frappe.Identity.Application.Sessions;
@@ -70,6 +71,20 @@ internal sealed class IdentitySessionHost : IAsyncDisposable
         Store.Principals.Add(principal);
         Store.Sessions.Add(session);
         return (principal, session, issued.Value);
+    }
+
+    /// <summary>
+    /// Seeds one more session of <paramref name="principal"/>, opened at <paramref name="openedAt"/>;
+    /// the token is what a client sends.
+    /// </summary>
+    public (Session Session, string Token) SeedSessionOf(Principal principal, Instant openedAt, string? userAgent = null, IPNetwork? ipPrefix = null)
+    {
+        var issued = new SessionTokens().Issue();
+        var session = Session.Open(
+            principal.Id, issued.Hash, SessionAudience.Console, principal.CredentialStamp, openedAt, Duration.FromHours(12), Duration.FromDays(30),
+            userAgent, ipPrefix);
+        Store.Sessions.Add(session);
+        return (session, issued.Value);
     }
 
     public ValueTask DisposeAsync() => App.DisposeAsync();
@@ -180,7 +195,19 @@ internal sealed class IdentitySessionHost : IAsyncDisposable
             Task.FromResult<IReadOnlyList<Session>>(
                 [.. Sessions.Where(s => s.PrincipalId == principalId && s.RevokedAt is null && s.EndedAt is null)]);
 
+        public Task<IReadOnlyList<Session>> ListLiveOfAsync(Guid principalId, Instant now, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<Session>>([.. Sessions.Where(s => s.PrincipalId == principalId && s.IsLiveAt(now))]);
+
         public void Add(Session session) => Sessions.Add(session);
+
+        public Task<IReadOnlyList<ListedSession>> ListLiveAsync(
+            Guid principalId, Instant now, int limit, SessionPosition? after, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<ListedSession>>([.. Sessions
+                .Where(s => s.PrincipalId == principalId && s.IsLiveAt(now))
+                .OrderByDescending(s => s.OpenedAt).ThenBy(s => s.Id)
+                .Where(s => after is null || s.OpenedAt < after.OpenedAt || (s.OpenedAt == after.OpenedAt && s.Id.CompareTo(after.Id) > 0))
+                .Take(limit)
+                .Select(s => new ListedSession(s.Id, s.OpenedAt, s.LastSeenAt, s.UserAgent, s.IpPrefix))]);
 
         public Task<SessionAccess?> FindAccessAsync(byte[] tokenHash, CancellationToken cancellationToken)
         {

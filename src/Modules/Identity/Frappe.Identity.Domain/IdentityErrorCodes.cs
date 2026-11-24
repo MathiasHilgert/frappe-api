@@ -61,6 +61,12 @@ public static class IdentityErrorCodes
     /// <summary>The session is valid but its principal may not use the route (it is not the kind the route serves).</summary>
     public const string SessionForbidden = "identity.session.forbidden";
 
+    /// <summary>
+    /// The session the caller named is not one of theirs that is still live: it belongs to another principal, is over, does not exist or the id
+    /// is not an id. One answer for all of them, so the caller learns nothing about other principals' sessions (SEC-05).
+    /// </summary>
+    public const string SessionNotFound = "identity.session.not_found";
+
     /// <summary>The profile changed since the <c>If-Match</c> tag the caller sent was read.</summary>
     public const string ProfileChanged = "identity.profile.changed";
 

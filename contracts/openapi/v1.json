@@ -3021,6 +3021,536 @@
         }
       }
     },
+    "/v1/identity/me/sessions": {
+      "get": {
+        "tags": [
+          "Identity"
+        ],
+        "summary": "List the caller's sessions",
+        "description": "The live sessions of the caller (not revoked, not ended, not expired), newest opened first: the browser and the operating system its user agent names (null when not recognized), the client address as its IPv4 /24 or IPv6 /48 network, when it opened and when it was last used (up to a minute behind), and which one is the session of this request. Paged with limit (1 to 200, 50 by default) and cursor, the nextCursor of the previous page: 400 platform.page_limit.invalid, platform.page_limit.out_of_range or platform.page_cursor.invalid. 401 identity.session.invalid without a valid session.",
+        "operationId": "ListMySessions",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages Frappé's own texts in the response are written in; absent when it holds none, only proper nouns, identifiers and source data (names and categories as their source publishes them).",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "no-store: no cache may keep the answer, and it carries no validator.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MySessionListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "description": "The scheme to authenticate with: Bearer (the session token; a browser sends it in the session cookie).",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable: a database the operation needs is not answering (platform.database.unavailable); the same request may succeed after Retry-After.",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before trying again (30).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/identity/me/sessions/others": {
+      "delete": {
+        "tags": [
+          "Identity"
+        ],
+        "summary": "Revoke every session but the current one",
+        "description": "Revokes every live session of the caller except the one the request uses, whose token keeps working. Having no other session is not an error: it answers 204 all the same. 401 identity.session.invalid without a valid session; 403 http.origin.forbidden for a cookie request from no console origin.",
+        "operationId": "RevokeMyOtherSessions",
+        "parameters": [
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content",
+            "headers": {
+              "Cache-Control": {
+                "description": "no-store: no cache may keep the answer, and it carries no validator.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "description": "The scheme to authenticate with: Bearer (the session token; a browser sends it in the session cookie).",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: http.origin.forbidden when the request carries the session cookie without an Origin among the console's (a bearer token is never checked).",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable: a database the operation needs is not answering (platform.database.unavailable); the same request may succeed after Retry-After.",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before trying again (30).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict: other writers kept changing the same data while the operation committed (platform.persistence.commit_conflict); nothing was written and the same request may succeed when sent again.",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/identity/me/sessions/{sessionId}": {
+      "delete": {
+        "tags": [
+          "Identity"
+        ],
+        "summary": "Revoke one of the caller's sessions",
+        "description": "Revokes one live session of the caller, the current one included: its token stops working at once. A session of another principal, one that is already over, one that does not exist and an id that is not an id answer the same 404 identity.session.not_found. 401 identity.session.invalid without a valid session; 403 http.origin.forbidden for a cookie request from no console origin.",
+        "operationId": "RevokeMySession",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "description": "The languages the client accepts (BCP 47, with q weights). Frappé is written in en, es, es-AR, es-MX, pt-BR; the ranges are tried from the highest quality down and the first one served wins (fr, es-AR;q=0.8 answers in es-AR). Another Spanish answers in es, any Portuguese in pt-BR, and anything else, or no header, in English. Content-Language names the language served.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content",
+            "headers": {
+              "Cache-Control": {
+                "description": "no-store: no cache may keep the answer, and it carries no validator.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "description": "The scheme to authenticate with: Bearer (the session token; a browser sends it in the session cookie).",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: http.origin.forbidden when the request carries the session cookie without an Origin among the console's (a bearer token is never checked).",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before the client's window reopens (also in the error's parameters.retryAfter).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable: a database the operation needs is not answering (platform.database.unavailable); the same request may succeed after Retry-After.",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before trying again (30).",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict: other writers kept changing the same data while the operation committed (platform.persistence.commit_conflict); nothing was written and the same request may succeed when sent again.",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/notifications/webhooks/resend": {
       "post": {
         "tags": [
@@ -3649,6 +4179,73 @@
           },
           "locale": {
             "$ref": "#/components/schemas/EnumeratedValue"
+          }
+        }
+      },
+      "MySessionListResponse": {
+        "required": [
+          "sessions"
+        ],
+        "type": "object",
+        "properties": {
+          "sessions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MySessionResponse"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "MySessionResponse": {
+        "required": [
+          "id",
+          "current",
+          "browser",
+          "os",
+          "ipPrefix",
+          "openedAt",
+          "lastSeenAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "current": {
+            "type": "boolean"
+          },
+          "browser": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "os": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ipPrefix": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "openedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },

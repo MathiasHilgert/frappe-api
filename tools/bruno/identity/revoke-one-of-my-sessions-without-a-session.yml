@@ -1,0 +1,26 @@
+info:
+  name: Revoke one of my sessions without a session (401)
+  type: http
+  seq: 31
+
+http:
+  method: DELETE
+  url: "{{baseUrl}}/v1/identity/me/sessions/0197d7b0-0000-7000-8000-000000000001"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "401"
+    - expression: res.headers['www-authenticate']
+      operator: eq
+      value: '"Bearer"'
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"identity.session.invalid"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `DELETE /v1/identity/me/sessions/{sessionId}` needs a session. With one it answers 204, or 404 `identity.session.not_found` for a session that is not the caller's; without one it is the same 401 as any session route.
