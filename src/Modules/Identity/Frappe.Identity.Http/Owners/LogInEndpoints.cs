@@ -33,8 +33,10 @@ internal static class LogInEndpoints
                     + "an address that cannot log in answer the same 401 identity.credentials.invalid, never faster than half a second. An owner "
                     + "whose address is not verified yet and who gives the right password is sent a new code and answered 403 "
                     + "identity.owner.verification_pending, whose parameters.ownerId is the id to verify with. An address that tries too often "
-                    + $"is throttled with 429 http.rate_limited and Retry-After ({LogInLimits.Attempt.Limit} attempts per address in "
-                    + $"{LogInLimits.Attempt.Window.TotalMinutes:0} minutes, whatever their outcome), and so is a client address that logs in "
+                    + $"is throttled with 429 http.rate_limited and Retry-After ({LogInLimits.Attempt.Limit} attempts per address from one "
+                    + $"network in {LogInLimits.Attempt.Window.TotalMinutes:0} minutes, and {LogInLimits.AttemptByEmail.Limit} per address from "
+                    + $"any network in {LogInLimits.AttemptByEmail.Window.TotalHours:0} hour, whatever their outcome), and so is a client "
+                    + "address that logs in "
                     + "too often; there is no lockout beyond the window. 503 identity.attempts.unavailable while attempts cannot be counted.")
                 .ProducesProblem(StatusCodes.Status401Unauthorized)
                 .ProducesProblem(StatusCodes.Status403Forbidden)

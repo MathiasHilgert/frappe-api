@@ -118,9 +118,9 @@ internal sealed class OwnersHost : IAsyncDisposable
     /// Logs in. A refusal waits for the fake clock, so the clock is moved on, ten milliseconds at a time, while the call waits: a refusal that
     /// ends before 500 ms of fake time have passed ended before its floor (hashing takes far less fake time than that).
     /// </summary>
-    public async Task<Result<LogInOutcome>> LogInAsync(string? email, string? password)
+    public async Task<Result<LogInOutcome>> LogInAsync(string? email, string? password, string client = "203.0.113.7")
     {
-        var task = StartLogInAsync(email, password);
+        var task = StartLogInAsync(email, password, client);
         while (!task.IsCompleted)
         {
             Time.Advance(TimeSpan.FromMilliseconds(10));
@@ -131,11 +131,11 @@ internal sealed class OwnersHost : IAsyncDisposable
     }
 
     /// <summary>Starts a log-in and leaves it running: one that succeeds is complete at once, a refusal waits for the clock.</summary>
-    public async Task<Result<LogInOutcome>> StartLogInAsync(string? email, string? password)
+    public async Task<Result<LogInOutcome>> StartLogInAsync(string? email, string? password, string client = "203.0.113.7")
     {
         await using var scope = _provider.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<ICommandHandler<LogInOwner, LogInOutcome>>()
-            .HandleAsync(new LogInOwner(email, password, "agent", System.Net.IPAddress.Parse("203.0.113.7")), default);
+            .HandleAsync(new LogInOwner(email, password, "agent", System.Net.IPAddress.Parse(client)), default);
     }
 
     public async Task<Result<OwnerProfile>> MeAsync(Guid principalId)
