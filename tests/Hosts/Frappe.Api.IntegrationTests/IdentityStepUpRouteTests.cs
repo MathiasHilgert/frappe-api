@@ -176,7 +176,7 @@ public sealed class IdentityStepUpRouteTests
     private sealed class FakesModule(Fakes fakes) : IModule
     {
         public void AddServices(IServiceCollection services) =>
-            services.AddSingleton<ICommandHandler<StepUp, SteppedUp>>(new Handler(fakes));
+            services.AddFakeCommand<StepUp, SteppedUp>(new Handler(fakes));
     }
 
     /// <summary>The step-up use case, standing in for the real one.</summary>

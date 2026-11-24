@@ -1,4 +1,6 @@
 using System.Net;
+using Frappe.Access.Contracts;
+using Frappe.Identity.Application.Principals;
 using Frappe.Results;
 using Frappe.UseCases;
 
@@ -15,7 +17,9 @@ namespace Frappe.Identity.Application.Owners.ConfirmEmailChange;
 /// <param name="Code">The six digits, as typed.</param>
 /// <param name="ClientAddress">The client's address, of which the guess limits keep only the network prefix.</param>
 public sealed record ConfirmEmailChange(Guid PrincipalId, Guid SessionId, string? ChangeId, string? Code, IPAddress? ClientAddress)
-    : ICommand<Unit>
+    : ICommand<Unit>, IGuarded
 {
+    public static CallerRule Allowed => IdentityRules.OwnerAccount;
+
     public override string ToString() => $"ConfirmEmailChange {{ PrincipalId = {PrincipalId}, ChangeId = {ChangeId}, the code is hidden }}";
 }

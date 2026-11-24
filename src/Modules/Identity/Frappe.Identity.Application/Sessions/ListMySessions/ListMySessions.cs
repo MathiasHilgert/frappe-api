@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.UseCases;
 
 namespace Frappe.Identity.Application.Sessions.ListMySessions;
@@ -9,4 +10,7 @@ namespace Frappe.Identity.Application.Sessions.ListMySessions;
 /// <param name="CurrentSessionId">The caller's current session, from the authenticated request: the one the page marks as current.</param>
 /// <param name="Limit">How many sessions the page holds at most; already bound by the endpoint (HTTP-16).</param>
 /// <param name="After">Where the previous page ended; none for the first page.</param>
-public sealed record ListMySessions(Guid PrincipalId, Guid CurrentSessionId, int Limit, SessionPosition? After) : IQuery<MySessionsPage>;
+public sealed record ListMySessions(Guid PrincipalId, Guid CurrentSessionId, int Limit, SessionPosition? After) : IQuery<MySessionsPage>, IGuarded
+{
+    public static CallerRule Allowed => Is.Authenticated;
+}

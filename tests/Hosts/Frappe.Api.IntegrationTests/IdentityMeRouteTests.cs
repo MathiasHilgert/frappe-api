@@ -341,11 +341,11 @@ public sealed class IdentityMeRouteTests
     {
         public void AddServices(IServiceCollection services)
         {
-            services.AddSingleton<IQueryHandler<GetMe, OwnerProfile>>(new Read(fakes));
-            services.AddSingleton<ICommandHandler<UpdateMe, Unit>>(new Update(fakes));
+            services.AddFakeQuery<GetMe, OwnerProfile>(new Read(fakes));
+            services.AddFakeCommand<UpdateMe, Unit>(new Update(fakes));
             if (kind is not null)
             {
-                services.AddSingleton<IQueryHandler<AuthenticateSession, SessionPrincipal>>(new Authenticate(kind));
+                services.AddFakeQuery<AuthenticateSession, SessionPrincipal>(new Authenticate(kind));
             }
         }
     }

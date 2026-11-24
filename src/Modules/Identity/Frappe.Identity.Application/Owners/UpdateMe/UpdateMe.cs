@@ -1,3 +1,5 @@
+using Frappe.Access.Contracts;
+using Frappe.Identity.Application.Principals;
 using Frappe.Results;
 using Frappe.UseCases;
 
@@ -17,8 +19,11 @@ namespace Frappe.Identity.Application.Owners.UpdateMe;
 /// empty list when the header could not be read, which no version matches.
 /// </param>
 public sealed record UpdateMe(
-    Guid PrincipalId, Patched<string>? Given, Patched<string>? Family, Patched<string>? Locale, IReadOnlyList<string>? IfMatch) : ICommand<Unit>
+    Guid PrincipalId, Patched<string>? Given, Patched<string>? Family, Patched<string>? Locale, IReadOnlyList<string>? IfMatch)
+    : ICommand<Unit>, IGuarded
 {
+    public static CallerRule Allowed => IdentityRules.OwnerAccount;
+
     /// <summary>The version that stands for <c>*</c>: any current version matches.</summary>
     public const string AnyVersion = "*";
 

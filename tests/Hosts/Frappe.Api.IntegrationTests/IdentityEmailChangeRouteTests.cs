@@ -121,8 +121,8 @@ public sealed class IdentityEmailChangeRouteTests
     {
         public void AddServices(IServiceCollection services)
         {
-            services.AddSingleton<ICommandHandler<RequestEmailChange, EmailChangeRequested>>(new RequestHandler(fakes));
-            services.AddSingleton<ICommandHandler<ConfirmEmailChange, Unit>>(new ConfirmHandler(fakes));
+            services.AddFakeCommand<RequestEmailChange, EmailChangeRequested>(new RequestHandler(fakes));
+            services.AddFakeCommand<ConfirmEmailChange, Unit>(new ConfirmHandler(fakes));
         }
     }
 

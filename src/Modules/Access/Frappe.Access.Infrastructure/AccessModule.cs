@@ -4,6 +4,7 @@ using Frappe.Modules;
 using Frappe.UseCases;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 
 namespace Frappe.Access.Infrastructure;
 
@@ -33,15 +34,17 @@ public sealed class AccessModule : IModule
 
         // The requests are the ones the final service collection has a handler for, so Access needs no reference to the modules that own them
         // and no order in the list of modules.
-        services.AddSingleton(_ => UseCaseTable.From(RequestsHandledIn(services)));
+        services.AddSingleton(_ => UseCaseTable.From(HandlerPortsIn(services).Select(port => port.GetGenericArguments()[0])));
+        services.AddSingleton<IHostedService>(provider => new AccessStartupCheck(provider, [.. HandlerPortsIn(services)]));
         services.AddScoped<AccessScope>();
         services.AddScoped<IUseCaseGate, AccessGate>();
         services.AddScoped<IAuthorizer, Authorizer>();
     }
 
-    private static IEnumerable<Type> RequestsHandledIn(IServiceCollection services) => services
+    private static IEnumerable<Type> HandlerPortsIn(IServiceCollection services) => services
         .Where(descriptor => !descriptor.IsKeyedService && descriptor.ServiceType is { IsGenericType: true, IsGenericTypeDefinition: false })
         .Where(descriptor => descriptor.ServiceType.GetGenericTypeDefinition() == typeof(ICommandHandler<,>)
             || descriptor.ServiceType.GetGenericTypeDefinition() == typeof(IQueryHandler<,>))
-        .Select(descriptor => descriptor.ServiceType.GetGenericArguments()[0]);
+        .Select(descriptor => descriptor.ServiceType)
+        .Distinct();
 }

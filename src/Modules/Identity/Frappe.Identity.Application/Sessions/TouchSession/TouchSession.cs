@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.Results;
 using Frappe.UseCases;
 
@@ -9,4 +10,4 @@ namespace Frappe.Identity.Application.Sessions.TouchSession;
 /// lose commit nothing and answer a commit conflict, which is never a failure of the request that dispatched them.
 /// </summary>
 /// <param name="SessionId">The session that was used.</param>
-public sealed record TouchSession(Guid SessionId) : ICommand<Unit>;
+public sealed record TouchSession(Guid SessionId) : ICommand<Unit>, IPublic; // proof: trusted entry: the session authentication handler runs it

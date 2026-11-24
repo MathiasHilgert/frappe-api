@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.Results;
 using Frappe.UseCases;
 
@@ -8,4 +9,5 @@ namespace Frappe.Identity.Application.Owners.ResendOwnerVerification;
 /// budget, so the answer reveals nothing about which owners exist.
 /// </summary>
 /// <param name="OwnerId">The id the caller was given when registering, as text.</param>
-public sealed record ResendOwnerVerification(string? OwnerId) : ICommand<Unit>;
+public sealed record ResendOwnerVerification(string? OwnerId)
+    : ICommand<Unit>, IPublic; // proof: none; a neutral answer that reveals nothing, limited per address

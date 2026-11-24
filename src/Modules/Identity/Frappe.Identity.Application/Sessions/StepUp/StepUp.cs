@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.UseCases;
 
 namespace Frappe.Identity.Application.Sessions.StepUp;
@@ -10,7 +11,9 @@ namespace Frappe.Identity.Application.Sessions.StepUp;
 /// <param name="PrincipalId">The caller, from the authenticated request.</param>
 /// <param name="SessionId">The caller's current session, from the authenticated request.</param>
 /// <param name="Password">The password the caller has, as typed.</param>
-public sealed record StepUp(Guid PrincipalId, Guid SessionId, string? Password) : ICommand<SteppedUp>
+public sealed record StepUp(Guid PrincipalId, Guid SessionId, string? Password) : ICommand<SteppedUp>, IGuarded
 {
+    public static CallerRule Allowed => Is.Authenticated;
+
     public override string ToString() => $"StepUp {{ PrincipalId = {PrincipalId}, SessionId = {SessionId}, the password is hidden }}";
 }

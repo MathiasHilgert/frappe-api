@@ -1,4 +1,5 @@
 using System.Net;
+using Frappe.Access.Contracts;
 using Frappe.Results;
 using Frappe.UseCases;
 
@@ -13,7 +14,8 @@ namespace Frappe.Identity.Application.Owners.ResetPassword;
 /// <param name="Code">The six digits, as typed.</param>
 /// <param name="NewPassword">The password the owner wants, as typed.</param>
 /// <param name="ClientAddress">The client's address, of which the guess limits keep only the network prefix.</param>
-public sealed record ResetPassword(string? ResetId, string? Code, string? NewPassword, IPAddress? ClientAddress) : ICommand<Unit>
+public sealed record ResetPassword(string? ResetId, string? Code, string? NewPassword, IPAddress? ClientAddress)
+    : ICommand<Unit>, IPublic // proof: the emailed reset code
 {
     public override string ToString() => $"ResetPassword {{ ResetId = {ResetId}, the code and the password are hidden }}";
 }

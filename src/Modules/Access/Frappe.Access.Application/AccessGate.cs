@@ -9,7 +9,8 @@ namespace Frappe.Access.Application;
 /// The use-case gate of the Access module: it reads what the request declared (<see cref="UseCaseTable"/>), evaluates a guarded request's
 /// rule against the live caller and answers a denial as 403 (<see cref="AccessErrorCodes.ActionForbidden"/>, or
 /// <see cref="AccessErrorCodes.StepUpRequired"/> when a step-up is the only thing missing); Access never answers 401. A public request passes; an
-/// undeclared one passes for now and is logged (the startup check that refuses it arrives with S7). After the handler it fails closed when a
+/// undeclared one cannot reach a host (its startup check refuses it, S7); it passes and is logged
+/// only where nothing validated the container. After the handler it fails closed when a
 /// request that <see cref="IActsOn{TResource}"/> a resource succeeded without checking it.
 /// </summary>
 internal sealed partial class AccessGate(

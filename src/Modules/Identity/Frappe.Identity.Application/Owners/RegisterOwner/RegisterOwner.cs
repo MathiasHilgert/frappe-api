@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.UseCases;
 
 namespace Frappe.Identity.Application.Owners.RegisterOwner;
@@ -12,7 +13,8 @@ namespace Frappe.Identity.Application.Owners.RegisterOwner;
 /// <param name="Email">The address, as typed.</param>
 /// <param name="Password">The password, as typed.</param>
 /// <param name="Locale">The language the request was served in (resolved from <c>Accept-Language</c>, never rejected).</param>
-public sealed record RegisterOwner(string? GivenName, string? FamilyName, string? Email, string? Password, string? Locale) : ICommand<RegisteredOwner>
+public sealed record RegisterOwner(string? GivenName, string? FamilyName, string? Email, string? Password, string? Locale)
+    : ICommand<RegisteredOwner>, IPublic // proof: anyone may sign up; the email code proves the address
 {
     public override string ToString() => "RegisterOwner { Locale = " + Locale + ", the rest is hidden }";
 }

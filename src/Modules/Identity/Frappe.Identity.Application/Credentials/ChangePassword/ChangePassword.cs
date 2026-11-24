@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.Results;
 using Frappe.UseCases;
 
@@ -12,7 +13,9 @@ namespace Frappe.Identity.Application.Credentials.ChangePassword;
 /// <param name="SessionId">The caller's current session, from the authenticated request: the one that survives.</param>
 /// <param name="CurrentPassword">The password the caller has now, as typed.</param>
 /// <param name="NewPassword">The password the caller wants, as typed.</param>
-public sealed record ChangePassword(Guid PrincipalId, Guid SessionId, string? CurrentPassword, string? NewPassword) : ICommand<Unit>
+public sealed record ChangePassword(Guid PrincipalId, Guid SessionId, string? CurrentPassword, string? NewPassword) : ICommand<Unit>, IGuarded
 {
+    public static CallerRule Allowed => Is.Authenticated;
+
     public override string ToString() => $"ChangePassword {{ PrincipalId = {PrincipalId}, SessionId = {SessionId}, the passwords are hidden }}";
 }

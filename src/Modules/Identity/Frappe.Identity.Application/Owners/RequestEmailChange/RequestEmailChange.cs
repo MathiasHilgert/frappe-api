@@ -1,3 +1,5 @@
+using Frappe.Access.Contracts;
+using Frappe.Identity.Application.Principals;
 using Frappe.UseCases;
 
 namespace Frappe.Identity.Application.Owners.RequestEmailChange;
@@ -8,7 +10,9 @@ namespace Frappe.Identity.Application.Owners.RequestEmailChange;
 /// </summary>
 /// <param name="PrincipalId">The owner, from the authenticated request.</param>
 /// <param name="NewEmail">The address the owner wants, as typed.</param>
-public sealed record RequestEmailChange(Guid PrincipalId, string? NewEmail) : ICommand<EmailChangeRequested>
+public sealed record RequestEmailChange(Guid PrincipalId, string? NewEmail) : ICommand<EmailChangeRequested>, IGuarded
 {
+    public static CallerRule Allowed => IdentityRules.OwnerAccount & Has.RecentStepUp;
+
     public override string ToString() => $"RequestEmailChange {{ PrincipalId = {PrincipalId}, the address is hidden }}";
 }

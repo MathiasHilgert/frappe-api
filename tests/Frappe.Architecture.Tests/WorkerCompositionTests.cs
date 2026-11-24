@@ -126,6 +126,20 @@ public sealed class WorkerCompositionTests
     }
 
     [Test]
+    public async Task The_Worker_with_its_real_module_lists_passes_the_use_case_startup_check()
+    {
+        // Arrange
+        using var host = Build(Deployed);
+        var check = host.Services.GetServices<IHostedService>().Single(service => service.GetType().Name == "AccessStartupCheck");
+
+        // Act
+        await check.StartAsync(CancellationToken.None);
+
+        // Assert
+        await Assert.That(check).IsNotNull();
+    }
+
+    [Test]
     public async Task The_Worker_with_its_real_module_lists_validates_and_runs_the_relay_and_the_notifications_database()
     {
         // Arrange
