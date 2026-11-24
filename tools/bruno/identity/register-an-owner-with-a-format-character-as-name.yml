@@ -1,0 +1,41 @@
+info:
+  name: Register an owner with a format character as name (400)
+  type: http
+  seq: 24
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/identity/owners"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "name": { "given": "Bruno​", "family": "Tester" },
+        "email": "{{email}}",
+        "password": "{{password}}"
+      }
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // A new address and a password nobody has leaked on every run: the address must not exist, and the Api refuses breached passwords.
+        const stamp = Date.now() + '-' + Math.floor(Math.random() * 1e6);
+        bru.setVar('email', `bruno-${stamp}@example.com`);
+        bru.setVar('password', `bruno-${stamp}-${Math.random().toString(36).slice(2)}-pw`);
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "400"
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"identity.name.invalid"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  A name refuses control and format characters (Unicode categories Cc and Cf, here a zero-width space): `400 identity.name.invalid`, so an invisible character never reaches a mail greeting.

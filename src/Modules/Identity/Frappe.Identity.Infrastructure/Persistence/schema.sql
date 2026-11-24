@@ -18,6 +18,7 @@ CREATE TABLE identity.email_change_undos (
     expires_at timestamp with time zone NOT NULL,
     redeemed_at timestamp with time zone,
     invalidated_at timestamp with time zone,
+    CONSTRAINT ck_email_change_undos_addresses_differ CHECK (((old_address)::text <> (new_address)::text)),
     CONSTRAINT ck_email_change_undos_expires_after_issued CHECK ((expires_at > issued_at)),
     CONSTRAINT ck_email_change_undos_invalidated_after_issued CHECK (((invalidated_at IS NULL) OR (invalidated_at >= issued_at))),
     CONSTRAINT ck_email_change_undos_redeemed_in_window CHECK (((redeemed_at IS NULL) OR ((redeemed_at >= issued_at) AND (redeemed_at <= expires_at)))),
@@ -221,6 +222,13 @@ GRANT USAGE ON SCHEMA identity TO frappe_identity;
 GRANT USAGE ON SCHEMA identity TO frappe_identity_worker;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE identity.email_change_undos TO frappe_identity;
+GRANT DELETE ON TABLE identity.email_change_undos TO frappe_identity_worker;
+
+GRANT SELECT(id) ON TABLE identity.email_change_undos TO frappe_identity_worker;
+
+GRANT SELECT(expires_at) ON TABLE identity.email_change_undos TO frappe_identity_worker;
+
+GRANT SELECT(redeemed_at) ON TABLE identity.email_change_undos TO frappe_identity_worker;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE identity.email_identifiers TO frappe_identity;
 

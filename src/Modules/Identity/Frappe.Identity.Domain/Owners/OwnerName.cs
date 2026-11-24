@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using Frappe.Results;
 
 namespace Frappe.Identity.Domain.Owners;
@@ -5,7 +7,8 @@ namespace Frappe.Identity.Domain.Owners;
 /// <summary>
 /// What an owner is called: a given name and an optional family name. Mails greet with both, so together they stay within
 /// <see cref="MaxMailedLength"/> characters and carry nothing that looks like a link, or a code mail would be refused by the mail side and
-/// parked (S3). It prints nothing of itself (DOM-06).
+/// parked (S3), nor a control or format character (Unicode categories Cc and Cf: line
+/// breaks, bidi marks, zero-width). It prints nothing of itself (DOM-06).
 /// </summary>
 public sealed record OwnerName
 {
@@ -41,10 +44,16 @@ public sealed record OwnerName
 
         var name = new OwnerName(first, last);
         var mailed = name.Mailed;
-        return mailed.Length > MaxMailedLength || LinkMarks.Any(mark => mailed.Contains(mark, StringComparison.OrdinalIgnoreCase))
+        return mailed.Length > MaxMailedLength
+            || LinkMarks.Any(mark => mailed.Contains(mark, StringComparison.OrdinalIgnoreCase))
+            || mailed.EnumerateRunes().Any(IsInvisible)
             ? Error.InvalidValue(IdentityErrorCodes.NameInvalid)
             : name;
     }
+
+    /// <summary>A control (Cc) or format (Cf) character: it hides text or reorders what is around it (line breaks, bidi marks, zero-width).</summary>
+    private static bool IsInvisible(Rune rune) =>
+        Rune.GetUnicodeCategory(rune) is UnicodeCategory.Control or UnicodeCategory.Format;
 
     public override string ToString() => "***";
 }

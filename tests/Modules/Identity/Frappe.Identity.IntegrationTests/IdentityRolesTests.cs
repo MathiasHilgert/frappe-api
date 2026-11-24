@@ -29,6 +29,7 @@ public sealed class IdentityRolesTests(PostgresServer server)
     {
         ["sessions"] = ["absolute_expires_at", "ended_at", "id", "idle_expires_at", "principal_id", "revoked_at"],
         ["one_time_codes"] = ["expires_at", "id"],
+        ["email_change_undos"] = ["expires_at", "id", "redeemed_at"],
         ["owners"] = ["principal_id", "registered_at", "verified_at"],
         ["principals"] = ["id", "status"],
     };
@@ -40,7 +41,8 @@ public sealed class IdentityRolesTests(PostgresServer server)
             .Append(new("__ef_migrations_history", [])).ToDictionary();
 
     private static readonly Dictionary<string, string[]> WorkerGrants = BusinessTables
-        .ToDictionary(table => table, table => table is "sessions" or "one_time_codes" or "principals" ? new[] { "DELETE" } : [])
+        .ToDictionary(
+            table => table, table => table is "sessions" or "one_time_codes" or "email_change_undos" or "principals" ? new[] { "DELETE" } : [])
         .Concat(new Dictionary<string, string[]>
         {
             ["outbox_messages"] = ["SELECT", "INSERT", "DELETE"],
@@ -132,6 +134,7 @@ public sealed class IdentityRolesTests(PostgresServer server)
             {
                 "identity.password_credentials.hash", "identity.one_time_codes.code_hmac", "identity.one_time_codes.target",
                 "identity.owners.given_name", "identity.owners.family_name", "identity.sessions.user_agent", "identity.sessions.ip_prefix",
+                "identity.email_change_undos.token_hmac", "identity.email_change_undos.old_address", "identity.email_change_undos.new_address",
             })
             {
                 var parts = column.Split('.');

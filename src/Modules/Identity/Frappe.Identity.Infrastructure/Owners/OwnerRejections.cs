@@ -1,8 +1,10 @@
+using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Codes;
 using Frappe.Identity.Domain.Identifiers;
 using Frappe.Identity.Infrastructure.Codes;
 using Frappe.Identity.Infrastructure.Identifiers;
 using Frappe.Persistence;
+using Frappe.Results;
 using Microsoft.EntityFrameworkCore;
 
 namespace Frappe.Identity.Infrastructure.Owners;
@@ -13,8 +15,9 @@ namespace Frappe.Identity.Infrastructure.Owners;
 /// the same address, the same pending owner or the same live code, and the other committed first. The caller is told what a repeat tells
 /// ("201" and "202 always"), so the loser drops everything it staged, including the outbox rows that would mail a code that never existed,
 /// and its command succeeds. The winner's code and password stand, as if the loser had come first. A unit that sent no such code (a
-/// verification, a later flow) is left to the next rule. The unit collected the dropped events before the save, so counters over-count by one
-/// in this race.
+/// verification, a later flow) is left to the next rules: a unit that spent an undo token, a verification code or an address first loses to
+/// the winner and is answered what a repeat is (<see cref="OwnerCommitRejectionException"/>). The unit collected the dropped events before the save,
+/// so counters over-count by one in this race.
 /// </summary>
 internal static class OwnerRejections
 {
@@ -22,19 +25,51 @@ internal static class OwnerRejections
     {
         ArgumentNullException.ThrowIfNull(rejections);
         rejections
-            .On(EmailIdentifierConfiguration.NormalizedAddressIndex, failure => DropWhatWasStaged(failure) ?? ChangeLostTheAddress(failure))
+            .On(
+                EmailIdentifierConfiguration.NormalizedAddressIndex,
+                failure => DropWhatWasStaged(failure) ?? LostTheRace(failure) ?? ChangeLostTheAddress(failure))
             .On(OneTimeCodeConfiguration.LiveIndex, DropWhatWasStaged)
-            .OnConcurrency(DropWhatWasStaged);
+            .OnConcurrency(failure => DropWhatWasStaged(failure) ?? LostTheRace(failure));
     }
 
     /// <summary>
-    /// An email change confirmed an address that another unit took first. Nothing is written and the command is answered a commit conflict; the
-    /// repeat finds the address held and answers as any refused change does.
+    /// An email change confirmed an address that another unit took first. Nothing is written and the command is answered that its code is invalid,
+    /// as the repeat is, which finds the address held by a verified owner (S15).
     /// </summary>
     private static CommitResolution? ChangeLostTheAddress(CommitFailure failure) =>
         failure.Context.ChangeTracker.Entries<EmailIdentifier>().Any(entry => entry.State == EntityState.Modified)
-            ? CommitResolution.Reject(new CommitConflictException("Another request took the address first.", failure.Exception))
+            ? Reject(IdentityErrorCodes.CodeInvalid, failure)
             : null;
+
+    /// <summary>
+    /// A unit that spent a token or a code lost the race for it to a unit that spent it first. Nothing is written and the command is answered what
+    /// a repeat is: an undo token that is no longer valid (S15), a verification code that is no longer valid (S3).
+    /// </summary>
+    private static CommitResolution? LostTheRace(CommitFailure failure)
+    {
+        var tracker = failure.Context.ChangeTracker;
+        if (tracker.Entries<EmailChangeUndo>().Any(entry => entry.State == EntityState.Modified && entry.Entity.RedeemedAt is not null
+            && Conflicted(failure, entry.Entity)))
+        {
+            return Reject(IdentityErrorCodes.UndoInvalid, failure);
+        }
+
+        return tracker.Entries<OneTimeCode>().Any(entry => entry.State == EntityState.Modified
+            && entry.Entity.Purpose == CodePurpose.EmailVerification && entry.Entity.RedeemedAt is not null)
+            ? Reject(IdentityErrorCodes.CodeInvalid, failure)
+            : null;
+    }
+
+    /// <summary>
+    /// Whether the refused write was the one of <paramref name="redeemed"/> itself: another row of an undo (a session touched in the same
+    /// minute) can lose its version while the token is still live, and that is a conflict to retry, not a token already spent. A
+    /// verification touches no existing session, so any conflict of its unit is a code already spent.
+    /// </summary>
+    private static bool Conflicted(CommitFailure failure, object redeemed) =>
+        failure.Exception is DbUpdateConcurrencyException concurrency && concurrency.Entries.Any(entry => ReferenceEquals(entry.Entity, redeemed));
+
+    private static CommitResolution Reject(string code, CommitFailure failure) =>
+        CommitResolution.Reject(new OwnerCommitRejectionException(Error.RuleViolation(code), failure.Exception));
 
     /// <summary>
     /// The unit was a request to change the address (S15), whichever branch it took: it staged an email change code (a free address), or only

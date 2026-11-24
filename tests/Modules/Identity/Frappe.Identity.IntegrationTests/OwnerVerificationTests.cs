@@ -34,6 +34,37 @@ public sealed class OwnerVerificationTests(PostgresServer server)
     }
 
     [Test]
+    public async Task The_same_code_used_twice_at_once_verifies_once_and_the_loser_is_told_the_code_is_invalid()
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange
+            string id;
+            string code;
+            await using (var seed = OwnersHost.Over(owner))
+            {
+                id = (await seed.RegisterAsync()).Value.Id.ToString();
+                code = await seed.LastCodeAsync();
+            }
+
+            await using var host = OwnersHost.Over(owner, saving: new OwnersHost.RaceGate(2));
+            host.Time.Advance(TimeSpan.FromMinutes(5));
+
+            // Act
+            var answers = await Task.WhenAll(host.VerifyAsync(id, code), host.VerifyAsync(id, code));
+
+            // Assert
+            await using var db = host.Context();
+            using (Assert.Multiple())
+            {
+                await Assert.That(answers.Count(a => a.IsSuccess)).IsEqualTo(1);
+                await Assert.That(answers.Single(a => !a.IsSuccess).Errors.Single().Code).IsEqualTo(IdentityErrorCodes.CodeInvalid);
+                await Assert.That(await db.Sessions.CountAsync()).IsEqualTo(1);
+            }
+        });
+    }
+
+    [Test]
     public async Task The_right_code_activates_the_owner_proves_the_address_and_opens_a_session_in_one_commit()
     {
         await MigratedIdentity.RunAsync(server, async owner =>
