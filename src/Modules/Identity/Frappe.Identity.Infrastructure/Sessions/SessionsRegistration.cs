@@ -16,7 +16,8 @@ internal static class SessionsRegistration
     extension(IServiceCollection services)
     {
         /// <summary>
-        /// Adds the token format, the repository, the read port, the opener and the lifetimes from <c>Identity:Sessions</c>, validated when the
+        /// Adds the token format, the repository, the read port, the opener, what a credential change does to sessions and the password
+        /// recheck, and the lifetimes from <c>Identity:Sessions</c>, validated when the
         /// host starts, naming the key (CFG-01). Both lifetimes have defaults, so no key is required.
         /// </summary>
         public IServiceCollection AddSessions()
@@ -34,8 +35,12 @@ internal static class SessionsRegistration
             services.TryAddScoped<ISessions, EfSessions>();
             services.TryAddScoped<ISessionReads, EfSessionReads>();
             services.TryAddScoped<SessionOpener>();
+            services.TryAddScoped<CredentialChange>();
+            services.TryAddScoped<PasswordRecheck>();
             services.CountOnCommit<SessionOpened, IdentityMetrics>((metrics, opened) =>
                 metrics.SessionOpened(StoredEnum<SessionAudience>.ToText(opened.Audience)));
+            services.CountOnCommit<SessionRevoked, IdentityMetrics>((metrics, revoked) =>
+                metrics.SessionRevoked(StoredEnum<RevocationReason>.ToText(revoked.Reason)));
             return services;
         }
     }

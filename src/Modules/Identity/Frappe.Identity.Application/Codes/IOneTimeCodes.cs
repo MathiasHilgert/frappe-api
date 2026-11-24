@@ -12,6 +12,9 @@ public interface IOneTimeCodes
     /// </summary>
     Task<OneTimeCode?> LiveOfAsync(Guid principalId, CodePurpose purpose, CancellationToken cancellationToken);
 
+    /// <summary>The code <paramref name="id"/> whatever its state, tracked for change, or <see langword="null"/> when there is none.</summary>
+    Task<OneTimeCode?> FindAsync(Guid id, CancellationToken cancellationToken);
+
     /// <summary>Stages <paramref name="code"/> to be inserted with the unit of work.</summary>
     void Add(OneTimeCode code);
 }

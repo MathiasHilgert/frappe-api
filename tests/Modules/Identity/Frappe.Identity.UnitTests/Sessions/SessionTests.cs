@@ -296,4 +296,40 @@ public sealed class SessionTests
         // Assert
         await Assert.That(active).IsFalse();
     }
+
+    [Test]
+    public async Task Rotating_the_stamp_ends_every_session_opened_under_the_old_one_except_one_given_the_new_stamp()
+    {
+        // Arrange
+        var principal = ActivePrincipal();
+        var stale = SessionOf(principal);
+        var followed = SessionOf(principal);
+
+        // Act
+        principal.RotateStamp();
+        followed.Restamp(principal.CredentialStamp);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(stale.IsActiveFor(Opened, principal)).IsFalse();
+            await Assert.That(followed.IsActiveFor(Opened, principal)).IsTrue();
+        }
+    }
+
+    [Test]
+    public async Task A_revoked_session_is_not_restamped()
+    {
+        // Arrange
+        var principal = ActivePrincipal();
+        var session = SessionOf(principal);
+        var opened = session.CredentialStamp;
+        session.Revoke(RevocationReason.Logout, Opened + Duration.FromMinutes(1));
+
+        // Act
+        session.Restamp(Guid.CreateVersion7());
+
+        // Assert
+        await Assert.That(session.CredentialStamp).IsEqualTo(opened);
+    }
 }

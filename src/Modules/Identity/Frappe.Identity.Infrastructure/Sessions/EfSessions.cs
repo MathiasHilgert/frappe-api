@@ -11,5 +11,8 @@ internal sealed class EfSessions(IdentityDbContext db) : ISessions
     public Task<Session?> FindAsync(Guid id, CancellationToken cancellationToken) =>
         db.Sessions.SingleOrDefaultAsync(s => s.Id == id, cancellationToken);
 
+    public async Task<IReadOnlyList<Session>> ListLiveOfAsync(Guid principalId, CancellationToken cancellationToken) =>
+        await db.Sessions.Where(s => s.PrincipalId == principalId && s.RevokedAt == null && s.EndedAt == null).ToListAsync(cancellationToken);
+
     public void Add(Session session) => db.Sessions.Add(session);
 }
