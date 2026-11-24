@@ -29,6 +29,8 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
     private const string AddressHashKey = "bG9jYWwtb25seS1hZGRyZXNzLWhhc2gta2V5LTMyLWJ5dGVzIQ==";
 
     /// <summary>A local-only signing secret (base64) for the throwaway deployment's Resend webhook; it protects nothing.</summary>
+    private const string UnsubscribeKey = "bG9jYWwtb25seS11bnN1YnNjcmliZS1zaWduaW5nLWtleSEh";
+
     private const string WebhookSigning = "bG9jYWwtb25seS1yZXNlbmQtd2ViaG9vay1zaWduaW5nLXNlY3JldA==";
 
     private const string ValkeyImage = "valkey/valkey:8-alpine";
@@ -108,6 +110,7 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
             .WithEnvironment("Notifications__AddressHash__CurrentKeyId", "1")
             .WithEnvironment("Notifications__AddressHash__Keys__1", AddressHashKey)
             .WithEnvironment("Notifications__Email__Resend__WebhookSecret", WebhookSigning)
+            .WithEnvironment("Notifications__Unsubscribe__SigningKey", UnsubscribeKey)
             .WithPortBinding(8080, true)
             .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => r.ForPort(8080).ForPath("/health/live"), Bounded))
             .Build());
@@ -121,6 +124,9 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
             .WithEnvironment("ConnectionStrings__Nats", "nats://nats:4222")
             .WithEnvironment("Notifications__AddressHash__CurrentKeyId", "1")
             .WithEnvironment("Notifications__AddressHash__Keys__1", AddressHashKey)
+            .WithEnvironment("Notifications__Unsubscribe__SigningKey", UnsubscribeKey)
+            .WithEnvironment("Notifications__Unsubscribe__PageUrl", "http://localhost:5173/unsubscribe")
+            .WithEnvironment("Notifications__Unsubscribe__ApiBaseUrl", "http://localhost:8080/")
             .WithEnvironment("Notifications__Email__Sender", "Logging")
             .Build());
 

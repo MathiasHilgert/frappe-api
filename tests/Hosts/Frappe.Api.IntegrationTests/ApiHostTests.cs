@@ -191,6 +191,20 @@ public sealed class ApiHostTests
         await Assert.That(thrown?.Message).Contains("Notifications:Email:Resend:WebhookSecret");
     }
 
+    [Test]
+    public async Task The_Api_with_its_real_module_lists_and_no_unsubscribe_signing_key_fails_the_start_naming_its_key()
+    {
+        // Arrange
+        var settings = new Dictionary<string, string?>(ApiHost.Deployed);
+        settings.Remove("Notifications:Unsubscribe:SigningKey");
+
+        // Act
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ApiHost.StartAsync(Modules.Services, Modules.Endpoints, settings));
+
+        // Assert
+        await Assert.That(thrown?.Message).Contains("Notifications:Unsubscribe:SigningKey");
+    }
+
     private static async Task<string?[]> CheckNamesAsync(HttpResponseMessage probe)
     {
         using var report = JsonDocument.Parse(await probe.Content.ReadAsStringAsync());

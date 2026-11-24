@@ -93,4 +93,52 @@ public sealed class RecipientTests
         // Assert
         await Assert.That(result.IsSuccess).IsEqualTo(valid);
     }
+
+    [Test]
+    [Arguments("ref:account:42")]
+    [Arguments("ref:order_line:a b/c")]
+    [Arguments("addr:12:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")]
+    public async Task A_key_reads_back_from_its_stored_spelling(string text)
+    {
+        // Act
+        var key = RecipientKey.Parse(text);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(key.IsSuccess).IsTrue();
+            await Assert.That(key.Value.Value).IsEqualTo(text);
+            await Assert.That(key.Value.IsAddress).IsEqualTo(text.StartsWith("addr:", StringComparison.Ordinal));
+        }
+    }
+
+    [Test]
+    [Arguments(null)]
+    [Arguments("")]
+    [Arguments("account:42")]
+    [Arguments("ref:Account:42")]
+    [Arguments("ref:account:")]
+    [Arguments("ref:account:42\n")]
+    [Arguments("ref:account:4\n2")]
+    [Arguments("addr:1:ABCDEF")]
+    [Arguments("addr:x:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")]
+    [Arguments("addr:1:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0")]
+    public async Task Text_that_is_not_a_stored_key_is_refused(string? text)
+    {
+        // Act
+        var key = RecipientKey.Parse(text);
+
+        // Assert
+        await Assert.That(key.IsSuccess).IsFalse();
+    }
+
+    [Test]
+    public async Task A_key_longer_than_the_columns_hold_is_refused()
+    {
+        // Act
+        var key = RecipientKey.Parse("ref:account:" + new string('1', RecipientKey.MaxLength));
+
+        // Assert
+        await Assert.That(key.IsSuccess).IsFalse();
+    }
 }

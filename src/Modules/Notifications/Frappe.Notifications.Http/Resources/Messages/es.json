@@ -1,5 +1,6 @@
 {
   "notifications.kind.unknown": "El tipo de notificación «{kind}» falta o no existe.",
   "notifications.payload.invalid": "El contenido no es el que toma el tipo «{kind}». El parámetro fields indica qué corregir.",
+  "notifications.unsubscribe_token.invalid": "El enlace para darse de baja no es válido: su token falta o no fue emitido acá.",
   "notifications.webhook_signature.invalid": "La llamada del webhook no es auténtica: su firma falta, es incorrecta o es demasiado antigua."
 }

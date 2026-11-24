@@ -103,9 +103,9 @@ public sealed class DispatchAdaptersTests(PostgresServer server)
             var store = new EfPreferenceStore(db);
 
             // Act
-            var optedOut = await store.IsOptedOutAsync(key, NotificationCategory.Marketing, CancellationToken.None);
+            var optedOut = await store.IsOptedOutAsync([key], NotificationCategory.Marketing, CancellationToken.None);
             var otherRecipient = await store.IsOptedOutAsync(
-                RecipientKey.Of(new ReferenceRecipient("account", "43")), NotificationCategory.Marketing, CancellationToken.None);
+                [RecipientKey.Of(new ReferenceRecipient("account", "43"))], NotificationCategory.Marketing, CancellationToken.None);
 
             // Assert
             using (Assert.Multiple())

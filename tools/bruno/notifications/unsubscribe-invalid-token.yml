@@ -1,0 +1,35 @@
+info:
+  name: Unsubscribe with an invalid token (400)
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/notifications/unsubscriptions?token=1.bm90LW91cnM.bm90LW91cnM"
+  body:
+    type: form-urlencoded
+    data:
+      - name: List-Unsubscribe
+        value: One-Click
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "400"
+    - expression: res.headers['content-type']
+      operator: startsWith
+      value: '"application/problem+json"'
+    - expression: res.body.type
+      operator: eq
+      value: '"urn:frappe:problem:invalid-value"'
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"notifications.unsubscribe_token.invalid"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  A token that was not issued by this Api (here a made-up one; a missing or tampered token answers the same): 400 Problem Details whose error
+  `code` is `notifications.unsubscribe_token.invalid`. Nothing is recorded.

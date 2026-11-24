@@ -55,7 +55,7 @@ public sealed class NotificationDispatcher(
     {
         var kind = request.Kind;
         var first = reachable.Contacts[0];
-        if (!await preferenceGate.AllowsAsync(first.Key, kind.Category, cancellationToken))
+        if (!await preferenceGate.AllowsAsync(first, kind.Category, cancellationToken))
         {
             Count(outcomes, request, first.Contact.Channel, DispatchOutcome.OptedOut);
             return;

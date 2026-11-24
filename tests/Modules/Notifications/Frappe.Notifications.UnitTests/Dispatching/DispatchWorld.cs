@@ -25,7 +25,7 @@ internal sealed class DispatchWorld : IDisposable
         var metrics = new NotificationsMetrics(_meters.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>());
         Dispatcher = new NotificationDispatcher(
             new RecipientResolution(new ContactDirectory(resolvers), Hasher),
-            new PreferenceGate(Preferences),
+            new PreferenceGate(Preferences, Hasher),
             new ChannelSelection([Mail, Text]),
             new SuppressionGate(Suppressions, Hasher),
             new DeliveryRecorder(Staging, new FakeTimeProvider(new DateTimeOffset(2026, 11, 24, 10, 0, 0, TimeSpan.Zero))),

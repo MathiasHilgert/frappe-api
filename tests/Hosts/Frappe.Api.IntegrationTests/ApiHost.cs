@@ -14,12 +14,13 @@ internal static class ApiHost
     /// <summary>A Valkey nobody listens on: the settings only need to be valid, and the cache is optional for readiness.</summary>
     private const string UnreachableValkey = "127.0.0.1:1";
 
-    /// <summary>What a deploy sets for the real module lists: the database, the address hash key and the webhook secret (placeholders).</summary>
+    /// <summary>What a deploy sets for the real module lists: the database and the hash, unsubscribe and webhook keys.</summary>
     public static readonly Dictionary<string, string?> Deployed = new()
     {
         ["ConnectionStrings:Notifications"] = "Host=unreachable.invalid;Database=frappe;Username=frappe_notifications",
         ["Notifications:AddressHash:CurrentKeyId"] = "1",
         ["Notifications:AddressHash:Keys:1"] = "bG9jYWwtb25seS1hZGRyZXNzLWhhc2gta2V5LTMyLWJ5dGVzIQ==",
+        ["Notifications:Unsubscribe:SigningKey"] = "bG9jYWwtb25seS11bnN1YnNjcmliZS1zaWduaW5nLWtleSEh",
         ["Notifications:Email:Resend:WebhookSecret"] = "bG9jYWwtb25seS1yZXNlbmQtd2ViaG9vay1zaWduaW5nLXNlY3JldA==",
     };
 
@@ -27,7 +28,8 @@ internal static class ApiHost
         IReadOnlyCollection<IModule>? modules = null,
         IReadOnlyCollection<IHttpModule>? endpoints = null,
         IReadOnlyDictionary<string, string?>? settings = null,
-        string environment = "Testing")
+        string environment = "Testing",
+        ILoggerProvider? logs = null)
     {
         modules ??= [];
         endpoints ??= [];
@@ -37,6 +39,10 @@ internal static class ApiHost
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["ConnectionStrings:Valkey"] = UnreachableValkey });
         builder.Configuration.AddInMemoryCollection(settings ?? new Dictionary<string, string?>());
         builder.Logging.ClearProviders();
+        if (logs is not null)
+        {
+            builder.Logging.AddProvider(logs);
+        }
         builder.WebHost.UseTestServer();
         builder.AddFrappeApi(modules, endpoints);
         var app = builder.Build();

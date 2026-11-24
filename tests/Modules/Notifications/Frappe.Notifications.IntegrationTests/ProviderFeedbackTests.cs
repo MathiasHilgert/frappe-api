@@ -156,6 +156,79 @@ public sealed class ProviderFeedbackTests(PostgresServer server)
         });
     }
 
+    private static async Task<Result<Unit>> ReceiveAsync(DispatchWorld api, string eventId, string messageId, DeliveryFeedback feedback)
+    {
+        await using var scope = api.Services.CreateAsyncScope();
+        var report = new ProviderFeedback(
+            DeliveryProvider.Resend, eventId, messageId, feedback, At, ChannelName.Create("email").Value, [Address]);
+        return await scope.ServiceProvider.GetRequiredService<ProviderFeedbackIntake>().RecordAsync(report, CancellationToken.None);
+    }
+
+    [Test]
+    public async Task A_webhook_that_arrives_while_the_Worker_claim_is_open_waits_for_it_and_applies_to_the_committed_delivery()
+    {
+        await MigratedNotifications.RunAsync(server, async owner =>
+        {
+            // Arrange: the Worker staged the delivery and its claim holds the message lock, uncommitted.
+            await using var worker = DispatchWorld.ForWorker(owner);
+            await using var api = DispatchWorld.ForApi(owner);
+            var requestId = Guid.CreateVersion7();
+            var messageId = MessageIdOf(worker, requestId);
+            await using var scope = worker.Services.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<NotificationsDbContext>();
+            await ActivatorUtilities.CreateInstance<DispatchNotificationRequested>(scope.ServiceProvider)
+                .HandleAsync(new NotificationRequested(requestId, Kind, Payload()), CancellationToken.None);
+            await using var claim = await db.Database.BeginTransactionAsync();
+            var inClaim = ActivatorUtilities.CreateInstance<ApplyParkedFeedback>(scope.ServiceProvider);
+            await inClaim.HandleAsync(new NotificationRequested(requestId, Kind, Payload()), CancellationToken.None);
+
+            // Act: the webhook arrives now and must wait; the claim commits; the webhook then finds the delivery.
+            var webhook = ReceiveAsync(api, "evt_1", messageId, DeliveryFeedback.Delivered);
+            await Task.Delay(500);
+            var waiting = !webhook.IsCompleted;
+            await db.SaveChangesAsync();
+            await claim.CommitAsync();
+            var result = await webhook.WaitAsync(TimeSpan.FromSeconds(30));
+
+            // Assert
+            using (Assert.Multiple())
+            {
+                await Assert.That(waiting).IsTrue();
+                await Assert.That(result.IsSuccess).IsTrue();
+                await Assert.That(await StatusOfAsync(owner, messageId)).IsEqualTo("delivered");
+                await Assert.That(await CountAsync(owner, "provider_events", "WHERE matched")).IsEqualTo(1);
+            }
+        });
+    }
+
+    [Test]
+    public async Task A_report_parked_after_the_before_claim_step_is_applied_by_the_claim_that_saves_the_delivery()
+    {
+        await MigratedNotifications.RunAsync(server, async owner =>
+        {
+            // Arrange: the delivery is staged but not committed, so the webhook parks.
+            await using var worker = DispatchWorld.ForWorker(owner);
+            await using var api = DispatchWorld.ForApi(owner);
+            var requestId = Guid.CreateVersion7();
+            var messageId = MessageIdOf(worker, requestId);
+            await using var scope = worker.Services.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<NotificationsDbContext>();
+            await ActivatorUtilities.CreateInstance<DispatchNotificationRequested>(scope.ServiceProvider)
+                .HandleAsync(new NotificationRequested(requestId, Kind, Payload()), CancellationToken.None);
+            await ReceiveAsync(api, "evt_1", messageId, DeliveryFeedback.Complaint);
+
+            // Act: the claim runs its in-transaction step and commits.
+            await using var claim = await db.Database.BeginTransactionAsync();
+            await ActivatorUtilities.CreateInstance<ApplyParkedFeedback>(scope.ServiceProvider)
+                .HandleAsync(new NotificationRequested(requestId, Kind, Payload()), CancellationToken.None);
+            await db.SaveChangesAsync();
+            await claim.CommitAsync();
+
+            // Assert
+            await Assert.That(await StatusOfAsync(owner, messageId)).IsEqualTo("complained");
+        });
+    }
+
     [Test]
     public async Task A_complaint_suppresses_the_address_and_the_next_send_to_it_is_not_made()
     {
