@@ -6,8 +6,9 @@
 # changed migrations,
 # pending EF model changes of the touched modules, and every test app the change can break (affected.py). Prints one
 # line per step and, for a failure, its first relevant lines and log path. Exit 0 only when every step passed.
-#   --coverage  also run coverage.sh (changed-line coverage, CI's 80% bar): runs every test project, so use it once before the final
-#            commit when production code changed.
+#   --coverage  also check changed-line coverage (CI's 80% bar): the affected test apps collect coverage in their one run, then
+#            diff-cover reads the reports. Use it once before the final commit when production code changed.
+#   The end-to-end tests (they build the Docker image) run only when deploy/, src/Hosts/ or the shared build files changed; CI runs them always.
 #   --rerun  after fixing: rebuild, then rerun only the steps that failed last time plus the test apps affected by files
 #            changed since then. Never rerun the whole gate by hand.
 # State lives in the git dir (never tracked): <git-dir>/forge-gate/. Give the Bash call a 600000 ms timeout.
@@ -68,9 +69,6 @@ fi
 if [ -f .github/scripts/conventions.mjs ] && command -v node >/dev/null; then
   cmd[commits]="node $(printf '%q' "$here/commits.mjs") $(printf '%q' "$base")"
 fi
-if $coverage; then
-  cmd[coverage]="env -u FRAPPE_TEST_REUSE $(printf '%q' "$here/coverage.sh") $(printf '%q' "$base")"
-fi
 if printf '%s\n' "${changed[@]}" | grep -q '/Migrations/' && [ -x .github/scripts/migration-sql.sh ] && [ -f eng/squawk.toml ]; then
   cmd[squawk]="out=\$(mktemp -d) && .github/scripts/migration-sql.sh $(printf '%q' "$base") \"\$out\" && npx -y squawk-cli@2.72.0 --config eng/squawk.toml \"\$out\"/*.sql"
 fi
@@ -84,8 +82,20 @@ while read -r factory; do
   cmd["ef:$(basename "$project")"]="dotnet tool restore >/dev/null && dotnet ef migrations has-pending-model-changes --project $(printf '%q' "$project") --no-build"
 done < <(grep -rl --include='*.cs' 'IDesignTimeDbContextFactory' src 2>/dev/null || true)
 mapfile -t apps < <(python3 -I "$here/affected.py" "$root" "${changed[@]}")
+# The end-to-end tests build the Docker image (about 2.5 minutes). CI always runs them; the gate runs them only when what the image
+# packs or how it is deployed changed.
+if ! printf '%s\n' "${changed[@]}" | grep -qE '^deploy/|^src/Hosts/|Dockerfile|^Directory\.(Build|Packages)\.props$|^global\.json$'; then
+  mapfile -t apps < <(printf '%s\n' "${apps[@]}" | grep -v 'Frappe.EndToEnd.Tests$')
+fi
+# --coverage: the test steps collect coverage themselves, so no test app runs twice; diff-cover reads their reports after the wait.
+covdir="$state/coverage"
+$coverage && mkdir -p "$covdir"
 for app in "${apps[@]}"; do
-  [ -n "$app" ] && cmd["tests:$(basename "$app")"]="timeout 540 dotnet test --project $(printf '%q' "$app") --no-build --timeout 8m --maximum-failed-tests 10"
+  [ -n "$app" ] || continue
+  name=$(basename "$app")
+  extra=""
+  $coverage && extra=" --results-directory-layout per-module --results-directory $(printf '%q' "$covdir") -- --coverage --coverage-output-format cobertura --coverage-output $name.cobertura.xml"
+  cmd["tests:$name"]="timeout 540 dotnet test --project $(printf '%q' "$app") --no-build --timeout 8m --maximum-failed-tests 10$extra"
 done
 
 # --rerun: the steps that failed last time, plus the test apps affected by files changed since the last gate.
@@ -125,5 +135,17 @@ for step in $(printf '%s\n' "${selected[@]}" | sort); do
     grep -E -i 'error|fail|exception|assert|expected|but was|warn(ing)? [A-Z]+[0-9]+|  at ' "$state/$step.log" | head -25 | sed 's/^/  /'
   fi
 done
+if $coverage && [ "$status" -eq 0 ]; then
+  mapfile -t reports < <(find "$covdir" -name '*.cobertura.xml')
+  if [ ${#reports[@]} -eq 0 ]; then
+    status=1; echo "FAIL coverage (no report produced)"
+  elif uvx --from diff-cover==9.2.0 diff-cover "${reports[@]}" --compare-branch "$base" --exclude "tests/*" "*/Migrations/*" "tools/**" \
+      --fail-under 80 >"$state/coverage.log" 2>&1; then
+    echo "PASS coverage ($(grep -E '^Coverage:' "$state/coverage.log" | head -1))"
+  else
+    status=1; echo "FAIL coverage (changed lines under 80%, log: $state/coverage.log)"
+    grep -E "^Coverage:|^Total|%\): Missing" "$state/coverage.log" | head -20 | sed 's/^/  /'
+  fi
+fi
 [ "$status" -eq 0 ] && echo "gate: all green" || echo "gate: fix the failures, then run gate.sh --rerun"
 exit "$status"

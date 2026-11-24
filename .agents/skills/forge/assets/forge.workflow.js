@@ -311,6 +311,7 @@ function context(t, withAnswers = false, blind = false) {
     `Conventions: read ${A.repo}/.agents/skills/frappe-conventions/SKILL.md (an index) and load only the rule files your task or diff needs; cite rule ids. A rule you think is wrong: keep following it and return conventions[] as that file describes.`,
     `Never ask the user anything: return decisions[] in the format of communication.md; take non-blocking ones with the recommended option.`,
     `Known pitfalls: read ${A.repo}/.agents/skills/forge/references/pitfalls.md first.${(A.pitfalls || []).length ? ' Also: ' + A.pitfalls.join(' ') : ''}`,
+    `Forge scripts (gate.sh, test-class.sh, signals.py, codemods): always run them by their path in the main checkout, ${A.repo}/.agents/skills/forge/scripts/..., from the worktree root. The worktree's own copy may be older.`,
     `<use_parallel_tool_calls>When several tool calls do not depend on each other, make them all in the same turn. Change files with Edit on the lines that change, never by rewriting the whole file.</use_parallel_tool_calls>`,
     `Worktree: ${t.worktree} (branch ${t.branch}, base ${baseOf(t)})`,
     t.brief ? `Feature document: ${A.featureDoc} — the task brief below is your starting point; from the document read only the header, the specs ${t.specs} and the Design parts of this task, and open the rest only when the brief leaves a question.` : `Feature document: ${A.featureDoc} — read it from the top until "## Log".`,
