@@ -20,4 +20,7 @@ public enum RevocationReason
 
     /// <summary>The email address changed.</summary>
     EmailChanged,
+
+    /// <summary>The email change was undone from the notice sent to the old address.</summary>
+    EmailChangeUndone,
 }

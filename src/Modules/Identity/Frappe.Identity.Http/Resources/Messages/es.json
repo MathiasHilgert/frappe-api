@@ -14,5 +14,6 @@
   "identity.profile.changed": "El perfil cambió desde que lo leíste. Léelo de nuevo y repite el cambio.",
   "identity.session.forbidden": "Esta sesión no puede usar esta ruta.",
   "identity.session.invalid": "La sesión falta, venció o fue revocada, o la solicitud envió dos veces su cookie de sesión. Inicia sesión de nuevo.",
-  "identity.step_up.required": "Esta acción necesita una verificación reciente de la contraseña. Confirma tu contraseña para esta sesión y repite la solicitud."
+  "identity.step_up.required": "Esta acción necesita una verificación reciente de la contraseña. Confirma tu contraseña para esta sesión y repite la solicitud.",
+  "identity.undo.invalid": "Este enlace no funciona: es incorrecto, venció, ya se usó o lo reemplazaron, o otra cuenta tiene ahora la dirección anterior."
 }

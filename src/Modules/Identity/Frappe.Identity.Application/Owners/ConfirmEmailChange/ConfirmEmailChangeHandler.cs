@@ -18,7 +18,8 @@ namespace Frappe.Identity.Application.Owners.ConfirmEmailChange;
 /// Handles <see cref="ConfirmEmailChange"/>. The code of the caller is redeemed under the guess limits and must be the one the change id names.
 /// A pending owner holding the new address is deleted in the same unit (it never proved the address); a verified holder keeps it and the answer
 /// is <see cref="IdentityErrorCodes.CodeInvalid"/>, and a holder that appears between the read and the commit is stopped by the unique index.
-/// The new address, the revocation of the other sessions and every other live code of the owner are one unit with the redemption.
+/// The new address, the revocation of the other sessions, every other live code of the owner and the undo token for the old address (S15) are
+/// one unit with the redemption.
 /// </summary>
 internal sealed class ConfirmEmailChangeHandler(
     CodeRedeemer redeemer,
@@ -26,6 +27,8 @@ internal sealed class ConfirmEmailChangeHandler(
     IPrincipals principals,
     IOwners owners,
     IEmailIdentifiers identifiers,
+    AddressClaim claim,
+    EmailChangeUndoTokens undoTokens,
     CredentialChange change,
     TimeProvider time) : ICommandHandler<ConfirmEmailChange, Unit>
 {
@@ -48,18 +51,22 @@ internal sealed class ConfirmEmailChangeHandler(
         var email = Email.Create(redeemed.Value.Target);
         if (redeemed.Value.Id != changeId || !email.IsSuccess
             || await LoadAsync(command.PrincipalId, cancellationToken) is not var (principal, owner, current)
-            || !await FreeAddressAsync(principal.Id, email.Value, cancellationToken))
+            || !await claim.TryAsync(principal.Id, email.Value, cancellationToken))
         {
             return Error.RuleViolation(IdentityErrorCodes.CodeInvalid);
         }
 
         var now = Instant.FromDateTimeOffset(time.GetUtcNow());
+        var (oldAddress, oldNormalized) = (current.Address, current.NormalizedAddress);
         current.ChangeTo(email.Value, now);
-        owner.RecordEmailChanged(now);
         foreach (var live in await codes.LiveOfAsync(principal.Id, cancellationToken))
         {
             live.Invalidate(now);
         }
+
+        // Issued after the loop and apart from the codes: the way back from this change (and from earlier ones) must stay open for 7 days.
+        var undoToken = await undoTokens.IssueAsync(principal.Id, oldNormalized, email.Value.NormalizedAddress, cancellationToken);
+        owner.RecordEmailChanged(oldAddress, undoToken, now);
 
         await change.ApplyAsync(principal, RevocationReason.EmailChanged, command.SessionId, cancellationToken);
         return Unit.Value;
@@ -74,26 +81,5 @@ internal sealed class ConfirmEmailChangeHandler(
             : null;
         var current = owner is null ? null : await identifiers.FindOfAsync(principalId, cancellationToken);
         return principal is null || owner is null || current is null ? null : (principal, owner, current);
-    }
-
-    /// <summary>
-    /// Whether the caller may take <paramref name="email"/>: nobody holds it, or a pending owner does and is deleted with everything of theirs.
-    /// </summary>
-    private async Task<bool> FreeAddressAsync(Guid principalId, Email email, CancellationToken cancellationToken)
-    {
-        var holder = await identifiers.FindByAddressAsync(email.NormalizedAddress, cancellationToken);
-        if (holder is null)
-        {
-            return true;
-        }
-
-        var squatter = holder.PrincipalId == principalId ? null : await owners.FindAsync(holder.PrincipalId, cancellationToken);
-        if (squatter is not { VerifiedAt: null })
-        {
-            return false;
-        }
-
-        principals.Remove((await principals.FindAsync(holder.PrincipalId, cancellationToken))!);
-        return true;
     }
 }

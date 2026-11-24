@@ -30,6 +30,8 @@ internal sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> opti
 
     public DbSet<OneTimeCode> OneTimeCodes => Set<OneTimeCode>();
 
+    public DbSet<EmailChangeUndo> EmailChangeUndos => Set<EmailChangeUndo>();
+
     public DbSet<Owner> Owners => Set<Owner>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder) => configurationBuilder.StoreLanguageTags();

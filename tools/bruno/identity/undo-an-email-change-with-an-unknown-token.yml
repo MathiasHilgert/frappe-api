@@ -1,0 +1,30 @@
+info:
+  name: Undo an email change with an unknown token (422)
+  type: http
+  seq: 23
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/identity/email-change-undos"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      { "token": "0198f2a000007000800000000000000a.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "422"
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"identity.undo.invalid"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `POST /v1/identity/email-change-undos` with the token of the notice sent to the old address after an email change. A token that is malformed, unknown, wrong, expired (7 days), used or replaced, and an old address that another verified owner holds now, are all `422 identity.undo.invalid`: the answer and its time tell nothing about which. The right token answers `204`, restores the old address as verified, and revokes every session of the owner; that needs the token the confirmation issued, so the Api's integration tests cover it.

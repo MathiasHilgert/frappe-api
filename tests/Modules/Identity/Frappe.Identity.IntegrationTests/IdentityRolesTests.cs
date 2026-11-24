@@ -13,7 +13,7 @@ namespace Frappe.Identity.IntegrationTests;
 public sealed class IdentityRolesTests(PostgresServer server)
 {
     private static readonly string[] BusinessTables =
-        ["principals", "email_identifiers", "password_credentials", "sessions", "one_time_codes", "owners"];
+        ["principals", "email_identifiers", "password_credentials", "sessions", "one_time_codes", "email_change_undos", "owners"];
 
     private static readonly string[] Tables = [.. BusinessTables, "outbox_messages", "inbox_messages", "__ef_migrations_history"];
 
