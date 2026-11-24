@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Frappe.Access.Contracts;
 using Frappe.Identity.Application.Credentials;
 using Frappe.Identity.Application.Credentials.ChangePassword;
 using Frappe.Identity.Application.Identifiers;
@@ -93,6 +94,7 @@ internal sealed class OwnersHost : IAsyncDisposable
         services.AddSingleton<IBreachedPasswords>(breached);
         services.AddSingleton<IAttemptLimiter>(limiter);
         services.AddSingleton<IUseCaseGate, AllowAllUseCaseGate>();
+        services.AddSingleton<IAuthorizer, AllowAllAuthorizer>();
         FakeCaller.AddTo(services);
         services.AddHandlers(typeof(IEmailIdentifiers).Assembly);
         if (saving is not null)

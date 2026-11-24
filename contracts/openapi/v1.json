@@ -1340,7 +1340,7 @@
           "Identity"
         ],
         "summary": "Get the owner's profile",
-        "description": "The profile of the owner the session belongs to: the id, the kind, the name as typed, the address and the language of the mail the owner receives (its BCP 47 code and its own name, whatever Accept-Language says). 401 identity.session.invalid without a valid session; 403 identity.session.forbidden when the session is not an owner's.",
+        "description": "The profile of the owner the session belongs to: the id, the kind, the name as typed, the address and the language of the mail the owner receives (its BCP 47 code and its own name, whatever Accept-Language says). 401 identity.session.invalid without a valid session; 403 access.action.forbidden when the session is not an owner's.",
         "operationId": "GetMe",
         "parameters": [
           {
@@ -1505,7 +1505,7 @@
           "Identity"
         ],
         "summary": "Change the owner's profile",
-        "description": "Changes the name and the language with a JSON Merge Patch (application/merge-patch+json): a member left out stays as it is, name.family may be null to remove it, name.given and locale may not. Every member is checked before anything changes. The name, given plus family, is at most 60 characters and holds no http, www. or ://: 400 identity.name.invalid. The language is a plain BCP 47 tag: 400 for one that is malformed, 422 identity.locale.unsupported for one Frappe is not written in. A member the profile does not have, a member sent twice and a member of the wrong type are 400 http.bad_request. It answers 200 with the whole profile and its new ETag; 401 and 403 as GET /me.",
+        "description": "Changes the name and the language with a JSON Merge Patch (application/merge-patch+json): a member left out stays as it is, name.family may be null to remove it, name.given and locale may not. Every member is checked before anything changes. The name, given plus family, is at most 60 characters and holds no http, www. or ://: 400 identity.name.invalid. The language is a plain BCP 47 tag: 400 for one that is malformed, 422 identity.locale.unsupported for one Frappe is not written in. A member the profile does not have, a member sent twice and a member of the wrong type are 400 http.bad_request. It answers 200 with the whole profile and its new ETag; 401 and 403 as GET /me (403 access.action.forbidden when the session is not an owner's).",
         "operationId": "UpdateMe",
         "parameters": [
           {
@@ -2389,7 +2389,7 @@
           "Identity"
         ],
         "summary": "Ask to change the email address",
-        "description": "Mails a 6-digit code to the new address and tells the old one about the request. The session must have stepped up (403 identity.step_up.required). The old address keeps working until the change is confirmed. It answers 202 with an id to confirm with, for an address that a verified owner holds as for a free one (that code is not sent and its id confirms nothing), and never sooner than 500 ms, so neither the answer nor its time says which. 5 requests an hour are allowed (429 identity.code.send_limited with Retry-After). 400 identity.email.invalid for an address that is malformed. 401 identity.session.invalid without a valid session; 403 identity.session.forbidden when the session is not an owner's.",
+        "description": "Mails a 6-digit code to the new address and tells the old one about the request. The session must have stepped up (403 access.step_up.required: step the session up with POST /v1/identity/sessions/current/step-ups and repeat the request). The old address keeps working until the change is confirmed. It answers 202 with an id to confirm with, for an address that a verified owner holds as for a free one (that code is not sent and its id confirms nothing), and never sooner than 500 ms, so neither the answer nor its time says which. 5 requests an hour are allowed (429 identity.code.send_limited with Retry-After). 400 identity.email.invalid for an address that is malformed. 401 identity.session.invalid without a valid session; 403 access.action.forbidden when the session is not an owner's.",
         "operationId": "RequestEmailChange",
         "parameters": [
           {
@@ -2612,7 +2612,7 @@
           "Identity"
         ],
         "summary": "Confirm the change of the email address",
-        "description": "Replaces the address with the one the code was mailed to: the new address is proven, every other session of the owner is revoked (the one of the request keeps working) and every other live code of the owner stops working. A pending owner who registered with that address is deleted. 422 identity.code.invalid for a code that is wrong, expired, used or replaced, for an id that is unknown, made up, malformed or not the caller's, and for an address a verified owner holds meanwhile: a code takes 5 guesses, an owner 10 a day from one network and 100 a day from all of them. 503 identity.attempts.unavailable when guesses cannot be counted. 429 http.rate_limited with Retry-After. 401 and 403 as the request.",
+        "description": "Replaces the address with the one the code was mailed to: the new address is proven, every other session of the owner is revoked (the one of the request keeps working) and every other live code of the owner stops working. A pending owner who registered with that address is deleted. 422 identity.code.invalid for a code that is wrong, expired, used or replaced, for an id that is unknown, made up, malformed or not the caller's, and for an address a verified owner holds meanwhile: a code takes 5 guesses, an owner 10 a day from one network and 100 a day from all of them. 503 identity.attempts.unavailable when guesses cannot be counted. 429 http.rate_limited with Retry-After. 401 and 403 as the request (403 access.action.forbidden when the session is not an owner's).",
         "operationId": "ConfirmEmailChange",
         "parameters": [
           {
@@ -2672,6 +2672,24 @@
               "WWW-Authenticate": {
                 "description": "The scheme to authenticate with: Bearer (the session token; a browser sends it in the session cookie).",
                 "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: http.origin.forbidden when the request carries the session cookie without an Origin among the console's (a bearer token is never checked).",
+            "headers": {
+              "Content-Language": {
+                "description": "The languages the problem's texts are written in.",
                 "schema": {
                   "type": "string"
                 }
@@ -2793,24 +2811,6 @@
           },
           "415": {
             "description": "Unsupported Media Type: the body is not in a media type the operation reads (see its requestBody).",
-            "headers": {
-              "Content-Language": {
-                "description": "The languages the problem's texts are written in.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden: http.origin.forbidden when the request carries the session cookie without an Origin among the console's (a bearer token is never checked).",
             "headers": {
               "Content-Language": {
                 "description": "The languages the problem's texts are written in.",

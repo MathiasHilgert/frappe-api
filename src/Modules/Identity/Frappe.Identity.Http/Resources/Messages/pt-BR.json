@@ -12,9 +12,7 @@
   "identity.password.too_long": "A senha é longa demais: pode ter no máximo {max} caracteres.",
   "identity.password.too_short": "A senha é curta demais: precisa ter pelo menos {min} caracteres.",
   "identity.profile.changed": "O perfil mudou desde que você o leu. Leia-o de novo e repita a alteração.",
-  "identity.session.forbidden": "Esta sessão não pode usar esta rota.",
   "identity.session.invalid": "A sessão está ausente, expirou ou foi revogada, ou a requisição enviou o cookie de sessão duas vezes. Entre novamente.",
-  "identity.step_up.required": "Esta ação precisa de uma verificação recente da senha. Confirme sua senha nesta sessão e repita a solicitação.",
   "identity.undo.invalid": "Este link não funciona: está errado, expirou, já foi usado ou foi substituído, ou outra conta tem agora o endereço anterior.",
   "identity.session.not_found": "A sessão não existe, não é sua ou já terminou."
 }

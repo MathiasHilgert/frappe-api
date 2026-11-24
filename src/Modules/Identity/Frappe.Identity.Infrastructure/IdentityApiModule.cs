@@ -1,3 +1,4 @@
+using Frappe.Access.Contracts;
 using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Infrastructure.Codes;
 using Frappe.Identity.Infrastructure.Owners;
@@ -22,6 +23,7 @@ public sealed class IdentityApiModule : IModule
         services.AddCodes();
         services.AddSessions();
         services.AddOwners();
+        services.AddSingleton<IRules, SessionRules>();
         services.AddHandlers(typeof(ISessions).Assembly);
     }
 }

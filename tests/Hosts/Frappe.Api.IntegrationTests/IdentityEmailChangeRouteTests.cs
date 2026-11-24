@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Frappe.Access.Contracts;
 using Frappe.Identity.Application.Owners.ConfirmEmailChange;
 using Frappe.Identity.Application.Owners.RequestEmailChange;
 using Frappe.Modules;
@@ -47,7 +48,7 @@ public sealed class IdentityEmailChangeRouteTests
         using (Assert.Multiple())
         {
             await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Forbidden);
-            await Assert.That(document.RootElement.GetProperty("errors")[0].GetProperty("code").GetString()).IsEqualTo("identity.step_up.required");
+            await Assert.That(document.RootElement.GetProperty("errors")[0].GetProperty("code").GetString()).IsEqualTo("access.step_up.required");
             await Assert.That(anonymous.StatusCode).IsEqualTo(HttpStatusCode.Unauthorized);
             await Assert.That(fakes.Requests).IsEmpty();
         }
@@ -59,7 +60,7 @@ public sealed class IdentityEmailChangeRouteTests
         // Arrange
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
-        var (_, session, token) = host.Seed();
+        var (principal, session, token) = host.Seed();
         session.StepUp(IdentitySessionHost.Start);
         using var client = host.App.GetTestClient();
 
@@ -75,6 +76,7 @@ public sealed class IdentityEmailChangeRouteTests
             await Assert.That(response.Headers.Location).IsNull();
             await Assert.That(response.Headers.CacheControl?.NoStore).IsTrue();
             await Assert.That(document.RootElement.GetProperty("id").GetGuid()).IsEqualTo(Fakes.ChangeId);
+            await Assert.That(fakes.Callers.Single()).IsEqualTo((principal.Id, session.Id));
             await Assert.That(command.NewEmail).IsEqualTo("new@example.com");
             await Assert.That(command.ToString()).DoesNotContain("new@example.com");
         }
@@ -86,7 +88,7 @@ public sealed class IdentityEmailChangeRouteTests
         // Arrange
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
-        var (_, _, token) = host.Seed();
+        var (principal, session, token) = host.Seed();
         using var client = host.App.GetTestClient();
 
         // Act
@@ -97,6 +99,7 @@ public sealed class IdentityEmailChangeRouteTests
         using (Assert.Multiple())
         {
             await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.NoContent);
+            await Assert.That(fakes.Callers.Single()).IsEqualTo((principal.Id, session.Id));
             await Assert.That(command.ChangeId).IsEqualTo(Fakes.ChangeId.ToString());
             await Assert.That(command.Code).IsEqualTo("123456");
             await Assert.That(command.ToString()).DoesNotContain("123456");
@@ -106,6 +109,11 @@ public sealed class IdentityEmailChangeRouteTests
     /// <summary>What the faked use cases saw.</summary>
     private sealed class Fakes
     {
+        /// <summary>The principal and session the use cases saw through the caller.</summary>
+        public List<(Guid Principal, Guid Session)> Callers { get; } = [];
+
+        public void Seen(ICaller caller) => Callers.Add((caller.RequiredPrincipalId, caller.RequiredSessionId));
+
         public static readonly Guid ChangeId = Guid.Parse("0192b5f0-0000-7000-8000-000000000001");
 
         public List<RequestEmailChange> Requests { get; } = [];
@@ -118,8 +126,8 @@ public sealed class IdentityEmailChangeRouteTests
     {
         public void AddServices(IServiceCollection services)
         {
-            services.AddFakeCommand<RequestEmailChange, EmailChangeRequested>(new RequestHandler(fakes));
-            services.AddFakeCommand<ConfirmEmailChange, Unit>(new ConfirmHandler(fakes));
+            services.AddFakeCommand<RequestEmailChange, EmailChangeRequested>(new RequestHandler(fakes), fakes.Seen);
+            services.AddFakeCommand<ConfirmEmailChange, Unit>(new ConfirmHandler(fakes), fakes.Seen);
         }
     }
 
