@@ -2,15 +2,19 @@
 
 Modules are built in the order below. Each one is planned as a whole (one design, one feature document) before its first task.
 
+Notifications comes first because Identity needs to send mail at registration (the activation code): a module that must send a code
+cannot ship before the module that delivers it. Notifications reacts to no module at first: it is triggered by tests and by its own
+requests, and each later module adds a producer that maps its integration events to notifications.
+
 ## Module order
 
 | # | Module | Delivers |
 |---|--------|----------|
-| 1 | Identity | Owners and their sessions: registration, login, logout, credentials and the session lookup every other module relies on. |
-| 2 | Access | Who may do what: roles, grants and the authorization check (`AuthorizeAsync`) that protected routes call. |
-| 3 | Businesses | Businesses owned by an owner, with their lifecycle, limits and the events other modules react to. |
-| 4 | Geo | Reference data: countries, subdivisions, currencies and holiday calendars, read through a query port. |
-| 5 | Notification | Delivery of mail and other messages triggered by integration events from the modules above. |
+| 1 | Notifications | Delivery of mail first, and later other channels, for explicit requests and for facts of the modules below: tracked deliveries, suppression and preferences. |
+| 2 | Identity | Owners and their sessions: registration, login, logout, credentials and the session lookup every other module relies on. |
+| 3 | Access | Who may do what: roles, grants and the authorization check (`AuthorizeAsync`) that protected routes call. |
+| 4 | Businesses | Businesses owned by an owner, with their lifecycle, limits and the events other modules react to. |
+| 5 | Geo | Reference data: countries, subdivisions, currencies and holiday calendars, read through a query port. |
 | 6 | Media | Stored files attached to businesses, served only to callers allowed to see them. |
 
 ## Deferred

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Frappe.Api.IntegrationTests;
 
@@ -30,8 +31,6 @@ public sealed class ApiHostTests
         // Assert
         using (Assert.Multiple())
         {
-            await Assert.That(Modules.Services).IsEmpty();
-            await Assert.That(Modules.Endpoints).IsEmpty();
             await Assert.That(live.StatusCode).IsEqualTo(HttpStatusCode.OK);
             await Assert.That(startup.StatusCode).IsEqualTo(HttpStatusCode.OK);
             await Assert.That(ready.StatusCode).IsEqualTo(HttpStatusCode.OK);
@@ -128,6 +127,39 @@ public sealed class ApiHostTests
             await Assert.That(app.Services.GetRequiredService<Marker>()).IsSameReferenceAs(marker);
             await Assert.That(document.RootElement.GetProperty("paths").TryGetProperty("/v1/ping", out _)).IsTrue();
         }
+    }
+
+    [Test]
+    public async Task The_Api_starts_with_its_real_module_lists_when_the_database_is_configured()
+    {
+        // Arrange
+        var settings = new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:Notifications"] = "Host=unreachable.invalid;Database=frappe;Username=frappe_notifications",
+        };
+
+        // Act
+        await using var app = await ApiHost.StartAsync(Modules.Services, Modules.Endpoints, settings);
+        using var client = app.GetTestClient();
+        using var live = await client.GetAsync("/health/live");
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(Modules.Services.Select(module => module.GetType().Name)).Contains("NotificationsModule");
+            await Assert.That(Modules.Endpoints.Select(module => module.GetType().Name)).Contains("NotificationsHttp");
+            await Assert.That(live.StatusCode).IsEqualTo(HttpStatusCode.OK);
+        }
+    }
+
+    [Test]
+    public async Task The_Api_with_its_real_module_lists_and_no_notifications_connection_fails_the_start_naming_its_key()
+    {
+        // Act
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ApiHost.StartAsync(Modules.Services, Modules.Endpoints));
+
+        // Assert
+        await Assert.That(thrown?.Message).Contains("ConnectionStrings:Notifications");
     }
 
     private static async Task<string?[]> CheckNamesAsync(HttpResponseMessage probe)

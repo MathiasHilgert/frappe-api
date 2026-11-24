@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Notifications against a real Postgres (Testcontainers; needs Docker): its migration, its constraints and its roles. -->
+  <ItemGroup>
+    <ProjectReference Include="../../../../src/Modules/Notifications/Frappe.Notifications.Domain/Frappe.Notifications.Domain.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Notifications/Frappe.Notifications.Infrastructure/Frappe.Notifications.Infrastructure.csproj" />
+    <ProjectReference Include="../../../Shared/Frappe.Testing/Frappe.Testing.csproj" />
+    <ProjectReference Include="../../../Shared/Frappe.Testing.Containers/Frappe.Testing.Containers.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Testcontainers.PostgreSql" />
+  </ItemGroup>
+</Project>

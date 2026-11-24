@@ -482,6 +482,8 @@
           "Frappe.Caching": "[1.0.0, )",
           "Frappe.Http": "[1.0.0, )",
           "Frappe.Modules": "[1.0.0, )",
+          "Frappe.Notifications.Http": "[1.0.0, )",
+          "Frappe.Notifications.Infrastructure": "[1.0.0, )",
           "Frappe.Observability": "[1.0.0, )",
           "Frappe.Observability.Hosting": "[1.0.0, )",
           "Microsoft.AspNetCore.OpenApi": "[11.0.0, )",
@@ -559,6 +561,7 @@
       "frappe.migrator": {
         "type": "Project",
         "dependencies": {
+          "Frappe.Notifications.Infrastructure": "[1.0.0, )",
           "Frappe.Observability.Hosting": "[1.0.0, )",
           "Frappe.Persistence": "[1.0.0, )",
           "Frappe.Scheduling": "[1.0.0, )",
@@ -567,6 +570,48 @@
       },
       "frappe.modules": {
         "type": "Project"
+      },
+      "frappe.notifications.application": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Notifications.Domain": "[1.0.0, )",
+          "Frappe.Results": "[1.0.0, )",
+          "Frappe.UseCases": "[1.0.0, )"
+        }
+      },
+      "frappe.notifications.contracts": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.IntegrationEvents": "[1.0.0, )"
+        }
+      },
+      "frappe.notifications.domain": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Aggregates": "[1.0.0, )",
+          "Frappe.Localization": "[1.0.0, )",
+          "NodaTime": "[3.3.7, )"
+        }
+      },
+      "frappe.notifications.http": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Http": "[1.0.0, )",
+          "Frappe.Notifications.Application": "[1.0.0, )",
+          "Frappe.Notifications.Contracts": "[1.0.0, )"
+        }
+      },
+      "frappe.notifications.infrastructure": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Messaging.Abstractions": "[1.0.0, )",
+          "Frappe.Messaging.Storage": "[1.0.0, )",
+          "Frappe.Modules": "[1.0.0, )",
+          "Frappe.Notifications.Application": "[1.0.0, )",
+          "Frappe.Notifications.Contracts": "[1.0.0, )",
+          "Frappe.Notifications.Domain": "[1.0.0, )",
+          "Frappe.Persistence": "[1.0.0, )"
+        }
       },
       "frappe.observability": {
         "type": "Project",
@@ -632,6 +677,7 @@
           "Frappe.Health": "[1.0.0, )",
           "Frappe.Messaging": "[1.0.0, )",
           "Frappe.Modules": "[1.0.0, )",
+          "Frappe.Notifications.Infrastructure": "[1.0.0, )",
           "Frappe.Observability": "[1.0.0, )",
           "Frappe.Observability.Hosting": "[1.0.0, )",
           "Frappe.Scheduling": "[1.0.0, )",
