@@ -1,0 +1,45 @@
+info:
+  name: Send an activation code to the complaint inbox (202)
+  type: http
+  seq: 12
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/notifications/sends"
+  headers:
+    - name: Idempotency-Key
+      value: bruno-send-activation-complained
+      description: The same key sends once; its request identity is derived from it.
+  body:
+    type: json
+    data: |-
+      {
+        "kind": "account_activation_code",
+        "payload": {
+          "email": "complained@resend.dev",
+          "language": "es-AR",
+          "name": "Ana",
+          "code": "482913"
+        }
+      }
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        // Development only: the compose stack runs as Production and does not map the route.
+        if (bru.getEnvName() === 'Stack') {
+          bru.runner.skipRequest();
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "202"
+    - expression: res.headers.location
+      operator: isUndefined
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  `account_activation_code` to Resend's `complained` test inbox: 202; the provider later reports a complaint and the address is suppressed. Development only (skipped against Stack).
