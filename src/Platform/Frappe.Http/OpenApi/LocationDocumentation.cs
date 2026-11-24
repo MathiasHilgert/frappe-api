@@ -5,12 +5,18 @@ namespace Frappe.Http.OpenApi;
 
 /// <summary>
 /// Declares the <c>Location</c> header of every <c>201 Created</c> (the new resource) and <c>202 Accepted</c> (where to
-/// follow the accepted request), which the generator leaves out.
+/// follow the accepted request), which the generator leaves out, except for an endpoint marked
+/// <see cref="WithoutLocationMetadata"/> (an answer with no addressable resource).
 /// </summary>
 internal sealed class LocationDocumentation : IOpenApiOperationTransformer
 {
     public Task TransformAsync(OpenApiOperation operation, OpenApiOperationTransformerContext context, CancellationToken cancellationToken)
     {
+        if (context.Description.ActionDescriptor.EndpointMetadata.OfType<WithoutLocationMetadata>().Any())
+        {
+            return Task.CompletedTask;
+        }
+
         foreach (var (status, response) in operation.Responses ?? [])
         {
             if (status is not ("201" or "202") || response is not OpenApiResponse declared)

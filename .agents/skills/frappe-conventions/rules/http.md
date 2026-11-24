@@ -101,17 +101,19 @@
 
 ## HTTP-08 · Caller-scoped routes under `/me` or `/sessions/current`
 
-- **Rule:** Routes about the caller live under `/me` or `/sessions/current`; principal and session ids come from the authenticated request, never from
-  the URL.
+- **Rule:** Routes about the caller live under `/me` or `/sessions/current`; the caller's own principal id and current session id come from the
+  authenticated request, never from the URL.
+  The ids of the caller's own sub-resources under `/me/...` are allowed when another principal's id answers 404 (SEC-05).
 - **Why:** an id in the URL invites one caller to address another's data.
 - **Enforced by:** review.
-- **Good:** `PATCH /v1/billing/me`. **Bad:** `PATCH /v1/billing/owners/{ownerId}` for the caller's own profile.
+- **Good:** `PATCH /v1/billing/me`; `DELETE /v1/identity/me/sessions/{sessionId}` (a foreign session id answers 404).
+  **Bad:** `PATCH /v1/billing/owners/{ownerId}` for the caller's own profile.
 - **Status:** in force.
 
 ## HTTP-09 · Status codes per verb: 201/202 + Location, 204, 200 PATCH
 
 - **Rule:** Creation answers 201 + Location; accepted async work 202 (see HTTP-28); no body 204; PATCH 200 with the whole resource. Use
-  `WithoutLocation()` when a 201 has no addressable resource.
+  `WithoutLocation()` when a 201 has no addressable resource or a 202 must not be followed (HTTP-28, SEC-06).
 - **Why:** clients follow standard semantics without reading prose.
 - **Enforced by:** OpenAPI Location transformer + review.
 - **Good:** `TypedResults.Created(links.GetPathByName(...), body)`. **Bad:** `200 OK` for a creation.
@@ -290,7 +292,8 @@
 ## HTTP-28 · Slow work answers 202 + Location when the client must follow it
 
 - **Rule:** A request does only what its answer needs within the latency budget; slow, retryable or third-party work goes to the Worker by event or
-  job. Answer 202 with `Location` where the client follows the work; a 202 the client must not follow (anti-enumeration, SEC-06) has no Location.
+  job. Answer 202 with `Location` where the client follows the work;
+  a 202 the client must not follow (anti-enumeration, SEC-06) has no Location (mark it `WithoutLocation()`).
 - **Why:** requests stay fast and predictable; clients get a resource to poll.
 - **Enforced by:** review.
 - **Good:** `POST /shipment-syncs/{sourceId}/runs` → 202, `Location: .../runs`. **Bad:** running the sync inside the request.
