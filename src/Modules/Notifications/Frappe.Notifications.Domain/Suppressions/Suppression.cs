@@ -1,3 +1,4 @@
+using Frappe.Aggregates;
 using Frappe.Notifications.Domain.Deliveries;
 using NodaTime;
 
@@ -6,7 +7,7 @@ using NodaTime;
 namespace Frappe.Notifications.Domain.Suppressions;
 
 /// <summary>An address that must not be contacted over a channel again. Suppressions never expire (S11) and hold only the keyed hash (S13).</summary>
-public sealed class Suppression
+public sealed class Suppression : AggregateRoot
 {
     private Suppression()
     {
@@ -26,6 +27,7 @@ public sealed class Suppression
         Provider = provider;
         ProviderEventId = providerEventId;
         CreatedAt = now;
+        Raise(new SuppressionAdded(reason));
     }
 
     public string Channel { get; private set; }

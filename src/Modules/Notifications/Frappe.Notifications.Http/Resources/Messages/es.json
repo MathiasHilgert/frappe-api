@@ -1,4 +1,5 @@
 {
-  "notifications.kind.unknown": "No existe un tipo de notificación llamado «{kind}».",
-  "notifications.payload.invalid": "El contenido no es el que toma el tipo «{kind}». El parámetro fields indica qué corregir."
+  "notifications.kind.unknown": "El tipo de notificación «{kind}» falta o no existe.",
+  "notifications.payload.invalid": "El contenido no es el que toma el tipo «{kind}». El parámetro fields indica qué corregir.",
+  "notifications.webhook_signature.invalid": "La llamada del webhook no es auténtica: su firma falta, es incorrecta o es demasiado antigua."
 }

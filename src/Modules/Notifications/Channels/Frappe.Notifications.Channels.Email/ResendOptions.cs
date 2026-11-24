@@ -26,7 +26,8 @@ public sealed class ResendOptions
 
     /// <summary>
     /// <c>Notifications:Email:Resend:RequestsPerSecond</c>: the rate the adapter allows itself, as a token bucket. Default 9. Range 1 to 9,
-    /// below Resend's limit of 10. Raising it risks 429s that are retried; lowering it slows a burst of sends.
+    /// below Resend's limit of 10. Raising it risks 429s that are retried; lowering it slows a burst of sends. The budget applies per Worker
+    /// process, outside the retries, and holds because the Worker runs one replica with a consumer prefetch of 1.
     /// </summary>
     public int RequestsPerSecond { get; set; } = 9;
 

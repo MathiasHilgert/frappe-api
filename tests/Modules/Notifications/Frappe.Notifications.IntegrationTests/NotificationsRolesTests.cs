@@ -69,7 +69,7 @@ public sealed class NotificationsRolesTests(PostgresServer server)
     }
 
     [Test]
-    public async Task The_Worker_role_updates_only_the_outbox_columns_the_relay_writes_and_reads_only_the_purge_column_of_provider_events()
+    public async Task The_Worker_updates_only_the_outbox_relay_columns_and_reads_only_the_purge_and_parked_columns_of_provider_events()
     {
         await MigratedNotifications.RunAsync(server, async owner =>
         {
@@ -82,7 +82,8 @@ public sealed class NotificationsRolesTests(PostgresServer server)
             using (Assert.Multiple())
             {
                 await Assert.That(outbox).IsEquivalentTo(OutboxRelayColumns);
-                await Assert.That(events).IsEquivalentTo(["received_at"]);
+                // S4, Flow 3: the purge column and the four a parked event is applied from; never the event id.
+                await Assert.That(events).IsEquivalentTo(["received_at", "provider", "provider_message_id", "feedback", "occurred_at"]);
                 await Assert.That(deliveries).IsEmpty();
             }
         });
@@ -173,6 +174,37 @@ public sealed class NotificationsRolesTests(PostgresServer server)
                 await Assert.That(deliveries).IsEqualTo(1L);
                 await Assert.That(events).IsEqualTo(1L);
                 await Assert.That(readsId!.SqlState).IsEqualTo(PostgresErrorCodes.InsufficientPrivilege);
+            }
+        });
+    }
+
+    [Test]
+    public async Task The_Worker_reads_the_parked_columns_to_apply_them_to_a_new_delivery_and_writes_neither_events_nor_suppressions()
+    {
+        await MigratedNotifications.RunAsync(server, async owner =>
+        {
+            // Arrange (Flow 3, S4): recording a delivery applies what was parked for its message; the webhook alone writes the rest.
+            await ScratchDatabase.ExecuteAsync(owner, """
+                INSERT INTO notifications.provider_events (provider, event_id, received_at, matched, provider_message_id, feedback, occurred_at)
+                VALUES ('resend', 'evt_1', now(), false, 're_1', 'delivered', now())
+                """);
+            var worker = ScratchDatabase.LoginOf(owner, NotificationsDatabase.WorkerRole, MigratedNotifications.WorkerPassword);
+
+            // Act
+            var parked = await ScratchDatabase.ScalarAsync(
+                worker, "SELECT feedback FROM notifications.provider_events WHERE provider = 'resend' AND provider_message_id = 're_1'");
+            var insertsEvent = await Assert.ThrowsAsync<PostgresException>(() => ScratchDatabase.ExecuteAsync(
+                worker, "INSERT INTO notifications.provider_events (provider, event_id, received_at, matched) VALUES ('resend', 'x', now(), true)"));
+            var insertsSuppression = await Assert.ThrowsAsync<PostgresException>(() => ScratchDatabase.ExecuteAsync(
+                worker, "INSERT INTO notifications.suppressions (channel, address_hash, hash_key_id, reason, source, created_at) "
+                + "VALUES ('email', decode(repeat('00', 32), 'hex'), 1, 'complaint', 'webhook', now())"));
+
+            // Assert
+            using (Assert.Multiple())
+            {
+                await Assert.That(parked).IsEqualTo("delivered");
+                await Assert.That(insertsEvent!.SqlState).IsEqualTo(PostgresErrorCodes.InsufficientPrivilege);
+                await Assert.That(insertsSuppression!.SqlState).IsEqualTo(PostgresErrorCodes.InsufficientPrivilege);
             }
         });
     }

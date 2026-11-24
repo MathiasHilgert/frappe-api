@@ -5,6 +5,8 @@ using Frappe.Notifications.Application.Contacts;
 using Frappe.Notifications.Application.Dispatching;
 using Frappe.Notifications.Application.Kinds;
 using Frappe.Notifications.Application.Ports;
+using Frappe.Notifications.Domain.ProviderEvents;
+using Frappe.Notifications.Domain.Suppressions;
 using Frappe.Notifications.Infrastructure.Addresses;
 using Frappe.Notifications.Infrastructure.Dispatching;
 using Frappe.Notifications.Infrastructure.Messaging;
@@ -33,6 +35,7 @@ public sealed class NotificationsModule : IModule
     {
         ArgumentNullException.ThrowIfNull(services);
         services.AddKeyedSingleton<IIntegrationEventTranslator, NotificationsEventTranslator>(Name);
+        services.AddCommitRejections<NotificationsDbContext>(FeedbackRejections.Register);
         services.AddModuleDatabase<NotificationsDbContext>(
             Name, NotificationsDbContext.Schema, (provider, options) => options.UseOutbox(provider, Name));
         services.AddOutboxRelay<NotificationsDbContext>(Name);
@@ -56,7 +59,13 @@ public sealed class NotificationsModule : IModule
         services.AddSingleton<NotificationCatalog>();
         services.AddHostedService<NotificationCatalogCheck>();
         services.AddSingleton<NotificationsMetrics>();
+        services.AddSingleton<ProviderFeedbackMetrics>();
+        services.CountOnCommit<ProviderEventRecorded, ProviderFeedbackMetrics>((metrics, recorded) =>
+            metrics.CountProviderEvent(recorded.Feedback, recorded.Matched));
+        services.CountOnCommit<SuppressionAdded, ProviderFeedbackMetrics>((metrics, added) => metrics.CountSuppression(added.Reason));
         services.AddScoped<IDeliveryStaging, EfDeliveryStaging>();
+        services.AddScoped<IDeliveries, EfDeliveries>();
+        services.AddScoped<IProviderEvents, EfProviderEvents>();
         services.AddScoped<ISuppressionStore, EfSuppressionStore>();
         services.AddScoped<IPreferenceStore, EfPreferenceStore>();
         services.AddScoped<RecipientResolution>();

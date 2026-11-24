@@ -55,8 +55,11 @@ public sealed class NotificationsDatabase : IDatabaseModule
         $"GRANT INSERT, SELECT, DELETE ON TABLE {schema}.{DeliveryConfiguration.Table} TO {WorkerRole}",
         $"GRANT SELECT ON TABLE {schema}.{SuppressionConfiguration.Table} TO {WorkerRole}",
         $"GRANT SELECT ON TABLE {schema}.{PreferenceConfiguration.Table} TO {WorkerRole}",
-        $"GRANT DELETE ON TABLE {schema}.{ProviderEventRowConfiguration.Table} TO {WorkerRole}",
-        $"GRANT SELECT (received_at) ON TABLE {schema}.{ProviderEventRowConfiguration.Table} TO {WorkerRole}",
+        $"GRANT DELETE ON TABLE {schema}.{ProviderEventConfiguration.Table} TO {WorkerRole}",
+        $"GRANT SELECT (received_at) ON TABLE {schema}.{ProviderEventConfiguration.Table} TO {WorkerRole}",
+
+        // Flow 3: recording a delivery applies what the provider reported before it existed (read only: the event record stays, it dedupes).
+        $"GRANT SELECT (provider, provider_message_id, feedback, occurred_at) ON TABLE {schema}.{ProviderEventConfiguration.Table} TO {WorkerRole}",
     ];
 
     /// <summary>

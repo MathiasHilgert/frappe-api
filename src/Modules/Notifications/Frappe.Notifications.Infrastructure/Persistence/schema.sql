@@ -153,6 +153,8 @@ CREATE INDEX ix_outbox_messages_published_at ON notifications.outbox_messages US
 
 CREATE INDEX ix_outbox_messages_relayable ON notifications.outbox_messages USING btree (sequence) WHERE ((published_at IS NULL) AND ((attempts = 0) OR (next_attempt_at IS NOT NULL)));
 
+CREATE INDEX ix_provider_events_provider_message ON notifications.provider_events USING btree (provider, provider_message_id) WHERE (provider_message_id IS NOT NULL);
+
 CREATE INDEX ix_provider_events_received_at ON notifications.provider_events USING btree (received_at);
 
 CREATE INDEX ix_send_requests_requested_at ON notifications.send_requests USING btree (requested_at);
@@ -191,7 +193,15 @@ GRANT SELECT ON TABLE notifications.preferences TO frappe_notifications_worker;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE notifications.provider_events TO frappe_notifications;
 GRANT DELETE ON TABLE notifications.provider_events TO frappe_notifications_worker;
 
+GRANT SELECT(provider) ON TABLE notifications.provider_events TO frappe_notifications_worker;
+
 GRANT SELECT(received_at) ON TABLE notifications.provider_events TO frappe_notifications_worker;
+
+GRANT SELECT(provider_message_id) ON TABLE notifications.provider_events TO frappe_notifications_worker;
+
+GRANT SELECT(feedback) ON TABLE notifications.provider_events TO frappe_notifications_worker;
+
+GRANT SELECT(occurred_at) ON TABLE notifications.provider_events TO frappe_notifications_worker;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE notifications.send_requests TO frappe_notifications;
 

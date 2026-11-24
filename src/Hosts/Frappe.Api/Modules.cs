@@ -1,5 +1,6 @@
 using Frappe.Http;
 using Frappe.Modules;
+using Frappe.Notifications.Channels.Email;
 using Frappe.Notifications.Http;
 using Frappe.Notifications.Infrastructure;
 using Frappe.Notifications.Kinds.Account;
@@ -12,7 +13,7 @@ public static class Modules
 {
     /// <summary>The services of every module the Api hosts, in registration order.</summary>
     public static IReadOnlyCollection<IModule> Services { get; } =
-        [new NotificationsModule(), new AccountKindsModule(), new MarketingKindsModule()];
+        [new NotificationsModule(), new AccountKindsModule(), new MarketingKindsModule(), new EmailChannelApiModule()];
 
     /// <summary>The HTTP facet of every module the Api serves: its services and its endpoints under <c>/v1</c>.</summary>
     public static IReadOnlyCollection<IHttpModule> Endpoints { get; } = [new NotificationsHttp()];

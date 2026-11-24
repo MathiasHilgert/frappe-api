@@ -18,5 +18,15 @@ internal sealed class EfDeliveryStaging(NotificationsDbContext db) : IDeliverySt
             cancellationToken);
     }
 
+    public async Task<IReadOnlyList<ParkedFeedback>> ParkedForAsync(
+        DeliveryProvider provider, string providerMessageId, CancellationToken cancellationToken)
+    {
+        var parked = await db.ProviderEvents.AsNoTracking()
+            .Where(e => e.Provider == provider && e.ProviderMessageId == providerMessageId && e.Feedback != null && e.OccurredAt != null)
+            .Select(e => new { Feedback = e.Feedback!.Value, OccurredAt = e.OccurredAt!.Value })
+            .ToListAsync(cancellationToken);
+        return [.. parked.OrderBy(e => e.OccurredAt).Select(e => new ParkedFeedback(e.Feedback, e.OccurredAt))];
+    }
+
     public void Stage(Delivery delivery) => db.Deliveries.Add(delivery);
 }

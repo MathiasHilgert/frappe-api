@@ -27,6 +27,10 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
 
     /// <summary>A local-only address hash key (base64, 37 bytes) for the throwaway deployment; it protects nothing.</summary>
     private const string AddressHashKey = "bG9jYWwtb25seS1hZGRyZXNzLWhhc2gta2V5LTMyLWJ5dGVzIQ==";
+
+    /// <summary>A local-only signing secret (base64) for the throwaway deployment's Resend webhook; it protects nothing.</summary>
+    private const string WebhookSigning = "bG9jYWwtb25seS1yZXNlbmQtd2ViaG9vay1zaWduaW5nLXNlY3JldA==";
+
     private const string ValkeyImage = "valkey/valkey:8-alpine";
 
     /// <summary>Every wait gives up instead of hanging the session (Testcontainers waits forever by default).</summary>
@@ -103,6 +107,7 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
             .WithEnvironment("ConnectionStrings__Valkey", "valkey:6379")
             .WithEnvironment("Notifications__AddressHash__CurrentKeyId", "1")
             .WithEnvironment("Notifications__AddressHash__Keys__1", AddressHashKey)
+            .WithEnvironment("Notifications__Email__Resend__WebhookSecret", WebhookSigning)
             .WithPortBinding(8080, true)
             .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => r.ForPort(8080).ForPath("/health/live"), Bounded))
             .Build());
