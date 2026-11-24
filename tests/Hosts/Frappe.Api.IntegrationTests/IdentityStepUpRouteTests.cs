@@ -129,7 +129,7 @@ public sealed class IdentityStepUpRouteTests
         using (Assert.Multiple())
         {
             await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Forbidden);
-            await Assert.That(error.GetProperty("code").GetString()).IsEqualTo("identity.step_up.required");
+            await Assert.That(error.GetProperty("code").GetString()).IsEqualTo("access.step_up.required");
             await Assert.That(error.GetProperty("message").GetString()).IsNotEmpty();
             await Assert.That(anonymous.StatusCode).IsEqualTo(HttpStatusCode.Unauthorized);
         }

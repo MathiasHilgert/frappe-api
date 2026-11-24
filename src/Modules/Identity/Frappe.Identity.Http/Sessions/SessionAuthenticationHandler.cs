@@ -69,13 +69,6 @@ internal sealed partial class SessionAuthenticationHandler(
         return invalid.ToTypedHttpResult(_ => TypedResults.NoContent()).ExecuteAsync(Context);
     }
 
-    /// <summary>A valid session whose principal may not use the route: 403, in the caller's language.</summary>
-    protected override Task HandleForbiddenAsync(AuthenticationProperties properties)
-    {
-        Result<Unit> forbidden = new ForbiddenError(IdentityErrorCodes.SessionForbidden);
-        return forbidden.ToTypedHttpResult(_ => TypedResults.NoContent()).ExecuteAsync(Context);
-    }
-
     [LoggerMessage(Level = LogLevel.Information, Message = "A touch of a session lost the race to another request of the same session.")]
     private static partial void LogTouchLost(ILogger logger);
 

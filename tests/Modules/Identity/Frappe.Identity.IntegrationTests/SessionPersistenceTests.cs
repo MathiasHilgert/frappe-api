@@ -1,4 +1,5 @@
 using System.Net;
+using Frappe.Access.Contracts;
 using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Application.Sessions.AuthenticateSession;
 using Frappe.Identity.Application.Sessions.ListMySessions;
@@ -46,6 +47,7 @@ public sealed class SessionPersistenceTests(PostgresServer server)
         new IdentityModule().AddServices(services);
         services.AddSessions();
         services.AddSingleton<IUseCaseGate, AllowAllUseCaseGate>();
+        services.AddSingleton<IAuthorizer, AllowAllAuthorizer>();
         FakeCaller.AddTo(services);
         services.AddHandlers(typeof(ISessions).Assembly);
         return services.BuildServiceProvider();
@@ -389,7 +391,7 @@ public sealed class SessionPersistenceTests(PostgresServer server)
             await using (var scope = provider.CreateAsyncScope())
             {
                 again = await scope.ServiceProvider.GetRequiredService<ICommandHandler<RevokeMySession, Unit>>()
-                    .HandleAsync(new RevokeMySession(principal.Id, expected[1]), default);
+                    .HandleAsync(new RevokeMySession(expected[1]), default);
             }
 
             // Assert

@@ -30,4 +30,4 @@ settings:
   encodeUrl: true
 
 docs: |-
-  `POST /v1/identity/me/email-changes` needs an owner's session that stepped up in the last five minutes (`403 identity.step_up.required` otherwise). It mails a code to the new address, tells the old one, and answers `202 { id }` with no `Location`, the same for an address a verified owner holds (no code is sent then). That needs a verified owner, so the Api's integration tests cover it.
+  `POST /v1/identity/me/email-changes` needs an owner's session that stepped up in the last five minutes (`403 access.step_up.required` otherwise). It mails a code to the new address, tells the old one, and answers `202 { id }` with no `Location`, the same for an address a verified owner holds (no code is sent then). That needs a verified owner, so the Api's integration tests cover it.

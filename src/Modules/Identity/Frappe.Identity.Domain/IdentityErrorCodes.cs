@@ -38,11 +38,6 @@ public static class IdentityErrorCodes
     /// </summary>
     public const string SessionInvalid = "identity.session.invalid";
 
-    /// <summary>
-    /// The route needs a recent password check and the session has none, or its window ran out (403): step the session up and repeat the request.
-    /// </summary>
-    public const string StepUpRequired = "identity.step_up.required";
-
     /// <summary>An email address is missing or is not shaped like one.</summary>
     public const string EmailInvalid = "identity.email.invalid";
 
@@ -57,9 +52,6 @@ public static class IdentityErrorCodes
 
     /// <summary>The password was right but the owner's address is not verified: a new code was sent (parameter <c>ownerId</c>).</summary>
     public const string OwnerVerificationPending = "identity.owner.verification_pending";
-
-    /// <summary>The session is valid but its principal may not use the route (it is not the kind the route serves).</summary>
-    public const string SessionForbidden = "identity.session.forbidden";
 
     /// <summary>
     /// The session the caller named is not one of theirs that is still live: it belongs to another principal, is over, does not exist or the id

@@ -95,11 +95,10 @@ internal static class MySessionsEndpoints
     }
 
     private static async Task<Results<NoContent, ErrorsProblemHttpResult>> RevokeAsync(
-        HttpContext httpContext, string sessionId, ICommandHandler<RevokeMySession, Unit> handler, CancellationToken cancellationToken)
+        string sessionId, ICommandHandler<RevokeMySession, Unit> handler, CancellationToken cancellationToken)
     {
-        var principal = SessionPolicy.RequiredPrincipalIdOf(httpContext.User);
         var target = Guid.TryParse(sessionId, out var id) ? id : Guid.Empty;
-        return (await handler.HandleAsync(new RevokeMySession(principal, target), cancellationToken))
+        return (await handler.HandleAsync(new RevokeMySession(target), cancellationToken))
             .ToTypedHttpResult(_ => TypedResults.NoContent());
     }
 

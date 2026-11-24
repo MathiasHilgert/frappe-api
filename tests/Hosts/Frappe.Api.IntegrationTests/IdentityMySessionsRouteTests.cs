@@ -27,6 +27,12 @@ public sealed class IdentityMySessionsRouteTests
 
     private static async Task<JsonDocument> BodyOf(HttpResponseMessage response) => JsonDocument.Parse(await response.Content.ReadAsStringAsync());
 
+    /// <summary>The body with what is per request (the echoed id, the trace id) taken out, to compare answers.</summary>
+    private static string Normalized(string body, string id) =>
+        System.Text.RegularExpressions.Regex.Replace(
+            body.Replace(id, "{id}", StringComparison.Ordinal), "\"traceId\":\"[^\"]*\"", "\"traceId\":\"-\"",
+            System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromSeconds(1));
+
     private static string[] IdsOf(JsonDocument body) =>
         [.. body.RootElement.GetProperty("sessions").EnumerateArray().Select(s => s.GetProperty("id").GetString()!)];
 
@@ -156,9 +162,12 @@ public sealed class IdentityMySessionsRouteTests
 
         // Act
         var answers = new List<HttpResponseMessage>();
+        var bodies = new List<string>();
         foreach (var id in new[] { foreignSession.Session.Id.ToString(), Guid.NewGuid().ToString(), over.Id.ToString(), "not-a-guid" })
         {
-            answers.Add(await client.SendAsync(Request(HttpMethod.Delete, $"{Sessions}/{id}", token)));
+            var answer = await client.SendAsync(Request(HttpMethod.Delete, $"{Sessions}/{id}", token));
+            bodies.Add(Normalized(await answer.Content.ReadAsStringAsync(), id));
+            answers.Add(answer);
         }
 
         // Assert
@@ -168,7 +177,7 @@ public sealed class IdentityMySessionsRouteTests
             {
                 using (answer)
                 {
-                    using var body = await BodyOf(answer);
+                    using var body = JsonDocument.Parse(bodies[answers.IndexOf(answer)]);
                     await Assert.That(answer.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
                     await Assert.That(body.RootElement.GetProperty("errors")[0].GetProperty("code").GetString())
                         .IsEqualTo("identity.session.not_found");
@@ -176,6 +185,8 @@ public sealed class IdentityMySessionsRouteTests
             }
 
             await Assert.That(foreignSession.Session.RevokedAt).IsNull();
+            await Assert.That(bodies[0]).IsEqualTo(bodies[1]);
+            await Assert.That(bodies[2]).IsEqualTo(bodies[0]);
         }
     }
 

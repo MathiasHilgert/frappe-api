@@ -25,18 +25,18 @@ internal static class MeEndpoints
         public void MapMeEndpoints()
         {
             routes.MapGet("/me", GetAsync)
-                .WithName("GetMe").WithTags(IdentityHttp.Tag).NoStore().RequireOwner()
+                .WithName("GetMe").WithTags(IdentityHttp.Tag).NoStore().RequireSession()
                 .SendsNoStoreETag(ETagDescription, NoStoreDescription)
                 .WithSummary("Get the owner's profile")
                 .WithDescription(
                     "The profile of the owner the session belongs to: the id, the kind, the name as typed, the address and the language of the mail "
                     + "the owner receives (its BCP 47 code and its own name, whatever Accept-Language says). 401 identity.session.invalid without "
-                    + "a valid session; 403 identity.session.forbidden when the session is not an owner's.")
+                    + "a valid session; 403 access.action.forbidden when the session is not an owner's.")
                 .ProducesProblem(StatusCodes.Status401Unauthorized)
                 .ProducesProblem(StatusCodes.Status403Forbidden);
 
             routes.MapPatch("/me", PatchAsync)
-                .WithName("UpdateMe").WithTags(IdentityHttp.Tag).NoStore().RequireOwner()
+                .WithName("UpdateMe").WithTags(IdentityHttp.Tag).NoStore().RequireSession()
                 .Accepts<MeMergePatch>(MergePatch.MediaType)
                 .DeclaresAcceptPatch("the profile")
                 .DeclaresIfMatch("An ETag of GET /me or of an earlier answer of this route; when it is no longer the profile's, nothing changes and "
@@ -50,7 +50,7 @@ internal static class MeEndpoints
                     + "://: 400 identity.name.invalid. The language is a plain BCP 47 tag: 400 for one that is malformed, 422 "
                     + "identity.locale.unsupported for one Frappe is not written in. A member the profile does not have, a member sent twice and a "
                     + "member of the wrong type are 400 http.bad_request. It answers 200 with the whole profile and its new ETag; 401 and 403 as "
-                    + "GET /me.")
+                    + "GET /me (403 access.action.forbidden when the session is not an owner's).")
                 .ProducesProblem(StatusCodes.Status400BadRequest)
                 .ProducesProblem(StatusCodes.Status401Unauthorized)
                 .ProducesProblem(StatusCodes.Status403Forbidden)

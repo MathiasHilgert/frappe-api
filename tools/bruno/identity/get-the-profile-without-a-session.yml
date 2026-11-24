@@ -23,4 +23,4 @@ settings:
   encodeUrl: true
 
 docs: |-
-  `GET /v1/identity/me` needs an owner's session. With one it answers `200` with `{ id, kind: { code, name }, name: { given, family }, email, locale: { code, name } }` (the locale names itself, whatever `Accept-Language`) and a strong `ETag` that names this version of the profile; that needs a verified owner, so the Api's integration tests cover it. A session that is not an owner's is `403 identity.session.forbidden`.
+  `GET /v1/identity/me` needs an owner's session. With one it answers `200` with `{ id, kind: { code, name }, name: { given, family }, email, locale: { code, name } }` (the locale names itself, whatever `Accept-Language`) and a strong `ETag` that names this version of the profile; that needs a verified owner, so the Api's integration tests cover it. A session that is not an owner's is `403 access.action.forbidden`.

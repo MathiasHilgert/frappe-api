@@ -110,15 +110,17 @@ public sealed class MySessionsTests
         var caller = ActivePrincipal();
         var session = Add(store, caller, Duration.FromMinutes(1));
         session.DequeueDomainEvents();
-        var handler = new RevokeMySessionHandler(store, Now);
+        var access = new FakeAuthorizer();
+        var handler = new RevokeMySessionHandler(store, access, Now);
 
         // Act
-        var result = await handler.HandleAsync(new RevokeMySession(caller.Id, session.Id), default);
+        var result = await handler.HandleAsync(new RevokeMySession(session.Id), default);
 
         // Assert
         using (Assert.Multiple())
         {
             await Assert.That(result.IsSuccess).IsTrue();
+            await Assert.That(access.Calls).IsEqualTo(1);
             await Assert.That(session.RevocationReason).IsEqualTo(RevocationReason.RevokedByHolder);
             await Assert.That(session.DomainEvents.Single())
                 .IsEqualTo(new SessionRevoked(caller.Id, session.Id, RevocationReason.RevokedByHolder, Instant.FromDateTimeOffset(Now.GetUtcNow())));
@@ -126,23 +128,21 @@ public sealed class MySessionsTests
     }
 
     [Test]
-    public async Task Another_principals_session_a_session_already_over_and_an_unknown_one_are_the_same_not_found_and_change_nothing()
+    public async Task A_session_already_over_and_an_unknown_one_are_the_same_not_found_and_change_nothing()
     {
         // Arrange
         var store = new FakeSessions();
         var caller = ActivePrincipal();
-        var foreign = Add(store, ActivePrincipal(), Duration.FromMinutes(1));
         var over = Add(store, caller, Duration.FromMinutes(2));
         over.Revoke(RevocationReason.Logout, Opened + Duration.FromMinutes(3));
-        var handler = new RevokeMySessionHandler(store, Now);
+        var handler = new RevokeMySessionHandler(store, new FakeAuthorizer(), Now);
 
         // Act
         var results = new[]
         {
-            await handler.HandleAsync(new RevokeMySession(caller.Id, foreign.Id), default),
-            await handler.HandleAsync(new RevokeMySession(caller.Id, over.Id), default),
-            await handler.HandleAsync(new RevokeMySession(caller.Id, Guid.NewGuid()), default),
-            await handler.HandleAsync(new RevokeMySession(caller.Id, Guid.Empty), default),
+            await handler.HandleAsync(new RevokeMySession(over.Id), default),
+            await handler.HandleAsync(new RevokeMySession(Guid.NewGuid()), default),
+            await handler.HandleAsync(new RevokeMySession(Guid.Empty), default),
         };
 
         // Assert
@@ -153,8 +153,29 @@ public sealed class MySessionsTests
                 await Assert.That(result.Errors.Single()).IsEqualTo(new NotFoundError(IdentityErrorCodes.SessionNotFound));
             }
 
-            await Assert.That(foreign.RevokedAt).IsNull();
             await Assert.That(over.RevocationReason).IsEqualTo(RevocationReason.Logout);
+        }
+    }
+
+    [Test]
+    public async Task A_session_the_authorizer_refuses_answers_the_refusal_and_changes_nothing()
+    {
+        // Arrange
+        var store = new FakeSessions();
+        var foreign = Add(store, ActivePrincipal(), Duration.FromMinutes(1));
+        var refusal = new NotFoundError(IdentityErrorCodes.SessionNotFound);
+        var access = new FakeAuthorizer(refusal);
+        var handler = new RevokeMySessionHandler(store, access, Now);
+
+        // Act
+        var result = await handler.HandleAsync(new RevokeMySession(foreign.Id), default);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(result.Errors.Single()).IsEqualTo(refusal);
+            await Assert.That(access.Calls).IsEqualTo(1);
+            await Assert.That(foreign.RevokedAt).IsNull();
         }
     }
 

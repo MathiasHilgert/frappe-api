@@ -72,7 +72,6 @@ public sealed class IdentityHttp : IHttpModule
         services.AddSessionAuthentication();
         services.AddHttpContextAccessor();
         services.AddScoped<ICaller, SessionCaller>();
-        services.AddOwnerPolicy();
         services.Configure<OpenApiOptions>("v1", options => options.AddSchemaTransformer<MySessionListDocumentation>());
     }
 

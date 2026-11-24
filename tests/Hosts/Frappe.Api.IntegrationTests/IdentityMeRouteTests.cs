@@ -118,7 +118,7 @@ public sealed class IdentityMeRouteTests
             await Assert.That(anonymousPatch.StatusCode).IsEqualTo(HttpStatusCode.Unauthorized);
             await Assert.That(forbidden.StatusCode).IsEqualTo(HttpStatusCode.Forbidden);
             await Assert.That(forbiddenPatch.StatusCode).IsEqualTo(HttpStatusCode.Forbidden);
-            await Assert.That(problem.GetProperty("errors")[0].GetProperty("code").GetString()).IsEqualTo("identity.session.forbidden");
+            await Assert.That(problem.GetProperty("errors")[0].GetProperty("code").GetString()).IsEqualTo("access.action.forbidden");
             await Assert.That(problem.GetProperty("errors")[0].GetProperty("message").GetString()).IsNotEmpty();
             await Assert.That(fakes.Reads.Count + fakes.Updates.Count).IsEqualTo(0);
         }

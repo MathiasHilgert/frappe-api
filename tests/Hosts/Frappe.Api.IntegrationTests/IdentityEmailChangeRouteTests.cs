@@ -47,7 +47,7 @@ public sealed class IdentityEmailChangeRouteTests
         using (Assert.Multiple())
         {
             await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Forbidden);
-            await Assert.That(document.RootElement.GetProperty("errors")[0].GetProperty("code").GetString()).IsEqualTo("identity.step_up.required");
+            await Assert.That(document.RootElement.GetProperty("errors")[0].GetProperty("code").GetString()).IsEqualTo("access.step_up.required");
             await Assert.That(anonymous.StatusCode).IsEqualTo(HttpStatusCode.Unauthorized);
             await Assert.That(fakes.Requests).IsEmpty();
         }

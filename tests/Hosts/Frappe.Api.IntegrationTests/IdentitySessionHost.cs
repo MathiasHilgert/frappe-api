@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
+using Frappe.Access.Contracts;
 using Frappe.Access.Infrastructure;
 using Frappe.Http;
 using Frappe.Identity.Application.Credentials;
@@ -7,11 +8,11 @@ using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Domain.Principals;
 using Frappe.Identity.Domain.Sessions;
 using Frappe.Identity.Http;
-using Frappe.Identity.Http.Sessions;
 using Frappe.Identity.Infrastructure.Sessions;
 using Frappe.Modules;
 using Frappe.Observability;
 using Frappe.Persistence;
+using Frappe.Results;
 using Frappe.UseCases;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -58,7 +59,7 @@ internal sealed class IdentitySessionHost : IAsyncDisposable
         IModule[] modules = extra is null
             ? [new AccessModule(), new SessionModule(store, unitOfWork, time)]
             : [new AccessModule(), new SessionModule(store, unitOfWork, time), extra];
-        var app = await ApiHost.StartAsync(modules, [new IdentityHttp(), new ProbeHttp()], Settings, logs: logs);
+        var app = await ApiHost.StartAsync(modules, [new IdentityHttp(), new Frappe.Access.Http.AccessHttp(), new ProbeHttp()], Settings, logs: logs);
         return new IdentitySessionHost(app, store, unitOfWork, time);
     }
 
@@ -133,7 +134,9 @@ internal sealed class IdentitySessionHost : IAsyncDisposable
             services.AddSingleton<ISessions>(store);
             services.AddSingleton<ISessionReads>(store);
             services.AddKeyedSingleton<IUnitOfWork>("identity", unitOfWork);
+            services.AddSingleton<IRules, SessionRules>();
             services.AddHandlers(typeof(ISessions).Assembly);
+            services.AddFakeQuery<ProbeStepUp, string>(new ProbeStepUpHandler());
         }
     }
 
@@ -148,8 +151,27 @@ internal sealed class IdentitySessionHost : IAsyncDisposable
         {
             v1.MapGet("/probe/open", () => "open").WithName("ProbeOpen");
             v1.MapPost("/probe/open", () => "open").WithName("ProbeOpenPost");
-            v1.MapGet("/probe/step-up", () => "stepped up").WithName("ProbeStepUp").RequireSession().RequireStepUp();
+            v1.MapGet("/probe/step-up", ProbeAsync).WithName("ProbeStepUp").RequireSession();
         }
+
+        private static async Task<Microsoft.AspNetCore.Http.HttpResults.Results<
+            Microsoft.AspNetCore.Http.HttpResults.Ok<string>, ErrorsProblemHttpResult>> ProbeAsync(
+            IQueryHandler<ProbeStepUp, string> handler, CancellationToken cancellationToken) =>
+            (await handler.HandleAsync(new ProbeStepUp(), cancellationToken)).ToTypedHttpResult(
+                text => Microsoft.AspNetCore.Http.TypedResults.Ok(text));
+    }
+
+    /// <summary>A use case that needs a recent step-up and nothing else, so the route proves the rule Access applies.</summary>
+    private sealed record ProbeStepUp : IQuery<string>, IGuarded
+    {
+        public static CallerRule Allowed => Has.RecentStepUp;
+    }
+
+    /// <summary>The probe's use case, standing in for a real one.</summary>
+    private sealed class ProbeStepUpHandler : IQueryHandler<ProbeStepUp, string>
+    {
+        public Task<Result<string>> HandleAsync(ProbeStepUp query, CancellationToken cancellationToken) =>
+            Task.FromResult<Result<string>>("stepped up");
     }
 
     /// <summary>Counts what a command commits and can lose the race a real commit may lose.</summary>
