@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 # Local only (not tracked): repository policy forbids AI attribution trailers, and CI rejects them. Strip them from every commit.
 sed -i -E '/^(Co-Authored-By|Co-authored-by|Claude-Session):/d' "$1"
-sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$1"
+git stripspace < "$1" > "$1.clean" && mv "$1.clean" "$1"

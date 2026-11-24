@@ -42,6 +42,12 @@ for g in "$gates"/*; do kill -0 "${g##*/}" 2>/dev/null || rm -f "$g"; done
 active=$(find "$gates" -type f | wc -l)
 share=$(( $(nproc) / (active > 0 ? active : 1) )); [ "$share" -lt 1 ] && share=1
 export TUNIT_MAX_PARALLEL_TESTS="$share"
+# A fresh worktree, or a checkout that gained a project since its last restore, has no assets file for it: restore once instead of
+# failing the build with NETSDK1004.
+if git ls-files '*.csproj' | while read -r p; do [ -f "$(dirname "$p")/obj/project.assets.json" ] || { echo missing; break; }; done | grep -q missing; then
+  echo "== restore (a project has never been restored here)"
+  dotnet restore Frappe.slnx -v q >"$state/restore.log" 2>&1 || { tail -20 "$state/restore.log"; echo "FAIL restore"; exit 1; }
+fi
 echo "== build ($active gate(s) running; $share cores each)"
 if ! dotnet build Frappe.slnx --no-restore --nologo -v q -clp:ErrorsOnly --tl:off -m:"$share" >"$state/build.log" 2>&1; then
   grep -E 'error' "$state/build.log" | sed -E 's#^.*/(src|tests)/#\1/#' | sort -u | head -40

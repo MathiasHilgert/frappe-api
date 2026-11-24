@@ -110,6 +110,7 @@ design, one design review, one feature document. No questions mid-run: anything 
 
 Most of a writer's time is spent generating tokens (about 100k per slice at roughly 90 tokens per second). Two inputs decide how much it generates,
 and both are set by the orchestrator per slice:
+
 - **`effort`** (`low` | `medium` | `high`, default `low`; user decision). Raise it only for a named reason, recorded in the tasks table:
   - `medium` for concurrency, locking or a security rule with an attack in the specs;
   - `high` only for a slice that already failed review at a lower effort.
@@ -194,6 +195,7 @@ is the current total from Engram `forge/metrics/critics` and `suppressions` the 
 `args` as a JSON object, not a string. Create `odd/tasks/<feature>.journal/` before launching.
 
 **Save the args, continue fresh.**
+
 - At launch, write the exact args to `odd/tasks/<feature>.args.json`. Every relaunch builds its args from that file (Read), never by retyping them,
   and never from a notification, which HTML-escapes `<`/`>`. One escaped brief changed every cache key after it, and slices already done ran again.
 - `resumeFromRunId` only for a run with no chains (waves) where only `apply` changes. A chain starts agents concurrently and the Workflow cache is
