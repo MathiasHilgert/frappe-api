@@ -20,6 +20,7 @@ docs:
 
     - **Health:** the three Kubernetes probes.
     - **HTTP Conventions:** unknown routes.
+    - **Identity:** the session routes, as an anonymous caller sees them (`401 identity.session.invalid`).
     - **OpenAPI:** the machine-readable contract (`/openapi/v1.json`); the human one is Scalar at `{{baseUrl}}/docs/`.
 
     Every request sends `Accept: application/json` and `Accept-Language: {{language}}` from here. Errors are

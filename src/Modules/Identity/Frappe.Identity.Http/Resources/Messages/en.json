@@ -1,0 +1,3 @@
+{
+  "identity.session.invalid": "The session is missing, expired or was revoked, or the request sent its session cookie twice. Log in again."
+}

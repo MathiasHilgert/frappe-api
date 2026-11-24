@@ -23,6 +23,12 @@ public static class IdentityErrorCodes
     /// <summary>The counter of wrong guesses could not be reached, so no guess is judged: a limit that guards a secret fails closed.</summary>
     public const string AttemptsUnavailable = "identity.attempts.unavailable";
 
+    /// <summary>
+    /// The request carries no session, or one that is unknown, expired, revoked or opened under credentials that changed; also a duplicated
+    /// session cookie. One answer for all of them (401 with <c>WWW-Authenticate</c>), so the caller learns nothing about which it was.
+    /// </summary>
+    public const string SessionInvalid = "identity.session.invalid";
+
     /// <summary>A code hash is not 32 bytes (parameter <c>length</c>); a bug of the caller, never shown to a client.</summary>
     internal const string CodeHmacLength = "identity.code.hmac_length";
 }

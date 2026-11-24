@@ -1,6 +1,7 @@
 using Frappe.Identity.Infrastructure.Credentials;
 using Frappe.Identity.Infrastructure.Messaging;
 using Frappe.Identity.Infrastructure.Persistence;
+using Frappe.Identity.Infrastructure.Sessions;
 using Frappe.Messaging.Storage.Outbox;
 using Frappe.Modules;
 using Frappe.Persistence;
@@ -23,6 +24,7 @@ public sealed class IdentityModule : IModule
         ArgumentNullException.ThrowIfNull(services);
         services.AddPasswords();
         services.AddKeyedSingleton<IIntegrationEventTranslator, IdentityIntegrationEvents>(Name);
+        services.AddCommitRejections<IdentityDbContext>(SessionRejections.Register);
         services.AddModuleDatabase<IdentityDbContext>(
             Name, IdentityDbContext.Schema, (provider, options) => options.UseOutbox(provider, Name));
     }
