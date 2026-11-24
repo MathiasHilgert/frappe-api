@@ -7,7 +7,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Frappe.Identity.Infrastructure.Owners;
 
 /// <summary>
-/// What a refused commit means for a unit that sent a verification code (UOW-05): a registration (S3) or a resend (S6). Two of them raced for
+/// What a refused commit means for a unit that sent a verification or a password reset code (UOW-05): a registration (S3), a resend (S6) or a reset
+/// request (S11). Two of them raced for
 /// the same address, the same pending owner or the same live code, and the other committed first. The caller is told what a repeat tells
 /// ("201" and "202 always"), so the loser drops everything it staged, including the outbox rows that would mail a code that never existed,
 /// and its command succeeds. The winner's code and password stand, as if the loser had come first. A unit that sent no such code (a
@@ -29,7 +30,7 @@ internal static class OwnerRejections
     {
         var context = failure.Context;
         var sentVerificationCode = context.ChangeTracker.Entries<OneTimeCode>()
-            .Any(entry => entry.State == EntityState.Added && entry.Entity.Purpose == CodePurpose.EmailVerification);
+            .Any(entry => entry.State == EntityState.Added && entry.Entity.Purpose is CodePurpose.EmailVerification or CodePurpose.PasswordReset);
         if (!sentVerificationCode)
         {
             return null;

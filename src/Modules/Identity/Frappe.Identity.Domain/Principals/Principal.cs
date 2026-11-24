@@ -42,4 +42,10 @@ public sealed class Principal : AggregateRoot
 
     /// <summary>The principal may authenticate from now on; one that is active already stays so.</summary>
     public void Activate() => Status = PrincipalStatus.Active;
+
+    /// <summary>
+    /// Replaces the credential stamp with a fresh one because a credential changed: every session opened under the old stamp stops letting its
+    /// holder in, unless it is given the new one (<c>Session.Restamp</c>).
+    /// </summary>
+    public void RotateStamp() => CredentialStamp = Guid.CreateVersion7();
 }

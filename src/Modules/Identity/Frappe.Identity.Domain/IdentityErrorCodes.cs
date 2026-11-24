@@ -12,6 +12,9 @@ public static class IdentityErrorCodes
     /// <summary>A password appears in a public breach list.</summary>
     public const string PasswordBreached = "identity.password.breached";
 
+    /// <summary>A current password was asked for and the one given is not it (a password change, a step-up).</summary>
+    public const string PasswordIncorrect = "identity.password.incorrect";
+
     /// <summary>
     /// A one-time code did not redeem: wrong, expired, used, superseded or unknown. One answer for all of them, so the caller learns nothing.
     /// </summary>

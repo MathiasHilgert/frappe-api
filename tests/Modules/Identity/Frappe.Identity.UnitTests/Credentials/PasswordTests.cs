@@ -131,6 +131,29 @@ public sealed class PasswordTests
         }
     }
 
+    [Test]
+    public async Task A_change_and_a_reset_replace_the_hash_and_each_raises_its_own_fact()
+    {
+        // Arrange
+        var principal = Guid.CreateVersion7();
+        var at = NodaTime.Instant.FromUtc(2026, 11, 24, 11, 0);
+        var changed = PasswordCredential.Set(principal, new PasswordHash("hash-one"), at);
+        var reset = PasswordCredential.Set(principal, new PasswordHash("hash-one"), at);
+
+        // Act
+        changed.Change(new PasswordHash("hash-two"), at);
+        reset.Reset(new PasswordHash("hash-three"), at);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(changed.Hash).IsEqualTo("hash-two");
+            await Assert.That(changed.DomainEvents.Single()).IsEqualTo(new PasswordChanged(principal, at));
+            await Assert.That(reset.Hash).IsEqualTo("hash-three");
+            await Assert.That(reset.DomainEvents.Single()).IsEqualTo(new PasswordReset(principal, at));
+        }
+    }
+
     private static async Task AssertSingle(Result<Password> result, string code, (string Name, object? Value) parameter)
     {
         using (Assert.Multiple())

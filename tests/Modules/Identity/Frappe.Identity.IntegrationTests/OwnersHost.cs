@@ -1,15 +1,19 @@
 using System.Text.Json;
 using Frappe.Identity.Application.Credentials;
+using Frappe.Identity.Application.Credentials.ChangePassword;
 using Frappe.Identity.Application.Identifiers;
 using Frappe.Identity.Application.Limits;
 using Frappe.Identity.Application.Owners;
 using Frappe.Identity.Application.Owners.GetMe;
 using Frappe.Identity.Application.Owners.LogInOwner;
 using Frappe.Identity.Application.Owners.RegisterOwner;
+using Frappe.Identity.Application.Owners.RequestPasswordReset;
 using Frappe.Identity.Application.Owners.ResendOwnerVerification;
+using Frappe.Identity.Application.Owners.ResetPassword;
 using Frappe.Identity.Application.Owners.UpdateMe;
 using Frappe.Identity.Application.Owners.VerifyOwnerEmail;
 using Frappe.Identity.Application.Sessions;
+using Frappe.Identity.Application.Sessions.AuthenticateSession;
 using Frappe.Identity.Domain.Credentials;
 using Frappe.Identity.Infrastructure;
 using Frappe.Identity.Infrastructure.Codes;
@@ -38,8 +42,9 @@ internal sealed class OwnersHost : IAsyncDisposable
 
     private readonly ServiceProvider _provider;
 
-    private OwnersHost(string owner, ServiceProvider provider, FakeTimeProvider time, CountingLimiter limiter)
+    private OwnersHost(string owner, ServiceProvider provider, FakeTimeProvider time, CountingLimiter limiter, ListedPasswords breached)
     {
+        Breached = breached;
         OwnerConnection = owner;
         _provider = provider;
         Time = time;
@@ -52,12 +57,16 @@ internal sealed class OwnersHost : IAsyncDisposable
 
     public CountingLimiter Limiter { get; }
 
+    /// <summary>The passwords the breach list knows; none to start with.</summary>
+    public HashSet<string> Breached { get; }
+
     /// <param name="owner">The owner connection string of the migrated database.</param>
     /// <param name="gate">When given, every address lookup waits there after reading, so racing registrations all read the same state.</param>
     public static OwnersHost Over(string owner, RaceGate? gate = null)
     {
         var time = new FakeTimeProvider(Start);
         var limiter = new CountingLimiter();
+        var breached = new ListedPasswords();
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
@@ -71,7 +80,7 @@ internal sealed class OwnersHost : IAsyncDisposable
         services.AddSessions();
         services.AddOwners();
         services.RemoveAll<IBreachedPasswords>();
-        services.AddSingleton<IBreachedPasswords, CleanPasswords>();
+        services.AddSingleton<IBreachedPasswords>(breached);
         services.AddSingleton<IAttemptLimiter>(limiter);
         services.AddHandlers(typeof(IEmailIdentifiers).Assembly);
         if (gate is not null)
@@ -80,7 +89,7 @@ internal sealed class OwnersHost : IAsyncDisposable
                 new EfEmailIdentifiers(provider.GetRequiredService<IdentityDbContext>()), gate));
         }
 
-        return new OwnersHost(owner, services.BuildServiceProvider(), time, limiter);
+        return new OwnersHost(owner, services.BuildServiceProvider(), time, limiter, breached);
     }
 
     public async Task<Result<RegisteredOwner>> RegisterAsync(
@@ -109,9 +118,9 @@ internal sealed class OwnersHost : IAsyncDisposable
     /// Logs in. A refusal waits for the fake clock, so the clock is moved on, ten milliseconds at a time, while the call waits: a refusal that
     /// ends before 500 ms of fake time have passed ended before its floor (hashing takes far less fake time than that).
     /// </summary>
-    public async Task<Result<LogInOutcome>> LogInAsync(string? email, string? password)
+    public async Task<Result<LogInOutcome>> LogInAsync(string? email, string? password, string client = "203.0.113.7")
     {
-        var task = StartLogInAsync(email, password);
+        var task = StartLogInAsync(email, password, client);
         while (!task.IsCompleted)
         {
             Time.Advance(TimeSpan.FromMilliseconds(10));
@@ -122,11 +131,11 @@ internal sealed class OwnersHost : IAsyncDisposable
     }
 
     /// <summary>Starts a log-in and leaves it running: one that succeeds is complete at once, a refusal waits for the clock.</summary>
-    public async Task<Result<LogInOutcome>> StartLogInAsync(string? email, string? password)
+    public async Task<Result<LogInOutcome>> StartLogInAsync(string? email, string? password, string client = "203.0.113.7")
     {
         await using var scope = _provider.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<ICommandHandler<LogInOwner, LogInOutcome>>()
-            .HandleAsync(new LogInOwner(email, password, "agent", System.Net.IPAddress.Parse("203.0.113.7")), default);
+            .HandleAsync(new LogInOwner(email, password, "agent", System.Net.IPAddress.Parse(client)), default);
     }
 
     public async Task<Result<OwnerProfile>> MeAsync(Guid principalId)
@@ -139,6 +148,52 @@ internal sealed class OwnersHost : IAsyncDisposable
     {
         await using var scope = _provider.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<ICommandHandler<UpdateMe, Unit>>().HandleAsync(command, default);
+    }
+
+    /// <summary>Changes a password. A wrong current one waits for the fake clock, which is moved on while the call waits.</summary>
+    public async Task<Result<Unit>> ChangePasswordAsync(Guid principalId, Guid sessionId, string? current, string? replacement) =>
+        await SettleAsync(async () =>
+        {
+            await using var scope = _provider.CreateAsyncScope();
+            return await scope.ServiceProvider.GetRequiredService<ICommandHandler<ChangePassword, Unit>>()
+                .HandleAsync(new ChangePassword(principalId, sessionId, current, replacement), default);
+        });
+
+    public async Task<Result<PasswordResetRequested>> RequestResetAsync(string? email)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<ICommandHandler<RequestPasswordReset, PasswordResetRequested>>()
+            .HandleAsync(new RequestPasswordReset(email), default);
+    }
+
+    public async Task<Result<Unit>> ResetPasswordAsync(string? resetId, string? code, string? replacement)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<ICommandHandler<ResetPassword, Unit>>()
+            .HandleAsync(new ResetPassword(resetId, code, replacement), default);
+    }
+
+    /// <summary>Whether the token of <paramref name="session"/> still lets its holder in, as the authentication of every request decides.</summary>
+    public async Task<bool> LetsInAsync(OpenedSession session)
+    {
+        await using var scope = _provider.CreateAsyncScope();
+        var hash = scope.ServiceProvider.GetRequiredService<ISessionTokens>().HashOf(session.Token.Value);
+        var result = await scope.ServiceProvider.GetRequiredService<IQueryHandler<AuthenticateSession, SessionPrincipal>>()
+            .HandleAsync(new AuthenticateSession(hash!), default);
+        return result.IsSuccess;
+    }
+
+    /// <summary>Runs a command that may wait for its floor on the fake clock, which moves on ten milliseconds at a time until it ends.</summary>
+    private async Task<T> SettleAsync<T>(Func<Task<T>> command)
+    {
+        var task = command();
+        while (!task.IsCompleted)
+        {
+            Time.Advance(TimeSpan.FromMilliseconds(10));
+            await Task.Delay(5);
+        }
+
+        return await task;
     }
 
     public IdentityDbContext Context() =>
@@ -162,10 +217,11 @@ internal sealed class OwnersHost : IAsyncDisposable
     /// <summary>One outbox row as read back: its type and its data as JSON text.</summary>
     internal sealed record OutboxRow(string Type, string Data);
 
-    /// <summary>A breach list that knows no password, so the database tests never reach the network.</summary>
-    private sealed class CleanPasswords : IBreachedPasswords
+    /// <summary>A breach list that knows only the passwords a test lists, so the database tests never reach the network.</summary>
+    private sealed class ListedPasswords : HashSet<string>, IBreachedPasswords
     {
-        public Task<bool?> IsBreachedAsync(Password password, CancellationToken cancellationToken) => Task.FromResult<bool?>(false);
+        public Task<bool?> IsBreachedAsync(Password password, CancellationToken cancellationToken) =>
+            Task.FromResult<bool?>(Contains(password.Value));
     }
 
     /// <summary>Lets racing registrations read before any of them writes: each lookup waits for the others.</summary>
@@ -207,6 +263,15 @@ internal sealed class OwnersHost : IAsyncDisposable
         private readonly Dictionary<(string Flow, string Subject), int> _hits = [];
 
         public bool Down { get; set; }
+
+        /// <summary>How many attempts of <paramref name="flow"/> were counted for <paramref name="subject"/>.</summary>
+        public int HitsOf(string flow, string subject)
+        {
+            lock (_hits)
+            {
+                return _hits.GetValueOrDefault((flow, subject));
+            }
+        }
 
         public Task<AttemptVerdict> HitAsync(LimitFlow flow, string subjectKey, CancellationToken cancellationToken)
         {

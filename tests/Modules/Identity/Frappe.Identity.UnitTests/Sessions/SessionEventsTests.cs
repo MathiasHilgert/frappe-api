@@ -58,4 +58,24 @@ public sealed class SessionEventsTests
         // Assert
         await Assert.That(published).IsEqualTo(new Published.SessionRevoked(principal.Id, session.Id, "others_revoked", at.ToDateTimeOffset()));
     }
+
+    [Test]
+    public async Task A_password_that_changed_or_was_reset_is_published_as_its_own_fact()
+    {
+        // Arrange
+        var principal = Guid.CreateVersion7();
+        var at = Opened + Duration.FromMinutes(5);
+        var changed = new Frappe.Identity.Domain.Credentials.PasswordChanged(principal, at);
+        var reset = new Frappe.Identity.Domain.Credentials.PasswordReset(principal, at);
+
+        // Act
+        var published = new Frappe.Aggregates.IDomainEvent[] { changed, reset }.SelectMany(Translator.Translate).ToList();
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(published[0]).IsEqualTo(new Frappe.Identity.Contracts.Credentials.PasswordChanged(principal, at.ToDateTimeOffset()));
+            await Assert.That(published[1]).IsEqualTo(new Frappe.Identity.Contracts.Credentials.PasswordReset(principal, at.ToDateTimeOffset()));
+        }
+    }
 }

@@ -12,5 +12,8 @@ internal sealed class EfOneTimeCodes(IdentityDbContext db) : IOneTimeCodes
         db.OneTimeCodes.SingleOrDefaultAsync(
             c => c.PrincipalId == principalId && c.Purpose == purpose && c.RedeemedAt == null && c.InvalidatedAt == null, cancellationToken);
 
+    public Task<OneTimeCode?> FindAsync(Guid id, CancellationToken cancellationToken) =>
+        db.OneTimeCodes.SingleOrDefaultAsync(c => c.Id == id, cancellationToken);
+
     public void Add(OneTimeCode code) => db.OneTimeCodes.Add(code);
 }

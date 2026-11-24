@@ -1,10 +1,13 @@
 using System.Net;
 using System.Text.Json;
+using Frappe.Identity.Application.Credentials.ChangePassword;
 using Frappe.Identity.Application.Owners;
 using Frappe.Identity.Application.Owners.GetMe;
 using Frappe.Identity.Application.Owners.LogInOwner;
 using Frappe.Identity.Application.Owners.RegisterOwner;
+using Frappe.Identity.Application.Owners.RequestPasswordReset;
 using Frappe.Identity.Application.Owners.ResendOwnerVerification;
+using Frappe.Identity.Application.Owners.ResetPassword;
 using Frappe.Identity.Application.Owners.UpdateMe;
 using Frappe.Identity.Application.Owners.VerifyOwnerEmail;
 using Frappe.Identity.Application.Sessions;
@@ -261,6 +264,10 @@ public sealed class IdentityLogInRouteTests
             services.AddSingleton<IQueryHandler<GetMe, OwnerProfile>>(new UnusedQuery<GetMe, OwnerProfile>());
             services.AddSingleton<ICommandHandler<UpdateMe, Unit>>(new Unused<UpdateMe, Unit>());
             services.AddSingleton<ICommandHandler<LogOut, Unit>>(new Unused<LogOut, Unit>());
+            services.AddSingleton<ICommandHandler<ChangePassword, Unit>>(new Unused<ChangePassword, Unit>());
+            services.AddSingleton<ICommandHandler<RequestPasswordReset, PasswordResetRequested>>(
+                new Unused<RequestPasswordReset, PasswordResetRequested>());
+            services.AddSingleton<ICommandHandler<ResetPassword, Unit>>(new Unused<ResetPassword, Unit>());
             services.AddSingleton<IQueryHandler<GetCurrentSession, CurrentSessionView>>(new UnusedQuery());
         }
     }

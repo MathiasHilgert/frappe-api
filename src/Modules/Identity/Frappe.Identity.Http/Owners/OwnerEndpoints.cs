@@ -34,13 +34,12 @@ internal static class OwnerEndpoints
                 .RequireRateLimiting(IdentityHttp.RegistrationRateLimitPolicy)
                 .WithSummary("Register an owner")
                 .WithDescription(
-                    $"Registers an owner with a name, an email address and a password, and mails a {CodeIssuer.Digits}-digit code to the "
-                    + "address. The language "
-                    + "of the mail is the one the request negotiates from Accept-Language (an unknown one is answered in English, never "
+                    $"Registers an owner with a name, an email address and a password, and mails a {CodeIssuer.Digits}-digit code to the address. "
+                    + "The language of the mail is the one the request negotiates from Accept-Language (an unknown one is answered in English, never "
                     + "refused). It answers 201 with an id to verify the address with. The answer is the same for an address that is new, "
                     + "one a pending owner holds (the new registration replaces it, so the id and the code it was given stop working) and "
-                    + "one a verified "
-                    + "owner holds (nothing is written and that owner is told by mail); each answer carries a new id, so it never reveals whether an "
+                    + "one a verified owner holds (nothing is written and that owner is told by mail); each answer carries a new id, "
+                    + "so it never reveals whether an "
                     + "address is registered. "
                     + "The same Idempotency-Key registers once. 400 identity.email.invalid or identity.name.invalid (a name is at most "
                     + $"{OwnerName.MaxMailedLength} characters, given plus family, and holds no http, www. or ://), 422 for a password that is "

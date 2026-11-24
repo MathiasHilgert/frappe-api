@@ -39,4 +39,18 @@ public sealed class PasswordCredential : AggregateRoot
         Hash = hash.Value;
         ChangedAt = now;
     }
+
+    /// <summary>The holder, signed in, replaces the password with <paramref name="hash"/> at <paramref name="now"/> (S12).</summary>
+    public void Change(PasswordHash hash, Instant now)
+    {
+        Replace(hash, now);
+        Raise(new PasswordChanged(PrincipalId, now));
+    }
+
+    /// <summary>The holder, with a reset code, replaces the password with <paramref name="hash"/> at <paramref name="now"/> (S11).</summary>
+    public void Reset(PasswordHash hash, Instant now)
+    {
+        Replace(hash, now);
+        Raise(new PasswordReset(PrincipalId, now));
+    }
 }
