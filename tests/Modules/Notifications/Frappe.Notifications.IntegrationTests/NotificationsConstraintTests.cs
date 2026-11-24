@@ -1,3 +1,4 @@
+using Frappe.Testing.Containers;
 using Npgsql;
 
 namespace Frappe.Notifications.IntegrationTests;

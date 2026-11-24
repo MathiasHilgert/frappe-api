@@ -4,6 +4,7 @@ using Frappe.Notifications.Contracts;
 using Frappe.Notifications.Infrastructure.Messaging;
 using Frappe.Notifications.Infrastructure.Persistence;
 using Frappe.Results;
+using Frappe.Testing.Containers;
 using Frappe.UseCases;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

@@ -3,6 +3,7 @@ using Frappe.Notifications.Infrastructure;
 using Frappe.Notifications.Infrastructure.Persistence;
 using Frappe.Notifications.Kinds.Account;
 using Frappe.Testing;
+using Frappe.Testing.Containers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

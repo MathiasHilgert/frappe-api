@@ -5,6 +5,7 @@ using Frappe.Notifications.Infrastructure;
 using Frappe.Notifications.Infrastructure.Messaging;
 using Frappe.Notifications.Infrastructure.Persistence;
 using Frappe.Notifications.Kinds.Account;
+using Frappe.Testing.Containers;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Frappe.Notifications.IntegrationTests;

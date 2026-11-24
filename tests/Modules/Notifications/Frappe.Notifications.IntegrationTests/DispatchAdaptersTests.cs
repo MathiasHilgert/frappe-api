@@ -4,6 +4,7 @@ using Frappe.Notifications.Domain.Suppressions;
 using Frappe.Notifications.Infrastructure.Dispatching;
 using Frappe.Notifications.Infrastructure.Persistence;
 using Frappe.Persistence;
+using Frappe.Testing.Containers;
 using NodaTime;
 
 namespace Frappe.Notifications.IntegrationTests;
