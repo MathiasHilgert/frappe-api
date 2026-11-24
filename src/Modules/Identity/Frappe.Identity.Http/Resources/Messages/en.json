@@ -1,3 +1,10 @@
 {
+  "identity.attempts.unavailable": "Codes cannot be checked right now. Try again in a moment.",
+  "identity.code.invalid": "The code is not valid: it is wrong, expired, already used or replaced by a newer one, or it was not sent to this account. Ask for a new one.",
+  "identity.email.invalid": "The email address is missing or is not a valid address.",
+  "identity.name.invalid": "The name needs a given name and, together with the family name, at most 60 characters, with no link (http, www. or ://).",
+  "identity.password.breached": "This password appears in a public list of leaked passwords. Choose another one.",
+  "identity.password.too_long": "The password is too long: it can have at most {max} characters.",
+  "identity.password.too_short": "The password is too short: it needs at least {min} characters.",
   "identity.session.invalid": "The session is missing, expired or was revoked, or the request sent its session cookie twice. Log in again."
 }

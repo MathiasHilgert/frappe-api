@@ -29,6 +29,15 @@ public static class IdentityErrorCodes
     /// </summary>
     public const string SessionInvalid = "identity.session.invalid";
 
+    /// <summary>An email address is missing or is not shaped like one.</summary>
+    public const string EmailInvalid = "identity.email.invalid";
+
+    /// <summary>A name is missing its given part, is longer than a mail can greet with, or looks like a link.</summary>
+    public const string NameInvalid = "identity.name.invalid";
+
     /// <summary>A code hash is not 32 bytes (parameter <c>length</c>); a bug of the caller, never shown to a client.</summary>
     internal const string CodeHmacLength = "identity.code.hmac_length";
+
+    /// <summary>An owner that is not pending was asked to take a registration over; a bug of the caller, never shown to a client.</summary>
+    internal const string OwnerNotPending = "identity.owner.not_pending";
 }

@@ -1,0 +1,301 @@
+using Frappe.Identity.Domain;
+using Frappe.Identity.Domain.Principals;
+using Frappe.Testing.Containers;
+using Microsoft.EntityFrameworkCore;
+using NodaTime;
+
+namespace Frappe.Identity.IntegrationTests;
+
+/// <summary>
+/// Registering an owner on a real Postgres through the module's own pipeline (S3, S17): a new address makes a pending owner and mails a code, an
+/// address a verified owner holds answers the same and writes nothing, a pending owner is taken over by the newest registration, and two
+/// registrations racing for one address both answer success while one owner and one code are written.
+/// </summary>
+[ClassDataSource<PostgresServer>(Shared = SharedType.PerTestSession)]
+[NotInParallel]
+public sealed class OwnerRegistrationTests(PostgresServer server)
+{
+    private const string Registered = "frappe.identity.owner_registered.v1";
+    private const string CodeIssued = "frappe.identity.owner_code_issued.v1";
+    private const string Attempted = "frappe.identity.owner_registration_attempted.v1";
+
+    [Test]
+    public async Task A_new_address_makes_a_pending_owner_with_its_password_and_one_live_code_and_two_events()
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using var host = OwnersHost.Over(owner);
+
+            // Act
+            var result = await host.RegisterAsync("Ana.Perez@Example.com");
+
+            // Assert
+            await using var db = host.Context();
+            var principal = await db.Principals.AsNoTracking().SingleAsync();
+            var identifier = await db.EmailIdentifiers.AsNoTracking().SingleAsync();
+            var row = await db.Owners.AsNoTracking().SingleAsync();
+            var codes = await db.OneTimeCodes.AsNoTracking().ToListAsync();
+            var credentials = await db.PasswordCredentials.AsNoTracking().ToListAsync();
+            var events = await host.OutboxAsync();
+            var issued = events.Single(e => e.Type == CodeIssued).Data;
+            using (Assert.Multiple())
+            {
+                await Assert.That(result.IsSuccess).IsTrue();
+                await Assert.That(result.Value.Id).IsEqualTo(principal.Id);
+                await Assert.That(principal.Status).IsEqualTo(PrincipalStatus.Pending);
+                await Assert.That(identifier.Address).IsEqualTo("Ana.Perez@Example.com");
+                await Assert.That(identifier.NormalizedAddress).IsEqualTo("ana.perez@example.com");
+                await Assert.That(identifier.VerifiedAt).IsNull();
+                await Assert.That(row.PrincipalId).IsEqualTo(principal.Id);
+                await Assert.That(row.GivenName).IsEqualTo("Ana");
+                await Assert.That(row.FamilyName).IsEqualTo("Pérez");
+                await Assert.That(row.Locale.Value).IsEqualTo("es-AR");
+                await Assert.That(row.RegisteredAt).IsEqualTo(Instant.FromDateTimeOffset(OwnersHost.Start));
+                await Assert.That(credentials.Single().Hash).StartsWith("$argon2id$").And.DoesNotContain(OwnersHost.Password);
+                await Assert.That(codes.Single().HoldsLiveSlot).IsTrue();
+                await Assert.That(events.Select(e => e.Type)).IsEquivalentTo([Registered, CodeIssued]);
+                await Assert.That(issued.GetProperty("ownerId").GetGuid()).IsEqualTo(principal.Id);
+                await Assert.That(issued.GetProperty("purpose").GetString()).IsEqualTo("email_verification");
+                await Assert.That(issued.GetProperty("email").GetString()).IsEqualTo("Ana.Perez@Example.com");
+                await Assert.That(issued.GetProperty("name").GetString()).IsEqualTo("Ana Pérez");
+                await Assert.That(issued.GetProperty("language").GetString()).IsEqualTo("es-AR");
+                await Assert.That(issued.GetProperty("code").GetString()).Matches("^[0-9]{6}$");
+            }
+        });
+    }
+
+    [Test]
+    public async Task The_code_is_stored_only_as_its_hash()
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using var host = OwnersHost.Over(owner);
+            await host.RegisterAsync();
+
+            // Act
+            var code = await host.LastCodeAsync();
+
+            // Assert
+            await using var db = host.Context();
+            var stored = Convert.ToHexString((await db.OneTimeCodes.AsNoTracking().SingleAsync()).CodeHmac.ToArray());
+            await Assert.That(stored).DoesNotContain(code);
+        });
+    }
+
+    [Test]
+    public async Task A_refused_registration_writes_nothing_and_reports_every_failure_together()
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using var host = OwnersHost.Over(owner);
+
+            // Act
+            var result = await host.RegisterAsync("nobody", given: "visit www.x.io", password: "short");
+
+            // Assert
+            await using var db = host.Context();
+            using (Assert.Multiple())
+            {
+                await Assert.That(result.Errors.Select(e => e.Code)).IsEquivalentTo(
+                    [IdentityErrorCodes.EmailInvalid, IdentityErrorCodes.NameInvalid, IdentityErrorCodes.PasswordTooShort]);
+                await Assert.That(await db.Principals.CountAsync()).IsEqualTo(0);
+                await Assert.That(await host.OutboxAsync()).IsEmpty();
+            }
+        });
+    }
+
+    [Test]
+    public async Task An_address_a_verified_owner_holds_answers_the_same_writes_no_row_and_tells_the_real_owner()
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using var host = OwnersHost.Over(owner);
+            var first = await host.RegisterAsync("ana@example.com", given: "Ana", locale: "es-AR");
+            await host.VerifyAsync(first.Value.Id.ToString(), await host.LastCodeAsync());
+            var before = (await host.OutboxAsync()).Count;
+
+            // Act
+            var again = await host.RegisterAsync("ANA@example.com", given: "Mallory", password: "another long password", locale: "pt-BR");
+
+            // Assert
+            await using var db = host.Context();
+            var events = (await host.OutboxAsync()).Skip(before).ToList();
+            var attempt = events.Single().Data;
+            using (Assert.Multiple())
+            {
+                await Assert.That(again.IsSuccess).IsTrue();
+                await Assert.That(again.Value.Id).IsNotEqualTo(first.Value.Id);
+                await Assert.That(await db.Principals.CountAsync()).IsEqualTo(1);
+                await Assert.That(await db.Owners.CountAsync(o => o.GivenName == "Mallory")).IsEqualTo(0);
+                await Assert.That(await db.PasswordCredentials.CountAsync()).IsEqualTo(1);
+                await Assert.That(await db.OneTimeCodes.CountAsync()).IsEqualTo(1);
+                await Assert.That(events.Single().Type).IsEqualTo(Attempted);
+                await Assert.That(attempt.GetProperty("email").GetString()).IsEqualTo("ana@example.com");
+                await Assert.That(attempt.GetProperty("language").GetString()).IsEqualTo("es-AR");
+            }
+        });
+    }
+
+    [Test]
+    public async Task A_new_registration_replaces_a_pending_owner_and_the_old_code_stops_working()
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using var host = OwnersHost.Over(owner);
+            var first = await host.RegisterAsync("ana@example.com", given: "Ana", locale: "es-AR");
+            var oldCode = await host.LastCodeAsync();
+            host.Time.Advance(TimeSpan.FromDays(3));
+
+            // Act
+            var second = await host.RegisterAsync("ana@example.com", given: "Luz", family: null, password: "another long password", locale: "pt-BR");
+            var newCode = await host.LastCodeAsync();
+            var withOld = await host.VerifyAsync(first.Value.Id.ToString(), oldCode);
+
+            // Assert
+            await using var db = host.Context();
+            var row = await db.Owners.AsNoTracking().SingleAsync();
+            var codes = await db.OneTimeCodes.AsNoTracking().ToListAsync();
+            var events = await host.OutboxAsync();
+            using (Assert.Multiple())
+            {
+                await Assert.That(second.Value.Id).IsEqualTo(first.Value.Id);
+                await Assert.That(row.GivenName).IsEqualTo("Luz");
+                await Assert.That(row.FamilyName).IsNull();
+                await Assert.That(row.Locale.Value).IsEqualTo("pt-BR");
+                await Assert.That(row.RegisteredAt).IsEqualTo(Instant.FromDateTimeOffset(OwnersHost.Start.AddDays(3)));
+                await Assert.That(await db.Principals.CountAsync()).IsEqualTo(1);
+                await Assert.That(await db.PasswordCredentials.CountAsync()).IsEqualTo(1);
+                await Assert.That(codes.Count(c => c.HoldsLiveSlot)).IsEqualTo(1);
+                await Assert.That(codes.Count).IsEqualTo(2);
+                await Assert.That(newCode).IsNotEqualTo(oldCode);
+                await Assert.That(withOld.Errors.Single().Code).IsEqualTo(IdentityErrorCodes.CodeInvalid);
+                await Assert.That(events.Count(e => e.Type == Registered)).IsEqualTo(2);
+                await Assert.That(events.Last(e => e.Type == CodeIssued).Data.GetProperty("name").GetString()).IsEqualTo("Luz");
+            }
+        });
+    }
+
+    [Test]
+    public async Task The_password_of_the_newest_registration_is_the_one_that_stands()
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using var host = OwnersHost.Over(owner);
+            await host.RegisterAsync("ana@example.com");
+            await using var before = host.Context();
+            var oldHash = (await before.PasswordCredentials.AsNoTracking().SingleAsync()).Hash;
+
+            // Act
+            await host.RegisterAsync("ana@example.com", password: "another long password");
+
+            // Assert
+            await using var db = host.Context();
+            var credential = await db.PasswordCredentials.AsNoTracking().SingleAsync();
+            using (Assert.Multiple())
+            {
+                await Assert.That(credential.Hash).IsNotEqualTo(oldHash);
+                await Assert.That(credential.ChangedAt).IsEqualTo(Instant.FromDateTimeOffset(OwnersHost.Start));
+            }
+        });
+    }
+
+    [Test]
+    public async Task A_pending_owner_over_its_send_budget_keeps_what_it_had_and_the_answer_is_the_same()
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using var host = OwnersHost.Over(owner);
+            var first = await host.RegisterAsync("ana@example.com", given: "Ana");
+            for (var sends = 1; sends < 5; sends++)
+            {
+                await host.ResendAsync(first.Value.Id.ToString());
+            }
+
+            var codesBefore = (await host.OutboxAsync()).Count(e => e.Type == CodeIssued);
+
+            // Act
+            var again = await host.RegisterAsync("ana@example.com", given: "Mallory");
+
+            // Assert
+            await using var db = host.Context();
+            using (Assert.Multiple())
+            {
+                await Assert.That(codesBefore).IsEqualTo(5);
+                await Assert.That(again.IsSuccess).IsTrue();
+                await Assert.That(again.Value.Id).IsEqualTo(first.Value.Id);
+                await Assert.That((await db.Owners.AsNoTracking().SingleAsync()).GivenName).IsEqualTo("Ana");
+                await Assert.That((await host.OutboxAsync()).Count(e => e.Type == CodeIssued)).IsEqualTo(5);
+            }
+        });
+    }
+
+    [Test]
+    public async Task Two_registrations_racing_for_one_new_address_both_succeed_and_one_owner_and_one_code_are_written()
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange
+            var gate = new OwnersHost.RaceGate(2);
+            await using var host = OwnersHost.Over(owner, gate);
+
+            // Act
+            var results = await Task.WhenAll(
+                host.RegisterAsync("ana@example.com", given: "Ana"), host.RegisterAsync("ana@example.com", given: "Mallory"));
+
+            // Assert
+            await using var db = host.Context();
+            var events = await host.OutboxAsync();
+            var winner = await db.Principals.AsNoTracking().SingleAsync();
+            var verified = await host.VerifyAsync(winner.Id.ToString(), await host.LastCodeAsync());
+            using (Assert.Multiple())
+            {
+                await Assert.That(results.All(r => r.IsSuccess)).IsTrue();
+                await Assert.That(await db.Owners.CountAsync()).IsEqualTo(1);
+                await Assert.That(await db.EmailIdentifiers.CountAsync()).IsEqualTo(1);
+                await Assert.That(await db.PasswordCredentials.CountAsync()).IsEqualTo(1);
+                await Assert.That(await db.OneTimeCodes.CountAsync()).IsEqualTo(1);
+                await Assert.That(events.Count(e => e.Type == Registered)).IsEqualTo(1);
+                await Assert.That(events.Count(e => e.Type == CodeIssued)).IsEqualTo(1);
+                await Assert.That(verified.IsSuccess).IsTrue();
+            }
+        });
+    }
+
+    [Test]
+    public async Task Two_registrations_racing_to_replace_one_pending_owner_both_succeed_and_one_replacement_stands()
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using var seed = OwnersHost.Over(owner);
+            var first = await seed.RegisterAsync("ana@example.com", given: "Ana");
+            await using var host = OwnersHost.Over(owner, new OwnersHost.RaceGate(2));
+
+            // Act
+            var results = await Task.WhenAll(
+                host.RegisterAsync("ana@example.com", given: "Luz"), host.RegisterAsync("ana@example.com", given: "Mallory"));
+
+            // Assert
+            await using var db = host.Context();
+            var events = await host.OutboxAsync();
+            var codes = await db.OneTimeCodes.AsNoTracking().ToListAsync();
+            var replaced = await host.VerifyAsync(first.Value.Id.ToString(), await host.LastCodeAsync());
+            using (Assert.Multiple())
+            {
+                await Assert.That(results.All(r => r.IsSuccess)).IsTrue();
+                await Assert.That(results.Select(r => r.Value.Id).Distinct().Single()).IsEqualTo(first.Value.Id);
+                await Assert.That(events.Count(e => e.Type == Registered)).IsEqualTo(2);
+                await Assert.That(events.Count(e => e.Type == CodeIssued)).IsEqualTo(2);
+                await Assert.That(codes.Count(c => c.HoldsLiveSlot)).IsEqualTo(1);
+                await Assert.That(replaced.IsSuccess).IsTrue();
+            }
+        });
+    }
+}

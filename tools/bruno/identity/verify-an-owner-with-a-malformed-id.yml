@@ -1,0 +1,30 @@
+info:
+  name: Verify an owner with a malformed id (422)
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: "{{baseUrl}}/v1/identity/owners/not-an-id/verification"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      { "code": "000000" }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "422"
+    - expression: res.body.errors[0].code
+      operator: eq
+      value: '"identity.code.invalid"'
+
+settings:
+  encodeUrl: true
+
+docs: |-
+  A malformed id is an unknown one, so the same `422 identity.code.invalid`, not a `400` or `404`.

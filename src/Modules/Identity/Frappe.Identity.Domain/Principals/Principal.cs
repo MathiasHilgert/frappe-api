@@ -39,4 +39,7 @@ public sealed class Principal : AggregateRoot
     /// <summary>A principal of <paramref name="kind"/> in <paramref name="status"/>, with a fresh credential stamp.</summary>
     public static Principal Create(PrincipalKind kind, PrincipalStatus status, Instant now) =>
         new(Guid.CreateVersion7(), kind, status, Guid.CreateVersion7(), now);
+
+    /// <summary>The principal may authenticate from now on; one that is active already stays so.</summary>
+    public void Activate() => Status = PrincipalStatus.Active;
 }

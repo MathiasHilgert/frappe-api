@@ -12,8 +12,13 @@ docs:
     A Bearer token wins over the cookie, a cookie sent twice never authenticates, and every refusal is the same `401`
     `identity.session.invalid` with `WWW-Authenticate: Bearer`.
 
-    This collection holds no secret and creates no account, so it asserts what an anonymous caller sees; the requests that hold a session are
-    covered by the Api's integration tests, until the log-in route arrives:
+    The requests here assert what an anonymous caller sees; the ones that need the mailed code or a session are covered by the Api's
+    integration tests. Registering creates a pending owner with a new address on every run (it is purged after seven days):
+
+    - **Register an owner (201):** `POST /v1/identity/owners`; the same answer for a taken address.
+    - **Register with an invalid email or a link as name (400):** `identity.email.invalid`, `identity.name.invalid`.
+    - **Verify an owner that does not exist, or with a malformed id (422):** `identity.code.invalid`.
+    - **Resend a verification code (202):** always, whatever the id.
 
     - **Get the current session without one (401):** `GET /v1/identity/sessions/current` with no credential.
     - **Get the current session with a token nobody holds (401):** a well-formed token the Api never issued answers the same.

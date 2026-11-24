@@ -1,3 +1,10 @@
 {
+  "identity.attempts.unavailable": "No se pueden verificar códigos en este momento. Inténtalo de nuevo en un momento.",
+  "identity.code.invalid": "El código no es válido: es incorrecto, venció, ya se usó o lo reemplazó uno más nuevo, o no se envió a esta cuenta. Pide uno nuevo.",
+  "identity.email.invalid": "El email falta o no es una dirección válida.",
+  "identity.name.invalid": "El nombre necesita un nombre de pila y, junto con el apellido, tener como máximo 60 caracteres y ningún enlace (http, www. o ://).",
+  "identity.password.breached": "Esta contraseña aparece en una lista pública de contraseñas filtradas. Elige otra.",
+  "identity.password.too_long": "La contraseña es demasiado larga: puede tener como máximo {max} caracteres.",
+  "identity.password.too_short": "La contraseña es demasiado corta: necesita al menos {min} caracteres.",
   "identity.session.invalid": "La sesión falta, venció o fue revocada, o la solicitud envió dos veces su cookie de sesión. Inicia sesión de nuevo."
 }

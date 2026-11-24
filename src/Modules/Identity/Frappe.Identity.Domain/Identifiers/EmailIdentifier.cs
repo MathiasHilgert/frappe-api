@@ -46,4 +46,7 @@ public sealed class EmailIdentifier : AggregateRoot
         ArgumentException.ThrowIfNullOrWhiteSpace(normalizedAddress);
         return new EmailIdentifier(Guid.CreateVersion7(), principalId, address, normalizedAddress, verifiedAt);
     }
+
+    /// <summary>Records that the principal proved this address at <paramref name="now"/>; the first proof stands.</summary>
+    public void Verify(Instant now) => VerifiedAt ??= now;
 }
