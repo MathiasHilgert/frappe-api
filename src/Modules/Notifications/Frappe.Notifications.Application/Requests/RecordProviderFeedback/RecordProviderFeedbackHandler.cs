@@ -59,15 +59,17 @@ internal sealed class RecordProviderFeedbackHandler(
             return;
         }
 
-        foreach (var address in feedback.Addresses.Distinct(StringComparer.OrdinalIgnoreCase))
+        // One address spelled two ways hashes alike (the hasher normalizes), so the hash is the identity: dedupe on it, then ask once for all.
+        var addresses = feedback.Addresses
+            .Select(address => (Current: hasher.Hash(address), All: hasher.HashWithEveryKey(address)))
+            .DistinctBy(address => address.Current)
+            .ToList();
+        var suppressed = await suppressions.SuppressedAmongAsync(
+            feedback.Channel, [.. addresses.SelectMany(address => address.All)], cancellationToken);
+        foreach (var address in addresses.Where(address => !address.All.Any(suppressed.Contains)))
         {
-            if (await suppressions.IsSuppressedAsync(feedback.Channel, hasher.HashWithEveryKey(address), cancellationToken))
-            {
-                continue;
-            }
-
             suppressions.Stage(Suppression.Add(
-                feedback.Channel, hasher.Hash(address), reason, SuppressionSource.Webhook, now, feedback.Provider, feedback.EventId));
+                feedback.Channel, address.Current, reason, SuppressionSource.Webhook, now, feedback.Provider, feedback.EventId));
         }
     }
 

@@ -1,3 +1,5 @@
+using System.Globalization;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 
 namespace Frappe.Notifications.Channels.Email;
@@ -5,10 +7,15 @@ namespace Frappe.Notifications.Channels.Email;
 /// <summary>
 /// Fails the host's start, naming the key, when the chosen sender cannot work: Resend without its key, an unknown sender, a rate at or above
 /// the provider's limit or a total budget that does not cover one attempt (DES-04, CFG-01, CFG-09). It is hand-written because what is
-/// required depends on the sender chosen (CFG-03).
+/// required depends on the sender chosen (CFG-03). When the host's configuration also sets the dispatch consumer's
+/// <c>MaxHandlerDuration</c>, the total send budget must stay below it, or a send is cut by the consumer in the middle of its retries.
 /// </summary>
-public sealed class EmailOptionsValidator : IValidateOptions<EmailOptions>
+public sealed class EmailOptionsValidator(IConfiguration? configuration = null) : IValidateOptions<EmailOptions>
 {
+    /// <summary>The dispatch consumer's own handler limit, and the platform default it falls back to; each is checked when it is set.</summary>
+    private static readonly string[] MaxHandlerDurationKeys =
+        ["Notifications:Dispatch:Consumer:MaxHandlerDuration", "Messaging:Consumers:MaxHandlerDuration"];
+
     public ValidateOptionsResult Validate(string? name, EmailOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -28,7 +35,7 @@ public sealed class EmailOptionsValidator : IValidateOptions<EmailOptions>
         return failures.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(failures);
     }
 
-    private static void ValidateResend(EmailOptions options, List<string> failures)
+    private void ValidateResend(EmailOptions options, List<string> failures)
     {
         var resend = options.Resend;
         if (options.Sender == EmailSenderKind.Resend && string.IsNullOrWhiteSpace(resend.ApiKey))
@@ -43,6 +50,22 @@ public sealed class EmailOptionsValidator : IValidateOptions<EmailOptions>
         }
 
         ValidateBudgets(resend, failures);
+        ValidateAgainstConsumer(resend, failures);
+    }
+
+    private void ValidateAgainstConsumer(ResendOptions resend, List<string> failures)
+    {
+        foreach (var key in MaxHandlerDurationKeys)
+        {
+            if (configuration?[key] is { } text
+                && TimeSpan.TryParse(text, CultureInfo.InvariantCulture, out var limit)
+                && resend.TotalTimeout >= limit)
+            {
+                failures.Add(
+                    $"Configuration '{ResendOptions.Section}:TotalTimeout' must be shorter than '{key}' ({limit}), "
+                    + "or the consumer cuts a send in the middle of its retries.");
+            }
+        }
     }
 
     private static void ValidateBudgets(ResendOptions resend, List<string> failures)

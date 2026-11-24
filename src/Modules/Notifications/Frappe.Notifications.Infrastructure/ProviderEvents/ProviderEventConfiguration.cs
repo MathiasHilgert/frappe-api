@@ -20,6 +20,11 @@ internal sealed class ProviderEventConfiguration : IEntityTypeConfiguration<Prov
     public const string ParkedTogetherSql =
         "(provider_message_id IS NULL) = (feedback IS NULL) AND (feedback IS NULL) = (occurred_at IS NULL)";
 
+    /// <summary>An event that found its delivery was applied at once and is not parked, so it carries no message id to look for.</summary>
+    public const string ParkedUnmatched = "ck_provider_events_parked_unmatched";
+
+    public const string ParkedUnmatchedSql = "NOT matched OR provider_message_id IS NULL";
+
     /// <summary>The retention purge reads events older than a cutoff.</summary>
     public const string ReceivedAtIndex = "ix_provider_events_received_at";
 
@@ -37,6 +42,7 @@ internal sealed class ProviderEventConfiguration : IEntityTypeConfiguration<Prov
             table.HasCheckConstraint("ck_provider_events_provider", $"provider IN ({StoredEnum<DeliveryProvider>.CheckList})");
             table.HasCheckConstraint("ck_provider_events_feedback", $"feedback IN ({StoredEnum<DeliveryFeedback>.CheckList})");
             table.HasCheckConstraint(ParkedTogether, ParkedTogetherSql);
+            table.HasCheckConstraint(ParkedUnmatched, ParkedUnmatchedSql);
         });
         builder.HasKey(e => new { e.Provider, e.EventId }).HasName(PrimaryKey);
         builder.Property(e => e.Provider).HasColumnName("provider")

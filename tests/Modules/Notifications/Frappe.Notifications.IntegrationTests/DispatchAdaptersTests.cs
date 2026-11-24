@@ -1,3 +1,4 @@
+using System.Data.Common;
 using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Notifications.Domain.Preferences;
 using Frappe.Notifications.Domain.Suppressions;
@@ -5,6 +6,7 @@ using Frappe.Notifications.Infrastructure.Dispatching;
 using Frappe.Notifications.Infrastructure.Persistence;
 using Frappe.Persistence;
 using Frappe.Testing.Containers;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using NodaTime;
 
 namespace Frappe.Notifications.IntegrationTests;
@@ -88,6 +90,40 @@ public sealed class DispatchAdaptersTests(PostgresServer server)
     }
 
     [Test]
+    public async Task The_hashes_of_every_active_key_resolve_in_one_query_and_only_the_suppressed_ones_come_back()
+    {
+        await MigratedNotifications.RunAsync(server, async owner =>
+        {
+            // Arrange
+            var oldKey = new AddressHash(Enumerable.Repeat((byte)7, 32).ToArray(), 1);
+            var newKey = new AddressHash(Enumerable.Repeat((byte)8, 32).ToArray(), 2);
+            var clean = new AddressHash(Enumerable.Repeat((byte)9, 32).ToArray(), 2);
+            var sameBytesOtherKey = new AddressHash(oldKey.Value, 2);
+            await using (var seed = Context(owner))
+            {
+                seed.Suppressions.Add(Suppression.Add(Mail, oldKey, SuppressionReason.HardBounce, SuppressionSource.Webhook, Now));
+                seed.Suppressions.Add(Suppression.Add(Mail, newKey, SuppressionReason.Complaint, SuppressionSource.Webhook, Now));
+                await seed.SaveChangesAsync();
+            }
+
+            var queries = new QueryCounter();
+            await using var db = new NotificationsDbContext(
+                ModuleDatabase.Options<NotificationsDbContext>(owner, NotificationsDbContext.Schema, builder => builder.AddInterceptors(queries)));
+            var store = new EfSuppressionStore(db);
+
+            // Act
+            var suppressed = await store.SuppressedAmongAsync(Mail, [oldKey, newKey, clean, sameBytesOtherKey], CancellationToken.None);
+
+            // Assert
+            using (Assert.Multiple())
+            {
+                await Assert.That(suppressed).IsEquivalentTo([oldKey, newKey]);
+                await Assert.That(queries.Count).IsEqualTo(1);
+            }
+        });
+    }
+
+    [Test]
     public async Task A_preference_matches_by_recipient_key_and_category()
     {
         await MigratedNotifications.RunAsync(server, async owner =>
@@ -115,5 +151,18 @@ public sealed class DispatchAdaptersTests(PostgresServer server)
                 await Assert.That(otherRecipient).IsFalse();
             }
         });
+    }
+
+    /// <summary>Counts the queries a context sends.</summary>
+    private sealed class QueryCounter : DbCommandInterceptor
+    {
+        public int Count { get; private set; }
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
+        {
+            Count++;
+            return base.ReaderExecutingAsync(command, eventData, result, cancellationToken);
+        }
     }
 }

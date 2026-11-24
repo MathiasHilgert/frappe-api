@@ -50,3 +50,183 @@ groups:
             failure codes of one hour: SELECT failure_reason, kind, count(*) FROM notifications.deliveries WHERE status = 'failed' AND
             created_at > now() - interval '1 hour' GROUP BY 1, 2 ORDER BY 3 DESC;
         labels: { module: notifications, severity: page }
+
+      # The provider refused the email for good (4xx other than 401, 403 and the idempotency 409) over everything it answered in 15 minutes.
+
+      - uid: frappe-notifications-provider-rejected-ratio
+        title: Email provider rejected above 10%
+        condition: C
+        for: 10m
+        noDataState: OK
+        execErrState: OK
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: mimir
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                (sum(increase(frappe_notifications_provider_requests_total{frappe_outcome="rejected"}[15m]) or frappe_notifications_provider_requests_total{frappe_outcome="rejected"} unless frappe_notifications_provider_requests_total{frappe_outcome="rejected"} offset 15m) or vector(0)) / ((sum(increase(frappe_notifications_provider_requests_total{frappe_outcome=~"sent|rejected"}[15m]) or frappe_notifications_provider_requests_total{frappe_outcome=~"sent|rejected"} unless frappe_notifications_provider_requests_total{frappe_outcome=~"sent|rejected"} offset 15m) or vector(0)) >= 20)
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0.1] }
+        annotations:
+          summary: More than 10% of the email provider's answers were permanent rejections in the last 15 minutes.
+          description: >-
+            Resend refused at least 10% of the sends of the last 15 minutes with a 4xx that retrying cannot fix, with at least 20 answers. Each of them is recorded as a failed delivery with the reason provider_rejected.
+          runbook: >-
+            Read the Worker's logs for `Resend refused the email for good` (they carry the status and Resend's error name, never an address). validation_error or invalid_parameter after a deploy means a kind renders an email Resend refuses: roll the kind back or fix its template. A recipient domain Resend rejects is not an incident. The failures of one hour: SELECT kind, count(*) FROM notifications.deliveries WHERE status = 'failed' AND failure_reason = 'provider_rejected' AND created_at > now() - interval '1 hour' GROUP BY 1 ORDER BY 2 DESC;
+        labels: { module: notifications, severity: page }
+
+      # The provider could not be reached or answered 429, 5xx or a timeout: the message is redelivered, so a short blip is expected and a long one is not.
+
+      - uid: frappe-notifications-provider-transient-sustained
+        title: Email provider transient failures sustained
+        condition: C
+        for: 15m
+        noDataState: OK
+        execErrState: OK
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: mimir
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                (sum(increase(frappe_notifications_provider_requests_total{frappe_outcome="transient"}[15m]) or frappe_notifications_provider_requests_total{frappe_outcome="transient"} unless frappe_notifications_provider_requests_total{frappe_outcome="transient"} offset 15m) or vector(0))
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [4] }
+        annotations:
+          summary: The email provider has failed transiently more than 4 times in each of the last 15 minutes.
+          description: >-
+            Resend answered 429, 5xx or a timeout, or could not be reached (network fault, open circuit, rate limiter), more than 4 times in 15 minutes for 15 minutes in a row. Every such message is redelivered with its idempotency key, so nothing is lost yet, but the dispatch consumer is slowed and its messages will dead-letter once their attempts run out.
+          runbook: >-
+            Check status.resend.com and the Worker's logs for `Resend could not be reached` and `the send will be retried`. A 429 means the rate limit is too high: lower Notifications:Email:Resend:RequestsPerSecond. A network or timeout fault points at the Worker's egress. When it ends, the consumer drains by itself; messages that dead-lettered are replayed from the notifications dead-letter stream once the provider answers.
+        labels: { module: notifications, severity: page }
+
+      # Any 409 invalid_idempotent_request: one key reached Resend with two bodies, which deterministic rendering must make impossible.
+
+      - uid: frappe-notifications-idempotency-conflict
+        title: Email provider idempotency conflict
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: OK
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: mimir
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                (sum(increase(frappe_notifications_provider_requests_total{frappe_outcome="idempotency_conflict"}[15m]) or frappe_notifications_provider_requests_total{frappe_outcome="idempotency_conflict"} unless frappe_notifications_provider_requests_total{frappe_outcome="idempotency_conflict"} offset 15m) or vector(0))
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        annotations:
+          summary: Resend refused an idempotency key that arrived with a different body.
+          description: >-
+            At least one send in the last 15 minutes reached Resend with an idempotency key it had seen with another body (409 invalid_idempotent_request). It is a bug, not a verdict on the recipient: the delivery is not recorded and the message is redelivered, then dead-lettered.
+          runbook: >-
+            Read the Worker's log entry `one idempotency key reached it with two different bodies`. The key derives from the source message, kind, recipient and channel, so look for a kind whose rendering varies between attempts (a timestamp, a random token, a language that changed between retries). Fix the kind, deploy, then replay the dead-lettered messages of the notifications consumers.
+        labels: { module: notifications, severity: page }
+
+      # 401 or 403: the API key is missing, revoked or not allowed to send, so every send fails until an operator fixes the configuration.
+
+      - uid: frappe-notifications-provider-unauthorized
+        title: Email provider refused the API key
+        condition: C
+        for: 0s
+        noDataState: OK
+        execErrState: OK
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: mimir
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                (sum(increase(frappe_notifications_provider_requests_total{frappe_outcome="unauthorized"}[15m]) or frappe_notifications_provider_requests_total{frappe_outcome="unauthorized"} unless frappe_notifications_provider_requests_total{frappe_outcome="unauthorized"} offset 15m) or vector(0))
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        annotations:
+          summary: Resend refused the API key (401 or 403).
+          description: >-
+            At least one send in the last 15 minutes got a 401 or 403 from Resend. It is a configuration fault, not a verdict on the recipient: the delivery is not recorded as failed and the message is redelivered, then dead-lettered.
+          runbook: >-
+            Check Notifications:Email:Resend:ApiKey of the Worker against the key in the Resend dashboard (revoked, restricted to another domain, or a sandbox key sending to a third party). Rotate it in the secret store, restart the Worker, then replay the dead-lettered messages of the notifications consumers. The log entry is `the API key is missing, wrong or not allowed to send`.
+        labels: { module: notifications, severity: page }
+
+      # The nightly purge runs at 04:00 UTC. With the series present, no succeeded run in 26 hours means it failed or the job stopped.
+
+      - uid: frappe-notifications-purge-missing
+        title: Notifications purge has not succeeded in 26 hours
+        condition: C
+        for: 10m
+        noDataState: OK
+        execErrState: OK
+        data:
+          - refId: A
+            relativeTimeRange: { from: 93600, to: 0 }
+            datasourceUid: mimir
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                (sum((increase(frappe_notifications_purge_runs_total{frappe_outcome="succeeded"}[26h]) > 0) or (frappe_notifications_purge_runs_total{frappe_outcome="succeeded"} unless frappe_notifications_purge_runs_total{frappe_outcome="succeeded"} offset 26h)) or vector(0)) < bool 1 and on() sum(frappe_notifications_purge_runs_total)
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        annotations:
+          summary: The Notifications nightly purge has not succeeded in the last 26 hours.
+          description: >-
+            No run of the 04:00 UTC purge ended as succeeded in 26 hours, while the Worker has reported runs. Either the purge keeps failing or the scheduler stopped firing the job. Old deliveries, provider events and send requests pile up until it runs.
+          runbook: >-
+            Open the Notifications dashboard (row Provider and retention) to see failed runs. Read the Worker's logs for `Purged` and for the job `notifications.purge`. A failed run names the first error: a missing grant or a lock timeout on notifications.deliveries. Check the scheduler: SELECT job_name, next_fire_time FROM quartz.qrtz_triggers WHERE job_group = 'notifications'; Fix the cause and run the job once from the scheduler, or wait for 04:00 UTC.
+        labels: { module: notifications, severity: warn }

@@ -1,6 +1,7 @@
 using System.Reflection;
 using Frappe.IntegrationEvents;
 using Frappe.Messaging.Abstractions;
+using Frappe.Notifications.Application.Dispatching;
 using Frappe.Notifications.Application.Producers;
 using Frappe.Notifications.Infrastructure.Messaging;
 using Frappe.Notifications.Infrastructure.Persistence;
@@ -55,12 +56,14 @@ public static class NotificationProducerRegistration
             services.TryAddScoped<CurrentMessage>();
             services.TryAddScoped<CatalogDispatch>();
             services.TryAddScoped<ParkedFeedbackApplier>();
+            services.TryAddScoped<PendingDeliveries>();
             services.AddScoped<INotificationProducer<TEvent>, TMapper>();
             return services
                 .AddIntegrationEventConsumer<NotificationsDbContext, TEvent>(
                     ProducerModuleOf<TEvent>(), consumerName, section ?? DefaultSection(consumerName))
                 .AddBeforeClaimHandler<TEvent, DispatchProducedNotifications<TEvent>>(consumerName)
-                .AddIntegrationEventHandler<TEvent, ApplyParkedFeedbackFor<TEvent>>(consumerName);
+                .AddIntegrationEventHandler<TEvent, ApplyParkedFeedbackFor<TEvent>>(consumerName)
+                .AddAfterCommitHandler<TEvent, CountDeliveriesAfterCommit<TEvent>>(consumerName);
         }
     }
 

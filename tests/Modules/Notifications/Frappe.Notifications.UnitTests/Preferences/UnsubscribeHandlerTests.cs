@@ -63,6 +63,27 @@ public sealed class UnsubscribeHandlerTests
     }
 
     [Test]
+    public async Task A_link_signed_with_a_retired_key_for_a_recipient_already_opted_out_stages_nothing()
+    {
+        // Arrange
+        var link = TestUnsubscribeTokens.Create().Issue(Ana, NotificationCategory.Marketing);
+        var rotated = TestUnsubscribeTokens.Create(current: 2, TestUnsubscribeTokens.KeyTwo, (1, TestUnsubscribeTokens.KeyOne));
+        var (handler, preferences) = Build(rotated);
+        preferences.OptedOut.Add(Ana.Value);
+
+        // Act
+        var result = await handler.HandleAsync(new Unsubscribe(link), CancellationToken.None);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(result.IsSuccess).IsTrue();
+            await Assert.That(preferences.Staged).IsEmpty();
+            await Assert.That(preferences.Probed.Single().Select(key => key.Value)).IsEquivalentTo([Ana.Value]);
+        }
+    }
+
+    [Test]
     [Arguments(null)]
     [Arguments("")]
     [Arguments("1.AAAA.BBBB")]

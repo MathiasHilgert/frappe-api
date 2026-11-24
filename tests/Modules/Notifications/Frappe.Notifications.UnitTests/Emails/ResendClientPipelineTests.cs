@@ -100,7 +100,7 @@ public sealed class ResendClientPipelineTests
     }
 
     [Test]
-    public async Task A_provider_that_never_answers_is_cut_by_the_attempt_budget_and_throws()
+    public async Task A_provider_that_never_answers_is_cut_by_the_attempt_budget_and_throws_transient()
     {
         // Arrange
         using var handler = new StubHandler().Hang();
@@ -112,7 +112,9 @@ public sealed class ResendClientPipelineTests
         });
 
         // Act and assert
-        await Assert.ThrowsAsync<TimeoutRejectedException>(() => provider.GetRequiredService<ResendEmailSender>().SendAsync(Email(), default));
+        var thrown = await Assert.ThrowsAsync<TransientEmailFailureException>(
+            () => provider.GetRequiredService<ResendEmailSender>().SendAsync(Email(), default));
+        await Assert.That(thrown!.InnerException).IsTypeOf<TimeoutRejectedException>();
     }
 
     [Test]

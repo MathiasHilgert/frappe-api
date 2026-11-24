@@ -17,7 +17,7 @@ partial class NotificationsDbContextModelSnapshot : ModelSnapshot
     // If you encounter a merge conflict in the line below, it means you need to
     // discard one of the migration branches and recreate its migrations on top of
     // the other branch. See https://aka.ms/efcore-docs-migrations-conflicts for more info.
-    public override string LastMigrationId => "20261124023635_TrackDeliveryFeedback";
+    public override string LastMigrationId => "20261124122819_EnforceDeliveryInvariants";
 
     protected override void BuildModel(ModelBuilder modelBuilder)
     {
@@ -160,7 +160,8 @@ partial class NotificationsDbContextModelSnapshot : ModelSnapshot
 
                 b.Property<byte[]>("AddressHash")
                     .HasColumnType("bytea")
-                    .HasColumnName("address_hash");
+                    .HasColumnName("address_hash")
+                    .HasComment("DATA-12 copy: the hash part of recipient_key (addr:<key id>:<hex>) for an address recipient; written with it, never updated.");
 
                 b.Property<string>("Category")
                     .IsRequired()
@@ -189,7 +190,8 @@ partial class NotificationsDbContextModelSnapshot : ModelSnapshot
 
                 b.Property<short?>("HashKeyId")
                     .HasColumnType("smallint")
-                    .HasColumnName("hash_key_id");
+                    .HasColumnName("hash_key_id")
+                    .HasComment("DATA-12 copy: the key id part of recipient_key (addr:<key id>:<hex>) for an address recipient; written with it, never updated.");
 
                 b.Property<string>("Kind")
                     .IsRequired()
@@ -281,7 +283,11 @@ partial class NotificationsDbContextModelSnapshot : ModelSnapshot
 
                         t.HasCheckConstraint("ck_deliveries_sent_like", "status NOT IN ('sent', 'delivered', 'delayed', 'bounced', 'complained') OR (provider_message_id IS NOT NULL AND sent_at IS NOT NULL)");
 
+                        t.HasCheckConstraint("ck_deliveries_sent_like_hash", "status NOT IN ('sent', 'delivered', 'delayed', 'bounced', 'complained') OR address_hash IS NOT NULL");
+
                         t.HasCheckConstraint("ck_deliveries_status", "status IN ('sent', 'delivered', 'delayed', 'bounced', 'complained', 'failed', 'unresolved')");
+
+                        t.HasCheckConstraint("ck_deliveries_status_delivered_at", "status <> 'delivered' OR delivered_at IS NOT NULL");
                     });
             });
 
@@ -361,6 +367,8 @@ partial class NotificationsDbContextModelSnapshot : ModelSnapshot
                         t.HasCheckConstraint("ck_provider_events_feedback", "feedback IN ('delivered', 'permanent_failure', 'complaint', 'delayed', 'suppressed_by_provider')");
 
                         t.HasCheckConstraint("ck_provider_events_parked_together", "(provider_message_id IS NULL) = (feedback IS NULL) AND (feedback IS NULL) = (occurred_at IS NULL)");
+
+                        t.HasCheckConstraint("ck_provider_events_parked_unmatched", "NOT matched OR provider_message_id IS NULL");
 
                         t.HasCheckConstraint("ck_provider_events_provider", "provider IN ('resend')");
                     });

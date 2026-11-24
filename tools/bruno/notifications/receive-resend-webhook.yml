@@ -22,8 +22,9 @@ runtime:
         const CryptoJS = require('crypto-js');
         const id = 'msg_bruno_' + Date.now();
         const timestamp = Math.floor(Date.now() / 1000).toString();
-        // The body is sent exactly as written (a text body), already compact, so serializing the parsed object gives the same bytes: keep it compact.
-        const body = JSON.stringify(req.getBody());
+        // A text body goes out byte for byte as written, so the signature covers that raw string (serialized only if Bruno hands it over parsed).
+        const raw = req.getBody();
+        const body = typeof raw === 'string' ? raw : JSON.stringify(raw);
         const secret = bru.getEnvVar('webhookSecret').replace(/^whsec_/, '');
         const signature = CryptoJS.HmacSHA256(`${id}.${timestamp}.${body}`, CryptoJS.enc.Base64.parse(secret));
         req.setHeader('svix-id', id);

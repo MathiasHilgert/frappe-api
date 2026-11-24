@@ -1,4 +1,5 @@
 using Frappe.Notifications.Application.Feedback;
+using Frappe.Notifications.Application.Ports;
 using Frappe.Notifications.Application.Requests.RecordProviderFeedback;
 using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Notifications.Domain.ProviderEvents;
@@ -42,8 +43,12 @@ public sealed class RecordProviderFeedbackTests
 
         public Task<Frappe.Results.Result<Frappe.Results.Unit>> RecordAsync(
             DeliveryFeedback feedback, string eventId = "evt_1", string? messageId = MessageId, params string[] addresses)
+            => RecordAsync(feedback, TestHasher.Create(), eventId, messageId, addresses);
+
+        public Task<Frappe.Results.Result<Frappe.Results.Unit>> RecordAsync(
+            DeliveryFeedback feedback, IAddressHasher hasher, string eventId = "evt_1", string? messageId = MessageId, params string[] addresses)
         {
-            var handler = new RecordProviderFeedbackHandler(Events, Deliveries, Suppressions, TestHasher.Create(), new Clock());
+            var handler = new RecordProviderFeedbackHandler(Events, Deliveries, Suppressions, hasher, new Clock());
             var provider = new ProviderFeedback(
                 DeliveryProvider.Resend, eventId, messageId, feedback, Now, Email, addresses.Length == 0 ? ["ana@example.com"] : addresses);
             return handler.HandleAsync(new RecordProviderFeedback(provider), CancellationToken.None);
@@ -218,5 +223,40 @@ public sealed class RecordProviderFeedbackTests
             await Assert.That(recorded.Feedback).IsNull();
             await Assert.That(world.Suppressions.Staged).HasSingleItem();
         }
+    }
+
+    [Test]
+    public async Task Spellings_of_one_address_are_suppressed_once_and_every_address_is_looked_up_in_one_batch()
+    {
+        // Arrange
+        var world = new World();
+
+        // Act
+        await world.RecordAsync(
+            DeliveryFeedback.Complaint, "evt_1", MessageId, " Ana@Example.com", "ana@example.com ", "ANA@EXAMPLE.COM", "bea@example.com");
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(world.Suppressions.Staged).Count().IsEqualTo(2);
+            await Assert.That(world.Suppressions.Staged.Select(s => s.AddressHash.Length)).IsEquivalentTo([32, 32]);
+            await Assert.That(world.Suppressions.Lookups).Count().IsEqualTo(1);
+            await Assert.That(world.Suppressions.Lookups.Single()).Count().IsEqualTo(2);
+        }
+    }
+
+    [Test]
+    public async Task An_address_suppressed_under_an_older_key_is_not_suppressed_again_under_the_new_one()
+    {
+        // Arrange
+        var world = new World();
+        var rotated = TestHasher.Create(current: 2, (2, Convert.ToBase64String(Enumerable.Repeat((byte)2, 32).ToArray())));
+        world.Suppressions.Suppressed.Add(rotated.HashWithEveryKey("ana@example.com").Single(hash => hash.KeyId == 1));
+
+        // Act
+        await world.RecordAsync(DeliveryFeedback.Complaint, hasher: rotated);
+
+        // Assert
+        await Assert.That(world.Suppressions.Staged).IsEmpty();
     }
 }

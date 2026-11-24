@@ -5,6 +5,9 @@ using Frappe.Notifications.Application.Channels;
 using Frappe.Notifications.Domain.Deliveries;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Polly.CircuitBreaker;
+using Polly.RateLimiting;
+using Polly.Timeout;
 
 namespace Frappe.Notifications.Channels.Email;
 
@@ -12,7 +15,10 @@ namespace Frappe.Notifications.Channels.Email;
 /// Takes a rendered email to Resend (<c>POST /emails</c>) with the delivery's idempotency key (S14). The client already retries,
 /// rate-limits and times out (see <see cref="EmailSenderRegistration"/>); this class only tells the answers apart: a 2xx is sent; a 429,
 /// 5xx or 408, and the 409 <c>concurrent_idempotent_requests</c>, throw <see cref="TransientEmailFailureException"/> so the message is
-/// redelivered; the 409 <c>invalid_idempotent_request</c> throws <see cref="EmailIdempotencyConflictException"/> and is alerted on; any other
+/// redelivered; the 409 <c>invalid_idempotent_request</c> throws <see cref="EmailIdempotencyConflictException"/> and is alerted on; a 401 or 403
+/// (the key)
+/// throws <see cref="EmailProviderConfigurationException"/>, a configuration fault and never a verdict on the recipient; a network fault,
+/// timeout, open circuit or refused rate-limiter lease is counted transient and thrown as <see cref="TransientEmailFailureException"/>; any other
 /// 4xx is a permanent <see cref="DeliveryFailureReason.ProviderRejected"/>. It logs the status and Resend's error name, never a body, an
 /// address or the key (S13, CFG-10).
 /// </summary>
@@ -55,7 +61,7 @@ public sealed partial class ResendEmailSender(
         using var request = new HttpRequestMessage(HttpMethod.Post, "emails") { Content = JsonContent.Create(body, options: Json) };
         request.Headers.TryAddWithoutValidation("Idempotency-Key", email.IdempotencyKey);
 
-        using var response = await client.SendAsync(request, cancellationToken);
+        using var response = await SendOrThrowTransientAsync(request, cancellationToken);
         if (response.IsSuccessStatusCode)
         {
             return await SentAsync(response, cancellationToken);
@@ -70,6 +76,13 @@ public sealed partial class ResendEmailSender(
             throw new EmailIdempotencyConflictException($"Resend refused the idempotency key with {status} {InvalidConflict}.");
         }
 
+        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        {
+            metrics.Unauthorized(Provider);
+            LogUnauthorized(logger, status, name ?? "unknown");
+            throw new EmailProviderConfigurationException($"Resend refused the API key with {status} {name}.");
+        }
+
         if (IsTransient(response.StatusCode, name))
         {
             metrics.Transient(Provider);
@@ -80,6 +93,27 @@ public sealed partial class ResendEmailSender(
         metrics.Rejected(Provider);
         LogRejected(logger, status, name ?? "unknown");
         return new ChannelOutcome.Failed(DeliveryFailureReason.ProviderRejected);
+    }
+
+    /// <summary>
+    /// Calls the provider; a network fault, a timeout, an open circuit or a refused rate-limiter lease is counted as transient and rethrown as
+    /// <see cref="TransientEmailFailureException"/>, so the message is redelivered. A cancellation the caller asked for passes through.
+    /// </summary>
+    private async Task<HttpResponseMessage> SendOrThrowTransientAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await client.SendAsync(request, cancellationToken);
+        }
+        catch (Exception exception) when (!cancellationToken.IsCancellationRequested
+            && exception is HttpRequestException or TaskCanceledException or TimeoutRejectedException or BrokenCircuitException
+                or RateLimiterRejectedException)
+        {
+            metrics.Transient(Provider);
+            LogUnreachable(logger, exception.GetType().Name);
+            throw new TransientEmailFailureException(
+                $"Resend could not be reached ({exception.GetType().Name}): the send will be retried.", exception);
+        }
     }
 
     private static bool IsTransient(HttpStatusCode status, string? name) =>
@@ -125,6 +159,12 @@ public sealed partial class ResendEmailSender(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Resend answered {Status} {Error}; the send will be retried")]
     private static partial void LogTransient(ILogger logger, int status, string error);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Resend answered {Status} {Error}: the API key is missing, wrong or not allowed to send")]
+    private static partial void LogUnauthorized(ILogger logger, int status, string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Resend could not be reached ({Failure}); the send will be retried")]
+    private static partial void LogUnreachable(ILogger logger, string failure);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Resend refused the email for good with {Status} {Error}")]
     private static partial void LogRejected(ILogger logger, int status, string error);

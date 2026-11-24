@@ -28,7 +28,7 @@ public sealed class NotificationsMetricsTests
         _ = new NotificationsMetrics(factory);
 
         // Assert
-        var counter = published.Single();
+        var counter = published.Single(instrument => instrument.Name == "frappe.notifications.deliveries");
         using (Assert.Multiple())
         {
             await Assert.That(counter.Meter.Name).IsEqualTo("Frappe.Notifications");

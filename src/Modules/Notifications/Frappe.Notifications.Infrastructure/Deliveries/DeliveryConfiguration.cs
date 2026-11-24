@@ -41,6 +41,14 @@ internal sealed class DeliveryConfiguration : IEntityTypeConfiguration<Delivery>
     /// <summary>A status the provider reports on needs the provider's message id and the instant it was sent.</summary>
     public const string SentLike = "ck_deliveries_sent_like";
 
+    /// <summary>A status the provider reports on was reached by sending to an address, so the address hash it was made for is recorded.</summary>
+    public const string SentLikeHash = "ck_deliveries_sent_like_hash";
+
+    /// <summary>A delivered delivery has the instant it was delivered.</summary>
+    public const string DeliveredAt = "ck_deliveries_status_delivered_at";
+
+    public const string DeliveredAtSql = "status <> 'delivered' OR delivered_at IS NOT NULL";
+
     /// <summary>A delivery is failed exactly when it has a failure reason.</summary>
     public const string FailedHasReason = "ck_deliveries_failed_reason";
 
@@ -71,9 +79,12 @@ internal sealed class DeliveryConfiguration : IEntityTypeConfiguration<Delivery>
     private static readonly DeliveryStatus[] SentLikeStatuses =
         [DeliveryStatus.Sent, DeliveryStatus.Delivered, DeliveryStatus.Delayed, DeliveryStatus.Bounced, DeliveryStatus.Complained];
 
-    public static string SentLikeSql { get; } =
-        $"status NOT IN ({string.Join(", ", SentLikeStatuses.Select(status => $"'{StoredEnum<DeliveryStatus>.ToText(status)}'"))}) "
-        + "OR (provider_message_id IS NOT NULL AND sent_at IS NOT NULL)";
+    private static readonly string NotSentLike =
+        $"status NOT IN ({string.Join(", ", SentLikeStatuses.Select(status => $"'{StoredEnum<DeliveryStatus>.ToText(status)}'"))})";
+
+    public static string SentLikeSql { get; } = NotSentLike + " OR (provider_message_id IS NOT NULL AND sent_at IS NOT NULL)";
+
+    public static string SentLikeHashSql { get; } = NotSentLike + " OR address_hash IS NOT NULL";
 
     public void Configure(EntityTypeBuilder<Delivery> builder)
     {
@@ -89,6 +100,8 @@ internal sealed class DeliveryConfiguration : IEntityTypeConfiguration<Delivery>
             table.HasCheckConstraint("ck_deliveries_provider", $"provider IN ({StoredEnum<DeliveryProvider>.CheckList})");
             table.HasCheckConstraint(ProviderPair, ProviderPairSql);
             table.HasCheckConstraint(SentLike, SentLikeSql);
+            table.HasCheckConstraint(SentLikeHash, SentLikeHashSql);
+            table.HasCheckConstraint(DeliveredAt, DeliveredAtSql);
             table.HasCheckConstraint(FailedHasReason, FailedHasReasonSql);
         });
         builder.HasKey(d => d.Id).HasName(PrimaryKey);
@@ -104,8 +117,15 @@ internal sealed class DeliveryConfiguration : IEntityTypeConfiguration<Delivery>
             .HasConversion(StoredEnum<NotificationCategory>.Converter).HasMaxLength(StoredEnum<NotificationCategory>.MaxLength);
         builder.Property(d => d.Channel).HasColumnName("channel").HasMaxLength(30);
         builder.Property(d => d.RecipientKey).HasColumnName("recipient_key").HasMaxLength(150);
-        builder.Property(d => d.AddressHash).HasColumnName("address_hash");
-        builder.Property(d => d.HashKeyId).HasColumnName("hash_key_id");
+
+        // A copy on purpose (DATA-12): for an address recipient these are the parts of recipient_key (addr:<key id>:<hex hash>), kept as typed
+        // columns so a rotation can find a row by hash and key id without parsing text. The dispatcher writes both from the same AddressHash.
+        builder.Property(d => d.AddressHash).HasColumnName("address_hash")
+            .HasComment(
+                "DATA-12 copy: the hash part of recipient_key (addr:<key id>:<hex>) for an address recipient; written with it, never updated.");
+        builder.Property(d => d.HashKeyId).HasColumnName("hash_key_id")
+            .HasComment(
+                "DATA-12 copy: the key id part of recipient_key (addr:<key id>:<hex>) for an address recipient; written with it, never updated.");
         builder.Property(d => d.LocaleServed).HasColumnName("locale_served");
         builder.Property(d => d.Status).HasColumnName("status")
             .HasConversion(StoredEnum<DeliveryStatus>.Converter).HasMaxLength(StoredEnum<DeliveryStatus>.MaxLength);

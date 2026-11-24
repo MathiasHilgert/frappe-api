@@ -1,3 +1,4 @@
+using Frappe.Notifications.Application.Dispatching;
 using Frappe.Notifications.Infrastructure.Deliveries;
 using Frappe.Notifications.Infrastructure.Persistence;
 using Frappe.Notifications.Infrastructure.ProviderEvents;
@@ -16,10 +17,15 @@ namespace Frappe.Notifications.Infrastructure.Retention;
 /// <c>received_at</c>, and send requests older than <see cref="NotificationsPurgeOptions.SendRequestDays"/> by
 /// <c>requested_at</c>. Rows go in
 /// batches of <see cref="NotificationsPurgeOptions.BatchSize"/>, each its own short statement, so the purge never holds many locks for long;
-/// running it twice at once only makes the second find less. Suppressions and preferences are never touched.
+/// running it twice at once only makes the second find less. It counts the rows of each table on
+/// <see cref="NotificationsMetrics"/>. Suppressions and preferences are never touched.
 /// </summary>
 internal sealed partial class NotificationsPurger(
-    IServiceScopeFactory scopes, IOptions<NotificationsPurgeOptions> options, TimeProvider time, ILogger<NotificationsPurger> logger)
+    IServiceScopeFactory scopes,
+    IOptions<NotificationsPurgeOptions> options,
+    TimeProvider time,
+    NotificationsMetrics metrics,
+    ILogger<NotificationsPurger> logger)
 {
     // Parameters: the cutoff and the batch; the table and its age column are constants. Deliveries are picked by their physical row identity.
     private const string DeliveriesSql = "DELETE FROM notifications.deliveries WHERE ctid IN "
@@ -66,6 +72,7 @@ internal sealed partial class NotificationsPurger(
         }
         while (deleted >= batchSize);
 
+        metrics.Purged(table, total);
         LogPurged(logger, total, table, cutoff);
         return total;
     }

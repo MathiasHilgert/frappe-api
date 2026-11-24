@@ -20,6 +20,9 @@ public sealed class DashboardProvisioningTests
         yield return Prometheus(ProviderFeedbackMetrics.SuppressionsMetric) + "_total";
         yield return Prometheus(PreferenceMetrics.UnsubscribesMetric) + "_total";
         yield return Prometheus(ProviderFeedbackMetrics.TimeToDeliveredMetric) + "_seconds_bucket";
+        yield return Prometheus(NotificationsMetrics.PurgedMetric) + "_total";
+        yield return Prometheus(NotificationsMetrics.PurgeRunsMetric) + "_total";
+        yield return Prometheus("frappe.notifications.provider_requests") + "_total";
     }
 
     private static string Prometheus(string otel) => otel.Replace('.', '_');

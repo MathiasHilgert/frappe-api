@@ -45,6 +45,10 @@ public sealed class UnsubscribeTests(PostgresServer server)
         var step = ActivatorUtilities.CreateInstance<DispatchNotificationRequested>(scope.ServiceProvider);
         await step.HandleAsync(new NotificationRequested(Guid.CreateVersion7(), kind, payload), CancellationToken.None);
         await scope.ServiceProvider.GetRequiredService<NotificationsDbContext>().SaveChangesAsync();
+
+        // The consumer's after-commit step: only now are the deliveries counted.
+        scope.ServiceProvider.GetRequiredService<PendingDeliveries>().MarkClaimed();
+        scope.ServiceProvider.GetRequiredService<PendingDeliveries>().CountIfClaimed();
     }
 
     private static async Task<Result<Unit>> UnsubscribeAsync(DispatchWorld api, string? token)

@@ -92,6 +92,7 @@ public sealed class NotificationsModule : IModule
         services.AddScoped<ChannelSelection>();
         services.AddScoped<SuppressionGate>();
         services.AddScoped<DeliveryRecorder>();
+        services.AddScoped<PendingDeliveries>();
         services.AddScoped<NotificationDispatcher>();
     }
 }

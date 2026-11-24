@@ -36,8 +36,14 @@ CREATE TABLE notifications.deliveries (
     CONSTRAINT ck_deliveries_provider_pair CHECK (((provider IS NULL) = (provider_message_id IS NULL))),
     CONSTRAINT ck_deliveries_recipient_key_format CHECK (((recipient_key)::text ~ '^(ref:[a-z_]+:.+|addr:[0-9]+:[0-9a-f]{64})$'::text)),
     CONSTRAINT ck_deliveries_sent_like CHECK ((((status)::text <> ALL ((ARRAY['sent'::character varying, 'delivered'::character varying, 'delayed'::character varying, 'bounced'::character varying, 'complained'::character varying])::text[])) OR ((provider_message_id IS NOT NULL) AND (sent_at IS NOT NULL)))),
-    CONSTRAINT ck_deliveries_status CHECK (((status)::text = ANY ((ARRAY['sent'::character varying, 'delivered'::character varying, 'delayed'::character varying, 'bounced'::character varying, 'complained'::character varying, 'failed'::character varying, 'unresolved'::character varying])::text[])))
+    CONSTRAINT ck_deliveries_sent_like_hash CHECK ((((status)::text <> ALL ((ARRAY['sent'::character varying, 'delivered'::character varying, 'delayed'::character varying, 'bounced'::character varying, 'complained'::character varying])::text[])) OR (address_hash IS NOT NULL))),
+    CONSTRAINT ck_deliveries_status CHECK (((status)::text = ANY ((ARRAY['sent'::character varying, 'delivered'::character varying, 'delayed'::character varying, 'bounced'::character varying, 'complained'::character varying, 'failed'::character varying, 'unresolved'::character varying])::text[]))),
+    CONSTRAINT ck_deliveries_status_delivered_at CHECK ((((status)::text <> 'delivered'::text) OR (delivered_at IS NOT NULL)))
 );
+
+COMMENT ON COLUMN notifications.deliveries.address_hash IS 'DATA-12 copy: the hash part of recipient_key (addr:<key id>:<hex>) for an address recipient; written with it, never updated.';
+
+COMMENT ON COLUMN notifications.deliveries.hash_key_id IS 'DATA-12 copy: the key id part of recipient_key (addr:<key id>:<hex>) for an address recipient; written with it, never updated.';
 
 CREATE TABLE notifications.inbox_messages (
     consumer character varying(100) NOT NULL,
@@ -93,6 +99,7 @@ CREATE TABLE notifications.provider_events (
     occurred_at timestamp with time zone,
     CONSTRAINT ck_provider_events_feedback CHECK (((feedback)::text = ANY ((ARRAY['delivered'::character varying, 'permanent_failure'::character varying, 'complaint'::character varying, 'delayed'::character varying, 'suppressed_by_provider'::character varying])::text[]))),
     CONSTRAINT ck_provider_events_parked_together CHECK ((((provider_message_id IS NULL) = (feedback IS NULL)) AND ((feedback IS NULL) = (occurred_at IS NULL)))),
+    CONSTRAINT ck_provider_events_parked_unmatched CHECK (((NOT matched) OR (provider_message_id IS NULL))),
     CONSTRAINT ck_provider_events_provider CHECK (((provider)::text = 'resend'::text))
 );
 

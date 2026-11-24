@@ -30,6 +30,8 @@ public sealed class EmailProviderMetrics
 
     internal void Transient(string provider) => Count(provider, "transient");
 
+    internal void Unauthorized(string provider) => Count(provider, "unauthorized");
+
     internal void IdempotencyConflict(string provider) => Count(provider, "idempotency_conflict");
 
     private void Count(string provider, string outcome) => _requests.Add(1, new(ProviderTag, provider), new(OutcomeTag, outcome));

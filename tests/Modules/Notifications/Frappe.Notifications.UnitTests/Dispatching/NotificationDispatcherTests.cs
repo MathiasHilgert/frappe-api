@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using Frappe.Notifications.Application.Channels;
 using Frappe.Notifications.Application.Dispatching;
 using Frappe.Notifications.Domain.Deliveries;
+using Microsoft.Extensions.Logging;
 
 namespace Frappe.Notifications.UnitTests.Dispatching;
 
@@ -283,6 +285,7 @@ public sealed class NotificationDispatcherTests
         // Act
         await world.DispatchAsync(DispatchWorld.Security, ToAddress);
         await world.DispatchAsync(DispatchWorld.Security, new TestPayload("blocked@example.com", null));
+        world.Pending.CountCommitted();
 
         // Assert
         var counted = world.Capture.Of("frappe.notifications.deliveries");
@@ -292,6 +295,124 @@ public sealed class NotificationDispatcherTests
             await Assert.That(counted.Select(m => (string?)m.Tags["frappe.outcome"])).IsEquivalentTo(new string?[] { "sent", "suppressed" });
             await Assert.That(counted.All(m => (string?)m.Tags["kind"] == "test_security" && (string?)m.Tags["channel"] == "mail")).IsTrue();
             await Assert.That(counted.All(m => m.Tags.Count == 3)).IsTrue();
+        }
+    }
+
+    [Test]
+    public async Task Nothing_is_counted_until_the_claim_committed_and_a_second_commit_counts_nothing_again()
+    {
+        // Arrange
+        using var world = new DispatchWorld();
+        await world.DispatchAsync(DispatchWorld.Security, ToAddress);
+        var before = world.Capture.Of("frappe.notifications.deliveries").Count;
+
+        // Act
+        world.Pending.CountCommitted();
+        var afterCommit = world.Capture.Of("frappe.notifications.deliveries").Count;
+        world.Pending.CountCommitted();
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(before).IsEqualTo(0);
+            await Assert.That(afterCommit).IsEqualTo(1);
+            await Assert.That(world.Capture.Of("frappe.notifications.deliveries").Count).IsEqualTo(1);
+            await Assert.That(world.Pending.Count).IsEqualTo(0);
+        }
+    }
+
+    [Test]
+    public async Task A_dispatch_that_throws_leaves_nothing_counted()
+    {
+        // Arrange
+        using var world = new DispatchWorld();
+        world.Mail.Fault = new HttpRequestException("429");
+
+        // Act
+        await Assert.ThrowsAsync<HttpRequestException>(() => world.DispatchAsync(DispatchWorld.Security, ToAddress));
+        world.Pending.CountCommitted();
+
+        // Assert
+        await Assert.That(world.Capture.Of("frappe.notifications.deliveries")).IsEmpty();
+    }
+
+    [Test]
+    public async Task An_unresolved_reference_of_a_kind_no_channel_carries_is_counted_once_as_no_channel_and_stages_nothing()
+    {
+        // Arrange
+        using var world = new DispatchWorld();
+        world.Mail.Accepts = false;
+
+        // Act
+        var outcomes = await world.DispatchAsync(DispatchWorld.Security, ToReference);
+        world.Pending.CountCommitted();
+
+        // Assert
+        var counted = world.Capture.Of("frappe.notifications.deliveries").Single();
+        using (Assert.Multiple())
+        {
+            await Assert.That(outcomes).IsEquivalentTo([DispatchOutcome.NoChannel]);
+            await Assert.That(world.Staging.Staged).IsEmpty();
+            await Assert.That((string?)counted.Tags["frappe.outcome"]).IsEqualTo("no_channel");
+            await Assert.That((string?)counted.Tags["kind"]).IsEqualTo("test_security");
+            await Assert.That((string?)counted.Tags["channel"]).IsEqualTo("none");
+        }
+    }
+
+    [Test]
+    public async Task A_failed_an_unresolved_and_a_suppressed_outcome_are_logged_with_kind_and_channel_and_no_address()
+    {
+        // Arrange
+        using var world = new DispatchWorld();
+        world.Suppressions.Suppressed.Add(world.Hasher.Hash("blocked@example.com"));
+        world.Mail.Outcome = new ChannelOutcome.Failed(DeliveryFailureReason.ProviderRejected);
+
+        // Act
+        await world.DispatchAsync(DispatchWorld.Security, ToAddress);
+        await world.DispatchAsync(DispatchWorld.Security, new TestPayload("blocked@example.com", null));
+        await world.DispatchAsync(DispatchWorld.Security, ToReference);
+
+        // Assert
+        var entries = world.Logs.Entries.Where(e => e.Category.Contains("NotificationDispatcher", StringComparison.Ordinal)).ToArray();
+        using (Assert.Multiple())
+        {
+            await Assert.That(entries.Select(e => e.Level)).IsEquivalentTo([LogLevel.Warning, LogLevel.Information, LogLevel.Information]);
+            await Assert.That(entries.Select(e => e.Message)).IsEquivalentTo(
+            [
+                "Notification test_security over mail failed for good and is recorded as failed",
+                "Notification test_security over mail was skipped: the address is suppressed",
+                "Notification test_security over mail has a recipient nobody resolved and is recorded as unresolved",
+            ]);
+            await Assert.That(string.Join(' ', entries.Select(e => e.Message))).DoesNotContain("example.com");
+        }
+    }
+
+    [Test]
+    public async Task Each_channel_delivery_runs_in_one_span_tagged_with_kind_channel_and_outcome()
+    {
+        // Arrange
+        using var world = new DispatchWorld();
+        var spans = new System.Collections.Concurrent.ConcurrentBag<Activity>();
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name is "Frappe.Notifications" or "Frappe.Notifications.Tests",
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+            ActivityStopped = spans.Add,
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        // Act: the tests run in parallel, so the span is told apart by the trace of this test's own parent.
+        using var testSource = new ActivitySource("Frappe.Notifications.Tests");
+        using var parent = testSource.StartActivity("test");
+        await world.DispatchAsync(DispatchWorld.Security, ToAddress);
+
+        // Assert
+        var span = spans.Single(s => s.TraceId == parent!.TraceId && s.Source.Name == "Frappe.Notifications");
+        using (Assert.Multiple())
+        {
+            await Assert.That(span.GetTagItem("kind")).IsEqualTo("test_security");
+            await Assert.That(span.GetTagItem("channel")).IsEqualTo("mail");
+            await Assert.That(span.GetTagItem("frappe.outcome")).IsEqualTo("sent");
         }
     }
 
