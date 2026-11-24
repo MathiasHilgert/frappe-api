@@ -28,6 +28,10 @@ internal sealed class OwnerEmailChangedMapper(IOptions<NotificationLinksOptions>
         ];
     }
 
+#pragma warning disable S1135 // A deliberate, tracked TODO: the page lives in the console, outside this repository.
+    // TODO: the console has no undo-email-change page yet. Build it there: it reads the token from the query and calls
+    // POST /v1/identity/email-change-undos. Until then the undo button of the email_changed mail leads nowhere.
+#pragma warning restore S1135
     private string UndoUrl(string token)
     {
         var console = links.Value.ConsoleUrl
