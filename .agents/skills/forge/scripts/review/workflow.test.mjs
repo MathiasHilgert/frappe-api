@@ -168,4 +168,8 @@ const check = (name, ok, detail = '') => { if (!ok) fails++; console.log(ok ? 'P
   const w1 = calls.find(c => c.label === 'write:T1').prompt, w2 = calls.find(c => c.label === 'write:T2').prompt
   check('writers of different slices share a stable prompt prefix', w1.slice(0, 600) === w2.slice(0, 600))
 }
+{
+  const { calls } = await run({ ...base, answers: { T1: { D1: 'ANSWER-MARKER' } }, waves: [[task()]] })
+  check('the arbiter sees the user answers so it never asks again', calls.find(c => c.label === 'arbiter:T1').prompt.includes('ANSWER-MARKER'))
+}
 process.exit(fails ? 1 : 0)
