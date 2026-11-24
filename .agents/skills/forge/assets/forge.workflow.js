@@ -26,9 +26,26 @@ export const meta = {
 //         signals: (review mode only) the output of scripts/review/signals.py for the PR's diff }
 // lensStats: { [lens]: { findings, blockers, advisories } } running totals from Engram forge/metrics/critics (demotes noisy lenses)
 // pitfalls: [string] extra known pitfalls from Engram for this run, on top of references/pitfalls.md
+// done: { [taskId]: { commit, changedPaths, contractChanged, signals, reviewed } } slices an earlier run already committed
+//   (copy them from that run's tasks[]). Their writer never runs again; `reviewed: true` also skips their critics. This is how a
+//   run continues: launch FRESH with `done` instead of resumeFromRunId, because the Workflow cache is positional and a chain
+//   starts agents concurrently, so a resume replays only up to the first call whose order or args moved.
+// rulings: { [taskId]: { [decisionId]: string | { title, context, answer } } } the user's answers to blocking decisions the
+//   ARBITER or QA raised about committed code. They never reach the writer (it does not rerun on top of its own commit and
+//   the slices after it): they become blockers the correction round fixes as a `fixup!`.
+// task.base: the base of a chain that starts from another chain's head (fan-out after a foundation chain); default args.base.
 const A = args || {}
 const BASE = A.base || 'origin/main'
+const baseOf = t => t.base || BASE
 const ANSWERS = A.answers || {}
+const DONE = A.done || {}
+const RULINGS = A.rulings || {}
+// A ruling as a blocker the correction round fixes. `d` is the decision the arbiter raised, when this run raised it again.
+const rulingItem = (taskId, id, d) => {
+  const v = RULINGS[taskId][id]
+  const answer = typeof v === 'string' ? v : v.answer
+  return { id: `ruling-${id}`, file: '', title: (d && d.title) || (v && v.title) || `user ruling ${id}`, evidence: (d && d.context) || (v && v.context) || '', fix: `The user decided: ${answer}. Apply it to the committed code.` }
+}
 // Advisories the user chose to apply after a pass: { [taskId]: [advisoryId] }. Relaunch with resumeFromRunId so the
 // writer, critics and arbiter replay from cache and only the correction round runs.
 const APPLY = A.apply || {}
@@ -287,7 +304,7 @@ function context(t, withAnswers = false, blind = false) {
   const answer = a ? `\nThe user decided (apply these, do not ask again): ${typeof a === 'string' ? a : JSON.stringify(a)}\n` : ''
   return [
     `Repository main checkout: ${A.repo}`,
-    `Worktree: ${t.worktree} (branch ${t.branch}, base ${BASE})`,
+    `Worktree: ${t.worktree} (branch ${t.branch}, base ${baseOf(t)})`,
     t.brief ? `Feature document: ${A.featureDoc} — the task brief below is your starting point; from the document read only the header, the specs ${t.specs} and the Design parts of this task, and open the rest only when the brief leaves a question.` : `Feature document: ${A.featureDoc} — read it from the top until "## Log".`,
     `Task ${t.id}: ${t.title} — specs ${t.specs}.`,
     t.chainOf ? `Chain slice ${t.chainIndex + 1} of ${t.chainOf} on ${t.branch}: earlier slices are already committed on this branch; build on them and touch only this slice's scope.` : '',
@@ -306,15 +323,19 @@ function context(t, withAnswers = false, blind = false) {
 }
 
 // Layer 2 of the critic selector: the writer runs the signals script last and returns its output untouched.
-const signalsStep = t => `Last step, after your final gate${t.chainOf ? ' and the slice commit' : ''}: run \`python3 -I ${A.repo}/.agents/skills/forge/scripts/review/signals.py --worktree ${t.worktree} ${t.chainOf ? '--commit <your slice sha>' : `--base ${BASE}`}\` and return its JSON unchanged in \`signals\` (it decides which critics review you; never edit it).`
+const signalsStep = t => `Last step, after your final gate${t.chainOf ? ' and the slice commit' : ''}: run \`python3 -I ${A.repo}/.agents/skills/forge/scripts/review/signals.py --worktree ${t.worktree} ${t.chainOf ? '--commit <your slice sha>' : `--base ${baseOf(t)}`}\` and return its JSON unchanged in \`signals\` (it decides which critics review you; never edit it).`
 
 const surfaces = t => `## Allowed edit surfaces\n${(t.surfaces || []).join('\n')}\n`
 
 function stopped(r) { return !r || r.stop }
 // What critics review: a chain slice is its own commit; anything else is the whole branch against the base.
-const range = r => r.write && r.write.commit ? `${r.write.commit}^ ${r.write.commit}` : BASE
+const range = r => r.write && r.write.commit ? `${r.write.commit}^ ${r.write.commit}` : baseOf(r.task)
 
 async function write(t) {
+  if (DONE[t.id]) {
+    log(`${t.id}: committed in an earlier run (${DONE[t.id].commit || 'no sha'}); writer skipped${DONE[t.id].reviewed ? ', review skipped' : ''}`)
+    return { task: t, write: { status: 'done', changedPaths: [], contractChanged: false, checks: [], decisions: [], ...DONE[t.id], notes: `Committed in an earlier run as ${DONE[t.id].commit}.` }, fromDone: true }
+  }
   if (MODE === 'review' || MODE === 'qa') {
     return { task: t, write: { status: 'done', changedPaths: t.changedPaths || [], contractChanged: !!t.contract, signals: t.signals, notes: MODE === 'qa' ? `QA of the open PRs ${t.pr || ''}.` : `Open PR ${t.pr || ''}: review its diff against ${BASE}.` } }
   }
@@ -334,6 +355,12 @@ async function review(r) {
   if (MODE === 'write') return { ...r, writeOnly: true }
   if (MODE === 'qa') return { ...r, profile: r.task.profile || 'standard' }
   const t = r.task
+  const ruled = Object.keys(RULINGS[t.id] || {})
+  if (r.fromDone && DONE[t.id].reviewed) {
+    const blockers = ruled.map(id => rulingItem(t.id, id))
+    if (blockers.length) log(`${t.id}: reviewed earlier; the correction applies ${blockers.length} ruling(s): ${ruled.join(', ')}`)
+    return { ...r, profile: t.profile || 'standard', critics: [], verdict: { verdict: blockers.length ? 'fix' : 'pass', blockers, advisories: [], dropped: [] } }
+  }
   const paths = r.write.changedPaths || []
   const profile = effectiveProfile(t.profile, paths)
   if (profile !== (t.profile || 'standard')) log(`${t.id}: planned ${t.profile || 'standard'}, diff is ${profile}`)
@@ -366,6 +393,14 @@ async function review(r) {
     { schema: VERDICT, label: `arbiter:${t.id}`, phase: 'Review' })
   if (!verdict) return { ...r, profile, critics: kept, selection, criticsFailed: failed, stop: true, reason: 'arbiter returned nothing' }
   const stats = criticStats(kept, reports, verdict)
+  // A decision the user already ruled on is not a stop: it becomes a blocker the correction round fixes. A ruling this
+  // run's arbiter did not raise again still applies (critics are not deterministic).
+  if (ruled.length) {
+    const raised = (verdict.decisions || []).filter(d => d.blocking && ruled.includes(d.id))
+    verdict.decisions = (verdict.decisions || []).filter(d => !raised.includes(d))
+    verdict.blockers = [...(verdict.blockers || []), ...ruled.map(id => rulingItem(t.id, id, raised.find(d => d.id === id)))]
+    verdict.verdict = 'fix'
+  }
   if ((verdict.decisions || []).some(d => d.blocking)) return { ...r, profile, critics: kept, droppedCritics: dropped, verdict, stats, selection, criticsFailed: failed, stop: true, reason: 'decision needed' }
   return { ...r, profile, critics: kept, droppedCritics: dropped, verdict, stats, selection, criticsFailed: failed }
 }
@@ -390,7 +425,7 @@ async function reviewFix(r, fixed, items, label, phase) {
   const t = r.task
   const scope = fixed.commit
     ? `the fix commit (\`git -C ${t.worktree} show ${fixed.commit}\`)`
-    : `what the fix changed in ${(fixed.changedPaths || []).join(', ') || 'the worktree'} (\`git -C ${t.worktree} diff ${BASE} -- <file>\`, read against the items below)`
+    : `what the fix changed in ${(fixed.changedPaths || []).join(', ') || 'the worktree'} (\`git -C ${t.worktree} diff ${baseOf(t)} -- <file>\`, read against the items below)`
   const rep = await role('critic-correctness',
     `${context(t, false, true)}\nA ${label} just changed this task to fix the items below. Review ONLY ${scope}. Report only defects the fix itself introduced; never repeat the items.\nItems fixed:\n${JSON.stringify(items)}`,
     { schema: FINDINGS, label: `fix-review:${t.id}`, phase })
@@ -552,11 +587,14 @@ if ((A.chains || []).length && !outcome.some(r => r.stop)) {
   chains.forEach(c => outcome.push(...(c || [])))
 }
 
+// source tells the orchestrator where an answer goes: 'writer' → answers (the writer reruns), anything else → rulings
+// (a fixup on the committed slice, nothing reruns).
+const tag = (xs, source) => (xs || []).map(d => ({ ...d, source }))
 const decisions = outcome.flatMap(r => [
-  ...((r.write && r.write.decisions) || []),
-  ...((r.verdict && r.verdict.decisions) || []),
-  ...((r.fixReview && r.fixReview.decisions) || []),
-  ...((r.qa && r.qa.decisions) || []),
+  ...(r.fromDone ? [] : tag(r.write && r.write.decisions, 'writer')),
+  ...tag(r.verdict && r.verdict.decisions, 'arbiter'),
+  ...tag(r.fixReview && r.fixReview.decisions, 'arbiter'),
+  ...tag(r.qa && r.qa.decisions, 'qa'),
 ].map(d => ({ feature: A.feature, task: r.task.id, ...d })))
 
 // Per critic across the run: findings returned and what the arbiter made of them (precision = (blockers + advisories) / findings).
@@ -597,7 +635,13 @@ return {
     droppedCritics: r.droppedCritics,
     criticsFailed: r.criticsFailed,
     selection: r.selection,
-    write: r.write && { status: r.write.status, specsCovered: r.write.specsCovered, changedPaths: r.write.changedPaths, docsUpdated: r.write.docsUpdated, checks: r.write.checks, scratch: r.write.scratch },
+    write: r.write && { status: r.write.status, commit: r.write.commit, specsCovered: r.write.specsCovered, changedPaths: r.write.changedPaths, contractChanged: r.write.contractChanged, signals: r.write.signals, docsUpdated: r.write.docsUpdated, checks: r.write.checks, scratch: r.write.scratch },
+    // Ready-made entry for args.done of the next fresh run: reviewed when the review and its correction finished, or when
+    // it stopped only on a decision (the ruling the user gives becomes the correction).
+    done: r.write && r.write.status === 'done' && r.write.commit && !r.task.id.endsWith('-head')
+      ? { commit: r.write.commit, changedPaths: r.write.changedPaths || [], contractChanged: !!r.write.contractChanged, signals: r.write.signals, reviewed: !!r.verdict && (!r.stop || r.reason === 'decision needed') }
+      : undefined,
+    correction: r.correction && { commit: r.correction.commit, status: r.correction.status },
     verdict: r.verdict && { verdict: r.verdict.verdict, blockers: r.verdict.blockers, advisories: r.verdict.advisories, followups: r.verdict.followups },
     recheck: r.recheck,
     fixReview: r.fixReview && { blockers: r.fixReview.blockers, advisories: r.fixReview.advisories },

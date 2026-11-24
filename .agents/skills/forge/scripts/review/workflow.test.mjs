@@ -27,6 +27,7 @@ async function run(args, behavior = {}) {
       blockers: [{ id: 'correctness-1', file: 'a', title: 't', evidence: 'e', fix: 'x' }],
       advisories: behavior.revive ? [{ id: 'security-r1', file: 'a', title: 't', evidence: 'e', fix: 'x', autoApply: false, uncertain: true }] : [],
       dropped: [], revived: behavior.revive ? ['security-r1'] : [],
+      decisions: behavior.decision ? [{ id: 'D1', title: 'Which id', context: 'ids leak state', options: [], recommended: 'new id', blocking: true }] : [],
     }
     if (l.startsWith('qa:')) return { status: 'pass', scenarios: [], defects: [], decisions: [] }
     const lens = l.split(':')[0]
@@ -114,5 +115,37 @@ const check = (name, ok, detail = '') => { if (!ok) fails++; console.log(ok ? 'P
   check('pending QA carries what mode qa needs', pending && pending.changedPaths.length > 0 && pending.qa === true)
   const second = await run({ ...base, mode: 'qa', waves: [[pending]] })
   check('mode qa runs only QA', second.calls.every(c => c.label.startsWith('qa:')) && second.out.status === 'done', second.calls.map(c => c.label).join(' '))
+}
+{
+  // A blocking arbiter decision stops the slice; the result tags it 'arbiter' and offers a reviewed done entry.
+  const { out } = await run({ ...base, waves: [[task({ commit: 'feat(x): a' })]] }, { decision: true })
+  check('an arbiter decision is tagged with its source', out.decisions.length === 1 && out.decisions[0].source === 'arbiter', JSON.stringify(out.decisions))
+}
+{
+  // A fresh run with the ruling: the arbiter raises D1 again, but it becomes a correction blocker, never a stop, and
+  // never reaches the writer.
+  const { out, calls } = await run({ ...base, rulings: { T1: { D1: 'RULING-MARKER' } }, waves: [[task()]] }, { decision: true })
+  check('a ruled decision does not stop the task', out.status === 'done', out.status + ' ' + JSON.stringify(out.tasks[0].reason))
+  check('the ruling reaches the correction', calls.find(c => c.label === 'correct:T1').prompt.includes('RULING-MARKER'))
+  check('the ruling never reaches the writer', !calls.find(c => c.label === 'write:T1').prompt.includes('RULING-MARKER'))
+}
+{
+  // done slices skip their writer; reviewed ones skip their critics; a ruling on a reviewed slice runs only its fixup.
+  const chain = [task({ id: 'S1', commit: 'feat(x): a' }), task({ id: 'S2', commit: 'feat(x): b' }), task({ id: 'S3', commit: 'feat(x): c' })]
+  const done = {
+    S1: { commit: 'aaa', changedPaths: ['src/M/A.cs'], reviewed: true },
+    S2: { commit: 'bbb', changedPaths: ['src/M/Http/Endpoints.cs'], reviewed: false },
+  }
+  const { out, calls } = await run({ ...base, done, rulings: { S1: { D1: { title: 'Which id', answer: 'RULING-MARKER' } } }, chains: [chain] })
+  const labels = calls.map(c => c.label)
+  check('done slices never rerun their writer', !labels.includes('write:S1') && !labels.includes('write:S2') && labels.includes('write:S3'), labels.join(' '))
+  check('a reviewed done slice runs no critics', !labels.some(l => /^[a-z]+:S1$/.test(l) && !/^(correct|recheck|fix-review):/.test(l)), labels.join(' '))
+  check('its ruling lands as a fixup of that slice', (calls.find(c => c.label === 'correct:S1') || { prompt: '' }).prompt.includes('fixup! feat(x): a') && calls.find(c => c.label === 'correct:S1').prompt.includes('RULING-MARKER'))
+  check('an unreviewed done slice is reviewed from its commit', calls.some(c => c.label === 'correctness:S2' && c.prompt.includes('bbb^ bbb')), labels.join(' '))
+  check('the result offers done entries for the next run', out.tasks.some(t => t.id === 'S3' && t.done && t.done.reviewed), JSON.stringify(out.tasks.map(t => [t.id, t.done])))
+}
+{
+  const { calls } = await run({ ...base, chains: [[task({ id: 'F1', commit: 'feat(x): f', base: 'feat/foundation' })]] })
+  check('a fan-out chain uses its own base', calls.find(c => c.label === 'write:F1').prompt.includes('base feat/foundation'))
 }
 process.exit(fails ? 1 : 0)

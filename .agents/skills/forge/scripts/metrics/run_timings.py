@@ -11,7 +11,7 @@ Usage:
 Prints one JSON object:
   wall_min        first agent start to last agent end
   phases          per phase: agents, busy minutes (sum), span minutes (first start to last end), turns, output tokens
-  agents          per agent: label, phase, type, model, minutes, orientation minutes (start to first file change),
+  agents          per agent: label, phase, type, model, minutes, orientation minutes (start to first file change, thinking included),
                   turns, tool calls, output tokens, cache write/read tokens
   slowest         the five longest agents
 Turns count distinct assistant messages; a cached (resumed) agent has no transcript and is skipped.
@@ -95,7 +95,7 @@ def main():
         label, phase = labels.get(aid, (meta.get("description", aid), meta.get("workflowPhase", "")))
         agents.append({
             "label": label, "phase": phase or meta.get("workflowPhase", ""), "type": meta.get("agentType"),
-            "model": meta.get("pickedEffortModel"), "start": first, "end": last,
+            "model": meta.get("model") or meta.get("pickedEffortModel"), "start": first, "end": last,
             "minutes": round((last - first).total_seconds() / 60, 1), "turns": turns, "tools": tools,
             "orientation_min": round((first_edit - first).total_seconds() / 60, 1) if first_edit else None,
             "output_tokens": out_tokens, "cache_write": cache_write, "cache_read": cache_read,
