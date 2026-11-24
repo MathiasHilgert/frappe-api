@@ -56,7 +56,8 @@
 
 - **Rule:** A value object is a `sealed record` (a `sealed class` when record equality is wrong) with a private constructor and `public static
   Result<T> Create(string? raw)` that normalizes, then validates. Persistence rebuilds it through a separate trusted factory (`FromStored`), never
-  through `Create`.
+  through `Create`. A factory of a closed union of recipient-style values built only from code-authored data (never external input) may throw
+  `ArgumentException` instead; `Create` returning `Result<T>` stays for external input.
 - **Why:** An invalid value cannot exist, and the one place that builds it is the one place that validates it.
 - **Enforced by:** review.
 - **Good:** `public sealed record Email { private Email(string value) => Value = value; public static Result<Email> Create(string? raw) ... }`.

@@ -156,6 +156,9 @@ module's data: see `criteria`.
 ## ARCH-15 · Namespaces follow folders
 
 - **Rule:** `RootNamespace` equals the project name; every namespace equals root + folder path; request types live in `Frappe.<Module>.*`.
+  `OutboxMessage` and
+  `InboxMessage` keep namespace `Frappe.Messaging` inside the `Frappe.Messaging.Storage` assembly because every module's EF snapshot records that
+  CLR name.
 - **Why:** the handler pipeline derives the module from the namespace; folders and namespaces never drift.
 - **Enforced by:** IDE0130 (warning).
 - **Good:** `Frappe.Orders.Application.Regions.GetRegion`. **Bad:** `namespace Frappe.Orders;` in `Regions/GetRegion/`.

@@ -72,7 +72,8 @@
 ## CFG-06 · Jobs are scheduled only through `AddCronJob`
 
 - **Rule:** Schedule a job with `quartz.AddCronJob<TJob>(new JobKey(name, module), "<Module>:<Job>", defaultCron)`; its cron is overridable and
-  validated. Jobs are `[DisallowConcurrentExecution]` and run on the clustered durable store.
+  validated. Jobs are `[DisallowConcurrentExecution]` and run on the clustered durable store. A module job purges its outbox/inbox through a
+  broker-free message-purge port in `Frappe.Messaging.Abstractions` (planned), or the Worker host wires it to `MessagePurger`.
 - **Why:** one schedule per job across replicas, overridable per environment, checked at start.
 - **Enforced by:** `WorkerCompositionTests`.
 - **Good:** `quartz.AddCronJob<OrdersMessagePurgeJob>(new JobKey("purge-messages", "orders"), "Orders:MessagePurge", "0 30 3 * * ?")` **Bad:**
@@ -111,7 +112,8 @@
 ## CFG-10 · Secrets come only from the environment
 
 - **Rule:** Secrets come from environment variables (`deploy/.env`, required with `${VAR:?...}` in compose). Never commit, log or default them; an
-  empty value means unset.
+  empty value means unset. A committed placeholder is the base64 of text starting with `local-only-`, unpadded (CI appends to values ending in
+  `=`), and allow-listed in `.gitleaks.toml`.
 - **Why:** a committed or logged secret is leaked for good.
 - **Enforced by:** compose `${VAR:?}`; `.env.example` review.
 - **Good:** `POSTGRES_PASSWORD: ${POSTGRES_OWNER_PASSWORD:?set it in .env}` **Bad:** `"ApiKey": "re_123"` in `appsettings.json`.

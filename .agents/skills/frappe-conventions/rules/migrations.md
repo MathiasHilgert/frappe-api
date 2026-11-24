@@ -59,6 +59,8 @@
 
 - **Rule:** On an existing table, `CREATE`/`DROP INDEX CONCURRENTLY`, one statement per `Sql` call, `suppressTransaction: true`, each create preceded
   by `DROP INDEX CONCURRENTLY IF EXISTS` so a failed build (an invalid index) is cleared on rerun.
+  A table counts as existing once its creating migration reaches main; before that, a plain `CREATE INDEX` is allowed (squawk flags it; the PR
+  carries the `risky migration approved` label with the reason).
 - **Why:** A plain build blocks writes for the whole build; a concurrent one cannot share a transaction or a batch.
 - **Enforced by:** squawk (`require-concurrent-index-creation`, `ban-concurrent-index-creation-in-transaction`) | review.
 - **Good:** `IndexParkedOutboxRows.Up`. **Bad:** `migrationBuilder.CreateIndex(...)` on `sessions`; `CREATE UNIQUE INDEX CONCURRENTLY` with no `DROP
