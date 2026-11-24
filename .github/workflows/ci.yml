@@ -37,6 +37,7 @@ jobs:
       dotnet: ${{ steps.decide.outputs.dotnet }}
       tests: ${{ steps.decide.outputs.tests }}
       image: ${{ steps.decide.outputs.image }}
+      scan: ${{ steps.decide.outputs.scan }}
       migrations: ${{ steps.decide.outputs.migrations }}
       contracts: ${{ steps.decide.outputs.contracts }}
       bruno: ${{ steps.decide.outputs.bruno }}
@@ -951,7 +952,7 @@ jobs:
   scan:
     name: Container image is clean
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.image != 'false' && needs.changes.outputs.has_image != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.scan != 'false' && needs.changes.outputs.has_image != 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
