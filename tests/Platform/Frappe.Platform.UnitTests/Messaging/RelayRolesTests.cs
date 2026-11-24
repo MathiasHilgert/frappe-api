@@ -1,4 +1,4 @@
-using Frappe.Messaging.Relay;
+using Frappe.Messaging.Storage.Relay;
 
 namespace Frappe.Platform.UnitTests.Messaging;
 

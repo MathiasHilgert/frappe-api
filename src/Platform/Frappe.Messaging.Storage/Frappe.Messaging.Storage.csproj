@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Messaging" />
+    <InternalsVisibleTo Include="Frappe.Platform.UnitTests" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.Aggregates/Frappe.Aggregates.csproj" />
+    <ProjectReference Include="../Frappe.IntegrationEvents/Frappe.IntegrationEvents.csproj" />
+    <ProjectReference Include="../Frappe.Persistence/Frappe.Persistence.csproj" />
+  </ItemGroup>
+</Project>

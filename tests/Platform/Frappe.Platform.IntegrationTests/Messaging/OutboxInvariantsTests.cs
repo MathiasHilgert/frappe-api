@@ -1,6 +1,6 @@
 using Frappe.Messaging;
-using Frappe.Messaging.Outbox;
 using Frappe.Messaging.Relay;
+using Frappe.Messaging.Storage.Outbox;
 using Frappe.Platform.Testing.Messaging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

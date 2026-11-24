@@ -70,6 +70,37 @@ public sealed class HostReferenceTests
     }
 
     [Test]
+    public async Task The_Migrator_may_reach_the_messaging_storage_but_never_the_broker_side_of_messaging()
+    {
+        // Act
+        var messaging = Closure(Migrator).Keys.Where(name => name.StartsWith("Frappe.Messaging", StringComparison.Ordinal)).ToArray();
+
+        // Assert
+        // Storage (outbox and inbox model, relay roles) is how a module's database module maps its tables for the Migrator.
+        var offenders = messaging.Except(["Frappe.Messaging.Storage"]).ToArray();
+        await Assert.That(offenders).IsEmpty().Because("only Frappe.Messaging.Storage is allowed: " + string.Join(", ", offenders));
+    }
+
+    [Test]
+    public async Task The_messaging_storage_references_neither_the_broker_client_nor_ASP_NET_Core()
+    {
+        // Act
+        var closure = Closure(typeof(Frappe.Messaging.Storage.Relay.RelayRoles).Assembly);
+
+        // Assert
+        var offenders = closure.SelectMany(entry => entry.Value
+                .Where(reference => reference.StartsWith("NATS", StringComparison.Ordinal)
+                    || reference.StartsWith("Microsoft.AspNetCore", StringComparison.Ordinal))
+                .Select(reference => $"{entry.Key} -> {reference}"))
+            .ToArray();
+        using (Assert.Multiple())
+        {
+            await Assert.That(offenders).IsEmpty().Because(string.Join(", ", offenders));
+            await Assert.That(closure.Keys).DoesNotContain("Frappe.Messaging");
+        }
+    }
+
+    [Test]
     public async Task The_Api_and_the_Worker_reference_no_other_host_and_not_the_Migrator()
     {
         // Act

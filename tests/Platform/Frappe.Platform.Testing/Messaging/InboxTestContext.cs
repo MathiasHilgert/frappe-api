@@ -1,5 +1,5 @@
-using Frappe.Messaging.Inbox;
-using Frappe.Messaging.Outbox;
+using Frappe.Messaging.Storage.Inbox;
+using Frappe.Messaging.Storage.Outbox;
 using Microsoft.EntityFrameworkCore;
 
 namespace Frappe.Platform.Testing.Messaging;

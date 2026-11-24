@@ -1,7 +1,7 @@
 using Frappe.Aggregates;
 using Frappe.IntegrationEvents;
 
-namespace Frappe.Messaging.Outbox;
+namespace Frappe.Messaging.Storage.Outbox;
 
 /// <summary>Turns a module's domain events into the integration events other modules may see.</summary>
 public interface IIntegrationEventTranslator

@@ -78,7 +78,7 @@ lead to: `architecture`, `events`, `caching`.
   Contracts). The event carries the fact, ids and the changed data a reasonable consumer needs (see `events`).
 - **Why:** the owner stays unaware of who reacts; a reaction never blocks the owner's commit.
 - **Enforced by:** review; `LayeringTests.Ledger_reaches_Shipping_only_through_its_event_contract_and_no_other_module_reaches_past_Access_contracts`
-  blocks the reverse reference for the Shipping/Ledger pair (a generic ARCH-05 allow-list test is still planned).
+  (planned) would block the reverse reference for the Shipping/Ledger pair, next to the generic ARCH-05 allow-list test (also planned).
 - **Good:** Billing raises `VerificationCodeIssued`; Mailing mails it; Shipping raises `ShipmentCreated`, Ledger grants ownership and
   Shipping reads `ILedgerQueries`. **Bad:** Billing calling a Mailing service after registering; Ledger asking Shipping anything.
 - **Status:** in force.

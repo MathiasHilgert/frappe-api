@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
 using System.Data.Common;
 using Frappe.Messaging;
-using Frappe.Messaging.Outbox;
 using Frappe.Messaging.Relay;
+using Frappe.Messaging.Storage.Outbox;
 using Frappe.Platform.Testing.Messaging;
 using Frappe.Testing;
 using Microsoft.EntityFrameworkCore;

@@ -103,7 +103,7 @@
 - **Rule:** A table that grows with traffic or time ships with its purge: a Worker job deleting in batches (PERF-09) after a retention set in
   validated options, plus the index the purge reads.
 - **Why:** An unbounded table slows every index and vacuum and holds data longer than anyone promised.
-- **Enforced by:** review | each purge's tests (`CredentialPurgeTests`) and options validators (`MessageRetentionOptionsValidator`).
+- **Enforced by:** review | each purge's tests (`CredentialPurgeTests` (planned)) and options validators (`MessageRetentionOptionsValidator`).
 - **Good:** `MessagePurger` with `MessageRetentionOptions.OutboxRetention`; `MailOutcomePurger`. **Bad:** an audit table with no purge
   (`orders.sync_runs`).
 - **Status:** in force.

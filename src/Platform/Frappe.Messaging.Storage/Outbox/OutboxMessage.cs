@@ -1,6 +1,8 @@
-using Frappe.Messaging.Outbox;
+using Frappe.Messaging.Storage.Outbox;
 using NodaTime;
 
+// Exception to ARCH-15: EF names an entity by its CLR full name and every module snapshot records Frappe.Messaging.<Name>.
+#pragma warning disable IDE0130, S1144, S3453 // EF Core materializes the entity through its private constructor and setters
 namespace Frappe.Messaging;
 
 /// <summary>

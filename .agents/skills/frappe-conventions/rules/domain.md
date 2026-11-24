@@ -80,7 +80,7 @@
   (catalog rows, projections) is a plain `*Row`. Every aggregate carries the `xmin` row version (UOW-04).
 - **Why:** Invariants hold only if nothing outside the aggregate can set its state; an Infrastructure row posing as an aggregate drags domain events
   and unit-of-work dispatch into persistence code.
-- **Enforced by:** `LayeringTests.Only_sealed_types_in_a_domain_project_derive_from_AggregateRoot`.
+- **Enforced by:** `LayeringTests.Only_sealed_types_in_a_domain_project_derive_from_AggregateRoot` (planned).
 - **Good:** `public sealed class Principal : AggregateRoot { private Principal() { ... } public static Principal RegisterOwner(...) ... }`. **Bad:**
   `internal sealed class RegionRow : AggregateRoot` in Infrastructure; `public Guid Id { get; set; }`.
 - **Announcements:** an event announces a change of the aggregate that raises it; a change spanning several rows of one concept (the Orders catalog:

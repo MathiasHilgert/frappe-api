@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
 
-namespace Frappe.Messaging.Outbox;
+namespace Frappe.Messaging.Storage.Outbox;
 
 /// <summary>Registers the outbox for a module: the interceptor that stages integration events in the same transaction as the data.</summary>
 public static class OutboxRegistration

@@ -1,9 +1,9 @@
 using System.Text.RegularExpressions;
-using Frappe.Messaging.Inbox;
-using Frappe.Messaging.Outbox;
+using Frappe.Messaging.Storage.Inbox;
+using Frappe.Messaging.Storage.Outbox;
 using Npgsql;
 
-namespace Frappe.Messaging.Relay;
+namespace Frappe.Messaging.Storage.Relay;
 
 /// <summary>
 /// The grants of a module's narrow relay role (the login role the Worker uses): exactly what the outbox relay and the
