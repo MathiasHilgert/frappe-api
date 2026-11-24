@@ -18,6 +18,7 @@ public static class Modules
     public static IReadOnlyCollection<IModule> Services { get; } =
         [
         new IdentityModule(),
+        new IdentityApiModule(),
         new IdentityLimitsValkeyModule(),
         new NotificationsModule(),
         new AccountKindsModule(),

@@ -3,6 +3,7 @@ using Frappe.Identity.Domain.Principals;
 using Frappe.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Frappe.Identity.Infrastructure.Codes;
 
@@ -48,6 +49,10 @@ internal sealed class OneTimeCodeConfiguration : IEntityTypeConfiguration<OneTim
     /// <summary>The purge reads codes past their expiry.</summary>
     public const string ExpiresAtIndex = "ix_one_time_codes_expires_at";
 
+    // Stored as the 32 bytes; the comparer reads them, so a copy of an unchanged value is never seen as a change.
+    private static readonly ValueConverter<CodeHmac, byte[]> CodeHmacConverter = new(
+        hmac => hmac.ToArray(), bytes => CodeHmac.Create(bytes).Value);
+
     public void Configure(EntityTypeBuilder<OneTimeCode> builder)
     {
         builder.ToTable(Table, table =>
@@ -65,7 +70,7 @@ internal sealed class OneTimeCodeConfiguration : IEntityTypeConfiguration<OneTim
         builder.Property(c => c.Purpose).HasColumnName("purpose")
             .HasConversion(StoredEnum<CodePurpose>.Converter).HasMaxLength(StoredEnum<CodePurpose>.MaxLength);
         builder.Property(c => c.Target).HasColumnName("target").HasMaxLength(TargetLength);
-        builder.Property(c => c.CodeHmac).HasColumnName("code_hmac");
+        builder.Property(c => c.CodeHmac).HasColumnName("code_hmac").HasConversion(CodeHmacConverter);
         builder.Property(c => c.IssuedAt).HasColumnName("issued_at");
         builder.Property(c => c.ExpiresAt).HasColumnName("expires_at");
         builder.Property(c => c.RedeemedAt).HasColumnName("redeemed_at");

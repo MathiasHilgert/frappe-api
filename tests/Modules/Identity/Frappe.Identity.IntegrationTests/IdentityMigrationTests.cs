@@ -173,7 +173,7 @@ public sealed class IdentityMigrationTests(PostgresServer server)
             var session = Session.Open(
                 principal.Id, tokenHash, SessionAudience.Console, principal.CredentialStamp, now, Duration.FromHours(12), Duration.FromDays(30),
                 "Mozilla/5.0", new IPNetwork(IPAddress.Parse("203.0.113.0"), 24));
-            var codeHmac = new byte[32];
+            var codeHmac = CodeHmac.Create(new byte[32]).Value;
             var code = OneTimeCode.Issue(principal.Id, CodePurpose.EmailChange, "new@example.com", codeHmac, now, Duration.FromMinutes(15));
             var ownerRow = Owner.Register(principal.Id, "Ana", "Pérez", LanguageTag.Create("es-AR").Value, now);
             await using (var write = ContextOf(owner))

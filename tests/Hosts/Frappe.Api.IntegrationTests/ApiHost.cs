@@ -19,6 +19,7 @@ internal static class ApiHost
     {
         ["ConnectionStrings:Identity"] = "Host=unreachable.invalid;Database=frappe;Username=frappe_identity",
         ["ConnectionStrings:Notifications"] = "Host=unreachable.invalid;Database=frappe;Username=frappe_notifications",
+        ["Identity:Codes:Key"] = "bG9jYWwtb25seS1jb2RlLWhhc2gta2V5LW9mLTM5LWJ5dGVzISEh",
         ["Notifications:AddressHash:CurrentKeyId"] = "1",
         ["Notifications:AddressHash:Keys:1"] = "bG9jYWwtb25seS1hZGRyZXNzLWhhc2gta2V5LW9mLTM5LWJ5dGVz",
         ["Notifications:Unsubscribe:SigningKey"] = "bG9jYWwtb25seS11bnN1YnNjcmliZS1zaWduaW5nLWtleSEh",
