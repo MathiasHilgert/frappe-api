@@ -1,4 +1,6 @@
+using System.Diagnostics.Metrics;
 using Frappe.Notifications.Infrastructure.Retention;
+using Frappe.Testing;
 using Frappe.Testing.Containers;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -153,12 +155,59 @@ public sealed class PurgeTests(PostgresServer server)
         });
     }
 
+    [Test]
+    public async Task The_purge_counts_the_rows_it_deleted_by_table()
+    {
+        await MigratedNotifications.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using var worker = Worker(owner);
+            using var capture = new MetricCapture(worker.Services.GetRequiredService<IMeterFactory>());
+            await AddDeliveriesAsync(owner, 5, daysOld: 91);
+            await AddEventsAsync(owner, "old", 3, daysOld: 8);
+
+            // Act
+            await worker.Services.GetRequiredService<NotificationsPurger>().PurgeAsync(CancellationToken.None);
+
+            // Assert
+            var purged = capture.Of("frappe.notifications.purged").ToDictionary(m => (string)m.Tags["table"]!, m => m.Value);
+            using (Assert.Multiple())
+            {
+                await Assert.That(purged["deliveries"]).IsEqualTo(5);
+                await Assert.That(purged["provider_events"]).IsEqualTo(3);
+                await Assert.That(purged["send_requests"]).IsEqualTo(0);
+            }
+        });
+    }
+
+    [Test]
+    public async Task The_job_counts_a_succeeded_run_and_a_failed_run()
+    {
+        await MigratedNotifications.RunAsync(server, async owner =>
+        {
+            // Arrange
+            var messages = new RecordingMessagePurge();
+            await using var worker = Worker(owner, configure: services => services.AddSingleton<IMessagePurge>(messages));
+            using var capture = new MetricCapture(worker.Services.GetRequiredService<IMeterFactory>());
+            var job = ActivatorUtilities.CreateInstance<NotificationsPurgeJob>(worker.Services);
+
+            // Act
+            await job.Execute(null!, CancellationToken.None);
+            messages.Fails = true;
+            await Assert.ThrowsAsync<InvalidOperationException>(async () => await job.Execute(null!, CancellationToken.None));
+
+            // Assert
+            await Assert.That(capture.Of("frappe.notifications.purge.runs").Select(m => (string)m.Tags["frappe.outcome"]!))
+                .IsEquivalentTo(["succeeded", "failed"]);
+        });
+    }
+
     /// <summary>Counts the runs of the message purge and fails on demand.</summary>
     private sealed class RecordingMessagePurge : IMessagePurge
     {
         public int Runs { get; private set; }
 
-        public bool Fails { get; init; }
+        public bool Fails { get; set; }
 
         public Task PurgeAsync(CancellationToken cancellationToken)
         {

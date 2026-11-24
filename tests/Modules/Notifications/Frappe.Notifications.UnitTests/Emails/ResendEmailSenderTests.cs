@@ -8,6 +8,9 @@ using Frappe.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Polly.CircuitBreaker;
+using Polly.RateLimiting;
+using Polly.Timeout;
 
 namespace Frappe.Notifications.UnitTests.Emails;
 
@@ -168,8 +171,6 @@ public sealed class ResendEmailSenderTests : IDisposable
 
     [Test]
     [Arguments(HttpStatusCode.BadRequest, "validation_error")]
-    [Arguments(HttpStatusCode.Unauthorized, "missing_api_key")]
-    [Arguments(HttpStatusCode.Forbidden, "invalid_api_key")]
     [Arguments(HttpStatusCode.UnprocessableEntity, "invalid_parameter")]
     public async Task Any_other_4xx_fails_for_good_with_a_code_and_logs_only_the_status_and_the_error_name(HttpStatusCode status, string name)
     {
@@ -192,18 +193,89 @@ public sealed class ResendEmailSenderTests : IDisposable
     }
 
     [Test]
-    public async Task A_network_fault_or_a_timeout_propagates_and_is_never_failed()
+    [Arguments(HttpStatusCode.Unauthorized, "missing_api_key")]
+    [Arguments(HttpStatusCode.Forbidden, "invalid_api_key")]
+    public async Task A_401_or_a_403_is_a_configuration_fault_that_is_counted_logged_as_an_error_and_thrown_never_failed(
+        HttpStatusCode status, string name)
     {
         // Arrange
-        _handler.Throw(new HttpRequestException("connection reset")).Throw(new TaskCanceledException("timed out", new TimeoutException()));
+        using var capture = new MetricCapture(_services.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>());
+        _handler.Respond(status, Error(name, (int)status));
 
-        // Act and assert
+        // Act
+        var thrown = await Assert.ThrowsAsync<EmailProviderConfigurationException>(() => Sender().SendAsync(Email(), default));
+
+        // Assert
+        var logged = string.Join('\n', _logs.Entries.Where(e => e.Level == LogLevel.Error).Select(e => e.Message));
         using (Assert.Multiple())
         {
-            await Assert.ThrowsAsync<HttpRequestException>(() => Sender().SendAsync(Email(), default));
-            await Assert.ThrowsAsync<TaskCanceledException>(() => Sender().SendAsync(Email(), default));
+            await Assert.That(thrown!.Message).DoesNotContain("secret text").And.DoesNotContain(ApiKey);
+            await Assert.That(logged).Contains(name).And.DoesNotContain(ApiKey).And.DoesNotContain("ana@example.com");
+            await Assert.That(capture.Of(EmailProviderMetrics.RequestsMetric).Single().Tags[EmailProviderMetrics.OutcomeTag])
+                .IsEqualTo("unauthorized");
         }
     }
+
+    [Test]
+    public async Task A_network_fault_or_a_timeout_is_counted_transient_and_thrown_as_transient_never_failed()
+    {
+        // Arrange
+        using var capture = new MetricCapture(_services.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>());
+        _handler.Throw(new HttpRequestException("connection reset")).Throw(new TaskCanceledException("timed out", new TimeoutException()));
+
+        // Act
+        var network = await Assert.ThrowsAsync<TransientEmailFailureException>(() => Sender().SendAsync(Email(), default));
+        var timeout = await Assert.ThrowsAsync<TransientEmailFailureException>(() => Sender().SendAsync(Email(), default));
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(network!.InnerException).IsTypeOf<HttpRequestException>();
+            await Assert.That(timeout!.InnerException).IsTypeOf<TaskCanceledException>();
+            await Assert.That(capture.Of(EmailProviderMetrics.RequestsMetric).Select(m => (string)m.Tags[EmailProviderMetrics.OutcomeTag]!))
+                .IsEquivalentTo(["transient", "transient"]);
+        }
+    }
+
+    [Test]
+    public async Task An_open_circuit_a_polly_timeout_and_a_refused_lease_are_counted_transient_and_thrown_as_transient()
+    {
+        // Arrange
+        using var capture = new MetricCapture(_services.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>());
+        _handler.Throw(new BrokenCircuitException()).Throw(new TimeoutRejectedException()).Throw(RateLimiterRejection());
+
+        // Act
+        var thrown = new List<TransientEmailFailureException?>();
+        for (var i = 0; i < 3; i++)
+        {
+            thrown.Add(await Assert.ThrowsAsync<TransientEmailFailureException>(() => Sender().SendAsync(Email(), default)));
+        }
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(thrown.Select(t => t!.InnerException!.GetType())).IsEquivalentTo(
+                [typeof(BrokenCircuitException), typeof(TimeoutRejectedException), typeof(RateLimiterRejectedException)]);
+            await Assert.That(capture.Of(EmailProviderMetrics.RequestsMetric).Select(m => (string)m.Tags[EmailProviderMetrics.OutcomeTag]!))
+                .IsEquivalentTo(["transient", "transient", "transient"]);
+        }
+    }
+
+    [Test]
+    public async Task A_cancellation_the_caller_asked_for_is_not_counted_and_passes_through()
+    {
+        // Arrange
+        using var capture = new MetricCapture(_services.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>());
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+        _handler.Hang();
+
+        // Act and assert
+        await Assert.ThrowsAsync<TaskCanceledException>(() => Sender().SendAsync(Email(), cts.Token));
+        await Assert.That(capture.Of(EmailProviderMetrics.RequestsMetric)).IsEmpty();
+    }
+
+    private static RateLimiterRejectedException RateLimiterRejection() => new(TimeSpan.FromSeconds(1));
 
     [Test]
     public async Task A_2xx_without_a_message_id_is_transient_because_nothing_can_be_matched_to_it()

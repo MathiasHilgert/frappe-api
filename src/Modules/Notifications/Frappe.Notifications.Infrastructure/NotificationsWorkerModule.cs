@@ -37,7 +37,8 @@ public sealed class NotificationsWorkerModule : IModule
         services
             .AddIntegrationEventConsumer<NotificationsDbContext, NotificationRequested>(NotificationsModule.Name, DispatchConsumer, DispatchSection)
             .AddBeforeClaimHandler<NotificationRequested, DispatchNotificationRequested>(DispatchConsumer)
-            .AddIntegrationEventHandler<NotificationRequested, ApplyParkedFeedback>(DispatchConsumer);
+            .AddIntegrationEventHandler<NotificationRequested, ApplyParkedFeedback>(DispatchConsumer)
+            .AddAfterCommitHandler<NotificationRequested, CountDeliveriesAfterCommit<NotificationRequested>>(DispatchConsumer);
         AddPurge(services);
     }
 

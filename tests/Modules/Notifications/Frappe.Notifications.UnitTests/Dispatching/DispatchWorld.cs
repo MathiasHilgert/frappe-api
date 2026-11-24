@@ -15,6 +15,7 @@ internal sealed class DispatchWorld : IDisposable
 {
     public static readonly Guid MessageId = Guid.Parse("0192b6f0-0000-7000-8000-000000000001");
 
+    private readonly CapturedLogs _logs = new();
     private readonly ServiceProvider _meters = new ServiceCollection().AddMetrics().BuildServiceProvider();
 
     public DispatchWorld(params IContactResolver[] resolvers)
@@ -22,14 +23,15 @@ internal sealed class DispatchWorld : IDisposable
         Mail = new FakeChannel(TestChannels.Mail);
         Hasher = TestHasher.Create();
         Capture = new MetricCapture(_meters.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>());
-        var metrics = new NotificationsMetrics(_meters.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>());
+        Pending = new PendingDeliveries(new NotificationsMetrics(_meters.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>()));
         Dispatcher = new NotificationDispatcher(
             new RecipientResolution(new ContactDirectory(resolvers), Hasher),
             new PreferenceGate(Preferences, Hasher),
             new ChannelSelection([Mail, Text]),
             new SuppressionGate(Suppressions, Hasher),
             new DeliveryRecorder(Staging, new FakeTimeProvider(new DateTimeOffset(2026, 11, 24, 10, 0, 0, TimeSpan.Zero))),
-            metrics);
+            Pending,
+            _logs.For<NotificationDispatcher>());
     }
 
     public FakeChannel Mail { get; }
@@ -46,6 +48,10 @@ internal sealed class DispatchWorld : IDisposable
 
     public MetricCapture Capture { get; }
 
+    public PendingDeliveries Pending { get; }
+
+    public CapturedLogs Logs => _logs;
+
     public NotificationDispatcher Dispatcher { get; }
 
     public static NotificationKind Security { get; } = NotificationKind.Of<TestSecurityNotification, TestPayload>();
@@ -60,6 +66,7 @@ internal sealed class DispatchWorld : IDisposable
     public void Dispose()
     {
         Capture.Dispose();
+        _logs.Dispose();
         _meters.Dispose();
     }
 }

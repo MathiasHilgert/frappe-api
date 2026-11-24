@@ -10,7 +10,7 @@ namespace Frappe.Notifications.UnitTests.Producers;
 public sealed class NotificationProducerRegistrationTests
 {
     [Test]
-    public async Task A_producer_declares_a_consumer_of_the_events_own_module_stream_with_its_two_steps_and_registers_the_mapper()
+    public async Task A_producer_declares_a_consumer_of_the_events_own_module_stream_with_its_three_steps_and_registers_the_mapper()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -25,11 +25,12 @@ public sealed class NotificationProducerRegistrationTests
             .ToArray();
         using (Assert.Multiple())
         {
-            await Assert.That(declarations).Count().IsEqualTo(3);
+            await Assert.That(declarations).Count().IsEqualTo(4);
             await Assert.That(declarations[0]).Contains("ProducerModule = orders").And.Contains("ConsumerName = notifications-orders-confirmation")
                 .And.Contains("Section = Notifications:Producers:notifications-orders-confirmation:Consumer");
             await Assert.That(declarations[1]).Contains("notifications-orders-confirmation");
             await Assert.That(declarations[2]).Contains("notifications-orders-confirmation");
+            await Assert.That(declarations[3]).Contains("notifications-orders-confirmation");
             await Assert.That(services.Any(d => d.ServiceType == typeof(INotificationProducer<OrderPlaced>)
                 && d.ImplementationType == typeof(OrderPlacedMapper))).IsTrue();
         }

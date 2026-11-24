@@ -41,6 +41,37 @@ public sealed class EmailOptionsTests
     }
 
     [Test]
+    [Arguments("Notifications:Dispatch:Consumer:MaxHandlerDuration")]
+    [Arguments("Messaging:Consumers:MaxHandlerDuration")]
+    public async Task A_total_send_budget_not_below_the_consumers_handler_limit_fails_the_start_naming_both_keys(string consumerKey)
+    {
+        // Act
+        var message = await StartFailureAsync(new()
+        {
+            ["Notifications:Email:Resend:ApiKey"] = "re_key",
+            ["Notifications:Email:Resend:TotalTimeout"] = "00:00:40",
+            [consumerKey] = "00:00:30",
+        });
+
+        // Assert
+        await Assert.That(message).Contains("Notifications:Email:Resend:TotalTimeout").And.Contains(consumerKey);
+    }
+
+    [Test]
+    public async Task A_total_send_budget_below_the_consumers_handler_limit_starts()
+    {
+        // Arrange
+        await using var provider = Compose(new()
+        {
+            ["Notifications:Email:Resend:ApiKey"] = "re_key",
+            ["Notifications:Dispatch:Consumer:MaxHandlerDuration"] = "00:05:00",
+        });
+
+        // Act and assert
+        await provider.GetRequiredService<IAsyncStartupValidator>().ValidateAsync(CancellationToken.None);
+    }
+
+    [Test]
     public async Task An_unknown_sender_fails_the_start_naming_the_key()
     {
         // Arrange
