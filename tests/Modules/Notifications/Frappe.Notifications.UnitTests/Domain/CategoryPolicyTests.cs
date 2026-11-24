@@ -24,6 +24,17 @@ public sealed class CategoryPolicyTests
     }
 
     [Test]
+    public async Task The_email_changed_notice_is_transactional_so_it_carries_the_undo_link_and_cannot_be_turned_off()
+    {
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(Frappe.Notifications.Kinds.Account.EmailChanged.Category).IsEqualTo(NotificationCategory.Transactional);
+            await Assert.That(Frappe.Notifications.Kinds.Account.EmailChanged.Category.CanOptOut).IsFalse();
+        }
+    }
+
+    [Test]
     public async Task A_recipient_can_opt_out_of_marketing()
     {
         // Arrange

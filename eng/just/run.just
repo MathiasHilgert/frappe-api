@@ -26,6 +26,7 @@ worker:
     Notifications__AddressHash__Keys__1="$FRAPPE_NOTIFICATIONS_ADDRESS_HASH_KEY" \
     Notifications__Unsubscribe__SigningKey="$FRAPPE_NOTIFICATIONS_UNSUBSCRIBE_KEY" \
     Notifications__Unsubscribe__PageUrl="$FRAPPE_NOTIFICATIONS_UNSUBSCRIBE_PAGE_URL" \
+    Notifications__Links__ConsoleUrl="$FRAPPE_NOTIFICATIONS_CONSOLE_URL" \
     Notifications__Unsubscribe__ApiBaseUrl="$FRAPPE_NOTIFICATIONS_API_URL" \
     Notifications__Email__Sender="${Notifications__Email__Sender:-Logging}" \
     dotnet run --project src/Hosts/Frappe.Worker

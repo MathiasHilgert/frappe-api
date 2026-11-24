@@ -39,5 +39,13 @@
     "heading": "O e-mail da sua conta pode mudar",
     "intro": "Olá {Name}. Foi pedida a troca do e-mail da sua conta para {NewEmailMasked}. Até ser confirmada, você continua entrando com este e-mail.",
     "footer": "Se não foi você, troque sua senha agora: todas as suas outras sessões são encerradas."
+  },
+  "email_changed": {
+    "subject": "O e-mail do seu Frappé foi alterado",
+    "preheader": "Se não foi você, desfaça em até 7 dias.",
+    "heading": "O e-mail da sua conta mudou",
+    "intro": "Olá {Name}. O e-mail da sua conta foi alterado e este não serve mais para entrar. Se não foi você, desfaça a alteração: o botão funciona uma vez e expira em 7 dias.",
+    "undo": "Desfazer a alteração",
+    "footer": "Se foi você, ignore este e-mail. Se não, desfaça e depois troque sua senha."
   }
 }

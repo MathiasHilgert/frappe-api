@@ -1,0 +1,8 @@
+O e-mail da sua conta mudou
+
+Olá Ana. O e-mail da sua conta foi alterado e este não serve mais para entrar. Se não foi você, desfaça a alteração: o botão funciona uma vez e expira em 7 dias.
+
+Desfazer a alteração: https://console.example.com/undo-email-change?token=sample
+
+--
+Se foi você, ignore este e-mail. Se não, desfaça e depois troque sua senha.

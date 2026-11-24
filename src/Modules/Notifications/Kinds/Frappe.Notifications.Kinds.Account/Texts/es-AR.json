@@ -39,5 +39,13 @@
     "heading": "El email de tu cuenta puede cambiar",
     "intro": "Hola {Name}. Se pidió cambiar el email de tu cuenta a {NewEmailMasked}. Hasta que se confirme, seguís entrando con este email.",
     "footer": "Si no fuiste vos, cambiá tu contraseña ahora: se cierran todas tus otras sesiones."
+  },
+  "email_changed": {
+    "subject": "Se cambió tu email de Frappé",
+    "preheader": "Si no fuiste vos, deshacelo dentro de 7 días.",
+    "heading": "El email de tu cuenta cambió",
+    "intro": "Hola {Name}. Se cambió el email de tu cuenta y este ya no sirve para entrar. Si no fuiste vos, deshacé el cambio: el botón funciona una sola vez y vence en 7 días.",
+    "undo": "Deshacer el cambio",
+    "footer": "Si fuiste vos, ignorá este mail. Si no, deshacelo y después cambiá tu contraseña."
   }
 }

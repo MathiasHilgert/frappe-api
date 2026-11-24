@@ -39,5 +39,13 @@
     "heading": "Your account email may change",
     "intro": "Hi {Name}. A change of your account email to {NewEmailMasked} was requested. Until it is confirmed, you keep signing in with this email.",
     "footer": "If it was not you, change your password now: it closes every other session."
+  },
+  "email_changed": {
+    "subject": "Your Frappé email was changed",
+    "preheader": "If it was not you, undo it within 7 days.",
+    "heading": "Your account email changed",
+    "intro": "Hi {Name}. The email of your account was changed and this address no longer signs in. If it was not you, undo the change: the button works once and expires in 7 days.",
+    "undo": "Undo the change",
+    "footer": "If it was you, ignore this email. If it was not, undo it and then change your password."
   }
 }

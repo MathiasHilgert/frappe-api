@@ -19,8 +19,15 @@ public sealed class IdentityProducerTests(PostgresServer server)
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 24, 12, 0, 0, TimeSpan.Zero);
 
+    private static readonly Dictionary<string, string?> Links = new() { ["Notifications:Links:ConsoleUrl"] = "https://console.example.com/" };
+
     private static DispatchWorld Worker(string owner) => DispatchWorld.ForWorker(
-        owner, new Dictionary<string, string?>(), services => new IdentityProducerModule().AddServices(services));
+        owner, Links, services =>
+        {
+            services.AddSingleton<Microsoft.Extensions.Hosting.IHostEnvironment>(
+                new Microsoft.Extensions.Hosting.Internal.HostingEnvironment { EnvironmentName = "Production" });
+            new IdentityProducerModule().AddServices(services);
+        });
 
     private static async Task ConsumeAsync<TEvent>(DispatchWorld worker, Guid messageId, TEvent fact)
         where TEvent : IIntegrationEvent
@@ -105,6 +112,38 @@ public sealed class IdentityProducerTests(PostgresServer server)
                 await Assert.That(await DeliveriesAsync(
                     owner, $"WHERE source_message_id = '{messageId}' AND kind = 'email_change_requested' AND status = 'sent'")).IsEqualTo(1);
                 await Assert.That(logged).DoesNotContain("old@example.com").And.DoesNotContain("example.org");
+            }
+        });
+    }
+
+    [Test]
+    public async Task A_confirmed_email_change_sends_the_undo_notice_to_the_old_address_without_the_token_in_the_logs()
+    {
+        await MigratedNotifications.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using var worker = Worker(owner);
+            var messageId = Guid.CreateVersion7();
+
+            // Act
+            await ConsumeAsync(
+                worker,
+                messageId,
+                new OwnerEmailChanged(Guid.CreateVersion7(), Now)
+                {
+                    OldEmail = "old@example.com",
+                    UndoToken = "undo-secret-token",
+                    Name = "Ana",
+                    Language = "pt-BR",
+                });
+
+            // Assert
+            var logged = string.Join('\n', worker.Logs.Entries.Select(e => e.Message));
+            using (Assert.Multiple())
+            {
+                await Assert.That(await DeliveriesAsync(
+                    owner, $"WHERE source_message_id = '{messageId}' AND kind = 'email_changed' AND status = 'sent'")).IsEqualTo(1);
+                await Assert.That(logged).DoesNotContain("old@example.com").And.DoesNotContain("undo-secret-token");
             }
         });
     }

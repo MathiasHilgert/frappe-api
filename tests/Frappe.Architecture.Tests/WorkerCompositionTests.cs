@@ -30,6 +30,7 @@ public sealed class WorkerCompositionTests
         ["Notifications:AddressHash:Keys:1"] = "bG9jYWwtb25seS1hZGRyZXNzLWhhc2gta2V5LW9mLTM5LWJ5dGVz",
         ["Notifications:Unsubscribe:SigningKey"] = "bG9jYWwtb25seS11bnN1YnNjcmliZS1zaWduaW5nLWtleSEh",
         ["Notifications:Unsubscribe:PageUrl"] = "http://localhost:5173/unsubscribe",
+        ["Notifications:Links:ConsoleUrl"] = "https://console.example.com/",
         ["Notifications:Unsubscribe:ApiBaseUrl"] = "http://localhost:8080/",
         ["Notifications:Email:Resend:ApiKey"] = "re_local_only_placeholder",
     };

@@ -135,6 +135,7 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
             .WithEnvironment("Notifications__AddressHash__Keys__1", AddressHashKey)
             .WithEnvironment("Notifications__Unsubscribe__SigningKey", UnsubscribeKey)
             .WithEnvironment("Notifications__Unsubscribe__PageUrl", "http://localhost:5173/unsubscribe")
+            .WithEnvironment("Notifications__Links__ConsoleUrl", "https://console.example.com/")
             .WithEnvironment("Notifications__Unsubscribe__ApiBaseUrl", "http://localhost:8080/")
             .WithEnvironment("Notifications__Email__Sender", "Logging")
             .Build());

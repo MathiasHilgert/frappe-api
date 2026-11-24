@@ -2,6 +2,8 @@ using Frappe.Identity.Contracts.Owners;
 using Frappe.Modules;
 using Frappe.Notifications.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace Frappe.Notifications.Producers.Identity;
 
@@ -21,6 +23,9 @@ public sealed class IdentityProducerModule : IModule
     /// <summary>The consumer of the notice to the old address of an email change.</summary>
     public const string EmailChangeRequestedConsumer = "notifications-identity-email-change-requested";
 
+    /// <summary>The consumer of the undo notice to the old address of a confirmed email change.</summary>
+    public const string EmailChangedConsumer = "notifications-identity-email-changed";
+
     /// <inheritdoc />
     public void AddServices(IServiceCollection services)
     {
@@ -28,5 +33,8 @@ public sealed class IdentityProducerModule : IModule
         services.AddNotificationProducer<OwnerCodeIssued, OwnerCodeIssuedMapper>(CodesConsumer);
         services.AddNotificationProducer<OwnerRegistrationAttempted, OwnerRegistrationAttemptedMapper>(RegistrationAttemptedConsumer);
         services.AddNotificationProducer<OwnerEmailChangeRequested, OwnerEmailChangeRequestedMapper>(EmailChangeRequestedConsumer);
+        services.AddNotificationProducer<OwnerEmailChanged, OwnerEmailChangedMapper>(EmailChangedConsumer);
+        services.AddOptions<NotificationLinksOptions>().BindConfiguration(NotificationLinksOptions.Section).ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<NotificationLinksOptions>, NotificationLinksOptionsValidator>());
     }
 }

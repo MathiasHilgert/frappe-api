@@ -87,6 +87,64 @@ public sealed class IdentityProducerMappersTests
     }
 
     [Test]
+    public async Task A_confirmed_email_change_asks_for_the_undo_notice_to_the_old_address_with_the_console_link()
+    {
+        // Arrange
+        var fact = new OwnerEmailChanged(Guid.CreateVersion7(), Now)
+        {
+            OldEmail = "old@example.com",
+            UndoToken = "tok/en+1",
+            Name = "Ana",
+            Language = "en",
+        };
+        var options = Microsoft.Extensions.Options.Options.Create(
+            new NotificationLinksOptions { ConsoleUrl = new Uri("https://console.example.com/app/") });
+
+        // Act
+        var produced = new OwnerEmailChangedMapper(options).Map(fact);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(produced).Count().IsEqualTo(1);
+            await Assert.That(produced[0].Kind).IsEqualTo("email_changed");
+            await Assert.That(produced[0].Payload).IsEqualTo(new EmailChangedPayload(
+                "old@example.com", "en", "Ana", "https://console.example.com/app/undo-email-change?token=tok%2Fen%2B1"));
+        }
+    }
+
+    [Test]
+    public async Task An_email_change_published_before_the_undo_existed_asks_for_nothing()
+    {
+        // Arrange
+        var options = Microsoft.Extensions.Options.Options.Create(
+            new NotificationLinksOptions { ConsoleUrl = new Uri("https://console.example.com/") });
+
+        // Act
+        var produced = new OwnerEmailChangedMapper(options).Map(new OwnerEmailChanged(Guid.CreateVersion7(), Now));
+
+        // Assert
+        await Assert.That(produced).IsEmpty();
+    }
+
+    [Test]
+    [Arguments(null, false)]
+    [Arguments("http://console.example.com/", false)]
+    [Arguments("https://console.example.com/", true)]
+    [Arguments("https://user:pw@console.example.com/", false)]
+    public async Task The_console_url_must_be_an_absolute_https_url_without_credentials(string? url, bool valid)
+    {
+        // Arrange
+        var options = new NotificationLinksOptions { ConsoleUrl = url is null ? null : new Uri(url) };
+
+        // Act
+        var result = new NotificationLinksOptionsValidator().Validate(null, options);
+
+        // Assert
+        await Assert.That(result.Succeeded).IsEqualTo(valid);
+    }
+
+    [Test]
     public async Task Every_event_of_the_producer_has_a_mapper_and_a_consumer_of_its_own_under_notifications_identity()
     {
         // Arrange
@@ -97,7 +155,7 @@ public sealed class IdentityProducerMappersTests
         string[] consumers =
         [
             IdentityProducerModule.CodesConsumer, IdentityProducerModule.RegistrationAttemptedConsumer,
-            IdentityProducerModule.EmailChangeRequestedConsumer,
+            IdentityProducerModule.EmailChangeRequestedConsumer, IdentityProducerModule.EmailChangedConsumer,
         ];
 
         // Assert
@@ -106,12 +164,13 @@ public sealed class IdentityProducerMappersTests
             await Assert.That(services.Any(d => d.ServiceType == typeof(INotificationProducer<OwnerCodeIssued>))).IsTrue();
             await Assert.That(services.Any(d => d.ServiceType == typeof(INotificationProducer<OwnerRegistrationAttempted>))).IsTrue();
             await Assert.That(services.Any(d => d.ServiceType == typeof(INotificationProducer<OwnerEmailChangeRequested>))).IsTrue();
-            await Assert.That(consumers.Distinct().Count()).IsEqualTo(3);
+            await Assert.That(consumers.Distinct().Count()).IsEqualTo(4);
             await Assert.That(RegisteredConsumer<OwnerCodeIssued>(services)).IsEqualTo(IdentityProducerModule.CodesConsumer);
             await Assert.That(RegisteredConsumer<OwnerRegistrationAttempted>(services))
                 .IsEqualTo(IdentityProducerModule.RegistrationAttemptedConsumer);
             await Assert.That(RegisteredConsumer<OwnerEmailChangeRequested>(services))
                 .IsEqualTo(IdentityProducerModule.EmailChangeRequestedConsumer);
+            await Assert.That(RegisteredConsumer<OwnerEmailChanged>(services)).IsEqualTo(IdentityProducerModule.EmailChangedConsumer);
             await Assert.That(consumers).All().Satisfy(name => name.StartsWith("notifications-identity-", StringComparison.Ordinal));
         }
     }

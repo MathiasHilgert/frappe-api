@@ -1,0 +1,8 @@
+El correo de tu cuenta cambió
+
+Hola Ana. Se cambió el correo de tu cuenta y este ya no sirve para entrar. Si no fuiste tú, deshaz el cambio: el botón funciona una sola vez y vence en 7 días.
+
+Deshacer el cambio: https://console.example.com/undo-email-change?token=sample
+
+--
+Si fuiste tú, ignora este correo. Si no, deshazlo y después cambia tu contraseña.
