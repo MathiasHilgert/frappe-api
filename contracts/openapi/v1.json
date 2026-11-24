@@ -177,6 +177,12 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Set-Cookie": {
+                "description": "The expired __Host-frappe-session cookie (HttpOnly, Secure, SameSite=Lax, Path=/), which tells the browser to forget the session; sent for every successful log out.",
+                "schema": {
+                  "type": "string"
+                }
               }
             }
           },

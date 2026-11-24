@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.OpenApi;
 
 namespace Frappe.Identity.Http.Sessions;
 
@@ -40,7 +41,22 @@ internal static class SessionEndpoints
                     + "A request that carries the cookie must come from a console origin (403 http.origin.forbidden otherwise); one that "
                     + "carries a bearer token is not checked. 401 identity.session.invalid when the request has no valid session.")
                 .ProducesProblem(StatusCodes.Status401Unauthorized)
-                .ProducesProblem(StatusCodes.Status403Forbidden);
+                .ProducesProblem(StatusCodes.Status403Forbidden)
+                .AddOpenApiOperationTransformer((operation, _, _) =>
+                {
+                    if (operation.Responses?.TryGetValue("204", out var noContent) == true && noContent is OpenApiResponse response)
+                    {
+                        response.Headers ??= new Dictionary<string, IOpenApiHeader>();
+                        response.Headers["Set-Cookie"] = new OpenApiHeader
+                        {
+                            Description = "The expired __Host-frappe-session cookie (HttpOnly, Secure, SameSite=Lax, Path=/), which tells the "
+                                + "browser to forget the session; sent for every successful log out.",
+                            Schema = new OpenApiSchema { Type = JsonSchemaType.String },
+                        };
+                    }
+
+                    return Task.CompletedTask;
+                });
         }
     }
 

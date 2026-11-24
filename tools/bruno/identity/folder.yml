@@ -23,4 +23,7 @@ docs:
     - **Get the current session without one (401):** `GET /v1/identity/sessions/current` with no credential.
     - **Get the current session with a token nobody holds (401):** a well-formed token the Api never issued answers the same.
     - **Log out without a session (401):** `DELETE /v1/identity/sessions/current` with no credential.
+    - **Log out with the session cookie and no console origin (403):** `http.origin.forbidden`, a dummy cookie is enough.
+
+    The 200 and 204 examples (a session, then logging out) are deferred to the log-in route.
   type: text/markdown
