@@ -23,6 +23,8 @@ internal sealed class EmailChangeUndoConfiguration : IEntityTypeConfiguration<Em
 
     public const string InvalidatedAfterIssued = "ck_email_change_undos_invalidated_after_issued";
 
+    public const string AddressesDiffer = "ck_email_change_undos_addresses_differ";
+
     /// <summary>Only one token per principal and change (old and new address) is live: neither redeemed nor invalidated.</summary>
     public const string LiveIndex = "ux_email_change_undos_live";
 
@@ -42,6 +44,7 @@ internal sealed class EmailChangeUndoConfiguration : IEntityTypeConfiguration<Em
             table.HasCheckConstraint(ExpiresAfterIssued, OneTimeCodeConfiguration.ExpiresAfterIssuedSql);
             table.HasCheckConstraint(RedeemedInWindow, OneTimeCodeConfiguration.RedeemedInWindowSql);
             table.HasCheckConstraint(InvalidatedAfterIssued, OneTimeCodeConfiguration.InvalidatedAfterIssuedSql);
+            table.HasCheckConstraint(AddressesDiffer, "old_address <> new_address");
         });
         builder.HasKey(u => u.Id).HasName(PrimaryKey);
         builder.Property(u => u.Id).HasColumnName("id").ValueGeneratedNever();

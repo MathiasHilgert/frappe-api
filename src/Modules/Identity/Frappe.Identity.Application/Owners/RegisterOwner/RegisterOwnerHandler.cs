@@ -1,6 +1,7 @@
 using Frappe.Identity.Application.Codes;
 using Frappe.Identity.Application.Credentials;
 using Frappe.Identity.Application.Identifiers;
+using Frappe.Identity.Application.Limits;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Domain.Codes;
 using Frappe.Identity.Domain.Credentials;
@@ -18,7 +19,8 @@ namespace Frappe.Identity.Application.Owners.RegisterOwner;
 /// Handles <see cref="RegisterOwner"/>. Everything that can be refused is checked, and the password hashed, before the address is looked up,
 /// so a taken address costs the caller what a new one does and a refusal never says whether the address exists (SEC-06). Every answer
 /// carries a fresh id, whatever holds the address, so the id tells nothing; a pending owner is replaced by a new principal, so the id and the
-/// code it was given stop working. The unique index decides two registrations of one new address (<c>OwnerRejections</c>).
+/// code it was given stop working. The notice mail to a verified owner is bounded per address (<see cref="RegistrationLimits.Notice"/>).
+/// The unique index decides two registrations of one new address (<c>OwnerRejections</c>).
 /// </summary>
 internal sealed class RegisterOwnerHandler(
     IEmailIdentifiers identifiers,
@@ -28,6 +30,7 @@ internal sealed class RegisterOwnerHandler(
     PasswordPolicy policy,
     IPasswordHasher hasher,
     CodeIssuer codes,
+    IAttemptLimiter limiter,
     TimeProvider time) : ICommandHandler<RegisterOwner, RegisteredOwner>
 {
     public async Task<Result<RegisteredOwner>> HandleAsync(RegisterOwner command, CancellationToken cancellationToken)
@@ -60,7 +63,14 @@ internal sealed class RegisterOwnerHandler(
 
         if (owner.VerifiedAt is not null)
         {
-            owner.RecordRegistrationAttempted(existing.Address, now);
+            // Only a refusal of the limiter holds the notice back: the flow fails open, and the answer is the same either way.
+            var verdict = await limiter.HitAsync(
+                RegistrationLimits.Notice, RegistrationLimits.Subject(email.Value.NormalizedAddress), cancellationToken);
+            if (verdict.Outcome != AttemptOutcome.Refused)
+            {
+                owner.RecordRegistrationAttempted(existing.Address, now);
+            }
+
             return new RegisteredOwner(Guid.CreateVersion7());
         }
 

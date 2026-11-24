@@ -31,6 +31,7 @@ using Frappe.Persistence;
 using Frappe.Results;
 using Frappe.UseCases;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -67,7 +68,9 @@ internal sealed class OwnersHost : IAsyncDisposable
 
     /// <param name="owner">The owner connection string of the migrated database.</param>
     /// <param name="gate">When given, every address lookup waits there after reading, so racing registrations all read the same state.</param>
-    public static OwnersHost Over(string owner, RaceGate? gate = null)
+    /// <param name="saving">When given, every save waits there before writing, so racing commands all read before any of them commits.</param>
+    /// <param name="beforeSaving">When given, runs before every save writes, as another request that commits first.</param>
+    public static OwnersHost Over(string owner, RaceGate? gate = null, RaceGate? saving = null, Func<Task>? beforeSaving = null)
     {
         var time = new FlooredTime(Start);
         var limiter = new CountingLimiter();
@@ -90,6 +93,16 @@ internal sealed class OwnersHost : IAsyncDisposable
         services.AddSingleton<IBreachedPasswords>(breached);
         services.AddSingleton<IAttemptLimiter>(limiter);
         services.AddHandlers(typeof(IEmailIdentifiers).Assembly);
+        if (saving is not null)
+        {
+            services.ConfigureDbContext<IdentityDbContext>(options => options.AddInterceptors(new GatedSaves(saving)));
+        }
+
+        if (beforeSaving is not null)
+        {
+            services.ConfigureDbContext<IdentityDbContext>(options => options.AddInterceptors(new BeforeSaves(beforeSaving)));
+        }
+
         if (gate is not null)
         {
             services.AddScoped<IEmailIdentifiers>(provider => new GatedEmailIdentifiers(
@@ -270,6 +283,28 @@ internal sealed class OwnersHost : IAsyncDisposable
             }
 
             return _open.Task;
+        }
+    }
+
+    /// <summary>Holds every save at <see cref="RaceGate"/> before it writes.</summary>
+    private sealed class GatedSaves(RaceGate gate) : SaveChangesInterceptor
+    {
+        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            await gate.ArriveAsync();
+            return result;
+        }
+    }
+
+    /// <summary>Runs <paramref name="action"/> (another request committing) before every save writes.</summary>
+    private sealed class BeforeSaves(Func<Task> action) : SaveChangesInterceptor
+    {
+        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            await action();
+            return result;
         }
     }
 

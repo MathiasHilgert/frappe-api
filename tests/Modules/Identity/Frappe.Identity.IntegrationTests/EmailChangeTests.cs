@@ -287,6 +287,46 @@ public sealed class EmailChangeTests(PostgresServer server)
     }
 
     [Test]
+    public async Task Two_owners_confirming_the_same_address_at_once_leave_one_holder_and_the_loser_is_told_the_code_is_invalid()
+    {
+        await MigratedIdentity.RunAsync(server, async owner =>
+        {
+            // Arrange
+            Guid ana;
+            Guid bob;
+            (OpenedSession Session, string Change, string Code) anaRequest;
+            (OpenedSession Session, string Change, string Code) bobRequest;
+            await using (var seed = OwnersHost.Over(owner))
+            {
+                OpenedSession anaSession;
+                OpenedSession bobSession;
+                (ana, anaSession) = await ActiveOwnerAsync(seed);
+                (bob, bobSession) = await ActiveOwnerAsync(seed, "bob@example.com");
+                var anaChange = await seed.RequestEmailChangeAsync(ana, "new@example.com");
+                anaRequest = (anaSession, anaChange.Value.Id.ToString(), await seed.LastCodeAsync());
+                var bobChange = await seed.RequestEmailChangeAsync(bob, "new@example.com");
+                bobRequest = (bobSession, bobChange.Value.Id.ToString(), await seed.LastCodeAsync());
+            }
+
+            await using var host = OwnersHost.Over(owner, saving: new OwnersHost.RaceGate(2));
+
+            // Act
+            var answers = await Task.WhenAll(
+                host.ConfirmEmailChangeAsync(ana, anaRequest.Session.Id, anaRequest.Change, anaRequest.Code),
+                host.ConfirmEmailChangeAsync(bob, bobRequest.Session.Id, bobRequest.Change, bobRequest.Code));
+
+            // Assert
+            await using var db = host.Context();
+            using (Assert.Multiple())
+            {
+                await Assert.That(answers.Count(a => a.IsSuccess)).IsEqualTo(1);
+                await Assert.That(answers.Single(a => !a.IsSuccess).Errors.Single().Code).IsEqualTo(IdentityErrorCodes.CodeInvalid);
+                await Assert.That(await db.EmailIdentifiers.CountAsync(i => i.NormalizedAddress == "new@example.com")).IsEqualTo(1);
+            }
+        });
+    }
+
+    [Test]
     public async Task A_wrong_confirmation_spends_the_same_guesses_after_a_taken_address_as_after_a_free_one()
     {
         await MigratedIdentity.RunAsync(server, async owner =>
