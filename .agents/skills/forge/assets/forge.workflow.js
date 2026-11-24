@@ -357,8 +357,9 @@ async function review(r) {
   const t = r.task
   const ruled = Object.keys(RULINGS[t.id] || {})
   if (r.fromDone && DONE[t.id].reviewed) {
-    const blockers = ruled.map(id => rulingItem(t.id, id))
-    if (blockers.length) log(`${t.id}: reviewed earlier; the correction applies ${blockers.length} ruling(s): ${ruled.join(', ')}`)
+    // pendingFixes: what an earlier run's arbiter asked for and no correction applied yet (it stopped first).
+    const blockers = [...(DONE[t.id].pendingFixes || []), ...ruled.map(id => rulingItem(t.id, id))]
+    if (blockers.length) log(`${t.id}: reviewed earlier; the correction applies ${blockers.length} item(s): ${blockers.map(b => b.id).join(', ')}`)
     return { ...r, profile: t.profile || 'standard', critics: [], verdict: { verdict: blockers.length ? 'fix' : 'pass', blockers, advisories: [], dropped: [] } }
   }
   const paths = r.write.changedPaths || []
@@ -531,7 +532,8 @@ async function runChain(chain) {
     verifying = null
     if (verified) {
       done.push(verified)
-      if (stopped(verified)) { done.push({ ...(w || { task: t }), stop: true, reason: `waiting on ${verified.task.id}` }); return done }
+      // The review of the previous slice finished in the same step: keep it (verdict, decisions), never drop it.
+      if (stopped(verified)) { if (prev) done.push(stopped(prev) ? prev : { ...prev, stop: true, reason: `waiting on ${verified.task.id}` }); done.push({ ...(w || { task: t }), stop: true, reason: `waiting on ${verified.task.id}` }); return done }
     }
     if (prev) {
       const f = await fixStage(prev)
@@ -639,7 +641,12 @@ return {
     // Ready-made entry for args.done of the next fresh run: reviewed when the review and its correction finished, or when
     // it stopped only on a decision (the ruling the user gives becomes the correction).
     done: r.write && r.write.status === 'done' && r.write.commit && !r.task.id.endsWith('-head')
-      ? { commit: r.write.commit, changedPaths: r.write.changedPaths || [], contractChanged: !!r.write.contractChanged, signals: r.write.signals, reviewed: !!r.verdict && (!r.stop || r.reason === 'decision needed') }
+      ? {
+        commit: r.write.commit, changedPaths: r.write.changedPaths || [], contractChanged: !!r.write.contractChanged, signals: r.write.signals,
+        reviewed: !!r.verdict && (!r.stop || r.reason === 'decision needed' || /^waiting on /.test(r.reason || '')),
+        // The arbiter's blockers and auto-applied advisories that no correction applied yet, so the next run fixes them.
+        pendingFixes: r.verdict && !r.correction ? [...(r.verdict.blockers || []).filter(b => !String(b.id).startsWith('ruling-')), ...(r.verdict.advisories || []).filter(a => a.autoApply)] : undefined,
+      }
       : undefined,
     correction: r.correction && { commit: r.correction.commit, status: r.correction.status },
     verdict: r.verdict && { verdict: r.verdict.verdict, blockers: r.verdict.blockers, advisories: r.verdict.advisories, followups: r.verdict.followups },

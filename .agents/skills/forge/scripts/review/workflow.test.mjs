@@ -148,4 +148,16 @@ const check = (name, ok, detail = '') => { if (!ok) fails++; console.log(ok ? 'P
   const { calls } = await run({ ...base, chains: [[task({ id: 'F1', commit: 'feat(x): f', base: 'feat/foundation' })]] })
   check('a fan-out chain uses its own base', calls.find(c => c.label === 'write:F1').prompt.includes('base feat/foundation'))
 }
+{
+  // When the verification of slice 1 stops the chain, the review of slice 2 that finished in the same step is kept,
+  // and its unfixed blockers travel in done.pendingFixes so the next fresh run corrects them without new critics.
+  const chain = ['S1', 'S2', 'S3'].map(id => task({ id, commit: `feat(x): ${id}` }))
+  const { out } = await run({ ...base, chains: [chain] }, { fixBug: true })
+  const s2 = out.tasks.find(x => x.id === 'S2')
+  check('an in-flight review survives a chain stop', s2 && s2.verdict && s2.verdict.blockers.length === 1, JSON.stringify(out.tasks.map(x => [x.id, x.reason])))
+  check('its unfixed blockers go to pendingFixes', s2 && s2.done && s2.done.reviewed && s2.done.pendingFixes.some(b => b.id === 'correctness-1'), JSON.stringify(s2 && s2.done))
+  const next = await run({ ...base, done: { S1: out.tasks.find(x => x.id === 'S1').done, S2: s2.done }, chains: [chain] })
+  const labels = next.calls.map(c => c.label)
+  check('the next run corrects them without new critics', labels.includes('correct:S2') && !labels.includes('correctness:S2') && next.calls.find(c => c.label === 'correct:S2').prompt.includes('correctness-1'), labels.join(' '))
+}
 process.exit(fails ? 1 : 0)
