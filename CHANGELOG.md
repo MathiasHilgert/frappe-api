@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/MathiasHilgert/frappe-api/compare/v0.4.0...v0.4.1) (2026-11-24)
+
+
+### Bug fixes
+
+* **identity:** refuse line separators in names everywhere they reach a mail ([#60](https://github.com/MathiasHilgert/frappe-api/issues/60)) ([8687435](https://github.com/MathiasHilgert/frappe-api/commit/8687435d05e70057c5859da16402445e8611016b))
+
 ## [0.4.0](https://github.com/MathiasHilgert/frappe-api/compare/v0.3.0...v0.4.0) (2026-11-24)
 
 
