@@ -78,7 +78,7 @@ public sealed class MigratorTests(PostgresServer server)
             var identityWorker = ScratchDatabase.LoginOf(owner, IdentityWorkerRole, "identity-worker-test-password");
             var identityRows = await ScratchDatabase.ScalarAsync(identityApi, "SELECT count(*) FROM identity.principals");
             var identityWorkerDenied = await Assert.ThrowsAsync<PostgresException>(
-                () => ScratchDatabase.ScalarAsync(identityWorker, "SELECT count(*) FROM identity.sessions"));
+                () => ScratchDatabase.ScalarAsync(identityWorker, "SELECT token_hash FROM identity.sessions"));
             var api = ScratchDatabase.LoginOf(owner, NotificationsRole, "notifications-test-password");
             var worker = ScratchDatabase.LoginOf(owner, NotificationsWorkerRole, "notifications-worker-test-password");
             var apiRows = await ScratchDatabase.ScalarAsync(api, "SELECT count(*) FROM notifications.deliveries");
