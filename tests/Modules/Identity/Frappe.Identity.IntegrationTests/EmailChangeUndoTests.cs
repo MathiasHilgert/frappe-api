@@ -206,6 +206,8 @@ public sealed class EmailChangeUndoTests(PostgresServer server)
                 await host.UndoEmailChangeAsync($"{Guid.CreateVersion7():N}.{parts[1]}"),
                 await host.UndoEmailChangeAsync($"{parts[0]}.{parts[1][..^1]}x"),
                 await host.UndoEmailChangeAsync($"{parts[0]}."),
+                await host.UndoEmailChangeAsync($"{parts[0]}.{new string('a', 100_000)}"),
+                await host.UndoEmailChangeAsync(new string('.', 100_000)),
             };
 
             // Assert

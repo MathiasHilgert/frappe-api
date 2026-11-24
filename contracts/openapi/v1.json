@@ -2836,7 +2836,7 @@
           "Identity"
         ],
         "summary": "Undo an email change from the notice",
-        "description": "Restores the address the change replaced, proven, with the single-use token of the notice sent to it (valid 7 days): every session of the owner is revoked, so the owner logs in again, and every live code of the owner stops working. A change made later has its own token, which stops working too. 422 identity.undo.invalid, one answer and one time (never sooner than 500 ms), for a token that is malformed, unknown, wrong, expired, used or replaced and for an old address that another verified owner holds now. 429 http.rate_limited with Retry-After.",
+        "description": "Restores the earlier address as verified, using the single-use token in the link of the notice mailed to that address (valid 7 days): every session of the owner is revoked, so the owner logs in again, and every live code of the owner stops working. A change made later has its own token, which stops working too. 422 identity.undo.invalid, one answer and one time (never sooner than 500 ms), for a token that is malformed, unknown, wrong, expired, used or replaced and for an old address that another verified owner holds now. 429 http.rate_limited with Retry-After.",
         "operationId": "UndoEmailChange",
         "parameters": [
           {
