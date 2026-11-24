@@ -51,6 +51,17 @@ public sealed class NotificationsConstraintTests(PostgresServer server)
         ["matched"] = "true",
     };
 
+    private static readonly (string Column, string Value)[] SentWithoutHash =
+    [
+        ("status", "'sent'"), ("provider", "'resend'"), ("provider_message_id", "'re_1'"), ("sent_at", "now()"),
+    ];
+
+    private static readonly (string Column, string Value)[] DeliveredWithoutInstant =
+    [
+        ("status", "'delivered'"), ("provider", "'resend'"), ("provider_message_id", "'re_1'"), ("sent_at", "now()"),
+        ("address_hash", Hash), ("hash_key_id", "1"),
+    ];
+
     private static string Insert(string table, Dictionary<string, string> valid, params (string Column, string Value)[] overrides)
     {
         var row = new Dictionary<string, string>(valid);
@@ -80,6 +91,8 @@ public sealed class NotificationsConstraintTests(PostgresServer server)
         yield return (Insert("deliveries", ValidDelivery, ("status", "'sent'"), ("sent_at", "now()")), "ck_deliveries_sent_like");
         yield return (Insert("deliveries", ValidDelivery, ("status", "'delivered'"), ("provider", "'resend'"), ("provider_message_id", "'re_1'")),
             "ck_deliveries_sent_like");
+        yield return (Insert("deliveries", ValidDelivery, SentWithoutHash), "ck_deliveries_sent_like_hash");
+        yield return (Insert("deliveries", ValidDelivery, DeliveredWithoutInstant), "ck_deliveries_status_delivered_at");
         yield return (Insert("deliveries", ValidDelivery, ("status", "'failed'")), "ck_deliveries_failed_reason");
         yield return (Insert("deliveries", ValidDelivery, ("failure_reason", "'provider_rejected'")), "ck_deliveries_failed_reason");
         yield return (Insert("suppressions", ValidSuppression, ("address_hash", "'\\x01'::bytea")), "ck_suppressions_address_hash_length");
@@ -96,6 +109,8 @@ public sealed class NotificationsConstraintTests(PostgresServer server)
         yield return (Insert("provider_events", ValidEvent, ("occurred_at", "now()")), "ck_provider_events_parked_together");
         yield return (Insert("provider_events", ValidEvent,
             ("provider_message_id", "'re_1'"), ("feedback", "'angry'"), ("occurred_at", "now()")), "ck_provider_events_feedback");
+        yield return (Insert("provider_events", ValidEvent,
+            ("provider_message_id", "'re_1'"), ("feedback", "'delivered'"), ("occurred_at", "now()")), "ck_provider_events_parked_unmatched");
     }
 
     [Test]
@@ -126,7 +141,11 @@ public sealed class NotificationsConstraintTests(PostgresServer server)
             [
                 Insert("deliveries", ValidDelivery),
                 Insert("deliveries", ValidDelivery,
-                    ("status", "'sent'"), ("provider", "'resend'"), ("provider_message_id", "'re_1'"), ("sent_at", "now()")),
+                    ("status", "'sent'"), ("provider", "'resend'"), ("provider_message_id", "'re_1'"), ("sent_at", "now()"),
+                    ("address_hash", Hash), ("hash_key_id", "1")),
+                Insert("deliveries", ValidDelivery,
+                    ("status", "'delivered'"), ("provider", "'resend'"), ("provider_message_id", "'re_2'"), ("sent_at", "now()"),
+                    ("delivered_at", "now()"), ("address_hash", Hash), ("hash_key_id", "1")),
                 Insert("deliveries", ValidDelivery, ("status", "'failed'"), ("failure_reason", "'provider_rejected'")),
                 Insert("deliveries", ValidDelivery,
                     ("recipient_key", $"'addr:1:{new string('a', 64)}'"), ("address_hash", Hash), ("hash_key_id", "1")),
@@ -146,7 +165,7 @@ public sealed class NotificationsConstraintTests(PostgresServer server)
             }
 
             // Assert
-            await Assert.That(await ScratchDatabase.ScalarAsync(owner, "SELECT count(*) FROM notifications.deliveries")).IsEqualTo(4L);
+            await Assert.That(await ScratchDatabase.ScalarAsync(owner, "SELECT count(*) FROM notifications.deliveries")).IsEqualTo(5L);
         });
     }
 
@@ -160,7 +179,8 @@ public sealed class NotificationsConstraintTests(PostgresServer server)
             var first = Insert("deliveries", ValidDelivery, ("source_message_id", $"'{message}'"));
             await ScratchDatabase.ExecuteAsync(owner, first);
             string SentRow(string pmi) => Insert("deliveries", ValidDelivery,
-                ("status", "'sent'"), ("provider", "'resend'"), ("provider_message_id", $"'{pmi}'"), ("sent_at", "now()"));
+                ("status", "'sent'"), ("provider", "'resend'"), ("provider_message_id", $"'{pmi}'"), ("sent_at", "now()"),
+                ("address_hash", Hash), ("hash_key_id", "1"));
             await ScratchDatabase.ExecuteAsync(owner, SentRow("re_1"));
 
             // Act

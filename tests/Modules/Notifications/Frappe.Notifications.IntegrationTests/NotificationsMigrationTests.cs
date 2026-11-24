@@ -3,6 +3,8 @@ using Frappe.Notifications.Infrastructure.Persistence;
 using Frappe.Persistence;
 using Frappe.Testing.Containers;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 
 namespace Frappe.Notifications.IntegrationTests;
@@ -56,6 +58,29 @@ public sealed class NotificationsMigrationTests(PostgresServer server)
     }
 
     [Test]
+    public async Task Undoing_every_migration_drops_no_xmin_column_because_xmin_is_a_system_column_the_table_always_has()
+    {
+        await MigratedNotifications.RunAsync(server, async owner =>
+        {
+            // Arrange
+            await using var context = new NotificationsDbContext(
+                ModuleDatabase.Options<NotificationsDbContext>(owner, NotificationsDbContext.Schema));
+            var migrator = context.GetService<IMigrator>();
+            var last = context.Database.GetMigrations().Last();
+
+            // Act
+            var down = migrator.GenerateScript(fromMigration: last, toMigration: Migration.InitialDatabase);
+
+            // Assert
+            using (Assert.Multiple())
+            {
+                await Assert.That(down).Contains("DROP TABLE");
+                await Assert.That(down).DoesNotContain("xmin");
+            }
+        });
+    }
+
+    [Test]
     public async Task The_idempotency_key_is_unique_with_nulls_not_distinct_and_the_provider_message_id_is_unique_only_when_present()
     {
         await MigratedNotifications.RunAsync(server, async owner =>
@@ -98,9 +123,9 @@ public sealed class NotificationsMigrationTests(PostgresServer server)
             var id = Guid.CreateVersion7();
             await ScratchDatabase.ExecuteAsync(owner, $"""
                 INSERT INTO notifications.deliveries (id, source_message_id, kind, category, channel, recipient_key, locale_served,
-                  status, provider, provider_message_id, created_at, sent_at, status_changed_at)
+                  status, provider, provider_message_id, created_at, sent_at, status_changed_at, address_hash, hash_key_id)
                 VALUES ('{id}', '{Guid.CreateVersion7()}', 'account_activation_code', 'security', 'email', 'ref:principal:42',
-                  'es-AR', 'sent', 'resend', 're_123', now(), now(), now())
+                  'es-AR', 'sent', 'resend', 're_123', now(), now(), now(), decode(repeat('ab', 32), 'hex'), 1)
                 """);
 
             // Act
@@ -118,7 +143,7 @@ public sealed class NotificationsMigrationTests(PostgresServer server)
                 await Assert.That(delivery.Provider).IsEqualTo(DeliveryProvider.Resend);
                 await Assert.That(delivery.LocaleServed?.Value).IsEqualTo("es-AR");
                 await Assert.That(delivery.FailureReason).IsNull();
-                await Assert.That(delivery.AddressHash).IsNull();
+                await Assert.That(delivery.AddressHash!.Length).IsEqualTo(32);
             }
         });
     }

@@ -6,7 +6,9 @@ namespace Frappe.Notifications.Application.Channels;
 
 /// <summary>
 /// The provider idempotency key (S14): derived only from the message id, the kind, the recipient key and the channel, so a redelivery
-/// of the same message sends the same key and the provider sends once. It is a hash, so the key reveals no recipient.
+/// of the same message sends the same key and the provider sends once. It is a hash, so the key reveals no recipient. For an address recipient
+/// the recipient key carries the hash key id, so the key changes when the hash key rotates: deduplication does not span a rotation
+/// (docs/notifications-key-rotation.md).
 /// </summary>
 public static class DeliveryIdempotency
 {

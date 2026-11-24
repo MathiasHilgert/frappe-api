@@ -12,6 +12,16 @@ internal sealed class FakeSuppressions : ISuppressionStore
     /// <summary>What was staged to be saved.</summary>
     public List<Suppression> Staged { get; } = [];
 
+    /// <summary>The hashes of every batched lookup, in order.</summary>
+    public List<IReadOnlyList<AddressHash>> Lookups { get; } = [];
+
+    public Task<IReadOnlyList<AddressHash>> SuppressedAmongAsync(
+        ChannelName channel, IReadOnlyList<AddressHash> hashes, CancellationToken cancellationToken)
+    {
+        Lookups.Add(hashes);
+        return Task.FromResult<IReadOnlyList<AddressHash>>([.. hashes.Where(Suppressed.Contains)]);
+    }
+
     public Task<bool> IsSuppressedAsync(ChannelName channel, IReadOnlyList<AddressHash> hashes, CancellationToken cancellationToken) =>
         Task.FromResult(hashes.Any(Suppressed.Contains));
 
