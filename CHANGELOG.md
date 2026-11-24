@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.4.0](https://github.com/MathiasHilgert/frappe-api/compare/v0.3.0...v0.4.0) (2026-11-24)
+
+
+### Features
+
+* **http:** document answers without a location and allow own ids under me ([#37](https://github.com/MathiasHilgert/frappe-api/issues/37)) ([0401453](https://github.com/MathiasHilgert/frappe-api/commit/0401453e08a065eefa7394ea43fe2560b879fe4a))
+* **identity:** add the identity module, its schema, roles and event contracts ([#38](https://github.com/MathiasHilgert/frappe-api/issues/38)) ([20aae2e](https://github.com/MathiasHilgert/frappe-api/commit/20aae2eb36a21076558b0069af52635d6f698a82))
+* **identity:** authenticate sessions by cookie or bearer token ([#41](https://github.com/MathiasHilgert/frappe-api/issues/41)) ([d70d9fd](https://github.com/MathiasHilgert/frappe-api/commit/d70d9fd94342ab3e29689bd900afd37c21afa6e9))
+* **identity:** change an owner's email with step-up and notice ([#46](https://github.com/MathiasHilgert/frappe-api/issues/46)) ([b7f70f7](https://github.com/MathiasHilgert/frappe-api/commit/b7f70f7b05e451d831fe383b935f96c4942754f4))
+* **identity:** hash and check owner passwords ([#39](https://github.com/MathiasHilgert/frappe-api/issues/39)) ([2db1a23](https://github.com/MathiasHilgert/frappe-api/commit/2db1a23ba675b57c615cb00892bd12511d341ef2))
+* **identity:** issue and redeem one-time codes under attempt limits ([#40](https://github.com/MathiasHilgert/frappe-api/issues/40)) ([a854f93](https://github.com/MathiasHilgert/frappe-api/commit/a854f93686e968173d40b7a3f2000c8a357cbb80))
+* **identity:** list and revoke own sessions ([#48](https://github.com/MathiasHilgert/frappe-api/issues/48)) ([8c793b3](https://github.com/MathiasHilgert/frappe-api/commit/8c793b39dfbfc4a30073c0475d4c2c1f30897b2a))
+* **identity:** log owners in and serve their profile ([#43](https://github.com/MathiasHilgert/frappe-api/issues/43)) ([923c92a](https://github.com/MathiasHilgert/frappe-api/commit/923c92a0815687bcae28ef55e627f1d653c084b2))
+* **identity:** register owners and verify their email ([#42](https://github.com/MathiasHilgert/frappe-api/issues/42)) ([28671fe](https://github.com/MathiasHilgert/frappe-api/commit/28671fe63e9dce83f953e031465278665a6a773a))
+* **identity:** reset and change owner passwords ([#44](https://github.com/MathiasHilgert/frappe-api/issues/44)) ([ffcd8f8](https://github.com/MathiasHilgert/frappe-api/commit/ffcd8f876cdc9dcc0ad490a026a08aa02a0b832c))
+* **identity:** step up the current session ([#45](https://github.com/MathiasHilgert/frappe-api/issues/45)) ([2b575a8](https://github.com/MathiasHilgert/frappe-api/commit/2b575a8477ecdf00c3da454069aaa6ecd0d65e1e))
+* **identity:** sweep ended sessions and purge stale identity data ([#49](https://github.com/MathiasHilgert/frappe-api/issues/49)) ([3ca1615](https://github.com/MathiasHilgert/frappe-api/commit/3ca1615dd82ae5256b930e51fba194d94a3e52c4))
+* **identity:** undo an email change from the notice ([#47](https://github.com/MathiasHilgert/frappe-api/issues/47)) ([57bedc0](https://github.com/MathiasHilgert/frappe-api/commit/57bedc0a1592bb7d05740e10cb8353f875571272))
+* **notifications:** mail the old address an undo link after an email change ([#54](https://github.com/MathiasHilgert/frappe-api/issues/54)) ([d742b55](https://github.com/MathiasHilgert/frappe-api/commit/d742b5576a83e04a509e685977bd2a0d6a7ecdc3))
+* **notifications:** send identity mails through an identity producer ([#53](https://github.com/MathiasHilgert/frappe-api/issues/53)) ([fd2e3b1](https://github.com/MathiasHilgert/frappe-api/commit/fd2e3b122ba79cdd174f54629fc3187da20669ca))
+
+
+### Bug fixes
+
+* **identity:** answer races clearly, purge undo links and bound notice mails ([#55](https://github.com/MathiasHilgert/frappe-api/issues/55)) ([cf90dc8](https://github.com/MathiasHilgert/frappe-api/commit/cf90dc887a65627de25129467815b13447544f6e))
+* **identity:** index codes by principal, list live sessions one way and align names ([#56](https://github.com/MathiasHilgert/frappe-api/issues/56)) ([1bdd51a](https://github.com/MathiasHilgert/frappe-api/commit/1bdd51a590cc729da0340fcd77a9bb121a0c8b68))
+
 ## [0.3.0](https://github.com/MathiasHilgert/frappe-api/compare/v0.2.1...v0.3.0) (2026-11-24)
 
 
