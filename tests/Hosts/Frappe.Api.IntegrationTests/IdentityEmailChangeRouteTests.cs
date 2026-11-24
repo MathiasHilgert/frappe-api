@@ -36,7 +36,7 @@ public sealed class IdentityEmailChangeRouteTests
         // Arrange
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
-        var (principal, session, token) = host.Seed();
+        var (_, _, token) = host.Seed();
         using var client = host.App.GetTestClient();
 
         // Act

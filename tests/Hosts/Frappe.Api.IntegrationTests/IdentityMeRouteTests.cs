@@ -149,7 +149,7 @@ public sealed class IdentityMeRouteTests
             await Assert.That(response.Headers.ETag?.Tag).IsEqualTo("\"2\"");
             await Assert.That(response.Headers.CacheControl?.NoStore).IsTrue();
             await Assert.That(body.GetProperty("name").GetProperty("given").GetString()).IsEqualTo("Anabel");
-            await Assert.That(fakes.Callers.Last()).IsEqualTo((principal.Id, session.Id));
+            await Assert.That(fakes.Callers[^1]).IsEqualTo((principal.Id, session.Id));
             await Assert.That(command.Given).IsEqualTo(new Patched<string>("Anabel"));
             await Assert.That(command.Family).IsEqualTo(new Patched<string>(null));
             await Assert.That(command.Locale).IsEqualTo(new Patched<string>("pt-BR"));
@@ -163,7 +163,7 @@ public sealed class IdentityMeRouteTests
         // Arrange
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
-        var (principal, session, token) = host.Seed();
+        var (principal, _, token) = host.Seed();
         fakes.Current = Profile(principal.Id, version: "1");
         using var client = host.App.GetTestClient();
 
@@ -196,7 +196,7 @@ public sealed class IdentityMeRouteTests
         // Arrange
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
-        var (principal, session, token) = host.Seed();
+        var (principal, _, token) = host.Seed();
         fakes.Current = Profile(principal.Id, version: "1");
         using var client = host.App.GetTestClient();
 
@@ -222,7 +222,7 @@ public sealed class IdentityMeRouteTests
         // Arrange
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
-        var (principal, session, token) = host.Seed();
+        var (principal, _, token) = host.Seed();
         fakes.Current = Profile(principal.Id, version: "1");
         using var client = host.App.GetTestClient();
 
@@ -245,7 +245,7 @@ public sealed class IdentityMeRouteTests
         // Arrange
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
-        var (principal, session, token) = host.Seed();
+        var (principal, _, token) = host.Seed();
         fakes.Current = Profile(principal.Id, version: "1");
         using var client = host.App.GetTestClient();
 
@@ -270,7 +270,7 @@ public sealed class IdentityMeRouteTests
         // Arrange
         var fakes = new Fakes();
         await using var host = await IdentitySessionHost.StartAsync(extra: new FakesModule(fakes));
-        var (principal, session, token) = host.Seed();
+        var (principal, _, token) = host.Seed();
         fakes.Current = Profile(principal.Id, version: "1");
         fakes.Refusal = code switch
         {
