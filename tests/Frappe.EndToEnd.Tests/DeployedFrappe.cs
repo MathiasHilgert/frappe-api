@@ -24,6 +24,9 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
     // The same images deploy/compose.yaml runs.
     private const string PostgresImage = "postgis/postgis:18-3.7-alpine";
     private const string NatsImage = "nats:2.11-alpine";
+
+    /// <summary>A local-only address hash key (base64, 37 bytes) for the throwaway deployment; it protects nothing.</summary>
+    private const string AddressHashKey = "bG9jYWwtb25seS1hZGRyZXNzLWhhc2gta2V5LTMyLWJ5dGVzIQ==";
     private const string ValkeyImage = "valkey/valkey:8-alpine";
 
     /// <summary>Every wait gives up instead of hanging the session (Testcontainers waits forever by default).</summary>
@@ -98,6 +101,8 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
             .WithEnvironment("ConnectionStrings__Notifications",
                 $"Host=postgres;Database=frappe;Username=frappe_notifications;Password={_notificationsPassword}")
             .WithEnvironment("ConnectionStrings__Valkey", "valkey:6379")
+            .WithEnvironment("Notifications__AddressHash__CurrentKeyId", "1")
+            .WithEnvironment("Notifications__AddressHash__Keys__1", AddressHashKey)
             .WithPortBinding(8080, true)
             .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => r.ForPort(8080).ForPath("/health/live"), Bounded))
             .Build());
@@ -109,6 +114,9 @@ public sealed class DeployedFrappe : IAsyncInitializer, IAsyncDisposable
                 $"Host=postgres;Database=frappe;Username=frappe_notifications_worker;Password={_notificationsWorkerPassword}")
             .WithEnvironment("ConnectionStrings__Valkey", "valkey:6379")
             .WithEnvironment("ConnectionStrings__Nats", "nats://nats:4222")
+            .WithEnvironment("Notifications__AddressHash__CurrentKeyId", "1")
+            .WithEnvironment("Notifications__AddressHash__Keys__1", AddressHashKey)
+            .WithEnvironment("Notifications__Email__Sender", "Logging")
             .Build());
 
         try

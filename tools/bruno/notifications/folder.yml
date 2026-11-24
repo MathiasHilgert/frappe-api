@@ -1,0 +1,19 @@
+info:
+  name: Notifications
+  type: folder
+  seq: 4
+
+docs:
+  content: |-
+    # Notifications
+
+    The explicit send route, `POST /v1/notifications/sends`. It exists only while the Api runs as **Development** (`just run api`,
+    which sets no environment, runs as Development): the composition maps it only then, so the Stack environment (the compose
+    stack runs as Production) answers 404 and these requests **skip themselves** there, which is why CI's `--env Stack` run passes.
+    Run them with `--env Local`, with the Worker running (`just run worker`), to see the email in the Worker's log (the logging sender)
+    or in your inbox when Resend is selected.
+
+    - **Send an account activation code (202):** one request of the module's first kind. The same `Idempotency-Key` sends once.
+    - **Unknown kind (400):** `notifications.kind.unknown`.
+    - **Invalid payload (400):** `notifications.payload.invalid`, with the fields to fix in `parameters.fields`.
+  type: text/markdown

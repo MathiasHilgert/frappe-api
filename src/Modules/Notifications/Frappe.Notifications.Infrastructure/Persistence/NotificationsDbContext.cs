@@ -2,6 +2,7 @@ using Frappe.Messaging.Storage.Inbox;
 using Frappe.Messaging.Storage.Outbox;
 using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Notifications.Domain.Preferences;
+using Frappe.Notifications.Domain.Requests;
 using Frappe.Notifications.Domain.Suppressions;
 using Frappe.Notifications.Infrastructure.ProviderEvents;
 using Frappe.Persistence;
@@ -25,6 +26,8 @@ internal sealed class NotificationsDbContext(DbContextOptions<NotificationsDbCon
     public DbSet<Preference> Preferences => Set<Preference>();
 
     public DbSet<ProviderEventRow> ProviderEvents => Set<ProviderEventRow>();
+
+    public DbSet<SendRequest> SendRequests => Set<SendRequest>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder) => configurationBuilder.StoreLanguageTags();
 

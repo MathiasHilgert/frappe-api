@@ -417,6 +417,13 @@
           "NodaTime": "[3.3.7, )"
         }
       },
+      "frappe.observability": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Aggregates": "[1.0.0, )",
+          "Frappe.UseCases": "[1.0.0, )"
+        }
+      },
       "frappe.persistence": {
         "type": "Project",
         "dependencies": {

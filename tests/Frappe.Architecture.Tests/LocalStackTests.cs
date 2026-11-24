@@ -25,6 +25,22 @@ public sealed partial class LocalStackTests
     [GeneratedRegex(@"^([A-Z][A-Z0-9_]*)=(.*)$", RegexOptions.Multiline)]
     private static partial Regex Assignment();
 
+    /// <summary>
+    /// A placeholder says it is local by starting with <c>local-only-</c>, or, for a value that must be base64 (a key), by decoding to text
+    /// that does.
+    /// </summary>
+    private static bool SaysLocal(string value)
+    {
+        if (value.StartsWith("local-only-", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var bytes = new byte[value.Length];
+        return Convert.TryFromBase64String(value, bytes, out var written)
+            && System.Text.Encoding.UTF8.GetString(bytes, 0, written).StartsWith("local-only-", StringComparison.Ordinal);
+    }
+
     private static async Task<string> ComposeServicesAsync()
     {
         var compose = await File.ReadAllTextAsync(Deploy("compose.yaml"));
@@ -91,7 +107,7 @@ public sealed partial class LocalStackTests
                 || entry.Name.Contains("SECRET", StringComparison.Ordinal) || entry.Name.Contains("TOKEN", StringComparison.Ordinal))
             .ToArray();
         var offenders = secrets
-            .Where(entry => entry.Value.Length > 0 && !entry.Value.StartsWith("local-only-", StringComparison.Ordinal))
+            .Where(entry => entry.Value.Length > 0 && !SaysLocal(entry.Value))
             .Select(entry => entry.Name);
 
         // Assert

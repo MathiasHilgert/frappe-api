@@ -21,7 +21,10 @@ public sealed class NotificationsMigrationTests(PostgresServer server)
 
             // Assert
             await Assert.That(tables).IsEquivalentTo(
-                ["__ef_migrations_history", "deliveries", "inbox_messages", "outbox_messages", "preferences", "provider_events", "suppressions"]);
+                [
+                    "__ef_migrations_history", "deliveries", "inbox_messages", "outbox_messages", "preferences", "provider_events", "send_requests",
+                    "suppressions",
+                ]);
         });
     }
 

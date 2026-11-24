@@ -321,6 +321,7 @@
           "Frappe.Notifications.Application": "[1.0.0, )",
           "Frappe.Notifications.Contracts": "[1.0.0, )",
           "Frappe.Notifications.Domain": "[1.0.0, )",
+          "Frappe.Observability": "[1.0.0, )",
           "Frappe.Persistence": "[1.0.0, )"
         }
       },

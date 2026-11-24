@@ -133,10 +133,7 @@ public sealed class ApiHostTests
     public async Task The_Api_starts_with_its_real_module_lists_when_the_database_is_configured()
     {
         // Arrange
-        var settings = new Dictionary<string, string?>
-        {
-            ["ConnectionStrings:Notifications"] = "Host=unreachable.invalid;Database=frappe;Username=frappe_notifications",
-        };
+        var settings = new Dictionary<string, string?>(Deployed);
 
         // Act
         await using var app = await ApiHost.StartAsync(Modules.Services, Modules.Endpoints, settings);
@@ -155,12 +152,38 @@ public sealed class ApiHostTests
     [Test]
     public async Task The_Api_with_its_real_module_lists_and_no_notifications_connection_fails_the_start_naming_its_key()
     {
+        // Arrange
+        var settings = new Dictionary<string, string?>(Deployed);
+        settings.Remove("ConnectionStrings:Notifications");
+
         // Act
-        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ApiHost.StartAsync(Modules.Services, Modules.Endpoints));
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ApiHost.StartAsync(Modules.Services, Modules.Endpoints, settings));
 
         // Assert
         await Assert.That(thrown?.Message).Contains("ConnectionStrings:Notifications");
     }
+
+    [Test]
+    public async Task The_Api_with_its_real_module_lists_and_no_address_hash_key_fails_the_start_naming_its_key()
+    {
+        // Arrange
+        var settings = new Dictionary<string, string?>(Deployed);
+        settings.Remove("Notifications:AddressHash:Keys:1");
+
+        // Act
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ApiHost.StartAsync(Modules.Services, Modules.Endpoints, settings));
+
+        // Assert
+        await Assert.That(thrown?.Message).Contains("Notifications:AddressHash:CurrentKeyId");
+    }
+
+    /// <summary>What a deploy sets for the real module lists: the database and the address hash key (a local-only placeholder).</summary>
+    private static readonly Dictionary<string, string?> Deployed = new()
+    {
+        ["ConnectionStrings:Notifications"] = "Host=unreachable.invalid;Database=frappe;Username=frappe_notifications",
+        ["Notifications:AddressHash:CurrentKeyId"] = "1",
+        ["Notifications:AddressHash:Keys:1"] = "bG9jYWwtb25seS1hZGRyZXNzLWhhc2gta2V5LTMyLWJ5dGVzIQ==",
+    };
 
     private static async Task<string?[]> CheckNamesAsync(HttpResponseMessage probe)
     {
