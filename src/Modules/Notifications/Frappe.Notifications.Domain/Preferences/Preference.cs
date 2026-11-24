@@ -1,3 +1,4 @@
+using Frappe.Aggregates;
 using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Results;
 using NodaTime;
@@ -10,7 +11,7 @@ namespace Frappe.Notifications.Domain.Preferences;
 /// A recipient's choice to stop one category. Only <see cref="NotificationCategory.Marketing"/> can be turned off (S9); preferences never
 /// expire (S11).
 /// </summary>
-public sealed class Preference
+public sealed class Preference : AggregateRoot
 {
     private Preference() => RecipientKey = null!;
 
@@ -19,6 +20,7 @@ public sealed class Preference
         RecipientKey = recipientKey.Value;
         Category = category;
         OptedOutAt = now;
+        Raise(new PreferenceOptedOut(category));
     }
 
     public string RecipientKey { get; private set; }

@@ -1,9 +1,6 @@
 using Frappe.Http;
 using Frappe.Notifications.Application.Feedback;
 using Frappe.Notifications.Application.Ports;
-using Frappe.Notifications.Application.Requests.RecordProviderFeedback;
-using Frappe.Results;
-using Frappe.UseCases;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
@@ -30,13 +27,19 @@ internal static class ResendWebhookEndpoints
                 .RequireRateLimiting(NotificationsHttp.WebhookRateLimitPolicy)
                 .WithSummary("Receive a Resend webhook")
                 .WithDescription(
-                    "Resend reports delivered, bounced, complained, delayed and suppressed messages here. The call must carry Resend's Svix "
-                    + "signature headers (svix-id, svix-timestamp, svix-signature), signed with the webhook secret and no older than five "
-                    + "minutes; otherwise it is answered 400 notifications.webhook_signature.invalid. Every authentic call is answered 204, "
-                    + "whether or not the module tracks the event, and a repeated event changes nothing.")
+                    "Resend reports delivered, bounced, complained, delayed and suppressed messages here. The body is Resend's event as JSON. "
+                    + "The call must carry Resend's Svix signature headers: svix-id (the event's unique id), svix-timestamp (the signing time, "
+                    + "in Unix seconds) and svix-signature (one or more space-separated v1,<base64> HMAC-SHA256 signatures of "
+                    + "'{svix-id}.{svix-timestamp}.{body}' under the webhook secret), with a timestamp within "
+                    + $"{WebhookSignature.Tolerance.TotalMinutes:0} minutes of now; otherwise it is answered 400 "
+                    + "notifications.webhook_signature.invalid. Every authentic call is answered 204, whether or not the module tracks the "
+                    + "event, and a repeated event changes nothing. 409 means a concurrent duplicate of the same event was being written: "
+                    + "Resend redelivers it and the retry is answered 204. 503 means the database is unavailable, and Resend retries too. "
+                    + "A body over 64 KiB is answered 413.")
                 .Accepts<object>("application/json")
                 .ProducesProblem(StatusCodes.Status400BadRequest)
                 .ProducesProblem(StatusCodes.Status409Conflict)
+                .ProducesProblem(StatusCodes.Status413PayloadTooLarge)
                 .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
     }
 
@@ -48,7 +51,7 @@ internal static class ResendWebhookEndpoints
         [FromHeader(Name = "svix-timestamp")] string? timestamp,
         [FromHeader(Name = "svix-signature")] string? signature,
         [FromKeyedServices(ProviderFeedbackParsers.Resend)] IProviderFeedbackParser parser,
-        ICommandHandler<RecordProviderFeedback, Unit> handler,
+        ProviderFeedbackIntake intake,
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
@@ -71,7 +74,7 @@ internal static class ResendWebhookEndpoints
         }
 
         return parsed.Value is { } feedback
-            ? (await handler.HandleAsync(new RecordProviderFeedback(feedback), cancellationToken)).ToTypedHttpResult(_ => TypedResults.NoContent())
+            ? (await intake.RecordAsync(feedback, cancellationToken)).ToTypedHttpResult(_ => TypedResults.NoContent())
             : TypedResults.NoContent();
     }
 

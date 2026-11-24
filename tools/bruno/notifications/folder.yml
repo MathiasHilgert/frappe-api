@@ -7,7 +7,7 @@ docs:
   content: |-
     # Notifications
 
-    The explicit send route, `POST /v1/notifications/sends`, and the Resend webhook. The send route exists only while the Api runs as **Development** (`just run api`,
+    The explicit send route, `POST /v1/notifications/sends`, the Resend webhook and the one-click unsubscribe. The send route exists only while the Api runs as **Development** (`just run api`,
     which sets no environment, runs as Development): the composition maps it only then, so the Stack environment (the compose
     stack runs as Production) answers 404 and these requests **skip themselves** there, which is why CI's `--env Stack` run passes.
     The route is left out of `contracts/openapi/v1.json` on purpose, for the same reason.
@@ -22,4 +22,9 @@ docs:
 
     - **Receive a Resend webhook (204):** a delivered event signed by the request's own script with the environment's `webhookSecret`.
     - **Receive a forged webhook (400):** `notifications.webhook_signature.invalid`.
+
+    The one-click unsubscribe, `POST /v1/notifications/unsubscriptions?token=...`, is served in every environment too:
+
+    - **Unsubscribe in one click (204):** the form of RFC 8058 with a token signed by the request's own script with the environment's `unsubscribeKey`.
+    - **Unsubscribe with an invalid token (400):** `notifications.unsubscribe_token.invalid`.
   type: text/markdown

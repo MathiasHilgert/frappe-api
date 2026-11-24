@@ -30,6 +30,7 @@ public sealed class NotificationsWorkerModule : IModule
         ArgumentNullException.ThrowIfNull(services);
         services
             .AddIntegrationEventConsumer<NotificationsDbContext, NotificationRequested>(NotificationsModule.Name, DispatchConsumer, DispatchSection)
-            .AddBeforeClaimHandler<NotificationRequested, DispatchNotificationRequested>(DispatchConsumer);
+            .AddBeforeClaimHandler<NotificationRequested, DispatchNotificationRequested>(DispatchConsumer)
+            .AddIntegrationEventHandler<NotificationRequested, ApplyParkedFeedback>(DispatchConsumer);
     }
 }

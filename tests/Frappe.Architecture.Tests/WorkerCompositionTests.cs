@@ -27,6 +27,9 @@ public sealed class WorkerCompositionTests
         ["ConnectionStrings:Notifications"] = "Host=unreachable.invalid;Database=frappe;Username=frappe_notifications_worker",
         ["Notifications:AddressHash:CurrentKeyId"] = "1",
         ["Notifications:AddressHash:Keys:1"] = "bG9jYWwtb25seS1hZGRyZXNzLWhhc2gta2V5LTMyLWJ5dGVzIQ==",
+        ["Notifications:Unsubscribe:SigningKey"] = "bG9jYWwtb25seS11bnN1YnNjcmliZS1zaWduaW5nLWtleSEh",
+        ["Notifications:Unsubscribe:PageUrl"] = "http://localhost:5173/unsubscribe",
+        ["Notifications:Unsubscribe:ApiBaseUrl"] = "http://localhost:8080/",
         ["Notifications:Email:Resend:ApiKey"] = "re_local_only_placeholder",
     };
 
@@ -206,6 +209,24 @@ public sealed class WorkerCompositionTests
 
         // Assert
         await Assert.That(thrown?.Message).Contains("Notifications:AddressHash:CurrentKeyId");
+    }
+
+    [Test]
+    [Arguments("Notifications:Unsubscribe:SigningKey")]
+    [Arguments("Notifications:Unsubscribe:PageUrl")]
+    [Arguments("Notifications:Unsubscribe:ApiBaseUrl")]
+    public async Task The_Worker_with_no_unsubscribe_setting_fails_the_start_naming_the_key(string key)
+    {
+        // Arrange
+        var settings = new Dictionary<string, string?>(Deployed);
+        settings.Remove(key);
+        using var host = Build(settings);
+
+        // Act
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ValidateAsync(host));
+
+        // Assert
+        await Assert.That(thrown?.Message).Contains(key);
     }
 
     [Test]

@@ -3,6 +3,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Frappe.Modules;
+using Frappe.Notifications.Application.Feedback;
+using Frappe.Notifications.Application.Ports;
 using Frappe.Notifications.Application.Requests.RecordProviderFeedback;
 using Frappe.Notifications.Channels.Email;
 using Frappe.Notifications.Domain.Deliveries;
@@ -195,10 +197,27 @@ public sealed class NotificationsWebhookRouteTests
         }
     }
 
-    /// <summary>Registers the fake use case.</summary>
+    /// <summary>The message lock without a database: the lock itself is proven against Postgres by the module's integration tests.</summary>
+    private sealed class NoLock : IProviderMessageLock
+    {
+        public Task<IAsyncDisposable> AcquireAsync(DeliveryProvider provider, string providerMessageId, CancellationToken cancellationToken) =>
+            Task.FromResult<IAsyncDisposable>(new Released());
+
+        /// <summary>Nothing to release.</summary>
+        private sealed class Released : IAsyncDisposable
+        {
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        }
+    }
+
+    /// <summary>Registers the fake use case and the intake that calls it.</summary>
     private sealed class FakeModule(FakeHandler handler) : IModule
     {
-        public void AddServices(IServiceCollection services) =>
+        public void AddServices(IServiceCollection services)
+        {
             services.AddSingleton<ICommandHandler<RecordProviderFeedback, Unit>>(handler);
+            services.AddSingleton<IProviderMessageLock, NoLock>();
+            services.AddSingleton<ProviderFeedbackIntake>();
+        }
     }
 }

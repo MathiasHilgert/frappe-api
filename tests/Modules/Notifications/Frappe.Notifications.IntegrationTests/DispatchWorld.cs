@@ -24,6 +24,9 @@ internal sealed class DispatchWorld : IAsyncDisposable
             ["ConnectionStrings:Notifications"] = connectionString,
             ["Notifications:AddressHash:CurrentKeyId"] = "1",
             ["Notifications:AddressHash:Keys:1"] = Convert.ToBase64String(Enumerable.Repeat((byte)9, 32).ToArray()),
+            ["Notifications:Unsubscribe:SigningKey"] = Convert.ToBase64String(Enumerable.Repeat((byte)7, 32).ToArray()),
+            ["Notifications:Unsubscribe:PageUrl"] = "https://frappe.example/unsubscribe",
+            ["Notifications:Unsubscribe:ApiBaseUrl"] = "https://api.frappe.example/",
             ["Notifications:Email:Sender"] = "Logging",
         };
         var services = new ServiceCollection();

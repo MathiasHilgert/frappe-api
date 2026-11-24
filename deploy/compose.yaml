@@ -93,6 +93,8 @@ services:
       # The key addresses are hashed with (S12, S13); CurrentKeyId names it, and a rotation adds a key and moves the id.
       Notifications__AddressHash__CurrentKeyId: "1"
       Notifications__AddressHash__Keys__1: ${FRAPPE_NOTIFICATIONS_ADDRESS_HASH_KEY:?set it in .env}
+      # The key unsubscribe links are signed with (S5, S12): the Api verifies the token of a one-click unsubscribe with it, the Worker signs with it.
+      Notifications__Unsubscribe__SigningKey: ${FRAPPE_NOTIFICATIONS_UNSUBSCRIBE_KEY:?set it in .env}
       # The signing secret of Resend's webhook (S12): the Api refuses to start without it, and answers 400 to a call not signed with it.
       Notifications__Email__Resend__WebhookSecret: ${FRAPPE_NOTIFICATIONS_WEBHOOK_SECRET:?set it in .env}
       # The console's origins, comma separated: credentialed CORS and unsafe requests with the session cookie.
@@ -117,6 +119,10 @@ services:
       ConnectionStrings__Nats: nats://nats:4222
       Notifications__AddressHash__CurrentKeyId: "1"
       Notifications__AddressHash__Keys__1: ${FRAPPE_NOTIFICATIONS_ADDRESS_HASH_KEY:?set it in .env}
+      # The links of a marketing email (S5): signed with the Api's key, to the frontend page and to the Api's one-click route.
+      Notifications__Unsubscribe__SigningKey: ${FRAPPE_NOTIFICATIONS_UNSUBSCRIBE_KEY:?set it in .env}
+      Notifications__Unsubscribe__PageUrl: ${FRAPPE_NOTIFICATIONS_UNSUBSCRIBE_PAGE_URL:?set it in .env}
+      Notifications__Unsubscribe__ApiBaseUrl: ${FRAPPE_NOTIFICATIONS_API_URL:?set it in .env}
       # Emails are only logged unless .env selects Resend (Notifications__Email__Sender=Resend) and holds its key. Never commit the key.
       Notifications__Email__Sender: ${Notifications__Email__Sender:-Logging}
       Notifications__Email__Resend__ApiKey: ${Notifications__Email__Resend__ApiKey:-}
