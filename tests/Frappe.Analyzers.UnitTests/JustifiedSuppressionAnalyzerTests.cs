@@ -1,4 +1,4 @@
-namespace Frappe.Analyzers.Tests;
+namespace Frappe.Analyzers.UnitTests;
 
 /// <summary>FRP003 (CRAFT-10): every suppression in code states its reason.</summary>
 public sealed class JustifiedSuppressionAnalyzerTests

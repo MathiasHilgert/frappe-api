@@ -1,4 +1,4 @@
-namespace Frappe.Analyzers.Tests;
+namespace Frappe.Analyzers.UnitTests;
 
 /// <summary>FRP001 (SEC-07, EVT-20, DOM-06): a record that prints a secret or an email masks its <c>ToString</c>.</summary>
 public sealed class MaskedToStringAnalyzerTests

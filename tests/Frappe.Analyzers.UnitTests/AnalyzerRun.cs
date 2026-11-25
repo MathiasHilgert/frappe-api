@@ -3,7 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
 
-namespace Frappe.Analyzers.Tests;
+namespace Frappe.Analyzers.UnitTests;
 
 /// <summary>Compiles C# source in memory against the running framework and returns what one analyzer reports on it.</summary>
 internal static class AnalyzerRun

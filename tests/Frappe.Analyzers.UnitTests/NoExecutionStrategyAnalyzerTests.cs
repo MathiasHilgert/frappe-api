@@ -1,4 +1,4 @@
-namespace Frappe.Analyzers.Tests;
+namespace Frappe.Analyzers.UnitTests;
 
 /// <summary>FRP002 (EVT-21, PERF-02): EF Core's retrying execution strategies are never enabled.</summary>
 public sealed class NoExecutionStrategyAnalyzerTests

@@ -60,7 +60,7 @@
     <Project Path="eng/analyzers/Frappe.Analyzers/Frappe.Analyzers.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/Frappe.Analyzers.Tests/Frappe.Analyzers.Tests.csproj" />
+    <Project Path="tests/Frappe.Analyzers.UnitTests/Frappe.Analyzers.UnitTests.csproj" />
     <Project Path="tests/Frappe.Architecture.Tests/Frappe.Architecture.Tests.csproj" />
     <Project Path="tests/Frappe.EndToEnd.Tests/Frappe.EndToEnd.Tests.csproj" />
   </Folder>
