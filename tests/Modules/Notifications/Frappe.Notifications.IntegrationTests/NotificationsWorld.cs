@@ -15,11 +15,11 @@ namespace Frappe.Notifications.IntegrationTests;
 /// The module as a host composes it, over a migrated database and the logging sender: the Api's services under the Api's role (the
 /// command) or the Worker's under the Worker's role (the dispatch), so a missing grant fails the test, not the deploy.
 /// </summary>
-internal sealed class DispatchWorld : IAsyncDisposable
+internal sealed class NotificationsWorld : IAsyncDisposable
 {
     private readonly ServiceProvider _provider;
 
-    private DispatchWorld(
+    private NotificationsWorld(
         string connectionString, bool worker, IReadOnlyDictionary<string, string?>? more = null, Action<IServiceCollection>? configure = null)
     {
         var settings = new Dictionary<string, string?>
@@ -58,15 +58,16 @@ internal sealed class DispatchWorld : IAsyncDisposable
     public IServiceProvider Services => _provider;
 
     /// <summary>The Api's composition connected as the Api's role.</summary>
-    public static DispatchWorld ForApi(string owner) =>
+    public static NotificationsWorld ForApi(string owner) =>
         new(ScratchDatabase.LoginOf(owner, NotificationsDatabase.ApiRole, MigratedNotifications.ApiPassword), worker: false);
 
     /// <summary>The Worker's composition connected as the Worker's role.</summary>
-    public static DispatchWorld ForWorker(string owner) =>
+    public static NotificationsWorld ForWorker(string owner) =>
         new(ScratchDatabase.LoginOf(owner, NotificationsDatabase.WorkerRole, MigratedNotifications.WorkerPassword), worker: true);
 
     /// <summary>The Worker's composition with settings and services of the test on top: a producer plug-in, a retention.</summary>
-    public static DispatchWorld ForWorker(string owner, IReadOnlyDictionary<string, string?> more, Action<IServiceCollection>? configure = null) =>
+    public static NotificationsWorld ForWorker(
+        string owner, IReadOnlyDictionary<string, string?> more, Action<IServiceCollection>? configure = null) =>
         new(ScratchDatabase.LoginOf(owner, NotificationsDatabase.WorkerRole, MigratedNotifications.WorkerPassword), worker: true, more, configure);
 
     public async ValueTask DisposeAsync()

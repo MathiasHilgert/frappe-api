@@ -15,6 +15,7 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 - STR-11 · Each layer exposes its host facet from one fixed class
 - STR-12 · No module rewrites the composed handler graph
 - STR-13 · Tests mirror the production projects
+- STR-14 · Each module README matches its code
 
 ## STR-01 · Every module has the same project set
 
@@ -164,4 +165,15 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 - **Enforced by:** review only.
 - **Good:** `tests/Modules/Identity/Frappe.Identity.UnitTests` and `.IntegrationTests`. **Bad (hypothetical):** `tests/Platform/Frappe.Platform.Tests`
   mixing both.
+- **Status:** in force.
+
+## STR-14 · Each module README matches its code
+
+- **Rule:** `src/Modules/<M>/README.md` keeps the sections Doors, Features, Metrics, Events and Extensions. Every relative link resolves, the
+  Metrics table lists exactly the instruments on the module's meter with the class that creates each, and the Extensions table lists exactly
+  the projects under `Extensions/`.
+- **Why:** the README is where a reader starts; a table that drifts from the code sends them to the wrong file.
+- **Enforced by:** `ReadmeDriftTests` (links, metrics, extensions); review for Doors, Features and Events.
+- **Good:** `frappe.notifications.provider_requests` listed with `EmailProviderMetrics`, the class in `Senders.Email` that creates it.
+  **Bad:** a row for a renamed counter, or a link to a file that moved.
 - **Status:** in force.

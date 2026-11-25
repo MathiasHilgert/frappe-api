@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Frappe.Notifications.Application.Channels;
+using Frappe.Notifications.Application.Senders;
 using Frappe.Notifications.Domain.Deliveries;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;

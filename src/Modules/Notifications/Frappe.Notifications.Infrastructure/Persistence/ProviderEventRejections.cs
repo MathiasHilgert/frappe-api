@@ -10,7 +10,7 @@ namespace Frappe.Notifications.Infrastructure.Persistence;
 /// arrive back to back), or a delivery moved by another event. Nothing is written, and the call is answered a conflict, so the provider
 /// redelivers it: by then the first writer's work is visible and the event is recognized or applied on top of it.
 /// </summary>
-internal static class FeedbackRejections
+internal static class ProviderEventRejections
 {
     public static void Register(CommitRejectionMap rejections)
     {

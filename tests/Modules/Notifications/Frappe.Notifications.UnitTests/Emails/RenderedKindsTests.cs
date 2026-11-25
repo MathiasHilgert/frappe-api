@@ -61,7 +61,7 @@ public sealed partial class RenderedKindsTests
     private static async Task<RenderedEmail> SendAsync(EmailWorld world, string kind, string language)
     {
         var outcome = await world.Channel.DeliverAsync(world.ItemOf(kind, language), CancellationToken.None);
-        await Assert.That(outcome).IsTypeOf<Frappe.Notifications.Application.Channels.ChannelOutcome.Sent>();
+        await Assert.That(outcome).IsTypeOf<Frappe.Notifications.Application.Senders.ChannelOutcome.Sent>();
         return world.Sender.Sent[^1];
     }
 

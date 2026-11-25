@@ -1,5 +1,5 @@
 using Frappe.IntegrationEvents;
-using Frappe.Notifications.Application.Producers;
+using Frappe.Notifications.Application.Triggers;
 using Frappe.Notifications.Infrastructure;
 using Frappe.Notifications.Messages.Account;
 using Microsoft.Extensions.DependencyInjection;

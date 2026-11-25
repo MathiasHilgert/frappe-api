@@ -1,6 +1,6 @@
 using Frappe.Notifications.Domain.Deliveries;
 
-namespace Frappe.Notifications.Application.Kinds;
+namespace Frappe.Notifications.Application.Messages;
 
 /// <summary>
 /// A notification kind as the pipeline sees it, without its payload type: the name, the category, the notification object a channel asks

@@ -1,4 +1,4 @@
-using Frappe.Notifications.Application.Kinds;
+using Frappe.Notifications.Application.Messages;
 using Microsoft.Extensions.Hosting;
 
 namespace Frappe.Notifications.Infrastructure.Deliveries;

@@ -2,7 +2,7 @@ using System.Reflection;
 using System.Text.Json;
 using Frappe.Results;
 
-namespace Frappe.Notifications.Application.Kinds;
+namespace Frappe.Notifications.Application.Messages;
 
 /// <summary>
 /// Reads the JSON payload of a request as the kind's own payload type, strictly: an unknown field, a field of the wrong type and a

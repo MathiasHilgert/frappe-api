@@ -1,7 +1,7 @@
 using Frappe.IntegrationEvents;
 using Frappe.Messaging.Abstractions;
-using Frappe.Notifications.Application.Kinds;
-using Frappe.Notifications.Application.Producers;
+using Frappe.Notifications.Application.Messages;
+using Frappe.Notifications.Application.Triggers;
 
 namespace Frappe.Notifications.Infrastructure.Messaging;
 

@@ -1,4 +1,4 @@
-namespace Frappe.Notifications.Application.Producers;
+namespace Frappe.Notifications.Application.Triggers;
 
 /// <summary>
 /// The producer plug-in's mapper (S2a): it turns one integration event of another module into the notifications that fact asks for, one

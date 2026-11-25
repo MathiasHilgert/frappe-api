@@ -4,7 +4,7 @@ using Frappe.Testing;
 using Frappe.Testing.Containers;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Frappe.Notifications.IntegrationTests;
+namespace Frappe.Notifications.IntegrationTests.Retention;
 
 /// <summary>
 /// The nightly purge against a migrated database, as the Worker's role (S11): deliveries and provider events older than their window go in
@@ -16,8 +16,9 @@ public sealed class PurgeTests(PostgresServer server)
 {
     private static readonly Dictionary<string, string?> SmallBatches = new() { ["Notifications:Purge:BatchSize"] = "2" };
 
-    private static DispatchWorld Worker(string owner, Dictionary<string, string?>? settings = null, Action<IServiceCollection>? configure = null) =>
-        DispatchWorld.ForWorker(owner, settings ?? SmallBatches, configure);
+    private static NotificationsWorld Worker(
+        string owner, Dictionary<string, string?>? settings = null, Action<IServiceCollection>? configure = null) =>
+        NotificationsWorld.ForWorker(owner, settings ?? SmallBatches, configure);
 
     private static Task AddDeliveriesAsync(string owner, int count, int daysOld) => ScratchDatabase.ExecuteAsync(owner, $"""
         INSERT INTO notifications.deliveries (id, source_message_id, kind, category, channel, recipient_key, status, created_at, status_changed_at)

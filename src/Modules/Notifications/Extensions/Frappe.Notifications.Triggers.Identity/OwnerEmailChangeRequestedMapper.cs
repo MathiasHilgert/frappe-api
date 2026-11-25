@@ -1,5 +1,5 @@
 using Frappe.Identity.Contracts.Owners;
-using Frappe.Notifications.Application.Producers;
+using Frappe.Notifications.Application.Triggers;
 using Frappe.Notifications.Messages.Account;
 
 namespace Frappe.Notifications.Triggers.Identity;

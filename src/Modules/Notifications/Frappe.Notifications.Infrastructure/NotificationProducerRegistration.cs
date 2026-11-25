@@ -2,7 +2,7 @@ using System.Reflection;
 using Frappe.IntegrationEvents;
 using Frappe.Messaging.Abstractions;
 using Frappe.Notifications.Application.Deliveries;
-using Frappe.Notifications.Application.Producers;
+using Frappe.Notifications.Application.Triggers;
 using Frappe.Notifications.Infrastructure.Messaging;
 using Frappe.Notifications.Infrastructure.Persistence;
 using Microsoft.Extensions.DependencyInjection;

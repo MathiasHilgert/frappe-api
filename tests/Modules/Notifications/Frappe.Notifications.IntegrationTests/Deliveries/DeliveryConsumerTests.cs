@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
-namespace Frappe.Notifications.IntegrationTests;
+namespace Frappe.Notifications.IntegrationTests.Deliveries;
 
 /// <summary>
 /// The explicit path end to end against a migrated database, in the roles each host connects with (S2, S14, S16): the command accepts a
@@ -19,21 +19,21 @@ namespace Frappe.Notifications.IntegrationTests;
 /// </summary>
 [ClassDataSource<PostgresServer>(Shared = SharedType.PerTestSession)]
 [NotInParallel]
-public sealed class DispatchConsumerTests(PostgresServer server)
+public sealed class DeliveryConsumerTests(PostgresServer server)
 {
     private const string Kind = "account_activation_code";
 
     private static JsonElement Payload() =>
         JsonElement.Parse("""{"email":"ana@example.com","language":"es-AR","name":"Ana","code":"482913"}""");
 
-    private static async Task<Result<Unit>> SendAsync(DispatchWorld api, Guid requestId, string kind = Kind)
+    private static async Task<Result<Unit>> SendAsync(NotificationsWorld api, Guid requestId, string kind = Kind)
     {
         await using var scope = api.Services.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<ICommandHandler<SendNotification, Unit>>()
             .HandleAsync(new SendNotification(requestId, kind, Payload()), CancellationToken.None);
     }
 
-    private static async Task DispatchAsync(DispatchWorld worker, NotificationRequested message)
+    private static async Task DispatchAsync(NotificationsWorld worker, NotificationRequested message)
     {
         // The consumer's claim: the before-claim step stages the deliveries and the claim's save commits them.
         await using var scope = worker.Services.CreateAsyncScope();
@@ -51,7 +51,7 @@ public sealed class DispatchConsumerTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange
-            await using var api = DispatchWorld.ForApi(owner);
+            await using var api = NotificationsWorld.ForApi(owner);
             var requestId = Guid.CreateVersion7();
 
             // Act
@@ -84,7 +84,7 @@ public sealed class DispatchConsumerTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange
-            await using var api = DispatchWorld.ForApi(owner);
+            await using var api = NotificationsWorld.ForApi(owner);
 
             // Act
             var unknown = await SendAsync(api, Guid.CreateVersion7(), "nope");
@@ -105,7 +105,7 @@ public sealed class DispatchConsumerTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange
-            await using var worker = DispatchWorld.ForWorker(owner);
+            await using var worker = NotificationsWorld.ForWorker(owner);
             var requestId = Guid.CreateVersion7();
 
             // Act
@@ -135,7 +135,7 @@ public sealed class DispatchConsumerTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange
-            await using var worker = DispatchWorld.ForWorker(owner);
+            await using var worker = NotificationsWorld.ForWorker(owner);
             var message = new NotificationRequested(Guid.CreateVersion7(), Kind, Payload());
 
             // Act
@@ -157,7 +157,7 @@ public sealed class DispatchConsumerTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange: an HTTP retry that slipped past the Api's own idempotency produced a second message with the same request id.
-            await using var worker = DispatchWorld.ForWorker(owner);
+            await using var worker = NotificationsWorld.ForWorker(owner);
             var requestId = Guid.CreateVersion7();
 
             // Act
@@ -175,7 +175,7 @@ public sealed class DispatchConsumerTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange
-            await using var worker = DispatchWorld.ForWorker(owner);
+            await using var worker = NotificationsWorld.ForWorker(owner);
 
             // Act and assert
             var thrown = await Assert.ThrowsAsync<InvalidOperationException>(
@@ -194,7 +194,7 @@ public sealed class DispatchConsumerTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange
-            await using var worker = DispatchWorld.ForWorker(owner);
+            await using var worker = NotificationsWorld.ForWorker(owner);
 
             // Act and assert
             var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() => DispatchAsync(

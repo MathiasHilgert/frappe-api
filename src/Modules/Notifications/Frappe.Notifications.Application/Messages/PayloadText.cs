@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text;
 
-namespace Frappe.Notifications.Application.Kinds;
+namespace Frappe.Notifications.Application.Messages;
 
 /// <summary>The bounds payload texts share: what a person is called in a mail must not be a place to put a link (N3).</summary>
 public static class PayloadText

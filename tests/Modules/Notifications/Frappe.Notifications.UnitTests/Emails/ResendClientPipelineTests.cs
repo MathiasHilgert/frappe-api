@@ -1,6 +1,6 @@
 using System.Net;
 using Frappe.Localization;
-using Frappe.Notifications.Application.Channels;
+using Frappe.Notifications.Application.Senders;
 using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Notifications.Senders.Email;
 using Microsoft.Extensions.Configuration;

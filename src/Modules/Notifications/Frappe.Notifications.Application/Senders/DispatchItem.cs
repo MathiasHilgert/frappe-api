@@ -1,7 +1,7 @@
-using Frappe.Notifications.Application.Kinds;
+using Frappe.Notifications.Application.Messages;
 using Frappe.Notifications.Domain.Deliveries;
 
-namespace Frappe.Notifications.Application.Channels;
+namespace Frappe.Notifications.Application.Senders;
 
 /// <summary>
 /// One delivery handed to a channel: the kind and its payload to render, the contact to reach and the key the provider dedupes by. The

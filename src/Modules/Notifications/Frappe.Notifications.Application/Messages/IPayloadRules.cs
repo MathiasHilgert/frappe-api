@@ -1,4 +1,4 @@
-namespace Frappe.Notifications.Application.Kinds;
+namespace Frappe.Notifications.Application.Messages;
 
 /// <summary>A payload that has rules beyond its shape, such as a bound on a text; <see cref="NotificationPayloads"/> asks it after reading.</summary>
 public interface IPayloadRules

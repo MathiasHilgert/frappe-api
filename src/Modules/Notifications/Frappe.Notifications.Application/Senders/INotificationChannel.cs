@@ -1,7 +1,7 @@
-using Frappe.Notifications.Application.Kinds;
+using Frappe.Notifications.Application.Messages;
 using Frappe.Notifications.Domain.Deliveries;
 
-namespace Frappe.Notifications.Application.Channels;
+namespace Frappe.Notifications.Application.Senders;
 
 /// <summary>
 /// One way to reach a recipient (email, SMS, push), contributed by a plug-in and resolved as an <c>IEnumerable</c>. It renders and

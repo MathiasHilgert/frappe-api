@@ -1,6 +1,6 @@
 using Frappe.IntegrationEvents;
 using Frappe.Messaging.Abstractions;
-using Frappe.Notifications.Application.Producers;
+using Frappe.Notifications.Application.Triggers;
 using Frappe.Notifications.Infrastructure;
 using Frappe.Notifications.Infrastructure.Messaging;
 using Frappe.Notifications.Infrastructure.Persistence;
@@ -9,7 +9,7 @@ using Frappe.Notifications.Messages.Marketing;
 using Frappe.Testing.Containers;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Frappe.Notifications.IntegrationTests;
+namespace Frappe.Notifications.IntegrationTests.Triggers;
 
 /// <summary>
 /// The producer seam end to end against a migrated database, as the Worker's role (S2a, S14): a fact another module publishes is mapped by the
@@ -17,17 +17,17 @@ namespace Frappe.Notifications.IntegrationTests;
 /// </summary>
 [ClassDataSource<PostgresServer>(Shared = SharedType.PerTestSession)]
 [NotInParallel]
-public sealed class ProducerTests(PostgresServer server)
+public sealed class TriggerTests(PostgresServer server)
 {
     private const string Consumer = "notifications-orders-confirmation";
 
-    private static DispatchWorld Worker(string owner) => DispatchWorld.ForWorker(
+    private static NotificationsWorld Worker(string owner) => NotificationsWorld.ForWorker(
         owner,
         new Dictionary<string, string?>(),
         services => services.AddNotificationProducer<OrderPlaced, OrderPlacedMapper>(Consumer));
 
     /// <summary>The consumer's claim for one message: the before-claim step of the declaration, then the claim's save.</summary>
-    private static async Task ConsumeAsync(DispatchWorld worker, Guid messageId, OrderPlaced fact)
+    private static async Task ConsumeAsync(NotificationsWorld worker, Guid messageId, OrderPlaced fact)
     {
         await using var scope = worker.Services.CreateAsyncScope();
         scope.ServiceProvider.GetRequiredService<CurrentMessage>().WithId(messageId);

@@ -18,7 +18,7 @@ using Frappe.UseCases;
 using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
 
-namespace Frappe.Notifications.IntegrationTests;
+namespace Frappe.Notifications.IntegrationTests.Preferences;
 
 /// <summary>
 /// The one-click unsubscribe against a migrated database, in the roles each host connects with (S5, S9, S15, N2-D2): the Api's role writes the
@@ -39,7 +39,7 @@ public sealed class UnsubscribeTests(PostgresServer server)
     private static readonly JsonElement SecurityPayload =
         JsonElement.Parse("""{"email":"ana@example.com","language":"es-AR","name":"Ana","code":"482913"}""");
 
-    private static async Task DispatchAsync(DispatchWorld worker, string kind, JsonElement payload)
+    private static async Task DispatchAsync(NotificationsWorld worker, string kind, JsonElement payload)
     {
         await using var scope = worker.Services.CreateAsyncScope();
         var step = ActivatorUtilities.CreateInstance<DispatchNotificationRequested>(scope.ServiceProvider);
@@ -51,14 +51,14 @@ public sealed class UnsubscribeTests(PostgresServer server)
         scope.ServiceProvider.GetRequiredService<PendingDeliveries>().CountIfClaimed();
     }
 
-    private static async Task<Result<Unit>> UnsubscribeAsync(DispatchWorld api, string? token)
+    private static async Task<Result<Unit>> UnsubscribeAsync(NotificationsWorld api, string? token)
     {
         await using var scope = api.Services.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<ICommandHandler<Unsubscribe, Unit>>()
             .HandleAsync(new Unsubscribe(token), CancellationToken.None);
     }
 
-    private static string TokenFor(DispatchWorld world, RecipientKey recipient) =>
+    private static string TokenFor(NotificationsWorld world, RecipientKey recipient) =>
         world.Services.GetRequiredService<IUnsubscribeTokens>().Issue(recipient, NotificationCategory.Marketing);
 
     private static NotificationsDbContext Context(string owner) =>
@@ -73,7 +73,7 @@ public sealed class UnsubscribeTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange
-            await using var api = DispatchWorld.ForApi(owner);
+            await using var api = NotificationsWorld.ForApi(owner);
             using var capture = new MetricCapture(api.Services.GetRequiredService<IMeterFactory>());
             var token = TokenFor(api, Ana);
 
@@ -101,7 +101,7 @@ public sealed class UnsubscribeTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange
-            await using var api = DispatchWorld.ForApi(owner);
+            await using var api = NotificationsWorld.ForApi(owner);
             using var capture = new MetricCapture(api.Services.GetRequiredService<IMeterFactory>());
 
             // Act
@@ -124,7 +124,7 @@ public sealed class UnsubscribeTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange: both read the recipient as still subscribed, then both write.
-            await using var api = DispatchWorld.ForApi(owner);
+            await using var api = NotificationsWorld.ForApi(owner);
             await using var first = api.Services.CreateAsyncScope();
             await using var second = api.Services.CreateAsyncScope();
             var now = Instant.FromUtc(2026, 11, 24, 10, 0);
@@ -146,8 +146,8 @@ public sealed class UnsubscribeTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange
-            await using var api = DispatchWorld.ForApi(owner);
-            await using var worker = DispatchWorld.ForWorker(owner);
+            await using var api = NotificationsWorld.ForApi(owner);
+            await using var worker = NotificationsWorld.ForWorker(owner);
             await UnsubscribeAsync(api, TokenFor(api, Ana));
             await using var scope = worker.Services.CreateAsyncScope();
             var gate = scope.ServiceProvider.GetRequiredService<PreferenceGate>();
@@ -208,8 +208,8 @@ public sealed class UnsubscribeTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange: a first marketing send shows the recipient key the worker derives for the address; its token is what the email carries.
-            await using var api = DispatchWorld.ForApi(owner);
-            await using var worker = DispatchWorld.ForWorker(
+            await using var api = NotificationsWorld.ForApi(owner);
+            await using var worker = NotificationsWorld.ForWorker(
                 owner, new Dictionary<string, string?>(), services => new MarketingMessagesModule().AddServices(services));
             using var capture = new MetricCapture(worker.Services.GetRequiredService<IMeterFactory>());
             await DispatchAsync(worker, "product_announcement", MarketingPayload);

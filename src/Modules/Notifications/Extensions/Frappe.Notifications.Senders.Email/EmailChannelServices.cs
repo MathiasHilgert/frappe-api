@@ -1,5 +1,5 @@
-using Frappe.Notifications.Application.Channels;
-using Frappe.Notifications.Application.Kinds;
+using Frappe.Notifications.Application.Messages;
+using Frappe.Notifications.Application.Senders;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;

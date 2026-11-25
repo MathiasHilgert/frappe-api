@@ -21,7 +21,7 @@ Routes are under `/v1`. Folders are those of [Application](Frappe.Notifications.
 | Preferences | `Preference` | Unsubscribe | `POST /notifications/unsubscriptions` |
 | ProviderEvents | `ProviderEvent` | RecordProviderFeedback | `POST /notifications/webhooks/resend` |
 | Suppressions | `Suppression` | none (added by provider feedback) | none |
-| Contacts, Channels, Kinds, Producers | none | ports and catalog shared by the features above | none |
+| Contacts, Senders, Messages, Triggers | none | ports and catalog shared by the features above | none |
 
 ## Metrics (meter `Frappe.Notifications`)
 
@@ -34,6 +34,7 @@ Routes are under `/v1`. Folders are those of [Application](Frappe.Notifications.
 | `frappe.notifications.delivery.time_to_delivered` | Histogram | `s` | `kind`, `channel` | [ProviderFeedbackMetrics](Frappe.Notifications.Application/Telemetry/ProviderFeedbackMetrics.cs) |
 | `frappe.notifications.purged` | Counter | `{row}` | `table` | [RetentionMetrics](Frappe.Notifications.Application/Telemetry/RetentionMetrics.cs) |
 | `frappe.notifications.purge.runs` | Counter | `{run}` | `frappe.outcome` | [RetentionMetrics](Frappe.Notifications.Application/Telemetry/RetentionMetrics.cs) |
+| `frappe.notifications.provider_requests` | Counter | `{request}` | `provider`, `frappe.outcome` | [EmailProviderMetrics](Extensions/Frappe.Notifications.Senders.Email/EmailProviderMetrics.cs) |
 
 Post-commit counting is registered in [NotificationsTelemetryRegistration](Frappe.Notifications.Infrastructure/Telemetry/).
 

@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using Frappe.Localization;
-using Frappe.Notifications.Application.Kinds;
+using Frappe.Notifications.Application.Messages;
 using Frappe.Notifications.Domain.Deliveries;
 
 namespace Frappe.Notifications.Senders.Email;
