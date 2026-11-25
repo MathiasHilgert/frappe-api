@@ -74,8 +74,8 @@
   `ToString` to mask; never log request or message payloads.
 - **Why:** logs, traces and exceptions are where secrets leak.
 - **Enforced by:** FRP001 (`eng/analyzers/Frappe.Analyzers`) at warning in `eng/analyzers.globalconfig`: a record outside `tests/` with a public
-  string member named `*Password`, `*Passphrase`, `*Secret`, `*Token`, `*Plaintext` or `*Email` overrides `ToString`. Review for codes, names, other types and
-  logging.
+  string member named `*Password`, `*Passphrase`, `*Secret`, `*Token`, `*Plaintext` or `*Email` overrides `ToString`. Review for codes, names,
+  other types and logging.
 - **Good:** `Password.ToString() => "***"`. **Bad:** a record with a token printed by `{@Command}`.
 - **Status:** in force.
 

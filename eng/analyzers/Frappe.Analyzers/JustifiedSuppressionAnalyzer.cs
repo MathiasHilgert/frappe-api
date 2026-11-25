@@ -10,8 +10,8 @@ namespace Frappe.Analyzers;
 /// <summary>FRP003 (CRAFT-10): every suppression in code states its reason.</summary>
 /// <remarks>
 /// A <c>[SuppressMessage]</c> or <c>[UnconditionalSuppressMessage]</c> needs a non-blank <c>Justification</c>. A
-/// <c>#pragma warning disable</c> needs a <c>//</c> comment (not a <c>///</c> documentation line) at the end of its own line or on the line right above it. Whether
-/// the scope is the narrowest one is left to review. Generated code (migrations) is not checked.
+/// <c>#pragma warning disable</c> needs a <c>//</c> comment (not a <c>///</c> documentation line) at the end of its own line or on
+/// the line right above it. Whether the scope is the narrowest one is left to review. Generated code (migrations) is not checked.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class JustifiedSuppressionAnalyzer : DiagnosticAnalyzer
