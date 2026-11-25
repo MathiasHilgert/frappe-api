@@ -41,7 +41,7 @@
   `Telemetry/<M>TelemetryRegistration.cs` registers the classes and the `CountOnCommit` lines (OBS-06). Never rename a shipped metric: dashboards
   and alerts read it.
 - **Why:** one folder lists what a module reports and each feature's metrics are read next to each other; stable names keep dashboards working.
-- **Enforced by:** platform meter test (planned, OBS-08); review.
+- **Enforced by:** `MeterConventionTests` (OBS-08); review.
 - **Good:** `Identity.Application/Telemetry/{IdentityTelemetry,SessionsMetrics,OwnersMetrics}.cs`, with
   `public const string SessionsOpenedMetric = "frappe.identity.sessions.opened";` on `SessionsMetrics`. **Bad:** one
   `<M>Metrics` class with every feature's instruments; `"frappe.outcome"` repeated as a literal in each metrics class;
@@ -55,7 +55,7 @@
 - **Rule:** Pass `unit:` (UCUM: `s`, `{request}`, `USD`) and `description:` (one sentence, says what is counted and by which tags) to every
   instrument.
 - **Why:** an operator reading a panel must know what one unit means without opening the code.
-- **Enforced by:** `MessagingMetricsTests` (messaging only); platform meter test (planned, OBS-08).
+- **Enforced by:** `MessagingMetricsTests` (messaging only); `MeterConventionTests` (OBS-08).
 - **Good:** `CreateCounter<long>(SyncRunsMetric, unit: "{run}", description: "Reference data sync runs, by source and outcome.")` **Bad:**
   `CreateCounter<long>(SyncRunsMetric)`.
 - **Status:** in force.
@@ -65,7 +65,7 @@
 - **Rule:** Tag values come from a closed set (enum, source name, region code). Never tag ids, message types, emails, tokens, origins or user-typed
   text. The outcome of anything is tagged `frappe.outcome`.
 - **Why:** unbounded tags explode series cardinality in Mimir and leak personal data.
-- **Enforced by:** platform meter test with a tag allow-list (planned, OBS-08); review.
+- **Enforced by:** `MeterConventionTests` (OBS-08; tag allow-list not yet checked); review.
 - **Good:** `new(OutcomeTag, "refused")` **Bad:** `new("email", command.Email)`.
 - **Status:** in force.
 
@@ -104,7 +104,7 @@
   TInstrument>(e => tags)` instead of one-off handlers. A platform test walks every `Frappe.*` meter: name `frappe.<module>.*`, unit, description,
   tags from an allow-list. Existing metric names are kept.
 - **Why:** typed tags remove misspelled or unbounded tags at compile time; one helper keeps OBS-06 uniform.
-- **Enforced by:** `MeterConventionTests` (planned, OBS-08) in `tests/Frappe.Architecture.Tests`; `CountOnCommit` (`CountOnCommitRegistration.cs`).
+- **Enforced by:** `MeterConventionTests` in `tests/Frappe.Architecture.Tests`; `CountOnCommit` (`CountOnCommitRegistration.cs`).
 - **Good:** `public const string DeliveriesMetric = "frappe.notifications.deliveries";` on `NotificationsMetrics`
   **Bad:**
   `_syncRuns.Add(1, new("frappe.outcome", name), new("source", s));` with hand-typed keys.
