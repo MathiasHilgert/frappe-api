@@ -1,8 +1,8 @@
 using System.Diagnostics.Metrics;
-using Frappe.Notifications.Application.Dispatching;
+using Frappe.Notifications.Application.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Frappe.Notifications.UnitTests.Dispatching;
+namespace Frappe.Notifications.UnitTests.Telemetry;
 
 /// <summary>The deliveries instrument keeps its published name, unit and description (OBS-01, OBS-02).</summary>
 public sealed class NotificationsMetricsTests

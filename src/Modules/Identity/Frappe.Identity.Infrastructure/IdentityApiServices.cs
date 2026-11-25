@@ -3,6 +3,7 @@ using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Infrastructure.Codes;
 using Frappe.Identity.Infrastructure.Owners;
 using Frappe.Identity.Infrastructure.Sessions;
+using Frappe.Identity.Infrastructure.Telemetry;
 using Frappe.Modules;
 using Frappe.Observability;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,6 +24,7 @@ public sealed class IdentityApiServices : IModule
         services.AddCodes();
         services.AddSessions();
         services.AddOwners();
+        services.CountIdentityEventsOnCommit();
         services.AddSingleton<IRules, SessionRules>();
         services.AddHandlers(typeof(ISessions).Assembly);
     }

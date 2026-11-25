@@ -2,6 +2,7 @@ using Frappe.Localization;
 using Frappe.Notifications.Application.Contacts;
 using Frappe.Notifications.Application.Dispatching;
 using Frappe.Notifications.Application.Kinds;
+using Frappe.Notifications.Application.Telemetry;
 using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Notifications.Infrastructure.Addresses;
 using Frappe.Testing;

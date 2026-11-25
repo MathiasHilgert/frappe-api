@@ -3,6 +3,7 @@ using Frappe.Identity.Infrastructure.Messaging;
 using Frappe.Identity.Infrastructure.Owners;
 using Frappe.Identity.Infrastructure.Persistence;
 using Frappe.Identity.Infrastructure.Sessions;
+using Frappe.Identity.Infrastructure.Telemetry;
 using Frappe.Messaging.Storage.Outbox;
 using Frappe.Modules;
 using Frappe.Persistence;
@@ -24,6 +25,7 @@ public sealed class IdentityCoreServices : IModule
     public void AddServices(IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+        services.AddIdentityMetrics();
         services.AddPasswords();
         services.AddKeyedSingleton<IIntegrationEventTranslator, IdentityIntegrationEvents>(Name);
         services.AddCommitRejections<IdentityDbContext>(rejections =>

@@ -1,5 +1,5 @@
-using Frappe.Identity.Application.Credentials;
 using Frappe.Identity.Application.Owners.RegisterOwner;
+using Frappe.Identity.Application.Telemetry;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Principals;
 using Frappe.Results;
@@ -213,9 +213,9 @@ public sealed class OwnerRegistrationTests(PostgresServer server)
                 await Assert.That(newCode).IsNotEqualTo(oldCode);
                 await Assert.That(withOld.Errors.Single().Code).IsEqualTo(IdentityErrorCodes.CodeInvalid);
                 await Assert.That(withOldCodeOnNewId.Errors.Single().Code).IsEqualTo(IdentityErrorCodes.CodeInvalid);
-                await Assert.That(counts.Of(IdentityMetrics.RegistrationsMetric, "replaced")).IsEqualTo(1);
-                await Assert.That(counts.Of(IdentityMetrics.CodesIssuedMetric, "email_verification")).IsEqualTo(1);
-                await Assert.That(counts.Of(IdentityMetrics.VerificationsMetric, "invalid")).IsEqualTo(2);
+                await Assert.That(counts.Of(OwnersMetrics.RegistrationsMetric, "replaced")).IsEqualTo(1);
+                await Assert.That(counts.Of(CodesMetrics.CodesIssuedMetric, "email_verification")).IsEqualTo(1);
+                await Assert.That(counts.Of(OwnersMetrics.VerificationsMetric, "invalid")).IsEqualTo(2);
                 await Assert.That(events.Count(e => e.Type == Registered)).IsEqualTo(2);
                 await Assert.That(events.Last(e => e.Type == CodeIssued).Data.GetProperty("name").GetString()).IsEqualTo("Luz");
             }
@@ -330,11 +330,11 @@ public sealed class OwnerRegistrationTests(PostgresServer server)
             // Assert
             using (Assert.Multiple())
             {
-                await Assert.That(counts.Of(IdentityMetrics.RegistrationsMetric, "created")).IsEqualTo(2);
-                await Assert.That(counts.Of(IdentityMetrics.RegistrationsMetric, "taken")).IsEqualTo(1);
-                await Assert.That(counts.Of(IdentityMetrics.RegistrationsMetric, "replaced")).IsEqualTo(0);
-                await Assert.That(counts.Of(IdentityMetrics.CodesIssuedMetric, "email_verification")).IsEqualTo(2);
-                await Assert.That(counts.Of(IdentityMetrics.VerificationsMetric, "verified")).IsEqualTo(1);
+                await Assert.That(counts.Of(OwnersMetrics.RegistrationsMetric, "created")).IsEqualTo(2);
+                await Assert.That(counts.Of(OwnersMetrics.RegistrationsMetric, "taken")).IsEqualTo(1);
+                await Assert.That(counts.Of(OwnersMetrics.RegistrationsMetric, "replaced")).IsEqualTo(0);
+                await Assert.That(counts.Of(CodesMetrics.CodesIssuedMetric, "email_verification")).IsEqualTo(2);
+                await Assert.That(counts.Of(OwnersMetrics.VerificationsMetric, "verified")).IsEqualTo(1);
             }
         });
     }

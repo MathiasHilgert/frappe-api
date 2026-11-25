@@ -13,16 +13,19 @@ public sealed class IdentityStructureTests
 
     /// <summary>
     /// The module-level namespaces: composition, persistence mapping and messaging see every feature, Owners included, so they are not core.
+    /// Telemetry is module-level too: its metrics and their post-commit counting span every feature, Owners included.
     /// Any other namespace that is not an Owners one counts as core, so a new core folder is covered without touching this test.
     /// </summary>
     private static readonly string[] ModuleLevelNamespaces =
     [
+        "Frappe.Identity.Application.Telemetry",
         "Frappe.Identity.Domain",
         "Frappe.Identity.Http",
         "Frappe.Identity.Infrastructure",
         "Frappe.Identity.Infrastructure.Messaging",
         "Frappe.Identity.Infrastructure.Persistence",
         "Frappe.Identity.Infrastructure.Persistence.Migrations",
+        "Frappe.Identity.Infrastructure.Telemetry",
     ];
 
     private static readonly string[] OwnersNamespaces = [.. Layers.Select(layer => $"Frappe.Identity.{layer}.Owners")];

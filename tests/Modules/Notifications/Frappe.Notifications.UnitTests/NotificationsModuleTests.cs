@@ -1,3 +1,4 @@
+using Frappe.Aggregates;
 using Frappe.Notifications.Http;
 using Frappe.Notifications.Infrastructure;
 using Frappe.Notifications.Messages.Account;
@@ -81,5 +82,50 @@ public sealed class NotificationsModuleTests
 
         // Assert
         await Assert.That(door).IsEquivalentTo([.. facets, MessagePurge], TUnit.Assertions.Enums.CollectionOrdering.Matching);
+    }
+
+    /// <summary>How many <c>IAfterCommitDomainEventHandler</c> registrations <paramref name="register"/> adds, by event type.</summary>
+    private static string[] AfterCommitHandlers(Action<IServiceCollection> register)
+    {
+        var services = new ServiceCollection();
+        register(services);
+        return [.. services
+            .Where(descriptor => descriptor.ServiceType is { IsGenericType: true }
+                && descriptor.ServiceType.GetGenericTypeDefinition() == typeof(IAfterCommitDomainEventHandler<>))
+            .GroupBy(descriptor => descriptor.ServiceType.GetGenericArguments()[0].Name)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .Select(group => $"{group.Key} x{group.Count()}")];
+    }
+
+    [Test]
+    public async Task The_Api_door_counts_after_the_commit_exactly_the_events_it_always_did()
+    {
+        // Act
+        var handlers = AfterCommitHandlers(NotificationsModule.Api.AddServices);
+
+        // Assert
+        await Assert.That(handlers).IsEquivalentTo(
+            [
+                "DeliveryDelivered x1",
+                "PreferenceOptedOut x1",
+                "ProviderEventRecorded x1",
+                "SuppressionAdded x1",
+            ], TUnit.Assertions.Enums.CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task The_Worker_door_counts_after_the_commit_exactly_the_events_it_always_did()
+    {
+        // Act
+        var handlers = AfterCommitHandlers(NotificationsModule.Worker.AddServices);
+
+        // Assert
+        await Assert.That(handlers).IsEquivalentTo(
+            [
+                "DeliveryDelivered x1",
+                "PreferenceOptedOut x1",
+                "ProviderEventRecorded x1",
+                "SuppressionAdded x1",
+            ], TUnit.Assertions.Enums.CollectionOrdering.Matching);
     }
 }

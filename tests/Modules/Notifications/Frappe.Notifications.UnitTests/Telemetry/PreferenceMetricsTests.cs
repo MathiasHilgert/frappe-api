@@ -1,10 +1,10 @@
 using System.Diagnostics.Metrics;
-using Frappe.Notifications.Application.Dispatching;
+using Frappe.Notifications.Application.Telemetry;
 using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Frappe.Notifications.UnitTests.Preferences;
+namespace Frappe.Notifications.UnitTests.Telemetry;
 
 /// <summary>The unsubscribes counter keeps its published name and unit and counts by a closed category (S15, OBS-01, OBS-02, OBS-05).</summary>
 public sealed class PreferenceMetricsTests

@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using Frappe.Identity.Application.Credentials;
+using Frappe.Identity.Application.Telemetry;
 using Frappe.Identity.Domain.Credentials;
 using Geralt;
 using Microsoft.Extensions.Options;
@@ -11,7 +12,7 @@ namespace Frappe.Identity.Infrastructure.Credentials;
 /// Argon2id through libsodium (Geralt) under the parameters of <see cref="PasswordOptions"/>. The stored text is the standard encoded hash
 /// (<c>$argon2id$v=19$m=…,t=…,p=1$salt$hash</c>), so it carries its own parameters and salt and keeps verifying after the options change.
 /// </summary>
-public sealed class Argon2idPasswordHasher(IOptions<PasswordOptions> options, IdentityMetrics metrics, TimeProvider time) : IPasswordHasher
+public sealed class Argon2idPasswordHasher(IOptions<PasswordOptions> options, CredentialsMetrics metrics, TimeProvider time) : IPasswordHasher
 {
     private const int BytesPerMebibyte = 1024 * 1024;
 

@@ -4,7 +4,7 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 
 - STR-01 · Every module has the same project set
 - STR-02 · Application is organized by feature, then one folder per use case
-- STR-03 · Infrastructure is organized by feature plus Persistence/ and Messaging/ only
+- STR-03 · Infrastructure is organized by feature plus Persistence/, Messaging/, Retention/ and Telemetry/ only
 - STR-04 · Plug-in packages are named `Frappe.<Module>.<Kind>.<Name>`
 - STR-05 · Use cases are named for intent; handlers add `Handler`
 - STR-06 · Ports are capability nouns; adapters are prefixed by technology
@@ -32,22 +32,25 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 ## STR-02 · Application is organized by feature, then one folder per use case
 
 - **Rule:** `Application/<Feature>/<UseCase>/` holds `<UseCase>.cs` (public sealed record request) and `<UseCase>Handler.cs` (internal sealed); ports,
-  views and exceptions shared by the feature sit loose in `<Feature>/`; only module-wide types (`<M>Errors`, `<M>Metrics`, `<M>QueriesRegistration`, a
-  type several features use) sit at the project root. A helper used by one use case lives in that use case's folder.
+  views and exceptions shared by the feature sit loose in `<Feature>/`; only module-wide types (`<M>Errors`, `<M>QueriesRegistration`, a type several
+  features use) sit at the project root, and the module's metrics sit in `Telemetry/` (OBS-02). A helper used by one use case lives in that use
+  case's folder.
 - **Why:** a feature is read and changed in one place; deleting a use case deletes one folder.
 - **Enforced by:** review (folder-shape ArchTest planned).
 - **Good:** `Orders.Application/Regions/GetRegion/{GetRegion,GetRegionHandler}.cs`, `Regions/IRegionCatalog.cs`. **Bad:** one use case's helper
   at the project root; a port shared by the feature inside one use case's folder.
 - **Status:** in force.
 
-## STR-03 · Infrastructure is organized by feature plus Persistence/ and Messaging/ only
+## STR-03 · Infrastructure is organized by feature plus Persistence/, Messaging/, Retention/ and Telemetry/ only
 
 - **Rule:** feature folders hold their adapters (`Ef*`, `Cached*`, `Valkey*`), cached records and EF configurations. Only module-wide pieces go in the
-  two fixed technical folders: `Persistence/` (DbContext, design-time factory, migration runner, migrations, database options) and `Messaging/`
-  (translator, consumers, relay wiring). No other technical folder.
+  four fixed technical folders: `Persistence/` (DbContext, design-time factory, migration runner, migrations, database options), `Messaging/`
+  (translator, consumers, relay wiring), `Retention/` (purge jobs and their options) and `Telemetry/` (`<M>TelemetryRegistration`: the metrics
+  classes' services and the `CountOnCommit` lines, OBS-02). No other technical folder.
 - **Why:** a feature's storage is found next to the feature; technical folders do not become dumping grounds.
 - **Enforced by:** review.
-- **Good:** `Orders.Infrastructure/Regions/{RegionRow,RegionRowConfiguration,EfRegionCatalog,CachedRegionCatalog}.cs`. **Bad:**
+- **Good:** `Orders.Infrastructure/Regions/{RegionRow,RegionRowConfiguration,EfRegionCatalog,CachedRegionCatalog}.cs`,
+  `Identity.Infrastructure/Telemetry/IdentityTelemetryRegistration.cs`. **Bad:**
   `<M>.Infrastructure/Configuration/<M>DatabaseOptions.cs` (belongs in `Persistence/`).
 - **Status:** in force.
 

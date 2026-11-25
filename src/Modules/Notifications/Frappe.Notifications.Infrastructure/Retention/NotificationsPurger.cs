@@ -1,4 +1,4 @@
-using Frappe.Notifications.Application.Dispatching;
+using Frappe.Notifications.Application.Telemetry;
 using Frappe.Notifications.Infrastructure.Deliveries;
 using Frappe.Notifications.Infrastructure.Persistence;
 using Frappe.Notifications.Infrastructure.ProviderEvents;
@@ -18,13 +18,13 @@ namespace Frappe.Notifications.Infrastructure.Retention;
 /// <c>requested_at</c>. Rows go in
 /// batches of <see cref="NotificationsPurgeOptions.BatchSize"/>, each its own short statement, so the purge never holds many locks for long;
 /// running it twice at once only makes the second find less. It counts the rows of each table on
-/// <see cref="NotificationsMetrics"/>. Suppressions and preferences are never touched.
+/// <see cref="RetentionMetrics"/>. Suppressions and preferences are never touched.
 /// </summary>
 internal sealed partial class NotificationsPurger(
     IServiceScopeFactory scopes,
     IOptions<NotificationsPurgeOptions> options,
     TimeProvider time,
-    NotificationsMetrics metrics,
+    RetentionMetrics metrics,
     ILogger<NotificationsPurger> logger)
 {
     // Parameters: the cutoff and the batch; the table and its age column are constants. Deliveries are picked by their physical row identity.

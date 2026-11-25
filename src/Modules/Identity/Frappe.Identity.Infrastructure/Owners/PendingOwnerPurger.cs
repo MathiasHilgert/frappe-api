@@ -1,4 +1,4 @@
-using Frappe.Identity.Application.Credentials;
+using Frappe.Identity.Application.Telemetry;
 using Frappe.Identity.Domain.Owners;
 using Frappe.Identity.Infrastructure.Persistence;
 using Frappe.Identity.Infrastructure.Retention;
@@ -18,7 +18,7 @@ internal sealed partial class PendingOwnerPurger(
     IServiceScopeFactory scopes,
     IOptions<IdentityRetentionOptions> options,
     TimeProvider time,
-    IdentityMetrics metrics,
+    RetentionMetrics metrics,
     ILogger<PendingOwnerPurger> logger) : IRetentionStep
 {
     private const string Target = "owners";

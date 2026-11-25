@@ -1,11 +1,11 @@
 using System.Diagnostics.Metrics;
-using Frappe.Notifications.Application.Dispatching;
+using Frappe.Notifications.Application.Telemetry;
 using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Notifications.Domain.Suppressions;
 using Frappe.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Frappe.Notifications.UnitTests.Dispatching;
+namespace Frappe.Notifications.UnitTests.Telemetry;
 
 /// <summary>The feedback counters keep their published names, units and closed tag values (S15, OBS-01, OBS-02, OBS-05).</summary>
 public sealed class ProviderFeedbackMetricsTests

@@ -1,4 +1,4 @@
-using Frappe.Identity.Application.Credentials;
+using Frappe.Identity.Application.Telemetry;
 using Frappe.Identity.Domain.Sessions;
 using Frappe.Identity.Infrastructure.Persistence;
 using Frappe.Persistence;
@@ -21,7 +21,7 @@ internal sealed partial class SessionSweeper(
     IServiceScopeFactory scopes,
     IOptions<IdentityRetentionOptions> options,
     TimeProvider time,
-    IdentityMetrics metrics,
+    SessionsMetrics metrics,
     ILogger<SessionSweeper> logger) : IRetentionStep
 {
     private const string Revoked = "revoked";

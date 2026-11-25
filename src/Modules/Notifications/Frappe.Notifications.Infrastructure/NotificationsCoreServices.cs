@@ -6,15 +6,12 @@ using Frappe.Notifications.Application.Dispatching;
 using Frappe.Notifications.Application.Feedback;
 using Frappe.Notifications.Application.Kinds;
 using Frappe.Notifications.Application.Ports;
-using Frappe.Notifications.Domain.Deliveries;
-using Frappe.Notifications.Domain.Preferences;
-using Frappe.Notifications.Domain.ProviderEvents;
-using Frappe.Notifications.Domain.Suppressions;
 using Frappe.Notifications.Infrastructure.Addresses;
 using Frappe.Notifications.Infrastructure.Dispatching;
 using Frappe.Notifications.Infrastructure.Messaging;
 using Frappe.Notifications.Infrastructure.Persistence;
 using Frappe.Notifications.Infrastructure.Requests;
+using Frappe.Notifications.Infrastructure.Telemetry;
 using Frappe.Notifications.Infrastructure.Unsubscribe;
 using Frappe.Observability;
 using Frappe.Persistence;
@@ -69,15 +66,8 @@ public sealed class NotificationsCoreServices : IModule
         services.AddSingleton<IContactDirectory, ContactDirectory>();
         services.AddSingleton<NotificationCatalog>();
         services.AddHostedService<NotificationCatalogCheck>();
-        services.AddSingleton<NotificationsMetrics>();
-        services.AddSingleton<ProviderFeedbackMetrics>();
-        services.AddSingleton<PreferenceMetrics>();
-        services.CountOnCommit<PreferenceOptedOut, PreferenceMetrics>((metrics, opted) => metrics.CountUnsubscribe(opted.Category));
-        services.CountOnCommit<ProviderEventRecorded, ProviderFeedbackMetrics>((metrics, recorded) =>
-            metrics.CountProviderEvent(recorded.Feedback, recorded.Matched));
-        services.CountOnCommit<SuppressionAdded, ProviderFeedbackMetrics>((metrics, added) => metrics.CountSuppression(added.Reason));
-        services.CountOnCommit<DeliveryDelivered, ProviderFeedbackMetrics>((metrics, delivered) =>
-            metrics.RecordTimeToDelivered(delivered.Kind, delivered.Channel, delivered.TimeToDelivered));
+        services.AddNotificationsMetrics();
+        services.CountNotificationsEventsOnCommit();
         services.AddScoped<IDeliveryStaging, EfDeliveryStaging>();
         services.AddScoped<IDeliveries, EfDeliveries>();
         services.AddScoped<IProviderMessageLock, EfProviderMessageLock>();

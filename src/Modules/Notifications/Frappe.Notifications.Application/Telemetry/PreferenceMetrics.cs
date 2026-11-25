@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Frappe.Notifications.Domain.Deliveries;
 
-namespace Frappe.Notifications.Application.Dispatching;
+namespace Frappe.Notifications.Application.Telemetry;
 
 /// <summary>
 /// The instrument an unsubscribe feeds, on the module's meter <c>Frappe.Notifications</c> (OBS-01, OBS-02). It counts once the commit that
@@ -20,7 +20,7 @@ public sealed class PreferenceMetrics
     public PreferenceMetrics(IMeterFactory meters)
     {
         ArgumentNullException.ThrowIfNull(meters);
-        _unsubscribes = meters.Create(NotificationsMetrics.MeterName).CreateCounter<long>(
+        _unsubscribes = meters.Create(NotificationsTelemetry.MeterName).CreateCounter<long>(
             UnsubscribesMetric, unit: "{unsubscribe}", description: "Categories recipients turned off, by category.");
     }
 

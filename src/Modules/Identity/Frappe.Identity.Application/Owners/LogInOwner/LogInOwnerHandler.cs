@@ -5,6 +5,7 @@ using Frappe.Identity.Application.Identifiers;
 using Frappe.Identity.Application.Limits;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Sessions;
+using Frappe.Identity.Application.Telemetry;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Codes;
 using Frappe.Identity.Domain.Credentials;
@@ -32,7 +33,7 @@ internal sealed class LogInOwnerHandler(
     CodeIssuer codes,
     SessionOpener sessions,
     IAttemptLimiter limiter,
-    IdentityMetrics metrics,
+    SessionsMetrics metrics,
     TimeProvider time) : ICommandHandler<LogInOwner, LogInOutcome>
 {
     public async Task<Result<LogInOutcome>> HandleAsync(LogInOwner command, CancellationToken cancellationToken)

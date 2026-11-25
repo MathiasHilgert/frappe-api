@@ -27,6 +27,7 @@ using Frappe.Identity.Infrastructure.Identifiers;
 using Frappe.Identity.Infrastructure.Owners;
 using Frappe.Identity.Infrastructure.Persistence;
 using Frappe.Identity.Infrastructure.Sessions;
+using Frappe.Identity.Infrastructure.Telemetry;
 using Frappe.Observability;
 using Frappe.Persistence;
 using Frappe.Results;
@@ -90,6 +91,7 @@ internal sealed class OwnersHost : IAsyncDisposable
         services.AddCodes();
         services.AddSessions();
         services.AddOwners();
+        services.CountIdentityEventsOnCommit();
         services.RemoveAll<IBreachedPasswords>();
         services.AddSingleton<IBreachedPasswords>(breached);
         services.AddSingleton<IAttemptLimiter>(limiter);

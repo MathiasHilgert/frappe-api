@@ -1,8 +1,5 @@
 using Frappe.Identity.Application.Credentials;
 using Frappe.Identity.Application.Sessions;
-using Frappe.Identity.Domain.Sessions;
-using Frappe.Observability;
-using Frappe.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -37,11 +34,6 @@ internal static class SessionsRegistration
             services.TryAddScoped<SessionOpener>();
             services.TryAddScoped<CredentialChange>();
             services.TryAddScoped<PasswordRecheck>();
-            services.CountOnCommit<SessionOpened, IdentityMetrics>((metrics, opened) =>
-                metrics.SessionOpened(StoredEnum<SessionAudience>.ToText(opened.Audience)));
-            services.CountOnCommit<SessionRevoked, IdentityMetrics>((metrics, revoked) =>
-                metrics.SessionRevoked(StoredEnum<RevocationReason>.ToText(revoked.Reason)));
-            services.CountOnCommit<StepUpCompleted, IdentityMetrics>((metrics, _) => metrics.SteppedUp(StepUpOutcome.Completed));
             return services;
         }
     }

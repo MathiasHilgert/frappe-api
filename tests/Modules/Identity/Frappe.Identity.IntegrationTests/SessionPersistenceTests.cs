@@ -13,6 +13,7 @@ using Frappe.Identity.Domain.Sessions;
 using Frappe.Identity.Infrastructure;
 using Frappe.Identity.Infrastructure.Persistence;
 using Frappe.Identity.Infrastructure.Sessions;
+using Frappe.Identity.Infrastructure.Telemetry;
 using Frappe.Observability;
 using Frappe.Persistence;
 using Frappe.Results;
@@ -46,6 +47,7 @@ public sealed class SessionPersistenceTests(PostgresServer server)
         services.AddSingleton<TimeProvider>(time);
         new IdentityCoreServices().AddServices(services);
         services.AddSessions();
+        services.CountIdentityEventsOnCommit();
         services.AddSingleton<IUseCaseGate, AllowAllUseCaseGate>();
         services.AddSingleton<IAuthorizer, AllowAllAuthorizer>();
         FakeCaller.AddTo(services);

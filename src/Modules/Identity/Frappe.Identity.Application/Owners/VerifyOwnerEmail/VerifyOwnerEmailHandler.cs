@@ -3,6 +3,7 @@ using Frappe.Identity.Application.Credentials;
 using Frappe.Identity.Application.Identifiers;
 using Frappe.Identity.Application.Principals;
 using Frappe.Identity.Application.Sessions;
+using Frappe.Identity.Application.Telemetry;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Codes;
 using Frappe.Identity.Domain.Principals;
@@ -22,7 +23,7 @@ internal sealed class VerifyOwnerEmailHandler(
     IEmailIdentifiers identifiers,
     CodeRedeemer redeemer,
     SessionOpener sessions,
-    IdentityMetrics metrics,
+    OwnersMetrics metrics,
     TimeProvider time) : ICommandHandler<VerifyOwnerEmail, OpenedSession>
 {
     public async Task<Result<OpenedSession>> HandleAsync(VerifyOwnerEmail command, CancellationToken cancellationToken)

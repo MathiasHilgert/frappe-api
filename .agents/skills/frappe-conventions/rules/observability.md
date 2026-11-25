@@ -1,7 +1,7 @@
 # Observability (OBS)
 
 - OBS-01 · Modules emit only metrics on their own meter; the platform owns spans and exporters
-- OBS-02 · Metric names are `frappe.<module>.<noun>[.<qualifier>]`, declared on the module's metrics class
+- OBS-02 · Metric names are `frappe.<module>.<noun>[.<qualifier>]`, declared on the feature's metrics class in Telemetry/
 - OBS-03 · Every instrument has a UCUM unit and a one-sentence description
 - OBS-04 · Tags are bounded; the outcome tag is always `frappe.outcome`
 - OBS-05 · An enum becomes a tag through an exhaustive switch that throws
@@ -31,15 +31,21 @@
   module.
 - **Status:** in force.
 
-## OBS-02 · Metric names are `frappe.<module>.<noun>[.<qualifier>]`, declared on the module's metrics class
+## OBS-02 · Metric names are `frappe.<module>.<noun>[.<qualifier>]`, declared on the feature's metrics class in Telemetry/
 
-- **Rule:** Names are lower snake case segments `frappe.<module>.<noun>[.<qualifier>]`, held as `const` on `<Module>Metrics` in Application, which
-  creates its counters and histograms in its constructor. An observable gauge that reads a store is declared in Infrastructure next to that store, on
-  the module's meter, with its name const on `<Module>Metrics`. Never rename a shipped metric: dashboards and alerts read it.
-- **Why:** one file lists what a module reports; stable names keep dashboards working.
+- **Rule:** `Application/Telemetry/` holds `<M>Telemetry` (public static: `MeterName = "Frappe.<M>"` and the tag names more than one feature uses,
+  such as `OutcomeTag = "frappe.outcome"`) and one `<Feature>Metrics` per feature (OBS-04's tags that only it uses are its own consts). Names are
+  lower snake case segments `frappe.<module>.<noun>[.<qualifier>]`, held as `const` on the `<Feature>Metrics` of the feature that records them,
+  which creates its counters and histograms in its constructor over the meter `<M>Telemetry.MeterName`. An observable gauge that reads a store is
+  declared in Infrastructure next to that store, on the module's meter, with its name const on that feature's metrics class. Infrastructure's
+  `Telemetry/<M>TelemetryRegistration.cs` registers the classes and the `CountOnCommit` lines (OBS-06). Never rename a shipped metric: dashboards
+  and alerts read it.
+- **Why:** one folder lists what a module reports and each feature's metrics are read next to each other; stable names keep dashboards working.
 - **Enforced by:** platform meter test (planned, OBS-08); review.
-- **Good:** `public const string SyncRunsMetric = "frappe.orders.sync.runs";` **Bad:** `meter.CreateCounter<long>("OrdersSyncRuns")` inline in a
-  handler.
+- **Good:** `Identity.Application/Telemetry/{IdentityTelemetry,SessionsMetrics,OwnersMetrics}.cs`, with
+  `public const string SessionsOpenedMetric = "frappe.identity.sessions.opened";` on `SessionsMetrics`. **Bad:** one
+  `<M>Metrics` class with every feature's instruments; `"frappe.outcome"` repeated as a literal in each metrics class;
+  `meter.CreateCounter<long>("OrdersSyncRuns")` inline in a handler.
 - **Platform features:** a platform piece that answers instead of the handler (idempotency replay, paging refusals) counts its outcomes on the
   `Frappe.Http` meter as `frappe.http.<feature>.requests` tagged `frappe.outcome`.
 - **Status:** in force.

@@ -1,7 +1,7 @@
 using System.Diagnostics.Metrics;
 using System.Net;
 using System.Text.Json;
-using Frappe.Identity.Application.Credentials;
+using Frappe.Identity.Application.Telemetry;
 using Frappe.Identity.Domain.Principals;
 using Frappe.Identity.Http.Sessions;
 using Frappe.Testing;
@@ -528,7 +528,7 @@ public sealed class IdentitySessionRouteTests
         using (Assert.Multiple())
         {
             await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
-            await Assert.That(metrics.Of(IdentityMetrics.SessionTouchLostMetric).Count).IsEqualTo(1);
+            await Assert.That(metrics.Of(SessionsMetrics.SessionTouchLostMetric).Count).IsEqualTo(1);
             await Assert.That(logs.Entries.Count(e => e.Level == LogLevel.Information && e.Message.Contains("lost the race"))).IsEqualTo(1);
             await Assert.That(host.UnitOfWork.Rollbacks).IsEqualTo(1);
         }
