@@ -1,4 +1,5 @@
 using System.Reflection;
+using Frappe.Testing;
 using NetArchTest.Rules;
 
 namespace Frappe.Architecture.Tests;
@@ -25,10 +26,6 @@ public sealed class LayeringTests
     private static readonly Assembly Worker = typeof(Frappe.Worker.WorkerComposition).Assembly;
     private static readonly Assembly NotificationsHttp = typeof(Frappe.Notifications.Http.NotificationsHttp).Assembly;
     private static readonly Assembly NotificationsInfrastructure = typeof(Frappe.Notifications.Infrastructure.NotificationsCoreServices).Assembly;
-    private static readonly Assembly IdentityHttp = typeof(Frappe.Identity.Http.IdentityHttp).Assembly;
-    private static readonly Assembly IdentityInfrastructure = typeof(Frappe.Identity.Infrastructure.IdentityCoreServices).Assembly;
-    private static readonly Assembly AccessHttp = typeof(Frappe.Access.Http.AccessHttp).Assembly;
-    private static readonly Assembly AccessInfrastructure = typeof(Frappe.Access.Infrastructure.AccessCoreServices).Assembly;
 
     /// <summary>Anything an inner layer must never know about.</summary>
     private static readonly string[] Infrastructure =
@@ -84,49 +81,253 @@ public sealed class LayeringTests
         await AssertAsync(result, $"{assemblyName} depends on infrastructure");
     }
 
-    [Test]
-    [Arguments("Notifications")]
-    [Arguments("Identity")]
-    [Arguments("Access")]
-    public async Task A_modules_Http_project_serves_use_cases_without_reaching_the_database_or_the_broker(string module)
-    {
-        // Arrange
-        var http = module switch
-        {
-            "Identity" => IdentityHttp,
-            "Access" => AccessHttp,
-            _ => NotificationsHttp,
-        };
+    private static string[] ModuleProjects(string layer) => [.. ModuleDoorTests.AllModules.Select(module => $"Frappe.{module}.{layer}")];
 
+    private static Assembly[] ModuleAssembliesIn(string layer) => [.. ModuleProjects(layer).Select(name => System.Reflection.Assembly.Load(name))];
+
+    private static readonly Assembly FixtureAssembly = typeof(LayeringTests).Assembly;
+
+    private static PredicateList Scope(Assembly assembly) => Types.InAssembly(assembly).That().ResideInNamespaceStartingWith("Frappe");
+
+    private static PredicateList Fixtures() => Types.InAssembly(FixtureAssembly).That().HaveName("RuleBreakers");
+
+    [Test]
+    public async Task The_http_adapter_reaches_use_cases_only_through_the_application_layer()
+    {
         // Act
-        var result = Types.InAssembly(http).ShouldNot().HaveDependencyOnAny(
-            "Microsoft.EntityFrameworkCore", "Npgsql", "NATS", "Quartz", "Frappe.Persistence", "Frappe.Messaging", "Frappe.Scheduling",
-            $"Frappe.{module}.Infrastructure", $"Frappe.{module}.Domain").GetResult();
+        var offenders = ModuleAssembliesIn("Http").SelectMany(http => HttpBreaks(Scope(http)).FailingTypeNames ?? []).ToArray();
 
         // Assert
-        await AssertAsync(result, $"Frappe.{module}.Http depends on storage, messaging, scheduling or the module's infrastructure");
+        await Assert.That(offenders).IsEmpty()
+            .Because($"an *.Http project reaches storage, caching, messaging or the module's inside: {string.Join(", ", offenders)}");
+    }
+
+    private static NetArchTest.Rules.TestResult HttpBreaks(PredicateList types) => types.ShouldNot().HaveDependencyOnAny(
+        "Microsoft.EntityFrameworkCore", "Npgsql", "NATS", "Quartz", "StackExchange.Redis", "Frappe.Persistence", "Frappe.Caching",
+        "Frappe.Messaging", "Frappe.Scheduling", "Frappe.Access.Infrastructure", "Frappe.Identity.Infrastructure",
+        "Frappe.Notifications.Infrastructure", "Frappe.Access.Domain", "Frappe.Identity.Domain", "Frappe.Notifications.Domain").GetResult();
+
+    [Test]
+    public async Task Infrastructure_adapters_do_not_serve_http()
+    {
+        // Act
+        var offenders = ModuleAssembliesIn("Infrastructure")
+            .SelectMany(infrastructure => InfrastructureBreaks(Scope(infrastructure)).FailingTypeNames ?? [])
+            .ToArray();
+
+        // Assert
+        await Assert.That(offenders).IsEmpty().Because($"an *.Infrastructure project reaches the web stack: {string.Join(", ", offenders)}");
+    }
+
+    private static NetArchTest.Rules.TestResult InfrastructureBreaks(PredicateList types) => types.ShouldNot().HaveDependencyOnAny(
+        ["Microsoft.AspNetCore", "Frappe.Http", .. ModuleDoorTests.AllModules.Select(module => $"Frappe.{module}.Http")]).GetResult();
+
+    [Test]
+    public async Task The_http_and_infrastructure_rules_can_see_a_violation_ARCH_04()
+    {
+        // Act
+        var web = InfrastructureBreaks(Fixtures());
+        var http = HttpBreaks(Fixtures());
+        var persistence = Types.InAssembly(typeof(Frappe.Persistence.ModuleDatabase).Assembly)
+            .That().HaveDependencyOn("Microsoft.EntityFrameworkCore")
+            .GetTypes();
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(web.IsSuccessful).IsFalse();
+            await Assert.That(http.IsSuccessful).IsFalse();
+            await Assert.That(persistence.Any()).IsTrue();
+            await Assert.That(ModuleAssembliesIn("Http").Length).IsEqualTo(ModuleDoorTests.AllModules.Length);
+        }
     }
 
     [Test]
-    [Arguments("Notifications")]
-    [Arguments("Identity")]
-    [Arguments("Access")]
-    public async Task A_modules_Infrastructure_reaches_no_web_stack(string module)
+    public async Task The_domain_does_not_depend_on_its_use_cases()
+    {
+        // Act
+        var offenders = ModuleDoorTests.AllModules
+            .SelectMany(module => DomainBreaks(Scope(System.Reflection.Assembly.Load($"Frappe.{module}.Domain")), module).FailingTypeNames ?? [])
+            .ToArray();
+        var seen = DomainBreaks(Fixtures(), "Identity");
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(offenders).IsEmpty()
+                .Because($"a Domain names its Application project or Frappe.UseCases: {string.Join(", ", offenders)}");
+            await Assert.That(seen.IsSuccessful).IsFalse().Because("the rule must fail on a type that names Frappe.UseCases");
+        }
+    }
+
+    private static NetArchTest.Rules.TestResult DomainBreaks(PredicateList types, string module) =>
+        types.ShouldNot().HaveDependencyOnAny($"Frappe.{module}.Application", "Frappe.UseCases").GetResult();
+
+    [Test]
+    public async Task A_module_reaches_another_only_through_an_allow_listed_contracts_reference_ARCH_05()
     {
         // Arrange
-        var infrastructure = module switch
+        var graph = ArchitectureRules.ProductionGraph;
+
+        // Act
+        var offenders = ArchitectureRules.CrossModuleOffenders(graph, ModuleDoorTests.AllModules, CrossModuleAllowList);
+
+        // Assert
+        using (Assert.Multiple())
         {
-            "Identity" => IdentityInfrastructure,
-            "Access" => AccessInfrastructure,
-            _ => NotificationsInfrastructure,
+            await Assert.That(offenders).IsEmpty().Because($"a module reaches another past the allow-list: {string.Join(", ", offenders)}");
+            await Assert.That(CrossModuleAllowList.All(entry => graph[entry.Assembly].Contains($"Frappe.{entry.Module}.Contracts")))
+                .IsTrue().Because("an allow-list entry no assembly uses any more must be removed");
+        }
+    }
+
+    [Test]
+    public async Task The_isolation_rule_can_see_a_module_reaching_into_another_ARCH_05()
+    {
+        // Arrange
+        string[] modules = ["Identity", "Notifications"];
+        var graph = new Dictionary<string, string[]>
+        {
+            ["Frappe.Notifications.Application"] = ["Frappe.Identity.Application", "Frappe.Identity.Contracts", "Frappe.Notifications.Domain"],
+            ["Frappe.Notifications.Triggers.Identity"] = ["Frappe.Identity.Contracts", "Frappe.Identity.Domain"],
+            ["Frappe.Http"] = [],
         };
 
         // Act
-        var result = Types.InAssembly(infrastructure).ShouldNot().HaveDependencyOnAny(
-            "Microsoft.AspNetCore", "Frappe.Http", $"Frappe.{module}.Http").GetResult();
+        var offenders = ArchitectureRules.CrossModuleOffenders(graph, modules, CrossModuleAllowList);
 
         // Assert
-        await AssertAsync(result, $"Frappe.{module}.Infrastructure depends on the web stack");
+        await Assert.That(offenders).IsEquivalentTo(
+        [
+            "Frappe.Notifications.Application -> Frappe.Identity.Application",
+            "Frappe.Notifications.Application -> Frappe.Identity.Contracts",
+            "Frappe.Notifications.Triggers.Identity -> Frappe.Identity.Domain",
+        ]);
+    }
+
+    /// <summary>ARCH-05: the reviewed pairs (assembly, module reached through its Contracts). Every new line is a decision.</summary>
+    private static readonly (string Assembly, string Module)[] CrossModuleAllowList =
+    [
+        ("Frappe.Notifications.Triggers.Identity", "Identity"),
+
+        // Access.Contracts is the authorization vocabulary every module's use cases and endpoints declare their rules with.
+        ("Frappe.Identity.Application", "Access"),
+        ("Frappe.Identity.Http", "Access"),
+        ("Frappe.Identity.Infrastructure", "Access"),
+        ("Frappe.Notifications.Application", "Access"),
+    ];
+
+    [Test]
+    public async Task A_module_contract_exposes_nothing_but_its_public_types()
+    {
+        // Arrange
+        // Access.Contracts is the rule-authoring vocabulary of the authorizer (rule classes and combinators), not a set of messages: only
+        // its isolation (no reference to another project of any module) is checked, not its shape.
+        string[] authoringContracts = ["Access"];
+        var contracts = ModuleDoorTests.AllModules.ToDictionary(
+            module => module, module => System.Reflection.Assembly.Load($"Frappe.{module}.Contracts"));
+
+        // Act
+        var shape = contracts.Where(entry => !authoringContracts.Contains(entry.Key))
+            .SelectMany(entry => ArchitectureRules.ContractShapeOffenders(entry.Value.GetTypes(), entry.Key))
+            .ToArray();
+        var inside = contracts.SelectMany(entry => Scope(entry.Value).ShouldNot().HaveDependencyOnAny(
+                [.. ModuleDoorTests.AllModules.SelectMany(module => new[] { "Domain", "Application", "Infrastructure", "Http" }
+                    .Select(layer => $"Frappe.{module}.{layer}"))]).GetResult().FailingTypeNames ?? [])
+            .ToArray();
+        var seen = ArchitectureRules.ContractShapeOffenders(FixtureAssembly.GetTypes().Where(type => type.Name == "RuleBreakers"), "Identity");
+        var instrumentation = ArchitectureRules.ContractShapeOffenders(
+            [PublicTypeIn("Microsoft.CodeCoverage.Instrumentation.Static.Tracker"), PublicTypeIn("Elsewhere")], "Identity");
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(shape).IsEmpty()
+                .Because($"a Contracts type is not a public record, interface or enum of its module: {string.Join(", ", shape)}");
+            await Assert.That(inside).IsEmpty().Because($"a Contracts type names the inside of a module: {string.Join(", ", inside)}");
+            await Assert.That(seen).Contains("Frappe.Architecture.Tests.RuleBreakers");
+            await Assert.That(instrumentation).IsEquivalentTo(["Elsewhere.Tracker"]);
+        }
+    }
+
+    private static Type PublicTypeIn(string ns)
+    {
+        var assembly = System.Reflection.Emit.AssemblyBuilder.DefineDynamicAssembly(
+            new System.Reflection.AssemblyName(ns), System.Reflection.Emit.AssemblyBuilderAccess.Run);
+        return assembly.DefineDynamicModule("m")
+            .DefineType($"{ns}.Tracker", System.Reflection.TypeAttributes.Public | System.Reflection.TypeAttributes.Class).CreateType();
+    }
+
+    [Test]
+    public async Task Modules_contain_no_tracing_or_exporter_code()
+    {
+        // Arrange
+        var graph = ArchitectureRules.ProductionGraph;
+        var assemblies = ArchitectureRules.ModuleAssemblies(graph.Keys, ModuleDoorTests.AllModules)
+            .Select(name => System.Reflection.Assembly.Load(name));
+
+        // Act
+        var offenders = assemblies.SelectMany(assembly => TracingTypes(Scope(assembly))).ToArray();
+        var unmarked = ArchitectureRules.UnmarkedTracingTypes(offenders, SourceOf);
+        var seen = ArchitectureRules.UnmarkedTracingTypes(TracingTypes(Fixtures()), SourceOf);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(unmarked).IsEmpty()
+                .Because($"a module creates an ActivitySource, tracer or exporter without `// Exception to OBS-01`: {string.Join(", ", unmarked)}");
+            await Assert.That(offenders).Contains("Frappe.Notifications.Application.Telemetry.NotificationsTelemetry");
+            await Assert.That(seen).Contains("Frappe.Architecture.Tests.RuleBreakers");
+        }
+    }
+
+    private static IEnumerable<string> TracingTypes(PredicateList scope) =>
+        scope.ShouldNot().HaveDependencyOnAny("System.Diagnostics.ActivitySource", "OpenTelemetry").GetResult().FailingTypeNames ?? [];
+
+    private static string? SourceOf(string fullName)
+    {
+        var simple = fullName[(fullName.LastIndexOf('.') + 1)..];
+        var parts = fullName.Split('.');
+        var project = Enumerable.Range(3, Math.Max(0, parts.Length - 3)).Select(count => string.Join('.', parts.Take(count))).ToArray();
+        var file = Directory.EnumerateFiles(Path.Combine(RepositoryRoot.FullPath, "src", "Modules"), $"{simple}.cs", SearchOption.AllDirectories)
+            .FirstOrDefault(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                && path.Split(Path.DirectorySeparatorChar).Any(segment => project.Contains(segment)));
+        return file is null ? null : File.ReadAllText(file);
+    }
+
+    [Test]
+    public async Task Application_ports_leave_saving_to_the_unit_of_work()
+    {
+        // Act
+        var offenders = ModuleAssembliesIn("Application").SelectMany(assembly => ArchitectureRules.PortsThatSave(assembly.GetTypes())).ToArray();
+        var seen = ArchitectureRules.PortsThatSave(FixtureAssembly.GetTypes());
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(offenders).IsEmpty().Because($"an Application port declares SaveChangesAsync: {string.Join(", ", offenders)}");
+            await Assert.That(seen).IsEquivalentTo(["Frappe.Architecture.Tests.ISavingPortBreaker"]);
+        }
+    }
+
+    [Test]
+    public async Task Platform_never_references_a_module_ARCH_18()
+    {
+        // Arrange
+        var graph = ArchitectureRules.ProductionGraph;
+        var violating = new Dictionary<string, string[]> { ["Frappe.Caching"] = ["Frappe.Identity.Contracts"], ["Frappe.Api"] = ["Frappe.Identity"] };
+
+        // Act
+        var offenders = ArchitectureRules.PlatformReferencingModules(graph, ModuleDoorTests.AllModules);
+        var seen = ArchitectureRules.PlatformReferencingModules(violating, ModuleDoorTests.AllModules);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(offenders).IsEmpty().Because($"a platform project references a module: {string.Join(", ", offenders)}");
+            await Assert.That(graph.Keys).Contains("Frappe.Persistence");
+            await Assert.That(seen).IsEquivalentTo(["Frappe.Caching -> Frappe.Identity.Contracts"]);
+        }
     }
 
     [Test]
