@@ -57,8 +57,8 @@ internal sealed class IdentitySessionHost : IAsyncDisposable
         var unitOfWork = new CountingUnitOfWork();
         var time = new SettableClock(Start.ToDateTimeOffset());
         IModule[] modules = extra is null
-            ? [new AccessModule(), new SessionModule(store, unitOfWork, time)]
-            : [new AccessModule(), new SessionModule(store, unitOfWork, time), extra];
+            ? [new AccessCoreServices(), new SessionModule(store, unitOfWork, time)]
+            : [new AccessCoreServices(), new SessionModule(store, unitOfWork, time), extra];
         var app = await ApiHost.StartAsync(modules, [new IdentityHttp(), new Frappe.Access.Http.AccessHttp(), new ProbeHttp()], Settings, logs: logs);
         return new IdentitySessionHost(app, store, unitOfWork, time);
     }

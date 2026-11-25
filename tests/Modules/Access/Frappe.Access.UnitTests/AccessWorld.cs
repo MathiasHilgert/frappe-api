@@ -42,7 +42,7 @@ internal sealed class AccessWorld : IAsyncDisposable
         services.AddScoped<ICommandHandler<ExplodingGuardCommand, Unit>>(_ => throw new NotSupportedException());
         services.AddScoped<IQueryHandler<OpenPageQuery, string>>(_ => throw new NotSupportedException());
         services.AddScoped<ICommandHandler<UnmarkedCommand, Unit>>(_ => throw new NotSupportedException());
-        new AccessModule().AddServices(services);
+        new AccessCoreServices().AddServices(services);
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
         Metrics = new MetricCapture(_provider.GetRequiredService<IMeterFactory>());
         _scope = _provider.CreateAsyncScope();

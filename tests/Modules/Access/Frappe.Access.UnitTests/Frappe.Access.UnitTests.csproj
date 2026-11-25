@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="../../../../src/Modules/Access/Frappe.Access.Infrastructure/Frappe.Access.Infrastructure.csproj" />
     <ProjectReference Include="../../../../src/Modules/Access/Frappe.Access.Http/Frappe.Access.Http.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Access/Frappe.Access/Frappe.Access.csproj" />
     <ProjectReference Include="../../../Shared/Frappe.Testing/Frappe.Testing.csproj" />
   </ItemGroup>
   <ItemGroup>

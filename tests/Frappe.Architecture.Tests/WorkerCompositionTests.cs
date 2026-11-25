@@ -156,16 +156,37 @@ public sealed class WorkerCompositionTests
         // Assert
         using (Assert.Multiple())
         {
-            await Assert.That(Frappe.Worker.Modules.All.Select(module => module.GetType().Name))
+            await Assert.That(Frappe.Worker.Modules.All).Contains(Frappe.Access.AccessModule.Worker);
+            await Assert.That(Frappe.Worker.Modules.All
+                    .Where(module => module != Frappe.Access.AccessModule.Worker)
+                    .Select(module => module.GetType().Name))
                 .IsEquivalentTo(
                 [
-                    "AccessModule", "AccessWorkerModule", "IdentityModule", "IdentityWorkerModule", "NotificationsModule",
+                    "IdentityModule", "IdentityWorkerModule", "NotificationsModule",
                     "NotificationsWorkerModule", "AccountKindsModule",
                     "MarketingKindsModule", "IdentityProducerModule", "EmailChannelWorkerModule",
                 ]);
             await Assert.That(hosted).Contains("OutboxRelayService`1");
             await Assert.That(hosted).Contains("JetStreamConsumer`2");
             await Assert.That(ready).Contains("notifications-database").And.Contains("identity-database");
+        }
+    }
+
+    [Test]
+    public async Task The_Worker_with_its_real_module_lists_maps_no_endpoint_and_registers_no_error_texts()
+    {
+        // Arrange
+        // A door loads its module's Http project in the Worker too (S1); the Worker must still serve no HTTP.
+        using var host = Build(Deployed);
+
+        // Act
+        await ValidateAsync(host);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(host.Services.GetServices<Microsoft.AspNetCore.Routing.EndpointDataSource>()).IsEmpty();
+            await Assert.That(host.Services.GetService<Frappe.Http.ErrorMessageCatalog>()).IsNull();
         }
     }
 

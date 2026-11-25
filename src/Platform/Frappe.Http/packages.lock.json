@@ -94,6 +94,9 @@
           "MessageFormat": "[8.0.0, )"
         }
       },
+      "frappe.modules": {
+        "type": "Project"
+      },
       "frappe.results": {
         "type": "Project"
       },

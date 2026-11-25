@@ -12,5 +12,6 @@
     <ProjectReference Include="../Frappe.Localization/Frappe.Localization.csproj" />
     <ProjectReference Include="../Frappe.Health/Frappe.Health.csproj" />
     <ProjectReference Include="../Frappe.Caching/Frappe.Caching.csproj" />
+    <ProjectReference Include="../Frappe.Modules/Frappe.Modules.csproj" />
   </ItemGroup>
 </Project>

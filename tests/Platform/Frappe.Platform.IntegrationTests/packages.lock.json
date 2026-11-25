@@ -564,6 +564,7 @@
           "Frappe.Caching": "[1.0.0, )",
           "Frappe.Health": "[1.0.0, )",
           "Frappe.Localization": "[1.0.0, )",
+          "Frappe.Modules": "[1.0.0, )",
           "Frappe.UseCases": "[1.0.0, )",
           "Microsoft.AspNetCore.OpenApi": "[11.0.0, )"
         }
@@ -606,6 +607,9 @@
           "Frappe.Persistence": "[1.0.0, )",
           "Npgsql": "[10.0.3, )"
         }
+      },
+      "frappe.modules": {
+        "type": "Project"
       },
       "frappe.observability": {
         "type": "Project",

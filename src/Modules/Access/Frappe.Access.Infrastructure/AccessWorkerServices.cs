@@ -8,7 +8,7 @@ namespace Frappe.Access.Infrastructure;
 /// What only the Worker adds for Access: its callers are the platform itself (jobs and consumers), registered as <see cref="Caller.System"/>.
 /// A system caller is no principal, so it never passes a guarded rule implicitly.
 /// </summary>
-public sealed class AccessWorkerModule : IModule
+public sealed class AccessWorkerServices : IModule
 {
     /// <inheritdoc />
     public void AddServices(IServiceCollection services)

@@ -22,7 +22,7 @@ public sealed class StartupCheckTests
         }
 
         register(services);
-        new AccessModule().AddServices(services);
+        new AccessCoreServices().AddServices(services);
         await using var provider = services.BuildServiceProvider();
         try
         {

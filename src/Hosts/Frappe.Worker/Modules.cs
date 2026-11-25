@@ -1,4 +1,4 @@
-using Frappe.Access.Infrastructure;
+using Frappe.Access;
 using Frappe.Identity.Infrastructure;
 using Frappe.Modules;
 using Frappe.Notifications.Channels.Email;
@@ -15,8 +15,7 @@ public static class Modules
     /// <summary>Every module the Worker hosts, in registration order.</summary>
     public static IReadOnlyCollection<IModule> All { get; } =
     [
-        new AccessModule(),
-        new AccessWorkerModule(),
+        AccessModule.Worker,
         new IdentityModule(),
         new IdentityWorkerModule(),
         new NotificationsModule(),

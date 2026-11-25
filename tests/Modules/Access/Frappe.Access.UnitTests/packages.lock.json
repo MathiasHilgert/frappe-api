@@ -335,6 +335,13 @@
           "TUnit.Core": "1.81.10"
         }
       },
+      "frappe.access": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Access.Http": "[1.0.0, )",
+          "Frappe.Access.Infrastructure": "[1.0.0, )"
+        }
+      },
       "frappe.access.application": {
         "type": "Project",
         "dependencies": {
@@ -394,6 +401,7 @@
           "Frappe.Caching": "[1.0.0, )",
           "Frappe.Health": "[1.0.0, )",
           "Frappe.Localization": "[1.0.0, )",
+          "Frappe.Modules": "[1.0.0, )",
           "Frappe.UseCases": "[1.0.0, )",
           "Microsoft.AspNetCore.OpenApi": "[11.0.0, )"
         }
