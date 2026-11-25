@@ -11,7 +11,7 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 - STR-07 · Aggregates live only in Domain and are mapped directly
 - STR-08 · `*Row` names only data without domain behavior
 - STR-09 · Each EF configuration sits next to the type it maps
-- STR-10 · `InternalsVisibleTo` only toward the module's own test projects
+- STR-10 · `InternalsVisibleTo` only toward the module's own tests, its own door and the host test project that composes it
 - STR-11 · Each layer exposes its host facet from one fixed class
 - STR-12 · No module rewrites the composed handler graph
 - STR-13 · Tests mirror the production projects
@@ -36,9 +36,9 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
   features use) sit at the project root, and the module's metrics sit in `Telemetry/` (OBS-02). A helper used by one use case lives in that use
   case's folder.
 - **Why:** a feature is read and changed in one place; deleting a use case deletes one folder.
-- **Enforced by:** review (folder-shape ArchTest planned).
-- **Good:** `Orders.Application/Regions/GetRegion/{GetRegion,GetRegionHandler}.cs`, `Regions/IRegionCatalog.cs`. **Bad:** one use case's helper
-  at the project root; a port shared by the feature inside one use case's folder.
+- **Enforced by:** review only.
+- **Good:** `Identity.Application/Sessions/LogOut/{LogOut,LogOutHandler}.cs`, `Sessions/ISessions.cs`. **Bad (hypothetical):** one use case's
+  helper at the project root; `ISessions` inside one use case's folder.
 - **Status:** in force.
 
 ## STR-03 · Infrastructure is organized by feature plus Persistence/, Messaging/, Retention/ and Telemetry/ only
@@ -49,8 +49,8 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
   classes' services and the `CountOnCommit` lines, OBS-02). No other technical folder.
 - **Why:** a feature's storage is found next to the feature; technical folders do not become dumping grounds.
 - **Enforced by:** review.
-- **Good:** `Orders.Infrastructure/Regions/{RegionRow,RegionRowConfiguration,EfRegionCatalog,CachedRegionCatalog}.cs`,
-  `Identity.Infrastructure/Telemetry/IdentityTelemetryRegistration.cs`. **Bad:**
+- **Good:** `Identity.Infrastructure/Owners/{OwnerConfiguration,EfOwners,EfOwnerReads}.cs`,
+  `Identity.Infrastructure/Telemetry/IdentityTelemetryRegistration.cs`. **Bad (hypothetical):**
   `<M>.Infrastructure/Configuration/<M>DatabaseOptions.cs` (belongs in `Persistence/`).
 - **Status:** in force.
 
@@ -59,29 +59,30 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 - **Rule:** a package that plugs into a module's core is `Frappe.<Module>.<Kind>.<Name>` in `src/Modules/<Module>/Extensions/`, with `<Kind>` plural
   and naming what the package does (`Messages`, `Senders`, `Triggers`). Dependency direction: ARCH-14.
 - **Why:** the name says what the package plugs in, and one folder lists every plug-in of the module.
-- **Enforced by:** `PlugInNamingTests` (planned) (tests/Frappe.Architecture.Tests); review.
+- **Enforced by:** `PlugInNamingTests` (planned, tests/Frappe.Architecture.Tests); review meanwhile.
 - **Good:** `src/Modules/Notifications/Extensions/Frappe.Notifications.Senders.Email`, `Frappe.Notifications.Messages.Account`,
   `Frappe.Notifications.Triggers.Identity`, `src/Modules/Identity/Extensions/Frappe.Identity.Limits.Valkey`. **Bad:**
-  `src/Modules/Notifications/Channels/Frappe.Notifications.Channels.Email` (a kind folder beside the module), `Frappe.Mailing.Billing` (→
-  `Frappe.Mailing.Triggers.Billing`).
+  (hypothetical) `src/Modules/Notifications/Channels/Frappe.Notifications.Channels.Email` (a kind folder beside the module) and
+  `Frappe.Notifications.Identity` (→ `Frappe.Notifications.Triggers.Identity`).
 - **Status:** in force.
 
 ## STR-05 · Use cases are named for intent; handlers add `Handler`
 
-- **Rule:** a request is a verb phrase in the business language (`GetRegion`, `ListRegions`, `RegisterOwner`); its handler is `<Request>Handler`.
+- **Rule:** a request is a verb phrase in the business language (`GetMe`, `ListMySessions`, `RegisterOwner`); its handler is `<Request>Handler`.
   Response naming: see `cqrs`.
 - **Why:** the folder listing reads as the module's capabilities.
 - **Enforced by:** review (handler-suffix ArchTest planned).
-- **Good:** `GetRegion` → `GetRegionHandler`. **Bad:** `RegionQuery`, `RegionService.Get`.
+- **Good:** `GetCurrentSession` → `GetCurrentSessionHandler`. **Bad (hypothetical):** `SessionQuery`, `SessionService.Get`.
 - **Status:** in force.
 
 ## STR-06 · Ports are capability nouns; adapters are prefixed by technology
 
-- **Rule:** an Application port names a capability (`IPrincipals`, `IRegionCatalog`, `IMailer`); its adapter is `<Technology><Capability>`: `Ef*` (EF
+- **Rule:** an Application port names a capability (`IOwners`, `ISessions`, `IAttemptLimiter`); its adapter is `<Technology><Capability>`: `Ef*` (EF
   Core), `Cached*` (cache decorator), `Valkey*` (Valkey state), `Hmac*`, `Resend*`, and so on.
 - **Why:** the name tells which dependency an adapter wraps and what to swap.
 - **Enforced by:** review.
-- **Good:** `IRegionCatalog` → `EfRegionCatalog`, `CachedRegionCatalog`. **Bad:** `RegionCatalogImpl`, `RegionRepository2`.
+- **Good:** `ISessions` → `EfSessions`; `IAttemptLimiter` → the Valkey adapter in `Frappe.Identity.Limits.Valkey`. **Bad (hypothetical):**
+  `SessionsImpl`, `SessionRepository2`.
 - **Status:** in force.
 
 ## STR-07 · Aggregates live only in Domain and are mapped directly
@@ -91,7 +92,8 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 - **Why:** persistence ignorance keeps one model of the business; a second persistence class drifts from it.
 - **Enforced by:** ArchTest "only Domain extends AggregateRoot" (planned); `LayeringTests.Inner_layers_know_nothing_about_infrastructure` (no EF in
   Domain).
-- **Good:** `Principal` mapped by `PrincipalConfiguration`. **Bad:** `internal sealed class RegionRow : AggregateRoot` in Infrastructure.
+- **Good:** `Owner` (`Frappe.Identity.Domain/Owners`) mapped by `OwnerConfiguration`. **Bad (hypothetical):**
+  `internal sealed class SessionRow : AggregateRoot` in Infrastructure.
 - **Status:** in force.
 
 ## STR-08 · `*Row` names only data without domain behavior
@@ -100,7 +102,8 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
   It never extends `AggregateRoot` and never raises domain events.
 - **Why:** the suffix tells a reader there are no rules to look for.
 - **Enforced by:** `LayeringTests.Only_sealed_types_in_a_domain_project_derive_from_AggregateRoot` (planned).
-- **Good:** `RegionNameRow`. **Bad:** `RegionRow`, `SubdivisionRow`, `SyncRunRow` extending `AggregateRoot`.
+- **Good (hypothetical, no `*Row` type exists yet):** `CountryNameRow`, a reference catalog entry. **Bad (hypothetical):** `SessionRow` extending
+  `AggregateRoot`.
 - **Status:** in force.
 
 ## STR-09 · Each EF configuration sits next to the type it maps
@@ -109,20 +112,23 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
   configurations from its assembly and holds only mapping.
 - **Why:** mapping changes with its feature, not in a shared folder.
 - **Enforced by:** review.
-- **Good:** `Orders.Infrastructure/Regions/RegionRowConfiguration.cs`. **Bad:** `Billing.Infrastructure/Persistence/PrincipalConfiguration.cs`,
-  `SessionConfiguration.cs`, `VerificationCodeConfiguration.cs`.
+- **Good:** `Identity.Infrastructure/Sessions/SessionConfiguration.cs`, `Notifications.Infrastructure/Deliveries/DeliveryConfiguration.cs`.
+  **Bad (hypothetical):** `Identity.Infrastructure/Persistence/SessionConfiguration.cs`, `OwnerConfiguration.cs`.
 - **Status:** in force.
 
-## STR-10 · `InternalsVisibleTo` only toward the module's own test projects
+## STR-10 · `InternalsVisibleTo` only toward the module's own tests, its own door and the host test project that composes it
 
-- **Rule:** declare it only as `<InternalsVisibleTo>` in the csproj, only toward the same module's (or platform's) test projects and, from
-  Infrastructure, toward the module's own door `Frappe.<M>` (STR-11), which joins internal ports to what Infrastructure may not reference; never
-  toward a host or another production assembly, never as an `[assembly:]` attribute.
+- **Rule:** declare it only as `<InternalsVisibleTo>` in the csproj, and only toward: the same module's (or platform's) test projects
+  (`Frappe.<M>.UnitTests`, `.IntegrationTests`); from Infrastructure, the module's own door `Frappe.<M>` (STR-11), which joins internal ports to
+  what Infrastructure may not reference; the module's own Infrastructure from its Application (`Frappe.Access.Application`); and the host
+  integration-test project that composes the module (`Frappe.Api.IntegrationTests`, from `Http` and `Infrastructure`). Never toward a host or
+  another production assembly, never as an `[assembly:]` attribute.
 - **Why:** internals stay internal; a production consumer must go through a public contract, and the door is part of the module.
-- **Enforced by:** csproj ArchTest (planned).
-- **Good:** `Frappe.Identity.Infrastructure.csproj` → `Frappe.Identity.UnitTests`, `Frappe.Identity.IntegrationTests` and `Frappe.Identity` (its
-  `IdentityMessagePurge` implements the internal `IMessagePurge`); `Frappe.Notifications.Infrastructure.csproj` → `Frappe.Notifications` for
-  `NotificationsMessagePurge`. **Bad:** `Frappe.Notifications.Infrastructure` → `Frappe.Worker`.
+- **Enforced by:** csproj ArchTest (planned); review meanwhile.
+- **Good:** `Frappe.Identity.Infrastructure.csproj` → `Frappe.Identity.UnitTests`, `Frappe.Identity.IntegrationTests`,
+  `Frappe.Api.IntegrationTests` and `Frappe.Identity` (its `IdentityMessagePurge` implements the internal `IMessagePurge`);
+  `Frappe.Identity.Http.csproj` → `Frappe.Api.IntegrationTests`; `Frappe.Notifications.Infrastructure.csproj` → `Frappe.Notifications` for
+  `NotificationsMessagePurge`. **Bad (hypothetical):** `Frappe.Notifications.Infrastructure` → `Frappe.Worker`.
 - **Status:** in force.
 
 ## STR-11 · Each layer exposes its host facet from one fixed class
@@ -154,6 +160,7 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
   cross-cutting suites in `tests/Frappe.Architecture.Tests` and `tests/Frappe.EndToEnd.Tests`; shared helpers in `tests/Shared/Frappe.Testing` (see
   `tests`).
 - **Why:** unit and integration suites run with different dependencies; the split is checkable.
-- **Enforced by:** unit-test dependency check (planned).
-- **Good:** `tests/Modules/<M>/Frappe.<M>.UnitTests`. **Bad:** `tests/Platform/Frappe.Platform.Tests` mixing both.
+- **Enforced by:** review only.
+- **Good:** `tests/Modules/Identity/Frappe.Identity.UnitTests` and `.IntegrationTests`. **Bad (hypothetical):** `tests/Platform/Frappe.Platform.Tests`
+  mixing both.
 - **Status:** in force.

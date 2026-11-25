@@ -28,9 +28,8 @@ module's data: see `criteria`.
   Contracts; Infrastructure and Http reference Application; nothing references Infrastructure except hosts and its own plug-ins.
 - **Why:** business rules stay testable and unchanged when storage, transport or vendors change.
 - **Enforced by:** csproj references + `LayeringTests.Inner_layers_know_nothing_about_infrastructure`.
-- **Good:** `Frappe.Orders.Http.csproj` → `Frappe.Orders.Application` only. **Bad:** `Frappe.X.Application` → `Frappe.X.Infrastructure` to reach an
-  `Ef*`
-  type.
+- **Good:** `Frappe.Identity.Http.csproj` → `Frappe.Identity.Application` and `Frappe.Identity.Contracts` (plus platform `Frappe.Http`).
+  **Bad (hypothetical):** `Frappe.Identity.Application` → `Frappe.Identity.Infrastructure` to reach `EfSessions`.
 - **Status:** in force.
 
 ## ARCH-02 · Domain, Application and Contracts know no infrastructure library
@@ -39,10 +38,10 @@ module's data: see `criteria`.
   infrastructure platform libraries (`Frappe.Persistence`, `Messaging`, `Caching`, `Scheduling`, `Http`, `Observability`). A port's signature uses
   only BCL, NodaTime and module types.
 - **Why:** a vendor type in a use case pins the use case to that vendor (see `design`).
-- **Enforced by:** `LayeringTests.Inner_layers_know_nothing_about_infrastructure` (Orders.Contracts and Frappe.UseCases not yet in its arguments: add
-  them, planned).
-- **Good:** `Task<OrdersRegion?> FindRegionAsync(string regionCode, CancellationToken ct)`. **Bad:** a port returning `IQueryable<RegionRow>` or
-  taking a `DbContext`.
+- **Enforced by:** `LayeringTests.Inner_layers_know_nothing_about_infrastructure` (whether every Contracts project and `Frappe.UseCases` are in its
+  arguments: review only).
+- **Good:** `IOwners.FindAsync(Guid principalId, CancellationToken)` returning `Owner?` (`Frappe.Identity.Application/Owners/IOwners.cs`).
+  **Bad (hypothetical):** a port returning `IQueryable<SessionRow>` or taking an `IdentityDbContext`.
 - **Status:** in force.
 
 ## ARCH-03 · Domain never knows its use cases
@@ -50,7 +49,8 @@ module's data: see `criteria`.
 - **Rule:** Domain never references its Application project nor `Frappe.UseCases`.
 - **Why:** the model must not depend on how it is orchestrated.
 - **Enforced by:** `LayeringTests.The_domain_does_not_depend_on_its_use_cases` (planned).
-- **Good:** `Principal.ActivateOwner()` returns `Result<Unit>`. **Bad:** an aggregate taking an `ICommand` or a handler.
+- **Good:** `Owner.Verify(Instant now)` returns `Result<Unit>`
+  (`Frappe.Identity.Domain/Owners/Owner.cs`). **Bad:** an aggregate taking an `ICommand` or a handler.
 - **Status:** in force.
 
 ## ARCH-04 · Infrastructure never serves HTTP; Http reaches use cases only through Application
@@ -59,9 +59,9 @@ module's data: see `criteria`.
   Infrastructure, EF, Npgsql, `Frappe.Persistence`, `Frappe.Caching` or Redis.
 - **Why:** transport and storage change independently; an endpoint that reads a table bypasses the use case's rules.
 - **Enforced by:** `LayeringTests.Infrastructure_adapters_do_not_serve_http` (planned),
-  `LayeringTests.The_http_adapter_reaches_use_cases_only_through_the_application_layer` (planned; the Billing-only version is gone with the
-  module: write it over every `*.Http`).
-- **Good:** endpoint → `IQueryHandler<GetRegion, RegionView>`. **Bad:** endpoint injecting `OrdersDbContext`.
+  `LayeringTests.The_http_adapter_reaches_use_cases_only_through_the_application_layer` (planned; over every `*.Http`).
+- **Good:** `PasswordChangeEndpoints` takes `ICommandHandler<ChangePassword, Unit>`. **Bad (hypothetical):** an endpoint injecting
+  `IdentityDbContext`.
 - **Status:** in force.
 
 ## ARCH-05 · A module reaches another only through its `*.Contracts`, on an allow-list
@@ -70,12 +70,9 @@ module's data: see `criteria`.
   isolation allow-list. Never another module's Domain, Application, Infrastructure, Http, tables or services.
 - **Why:** each module can change its internals, schema and deployment without breaking others; the allow-list makes every new dependency a reviewed
   decision.
-- **Enforced by:** `LayeringTests.Only_Billings_mail_package_reaches_Billings_contracts_from_another_module` and
-  `Billing_knows_nothing_about_mailing` (both planned: no Billing or Mailing module exists yet);
-  one generic module-isolation ArchTest with an allow-list over every production assembly
-  (planned).
-- **Good:** `Frappe.Mailing.Billing` → `Frappe.Billing.Contracts` (allow-listed). **Bad:** `Frappe.Orders.Application` →
-  `Frappe.Billing.Application`.
+- **Enforced by:** one generic module-isolation ArchTest with an allow-list over every production assembly (planned); review meanwhile.
+- **Good:** `Frappe.Notifications.Triggers.Identity` → `Frappe.Identity.Contracts` (allow-listed). **Bad (hypothetical):**
+  `Frappe.Notifications.Application` → `Frappe.Identity.Application`.
 - **Status:** in force.
 
 ## ARCH-06 · Sync cross-module reads go through a read-only `I<Module>Queries` port
@@ -86,8 +83,9 @@ module's data: see `criteria`.
 - **Why:** the owner keeps its rules and its model private; a query port answers with current data without a second source of truth.
 - **Enforced by:** `LayeringTests.A_module_contract_exposes_nothing_but_its_public_types` (planned) + ARCH-05 test
   (both planned); review for read-only and "missing is an answer".
-- **Good:** `IOrdersQueries.IsBusinessDayAsync(...)` answers `CalendarStatus.NotCovered` for a calendar Orders does not hold. **Bad:** a port method
-  that writes, returns an Orders aggregate, or answers "no shipments" when Orders has no data.
+- **Good (hypothetical, no `I<Module>Queries` exists yet):** `IIdentityQueries.FindOwnerStatusAsync(...)` answers `OwnerStatus.NotFound` for an
+  owner Identity does not hold. **Bad (hypothetical):** a port method that writes, returns the `Owner` aggregate, or answers "verified" when
+  Identity has no data.
 - **Status:** in force.
 
 ## ARCH-07 · Published contracts only grow
@@ -108,10 +106,11 @@ module's data: see `criteria`.
 ## ARCH-10 · One module, one schema, one data-only login role
 
 - **Rule:** each module owns one schema, its migrations history inside it, one DbContext, and a data-only login role `frappe_<module>` with grants on
-  its own schema only. A narrower extra role (`frappe_<module>_relay`) exists only when a process needs less than the module role.
+  its own schema only. A narrower extra role (`frappe_<module>_worker`) exists only when a process needs less than the module role.
 - **Why:** the database enforces ARCH-05; a module cannot read another's tables even by mistake.
 - **Enforced by:** Migrator (`DatabaseMigration` + `ModuleRoles`: no DDL, no other schema); review.
-- **Good:** `BillingMigration.Role = "frappe_billing"`, `RelayRole = "frappe_billing_relay"`. **Bad:** an Orders query joining `billing.principals`.
+- **Good:** `IdentityDatabase.ApiRole = "frappe_identity"`, `WorkerRole = "frappe_identity_worker"`. **Bad (hypothetical):** a Notifications
+  query joining `identity.owners`.
 - **Status:** in force.
 
 ## ARCH-11 · Composition happens only in hosts, from explicit module lists
@@ -140,9 +139,10 @@ module's data: see `criteria`.
 
 - **Rule:** tracing and exporters are platform work; modules declare business metrics through `IMeterFactory` only (see `observability`).
 - **Why:** one telemetry pipeline, configured once.
-- **Enforced by:** `LayeringTests.Modules_contain_no_tracing_or_exporter_code` (planned; cover every module project, Orders.Http and the Orders source
-  packages included).
-- **Good:** `OrdersMetrics` over `IMeterFactory`. **Bad:** `new ActivitySource("Frappe.Orders")` in a handler.
+- **Enforced by:** `LayeringTests.Modules_contain_no_tracing_or_exporter_code` (planned; cover every module project, Http and plug-in packages
+  included).
+- **Good:** `OwnersMetrics` (`Frappe.Identity.Application/Telemetry`) over `IMeterFactory`. **Bad (hypothetical):**
+  `new ActivitySource("Frappe.Identity")` in a handler.
 - **Status:** in force.
 
 ## ARCH-13 · Application ports never save
@@ -150,7 +150,7 @@ module's data: see `criteria`.
 - **Rule:** no Application port declares `SaveChangesAsync`; the unit of work commits each command once (see `uow`).
 - **Why:** a port that saves commits half a command.
 - **Enforced by:** `LayeringTests.Application_ports_leave_saving_to_the_unit_of_work` (planned).
-- **Good:** `IPrincipals.Add(principal)`. **Bad:** `IPrincipals.SaveAsync()`.
+- **Good:** `IOwners.Add(Owner owner)`, which stages and never saves. **Bad (hypothetical):** `IOwners.SaveAsync()`.
 - **Status:** in force.
 
 ## ARCH-14 · Plug-in packages depend on their core, never the reverse
@@ -158,9 +158,9 @@ module's data: see `criteria`.
 - **Rule:** a plug-in package (message, sender, trigger) references its module's core and declares; the core never references a plug-in. Names and
   folder (`Extensions/`) follow STR-04.
 - **Why:** adding a sender or a trigger adds a package; it never edits the core.
-- **Enforced by:** `LayeringTests.Source_packages_declare_and_never_reach_the_pipeline_or_the_database`, `Orders_core_never_knows_a_source_package`,
-  `Mailing_core_knows_no_producer_module` (all planned: no Orders or Mailing module exists yet).
-- **Good:** `Frappe.Notifications.Senders.Email` → `Frappe.Notifications.Application`. **Bad:** `OrdersModule` calling `AddArgentinaCalendar()`.
+- **Enforced by:** `HostReferenceTests` (the Migrator loads no plug-in) and csproj references; review.
+- **Good:** `Frappe.Notifications.Senders.Email` → `Frappe.Notifications.Application`. **Bad (hypothetical):** `NotificationsCoreServices` calling
+  `AddEmailSender()`.
 - **Status:** in force.
 
 ## ARCH-15 · Namespaces follow folders
@@ -171,7 +171,8 @@ module's data: see `criteria`.
   CLR name.
 - **Why:** the handler pipeline derives the module from the namespace; folders and namespaces never drift.
 - **Enforced by:** IDE0130 (warning).
-- **Good:** `Frappe.Orders.Application.Regions.GetRegion`. **Bad:** `namespace Frappe.Orders;` in `Regions/GetRegion/`.
+- **Good:** `Frappe.Identity.Application.Sessions.LogOut` in `Sessions/LogOut/LogOut.cs`. **Bad (hypothetical):** `namespace Frappe.Identity;`
+  in `Sessions/LogOut/`.
 - **Status:** in force.
 
 ## ARCH-16 · Durable consumer names are permanent
@@ -183,8 +184,8 @@ module's data: see `criteria`.
 
 - **Rule:** one top-level type per file, the file named after it, in all of `src/` and `tests/` (see `craft`).
 - **Why:** types are found by name; diffs stay local.
-- **Enforced by:** SA1402/SA1649 (today only on folders enabled in `.editorconfig`; repo-wide planned).
-- **Good:** `RegionView.cs` holds `RegionView`. **Bad:** a `Views.cs` with five records.
+- **Enforced by:** SA1402/SA1649 (today only on folders enabled in `.editorconfig`; repo-wide: review only).
+- **Good:** `LogOutHandler.cs` holds `LogOutHandler`. **Bad (hypothetical):** a `Views.cs` with five records.
 - **Status:** in force.
 
 ## ARCH-18 · Platform holds no business rules and never knows a module
@@ -193,5 +194,5 @@ module's data: see `criteria`.
   under CRIT-02.
 - **Why:** a business rule in platform couples every module to one module's domain.
 - **Enforced by:** ArchTest "platform never references a module" (planned); review for business vocabulary.
-- **Good:** `Frappe.Caching.CacheInvalidator`. **Bad:** a `ShipmentHelper` in `Frappe.UseCases`.
+- **Good:** `Frappe.Caching.CacheInvalidator`. **Bad (hypothetical):** an `OwnerHelper` in `Frappe.UseCases`.
 - **Status:** in force.
