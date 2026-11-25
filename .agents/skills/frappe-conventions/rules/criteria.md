@@ -19,7 +19,7 @@ lead to: `architecture`, `events`, `caching`.
   of evidence each.
 - **Why:** a wrong cut means distributed transactions or a module that is only a folder.
 - **Enforced by:** review (plan step in `/forge`).
-- **Good:** Mailing: generic delivery, own mail-outcome table, Billing keeps working when mail fails. **Bad:** a "Profiles" module that must
+- **Good:** Notifications: generic delivery, own outcome tables, Identity keeps working when mail fails. **Bad:** a "Profiles" module that must
   update `Principal` in the same commit.
 - **Status:** in force.
 
@@ -29,7 +29,7 @@ lead to: `architecture`, `events`, `caching`.
   cross-cutting pieces the rules already require go to platform on first use: `Page<T>` and its binding, `Idempotency-Key` handling, `CountOnCommit`.
 - **Why:** a premature shared library couples modules to guesses; a duplicated cross-cutting piece drifts.
 - **Enforced by:** review.
-- **Good:** the outbox and relay in `Frappe.Messaging`, used by every publishing module. **Bad:** moving Orders's `ShipmentCalendar` helpers to
+- **Good:** the outbox and relay in `Frappe.Messaging`, used by every publishing module. **Bad:** moving a module's own helpers to
   platform
   "because Payroll might need them".
 - **Status:** in force.
@@ -52,8 +52,8 @@ lead to: `architecture`, `events`, `caching`.
   answer `202 Accepted` with `Location`. Never an in-process queue or fire-and-forget task in the Api for work that must happen.
 - **Why:** a crash or deploy loses in-memory work; slow calls eat the latency budget and the connection pool.
 - **Enforced by:** review (SLO burn-rate alerts catch the latency side).
-- **Good:** mail leaves through the outbox and is sent by Mailing in the Worker. **Bad:** a `Task.Run` in an endpoint that calls a vendor after
-  answering; Billing's in-memory `PendingLoginResendQueue`/`PendingLoginResendService` (a crash or redeploy drops the resend).
+- **Good:** mail leaves through the outbox and is sent by Notifications in the Worker. **Bad:** a `Task.Run` in an endpoint that calls a vendor after
+  answering; an in-memory resend queue (hypothetical; a crash or redeploy drops the resend).
 - **Status:** in force.
 
 ## CRIT-05 · Read another module through its query port; copy its data only with a reason
@@ -64,7 +64,9 @@ lead to: `architecture`, `events`, `caching`.
   updated by an `IDomainEventHandler` in the same transaction; none exists until a query justifies it.
 - **Why:** each copy is a second source of truth to keep in sync; the port has none.
 - **Enforced by:** review.
-- **Good:** a payroll feature asks `IOrdersQueries.NextBusinessDaysAsync` on each run. **Bad:** a copy of Orders's shipments "to save a call" with no
+- **Good:** a module guarding a resource asks `IAuthorizer` (`Frappe.Access.Contracts`) on each request.
+  **Bad:** a copy of another module's principals
+  "to save a call" with no
   stated
   window.
 - **Status:** in force.
@@ -74,13 +76,14 @@ lead to: `architecture`, `events`, `caching`.
 - **Rule:** when a module needs an answer to continue its own work now, it calls a query port. When it must do something because another module's
   state changed, it consumes that module's integration event; the owner never calls the reactor to make it act. One exception, a user decision (D11,
   "Permitir solo lectura"): the module that announces an event may ask the module that reacts to it read-only questions through the reactor's
-  `I<Module>Queries`, in one direction only (Shipping asks Ledger; Ledger never asks Shipping, and its only reference to Shipping is the event's
+  `I<Module>Queries`, in one direction only (Notifications asks Identity; Identity never asks Notifications, and its only reference to it is
+  the event's
   Contracts). The event carries the fact, ids and the changed data a reasonable consumer needs (see `events`).
 - **Why:** the owner stays unaware of who reacts; a reaction never blocks the owner's commit.
-- **Enforced by:** review; `LayeringTests.Ledger_reaches_Shipping_only_through_its_event_contract_and_no_other_module_reaches_past_Access_contracts`
-  (planned) would block the reverse reference for the Shipping/Ledger pair, next to the generic ARCH-05 allow-list test (also planned).
-- **Good:** Billing raises `VerificationCodeIssued`; Mailing mails it; Shipping raises `ShipmentCreated`, Ledger grants ownership and
-  Shipping reads `ILedgerQueries`. **Bad:** Billing calling a Mailing service after registering; Ledger asking Shipping anything.
+- **Enforced by:** review; `LayeringTests` (module references only through Contracts)
+  (review only) would block the reverse reference between two modules, next to the generic ARCH-05 allow-list test (also review only).
+- **Good:** Identity raises `OwnerCodeIssued`; Notifications mails it (`Triggers.Identity`);
+  Notifications never asks Identity back. **Bad:** Identity calling a Notifications service after registering.
 - **Status:** in force.
 
 ## CRIT-07 · Cache only read-heavy, rarely changing data, with a stated budget
@@ -90,7 +93,7 @@ lead to: `architecture`, `events`, `caching`.
   Never cache security state (sessions, permissions, credentials) nor data the user just wrote and expects to see. HTTP caching: see `caching`.
 - **Why:** a cache is a bet on staleness; unbudgeted caches serve wrong answers silently.
 - **Enforced by:** review (critic-performance).
-- **Good:** `CachedRegionCatalog` over reference data evicted by `CatalogChanged`. **Bad:** caching Billing sessions; caching `GetShipments`, whose
+- **Good:** a cache decorator over reference data evicted by a change event (hypothetical). **Bad:** caching Identity sessions; caching a read whose
   overrides must show at once.
 - **Status:** in force.
 

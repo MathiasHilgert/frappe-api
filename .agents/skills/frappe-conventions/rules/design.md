@@ -30,7 +30,8 @@ patterns, and search the web for one that fits when unsure.
   aggregates, value objects or policy objects.
 - **Why:** a change touches one type; tests target one behavior.
 - **Enforced by:** type-level XML doc rule (planned, see `craft`) + Sonar S3776; review.
-- **Good:** `CachedRegionCatalog` only caches; `EfRegionCatalog` only reads. **Bad:** a catalog adapter that reads, caches and evicts on events.
+- **Good:** `EfPrincipals` only reads (`IPrincipals`); a cache decorator (hypothetical) only caches.
+  **Bad:** an adapter that reads, caches and evicts on events.
 - **Status:** in force.
 
 ## DES-03 · Put every external dependency behind a port so it can be swapped
@@ -39,8 +40,8 @@ patterns, and search the web for one that fits when unsure.
   port owned by Application (or a platform abstraction such as `TimeProvider`); the adapter lives in Infrastructure or a plug-in. Swapping a vendor
   changes one adapter and one registration, nothing else. Vendor types never appear in a port's signature.
 - **Why:** vendors, prices and environments change; use cases and tests must not.
-- **Enforced by:** `LayeringTests.Inner_layers_know_nothing_about_infrastructure`; BannedApiAnalyzers for `DateTime.Now`/`UtcNow` (planned, see
-  `csharp`); review.
+- **Enforced by:** `LayeringTests.Inner_layers_know_nothing_about_infrastructure`; BannedApiAnalyzers for `DateTime.Now`/`UtcNow`
+  (`eng/BannedSymbols.txt`); review.
 - **Good:** `IMailer` with a vendor adapter and a logging adapter; `IAddressProvider` with Google Places. **Bad:** a handler calling `HttpClient`
   against a vendor URL, or reading `DateTime.UtcNow`.
 - **Status:** in force.
@@ -70,14 +71,14 @@ patterns, and search the web for one that fits when unsure.
   cost in the plan or finding. Use the catalog below; this repo's examples first.
 - **Why:** patterns pay only against a real change; ceremony without a symptom is cost.
 - **Enforced by:** review (critic-architecture, critic-craft cite DES-06).
-- **Good:** "a region `switch` grows per region → Strategy per region package". **Bad:** "added a factory for flexibility".
+- **Good:** "a `switch` on the notification kind grows per kind → one class per kind (`Kinds/`)". **Bad:** "added a factory for flexibility".
 - **Status:** in force.
 
 | Symptom in the code | Pattern | In this repo / in .NET |
 |---|---|---|
 | We may switch vendor (mail, maps, payments, storage); a vendor SDK leaks into use cases | **Port + Adapter** (hexagonal) | `IMailer` with a vendor adapter and a logging adapter; `IAddressProvider` (Google). Application owns the port, Infrastructure the adapters |
 | The adapter is chosen by configuration or environment | **Factory / selection at composition** | `MailerSelection`; keyed services (`AddKeyedScoped`, `[FromKeyedServices]`) |
-| A `switch`/`if` chain on a type, kind, region or plan picks behavior, and grows with each case | **Strategy** (one class per case behind an interface, resolved by key) | Region packages in Orders; keyed services or `IEnumerable<IStrategy>` with a `Supports(...)` |
+| A `switch`/`if` chain on a type, kind, region or plan picks behavior, and grows with each case | **Strategy** (one class per case behind an interface, resolved by key) | Notification kinds under `src/Modules/Notifications/Kinds/`; keyed services or `IEnumerable<IStrategy>` with a `Supports(...)` |
 | A closed, known set of variants with data | **Closed hierarchy / union + exhaustive switch** | `public closed record Error` (see `csharp`) |
 | The same cross-cutting step around many operations | **Decorator / pipeline** | `InstrumentedQueryHandler`, `TransactionalCommandHandler`, `CachedEffectiveCalendars`; Polly pipelines |
 | Another module's or vendor's model would leak into ours | **Anti-corruption layer / Translator** | `IIntegrationEventTranslator`; a Contracts query port with its own records (ARCH-06) |
@@ -87,7 +88,7 @@ patterns, and search the web for one that fits when unsure.
 | A fact must reach other modules reliably | **Domain event → Outbox → Integration event** | `OutboxInterceptor`, relay, inbox consumers |
 | A module needs another's data on a hot path or during its outage | **Local projection / read model** fed by events | Only under CRIT-05 |
 | Creating a valid object needs rules | **Value object with a factory** returning `Result` | `Email.Create`, `OwnerName.Create` |
-| Expensive or remote reads repeated | **Cache-aside behind the port** with event eviction | `Cached*` FusionCache decorators in Orders (CRIT-07) |
+| Expensive or remote reads repeated | **Cache-aside behind the port** with event eviction | `Cached*` FusionCache decorators (hypothetical; none exist yet) (CRIT-07) |
 | Retries, timeouts, circuit breaking to a remote | **Resilience pipeline** (`Microsoft.Extensions.Resilience`) | Resend mailer pipeline |
 
 ## DES-07 · When unsure, search the web for the fitting pattern and cite it
@@ -104,13 +105,13 @@ patterns, and search the web for one that fits when unsure.
 
 - **Rule:** before adding a type, answer each question; a "yes" needs a fix or a stated reason in the plan:
   1. Does it depend on a concrete class where a port would let us replace or test it?
-  2. Would changing a vendor, a region rule or a storage touch more than one adapter?
+  2. Would changing a vendor, a channel or a storage touch more than one adapter?
   3. Does it know another module's tables, internals or vendor types?
   4. Would adding the next case mean editing a growing conditional instead of adding a class?
   5. Could another module not reuse it without dragging in this module's internals?
 - **Why:** coupling is cheapest to remove before the type has callers.
 - **Enforced by:** review (critic-architecture).
-- **Good:** a new region rule is a new class in its region package. **Bad:** a new `case "UY":` in Orders's core.
+- **Good:** a new notification kind is a new class under `Kinds/`. **Bad:** a new `case` in the Notifications core.
 - **Status:** in force.
 
 ## DES-09 · No abstraction without a second implementation or a test need
@@ -119,7 +120,7 @@ patterns, and search the web for one that fits when unsure.
   always have one. A pattern whose ceremony outweighs the change it makes cheap is a finding against it.
 - **Why:** each interface is a jump a reader pays for.
 - **Enforced by:** review.
-- **Good:** `IPrincipals` (storage port, faked in unit tests). **Bad:** `IRegionViewMapper` with one implementation used by one handler.
+- **Good:** `IPrincipals` (storage port, faked in unit tests). **Bad:** `IPrincipalViewMapper` with one implementation used by one handler.
 - **Status:** in force.
 
 ## DES-10 · Prefer composition over inheritance
@@ -127,7 +128,7 @@ patterns, and search the web for one that fits when unsure.
 - **Rule:** share behavior by composing small types (decorators, steps, strategies); inherit only from platform bases meant for it (`AggregateRoot`,
   closed hierarchies). Classes are sealed by default (see `craft`).
 - **Why:** a base class couples every subclass to its changes.
-- **Enforced by:** CA1852 / MA0053 (sealed, planned); review.
-- **Good:** `CachedRegionCatalog(EfRegionCatalog regions, IFusionCache cache) : IRegionCatalog`. **Bad:** `CachedRegionCatalog :
-  EfRegionCatalog` overriding reads.
+- **Enforced by:** CA1852 / MA0053 (sealed); review.
+- **Good:** `CachedPrincipals(EfPrincipals principals, IFusionCache cache) : IPrincipals` (hypothetical). **Bad:** `CachedPrincipals :
+  EfPrincipals` overriding reads.
 - **Status:** in force.
