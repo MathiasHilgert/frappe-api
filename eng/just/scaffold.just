@@ -22,6 +22,10 @@ event module target fields:
 endpoint module area name verb route:
     eng/scaffold/scaffold.sh endpoint {{ module }} {{ area }} {{ name }} {{ verb }} {{ quote(route) }}
 
+# A CRUD skeleton: aggregate, mapping, repository and read port, create/get/list/update/delete, endpoints, Bruno requests: just scaffold crud Orders Order
+crud module entity plural="":
+    eng/scaffold/scaffold.sh crud {{ module }} {{ entity }} {{ plural }}
+
 # A Bruno request with the next free seq of its folder: just scaffold bruno orders "Ship the order (200)" put /v1/orders/x/shipment
 bruno folder name method url status="200":
     eng/scaffold/scaffold.sh bruno {{ folder }} {{ quote(name) }} {{ method }} {{ quote(url) }} {{ status }}

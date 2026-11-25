@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Frappe",
+  "classifications": ["Frappe", "Scaffold"],
+  "identity": "Frappe.Scaffold.Entity",
+  "name": "Frappe aggregate and its EF Core configuration",
+  "shortName": "entity",
+  "tags": { "language": "C#", "type": "item" },
+  "sourceName": "EntityName",
+  "preferNameDirectory": false,
+  "symbols": {
+    "Module": { "type": "parameter", "datatype": "string", "isRequired": true, "replaces": "ModuleName", "fileRename": "ModuleName" },
+    "Area": { "type": "parameter", "datatype": "string", "isRequired": true, "replaces": "AreaName", "fileRename": "AreaName" },
+    "Table": { "type": "parameter", "datatype": "string", "isRequired": true, "replaces": "table_name_here", "description": "The plural snake_case table (DATA-04)." }
+  }
+}
