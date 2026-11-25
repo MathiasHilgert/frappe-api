@@ -18,11 +18,14 @@ just scaffold error    <Module> <code> <kind> "<en>" "<es>" "<pt-BR>" [ConstName
 just scaffold event    <Module> <Area>/<Name> "<Field:Type,Field:Type>"             the event gets OccurredAt/At added
 just scaffold endpoint <Module> <Area> <UseCase> <get|post|put|patch|delete> </route>
 just scaffold bruno    <folder> "<name>" <method> </url> [status]                     folder under tools/bruno
+just scaffold crud     <Module> <Entity> [Plural]                                    Plural defaults to <Entity>s
 USAGE
     exit 2
 }
 
 die() { echo "scaffold: $*" >&2; exit 1; }
+next() { [[ -n "${quiet:-}" ]] || echo "Next: $*"; } # crud prints one summary instead of each part's next steps
+snake() { sed -E 's/([a-z0-9])([A-Z])/\1_\2/g' <<<"$1" | tr '[:upper:]' '[:lower:]'; }
 pascal() { [[ "$1" =~ ^[A-Z][A-Za-z0-9]*$ ]] || die "'$1' is not PascalCase"; }
 
 hive="$(mktemp -d)"
@@ -67,8 +70,8 @@ usecase() { # <command|query> <Module> <Area> <UseCase>
     else
         echo "TODO: Frappe.$module.UnitTests does not exist; write the test of $name there."
     fi
-    echo "Next: write the failing test, give $name its fields and result type, write the handler (it throws NotImplementedException now)."
-    [[ -z "$access" ]] || echo "Next: decide who may do it first through $access (see the FILL IN in the handler)."
+    next "write the failing test, give $name its fields and result type, write the handler (it throws NotImplementedException now)."
+    [[ -z "$access" ]] || next "decide who may do it first through $access (see the FILL IN in the handler)."
 }
 
 error() { # <Module> <code> <kind> <en> <es> <pt-BR> [ConstName]
@@ -137,7 +140,7 @@ event() { # <Module> <Area>/<Name> <Field:Type,...>
     pascal "$module"; pascal "$area"; pascal "$name"
     local md snake type contract domain="" arg
     md="$(module_dir "$module")"
-    snake="$(sed -E 's/([a-z0-9])([A-Z])/\1_\2/g' <<<"$name" | tr '[:upper:]' '[:lower:]')"
+    snake="$(snake "$name")"
     type="frappe.${module,,}.$snake.v1"
     local -a args=() reads=()
     IFS=, read -r -a pairs <<<"$fields"
@@ -184,7 +187,7 @@ endpoint() { # <Module> <Area> <UseCase> <verb> <route>
     [[ -f "$record" ]] || die "no use case $module/$area/$name: run 'just scaffold command|query $module $area $name' first"
     ! grep -q ': IQuery<' "$record" || isQuery=true
     new endpoint "$root/$md/Frappe.$module.Http/$area" -n "$name" --Module "$module" --Area "$area" --IsQuery "$isQuery" --ModuleFirst "$first" --Verb "Map${verb^}" --Route "$route"
-    echo "Next: map it in ${module}Http.cs with  <group>.Map${name}Endpoints();  (the group variable is the module's), then give it its request, ETag and error answers, and 'just contracts update'."
+    next "map it in ${module}Http.cs with  <group>.Map${name}Endpoints();  (the group variable is the module's), then give it its request, ETag and error answers, and 'just contracts update'."
 }
 
 bruno() { # <folder> <name> <method> <url> [status]
@@ -209,6 +212,58 @@ bruno() { # <folder> <name> <method> <url> [status]
     echo "Created $file (seq $seq)."
 }
 
+crud() { # <Module> <Entity> [Plural]: the aggregate, its mapping, its ports and adapters, five use cases, their endpoints and requests
+    local module="${1:-}" entity="${2:-}" area="${3:-}"
+    [[ -n "$entity" ]] || usage
+    [[ -n "$area" ]] || area="${entity}s"
+    pascal "$module"; pascal "$entity"; pascal "$area"
+    local md table route words folder
+    md="$(module_dir "$module")"
+    table="$(snake "$area")"
+    route="/${table//_/-}"
+    words="$(snake "$entity" | tr _ ' ')"
+    folder="${module,,}"
+    local -a cases=(
+        "command Create$entity post $route 204 Create a $words"
+        "query Get$entity get $route/{id} 200 Get a $words"
+        "query List$area get $route 200 List ${table//_/ }"
+        "command Update$entity put $route/{id} 204 Update a $words"
+        "command Delete$entity delete $route/{id} 204 Delete a $words"
+    )
+    # Everything is checked before anything is written, so a refusal leaves the repository as it was.
+    [[ -f "$root/$md/Frappe.$module.Infrastructure/Persistence/${module}DbContext.cs" ]] ||
+        die "no ${module}DbContext in $md/Frappe.$module.Infrastructure/Persistence"
+    local path kind name verb at status title
+    for path in "Frappe.$module.Domain/$area/$entity.cs" "Frappe.$module.Infrastructure/$area/${entity}Configuration.cs" \
+        "Frappe.$module.Application/$area/I$area.cs" "Frappe.$module.Infrastructure/$area/Ef$area.cs"; do
+        [[ ! -e "$root/$md/$path" ]] || die "$md/$path already exists; nothing was written"
+    done
+    for path in "${cases[@]}"; do
+        read -r kind name verb at status title <<<"$path"
+        [[ ! -e "$root/$md/Frappe.$module.Application/$area/$name" && ! -e "$root/$md/Frappe.$module.Http/$area/${name}Endpoints.cs" ]] ||
+            die "use case $area/$name already exists; nothing was written"
+    done
+    new entity "$root/$md" -n "$entity" --Module "$module" --Area "$area" --Table "$table"
+    new repository "$root/$md" -n "$entity" --Module "$module" --Area "$area"
+    quiet=1
+    for path in "${cases[@]}"; do
+        read -r kind name verb at status title <<<"$path"
+        usecase "$kind" "$module" "$area" "$name"
+        endpoint "$module" "$area" "$name" "$verb" "$at"
+        if [[ -d "$root/tools/bruno/$folder" ]]; then
+            bruno "$folder" "$title" "$verb" "/v1/$folder${at//\{id\}/\{\{${entity,}Id\}\}}" "$status"
+        fi
+    done
+    echo "Created the $entity aggregate, its mapping to $table, I$area/Ef$area, I${entity}Reads/Ef${entity}Reads and five use cases with their endpoints."
+    [[ -d "$root/tools/bruno/$folder" ]] || echo "TODO: no tools/bruno/$folder: add the requests with 'just scaffold bruno' to the module's folder."
+    echo "TODO: register the ports in the module's Infrastructure (see OwnersRegistration):  services.TryAddScoped<I$area, Ef$area>();  services.TryAddScoped<I${entity}Reads, Ef${entity}Reads>();"
+    echo "TODO: map the endpoints in ${module}Http.cs on the module's group:  $(printf '<group>.Map%sEndpoints();  ' Create$entity Get$entity List$area Update$entity Delete$entity)"
+    echo "TODO: give each use case its fields and result (the queries answer ${entity}View; Get, Update and Delete take the id), and its route parameters and request; commands use I$area, queries I${entity}Reads (CQRS-08); write each handler test-first."
+    echo "TODO: who may run each use case (the FILL IN of Allowed), and the missing ${words} error:  just scaffold error $module ${module,,}.$(snake "$entity").not_found notfound \"<en>\" \"<es>\" \"<pt-BR>\""
+    echo "TODO: the migration:  dotnet ef migrations add Add$area --project $md/Frappe.$module.Infrastructure --output-dir Persistence/Migrations  then 'just db schema'."
+    echo "TODO: once the endpoints are mapped, 'just contracts update' and commit contracts/."
+}
+
 kind="${1:-}"
 [[ $# -gt 0 ]] && shift
 case "$kind" in
@@ -217,5 +272,6 @@ case "$kind" in
     event) event "$@" ;;
     endpoint) endpoint "$@" ;;
     bruno) bruno "$@" ;;
+    crud) crud "$@" ;;
     *) usage ;;
 esac
