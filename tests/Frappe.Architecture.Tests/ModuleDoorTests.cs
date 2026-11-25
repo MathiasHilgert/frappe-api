@@ -19,10 +19,7 @@ public sealed class ModuleDoorTests
             .Order(StringComparer.Ordinal),
     ];
 
-    /// <summary>The modules whose hosts still list their facets: Notifications moves behind its door in T3, which removes it here.</summary>
-    private static readonly string[] NotYetBehindADoor = ["Notifications"];
-
-    private static readonly string[] Doors = [.. AllModules.Except(NotYetBehindADoor).Select(module => $"Frappe.{module}")];
+    private static readonly string[] Doors = [.. AllModules.Select(module => $"Frappe.{module}")];
 
     private static Assembly Host(string host) => host switch
     {
@@ -48,22 +45,22 @@ public sealed class ModuleDoorTests
         var references = assembly.GetReferencedAssemblies().Select(reference => reference.Name!).ToArray();
 
         // Act
-        var offenders = PastTheDoor(assembly, AllModules.Except(NotYetBehindADoor));
+        var offenders = PastTheDoor(assembly, AllModules);
 
         // Assert
         using (Assert.Multiple())
         {
             await Assert.That(offenders).IsEmpty().Because($"{host} names a module past its door: {string.Join(", ", offenders)}");
-            await Assert.That(references).Contains("Frappe.Access").And.Contains("Frappe.Identity");
+            await Assert.That(references).Contains("Frappe.Access").And.Contains("Frappe.Identity").And.Contains("Frappe.Notifications");
         }
     }
 
     [Test]
-    public async Task The_rule_can_see_a_host_that_names_a_module_past_its_door()
+    public async Task The_rule_can_see_an_assembly_that_names_a_module_past_its_door()
     {
         // Act
-        // Positive control: the Api still names Notifications' projects until T3, so the same check must find them.
-        var seen = PastTheDoor(Host("Api"), ["Notifications"]);
+        // Positive control: a door names its module's projects by design, so the same check must find them there.
+        var seen = PastTheDoor(System.Reflection.Assembly.Load("Frappe.Notifications"), ["Notifications"]);
 
         // Assert
         await Assert.That(seen).Contains("Frappe.Notifications.Http");

@@ -11,5 +11,5 @@ internal sealed class NotificationsDbContextFactory : IDesignTimeDbContextFactor
     public NotificationsDbContext CreateDbContext(string[] args) => new(ModuleDatabase.Options<NotificationsDbContext>(
         "Host=localhost;Database=frappe;Username=design",
         NotificationsDbContext.Schema,
-        options => options.UseOutbox(NotificationsModule.Name, new NotificationsEventTranslator(), DesignTimeClock.Fixed)));
+        options => options.UseOutbox(NotificationsCoreServices.Name, new NotificationsEventTranslator(), DesignTimeClock.Fixed)));
 }

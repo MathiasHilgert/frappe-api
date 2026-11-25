@@ -156,17 +156,9 @@ public sealed class WorkerCompositionTests
         // Assert
         using (Assert.Multiple())
         {
-            await Assert.That(Frappe.Worker.Modules.All)
-                .Contains(Frappe.Access.AccessModule.Worker).And.Contains(Frappe.Identity.IdentityModule.Worker);
-            await Assert.That(Frappe.Worker.Modules.All
-                    .Where(module => module != Frappe.Access.AccessModule.Worker && module != Frappe.Identity.IdentityModule.Worker)
-                    .Select(module => module.GetType().Name))
-                .IsEquivalentTo(
-                [
-                    "NotificationsModule",
-                    "NotificationsWorkerModule", "AccountKindsModule",
-                    "MarketingKindsModule", "IdentityProducerModule", "EmailChannelWorkerModule",
-                ]);
+            await Assert.That(Frappe.Worker.Modules.All).IsEquivalentTo(
+                [Frappe.Access.AccessModule.Worker, Frappe.Identity.IdentityModule.Worker, Frappe.Notifications.NotificationsModule.Worker],
+                TUnit.Assertions.Enums.CollectionOrdering.Matching);
             await Assert.That(hosted).Contains("OutboxRelayService`1");
             await Assert.That(hosted).Contains("JetStreamConsumer`2");
             await Assert.That(ready).Contains("notifications-database").And.Contains("identity-database");
@@ -210,6 +202,23 @@ public sealed class WorkerCompositionTests
             await Assert.That(host.Services.GetServices<Frappe.Identity.Application.Limits.IAttemptLimiter>()).IsEmpty();
             await Assert.That(identityPurge).IsTrue();
         }
+    }
+
+    [Test]
+    public async Task The_Worker_with_its_real_module_lists_purges_the_notifications_messages_through_the_door()
+    {
+        // Arrange
+        // The Worker registered the Notifications message purge itself next to its module list; the door registers it now (S1).
+        using var host = Build(Deployed);
+
+        // Act
+        await ValidateAsync(host);
+        var purge = Type.GetType(
+            "Frappe.Notifications.Infrastructure.Retention.IMessagePurge, Frappe.Notifications.Infrastructure", throwOnError: true)!;
+        var purges = host.Services.GetServices(purge).Select(registered => registered!.GetType().FullName!).ToArray();
+
+        // Assert
+        await Assert.That(purges).IsEquivalentTo(["Frappe.Notifications.NotificationsMessagePurge"]);
     }
 
     [Test]

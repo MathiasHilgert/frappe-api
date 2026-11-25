@@ -3,7 +3,6 @@ using Frappe.Health;
 using Frappe.Messaging;
 using Frappe.Messaging.Hosting;
 using Frappe.Modules;
-using Frappe.Notifications.Infrastructure.Retention;
 using Frappe.Observability.Hosting;
 using Frappe.Scheduling;
 using Quartz.Diagnostics;
@@ -46,7 +45,6 @@ public static class WorkerComposition
                 module.AddServices(builder.Services);
             }
 
-            builder.Services.AddSingleton<IMessagePurge, NotificationsMessagePurge>();
             return builder;
         }
     }

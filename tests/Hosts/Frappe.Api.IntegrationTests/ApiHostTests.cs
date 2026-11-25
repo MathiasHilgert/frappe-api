@@ -6,6 +6,12 @@ using Frappe.Identity.Http;
 using Frappe.Identity.Infrastructure;
 using Frappe.Identity.Limits.Valkey;
 using Frappe.Modules;
+using Frappe.Notifications;
+using Frappe.Notifications.Channels.Email;
+using Frappe.Notifications.Http;
+using Frappe.Notifications.Infrastructure;
+using Frappe.Notifications.Kinds.Account;
+using Frappe.Notifications.Kinds.Marketing;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
@@ -140,16 +146,15 @@ public sealed class ApiHostTests
         var settings = new Dictionary<string, string?>(ApiHost.Deployed);
 
         // Act
-        await using var app = await ApiHost.StartAsync(Modules.Services, Modules.Endpoints, settings);
+        await using var app = await ApiHost.StartAsync([], Modules.Endpoints, settings);
         using var client = app.GetTestClient();
         using var live = await client.GetAsync("/health/live");
 
         // Assert
         using (Assert.Multiple())
         {
-            await Assert.That(Modules.Services.Select(module => module.GetType().Name)).Contains("NotificationsModule");
-            await Assert.That(Modules.Endpoints.Select(module => module.GetType().Name)).Contains("NotificationsHttp");
-            await Assert.That(Modules.Endpoints).Contains(Frappe.Access.AccessModule.Api).And.Contains(IdentityModule.Api);
+            await Assert.That(Modules.Endpoints).IsEquivalentTo(
+                [Frappe.Access.AccessModule.Api, IdentityModule.Api, NotificationsModule.Api], TUnit.Assertions.Enums.CollectionOrdering.Matching);
             await Assert.That(live.StatusCode).IsEqualTo(HttpStatusCode.OK);
         }
     }
@@ -162,7 +167,7 @@ public sealed class ApiHostTests
         settings.Remove("ConnectionStrings:Notifications");
 
         // Act
-        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ApiHost.StartAsync(Modules.Services, Modules.Endpoints, settings));
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ApiHost.StartAsync([], Modules.Endpoints, settings));
 
         // Assert
         await Assert.That(thrown?.Message).Contains("ConnectionStrings:Notifications");
@@ -176,7 +181,7 @@ public sealed class ApiHostTests
         settings.Remove("ConnectionStrings:Identity");
 
         // Act
-        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ApiHost.StartAsync(Modules.Services, Modules.Endpoints, settings));
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ApiHost.StartAsync([], Modules.Endpoints, settings));
 
         // Assert
         await Assert.That(thrown?.Message).Contains("ConnectionStrings:Identity");
@@ -190,7 +195,7 @@ public sealed class ApiHostTests
         settings.Remove("Notifications:AddressHash:Keys:1");
 
         // Act
-        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ApiHost.StartAsync(Modules.Services, Modules.Endpoints, settings));
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ApiHost.StartAsync([], Modules.Endpoints, settings));
 
         // Assert
         await Assert.That(thrown?.Message).Contains("Notifications:AddressHash:CurrentKeyId");
@@ -204,7 +209,7 @@ public sealed class ApiHostTests
         settings.Remove("Identity:Codes:Key");
 
         // Act
-        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ApiHost.StartAsync(Modules.Services, Modules.Endpoints, settings));
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ApiHost.StartAsync([], Modules.Endpoints, settings));
 
         // Assert
         await Assert.That(thrown?.Message).Contains("Identity:Codes:Key");
@@ -214,7 +219,7 @@ public sealed class ApiHostTests
     public async Task The_Api_with_its_real_module_lists_gates_every_handler_and_takes_its_caller_from_the_session()
     {
         // Arrange
-        await using var app = await ApiHost.StartAsync(Modules.Services, Modules.Endpoints, new Dictionary<string, string?>(ApiHost.Deployed));
+        await using var app = await ApiHost.StartAsync([], Modules.Endpoints, new Dictionary<string, string?>(ApiHost.Deployed));
         using var scope = app.Services.CreateScope();
 
         // Act
@@ -234,7 +239,7 @@ public sealed class ApiHostTests
     public async Task The_Api_with_its_real_module_lists_composes_the_code_services_over_the_valkey_limiter()
     {
         // Arrange
-        await using var app = await ApiHost.StartAsync(Modules.Services, Modules.Endpoints, new Dictionary<string, string?>(ApiHost.Deployed));
+        await using var app = await ApiHost.StartAsync([], Modules.Endpoints, new Dictionary<string, string?>(ApiHost.Deployed));
         using var scope = app.Services.CreateScope();
 
         // Act
@@ -255,7 +260,7 @@ public sealed class ApiHostTests
         settings.Remove("Notifications:Email:Resend:WebhookSecret");
 
         // Act
-        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ApiHost.StartAsync(Modules.Services, Modules.Endpoints, settings));
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ApiHost.StartAsync([], Modules.Endpoints, settings));
 
         // Assert
         await Assert.That(thrown?.Message).Contains("Notifications:Email:Resend:WebhookSecret");
@@ -269,7 +274,7 @@ public sealed class ApiHostTests
         settings.Remove("Notifications:Unsubscribe:SigningKey");
 
         // Act
-        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ApiHost.StartAsync(Modules.Services, Modules.Endpoints, settings));
+        var thrown = await Assert.ThrowsAsync<OptionsValidationException>(() => ApiHost.StartAsync([], Modules.Endpoints, settings));
 
         // Assert
         await Assert.That(thrown?.Message).Contains("Notifications:Unsubscribe:SigningKey");
@@ -280,12 +285,12 @@ public sealed class ApiHostTests
     {
         // Arrange
         // Before the door (S1) the Api listed Identity's facets first among its services and IdentityHttp among its endpoints.
-        IModule[] facets = [new IdentityCoreServices(), new IdentityApiServices(), new IdentityLimitsValkeyModule(), .. Modules.Services];
+        IModule[] facets = [new IdentityCoreServices(), new IdentityApiServices(), new IdentityLimitsValkeyModule()];
         IHttpModule[] http = [.. Modules.Endpoints.Select(module => module == IdentityModule.Api ? new IdentityHttp() : module)];
         var listed = Registrations(facets, http);
 
         // Act
-        var composed = Registrations(Modules.Services, Modules.Endpoints);
+        var composed = Registrations([], Modules.Endpoints);
 
         // Assert
         // Per service, in registration order, the implementation types match. Factories and instances are compared only by kind, so
@@ -301,14 +306,49 @@ public sealed class ApiHostTests
         }
     }
 
+    [Test]
+    public async Task The_Api_registers_what_it_registered_when_it_listed_the_notifications_facets_itself()
+    {
+        // Arrange
+        // Before the door (S1) the Api listed Notifications' shared services, kinds and email webhooks first among its services, and
+        // NotificationsHttp last among its endpoints. One entry per module moves those services after Access and Identity.
+        IModule[] facets = [new NotificationsCoreServices(), new AccountKindsModule(), new MarketingKindsModule(), new EmailChannelApiModule()];
+        IHttpModule[] http = [.. Modules.Endpoints.Select(module => module == NotificationsModule.Api ? new NotificationsHttp() : module)];
+        var listed = Registrations(facets, http);
+
+        // Act
+        var composed = Registrations(builder => builder.AddFrappeApi());
+        var reordered = listed.Keys
+            .Where(service => !composed[service].SequenceEqual(listed[service], StringComparer.Ordinal))
+            .ToArray();
+
+        // Assert
+        // Per service: the same providers, in the same order. Only the hosted services, which are enumerated and never resolved one by
+        // one, start in another order: Access's startup check now starts before the Notifications catalog check, as in the Worker.
+        using (Assert.Multiple())
+        {
+            await Assert.That(composed.Keys).IsEquivalentTo(listed.Keys);
+            foreach (var (service, providers) in listed)
+            {
+                await Assert.That(composed[service]).IsEquivalentTo(providers).Because(service);
+            }
+
+            await Assert.That(reordered).IsEquivalentTo(["Microsoft.Extensions.Hosting.IHostedService"]);
+        }
+    }
+
     /// <summary>
     /// What the Api registers with <paramref name="modules"/> and <paramref name="endpoints"/>: per service type (and key), what provides it,
     /// in registration order.
     /// </summary>
-    private static Dictionary<string, string[]> Registrations(IReadOnlyCollection<IModule> modules, IReadOnlyCollection<IHttpModule> endpoints)
+    private static Dictionary<string, string[]> Registrations(IReadOnlyCollection<IModule> modules, IReadOnlyCollection<IHttpModule> endpoints) =>
+        Registrations(builder => builder.AddFrappeApi(modules, endpoints));
+
+    /// <summary>What <paramref name="compose"/> registers in the Api: per service type (and key), what provides it, in registration order.</summary>
+    private static Dictionary<string, string[]> Registrations(Action<WebApplicationBuilder> compose)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Testing" });
-        builder.AddFrappeApi(modules, endpoints);
+        compose(builder);
         return builder.Services
             .GroupBy(descriptor => descriptor.IsKeyedService
                 ? $"{descriptor.ServiceType.FullName} [{descriptor.ServiceKey}]"

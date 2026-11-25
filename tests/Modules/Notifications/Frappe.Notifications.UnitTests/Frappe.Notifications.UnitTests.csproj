@@ -2,6 +2,7 @@
   <!-- Notifications in process (TEST-02): no Docker, database, broker or cache. Whatever needs one belongs in
        Frappe.Notifications.IntegrationTests. -->
   <ItemGroup>
+    <ProjectReference Include="../../../../src/Modules/Notifications/Frappe.Notifications/Frappe.Notifications.csproj" />
     <ProjectReference Include="../../../../src/Modules/Notifications/Frappe.Notifications.Domain/Frappe.Notifications.Domain.csproj" />
     <ProjectReference Include="../../../../src/Modules/Notifications/Frappe.Notifications.Infrastructure/Frappe.Notifications.Infrastructure.csproj" />
     <ProjectReference Include="../../../../src/Modules/Notifications/Channels/Frappe.Notifications.Channels.Email/Frappe.Notifications.Channels.Email.csproj" />

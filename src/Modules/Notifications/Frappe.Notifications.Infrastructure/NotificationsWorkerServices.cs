@@ -18,7 +18,7 @@ namespace Frappe.Notifications.Infrastructure;
 /// senders and the kinds are their plug-ins' own modules, and a producer's consumer is its own plug-in's
 /// (<see cref="NotificationProducerRegistration"/>).
 /// </summary>
-public sealed class NotificationsWorkerModule : IModule
+public sealed class NotificationsWorkerServices : IModule
 {
     /// <summary>The durable name of the dispatch consumer. It is forever: renaming it redelivers the retained stream into its inbox.</summary>
     public const string DispatchConsumer = "notifications-dispatch";
@@ -35,7 +35,8 @@ public sealed class NotificationsWorkerModule : IModule
     {
         ArgumentNullException.ThrowIfNull(services);
         services
-            .AddIntegrationEventConsumer<NotificationsDbContext, NotificationRequested>(NotificationsModule.Name, DispatchConsumer, DispatchSection)
+            .AddIntegrationEventConsumer<NotificationsDbContext, NotificationRequested>(
+                NotificationsCoreServices.Name, DispatchConsumer, DispatchSection)
             .AddBeforeClaimHandler<NotificationRequested, DispatchNotificationRequested>(DispatchConsumer)
             .AddIntegrationEventHandler<NotificationRequested, ApplyParkedFeedback>(DispatchConsumer)
             .AddAfterCommitHandler<NotificationRequested, CountDeliveriesAfterCommit<NotificationRequested>>(DispatchConsumer);
