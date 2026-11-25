@@ -10,7 +10,7 @@ namespace Frappe.Notifications.Senders.Email;
 public sealed class EmailProviderMetrics
 {
     /// <summary>Counter: calls to an email provider, by provider and outcome.</summary>
-    public const string RequestsMetric = "frappe.notifications.provider_requests";
+    public const string RequestsMetric = NotificationsTelemetry.ProviderRequestsMetric;
 
     public const string ProviderTag = "provider";
 

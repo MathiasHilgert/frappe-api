@@ -12,6 +12,9 @@ public static class NotificationsTelemetry
     /// <summary>The meter's name.</summary>
     public const string MeterName = "Frappe.Notifications";
 
+    /// <summary>Counter: calls to a channel's provider, by provider and outcome; the senders count it on the module's meter.</summary>
+    public const string ProviderRequestsMetric = "frappe.notifications.provider_requests";
+
     /// <summary>The outcome tag every module uses (OBS-04).</summary>
     public const string OutcomeTag = "frappe.outcome";
 

@@ -20,7 +20,8 @@ public sealed class LimitsMetrics
     {
         ArgumentNullException.ThrowIfNull(meters);
         _limiterUnavailable = meters.Create(IdentityTelemetry.MeterName).CreateCounter<long>(
-            LimiterUnavailableMetric, description: "Attempts the limiter could not count because its store was unreachable, by flow.");
+            LimiterUnavailableMetric, unit: "{event}",
+            description: "Attempts the limiter could not count because its store was unreachable, by flow.");
     }
 
     /// <summary>An attempt of <paramref name="flow"/> could not be counted: the store was unreachable (its failure mode decided the rest).</summary>

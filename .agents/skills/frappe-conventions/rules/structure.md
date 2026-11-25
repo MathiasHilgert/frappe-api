@@ -21,7 +21,7 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 - **Rule:** `src/Modules/<M>/` holds `Frappe.<M>` (the door, STR-11), `Frappe.<M>.Domain`, `.Application`, `.Contracts`, `.Infrastructure`, `.Http`,
   plus plug-in packages (STR-04). Every module; no module invents a different layout.
 - **Why:** one shape to navigate; ArchTests and tools target every module the same way (same model for all: see `domain`, `cqrs`).
-- **Enforced by:** `ModuleDoorTests` (the door); module project-set ArchTest over `Frappe.slnx` (planned).
+- **Enforced by:** `ModuleDoorTests` (the door); `StructureTests.Every_module_has_the_door_and_the_five_layers` (the project set over `src/Modules`).
 - **Good:** `src/Modules/Access/` with `Frappe.Access` and its five layer projects; `src/Modules/Identity/` with `Frappe.Identity`, its five layer
   projects and the plug-in `Extensions/Frappe.Identity.Limits.Valkey`; `src/Modules/Notifications/` with `Frappe.Notifications`, its five layer
   projects and the plug-ins under `Extensions/`
@@ -59,7 +59,7 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 - **Rule:** a package that plugs into a module's core is `Frappe.<Module>.<Kind>.<Name>` in `src/Modules/<Module>/Extensions/`, with `<Kind>` plural
   and naming what the package does (`Messages`, `Senders`, `Triggers`). Dependency direction: ARCH-14.
 - **Why:** the name says what the package plugs in, and one folder lists every plug-in of the module.
-- **Enforced by:** `PlugInNamingTests` (planned, tests/Frappe.Architecture.Tests); review meanwhile.
+- **Enforced by:** `StructureTests.Every_project_of_a_module_is_its_door_a_layer_or_a_named_plug_in`.
 - **Good:** `src/Modules/Notifications/Extensions/Frappe.Notifications.Senders.Email`, `Frappe.Notifications.Messages.Account`,
   `Frappe.Notifications.Triggers.Identity`, `src/Modules/Identity/Extensions/Frappe.Identity.Limits.Valkey`. **Bad:**
   (hypothetical) `src/Modules/Notifications/Channels/Frappe.Notifications.Channels.Email` (a kind folder beside the module) and
@@ -71,7 +71,7 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 - **Rule:** a request is a verb phrase in the business language (`GetMe`, `ListMySessions`, `RegisterOwner`); its handler is `<Request>Handler`.
   Response naming: see `cqrs`.
 - **Why:** the folder listing reads as the module's capabilities.
-- **Enforced by:** review (handler-suffix ArchTest planned).
+- **Enforced by:** `StructureTests.Every_handler_is_named_for_its_request`; review.
 - **Good:** `GetCurrentSession` → `GetCurrentSessionHandler`. **Bad (hypothetical):** `SessionQuery`, `SessionService.Get`.
 - **Status:** in force.
 
@@ -90,7 +90,7 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 - **Rule:** only Domain types extend `AggregateRoot`. Infrastructure maps them as they are with fluent configuration (STR-09): private constructors
   and setters, no EF attributes or EF types in Domain, no parallel persistence class for an aggregate.
 - **Why:** persistence ignorance keeps one model of the business; a second persistence class drifts from it.
-- **Enforced by:** ArchTest "only Domain extends AggregateRoot" (planned); `LayeringTests.Inner_layers_know_nothing_about_infrastructure` (no EF in
+- **Enforced by:** `StructureTests.Only_domain_types_extend_AggregateRoot`; `LayeringTests.Inner_layers_know_nothing_about_infrastructure` (no EF in
   Domain).
 - **Good:** `Owner` (`Frappe.Identity.Domain/Owners`) mapped by `OwnerConfiguration`. **Bad (hypothetical):**
   `internal sealed class SessionRow : AggregateRoot` in Infrastructure.
@@ -101,7 +101,7 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 - **Rule:** `*Row` is an Infrastructure persistence type for data with no business behavior: reference catalogs, read projections, technical records.
   It never extends `AggregateRoot` and never raises domain events.
 - **Why:** the suffix tells a reader there are no rules to look for.
-- **Enforced by:** `LayeringTests.Only_sealed_types_in_a_domain_project_derive_from_AggregateRoot` (planned).
+- **Enforced by:** `StructureTests.No_Row_type_extends_AggregateRoot`.
 - **Good (hypothetical, no `*Row` type exists yet):** `CountryNameRow`, a reference catalog entry. **Bad (hypothetical):** `SessionRow` extending
   `AggregateRoot`.
 - **Status:** in force.
@@ -124,7 +124,8 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
   integration-test project that composes the module (`Frappe.Api.IntegrationTests`, from `Http` and `Infrastructure`). Never toward a host or
   another production assembly, never as an `[assembly:]` attribute.
 - **Why:** internals stay internal; a production consumer must go through a public contract, and the door is part of the module.
-- **Enforced by:** csproj ArchTest (planned); review meanwhile.
+- **Enforced by:** `StructureTests.InternalsVisibleTo_only_names_the_targets_STR_10_allows` and
+  `No_source_declares_InternalsVisibleTo_as_an_assembly_attribute`.
 - **Good:** `Frappe.Identity.Infrastructure.csproj` → `Frappe.Identity.UnitTests`, `Frappe.Identity.IntegrationTests`,
   `Frappe.Api.IntegrationTests` and `Frappe.Identity` (its `IdentityMessagePurge` implements the internal `IMessagePurge`);
   `Frappe.Identity.Http.csproj` → `Frappe.Api.IntegrationTests`; `Frappe.Notifications.Infrastructure.csproj` → `Frappe.Notifications` for
