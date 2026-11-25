@@ -1,5 +1,5 @@
 using Frappe.Notifications.Application.Channels;
-using Frappe.Notifications.Application.Ports;
+using Frappe.Notifications.Application.Preferences;
 using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Notifications.Senders.Email;
 using Frappe.Notifications.UnitTests.Preferences;

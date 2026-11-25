@@ -1,8 +1,8 @@
-using Frappe.Notifications.Application.Requests.Unsubscribe;
+using Frappe.Notifications.Application.Preferences.Unsubscribe;
 using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Notifications.Domain.Preferences;
-using Frappe.Notifications.Infrastructure.Unsubscribe;
-using Frappe.Notifications.UnitTests.Dispatching;
+using Frappe.Notifications.Infrastructure.Preferences;
+using Frappe.Notifications.UnitTests.Deliveries;
 using NodaTime;
 
 namespace Frappe.Notifications.UnitTests.Preferences;

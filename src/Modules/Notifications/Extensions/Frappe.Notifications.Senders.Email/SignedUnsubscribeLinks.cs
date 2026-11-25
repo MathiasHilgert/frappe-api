@@ -1,4 +1,4 @@
-using Frappe.Notifications.Application.Ports;
+using Frappe.Notifications.Application.Preferences;
 using Frappe.Notifications.Domain.Deliveries;
 using Microsoft.Extensions.Options;
 

@@ -1,4 +1,5 @@
 using System.Diagnostics.Metrics;
+using Frappe.Notifications.Application.Telemetry;
 
 namespace Frappe.Notifications.Senders.Email;
 
@@ -20,7 +21,7 @@ public sealed class EmailProviderMetrics
     public EmailProviderMetrics(IMeterFactory meters)
     {
         ArgumentNullException.ThrowIfNull(meters);
-        _requests = meters.Create("Frappe.Notifications").CreateCounter<long>(
+        _requests = meters.Create(NotificationsTelemetry.MeterName).CreateCounter<long>(
             RequestsMetric, unit: "{request}", description: "Calls to the email provider, by provider and outcome.");
     }
 

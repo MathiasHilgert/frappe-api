@@ -1,11 +1,11 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using Frappe.Notifications.Application.Dispatching;
+using Frappe.Notifications.Application.Deliveries;
 
 namespace Frappe.Notifications.Application.Telemetry;
 
 /// <summary>
-/// The Dispatching feature's instrument on meter <c>Frappe.Notifications</c> (OBS-01, OBS-02), created once through
+/// The Deliveries feature's instrument on meter <c>Frappe.Notifications</c> (OBS-01, OBS-02), created once through
 /// <see cref="IMeterFactory"/>. Tags are bounded: the kind comes from the catalog, the channel from the registered plug-ins.
 /// </summary>
 public sealed class NotificationsMetrics

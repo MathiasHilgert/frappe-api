@@ -221,7 +221,7 @@ public sealed class NotificationsRouteTests
         var dns = new Guid("6ba7b810-9dad-11d1-80b4-00c04fd430c8");
 
         // Act
-        var identity = Frappe.Notifications.Http.Sends.RequestIdentity.Version5(dns, "python.org");
+        var identity = Frappe.Notifications.Http.Requests.RequestIdentity.Version5(dns, "python.org");
 
         // Assert
         await Assert.That(identity).IsEqualTo(new Guid("886313e1-3b8a-5372-9b90-0c9aee199e5d"));

@@ -1,4 +1,4 @@
-using Frappe.Notifications.Application.Feedback;
+using Frappe.Notifications.Application.ProviderEvents;
 using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Notifications.Senders.Email;
 using NodaTime;

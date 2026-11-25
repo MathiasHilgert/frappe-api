@@ -1,5 +1,5 @@
 using Frappe.IntegrationEvents;
-using Frappe.Notifications.Application.Dispatching;
+using Frappe.Notifications.Application.Deliveries;
 
 namespace Frappe.Notifications.Infrastructure.Messaging;
 

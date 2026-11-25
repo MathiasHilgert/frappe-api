@@ -1,5 +1,4 @@
 using Frappe.Identity.Application.Credentials;
-using Frappe.Identity.Application.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Http.Resilience;
@@ -28,7 +27,6 @@ internal static class CredentialsRegistration
             services.AddOptions<BreachCheckOptions>().BindConfiguration(BreachCheckOptions.Section).ValidateOnStart();
             services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<BreachCheckOptions>, BreachCheckOptionsValidator>());
 
-            services.TryAddSingleton<CredentialsMetrics>();
             services.TryAddSingleton<IPasswordHasher, Argon2idPasswordHasher>();
             services.TryAddSingleton<PasswordPolicy>();
             services.TryAddSingleton<PasswordCheck>();
