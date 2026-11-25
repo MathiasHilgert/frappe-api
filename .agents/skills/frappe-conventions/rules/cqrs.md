@@ -18,10 +18,10 @@
   state or `IQuery<T>` to read) and `<UseCase>Handler.cs` (`internal sealed`, primary constructor, `ICommandHandler<,>` or `IQueryHandler<,>`). Names
   are imperative for commands (`AddSubdivisionAlias`) and `Get*`/`List*`/`Find*` for queries.
 - **Why:** The intent and the side effects are visible from the type, and the pipeline treats each kind correctly (CQRS-03).
-- **Enforced by:** review; ArchTest (planned): request records public sealed in `Frappe.<Module>.Application.*`, handlers internal sealed in the same
+- **Enforced by:** review only: request records public sealed in `Frappe.<Module>.Application.*`, handlers internal sealed in the same
   namespace.
-- **Good:** `Orders.Application/Territory/AddSubdivisionAlias/{AddSubdivisionAlias.cs, AddSubdivisionAliasHandler.cs}`. **Bad:**
-  `SettleLostRegistration.cs` sitting inside `RegisterOwner/`; a `public class` handler.
+- **Good:** `Identity.Application/Owners/RegisterOwner/{RegisterOwner.cs, RegisterOwnerHandler.cs}`. **Bad:**
+  `SettleLostRegistration.cs` sitting inside `RegisterOwner/` (another use case); a `public class` handler.
 - **Status:** in force.
 
 ## CQRS-02 · One handler per request; adapters depend on the port
@@ -30,7 +30,7 @@
   TResult>` or `IQueryHandler<TQuery, TResult>`, never the handler class, and never call another handler's class.
 - **Why:** Resolving the port is what gives every call the pipeline (unit of work, instrumentation); a class reference bypasses it.
 - **Enforced by:** `HandlerPipelineTests` `A_second_handler_for_the_same_port_is_rejected_at_registration`; LayeringTests
-  `The_http_adapter_reaches_use_cases_only_through_the_application_layer` (planned).
+  review only.
 - **Good:** `ICommandHandler<AddSubdivisionAlias, SubdivisionAliasView> handler` injected into the endpoint. **Bad:** `new
   AddSubdivisionAliasHandler(...)` or injecting `AddSubdivisionAliasHandler`.
 - **Status:** in force.
@@ -42,13 +42,13 @@
   authorization** is the one form that is not a decorator: when the decision needs the row the handler loads (404 before 403 on a tenant resource, a
   field of the row such as the creator), the handler loads it through its own port and makes exactly one call to the module's authorizer with that
   resource (the shape of ASP.NET Core's `IAuthorizationService.AuthorizeAsync(user, resource, requirement)`); the authorizer owns parsing, the ask to
-  Ledger and the refusal, so handlers never repeat those steps.
+  Access and the refusal, so handlers never repeat those steps.
 - **Why:** One place decides order and behavior for every use case; a span and duration always include the commit. A decorator cannot see a row it has
   not loaded, and loading it twice costs a query and opens a race between the check and the write
   (<https://learn.microsoft.com/aspnet/core/security/authorization/resourcebased>).
 - **Enforced by:** `HandlerPipelineTests`; `UnitOfWorkPipelineTests` `A_query_never_touches_the_unit_of_work`.
 - **Good:** `(typeof(ICommandHandler<,>), [typeof(TransactionalCommandHandler<,>), typeof(InstrumentedCommandHandler<,>)])`. **Bad:** `using var
-  activity = source.StartActivity(...)` inside a handler; a handler that parses the id, asks Ledger and builds the 404/403 itself instead of one call
+  activity = source.StartActivity(...)` inside a handler; a handler that parses the id, asks Access and builds the 404/403 itself instead of one call
   to the module's authorizer.
 - **Status:** in force.
 
@@ -68,9 +68,9 @@
   catches it, rolls back and returns `Result.Failure(rejection.Answer)`. Endpoints call the port and map the `Result`; no `<Module>Commands` helper
   catches rejections.
 - **Why:** Every command answers a lost race the same way, and adapters stay one line.
-- **Enforced by:** `UnitOfWorkPipelineTests` (planned case: a commit rejection is rolled back and answered as a failed `Result`).
+- **Enforced by:** `UnitOfWorkPipelineTests.A_rejected_command_is_rolled_back_and_keeps_its_result`.
 - **Good:** `(await handler.HandleAsync(command, cancellationToken)).ToTypedHttpResult(a => TypedResults.Created(...))` in the endpoint, nothing else.
-  **Bad:** `BillingCommands.HandleAsync(...)` catching `ICommitRejection`; `OrdersCommands` catching concrete exception types in Http.
+  **Bad:** `RegisterOwnerHandler.HandleAsync(...)` catching `ICommitRejection`; an Identity endpoint catching concrete exception types in Http.
 - **Status:** in force.
 
 ## CQRS-06 · A command returns only what its answer needs from the same write
@@ -87,7 +87,7 @@
 
 - **Rule:** A query handler never changes state, directly or through a port; a write it seems to need is a separate command its adapter dispatches.
 - **Why:** Queries run outside any unit of work: a write there autocommits, skips outbox and events, and makes reads unsafe to retry or cache.
-- **Enforced by:** ArchTest (planned): no `IQueryHandler` depends on a repository or write port.
+- **Enforced by:** review only: no `IQueryHandler` depends on a repository or write port.
 - **Good:** the authenticator runs `AuthenticateSession` (read), then dispatches a `TouchSession` command. **Bad:** `AuthenticateSessionHandler`
   calling `ISessions.TouchAsync` (`ExecuteUpdate`, autocommit).
 - **Status:** in force.
@@ -97,7 +97,7 @@
 - **Rule:** Command handlers use repositories that return tracked aggregates and stage new ones (`FindAsync`, `Add`). Query handlers use read ports
   that project straight to `*View` with `AsNoTracking`, and never load an aggregate. No port mixes both.
 - **Why:** Reads stay cheap and shaped for the answer; repositories stay the only door to invariant-guarding objects.
-- **Enforced by:** ArchTest (planned): query handlers depend on no repository port; review for mixed ports.
+- **Enforced by:** review only: query handlers depend on no repository port; review for mixed ports.
 - **Good:** `IPrincipals.FindAsync` used only by commands; a `IOwnerProfiles.GetMeAsync` read port projecting to `Me`. **Bad:**
   `GetMeHandler(IPrincipals principals)` loading `Principal`; `IShipmentCalendars` with tracked `FindAsync` and projected `CoverageAsync`.
 - **Status:** in force.
@@ -108,7 +108,7 @@
   rows, claiming work) may be set-based SQL in an Infrastructure job; that job is idempotent and its XML doc says what it touches and why it is not a
   command.
 - **Why:** A write outside the pipeline skips validation, domain events, outbox and metrics.
-- **Enforced by:** LayeringTests `Application_ports_leave_saving_to_the_unit_of_work` (planned); review for Infrastructure `SaveChangesAsync` calls.
+- **Enforced by:** review only; review for Infrastructure `SaveChangesAsync` calls.
 - **Good:** `MessagePurger<TContext>` and `CredentialPurger` (idempotent batched deletes, documented). **Bad:** `SnapshotSync` staging a run and
   calling `db.SaveChangesAsync` itself.
 - **Status:** in force.
@@ -119,7 +119,8 @@
   for the same key, and the header is documented in OpenAPI. Modules never hand-roll their own deduplication for HTTP retries.
 - **Why:** A timeout on POST must be safe to retry without creating twice.
 - **Enforced by:** review; platform tests once the piece exists.
-- **Good:** (planned) `.RequireIdempotencyKey()` on the route plus the header in the OpenAPI operation. **Bad:** a handler checking "created in the
+- **Good:** (review only, no such piece yet) `.RequireIdempotencyKey()` on the route plus the header in the OpenAPI operation. **Bad:** a handler
+  checking "created in the
   last minute with the same body".
 - **Contract:** opt in with `.AcceptsIdempotencyKey()`; a 2xx answer is stored 24 h and replayed; the same key with another body answers 422; a
   request still running with that key answers 409 `in_progress`; the store being down answers 503 when the request carries a key (requests without it

@@ -19,7 +19,7 @@
   `statement_timeout` 30 s, `idle_in_transaction_session_timeout` at least 1 min. A connection string setting wins over the defaults. A new pool (job
   store, readiness) gets an explicit limit.
 - **Why:** Replicas × pools must stay under `max_connections`; the server cancels a runaway statement before the client gives up.
-- **Enforced by:** `DatabaseOptionsValidator` | `MigratorTests` (`Every_login_role_gets_the_configured_session_timeouts` (planned)).
+- **Enforced by:** `DatabaseOptionsValidator` | review only for the session timeouts.
 - **Good:** `ModuleDatabase.WithConnectionLimits`. **Bad:** a raw `NpgsqlDataSource` with the default pool of 100.
 - **Status:** in force.
 
@@ -39,8 +39,8 @@
 - **Rule:** A command's writes are staged and written by the unit of work's single `SaveChanges` (outbox rows included) and committed together. Reads
   and calls to other systems happen before the transaction opens. Nothing but `EfUnitOfWork` and `InboxConsumer` calls `SaveChangesAsync`.
 - **Why:** Short transactions hold locks and connections for milliseconds; one SaveChanges is one round trip batch and one atomic outcome.
-- **Enforced by:** `LayeringTests` (`Application_ports_leave_saving_to_the_unit_of_work` (planned)) | review.
-- **Good:** `EfUnitOfWork.SaveChangesAsync`. **Bad:** `await db.SaveChangesAsync(ct)` in `SnapshotSync` or `OrdersSeeding`.
+- **Enforced by:** review only.
+- **Good:** `EfUnitOfWork.SaveChangesAsync`. **Bad:** (hypothetical) a handler calling `await db.SaveChangesAsync(ct)` itself.
 - **Status:** in force.
 
 ## PERF-04 · Every read states its tracking explicitly
@@ -50,8 +50,8 @@
 - **Why:** Tracking a read costs memory and snapshot comparison for rows nobody saves, and it makes a later command in the same scope see a stale
   copy.
 - **Enforced by:** review.
-- **Good:** `db.Set<RegionRow>().AsNoTracking().Where(c => c.RetiredAt == null)`. **Bad:** `EfSubdivisionAliases.ListAsync` projecting views from a
-  tracked `SingleAsync` row.
+- **Good:** `EfSessionReads` (`db.Sessions.AsNoTracking()...`). **Bad:** (illustrative) a read port projecting views from a tracked
+  `SingleAsync` row.
 - **Status:** in force.
 
 ## PERF-05 · A guarded set-based write repeats the domain guards, inside the transaction
@@ -64,8 +64,8 @@
 - **Rule:** A read that ranks, pages or combines several filters runs as one SQL statement: a SQL function or `FromSql`, composed with LINQ only when
   EF translates the whole of it.
 - **Why:** One round trip and one plan; a client-side loop multiplies latency by the data.
-- **Enforced by:** `LocalitySearchTests` (`A_search_is_one_database_command`, `..._served_by_the_trigram_index`).
-- **Good:** `orders.search_localities(...)` called through `FromSql`. **Bad:** load candidates, then rank in C#.
+- **Enforced by:** review only.
+- **Good:** a set-based SQL statement called through `FromSql`. **Bad:** load candidates, then rank in C#.
 - **Status:** in force.
 
 ## PERF-07 · A partial index predicate and its query filter are one constant
@@ -83,7 +83,7 @@
 - **Rule:** An index no query reads any more is dropped (concurrently, MIG-05) in the change that removes its last reader.
 - **Why:** Each index costs every insert and update, vacuum time and memory.
 - **Enforced by:** review.
-- **Good:** `PurgeEndedCredentials` drops `ix_sessions_idle_expires_at`, which no query read. **Bad:** keeping `ix_outbox_messages_pending` after the
+- **Good:** (illustrative) a migration dropping an index no query reads. **Bad:** keeping `ix_outbox_messages_pending` after the
   relay moved to `ix_outbox_messages_relayable`.
 - **Status:** in force.
 
@@ -92,7 +92,7 @@
 - **Rule:** A purge deletes by key from a `LIMIT n` subselect (default 1000 per statement), each batch its own short statement, filtered on an indexed
   column, until a batch comes back short; scheduled nightly by the Worker.
 - **Why:** Short statements hold few locks and keep replication lag and vacuum steady; running twice at once only finds less.
-- **Enforced by:** review | `CredentialPurgeTests` (planned).
+- **Enforced by:** `RetentionTests` and `PurgeTests`.
 - **Good:** `MessagePurger`: `DELETE FROM ... WHERE id IN (SELECT id FROM ... WHERE published_at < {0} LIMIT {1})`. **Bad:** `DELETE FROM
   outbox_messages WHERE published_at < now() - interval '7 days'`.
 - **Status:** in force.
@@ -113,5 +113,6 @@
   without bound and the retention that stops it (DATA-09).
 - **Why:** A plan that is fine on seed data becomes a sequential scan or a full table lock in production.
 - **Enforced by:** review.
-- **Good:** "localities ~4M rows at 100×: served by the trigram index, paged by cursor". **Bad:** `ListAsync()` returning every row with no limit.
+- **Good:** (illustrative) "sessions ~4M rows at 100×: purged in batches by `StaleRowsPurger`, read by its indexed key". **Bad:** `ListAsync()`
+  returning every row with no limit.
 - **Status:** in force.

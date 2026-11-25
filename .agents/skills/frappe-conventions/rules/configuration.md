@@ -29,8 +29,8 @@
   production values; environments override only what differs.
 - **Why:** an empty production config must be a safe production config; the key is never retyped as a string.
 - **Enforced by:** review.
-- **Good:** `public const string Section = "Billing:Login"; public int FailuresPerClient { get; set; } = DefaultFailuresPerClient;` **Bad:**
-  `.BindConfiguration("Billing:Login")` with defaults only in `appsettings.json`.
+- **Good:** `public const string Section = "Identity:Sessions"; public int IdleMinutes { get; set; } = DefaultIdleMinutes;` **Bad:**
+  `.BindConfiguration("Identity:Sessions")` with defaults only in `appsettings.json`.
 - **Status:** in force.
 
 ## CFG-03 · Every options type is validated by data annotations and a generated validator
@@ -56,7 +56,7 @@
   of changing it.
 - **Why:** the code is the only settings reference; operators read it from the type, not from a separate document.
 - **Enforced by:** review.
-- **Good:** `/// <summary><c>Billing:Login:FailuresPerClient</c>: failed logins one client may make against one address per window.</summary>` plus
+- **Good:** `/// <summary><c>Identity:Limits</c>: attempts one client may make against one address per window.</summary>` plus
   the default and range **Bad:** `/// <summary>The NATS server URL.</summary>`.
 - **Status:** in force.
 
@@ -73,10 +73,11 @@
 
 - **Rule:** Schedule a job with `quartz.AddCronJob<TJob>(new JobKey(name, module), "<Module>:<Job>", defaultCron)`; its cron is overridable and
   validated. Jobs are `[DisallowConcurrentExecution]` and run on the clustered durable store. A module job purges its outbox/inbox through a
-  broker-free message-purge port in `Frappe.Messaging.Abstractions` (planned), or the Worker host wires it to `MessagePurger`.
+  broker-free message-purge port in `Frappe.Messaging.Abstractions` (review only until it exists), or the Worker host wires it to `MessagePurger`.
 - **Why:** one schedule per job across replicas, overridable per environment, checked at start.
 - **Enforced by:** `WorkerCompositionTests`.
-- **Good:** `quartz.AddCronJob<OrdersMessagePurgeJob>(new JobKey("purge-messages", "orders"), "Orders:MessagePurge", "0 30 3 * * ?")` **Bad:**
+- **Good:** `quartz.AddCronJob<IdentityRetentionJob>(IdentityRetentionJob.Key, IdentityRetentionOptions.Section, "0 0 3 * * ?")`
+  (`IdentityWorkerServices`) **Bad:**
   `quartz.ScheduleJob<T>(t => t.WithCronSchedule("0 30 3 * * ?"))`.
 - **Status:** in force.
 
@@ -86,7 +87,8 @@
   it in the Production environment.
 - **Why:** a missing registration or invalid default fails CI, not the deploy.
 - **Enforced by:** `WorkerCompositionTests`.
-- **Good:** `.AddOrdersMessaging()` inside `AddFrappeWorker` **Bad:** registrations in `Program.cs` of the Worker.
+- **Good:** `IdentityWorkerServices` and `NotificationsWorkerServices` reached through `AddFrappeWorker` **Bad:** registrations in `Program.cs` of
+  the Worker.
 - **Status:** in force.
 
 ## CFG-08 · Outbound HTTP has explicit resilience budgets
@@ -105,7 +107,7 @@
   timeout > role `statement_timeout`).
 - **Why:** an outer budget shorter than the inner one cancels legitimate work halfway.
 - **Enforced by:** `WorkerCompositionTests`; the module's validator.
-- **Good:** `MinHandlerDuration = MailingModule.TotalTimeout + TimeSpan.FromSeconds(20)` checked at start **Bad:** two independent defaults that
+- **Good:** `resend.TotalTimeout` checked shorter than the handler limit by `EmailOptionsValidator` at start **Bad:** two independent defaults that
   happen to fit today.
 - **Status:** in force.
 
@@ -124,7 +126,7 @@
 - **Rule:** Each process and module uses a Postgres role granted only what that process does; only the Migrator runs DDL.
 - **Why:** a compromised or buggy Worker cannot alter schemas or touch data it does not own.
 - **Enforced by:** `WorkerCompositionTests`; migration grants.
-- **Good:** Worker's `ConnectionStrings:Billing` names `frappe_billing_relay` **Bad:** every process using the owner role.
+- **Good:** Worker's `ConnectionStrings:Notifications` names `frappe_notifications_worker` **Bad:** every process using the owner role.
 - **Status:** in force.
 
 ## CFG-12 · No preview features

@@ -21,7 +21,7 @@
   `HasDefaultSchema` and `UseModulePostgres`. The schema name is a `Schema` constant on the module's DbContext.
 - **Why:** The schema is the ownership boundary: grants, purges and migrations stay per module, so one module can change without migrating another.
 - **Enforced by:** `MigratorTests` (each module role reads and writes its own schema and nothing else) | review.
-- **Good:** `modelBuilder.HasDefaultSchema(Schema);` with `public const string Schema = "mailing";`. **Bad:** `ToTable("sessions", "public")`.
+- **Good:** `modelBuilder.HasDefaultSchema(Schema);` with `public const string Schema = "identity";`. **Bad:** `ToTable("sessions", "public")`.
 - **Status:** in force.
 
 ## DATA-02 · Ids are UUIDv7 made by the application
@@ -29,17 +29,18 @@
 - **Rule:** Surrogate ids are `Guid.CreateVersion7()` values made in the domain; map them with `ValueGeneratedNever()`. Never `Guid.NewGuid()`,
   database defaults or serial ids for entities (an identity column only for ordering, like `outbox_messages.sequence`).
 - **Why:** The id exists before the insert, so events and responses can carry it; v7 is time-ordered, so B-tree inserts stay local.
-- **Enforced by:** review (a `Guid.NewGuid` ban in BannedApiAnalyzers is a candidate, not planned).
+- **Enforced by:** review (a `Guid.NewGuid` ban in BannedApiAnalyzers is a candidate).
 - **Good:** `builder.Property(s => s.Id).HasColumnName("id").ValueGeneratedNever();`. **Bad:** `.HasDefaultValueSql("gen_random_uuid()")`.
 - **Status:** in force.
 
 ## DATA-03 · Reference data uses natural keys
 
-- **Rule:** Reference catalogs key on their standard code: ISO codes as `character(n)` (`currencies.code`, `languages.code`); children key on the
-  parent's code plus their own part (`currency_names (currency_code, language)`).
+- **Rule:** Reference catalogs key on their standard code: ISO codes as `character(n)`; children key on the parent's code plus their own part. No
+  catalog exists yet, so the examples are illustrative.
 - **Why:** Codes are stable, short, and what clients and other modules already hold; no join to translate a surrogate.
 - **Enforced by:** `eng/squawk.toml` (`ban-char-field` excluded on purpose) | review.
-- **Good:** `builder.HasKey(c => c.Code); builder.Property(c => c.Code).HasColumnName("code").HasMaxLength(3).IsFixedLength();`. **Bad:**
+- **Good:** (illustrative)
+  `builder.HasKey(c => c.Code); builder.Property(c => c.Code).HasColumnName("code").HasMaxLength(3).IsFixedLength();`. **Bad:**
   `currencies.id uuid` plus a unique `code`.
 - **Status:** in force.
 
@@ -94,7 +95,7 @@
   reference rows that leave their source get `retired_at`. No `deleted_at`, no `is_deleted`.
 - **Why:** Soft delete leaks into every query and every unique index, and keeps personal data no one may read.
 - **Enforced by:** review.
-- **Good:** `sessions.revoked_at`, `idle_expires_at`, purged by `ix_sessions_ended_at`; `localities.retired_at`. **Bad:** `is_deleted boolean`
+- **Good:** `sessions.revoked_at`, `idle_expires_at`, swept by `SessionSweeper`. **Bad:** `is_deleted boolean`
   filtered by a global query filter.
 - **Status:** in force.
 
@@ -103,9 +104,9 @@
 - **Rule:** A table that grows with traffic or time ships with its purge: a Worker job deleting in batches (PERF-09) after a retention set in
   validated options, plus the index the purge reads.
 - **Why:** An unbounded table slows every index and vacuum and holds data longer than anyone promised.
-- **Enforced by:** review | each purge's tests (`CredentialPurgeTests` (planned)) and options validators (`MessageRetentionOptionsValidator`).
-- **Good:** `MessagePurger` with `MessageRetentionOptions.OutboxRetention`; `MailOutcomePurger`. **Bad:** an audit table with no purge
-  (`orders.sync_runs`).
+- **Enforced by:** `RetentionTests` and `PurgeTests` + options validators (`MessageRetentionOptionsValidator`).
+- **Good:** `MessagePurger` with `MessageRetentionOptions.OutboxRetention`; `StaleRowsPurger` (`identity.sessions`, `one_time_codes`,
+  `email_change_undos`); `NotificationsPurger`. **Bad:** (hypothetical) an audit table with no purge.
 - **Status:** in force.
 
 ## DATA-10 · Translations live in `<entity>_names`
@@ -114,7 +115,8 @@
   with length `LanguageTag.StorageLength`.
 - **Why:** A new language is rows, not columns; one length everywhere keeps every tag storable.
 - **Enforced by:** review.
-- **Good:** `region_names (region_code, language, text)`. **Bad:** `name_es`, `name_en` columns; `.HaveMaxLength(35)` hard-coded.
+- **Good:** (illustrative, no translation table exists yet)
+  `region_names (region_code, language, text)`. **Bad:** `name_es`, `name_en` columns; `.HaveMaxLength(35)` hard-coded.
 - **Status:** in force.
 
 ## DATA-11 · Optimistic concurrency uses xmin by default
@@ -124,13 +126,14 @@
 
 ## DATA-12 · Third normal form; copies are documented; jsonb only for whole documents
 
-- **Rule:** Design in 3NF. A copied or derived column (`search_name`, `localities.region_code`) carries a comment in its configuration: what it
+- **Rule:** Design in 3NF. A copied or derived column carries a comment in its configuration: what it
   copies, which query needs it, who keeps it in sync. `jsonb` only for a document read and written whole, never filtered or joined inside; a field a
   query needs is a column.
 - **Why:** Undocumented copies drift silently; filtering inside jsonb defeats indexes and constraints.
 - **Enforced by:** review.
-- **Good:** `outbox_messages.data jsonb` (read whole by the relay). **Bad:** `WHERE data->>'status' = 'x'`; `LocalityRowConfiguration` copying
-  `subdivision_code` and `search_name` with no comment.
+- **Good:** `outbox_messages.data jsonb` (read whole by the relay). **Bad:** `WHERE data->>'status' = 'x'`; a copied `search_name` column
+  (hypothetical) with no
+  comment.
 - **Status:** in force.
 
 ## DATA-13 · Every module has an outbox and an inbox
@@ -139,7 +142,7 @@
   day one, even when it publishes nothing yet.
 - **Why:** Uniform messaging: the first published event needs no infrastructure change, and the purge, metrics and alerts apply unchanged.
 - **Enforced by:** `MigratorTests` (every module outbox gets the relay index and the four invariants) | review for the wiring.
-- **Good:** `OrdersMessaging` registers the relay. **Bad:** `MailingMessaging` has the tables but no relay or interceptor.
+- **Good:** `IdentityCoreServices` registers the outbox through `AddModuleDatabase`. **Bad:** a module with the tables but no relay or interceptor.
 - **Status:** in force.
 
 ## DATA-14 · No database object is shared across modules
@@ -148,5 +151,5 @@
   fed by its integration events.
 - **Why:** A cross-schema object couples migrations, grants and outages of two modules.
 - **Enforced by:** `MigratorTests` (each role reads and writes its own schema and nothing else) | review.
-- **Good:** Mailing keeps its own `mail_outcomes`. **Bad:** `REFERENCES billing.principals(id)` from `orders`.
+- **Good:** Notifications keeps its own `deliveries`. **Bad:** `REFERENCES identity.principals(id)` from `notifications`.
 - **Status:** in force.
