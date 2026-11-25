@@ -56,7 +56,8 @@ public sealed class ScaffoldTests
             {
                 foreach (var project in BuiltProjects)
                 {
-                    builds.Add((project, await RunAsync(copy.FullName, "dotnet", "build", project, "-nologo", "-nodeReuse:false", "-clp:ErrorsOnly")));
+                    var build = await RunAsync(copy.FullName, "dotnet", "build", project, "-nologo", "-nodeReuse:false", "-clp:ErrorsOnly");
+                    builds.Add((project, build));
                 }
             }
 
