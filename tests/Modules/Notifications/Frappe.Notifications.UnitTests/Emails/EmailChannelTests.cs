@@ -4,7 +4,7 @@ using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Notifications.Messages.Account;
 using Frappe.Notifications.Messages.Marketing;
 using Frappe.Notifications.Senders.Email;
-using Frappe.Notifications.UnitTests.Dispatching;
+using Frappe.Notifications.UnitTests.Deliveries;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Frappe.Notifications.UnitTests.Emails;

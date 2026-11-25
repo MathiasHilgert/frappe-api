@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
-using Frappe.Notifications.Application.Feedback;
-using Frappe.Notifications.Application.Ports;
+using Frappe.Notifications.Application.ProviderEvents;
 using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Results;
 using NodaTime;

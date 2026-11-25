@@ -1,6 +1,6 @@
-using Frappe.Notifications.Application.Dispatching;
+using Frappe.Notifications.Application.Deliveries;
 using Frappe.Notifications.Domain.Deliveries;
-using Frappe.Notifications.UnitTests.Dispatching;
+using Frappe.Notifications.UnitTests.Deliveries;
 
 namespace Frappe.Notifications.UnitTests.Preferences;
 
@@ -11,7 +11,7 @@ public sealed class PreferenceGateTests
 
     private static readonly ChannelName Mail = TestChannels.Mail;
 
-    private static ResolvedContact Contact(Frappe.Notifications.Infrastructure.Addresses.HmacAddressHasher hasher, string address)
+    private static ResolvedContact Contact(Frappe.Notifications.Infrastructure.Contacts.HmacAddressHasher hasher, string address)
     {
         var hash = hasher.Hash(address);
         return new ResolvedContact(new ContactRecipient(Mail, address), RecipientKey.Of(hash), hash);

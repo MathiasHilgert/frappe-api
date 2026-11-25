@@ -1,5 +1,4 @@
 using Frappe.Notifications.Application.Kinds;
-using Frappe.Notifications.Application.Ports;
 using Frappe.Notifications.Domain.Requests;
 using Frappe.Results;
 using Frappe.UseCases;

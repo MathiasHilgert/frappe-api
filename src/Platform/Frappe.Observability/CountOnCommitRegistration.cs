@@ -19,7 +19,7 @@ public static class CountOnCommitRegistration
         /// </summary>
         /// <typeparam name="TEvent">The domain event whose commit is the business success.</typeparam>
         /// <typeparam name="TInstrument">
-        /// The module's metrics class (<c>IdentityMetrics</c>), a service of the container. The counters generated for a metric
+        /// The module's metrics class (<c>OwnersMetrics</c>), a service of the container. The counters generated for a metric
         /// share no interface, so the class that holds them is what <paramref name="count"/> receives.
         /// </typeparam>
         /// <param name="count">Records the event on the instrument, with the tags the event carries.</param>

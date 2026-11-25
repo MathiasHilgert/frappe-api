@@ -1,4 +1,4 @@
-using Frappe.Notifications.Application.Ports;
+using Frappe.Notifications.Application.ProviderEvents;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;

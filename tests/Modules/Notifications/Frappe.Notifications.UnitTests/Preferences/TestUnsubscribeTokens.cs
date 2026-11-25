@@ -1,4 +1,4 @@
-using Frappe.Notifications.Infrastructure.Unsubscribe;
+using Frappe.Notifications.Infrastructure.Preferences;
 using Microsoft.Extensions.Options;
 
 namespace Frappe.Notifications.UnitTests.Preferences;

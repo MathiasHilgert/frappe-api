@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
-using Frappe.Notifications.Application.Feedback;
+using Frappe.Notifications.Application.ProviderEvents;
 using Microsoft.Extensions.Options;
 
 namespace Frappe.Notifications.Senders.Email;

@@ -1,9 +1,10 @@
 using System.Diagnostics.Metrics;
 using System.Text.Json;
 using Frappe.Notifications.Application.Channels;
-using Frappe.Notifications.Application.Feedback;
-using Frappe.Notifications.Application.Ports;
-using Frappe.Notifications.Application.Requests.RecordProviderFeedback;
+using Frappe.Notifications.Application.Contacts;
+using Frappe.Notifications.Application.Deliveries;
+using Frappe.Notifications.Application.ProviderEvents;
+using Frappe.Notifications.Application.ProviderEvents.RecordProviderFeedback;
 using Frappe.Notifications.Contracts;
 using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Notifications.Domain.ProviderEvents;

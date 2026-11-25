@@ -1,6 +1,6 @@
 using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Notifications.Senders.Email;
-using Frappe.Notifications.UnitTests.Dispatching;
+using Frappe.Notifications.UnitTests.Deliveries;
 
 namespace Frappe.Notifications.UnitTests.Emails;
 

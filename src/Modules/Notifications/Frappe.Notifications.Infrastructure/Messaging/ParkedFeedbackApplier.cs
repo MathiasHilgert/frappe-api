@@ -1,8 +1,7 @@
-using Frappe.Notifications.Application.Dispatching;
-using Frappe.Notifications.Application.Ports;
+using Frappe.Notifications.Application.Deliveries;
 using Frappe.Notifications.Domain.Deliveries;
-using Frappe.Notifications.Infrastructure.Dispatching;
 using Frappe.Notifications.Infrastructure.Persistence;
+using Frappe.Notifications.Infrastructure.ProviderEvents;
 using Microsoft.EntityFrameworkCore;
 
 namespace Frappe.Notifications.Infrastructure.Messaging;

@@ -1,4 +1,4 @@
-using Frappe.Notifications.Application.Ports;
+using Frappe.Notifications.Application.Requests;
 using Frappe.Notifications.Domain.Requests;
 using Frappe.Notifications.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
