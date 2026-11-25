@@ -11,5 +11,5 @@ internal sealed class IdentityDbContextFactory : IDesignTimeDbContextFactory<Ide
     public IdentityDbContext CreateDbContext(string[] args) => new(ModuleDatabase.Options<IdentityDbContext>(
         "Host=localhost;Database=frappe;Username=design",
         IdentityDbContext.Schema,
-        options => options.UseOutbox(IdentityModule.Name, new IdentityIntegrationEvents(), DesignTimeClock.Fixed)));
+        options => options.UseOutbox(IdentityCoreServices.Name, new IdentityIntegrationEvents(), DesignTimeClock.Fixed)));
 }

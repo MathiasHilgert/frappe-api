@@ -12,9 +12,9 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Frappe.Identity.Http;
 
 /// <summary>
-/// The HTTP facet of Identity: the session scheme and its policy, which only routes that ask for a session use (SEC-01), the caller read
-/// from it, the error texts, and
-/// the routes under <c>/v1/identity</c>.
+/// The HTTP facet of Identity: the session scheme and its policy, which only routes that ask for a session use (SEC-01), the session cookie
+/// as the browser credential the console origin check asks about (SEC-03), the caller read from it, the error texts, and the routes under
+/// <c>/v1/identity</c>.
 /// </summary>
 public sealed class IdentityHttp : IHttpModule
 {
@@ -70,6 +70,7 @@ public sealed class IdentityHttp : IHttpModule
         services.AddFrappeRateLimitPolicy(PasswordResetRateLimitPolicy, PasswordResetRateLimitPolicy, PasswordResetRateLimit);
         services.AddFrappeRateLimitPolicy(EmailChangeUndoRateLimitPolicy, EmailChangeUndoRateLimitPolicy, EmailChangeUndoRateLimit);
         services.AddSessionAuthentication();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IBrowserCredential, SessionCookieCredential>());
         services.AddHttpContextAccessor();
         services.AddScoped<ICaller, SessionCaller>();
         services.Configure<OpenApiOptions>("v1", options => options.AddSchemaTransformer<MySessionListDocumentation>());

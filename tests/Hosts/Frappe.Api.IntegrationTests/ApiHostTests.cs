@@ -1,6 +1,10 @@
 using System.Net;
 using System.Text.Json;
 using Frappe.Http;
+using Frappe.Identity;
+using Frappe.Identity.Http;
+using Frappe.Identity.Infrastructure;
+using Frappe.Identity.Limits.Valkey;
 using Frappe.Modules;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -143,11 +147,9 @@ public sealed class ApiHostTests
         // Assert
         using (Assert.Multiple())
         {
-            await Assert.That(Modules.Services.Select(module => module.GetType().Name))
-                .Contains("NotificationsModule").And.Contains("IdentityModule").And.Contains("IdentityLimitsValkeyModule");
-            await Assert.That(Modules.Endpoints.Select(module => module.GetType().Name))
-                .Contains("NotificationsHttp").And.Contains("IdentityHttp");
-            await Assert.That(Modules.Endpoints).Contains(Frappe.Access.AccessModule.Api);
+            await Assert.That(Modules.Services.Select(module => module.GetType().Name)).Contains("NotificationsModule");
+            await Assert.That(Modules.Endpoints.Select(module => module.GetType().Name)).Contains("NotificationsHttp");
+            await Assert.That(Modules.Endpoints).Contains(Frappe.Access.AccessModule.Api).And.Contains(IdentityModule.Api);
             await Assert.That(live.StatusCode).IsEqualTo(HttpStatusCode.OK);
         }
     }
@@ -272,6 +274,51 @@ public sealed class ApiHostTests
         // Assert
         await Assert.That(thrown?.Message).Contains("Notifications:Unsubscribe:SigningKey");
     }
+
+    [Test]
+    public async Task The_Api_registers_what_it_registered_when_it_listed_the_identity_facets_itself()
+    {
+        // Arrange
+        // Before the door (S1) the Api listed Identity's facets first among its services and IdentityHttp among its endpoints.
+        IModule[] facets = [new IdentityCoreServices(), new IdentityApiServices(), new IdentityLimitsValkeyModule(), .. Modules.Services];
+        IHttpModule[] http = [.. Modules.Endpoints.Select(module => module == IdentityModule.Api ? new IdentityHttp() : module)];
+        var listed = Registrations(facets, http);
+
+        // Act
+        var composed = Registrations(Modules.Services, Modules.Endpoints);
+
+        // Assert
+        // Per service, in registration order, the implementation types match. Factories and instances are compared only by kind, so
+        // their order across modules (for example health-check registrations) is not checked.
+        using (Assert.Multiple())
+        {
+            await Assert.That(composed.Keys).IsEquivalentTo(listed.Keys);
+            foreach (var (service, providers) in listed)
+            {
+                await Assert.That(composed[service]).IsEquivalentTo(providers, TUnit.Assertions.Enums.CollectionOrdering.Matching)
+                    .Because(service);
+            }
+        }
+    }
+
+    /// <summary>
+    /// What the Api registers with <paramref name="modules"/> and <paramref name="endpoints"/>: per service type (and key), what provides it,
+    /// in registration order.
+    /// </summary>
+    private static Dictionary<string, string[]> Registrations(IReadOnlyCollection<IModule> modules, IReadOnlyCollection<IHttpModule> endpoints)
+    {
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Testing" });
+        builder.AddFrappeApi(modules, endpoints);
+        return builder.Services
+            .GroupBy(descriptor => descriptor.IsKeyedService
+                ? $"{descriptor.ServiceType.FullName} [{descriptor.ServiceKey}]"
+                : descriptor.ServiceType.FullName!)
+            .ToDictionary(group => group.Key, group => group.Select(Provider).ToArray(), StringComparer.Ordinal);
+    }
+
+    private static string Provider(ServiceDescriptor descriptor) => descriptor.IsKeyedService
+        ? descriptor.KeyedImplementationType?.FullName ?? descriptor.KeyedImplementationInstance?.GetType().FullName ?? "factory"
+        : descriptor.ImplementationType?.FullName ?? descriptor.ImplementationInstance?.GetType().FullName ?? "factory";
 
     private static async Task<string?[]> CheckNamesAsync(HttpResponseMessage probe)
     {

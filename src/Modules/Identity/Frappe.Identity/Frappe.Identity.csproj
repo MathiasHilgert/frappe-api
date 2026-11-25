@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The door of Identity (S1): the only project a host names from the module. It joins the module's retention to the broker side of
+       messaging (Frappe.Messaging), which the Migrator may not load and so the Infrastructure project may not reference. -->
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.Identity.Infrastructure/Frappe.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="../Frappe.Identity.Http/Frappe.Identity.Http.csproj" />
+    <ProjectReference Include="../Limits/Frappe.Identity.Limits.Valkey/Frappe.Identity.Limits.Valkey.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Messaging/Frappe.Messaging.csproj" />
+  </ItemGroup>
+</Project>

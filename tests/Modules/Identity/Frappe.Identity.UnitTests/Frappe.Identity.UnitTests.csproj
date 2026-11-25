@@ -7,6 +7,8 @@
     <ProjectReference Include="../../../../src/Modules/Identity/Frappe.Identity.Infrastructure/Frappe.Identity.Infrastructure.csproj" />
     <ProjectReference Include="../../../../src/Modules/Identity/Frappe.Identity.Application/Frappe.Identity.Application.csproj" />
     <ProjectReference Include="../../../../src/Modules/Identity/Limits/Frappe.Identity.Limits.Valkey/Frappe.Identity.Limits.Valkey.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Identity/Frappe.Identity.Http/Frappe.Identity.Http.csproj" />
+    <ProjectReference Include="../../../../src/Modules/Identity/Frappe.Identity/Frappe.Identity.csproj" />
     <ProjectReference Include="../../../Shared/Frappe.Testing/Frappe.Testing.csproj" />
   </ItemGroup>
   <ItemGroup>

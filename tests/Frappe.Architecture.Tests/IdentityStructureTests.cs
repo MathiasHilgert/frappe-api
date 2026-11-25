@@ -28,7 +28,7 @@ public sealed class IdentityStructureTests
     private static readonly string[] OwnersNamespaces = [.. Layers.Select(layer => $"Frappe.Identity.{layer}.Owners")];
 
     private static readonly Assembly Domain = typeof(Frappe.Identity.Domain.Owners.Owner).Assembly;
-    private static readonly Assembly Infrastructure = typeof(Frappe.Identity.Infrastructure.IdentityModule).Assembly;
+    private static readonly Assembly Infrastructure = typeof(Frappe.Identity.Infrastructure.IdentityCoreServices).Assembly;
 
     private static Assembly[] IdentityAssemblies() =>
     [

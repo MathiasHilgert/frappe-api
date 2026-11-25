@@ -86,7 +86,7 @@ internal sealed class OwnersHost : IAsyncDisposable
             ["Identity:Codes:Key"] = "bG9jYWwtb25seS1jb2RlLWhhc2gta2V5LW9mLTM2LWJ5dGVzIQ==",
         }).Build());
         services.AddSingleton<TimeProvider>(time);
-        new IdentityModule().AddServices(services);
+        new IdentityCoreServices().AddServices(services);
         services.AddCodes();
         services.AddSessions();
         services.AddOwners();

@@ -2,7 +2,6 @@ using System.Text.Json.Serialization;
 using Frappe.Caching;
 using Frappe.Http;
 using Frappe.Http.OpenApi;
-using Frappe.Identity.Http.Sessions;
 using Frappe.Modules;
 using Frappe.Observability;
 using Frappe.Observability.Hosting;
@@ -92,10 +91,11 @@ public static class ApiComposition
             // Forwarded headers come first inside, so the rate limiter and the logs see the client behind a trusted proxy.
             app.UseFrappeHttp();
 
-            // Authentication, then the console origin check for what the session cookie carries, then authorization: the origin answer
+            // Authentication, then the console origin check for the browser credentials the modules registered (Identity's session
+            // cookie), then authorization: the origin answer
             // outweighs a 401, and a bearer request is never origin-checked (SEC-03).
             app.UseAuthentication();
-            app.UseConsoleOriginCheck(IdentitySessionCookie.IsCarriedBy);
+            app.UseConsoleOriginCheck();
             app.UseAuthorization();
             app.MapFrappeHealth();
             app.MapOpenApi().AnswerHead();

@@ -156,13 +156,14 @@ public sealed class WorkerCompositionTests
         // Assert
         using (Assert.Multiple())
         {
-            await Assert.That(Frappe.Worker.Modules.All).Contains(Frappe.Access.AccessModule.Worker);
+            await Assert.That(Frappe.Worker.Modules.All)
+                .Contains(Frappe.Access.AccessModule.Worker).And.Contains(Frappe.Identity.IdentityModule.Worker);
             await Assert.That(Frappe.Worker.Modules.All
-                    .Where(module => module != Frappe.Access.AccessModule.Worker)
+                    .Where(module => module != Frappe.Access.AccessModule.Worker && module != Frappe.Identity.IdentityModule.Worker)
                     .Select(module => module.GetType().Name))
                 .IsEquivalentTo(
                 [
-                    "IdentityModule", "IdentityWorkerModule", "NotificationsModule",
+                    "NotificationsModule",
                     "NotificationsWorkerModule", "AccountKindsModule",
                     "MarketingKindsModule", "IdentityProducerModule", "EmailChannelWorkerModule",
                 ]);
@@ -187,6 +188,27 @@ public sealed class WorkerCompositionTests
         {
             await Assert.That(host.Services.GetServices<Microsoft.AspNetCore.Routing.EndpointDataSource>()).IsEmpty();
             await Assert.That(host.Services.GetService<Frappe.Http.ErrorMessageCatalog>()).IsNull();
+        }
+    }
+
+    [Test]
+    public async Task The_Worker_with_its_real_module_lists_registers_no_attempt_limiter_and_purges_the_identity_messages()
+    {
+        // Arrange
+        // The Identity door loads its Valkey limits in the Worker too (S1); only the Api counts attempts. The message purge the Worker used
+        // to register itself comes from the door now.
+        using var host = Build(Deployed);
+
+        // Act
+        await ValidateAsync(host);
+        var identityPurge = host.Services.GetRequiredService<IServiceProviderIsService>()
+            .IsService(Type.GetType("Frappe.Identity.Infrastructure.Retention.IMessagePurge, Frappe.Identity.Infrastructure", throwOnError: true)!);
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(host.Services.GetServices<Frappe.Identity.Application.Limits.IAttemptLimiter>()).IsEmpty();
+            await Assert.That(identityPurge).IsTrue();
         }
     }
 

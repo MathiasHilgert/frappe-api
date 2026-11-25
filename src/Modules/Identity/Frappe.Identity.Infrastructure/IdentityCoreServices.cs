@@ -12,9 +12,10 @@ namespace Frappe.Identity.Infrastructure;
 
 /// <summary>
 /// The services of the Identity module in every host: its database under the platform's limits, with the outbox that stages the module's
-/// integration events in the same transaction as its data. What only the Worker runs is <see cref="IdentityWorkerModule"/>.
+/// integration events in the same transaction as its data. Composed by the door (<c>IdentityModule</c>);
+/// what only the Api runs is <see cref="IdentityApiServices"/>, what only the Worker runs is <see cref="IdentityWorkerServices"/>.
 /// </summary>
-public sealed class IdentityModule : IModule
+public sealed class IdentityCoreServices : IModule
 {
     /// <summary>The lower-case module name of its namespaces (<c>Frappe.Identity.*</c>), also its connection string name.</summary>
     internal const string Name = "identity";

@@ -47,7 +47,6 @@ public static class WorkerComposition
             }
 
             builder.Services.AddSingleton<IMessagePurge, NotificationsMessagePurge>();
-            builder.Services.AddSingleton<Frappe.Identity.Infrastructure.Retention.IMessagePurge, IdentityMessagePurge>();
             return builder;
         }
     }
