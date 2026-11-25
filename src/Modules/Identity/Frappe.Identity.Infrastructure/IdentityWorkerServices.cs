@@ -14,16 +14,16 @@ namespace Frappe.Identity.Infrastructure;
 /// <summary>
 /// What only the Worker runs for Identity: the relay of its outbox, the purge of its messages and the daily retention job (S16): the sweep of ended
 /// sessions and the purge of stale data. The relay and the message purge are declared through the broker-free messaging abstractions, so
-/// listing this module in a host without a transport records the declarations and runs nothing.
+/// composing it in a host without a transport records the declarations and runs nothing; the door's <c>IdentityModule.Worker</c> composes it.
 /// </summary>
-public sealed class IdentityWorkerModule : IModule
+public sealed class IdentityWorkerServices : IModule
 {
     /// <inheritdoc />
     public void AddServices(IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
-        services.AddOutboxRelay<IdentityDbContext>(IdentityModule.Name);
-        services.AddMessagePurge<IdentityDbContext>(IdentityModule.Name);
+        services.AddOutboxRelay<IdentityDbContext>(IdentityCoreServices.Name);
+        services.AddMessagePurge<IdentityDbContext>(IdentityCoreServices.Name);
         AddRetention(services);
     }
 

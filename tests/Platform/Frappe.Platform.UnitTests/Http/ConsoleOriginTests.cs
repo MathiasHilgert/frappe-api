@@ -269,6 +269,40 @@ public sealed class ConsoleOriginTests
     }
 
     [Test]
+    public async Task Without_a_predicate_the_check_asks_every_browser_credential_the_modules_registered()
+    {
+        // Arrange
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseTestServer();
+        builder.Logging.ClearProviders();
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> { [Key] = "https://app.frappe.la" });
+        builder.Services.AddSingleton<IRateLimitStore, AllowAllRateLimitStore>();
+        builder.Services.AddFrappeHttp().AddErrorMessages(PlatformTestMessages.Assembly);
+        builder.Services.AddSingleton<IBrowserCredential>(new HeaderCredential("X-Cookie"));
+        builder.Services.AddSingleton<IBrowserCredential>(new HeaderCredential("X-Other-Cookie"));
+        await using var app = builder.Build();
+        app.UseFrappeHttp();
+        app.UseConsoleOriginCheck();
+        app.MapPost("/v1/thing", () => "done");
+        await app.StartAsync();
+
+        // Act
+        using var first = await SendAsync(app, "POST", ("X-Cookie", "1"), ("Origin", "https://evil.example"));
+        using var second = await SendAsync(app, "POST", ("X-Other-Cookie", "1"), ("Origin", "https://evil.example"));
+        using var none = await SendAsync(app, "POST", ("Origin", "https://evil.example"));
+        using var console = await SendAsync(app, "POST", ("X-Cookie", "1"), ("Origin", "https://app.frappe.la"));
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(first.StatusCode).IsEqualTo(HttpStatusCode.Forbidden);
+            await Assert.That(second.StatusCode).IsEqualTo(HttpStatusCode.Forbidden);
+            await Assert.That(none.StatusCode).IsEqualTo(HttpStatusCode.OK);
+            await Assert.That(console.StatusCode).IsEqualTo(HttpStatusCode.OK);
+        }
+    }
+
+    [Test]
     [Arguments(OriginRefusal.Missing, "missing")]
     [Arguments(OriginRefusal.NotAllowed, "not_allowed")]
     public async Task Each_refusal_has_its_own_tag_and_one_without_a_tag_is_a_bug(OriginRefusal refusal, string tag)
@@ -383,5 +417,11 @@ public sealed class ConsoleOriginTests
         public ConcurrentQueue<(string Name, long Value, string Tags)> Measurements { get; } = new();
 
         public void Dispose() => _listener.Dispose();
+    }
+
+    /// <summary>A browser credential a module could register: a request carries it when it has header <paramref name="name"/>.</summary>
+    private sealed class HeaderCredential(string name) : IBrowserCredential
+    {
+        public bool IsCarriedBy(HttpContext httpContext) => httpContext.Request.Headers.ContainsKey(name);
     }
 }

@@ -19,10 +19,8 @@ public sealed class ModuleDoorTests
             .Order(StringComparer.Ordinal),
     ];
 
-    /// <summary>
-    /// The modules whose hosts still list their facets: Identity moves behind its door in T2, Notifications in T3, which remove them here.
-    /// </summary>
-    private static readonly string[] NotYetBehindADoor = ["Identity", "Notifications"];
+    /// <summary>The modules whose hosts still list their facets: Notifications moves behind its door in T3, which removes it here.</summary>
+    private static readonly string[] NotYetBehindADoor = ["Notifications"];
 
     private static readonly string[] Doors = [.. AllModules.Except(NotYetBehindADoor).Select(module => $"Frappe.{module}")];
 
@@ -56,7 +54,7 @@ public sealed class ModuleDoorTests
         using (Assert.Multiple())
         {
             await Assert.That(offenders).IsEmpty().Because($"{host} names a module past its door: {string.Join(", ", offenders)}");
-            await Assert.That(references).Contains("Frappe.Access");
+            await Assert.That(references).Contains("Frappe.Access").And.Contains("Frappe.Identity");
         }
     }
 
@@ -64,11 +62,11 @@ public sealed class ModuleDoorTests
     public async Task The_rule_can_see_a_host_that_names_a_module_past_its_door()
     {
         // Act
-        // Positive control: the Api still names Identity's projects until T2, so the same check must find them.
-        var seen = PastTheDoor(Host("Api"), ["Identity"]);
+        // Positive control: the Api still names Notifications' projects until T3, so the same check must find them.
+        var seen = PastTheDoor(Host("Api"), ["Notifications"]);
 
         // Assert
-        await Assert.That(seen).Contains("Frappe.Identity.Http");
+        await Assert.That(seen).Contains("Frappe.Notifications.Http");
     }
 
     [Test]

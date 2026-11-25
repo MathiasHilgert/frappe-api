@@ -3,7 +3,7 @@
     <InternalsVisibleTo Include="Frappe.Identity.UnitTests" />
     <InternalsVisibleTo Include="Frappe.Identity.IntegrationTests" />
     <InternalsVisibleTo Include="Frappe.Api.IntegrationTests" />
-    <InternalsVisibleTo Include="Frappe.Worker" />
+    <InternalsVisibleTo Include="Frappe.Identity" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Frappe.Identity.Domain/Frappe.Identity.Domain.csproj" />

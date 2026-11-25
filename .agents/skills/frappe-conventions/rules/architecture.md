@@ -124,11 +124,13 @@ module's data: see `criteria`.
   names another module's door, a module never registers another module, nor reads host configuration outside its own section.
 - **Why:** each host decides what runs where and reads a module from one file; adding a module is one line per host. The Worker loads the door's
   Http project without mapping it.
-- **Enforced by:** `ModuleDoorTests` (hosts name only doors, a door exposes only `<M>Module`, no door references another door; Identity and
-  Notifications allow-listed until they get their doors), `WorkerCompositionTests` (the Worker maps no endpoint), `HostReferenceTests` (the
-  Migrator never references ASP.NET Core); review.
-- **Good:** `Endpoints = [AccessModule.Api, ...]` in the Api and `All = [AccessModule.Worker, ...]` in the Worker. **Bad:** a host listing
-  `new AccessCoreServices(), new AccessWorkerServices()` itself; `AccessModule` calling `IdentityModule.Worker.AddServices()`.
+- **Enforced by:** `ModuleDoorTests` (hosts name only doors, a door exposes only `<M>Module`, no door references another door; Notifications
+  allow-listed until it gets its door), `WorkerCompositionTests` (the Worker maps no endpoint and registers no attempt limiter),
+  `HostReferenceTests` (the Migrator never references ASP.NET Core), `<M>ModuleTests` (a door registers what its facets did); review.
+- **Good:** `Endpoints = [AccessModule.Api, IdentityModule.Api, ...]` in the Api and `All = [AccessModule.Worker, IdentityModule.Worker, ...]` in
+  the Worker; the Api's console origin check asks the `IBrowserCredential`s the modules registered (`IdentityHttp` registers the session
+  cookie), so the host names no module's credential. **Bad:** a host listing `new AccessCoreServices(), new AccessWorkerServices()` itself, or
+  registering a module's adapter (`IdentityMessagePurge` in `WorkerComposition`); `AccessModule` calling `IdentityModule.Worker.AddServices()`.
 - **Status:** in force.
 
 ## ARCH-12 · Modules emit no spans or exporters; business metrics only

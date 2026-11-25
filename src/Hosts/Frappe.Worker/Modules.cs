@@ -1,5 +1,5 @@
 using Frappe.Access;
-using Frappe.Identity.Infrastructure;
+using Frappe.Identity;
 using Frappe.Modules;
 using Frappe.Notifications.Channels.Email;
 using Frappe.Notifications.Infrastructure;
@@ -16,8 +16,7 @@ public static class Modules
     public static IReadOnlyCollection<IModule> All { get; } =
     [
         AccessModule.Worker,
-        new IdentityModule(),
-        new IdentityWorkerModule(),
+        IdentityModule.Worker,
         new NotificationsModule(),
         new NotificationsWorkerModule(),
         new AccountKindsModule(),

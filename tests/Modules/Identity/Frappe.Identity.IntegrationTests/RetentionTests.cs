@@ -475,8 +475,8 @@ public sealed class RetentionTests(PostgresServer server)
             services.AddLogging();
             services.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection(settings).Build());
             services.AddSingleton<TimeProvider>(new FakeTimeProvider(Start));
-            new IdentityModule().AddServices(services);
-            new IdentityWorkerModule().AddServices(services);
+            new IdentityCoreServices().AddServices(services);
+            new IdentityWorkerServices().AddServices(services);
             if (messages is not null)
             {
                 services.AddSingleton<IMessagePurge>(messages);

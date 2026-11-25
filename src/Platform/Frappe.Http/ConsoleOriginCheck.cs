@@ -20,6 +20,17 @@ public static class ConsoleOriginCheck
     extension(IApplicationBuilder app)
     {
         /// <summary>
+        /// Adds the check for the browser credentials the modules registered (<see cref="IBrowserCredential"/>): a request carries one when
+        /// any of them says so. Call it after authentication and before authorization, so its answer outweighs a 401.
+        /// </summary>
+        public IApplicationBuilder UseConsoleOriginCheck()
+        {
+            ArgumentNullException.ThrowIfNull(app);
+            IBrowserCredential[] credentials = [.. app.ApplicationServices.GetServices<IBrowserCredential>()];
+            return app.UseConsoleOriginCheck(httpContext => credentials.Any(credential => credential.IsCarriedBy(httpContext)));
+        }
+
+        /// <summary>
         /// Adds the check; <paramref name="carriesBrowserCredential"/> says whether a request carries a credential the browser
         /// attaches on its own. Call it after authentication and before authorization, so its answer outweighs a 401.
         /// </summary>

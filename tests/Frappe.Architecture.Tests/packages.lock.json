@@ -683,9 +683,7 @@
           "Frappe.Access": "[1.0.0, )",
           "Frappe.Caching": "[1.0.0, )",
           "Frappe.Http": "[1.0.0, )",
-          "Frappe.Identity.Http": "[1.0.0, )",
-          "Frappe.Identity.Infrastructure": "[1.0.0, )",
-          "Frappe.Identity.Limits.Valkey": "[1.0.0, )",
+          "Frappe.Identity": "[1.0.0, )",
           "Frappe.Modules": "[1.0.0, )",
           "Frappe.Notifications.Http": "[1.0.0, )",
           "Frappe.Notifications.Infrastructure": "[1.0.0, )",
@@ -725,6 +723,15 @@
           "Frappe.Modules": "[1.0.0, )",
           "Frappe.UseCases": "[1.0.0, )",
           "Microsoft.AspNetCore.OpenApi": "[11.0.0, )"
+        }
+      },
+      "frappe.identity": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Identity.Http": "[1.0.0, )",
+          "Frappe.Identity.Infrastructure": "[1.0.0, )",
+          "Frappe.Identity.Limits.Valkey": "[1.0.0, )",
+          "Frappe.Messaging": "[1.0.0, )"
         }
       },
       "frappe.identity.application": {
@@ -982,7 +989,7 @@
           "Frappe.Access": "[1.0.0, )",
           "Frappe.Caching": "[1.0.0, )",
           "Frappe.Health": "[1.0.0, )",
-          "Frappe.Identity.Infrastructure": "[1.0.0, )",
+          "Frappe.Identity": "[1.0.0, )",
           "Frappe.Messaging": "[1.0.0, )",
           "Frappe.Modules": "[1.0.0, )",
           "Frappe.Notifications.Channels.Email": "[1.0.0, )",

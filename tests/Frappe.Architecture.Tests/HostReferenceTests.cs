@@ -182,18 +182,15 @@ public sealed class HostReferenceTests
     }
 
     [Test]
-    public async Task The_Worker_runs_identity_without_its_web_layer_and_without_the_valkey_limits_only_the_Api_has()
+    public async Task The_Worker_runs_identity_through_its_door()
     {
         // Act
         var closure = Closure(Worker).Keys;
 
         // Assert
-        using (Assert.Multiple())
-        {
-            await Assert.That(closure).Contains("Frappe.Identity.Infrastructure");
-            await Assert.That(closure).DoesNotContain("Frappe.Identity.Http");
-            await Assert.That(closure).DoesNotContain("Frappe.Identity.Limits.Valkey");
-        }
+        // The door loads Frappe.Identity.Http and the Valkey limits in the Worker too (S1); that the Worker maps no endpoint and registers no
+        // attempt limiter is WorkerCompositionTests' check.
+        await Assert.That(closure).Contains("Frappe.Identity.Infrastructure").And.Contains("Frappe.Identity");
     }
 
     [Test]

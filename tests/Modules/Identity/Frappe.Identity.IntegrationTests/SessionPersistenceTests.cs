@@ -44,7 +44,7 @@ public sealed class SessionPersistenceTests(PostgresServer server)
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["ConnectionStrings:Identity"] = owner }).Build());
         services.AddSingleton<TimeProvider>(time);
-        new IdentityModule().AddServices(services);
+        new IdentityCoreServices().AddServices(services);
         services.AddSessions();
         services.AddSingleton<IUseCaseGate, AllowAllUseCaseGate>();
         services.AddSingleton<IAuthorizer, AllowAllAuthorizer>();

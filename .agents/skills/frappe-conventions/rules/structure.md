@@ -22,7 +22,8 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
   plus plug-in packages (STR-04). Every module; no module invents a different layout.
 - **Why:** one shape to navigate; ArchTests and tools target every module the same way (same model for all: see `domain`, `cqrs`).
 - **Enforced by:** `ModuleDoorTests` (the door); module project-set ArchTest over `Frappe.slnx` (planned).
-- **Good:** `src/Modules/Access/` with `Frappe.Access` and its five layer projects. **Bad:** a module with no Contracts or Http project, or no door.
+- **Good:** `src/Modules/Access/` with `Frappe.Access` and its five layer projects; `src/Modules/Identity/` with `Frappe.Identity`, its five layer
+  projects and the plug-in `Limits/Frappe.Identity.Limits.Valkey`. **Bad:** a module with no Contracts or Http project, or no door.
 - **Status:** in force.
 
 ## STR-02 · Application is organized by feature, then one folder per use case
@@ -106,13 +107,13 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 
 ## STR-10 · `InternalsVisibleTo` only toward the module's own test projects
 
-- **Rule:** declare it only as `<InternalsVisibleTo>` in the csproj, only toward the same module's (or platform's) test projects; never toward another
-  production assembly, never as an `[assembly:]` attribute.
-- **Why:** internals stay internal; a production consumer must go through a public contract.
+- **Rule:** declare it only as `<InternalsVisibleTo>` in the csproj, only toward the same module's (or platform's) test projects and, from
+  Infrastructure, toward the module's own door `Frappe.<M>` (STR-11), which joins internal ports to what Infrastructure may not reference; never
+  toward a host or another production assembly, never as an `[assembly:]` attribute.
+- **Why:** internals stay internal; a production consumer must go through a public contract, and the door is part of the module.
 - **Enforced by:** csproj ArchTest (planned).
-- **Good:** `Frappe.Orders.Infrastructure.csproj` → `Frappe.Orders.UnitTests`, `Frappe.Orders.IntegrationTests`. **Bad:**
-  `Frappe.Orders.Infrastructure` →
-  `Frappe.Orders.Global`.
+- **Good:** `Frappe.Identity.Infrastructure.csproj` → `Frappe.Identity.UnitTests`, `Frappe.Identity.IntegrationTests` and `Frappe.Identity` (its
+  `IdentityMessagePurge` implements the internal `IMessagePurge`). **Bad:** `Frappe.Identity.Infrastructure` → `Frappe.Worker`.
 - **Status:** in force.
 
 ## STR-11 · Each layer exposes its host facet from one fixed class
@@ -126,7 +127,8 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
   `IModule`, composed by the door. Handlers are registered by `AddHandlers(assembly)`, never one by one.
 - **Why:** a module is read from one file, composition is found in one place per layer, and hosts list one entry per module (ARCH-11).
 - **Enforced by:** `ModuleDoorTests`, `LayeringTests`; review.
-- **Good:** `AccessModule.Worker = new ComposedModule(new AccessCoreServices(), new AccessWorkerServices())`. **Bad:** a host registering
+- **Good:** `AccessModule.Worker = new ComposedModule(new AccessCoreServices(), new AccessWorkerServices())`; `IdentityModule.Api` composing
+  `IdentityCoreServices`, `IdentityApiServices` and the plug-in `IdentityLimitsValkeyModule` before `IdentityHttp`. **Bad:** a host registering
   `AccessGate` itself, or listing `AccessCoreServices` next to `AccessModule.Api`.
 - **Status:** in force.
 

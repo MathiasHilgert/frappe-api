@@ -26,7 +26,7 @@ public sealed class LayeringTests
     private static readonly Assembly NotificationsHttp = typeof(Frappe.Notifications.Http.NotificationsHttp).Assembly;
     private static readonly Assembly NotificationsInfrastructure = typeof(Frappe.Notifications.Infrastructure.NotificationsModule).Assembly;
     private static readonly Assembly IdentityHttp = typeof(Frappe.Identity.Http.IdentityHttp).Assembly;
-    private static readonly Assembly IdentityInfrastructure = typeof(Frappe.Identity.Infrastructure.IdentityModule).Assembly;
+    private static readonly Assembly IdentityInfrastructure = typeof(Frappe.Identity.Infrastructure.IdentityCoreServices).Assembly;
     private static readonly Assembly AccessHttp = typeof(Frappe.Access.Http.AccessHttp).Assembly;
     private static readonly Assembly AccessInfrastructure = typeof(Frappe.Access.Infrastructure.AccessCoreServices).Assembly;
 
@@ -182,6 +182,7 @@ public sealed class LayeringTests
     }
 
     [Test]
+    [Arguments("Frappe.Identity")]
     [Arguments("Frappe.Identity.Domain")]
     [Arguments("Frappe.Identity.Application")]
     [Arguments("Frappe.Identity.Contracts")]
