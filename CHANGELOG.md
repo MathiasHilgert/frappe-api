@@ -1,5 +1,51 @@
 # Changelog
 
+## [0.5.0](https://github.com/MathiasHilgert/frappe-api/compare/v0.4.1...v0.5.0) (2026-11-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* **identity:** authorize sessions through access and rename denial codes ([#65](https://github.com/MathiasHilgert/frappe-api/issues/65))
+
+### Features
+
+* **access:** add the access module, its rules and the use-case gate ([#62](https://github.com/MathiasHilgert/frappe-api/issues/62)) ([f57d0e2](https://github.com/MathiasHilgert/frappe-api/commit/f57d0e2743a495df4d7267e7c6a67a168a600354))
+* **access:** require every use case to declare who may run it ([#63](https://github.com/MathiasHilgert/frappe-api/issues/63)) ([d53e856](https://github.com/MathiasHilgert/frappe-api/commit/d53e856949e296dcd7de080d52242b9cddffe89d))
+* **identity:** authorize sessions through access and rename denial codes ([#65](https://github.com/MathiasHilgert/frappe-api/issues/65)) ([7c9abe3](https://github.com/MathiasHilgert/frappe-api/commit/7c9abe3ee5afe1bdba020f48d2d00857992892c2))
+
+
+### Refactoring
+
+* **access:** enter the access module through one AccessModule ([#74](https://github.com/MathiasHilgert/frappe-api/issues/74)) ([b2502c6](https://github.com/MathiasHilgert/frappe-api/commit/b2502c61e330fbbcd5841bb9b9ab71f6ea2a0100))
+* **identity:** enter the identity module through one IdentityModule ([#75](https://github.com/MathiasHilgert/frappe-api/issues/75)) ([7dba50a](https://github.com/MathiasHilgert/frappe-api/commit/7dba50a69b572d389babb7a737e4ff319409c3c7))
+* **identity:** take the caller from the session instead of command fields ([#64](https://github.com/MathiasHilgert/frappe-api/issues/64)) ([b666890](https://github.com/MathiasHilgert/frappe-api/commit/b66689095985669a23107260036d2d663d1111e8))
+* **modules:** move plug-ins to extensions with names that say what they do ([#78](https://github.com/MathiasHilgert/frappe-api/issues/78)) ([040eb3b](https://github.com/MathiasHilgert/frappe-api/commit/040eb3be0d0ef2ac6d66bd951518be56db9ce8cd))
+* **modules:** put each module's metrics in telemetry, one class per feature ([#79](https://github.com/MathiasHilgert/frappe-api/issues/79)) ([9213b2c](https://github.com/MathiasHilgert/frappe-api/commit/9213b2c615c27ab86e38ff572529efccacfbca36))
+* **notifications:** enter the notifications module through one NotificationsModule ([#76](https://github.com/MathiasHilgert/frappe-api/issues/76)) ([04f8b7d](https://github.com/MathiasHilgert/frappe-api/commit/04f8b7d302f50d6796b03d5e2f266c4cc666cc44))
+* **notifications:** finish the vocabulary rename and check module READMEs against code ([#90](https://github.com/MathiasHilgert/frappe-api/issues/90)) ([e653453](https://github.com/MathiasHilgert/frappe-api/commit/e653453008778c7b5f67a1ebb2ee0680ea41e52a))
+* **notifications:** name each feature the same in every layer ([#87](https://github.com/MathiasHilgert/frappe-api/issues/87)) ([720406b](https://github.com/MathiasHilgert/frappe-api/commit/720406bf98ac7cd4e2a6a41c1df2842612596d69))
+
+
+### Documentation
+
+* **conventions:** rewrite architecture and structure rules with this repo's modules ([#82](https://github.com/MathiasHilgert/frappe-api/issues/82)) ([f1bc5b6](https://github.com/MathiasHilgert/frappe-api/commit/f1bc5b61f4b42ac6338980d4f79fd586e8ec52a4))
+* **conventions:** rewrite domain, http, events, design and criteria rules with real examples ([#83](https://github.com/MathiasHilgert/frappe-api/issues/83)) ([a1d8082](https://github.com/MathiasHilgert/frappe-api/commit/a1d8082859b6a12b2030f5a61726d0798d9614d4))
+* **conventions:** rewrite the remaining rule cards with real examples ([#84](https://github.com/MathiasHilgert/frappe-api/issues/84)) ([3e0ff4c](https://github.com/MathiasHilgert/frappe-api/commit/3e0ff4cd034bf7ac5185a2f00c73a2ff9cc2f2fb))
+* **modules:** add a readme map per module ([#81](https://github.com/MathiasHilgert/frappe-api/issues/81)) ([636c6d9](https://github.com/MathiasHilgert/frappe-api/commit/636c6d91c61da95f82c6612f13ac369e41aaf1c4))
+
+
+### Build and dependencies
+
+* **analyzers:** enforce masked ToString, no EF retries and justified suppressions ([#70](https://github.com/MathiasHilgert/frappe-api/issues/70)) ([aed80cc](https://github.com/MathiasHilgert/frappe-api/commit/aed80cc1847c1edf85524ca6e73ce41b1a275325))
+* **scaffold:** add a crud recipe with entity and repository templates ([#69](https://github.com/MathiasHilgert/frappe-api/issues/69)) ([e15b2e0](https://github.com/MathiasHilgert/frappe-api/commit/e15b2e06765caf890795a5e91df129e8565b9381))
+
+
+### Continuous integration
+
+* **solution:** build the image only when a job that uses it runs ([#71](https://github.com/MathiasHilgert/frappe-api/issues/71)) ([b31eb51](https://github.com/MathiasHilgert/frappe-api/commit/b31eb516f7dc343ecff17d3a7269298fe040a339))
+* **solution:** run only the test suites a pull request can break ([#73](https://github.com/MathiasHilgert/frappe-api/issues/73)) ([e63d11d](https://github.com/MathiasHilgert/frappe-api/commit/e63d11d86f5828177ac67fae0f383cd7ed43de80))
+* **solution:** skip the end-to-end suite on pull requests, covered by bruno ([#72](https://github.com/MathiasHilgert/frappe-api/issues/72)) ([fd34420](https://github.com/MathiasHilgert/frappe-api/commit/fd3442015401eedb4d48a2ec7abbbaa0c210ca56))
+
 ## [0.4.1](https://github.com/MathiasHilgert/frappe-api/compare/v0.4.0...v0.4.1) (2026-11-24)
 
 
