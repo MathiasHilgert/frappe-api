@@ -581,7 +581,11 @@ jobs:
   e2e:
     name: App starts and responds
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.image != 'false' && needs.changes.outputs.has_e2e != 'false' }}
+    # Pushes to main only: on a pull request the Bruno job deploys the same image with the same hosts and checks what this suite
+    # checks (Migrator, readiness, OpenAPI, the app user), so this suite, the longest job of the run, is skipped there.
+    if: >-
+      ${{ !cancelled() && github.event_name != 'pull_request' && needs.changes.outputs.image != 'false' &&
+      needs.changes.outputs.has_e2e != 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -669,6 +673,24 @@ jobs:
           done
           echo "Timed out waiting for the Api" >&2
           exit 1
+      # What the end-to-end suite checks and the collection cannot see; that suite runs only on pushes to main.
+      - name: Check the deployed hosts
+        run: |
+          compose="docker compose -f deploy/compose.yaml"
+          [ "$($compose ps -a migrator --format '{{.ExitCode}}')" = 0 ] || { echo "The Migrator did not exit with 0" >&2; exit 1; }
+          sql() { $compose exec -T postgres psql -U frappe_owner -d frappe -tAc "$1"; }
+          [ "$(sql "SELECT count(*) FROM pg_roles WHERE rolname = 'frappe_scheduler'")" = 1 ] || { echo "No scheduler role" >&2; exit 1; }
+          [ "$(sql "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'quartz'")" -gt 0 ] \
+            || { echo "No scheduler tables" >&2; exit 1; }
+          for _ in $(seq 45); do
+            [ "$($compose ps worker --format '{{.Health}}')" = healthy ] && break
+            sleep 2
+          done
+          [ "$($compose ps worker --format '{{.Health}}')" = healthy ] || { echo "The Worker never became healthy" >&2; exit 1; }
+          for id in $($compose ps -aq migrator api worker); do
+            user=$(docker inspect --format '{{.Config.User}}' "$id")
+            [ "$user" = app ] || { echo "Container $id runs as '$user', not app" >&2; exit 1; }
+          done
       - name: Run the Bruno collection
         working-directory: tools/bruno
         run: npx -y @usebruno/cli@4.3.0 run --env Stack
