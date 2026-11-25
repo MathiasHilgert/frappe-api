@@ -6,9 +6,9 @@ using Frappe.Modules;
 using Frappe.Notifications.Application.Feedback;
 using Frappe.Notifications.Application.Ports;
 using Frappe.Notifications.Application.Requests.RecordProviderFeedback;
-using Frappe.Notifications.Channels.Email;
 using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Notifications.Http;
+using Frappe.Notifications.Senders.Email;
 using Frappe.Results;
 using Frappe.UseCases;
 using Microsoft.AspNetCore.Builder;
@@ -39,7 +39,7 @@ public sealed class NotificationsWebhookRouteTests
             settings[key] = value;
         }
 
-        return await ApiHost.StartAsync([new FakeModule(handler), new EmailChannelApiModule()], [new NotificationsHttp()], settings);
+        return await ApiHost.StartAsync([new FakeModule(handler), new EmailSenderApiModule()], [new NotificationsHttp()], settings);
     }
 
     private static HttpRequestMessage Signed(string body, string id = "msg_1", long? seconds = null, string? signature = null)

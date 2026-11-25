@@ -1,7 +1,7 @@
 using Frappe.Localization;
-using Frappe.Notifications.Channels.Email;
-using Frappe.Notifications.Kinds.Account;
-using Frappe.Notifications.Kinds.Marketing;
+using Frappe.Notifications.Messages.Account;
+using Frappe.Notifications.Messages.Marketing;
+using Frappe.Notifications.Senders.Email;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 

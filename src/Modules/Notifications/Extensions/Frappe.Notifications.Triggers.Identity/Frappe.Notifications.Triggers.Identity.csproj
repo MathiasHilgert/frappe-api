@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <InternalsVisibleTo Include="Frappe.Notifications.UnitTests" />
+    <InternalsVisibleTo Include="Frappe.Notifications.IntegrationTests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../Identity/Frappe.Identity.Contracts/Frappe.Identity.Contracts.csproj" />
+    <ProjectReference Include="../../Frappe.Notifications.Application/Frappe.Notifications.Application.csproj" />
+    <ProjectReference Include="../../Frappe.Notifications.Infrastructure/Frappe.Notifications.Infrastructure.csproj" />
+    <ProjectReference Include="../Frappe.Notifications.Messages.Account/Frappe.Notifications.Messages.Account.csproj" />
+    <ProjectReference Include="../../../../Platform/Frappe.Modules/Frappe.Modules.csproj" />
+  </ItemGroup>
+</Project>

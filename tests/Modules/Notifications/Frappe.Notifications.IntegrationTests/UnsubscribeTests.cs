@@ -9,7 +9,7 @@ using Frappe.Notifications.Domain.Preferences;
 using Frappe.Notifications.Infrastructure.Dispatching;
 using Frappe.Notifications.Infrastructure.Messaging;
 using Frappe.Notifications.Infrastructure.Persistence;
-using Frappe.Notifications.Kinds.Marketing;
+using Frappe.Notifications.Messages.Marketing;
 using Frappe.Persistence;
 using Frappe.Results;
 using Frappe.Testing;
@@ -210,7 +210,7 @@ public sealed class UnsubscribeTests(PostgresServer server)
             // Arrange: a first marketing send shows the recipient key the worker derives for the address; its token is what the email carries.
             await using var api = DispatchWorld.ForApi(owner);
             await using var worker = DispatchWorld.ForWorker(
-                owner, new Dictionary<string, string?>(), services => new MarketingKindsModule().AddServices(services));
+                owner, new Dictionary<string, string?>(), services => new MarketingMessagesModule().AddServices(services));
             using var capture = new MetricCapture(worker.Services.GetRequiredService<IMeterFactory>());
             await DispatchAsync(worker, "product_announcement", MarketingPayload);
             var stored = (string)(await ScratchDatabase.ScalarAsync(owner, "SELECT recipient_key FROM notifications.deliveries"))!;

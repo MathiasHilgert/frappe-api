@@ -1,9 +1,9 @@
-using Frappe.Notifications.Channels.Email;
 using Frappe.Notifications.Http;
 using Frappe.Notifications.Infrastructure;
-using Frappe.Notifications.Kinds.Account;
-using Frappe.Notifications.Kinds.Marketing;
-using Frappe.Notifications.Producers.Identity;
+using Frappe.Notifications.Messages.Account;
+using Frappe.Notifications.Messages.Marketing;
+using Frappe.Notifications.Senders.Email;
+using Frappe.Notifications.Triggers.Identity;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Frappe.Notifications.UnitTests;
@@ -44,9 +44,9 @@ public sealed class NotificationsModuleTests
         var facets = Registrations(services =>
         {
             new NotificationsCoreServices().AddServices(services);
-            new AccountKindsModule().AddServices(services);
-            new MarketingKindsModule().AddServices(services);
-            new EmailChannelApiModule().AddServices(services);
+            new AccountMessagesModule().AddServices(services);
+            new MarketingMessagesModule().AddServices(services);
+            new EmailSenderApiModule().AddServices(services);
             new NotificationsHttp().AddServices(services);
         });
 
@@ -70,10 +70,10 @@ public sealed class NotificationsModuleTests
         {
             new NotificationsCoreServices().AddServices(services);
             new NotificationsWorkerServices().AddServices(services);
-            new AccountKindsModule().AddServices(services);
-            new MarketingKindsModule().AddServices(services);
-            new IdentityProducerModule().AddServices(services);
-            new EmailChannelWorkerModule().AddServices(services);
+            new AccountMessagesModule().AddServices(services);
+            new MarketingMessagesModule().AddServices(services);
+            new IdentityTriggersModule().AddServices(services);
+            new EmailSenderWorkerModule().AddServices(services);
         });
 
         // Act

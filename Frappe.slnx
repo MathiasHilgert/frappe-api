@@ -45,7 +45,7 @@
     <Project Path="src/Modules/Identity/Frappe.Identity.Contracts/Frappe.Identity.Contracts.csproj" />
     <Project Path="src/Modules/Identity/Frappe.Identity.Infrastructure/Frappe.Identity.Infrastructure.csproj" />
     <Project Path="src/Modules/Identity/Frappe.Identity.Http/Frappe.Identity.Http.csproj" />
-    <Project Path="src/Modules/Identity/Limits/Frappe.Identity.Limits.Valkey/Frappe.Identity.Limits.Valkey.csproj" />
+    <Project Path="src/Modules/Identity/Extensions/Frappe.Identity.Limits.Valkey/Frappe.Identity.Limits.Valkey.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Notifications/">
     <Project Path="src/Modules/Notifications/Frappe.Notifications/Frappe.Notifications.csproj" />
@@ -54,10 +54,10 @@
     <Project Path="src/Modules/Notifications/Frappe.Notifications.Contracts/Frappe.Notifications.Contracts.csproj" />
     <Project Path="src/Modules/Notifications/Frappe.Notifications.Infrastructure/Frappe.Notifications.Infrastructure.csproj" />
     <Project Path="src/Modules/Notifications/Frappe.Notifications.Http/Frappe.Notifications.Http.csproj" />
-    <Project Path="src/Modules/Notifications/Channels/Frappe.Notifications.Channels.Email/Frappe.Notifications.Channels.Email.csproj" />
-    <Project Path="src/Modules/Notifications/Kinds/Frappe.Notifications.Kinds.Account/Frappe.Notifications.Kinds.Account.csproj" />
-    <Project Path="src/Modules/Notifications/Kinds/Frappe.Notifications.Kinds.Marketing/Frappe.Notifications.Kinds.Marketing.csproj" />
-    <Project Path="src/Modules/Notifications/Producers/Frappe.Notifications.Producers.Identity/Frappe.Notifications.Producers.Identity.csproj" />
+    <Project Path="src/Modules/Notifications/Extensions/Frappe.Notifications.Senders.Email/Frappe.Notifications.Senders.Email.csproj" />
+    <Project Path="src/Modules/Notifications/Extensions/Frappe.Notifications.Messages.Account/Frappe.Notifications.Messages.Account.csproj" />
+    <Project Path="src/Modules/Notifications/Extensions/Frappe.Notifications.Messages.Marketing/Frappe.Notifications.Messages.Marketing.csproj" />
+    <Project Path="src/Modules/Notifications/Extensions/Frappe.Notifications.Triggers.Identity/Frappe.Notifications.Triggers.Identity.csproj" />
   </Folder>
   <Folder Name="/eng/">
     <Project Path="eng/analyzers/Frappe.Analyzers/Frappe.Analyzers.csproj" />

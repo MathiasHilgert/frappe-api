@@ -1,8 +1,8 @@
 using System.Net;
 using Frappe.Localization;
 using Frappe.Notifications.Application.Channels;
-using Frappe.Notifications.Channels.Email;
 using Frappe.Notifications.Domain.Deliveries;
+using Frappe.Notifications.Senders.Email;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Polly.Timeout;

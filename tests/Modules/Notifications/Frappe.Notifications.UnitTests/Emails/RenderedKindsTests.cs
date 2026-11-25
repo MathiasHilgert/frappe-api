@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
-using Frappe.Notifications.Channels.Email;
-using Frappe.Notifications.Kinds.Account;
+using Frappe.Notifications.Messages.Account;
+using Frappe.Notifications.Senders.Email;
 using Frappe.Testing;
 
 namespace Frappe.Notifications.UnitTests.Emails;

@@ -132,7 +132,7 @@ module's data: see `criteria`.
   `All = [AccessModule.Worker, IdentityModule.Worker, NotificationsModule.Worker]` in the Worker; the Api's console origin check asks the
   `IBrowserCredential`s the modules registered (`IdentityHttp` registers the session cookie), so the host names no module's credential.
   **Bad:** a host listing `new AccessCoreServices(), new AccessWorkerServices()` itself, or registering a module's adapter
-  (`NotificationsMessagePurge` in `WorkerComposition`) or plug-in (`new EmailChannelWorkerModule()` in `All`); `AccessModule` calling
+  (`NotificationsMessagePurge` in `WorkerComposition`) or plug-in (`new EmailSenderWorkerModule()` in `All`); `AccessModule` calling
   `IdentityModule.Worker.AddServices()`.
 - **Status:** in force.
 
@@ -155,12 +155,12 @@ module's data: see `criteria`.
 
 ## ARCH-14 · Plug-in packages depend on their core, never the reverse
 
-- **Rule:** a plug-in package (region, source, producer) references its module's core and declares; the core never references a plug-in. Names follow
-  STR-04.
-- **Why:** adding a region or a producer adds a package; it never edits the core.
+- **Rule:** a plug-in package (message, sender, trigger) references its module's core and declares; the core never references a plug-in. Names and
+  folder (`Extensions/`) follow STR-04.
+- **Why:** adding a sender or a trigger adds a package; it never edits the core.
 - **Enforced by:** `LayeringTests.Source_packages_declare_and_never_reach_the_pipeline_or_the_database`, `Orders_core_never_knows_a_source_package`,
   `Mailing_core_knows_no_producer_module` (all planned: no Orders or Mailing module exists yet).
-- **Good:** `Frappe.Orders.Regions.Argentina` → Orders core. **Bad:** `OrdersModule` calling `AddArgentinaCalendar()`.
+- **Good:** `Frappe.Notifications.Senders.Email` → `Frappe.Notifications.Application`. **Bad:** `OrdersModule` calling `AddArgentinaCalendar()`.
 - **Status:** in force.
 
 ## ARCH-15 · Namespaces follow folders

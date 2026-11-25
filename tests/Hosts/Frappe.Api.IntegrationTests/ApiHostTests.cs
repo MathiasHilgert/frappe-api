@@ -7,11 +7,11 @@ using Frappe.Identity.Infrastructure;
 using Frappe.Identity.Limits.Valkey;
 using Frappe.Modules;
 using Frappe.Notifications;
-using Frappe.Notifications.Channels.Email;
 using Frappe.Notifications.Http;
 using Frappe.Notifications.Infrastructure;
-using Frappe.Notifications.Kinds.Account;
-using Frappe.Notifications.Kinds.Marketing;
+using Frappe.Notifications.Messages.Account;
+using Frappe.Notifications.Messages.Marketing;
+using Frappe.Notifications.Senders.Email;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
@@ -312,7 +312,7 @@ public sealed class ApiHostTests
         // Arrange
         // Before the door (S1) the Api listed Notifications' shared services, kinds and email webhooks first among its services, and
         // NotificationsHttp last among its endpoints. One entry per module moves those services after Access and Identity.
-        IModule[] facets = [new NotificationsCoreServices(), new AccountKindsModule(), new MarketingKindsModule(), new EmailChannelApiModule()];
+        IModule[] facets = [new NotificationsCoreServices(), new AccountMessagesModule(), new MarketingMessagesModule(), new EmailSenderApiModule()];
         IHttpModule[] http = [.. Modules.Endpoints.Select(module => module == NotificationsModule.Api ? new NotificationsHttp() : module)];
         var listed = Registrations(facets, http);
 

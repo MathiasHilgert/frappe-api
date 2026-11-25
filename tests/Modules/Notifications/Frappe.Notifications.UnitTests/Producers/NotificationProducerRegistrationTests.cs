@@ -1,7 +1,7 @@
 using Frappe.IntegrationEvents;
 using Frappe.Notifications.Application.Producers;
 using Frappe.Notifications.Infrastructure;
-using Frappe.Notifications.Kinds.Account;
+using Frappe.Notifications.Messages.Account;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Frappe.Notifications.UnitTests.Producers;

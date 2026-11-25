@@ -1,7 +1,7 @@
-using Frappe.Notifications.Channels.Email;
 using Frappe.Notifications.Infrastructure;
 using Frappe.Notifications.Infrastructure.Persistence;
-using Frappe.Notifications.Kinds.Account;
+using Frappe.Notifications.Messages.Account;
+using Frappe.Notifications.Senders.Email;
 using Frappe.Testing;
 using Frappe.Testing.Containers;
 using Frappe.UseCases;
@@ -42,11 +42,11 @@ internal sealed class DispatchWorld : IAsyncDisposable
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection(settings).Build());
         services.AddSingleton<IUseCaseGate, AllowAllUseCaseGate>();
         new NotificationsCoreServices().AddServices(services);
-        new AccountKindsModule().AddServices(services);
+        new AccountMessagesModule().AddServices(services);
         if (worker)
         {
             new NotificationsWorkerServices().AddServices(services);
-            new EmailChannelWorkerModule().AddServices(services);
+            new EmailSenderWorkerModule().AddServices(services);
         }
 
         configure?.Invoke(services);

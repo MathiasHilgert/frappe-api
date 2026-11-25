@@ -133,7 +133,7 @@ public sealed class LayeringTests
     public async Task The_Identity_producer_reaches_Identity_only_through_its_contracts_ARCH_05()
     {
         // Arrange
-        var producer = typeof(Frappe.Notifications.Producers.Identity.IdentityProducerModule).Assembly;
+        var producer = typeof(Frappe.Notifications.Triggers.Identity.IdentityTriggersModule).Assembly;
 
         // Act
         var identityReferences = producer.GetReferencedAssemblies()
@@ -150,14 +150,14 @@ public sealed class LayeringTests
     {
         // Arrange
         List<System.Reflection.Assembly> assemblies =
-            [NotificationsHttp, NotificationsInfrastructure, typeof(Frappe.Notifications.Kinds.Account.AccountKindsModule).Assembly];
+            [NotificationsHttp, NotificationsInfrastructure, typeof(Frappe.Notifications.Messages.Account.AccountMessagesModule).Assembly];
         for (var index = 0; index < assemblies.Count; index++)
         {
             foreach (var reference in assemblies[index].GetReferencedAssemblies())
             {
                 if (reference.Name is { } name
                     && name.StartsWith("Frappe.Notifications.", StringComparison.Ordinal)
-                    && !name.StartsWith("Frappe.Notifications.Producers.", StringComparison.Ordinal)
+                    && !name.StartsWith("Frappe.Notifications.Triggers.", StringComparison.Ordinal)
                     && assemblies.TrueForAll(known => known.GetName().Name != name))
                 {
                     assemblies.Add(System.Reflection.Assembly.Load(reference));
@@ -176,7 +176,7 @@ public sealed class LayeringTests
         using (Assert.Multiple())
         {
             await Assert.That(assemblies.Select(assembly => assembly.GetName().Name))
-                .Contains("Frappe.Notifications.Domain").And.Contains("Frappe.Notifications.Kinds.Account");
+                .Contains("Frappe.Notifications.Domain").And.Contains("Frappe.Notifications.Messages.Account");
             await Assert.That(identityReferences).IsEmpty();
         }
     }

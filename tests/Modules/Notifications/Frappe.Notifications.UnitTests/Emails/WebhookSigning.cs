@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using Frappe.Notifications.Application.Feedback;
-using Frappe.Notifications.Channels.Email;
+using Frappe.Notifications.Senders.Email;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 
