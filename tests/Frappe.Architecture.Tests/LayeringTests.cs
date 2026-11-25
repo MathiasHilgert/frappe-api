@@ -28,7 +28,7 @@ public sealed class LayeringTests
     private static readonly Assembly IdentityHttp = typeof(Frappe.Identity.Http.IdentityHttp).Assembly;
     private static readonly Assembly IdentityInfrastructure = typeof(Frappe.Identity.Infrastructure.IdentityModule).Assembly;
     private static readonly Assembly AccessHttp = typeof(Frappe.Access.Http.AccessHttp).Assembly;
-    private static readonly Assembly AccessInfrastructure = typeof(Frappe.Access.Infrastructure.AccessModule).Assembly;
+    private static readonly Assembly AccessInfrastructure = typeof(Frappe.Access.Infrastructure.AccessCoreServices).Assembly;
 
     /// <summary>Anything an inner layer must never know about.</summary>
     private static readonly string[] Infrastructure =
@@ -302,30 +302,18 @@ public sealed class LayeringTests
     }
 
     [Test]
-    public async Task The_Worker_serves_no_http_and_references_no_http_project()
+    public async Task The_Worker_serves_no_http_and_maps_no_http_module()
     {
         // Arrange
-        var closure = new HashSet<string>(StringComparer.Ordinal);
-        var pending = new Stack<Assembly>([Worker]);
-        while (pending.TryPop(out var assembly))
-        {
-            if (!closure.Add(assembly.GetName().Name!))
-            {
-                continue;
-            }
-
-            foreach (var reference in assembly.GetReferencedAssemblies().Where(r => r.Name!.StartsWith("Frappe.", StringComparison.Ordinal)))
-            {
-                pending.Push(System.Reflection.Assembly.Load(reference));
-            }
-        }
-
+        // A module's door loads its Http project in the Worker too (S1): what the Worker must never do is map it, so its own code names
+        // no type of Frappe.Http (no IHttpModule, no MapHttpModules). WorkerCompositionTests checks the composed Worker has no endpoint.
+        var http = Types.InAssembly(Worker).ShouldNot().HaveDependencyOn("Frappe.Http").GetResult();
         var web = Worker.GetReferencedAssemblies().Select(a => a.Name!).Where(n => n.StartsWith("Microsoft.AspNetCore", StringComparison.Ordinal));
 
         // Assert
         using (Assert.Multiple())
         {
-            await Assert.That(closure).DoesNotContain("Frappe.Http");
+            await AssertAsync(http, "The Worker names an HTTP module or maps endpoints");
             await Assert.That(web).IsEmpty();
         }
     }

@@ -144,10 +144,10 @@ public sealed class ApiHostTests
         using (Assert.Multiple())
         {
             await Assert.That(Modules.Services.Select(module => module.GetType().Name))
-                .Contains("NotificationsModule").And.Contains("IdentityModule").And.Contains("IdentityLimitsValkeyModule")
-                .And.Contains("AccessModule");
+                .Contains("NotificationsModule").And.Contains("IdentityModule").And.Contains("IdentityLimitsValkeyModule");
             await Assert.That(Modules.Endpoints.Select(module => module.GetType().Name))
-                .Contains("NotificationsHttp").And.Contains("IdentityHttp").And.Contains("AccessHttp");
+                .Contains("NotificationsHttp").And.Contains("IdentityHttp");
+            await Assert.That(Modules.Endpoints).Contains(Frappe.Access.AccessModule.Api);
             await Assert.That(live.StatusCode).IsEqualTo(HttpStatusCode.OK);
         }
     }

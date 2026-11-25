@@ -13,7 +13,7 @@ namespace Frappe.Access.Infrastructure;
 /// declare (<see cref="IRules"/>), and the decisions counter. The caller is not here: each host registers who its callers are (the Api from the
 /// session, the Worker as the system), and a host that registers none fails when it resolves a handler.
 /// </summary>
-public sealed class AccessModule : IModule
+public sealed class AccessCoreServices : IModule
 {
     /// <inheritdoc />
     public void AddServices(IServiceCollection services)

@@ -18,11 +18,11 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 
 ## STR-01 · Every module has the same project set
 
-- **Rule:** `src/Modules/<M>/` holds `Frappe.<M>.Domain`, `.Application`, `.Contracts`, `.Infrastructure`, `.Http`, plus plug-in packages (STR-04).
-  Every module, Mailing included; no module invents a different layout.
+- **Rule:** `src/Modules/<M>/` holds `Frappe.<M>` (the door, STR-11), `Frappe.<M>.Domain`, `.Application`, `.Contracts`, `.Infrastructure`, `.Http`,
+  plus plug-in packages (STR-04). Every module; no module invents a different layout.
 - **Why:** one shape to navigate; ArchTests and tools target every module the same way (same model for all: see `domain`, `cqrs`).
-- **Enforced by:** module project-set ArchTest over `Frappe.slnx` (planned).
-- **Good:** `src/Modules/<M>/` with its five projects. **Bad:** a module with no Contracts or Http project.
+- **Enforced by:** `ModuleDoorTests` (the door); module project-set ArchTest over `Frappe.slnx` (planned).
+- **Good:** `src/Modules/Access/` with `Frappe.Access` and its five layer projects. **Bad:** a module with no Contracts or Http project, or no door.
 - **Status:** in force.
 
 ## STR-02 · Application is organized by feature, then one folder per use case
@@ -117,14 +117,17 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 
 ## STR-11 · Each layer exposes its host facet from one fixed class
 
-- **Rule:** Infrastructure: `public sealed class <M>Module : IModule` and `<M>Database : IDatabaseModule`, with internal `<M>PersistenceRegistration`
-  behind them; an Infrastructure that runs in the Worker only (relay, consumers, senders, jobs) adds
-  `public sealed class <M>WorkerModule : IModule`, listed by the Worker alone, never by the Api or the Migrator;
-  Application: `<M>QueriesRegistration` (the `I<M>Queries` facade); Http: `public sealed class <M>Http : IHttpModule` with route mapping;
-  a plug-in: its own `IModule`. Handlers are registered by `AddHandlers(assembly)`, never one by one.
-- **Why:** composition is found in one place per layer, and hosts only list the facets (ARCH-11).
-- **Enforced by:** `LayeringTests`; review.
-- **Good:** `OrdersModule.AddServices(builder)` → `AddOrdersPersistence(...)`. **Bad:** a host registering `EfOrderCatalog` itself.
+- **Rule:** the door `Frappe.<M>` holds only `public static class <M>Module` with `Api` (an `IHttpModule`: the shared services, the Api-only
+  services, then `<M>Http`, through `ComposedHttpModule`) and `Worker` (an `IModule`: the shared services, then the Worker-only services, through
+  `ComposedModule`); it is the only thing a host names from the module (ARCH-11). Behind it, public facets that no host lists: Infrastructure
+  `public sealed class <M>CoreServices : IModule` (every host), `<M>ApiServices : IModule` and `<M>WorkerServices : IModule` (one host each),
+  `<M>Database : IDatabaseModule` (listed by the Migrator) with internal `<M>PersistenceRegistration` behind them; Application:
+  `<M>QueriesRegistration` (the `I<M>Queries` facade); Http: `public sealed class <M>Http : IHttpModule` with route mapping; a plug-in: its own
+  `IModule`, composed by the door. Handlers are registered by `AddHandlers(assembly)`, never one by one.
+- **Why:** a module is read from one file, composition is found in one place per layer, and hosts list one entry per module (ARCH-11).
+- **Enforced by:** `ModuleDoorTests`, `LayeringTests`; review.
+- **Good:** `AccessModule.Worker = new ComposedModule(new AccessCoreServices(), new AccessWorkerServices())`. **Bad:** a host registering
+  `AccessGate` itself, or listing `AccessCoreServices` next to `AccessModule.Api`.
 - **Status:** in force.
 
 ## STR-12 · No module rewrites the composed handler graph

@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The door of Access (S1): the only project a host names from the module. -->
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.Access.Infrastructure/Frappe.Access.Infrastructure.csproj" />
+    <ProjectReference Include="../Frappe.Access.Http/Frappe.Access.Http.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Worker">
   <ItemGroup>
-    <ProjectReference Include="../../Modules/Access/Frappe.Access.Infrastructure/Frappe.Access.Infrastructure.csproj" />
+    <ProjectReference Include="../../Modules/Access/Frappe.Access/Frappe.Access.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Caching/Frappe.Caching.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Health/Frappe.Health.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Modules/Frappe.Modules.csproj" />
@@ -18,4 +18,11 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" />
   </ItemGroup>
+  <!-- A module's door brings its Http project, and with it the OpenAPI source generator of Frappe.Http (S1). The Worker serves no HTTP
+       and writes no OpenAPI document: the generator stays out of its compilation, so the Worker's own code names no ASP.NET Core. -->
+  <Target Name="RemoveOpenApiSourceGenerator" AfterTargets="ResolveLockFileAnalyzers">
+    <ItemGroup>
+      <Analyzer Remove="@(Analyzer)" Condition="'%(Filename)' == 'Microsoft.AspNetCore.OpenApi.SourceGenerators'" />
+    </ItemGroup>
+  </Target>
 </Project>

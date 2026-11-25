@@ -1,5 +1,4 @@
-using Frappe.Access.Http;
-using Frappe.Access.Infrastructure;
+using Frappe.Access;
 using Frappe.Http;
 using Frappe.Identity.Http;
 using Frappe.Identity.Infrastructure;
@@ -19,7 +18,6 @@ public static class Modules
     /// <summary>The services of every module the Api hosts, in registration order.</summary>
     public static IReadOnlyCollection<IModule> Services { get; } =
     [
-        new AccessModule(),
         new IdentityModule(),
         new IdentityApiModule(),
         new IdentityLimitsValkeyModule(),
@@ -29,6 +27,8 @@ public static class Modules
         new EmailChannelApiModule(),
     ];
 
-    /// <summary>The HTTP facet of every module the Api serves: its services and its endpoints under <c>/v1</c>.</summary>
-    public static IReadOnlyCollection<IHttpModule> Endpoints { get; } = [new AccessHttp(), new IdentityHttp(), new NotificationsHttp()];
+    /// <summary>
+    /// The HTTP facet of every module the Api serves, or its door (<c>&lt;M&gt;Module.Api</c>): its services and its endpoints under <c>/v1</c>.
+    /// </summary>
+    public static IReadOnlyCollection<IHttpModule> Endpoints { get; } = [AccessModule.Api, new IdentityHttp(), new NotificationsHttp()];
 }

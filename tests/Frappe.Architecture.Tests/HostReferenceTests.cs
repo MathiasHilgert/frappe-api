@@ -166,17 +166,17 @@ public sealed class HostReferenceTests
     }
 
     [Test]
-    public async Task The_Worker_runs_access_without_its_web_layer_and_the_Api_serves_it_with_it()
+    public async Task The_Worker_runs_access_through_its_door_and_the_Api_serves_it_with_its_web_layer()
     {
         // Act
         var worker = Closure(Worker).Keys;
         var api = Closure(Api).Keys;
 
         // Assert
+        // The door loads Frappe.Access.Http in the Worker too (S1); that the Worker maps none of it is WorkerCompositionTests' check.
         using (Assert.Multiple())
         {
-            await Assert.That(worker).Contains("Frappe.Access.Infrastructure");
-            await Assert.That(worker).DoesNotContain("Frappe.Access.Http");
+            await Assert.That(worker).Contains("Frappe.Access.Infrastructure").And.Contains("Frappe.Access");
             await Assert.That(api).Contains("Frappe.Access.Infrastructure").And.Contains("Frappe.Access.Http");
         }
     }

@@ -31,6 +31,7 @@
     <Project Path="src/Hosts/Frappe.Worker/Frappe.Worker.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Access/">
+    <Project Path="src/Modules/Access/Frappe.Access/Frappe.Access.csproj" />
     <Project Path="src/Modules/Access/Frappe.Access.Domain/Frappe.Access.Domain.csproj" />
     <Project Path="src/Modules/Access/Frappe.Access.Application/Frappe.Access.Application.csproj" />
     <Project Path="src/Modules/Access/Frappe.Access.Contracts/Frappe.Access.Contracts.csproj" />

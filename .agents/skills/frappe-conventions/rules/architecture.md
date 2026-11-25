@@ -116,14 +116,19 @@ module's data: see `criteria`.
 
 ## ARCH-11 · Composition happens only in hosts, from explicit module lists
 
-- **Rule:** each host lists its modules in one `Modules.cs` and iterates that list through one entry point per host facet: `IModule` (services;
-  `Frappe.Modules`), `IHttpModule` (services + `MapEndpoints(v1)`; `Frappe.Http`) and `IDatabaseModule` (schema, role, migrations;
-  `Frappe.Persistence`). Modules are never discovered by assembly scanning (`AddHandlers(assembly)` inside a module stays allowed). A module never
-  registers another module nor reads host configuration outside its own section.
-- **Why:** each host decides what runs where and loads only the projects its facet needs; adding a module is one line per host.
-- **Enforced by:** `LayeringTests` (module table, hosts reference only their facets, Migrator never references ASP.NET Core); review.
-- **Good:** `Modules.Http = [new OrdersHttp()]` in the Api host. **Bad:** `OrdersModule.AddServices()` calling another module's `AddServices()`; a
-  host chaining `AddOrdersCore().AddOrdersHttp()` by hand.
+- **Rule:** each host lists its modules in one `Modules.cs`, one entry per module, and names nothing from a module but its door (STR-11):
+  `<M>Module.Api` (an `IHttpModule`, in the Api's `Endpoints`) and `<M>Module.Worker` (an `IModule`, in the Worker's `All`). The Migrator is the
+  exception: it lists `<M>Database : IDatabaseModule` from Infrastructure and stays without ASP.NET Core. The facets behind a door
+  (`IModule`, `Frappe.Modules`; `IHttpModule` with `MapEndpoints(v1)`, `Frappe.Http`) are composed only by the door, through `ComposedModule` and
+  `ComposedHttpModule`. Modules are never discovered by assembly scanning (`AddHandlers(assembly)` inside a module stays allowed). A door never
+  names another module's door, a module never registers another module, nor reads host configuration outside its own section.
+- **Why:** each host decides what runs where and reads a module from one file; adding a module is one line per host. The Worker loads the door's
+  Http project without mapping it.
+- **Enforced by:** `ModuleDoorTests` (hosts name only doors, a door exposes only `<M>Module`, no door references another door; Identity and
+  Notifications allow-listed until they get their doors), `WorkerCompositionTests` (the Worker maps no endpoint), `HostReferenceTests` (the
+  Migrator never references ASP.NET Core); review.
+- **Good:** `Endpoints = [AccessModule.Api, ...]` in the Api and `All = [AccessModule.Worker, ...]` in the Worker. **Bad:** a host listing
+  `new AccessCoreServices(), new AccessWorkerServices()` itself; `AccessModule` calling `IdentityModule.Worker.AddServices()`.
 - **Status:** in force.
 
 ## ARCH-12 · Modules emit no spans or exporters; business metrics only
