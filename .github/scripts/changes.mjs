@@ -90,11 +90,11 @@ export function matches(glob, path) {
 }
 
 /**
- * Every gated check runs, for the given reason.
+ * Every gated check runs, for the given reason; `everything` tells the caller not to narrow anything down either.
  * @param {string} reason
  */
 export function runEverything(reason) {
-  return { checks: Object.fromEntries(Object.keys(CHECKS).map((check) => [check, true])), reason };
+  return { checks: Object.fromEntries(Object.keys(CHECKS).map((check) => [check, true])), reason, everything: true };
 }
 
 /**

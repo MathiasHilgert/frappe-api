@@ -68,8 +68,11 @@ jobs:
           script: |
             const { pathToFileURL } = require('node:url');
             const { decide, runEverything } = await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/.github/scripts/changes.mjs`));
+            const { loadProjects, scope } = await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/.github/scripts/affected.mjs`));
             const pr = context.payload.pull_request;
             let result;
+            // Which unit and integration suites run (affected.mjs): '*' for all of them, or a JSON list of suite directories.
+            let suites = '*';
             if (!pr) {
               result = runEverything(`${context.eventName} is not a pull request`);
             } else {
@@ -78,6 +81,10 @@ jobs:
                 const files = await github.paginate(github.rest.pulls.listFiles, { ...context.repo, pull_number: pr.number, per_page: 100 });
                 const paths = files.flatMap((file) => [file.filename, file.previous_filename].filter(Boolean));
                 result = decide(paths, { complete: files.length === pr.changed_files });
+                if (result.checks.tests && !result.everything) {
+                  const selected = scope(loadProjects(process.env.GITHUB_WORKSPACE), paths);
+                  suites = selected === '*' ? '*' : JSON.stringify(selected);
+                }
               } catch (error) {
                 core.warning(`Could not list the changed files, so every check runs: ${error.message}`);
                 result = runEverything(`the changed files could not be listed (${error.message})`);
@@ -87,18 +94,24 @@ jobs:
               core.setOutput(check, String(runs));
               return [check, runs ? 'runs' : 'skipped'];
             });
+            core.setOutput('suites', suites);
             await core.summary
               .addHeading('Checks this change can affect', 3)
               .addRaw(`Why: ${result.reason}.`, true)
               .addTable([[{ data: 'Group', header: true }, { data: 'Outcome', header: true }], ...rows])
+              .addRaw(`Unit and integration suites: ${suites === '*' ? 'all' : JSON.parse(suites).join(', ') || 'none'}.`, true)
               .write();
       - name: Find what there is to check
         id: subjects
+        env:
+          SUITES: ${{ steps.decide.outputs.suites }}
         run: |
-          # One matrix entry per test project: its directory, and the name its coverage report gets.
+          # One matrix entry per test project the change can break (SUITES, from affected.mjs; '*' is all of them): its
+          # directory, and the name its coverage report gets.
           suites() {
             { find tests -name "$1" -not -path '*/obj/*' -not -path '*/bin/*' 2> /dev/null || true; } | sort \
-              | jq -R '{project: (split("/")[:-1] | join("/")), report: (split("/")[-1] | sub("\\.csproj$"; ""))}' | jq -sc '.'
+              | jq -R '{project: (split("/")[:-1] | join("/")), report: (split("/")[-1] | sub("\\.csproj$"; ""))}' \
+              | jq -sc --arg suites "${SUITES:-*}" 'if $suites == "*" then . else ($suites | fromjson) as $s | map(select(.project as $p | $s | index($p))) end'
           }
           exists() { if [ -n "$({ find "$@" 2> /dev/null || true; } | head -n 1)" ]; then echo true; else echo false; fi; }
           unit=$(suites '*.UnitTests.csproj')

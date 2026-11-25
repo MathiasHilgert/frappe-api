@@ -149,5 +149,12 @@ test('an incomplete or empty file list runs everything', () => {
 });
 
 test('running everything names its reason', () => {
-  assert.deepEqual(runEverything('not a pull request'), { checks: all, reason: 'not a pull request' });
+  assert.deepEqual(runEverything('not a pull request'), { checks: all, reason: 'not a pull request', everything: true });
+});
+
+test('running everything is marked, so the suites are not narrowed down either', () => {
+  assert.equal(decide([], { complete: true }).everything, true);
+  assert.equal(decide(['README.md'], { complete: false }).everything, true);
+  assert.equal(decide(['.github/workflows/ci.yml'], { complete: true }).everything, true);
+  assert.equal(decide(['src/Modules/Orders/Order.cs'], { complete: true }).everything, undefined);
 });
