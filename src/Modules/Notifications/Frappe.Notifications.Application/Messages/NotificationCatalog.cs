@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace Frappe.Notifications.Application.Kinds;
+namespace Frappe.Notifications.Application.Messages;
 
 /// <summary>
 /// Every notification kind the host knows, by name. Building it checks what a typo would break later: kind names are unique and lower

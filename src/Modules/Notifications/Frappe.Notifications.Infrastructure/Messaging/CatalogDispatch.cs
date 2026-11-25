@@ -1,6 +1,6 @@
 using System.Text.Json;
 using Frappe.Notifications.Application.Deliveries;
-using Frappe.Notifications.Application.Kinds;
+using Frappe.Notifications.Application.Messages;
 using Frappe.Results;
 
 namespace Frappe.Notifications.Infrastructure.Messaging;
@@ -35,5 +35,5 @@ internal sealed class CatalogDispatch(
 
     /// <summary>Dispatches one request; its source message id makes a redelivery send nothing again (S14).</summary>
     public Task DispatchAsync(Guid sourceMessageId, NotificationKind kind, object payload, CancellationToken cancellationToken) =>
-        dispatcher.DispatchAsync(new NotificationRequest(sourceMessageId, kind, payload), cancellationToken);
+        dispatcher.DispatchAsync(new DeliveryRequest(sourceMessageId, kind, payload), cancellationToken);
 }

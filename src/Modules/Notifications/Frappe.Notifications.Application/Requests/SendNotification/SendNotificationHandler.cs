@@ -1,4 +1,4 @@
-using Frappe.Notifications.Application.Kinds;
+using Frappe.Notifications.Application.Messages;
 using Frappe.Notifications.Domain.Requests;
 using Frappe.Results;
 using Frappe.UseCases;

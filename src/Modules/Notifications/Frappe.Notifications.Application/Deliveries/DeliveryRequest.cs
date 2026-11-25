@@ -1,4 +1,4 @@
-using Frappe.Notifications.Application.Kinds;
+using Frappe.Notifications.Application.Messages;
 
 namespace Frappe.Notifications.Application.Deliveries;
 
@@ -6,7 +6,7 @@ namespace Frappe.Notifications.Application.Deliveries;
 /// <param name="SourceMessageId">The id of the message that asked; it makes redelivery idempotent (S14).</param>
 /// <param name="Kind">The kind.</param>
 /// <param name="Payload">The payload, of the kind's payload type.</param>
-public sealed record NotificationRequest(Guid SourceMessageId, NotificationKind Kind, object Payload)
+public sealed record DeliveryRequest(Guid SourceMessageId, NotificationKind Kind, object Payload)
 {
-    public override string ToString() => $"NotificationRequest {{ SourceMessageId = {SourceMessageId}, Kind = {Kind.Name}, Payload = *** }}";
+    public override string ToString() => $"DeliveryRequest {{ SourceMessageId = {SourceMessageId}, Kind = {Kind.Name}, Payload = *** }}";
 }

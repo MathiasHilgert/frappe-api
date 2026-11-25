@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Frappe.Notifications.Application.Kinds;
+using Frappe.Notifications.Application.Messages;
 using Frappe.Notifications.Application.Requests.SendNotification;
 using Frappe.Notifications.Domain.Requests;
 using Frappe.Notifications.Messages.Account;

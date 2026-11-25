@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Frappe.Notifications.Domain.Deliveries;
 
-namespace Frappe.Notifications.Application.Channels;
+namespace Frappe.Notifications.Application.Senders;
 
 /// <summary>
 /// The provider idempotency key (S14): derived only from the message id, the kind, the recipient key and the channel, so a redelivery

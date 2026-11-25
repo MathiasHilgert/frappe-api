@@ -7,7 +7,7 @@ using Frappe.Notifications.Triggers.Identity;
 using Frappe.Testing.Containers;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Frappe.Notifications.IntegrationTests;
+namespace Frappe.Notifications.IntegrationTests.Triggers;
 
 /// <summary>
 /// The Identity producer end to end against a migrated database, as the Worker's role (S18): an Identity event that reaches the inbox becomes
@@ -15,13 +15,13 @@ namespace Frappe.Notifications.IntegrationTests;
 /// </summary>
 [ClassDataSource<PostgresServer>(Shared = SharedType.PerTestSession)]
 [NotInParallel]
-public sealed class IdentityProducerTests(PostgresServer server)
+public sealed class IdentityTriggerTests(PostgresServer server)
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 24, 12, 0, 0, TimeSpan.Zero);
 
     private static readonly Dictionary<string, string?> Links = new() { ["Notifications:Links:ConsoleUrl"] = "https://console.example.com/" };
 
-    private static DispatchWorld Worker(string owner) => DispatchWorld.ForWorker(
+    private static NotificationsWorld Worker(string owner) => NotificationsWorld.ForWorker(
         owner, Links, services =>
         {
             services.AddSingleton<Microsoft.Extensions.Hosting.IHostEnvironment>(
@@ -29,7 +29,7 @@ public sealed class IdentityProducerTests(PostgresServer server)
             new IdentityTriggersModule().AddServices(services);
         });
 
-    private static async Task ConsumeAsync<TEvent>(DispatchWorld worker, Guid messageId, TEvent fact)
+    private static async Task ConsumeAsync<TEvent>(NotificationsWorld worker, Guid messageId, TEvent fact)
         where TEvent : IIntegrationEvent
     {
         await using var scope = worker.Services.CreateAsyncScope();

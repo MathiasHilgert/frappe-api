@@ -1,4 +1,4 @@
-using Frappe.Notifications.Application.Kinds;
+using Frappe.Notifications.Application.Messages;
 
 namespace Frappe.Notifications.UnitTests.Kinds;
 

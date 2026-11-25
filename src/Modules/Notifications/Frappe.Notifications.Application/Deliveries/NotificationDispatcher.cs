@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using Frappe.Notifications.Application.Channels;
+using Frappe.Notifications.Application.Senders;
 using Frappe.Notifications.Application.Telemetry;
 using Frappe.Notifications.Domain.Deliveries;
 using Microsoft.Extensions.Logging;
@@ -24,7 +24,7 @@ public sealed partial class NotificationDispatcher(
     /// <summary>The channel tag of an outcome no channel carried (the kind has none).</summary>
     internal const string NoChannelTag = "none";
 
-    public async Task<IReadOnlyList<DispatchOutcome>> DispatchAsync(NotificationRequest request, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<DispatchOutcome>> DispatchAsync(DeliveryRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
         var kind = request.Kind;
@@ -46,7 +46,7 @@ public sealed partial class NotificationDispatcher(
     }
 
     private async Task DispatchUnresolvedAsync(
-        NotificationRequest request, Resolution.Unresolved unresolved, List<DispatchOutcome> outcomes, CancellationToken cancellationToken)
+        DeliveryRequest request, Resolution.Unresolved unresolved, List<DispatchOutcome> outcomes, CancellationToken cancellationToken)
     {
         var names = channels.ChannelsFor(request.Kind).Select(channel => channel.Name).ToList();
         if (names.Count == 0)
@@ -67,7 +67,7 @@ public sealed partial class NotificationDispatcher(
     }
 
     private async Task DispatchReachableAsync(
-        NotificationRequest request, Resolution.Reachable reachable, List<DispatchOutcome> outcomes, CancellationToken cancellationToken)
+        DeliveryRequest request, Resolution.Reachable reachable, List<DispatchOutcome> outcomes, CancellationToken cancellationToken)
     {
         var kind = request.Kind;
         var first = reachable.Contacts[0];
@@ -93,7 +93,7 @@ public sealed partial class NotificationDispatcher(
     }
 
     private async Task<DispatchOutcome> DeliverAsync(
-        NotificationRequest request, INotificationChannel channel, ResolvedContact contact, CancellationToken cancellationToken)
+        DeliveryRequest request, INotificationChannel channel, ResolvedContact contact, CancellationToken cancellationToken)
     {
         if (await suppressionGate.IsSuppressedAsync(channel.Name, contact.Contact, cancellationToken))
         {
@@ -111,11 +111,11 @@ public sealed partial class NotificationDispatcher(
         return await recorder.RecordAsync(target, await channel.DeliverAsync(item, cancellationToken), cancellationToken);
     }
 
-    private static DeliveryTarget Target(NotificationRequest request, ChannelName channel, RecipientKey key, AddressHash? hash) =>
+    private static DeliveryTarget Target(DeliveryRequest request, ChannelName channel, RecipientKey key, AddressHash? hash) =>
         new(request.SourceMessageId, request.Kind.Name, request.Kind.Category, channel, key, hash);
 
     private void Count(
-        List<DispatchOutcome> outcomes, NotificationRequest request, string channel, DispatchOutcome outcome, Activity? activity = null)
+        List<DispatchOutcome> outcomes, DeliveryRequest request, string channel, DispatchOutcome outcome, Activity? activity = null)
     {
         outcomes.Add(outcome);
         pending.Add(request.Kind.Name, channel, outcome);

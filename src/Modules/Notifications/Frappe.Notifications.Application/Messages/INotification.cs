@@ -1,6 +1,6 @@
 using Frappe.Notifications.Domain.Deliveries;
 
-namespace Frappe.Notifications.Application.Kinds;
+namespace Frappe.Notifications.Application.Messages;
 
 // Static abstract members declare a kind's contract: one class, one kind, so S2743 (statics in generic types) does not apply.
 #pragma warning disable S2743

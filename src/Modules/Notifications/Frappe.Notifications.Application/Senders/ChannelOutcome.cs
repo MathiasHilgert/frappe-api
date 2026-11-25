@@ -1,7 +1,7 @@
 using Frappe.Localization;
 using Frappe.Notifications.Domain.Deliveries;
 
-namespace Frappe.Notifications.Application.Channels;
+namespace Frappe.Notifications.Application.Senders;
 
 /// <summary>
 /// What a channel did with one delivery. A transient fault (a 429, a 5xx, a timeout) is not an outcome: the channel throws, so the

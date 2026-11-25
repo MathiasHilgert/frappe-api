@@ -1,7 +1,7 @@
 using Frappe.Localization;
 using Frappe.Notifications.Application.Contacts;
 using Frappe.Notifications.Application.Deliveries;
-using Frappe.Notifications.Application.Kinds;
+using Frappe.Notifications.Application.Messages;
 using Frappe.Notifications.Application.Telemetry;
 using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Notifications.Infrastructure.Contacts;
@@ -62,7 +62,7 @@ internal sealed class DispatchWorld : IDisposable
     public static ContactRecipient Contact(ChannelName channel, string address) => new(channel, address, LanguageTag.Create("es").Value);
 
     public Task<IReadOnlyList<DispatchOutcome>> DispatchAsync(NotificationKind kind, TestPayload payload) =>
-        Dispatcher.DispatchAsync(new NotificationRequest(MessageId, kind, payload), CancellationToken.None);
+        Dispatcher.DispatchAsync(new DeliveryRequest(MessageId, kind, payload), CancellationToken.None);
 
     public void Dispose()
     {

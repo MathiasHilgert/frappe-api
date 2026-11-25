@@ -1,6 +1,6 @@
-using Frappe.Notifications.Application.Kinds;
+using Frappe.Notifications.Application.Messages;
 
-namespace Frappe.Notifications.Application.Producers;
+namespace Frappe.Notifications.Application.Triggers;
 
 /// <summary>One notification a producer's mapper asks for: a kind by name and its payload. The payload never prints (S13).</summary>
 /// <param name="Kind">The kind's name, as the catalog knows it.</param>

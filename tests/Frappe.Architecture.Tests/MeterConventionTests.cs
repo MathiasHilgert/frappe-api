@@ -11,7 +11,7 @@ public sealed class MeterConventionTests
 {
     private static readonly string[] Modules = ModuleDoorTests.AllModules;
 
-    private static readonly Type[] MetricsTypes =
+    internal static readonly Type[] MetricsTypes =
     [
         .. ArchitectureRules.ModuleAssemblies(ArchitectureRules.ProductionGraph.Keys, Modules)
             .SelectMany(name => System.Reflection.Assembly.Load(name).GetTypes())
@@ -24,14 +24,14 @@ public sealed class MeterConventionTests
         System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic;
 
     /// <summary>An instrument as read back from a meter.</summary>
-    private sealed record Fact(string Meter, string Name, string? Unit, string? Description, Type Owner);
+    internal sealed record Fact(string Meter, string Name, string? Unit, string? Description, Type Owner);
 
     private static bool BuildsFromFactory(Type type) =>
         type.GetConstructors(Flags)
             .Any(ctor => ctor.GetParameters() is [{ ParameterType: var only }] && only == typeof(IMeterFactory));
 
     /// <summary>Builds each type with a factory that records its meters, and returns what its instruments declare.</summary>
-    private static Fact[] Collect(IEnumerable<Type> types)
+    internal static Fact[] Collect(IEnumerable<Type> types)
     {
         var facts = new List<Fact>();
         foreach (var type in types)

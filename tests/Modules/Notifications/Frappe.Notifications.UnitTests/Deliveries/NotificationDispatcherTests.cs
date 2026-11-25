@@ -1,6 +1,6 @@
 using System.Diagnostics;
-using Frappe.Notifications.Application.Channels;
 using Frappe.Notifications.Application.Deliveries;
+using Frappe.Notifications.Application.Senders;
 using Frappe.Notifications.Domain.Deliveries;
 using Microsoft.Extensions.Logging;
 
@@ -425,7 +425,7 @@ public sealed class NotificationDispatcherTests
 
         // Act
         var item = world.Mail.Delivered.Single().ToString();
-        var request = new NotificationRequest(DispatchWorld.MessageId, DispatchWorld.Security, ToAddress).ToString();
+        var request = new DeliveryRequest(DispatchWorld.MessageId, DispatchWorld.Security, ToAddress).ToString();
 
         // Assert
         using (Assert.Multiple())

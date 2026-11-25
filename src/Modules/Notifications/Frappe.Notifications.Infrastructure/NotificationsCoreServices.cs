@@ -3,7 +3,7 @@ using Frappe.Messaging.Storage.Outbox;
 using Frappe.Modules;
 using Frappe.Notifications.Application.Contacts;
 using Frappe.Notifications.Application.Deliveries;
-using Frappe.Notifications.Application.Kinds;
+using Frappe.Notifications.Application.Messages;
 using Frappe.Notifications.Application.Preferences;
 using Frappe.Notifications.Application.ProviderEvents;
 using Frappe.Notifications.Application.Requests;
@@ -42,7 +42,7 @@ public sealed class NotificationsCoreServices : IModule
         services.AddKeyedSingleton<IIntegrationEventTranslator, NotificationsEventTranslator>(Name);
         services.AddCommitRejections<NotificationsDbContext>(rejections =>
         {
-            FeedbackRejections.Register(rejections);
+            ProviderEventRejections.Register(rejections);
             PreferenceRejections.Register(rejections);
         });
         services.AddModuleDatabase<NotificationsDbContext>(

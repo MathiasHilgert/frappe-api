@@ -1,4 +1,4 @@
-using Frappe.Notifications.Application.Channels;
+using Frappe.Notifications.Application.Senders;
 
 namespace Frappe.Notifications.Senders.Email;
 

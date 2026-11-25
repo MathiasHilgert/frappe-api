@@ -1,5 +1,5 @@
-using Frappe.Notifications.Application.Channels;
-using Frappe.Notifications.Application.Kinds;
+using Frappe.Notifications.Application.Messages;
+using Frappe.Notifications.Application.Senders;
 using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Notifications.Messages.Account;
 using Frappe.Notifications.Messages.Marketing;

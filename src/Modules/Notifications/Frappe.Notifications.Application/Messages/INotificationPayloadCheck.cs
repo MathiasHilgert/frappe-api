@@ -1,4 +1,4 @@
-namespace Frappe.Notifications.Application.Kinds;
+namespace Frappe.Notifications.Application.Messages;
 
 /// <summary>
 /// A channel's trial of a payload: what only the channel knows about a payload that its kind cannot say (an email's action goes to an

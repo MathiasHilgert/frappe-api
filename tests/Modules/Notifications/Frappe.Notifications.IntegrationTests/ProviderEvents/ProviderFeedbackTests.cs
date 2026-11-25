@@ -1,10 +1,10 @@
 using System.Diagnostics.Metrics;
 using System.Text.Json;
-using Frappe.Notifications.Application.Channels;
 using Frappe.Notifications.Application.Contacts;
 using Frappe.Notifications.Application.Deliveries;
 using Frappe.Notifications.Application.ProviderEvents;
 using Frappe.Notifications.Application.ProviderEvents.RecordProviderFeedback;
+using Frappe.Notifications.Application.Senders;
 using Frappe.Notifications.Contracts;
 using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Notifications.Domain.ProviderEvents;
@@ -18,7 +18,7 @@ using Frappe.UseCases;
 using Microsoft.Extensions.DependencyInjection;
 using NodaTime;
 
-namespace Frappe.Notifications.IntegrationTests;
+namespace Frappe.Notifications.IntegrationTests.ProviderEvents;
 
 /// <summary>
 /// The provider's feedback against a migrated database, in the roles each host connects with (S4, S15, Flow 3): the Worker records a delivery
@@ -38,7 +38,7 @@ public sealed class ProviderFeedbackTests(PostgresServer server)
     private static JsonElement Payload() =>
         JsonElement.Parse($$"""{"email":"{{Address}}","language":"es-AR","name":"Ana","code":"482913"}""");
 
-    private static async Task DispatchAsync(DispatchWorld worker, Guid requestId)
+    private static async Task DispatchAsync(NotificationsWorld worker, Guid requestId)
     {
         await using var scope = worker.Services.CreateAsyncScope();
         var step = ActivatorUtilities.CreateInstance<DispatchNotificationRequested>(scope.ServiceProvider);
@@ -47,7 +47,7 @@ public sealed class ProviderFeedbackTests(PostgresServer server)
     }
 
     /// <summary>The message id the logging sender gives the delivery of this request: what the provider would call it.</summary>
-    private static string MessageIdOf(DispatchWorld world, Guid requestId)
+    private static string MessageIdOf(NotificationsWorld world, Guid requestId)
     {
         var hash = world.Services.GetRequiredService<IAddressHasher>().Hash(Address);
         var key = DeliveryIdempotency.Key(requestId, Kind, RecipientKey.Of(hash), ChannelName.Create("email").Value);
@@ -55,7 +55,7 @@ public sealed class ProviderFeedbackTests(PostgresServer server)
     }
 
     private static async Task<Result<Unit>> ReportAsync(
-        DispatchWorld api, string eventId, string messageId, DeliveryFeedback feedback, params string[] addresses)
+        NotificationsWorld api, string eventId, string messageId, DeliveryFeedback feedback, params string[] addresses)
     {
         await using var scope = api.Services.CreateAsyncScope();
         var report = new ProviderFeedback(
@@ -77,8 +77,8 @@ public sealed class ProviderFeedbackTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange
-            await using var worker = DispatchWorld.ForWorker(owner);
-            await using var api = DispatchWorld.ForApi(owner);
+            await using var worker = NotificationsWorld.ForWorker(owner);
+            await using var api = NotificationsWorld.ForApi(owner);
             var requestId = Guid.CreateVersion7();
             await DispatchAsync(worker, requestId);
             var messageId = MessageIdOf(worker, requestId);
@@ -106,8 +106,8 @@ public sealed class ProviderFeedbackTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange
-            await using var worker = DispatchWorld.ForWorker(owner);
-            await using var api = DispatchWorld.ForApi(owner);
+            await using var worker = NotificationsWorld.ForWorker(owner);
+            await using var api = NotificationsWorld.ForApi(owner);
             var requestId = Guid.CreateVersion7();
             await DispatchAsync(worker, requestId);
             var messageId = MessageIdOf(worker, requestId);
@@ -136,8 +136,8 @@ public sealed class ProviderFeedbackTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange: the report arrives while the Worker has not yet committed the delivery it is about.
-            await using var worker = DispatchWorld.ForWorker(owner);
-            await using var api = DispatchWorld.ForApi(owner);
+            await using var worker = NotificationsWorld.ForWorker(owner);
+            await using var api = NotificationsWorld.ForApi(owner);
             var requestId = Guid.CreateVersion7();
             var messageId = MessageIdOf(worker, requestId);
 
@@ -158,7 +158,7 @@ public sealed class ProviderFeedbackTests(PostgresServer server)
         });
     }
 
-    private static async Task<Result<Unit>> ReceiveAsync(DispatchWorld api, string eventId, string messageId, DeliveryFeedback feedback)
+    private static async Task<Result<Unit>> ReceiveAsync(NotificationsWorld api, string eventId, string messageId, DeliveryFeedback feedback)
     {
         await using var scope = api.Services.CreateAsyncScope();
         var report = new ProviderFeedback(
@@ -172,8 +172,8 @@ public sealed class ProviderFeedbackTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange: the Worker staged the delivery and its claim holds the message lock, uncommitted.
-            await using var worker = DispatchWorld.ForWorker(owner);
-            await using var api = DispatchWorld.ForApi(owner);
+            await using var worker = NotificationsWorld.ForWorker(owner);
+            await using var api = NotificationsWorld.ForApi(owner);
             var requestId = Guid.CreateVersion7();
             var messageId = MessageIdOf(worker, requestId);
             await using var scope = worker.Services.CreateAsyncScope();
@@ -209,8 +209,8 @@ public sealed class ProviderFeedbackTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange: the delivery is staged but not committed, so the webhook parks.
-            await using var worker = DispatchWorld.ForWorker(owner);
-            await using var api = DispatchWorld.ForApi(owner);
+            await using var worker = NotificationsWorld.ForWorker(owner);
+            await using var api = NotificationsWorld.ForApi(owner);
             var requestId = Guid.CreateVersion7();
             var messageId = MessageIdOf(worker, requestId);
             await using var scope = worker.Services.CreateAsyncScope();
@@ -237,8 +237,8 @@ public sealed class ProviderFeedbackTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange
-            await using var worker = DispatchWorld.ForWorker(owner);
-            await using var api = DispatchWorld.ForApi(owner);
+            await using var worker = NotificationsWorld.ForWorker(owner);
+            await using var api = NotificationsWorld.ForApi(owner);
             var firstRequest = Guid.CreateVersion7();
             await DispatchAsync(worker, firstRequest);
             var sentLogs = worker.Logs.Entries.Count(e => e.Message.Contains("was not sent", StringComparison.Ordinal));
@@ -268,8 +268,8 @@ public sealed class ProviderFeedbackTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange
-            await using var worker = DispatchWorld.ForWorker(owner);
-            await using var api = DispatchWorld.ForApi(owner);
+            await using var worker = NotificationsWorld.ForWorker(owner);
+            await using var api = NotificationsWorld.ForApi(owner);
             var requestId = Guid.CreateVersion7();
             await DispatchAsync(worker, requestId);
             var messageId = MessageIdOf(worker, requestId);
@@ -294,8 +294,8 @@ public sealed class ProviderFeedbackTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange
-            await using var worker = DispatchWorld.ForWorker(owner);
-            await using var api = DispatchWorld.ForApi(owner);
+            await using var worker = NotificationsWorld.ForWorker(owner);
+            await using var api = NotificationsWorld.ForApi(owner);
             using var capture = new MetricCapture(api.Services.GetRequiredService<IMeterFactory>());
             var requestId = Guid.CreateVersion7();
             await DispatchAsync(worker, requestId);
@@ -323,8 +323,8 @@ public sealed class ProviderFeedbackTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange
-            await using var worker = DispatchWorld.ForWorker(owner);
-            await using var api = DispatchWorld.ForApi(owner);
+            await using var worker = NotificationsWorld.ForWorker(owner);
+            await using var api = NotificationsWorld.ForApi(owner);
             using var capture = new MetricCapture(api.Services.GetRequiredService<IMeterFactory>());
             var requestId = Guid.CreateVersion7();
             await DispatchAsync(worker, requestId);
@@ -353,8 +353,8 @@ public sealed class ProviderFeedbackTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange
-            await using var worker = DispatchWorld.ForWorker(owner);
-            await using var api = DispatchWorld.ForApi(owner);
+            await using var worker = NotificationsWorld.ForWorker(owner);
+            await using var api = NotificationsWorld.ForApi(owner);
             var requestId = Guid.CreateVersion7();
             await DispatchAsync(worker, requestId);
             var messageId = MessageIdOf(worker, requestId);
@@ -388,7 +388,7 @@ public sealed class ProviderFeedbackTests(PostgresServer server)
         await MigratedNotifications.RunAsync(server, async owner =>
         {
             // Arrange
-            await using var api = DispatchWorld.ForApi(owner);
+            await using var api = NotificationsWorld.ForApi(owner);
             await using var first = api.Services.CreateAsyncScope();
             await using var second = api.Services.CreateAsyncScope();
             first.ServiceProvider.GetRequiredService<IProviderEvents>()

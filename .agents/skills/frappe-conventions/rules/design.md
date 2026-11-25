@@ -71,14 +71,15 @@ patterns, and search the web for one that fits when unsure.
   cost in the plan or finding. Use the catalog below; this repo's examples first.
 - **Why:** patterns pay only against a real change; ceremony without a symptom is cost.
 - **Enforced by:** review (critic-architecture, critic-craft cite DES-06).
-- **Good:** "a `switch` on the notification kind grows per kind → one class per kind (`Kinds/`)". **Bad:** "added a factory for flexibility".
+- **Good:** "a `switch` on the notification kind grows per kind → one class per kind (`Messages.*` extensions)".
+  **Bad:** "added a factory for flexibility".
 - **Status:** in force.
 
 | Symptom in the code | Pattern | In this repo / in .NET |
 |---|---|---|
 | We may switch vendor (mail, maps, payments, storage); a vendor SDK leaks into use cases | **Port + Adapter** (hexagonal) | `IMailer` with a vendor adapter and a logging adapter; `IAddressProvider` (Google). Application owns the port, Infrastructure the adapters |
 | The adapter is chosen by configuration or environment | **Factory / selection at composition** | `MailerSelection`; keyed services (`AddKeyedScoped`, `[FromKeyedServices]`) |
-| A `switch`/`if` chain on a type, kind, region or plan picks behavior, and grows with each case | **Strategy** (one class per case behind an interface, resolved by key) | Notification kinds under `src/Modules/Notifications/Kinds/`; keyed services or `IEnumerable<IStrategy>` with a `Supports(...)` |
+| A `switch`/`if` chain on a type, kind, region or plan picks behavior, and grows with each case | **Strategy** (one class per case behind an interface, resolved by key) | Notification kinds under `src/Modules/Notifications/Extensions/Frappe.Notifications.Messages.*`; keyed services or `IEnumerable<IStrategy>` with a `Supports(...)` |
 | A closed, known set of variants with data | **Closed hierarchy / union + exhaustive switch** | `public closed record Error` (see `csharp`) |
 | The same cross-cutting step around many operations | **Decorator / pipeline** | `InstrumentedQueryHandler`, `TransactionalCommandHandler`, `CachedEffectiveCalendars`; Polly pipelines |
 | Another module's or vendor's model would leak into ours | **Anti-corruption layer / Translator** | `IIntegrationEventTranslator`; a Contracts query port with its own records (ARCH-06) |
@@ -111,7 +112,7 @@ patterns, and search the web for one that fits when unsure.
   5. Could another module not reuse it without dragging in this module's internals?
 - **Why:** coupling is cheapest to remove before the type has callers.
 - **Enforced by:** review (critic-architecture).
-- **Good:** a new notification kind is a new class under `Kinds/`. **Bad:** a new `case` in the Notifications core.
+- **Good:** a new notification kind is a new class in a `Messages.*` extension. **Bad:** a new `case` in the Notifications core.
 - **Status:** in force.
 
 ## DES-09 · No abstraction without a second implementation or a test need

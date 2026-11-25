@@ -11,12 +11,12 @@ using Frappe.Testing.Containers;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using NodaTime;
 
-namespace Frappe.Notifications.IntegrationTests;
+namespace Frappe.Notifications.IntegrationTests.Deliveries;
 
 /// <summary>The EF adapters of the dispatch pipeline against a migrated database: staging that never saves, and the two gates' lookups.</summary>
 [ClassDataSource<PostgresServer>(Shared = SharedType.PerTestSession)]
 [NotInParallel]
-public sealed class DispatchAdaptersTests(PostgresServer server)
+public sealed class DeliveryAdaptersTests(PostgresServer server)
 {
     private static readonly Instant Now = Instant.FromUtc(2026, 11, 24, 10, 0);
 
