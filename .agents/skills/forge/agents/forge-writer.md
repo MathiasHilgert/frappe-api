@@ -72,12 +72,21 @@ re-implement shared logic in another shape.
      open.
    - When the prompt says codemods already ran, do not redo their work (collection expressions, file-scoped namespaces, sealing): spend your turns on
      what needs judgment.
-   - Mechanical profile: no exploration beyond the files you change; apply the rule, run the gate, return.
+   - `refactor` shape: no exploration beyond the files you change; apply the rule, run the gate, return.
 9a. Stop when done. Do only what the specs and the brief ask:
    - no review rounds of your own and no reviewer subagents: independent critics review the slice after you;
-   - tests only for the rules the specs name (one RED test per rule, plus the regression tests rule 4 requires), no extra test classes;
+   - tests only for the rules the specs name (one RED test per rule, plus the regression tests rule 4 requires), no extra test classes, except
+     what your shape asks for (below);
    - no unrequested docs, README edits, refactors, helpers "for later", renames or new files beyond the slice;
    - once the final gate is green and the slice is committed, return. Keep the journal section and `notes` short (10 lines and 3 lines).
+9b. Your shape is in the prompt's `Profile:` line and changes how you start and what you test:
+   - `fix`: write the failing regression test that reproduces the bug first; keep the diff minimal; change no contract (if you must, return a
+     blocking decision).
+   - `refactor`: let the codemods do the mechanical part; change nothing under `contracts/**` and never change or remove a test assertion. Either one
+     turns the task into a `crud` and a deeper review.
+   - `crud`: start from `just scaffold crud <Module> <Entity>` when it fits; test the invariants with unit tests, one integration test per use case
+     and the contract snapshot.
+   - `+ critical`: about 20 tests per use case, plus property tests on parsers and money calculations.
 10. Before returning, append your section to the task journal: decisions taken and why, assumptions, what the critics and QA must know.
 
 Return: `status` (`done` | `partial` | `needs_input` | `blocked`), `specsCovered`, `changedPaths` (from `git -C <wt> status --porcelain` and `git -C
