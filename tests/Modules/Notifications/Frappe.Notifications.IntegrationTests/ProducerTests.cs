@@ -4,8 +4,8 @@ using Frappe.Notifications.Application.Producers;
 using Frappe.Notifications.Infrastructure;
 using Frappe.Notifications.Infrastructure.Messaging;
 using Frappe.Notifications.Infrastructure.Persistence;
-using Frappe.Notifications.Kinds.Account;
-using Frappe.Notifications.Kinds.Marketing;
+using Frappe.Notifications.Messages.Account;
+using Frappe.Notifications.Messages.Marketing;
 using Frappe.Testing.Containers;
 using Microsoft.Extensions.DependencyInjection;
 

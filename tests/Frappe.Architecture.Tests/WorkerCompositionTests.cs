@@ -300,7 +300,7 @@ public sealed class WorkerCompositionTests
         await ValidateAsync(host);
 
         // Assert
-        await Assert.That(host.Services.GetRequiredService<Frappe.Notifications.Channels.Email.IEmailSender>().GetType().Name)
+        await Assert.That(host.Services.GetRequiredService<Frappe.Notifications.Senders.Email.IEmailSender>().GetType().Name)
             .IsEqualTo("LoggingEmailSender");
     }
 

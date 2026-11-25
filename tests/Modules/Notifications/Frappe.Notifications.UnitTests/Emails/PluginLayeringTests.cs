@@ -3,9 +3,9 @@ namespace Frappe.Notifications.UnitTests.Emails;
 /// <summary>The channel and kind plug-ins keep to the references DES-01 gives them.</summary>
 public sealed class PluginLayeringTests
 {
-    private static readonly string[] Channels = ["Frappe.Notifications.Channels.Email"];
+    private static readonly string[] Channels = ["Frappe.Notifications.Senders.Email"];
 
-    private static readonly string[] Kinds = ["Frappe.Notifications.Kinds.Account", "Frappe.Notifications.Kinds.Marketing"];
+    private static readonly string[] Kinds = ["Frappe.Notifications.Messages.Account", "Frappe.Notifications.Messages.Marketing"];
 
     public static IEnumerable<string> Plugins() => [.. Channels, .. Kinds];
 
@@ -21,7 +21,7 @@ public sealed class PluginLayeringTests
             .Select(reference => reference.Name ?? string.Empty)
             .Where(name => name.StartsWith("Frappe.Notifications.Infrastructure", StringComparison.Ordinal)
                 || name.StartsWith("Frappe.Notifications.Http", StringComparison.Ordinal)
-                || (name.StartsWith("Frappe.Notifications.Kinds.", StringComparison.Ordinal) && name != assemblyName))
+                || (name.StartsWith("Frappe.Notifications.Messages.", StringComparison.Ordinal) && name != assemblyName))
             .ToList();
 
         // Assert
@@ -41,7 +41,7 @@ public sealed class PluginLayeringTests
             .Select(reference => reference.Name ?? string.Empty)
             .Where(name => name.StartsWith("Frappe.Notifications.", StringComparison.Ordinal) && name != assemblyName)
             .Where(name => name != "Frappe.Notifications.Domain" && name != "Frappe.Notifications.Application")
-            .Where(name => !(isKind && name.StartsWith("Frappe.Notifications.Channels.", StringComparison.Ordinal)))
+            .Where(name => !(isKind && name.StartsWith("Frappe.Notifications.Senders.", StringComparison.Ordinal)))
             .ToList();
 
         // Assert
@@ -52,15 +52,15 @@ public sealed class PluginLayeringTests
     public async Task A_producer_plugin_reaches_the_kinds_it_maps_to_but_never_the_web_stack_a_channel_or_another_producer()
     {
         // Arrange
-        var assembly = typeof(Frappe.Notifications.Producers.Identity.IdentityProducerModule).Assembly;
+        var assembly = typeof(Frappe.Notifications.Triggers.Identity.IdentityTriggersModule).Assembly;
 
         // Act
         var forbidden = assembly.GetReferencedAssemblies()
             .Select(reference => reference.Name ?? string.Empty)
             .Where(name => name.StartsWith("Frappe.Notifications.Http", StringComparison.Ordinal)
-                || name.StartsWith("Frappe.Notifications.Channels.", StringComparison.Ordinal)
-                || name.StartsWith("Frappe.Notifications.Kinds.Marketing", StringComparison.Ordinal)
-                || (name.StartsWith("Frappe.Notifications.Producers.", StringComparison.Ordinal) && name != assembly.GetName().Name))
+                || name.StartsWith("Frappe.Notifications.Senders.", StringComparison.Ordinal)
+                || name.StartsWith("Frappe.Notifications.Messages.Marketing", StringComparison.Ordinal)
+                || (name.StartsWith("Frappe.Notifications.Triggers.", StringComparison.Ordinal) && name != assembly.GetName().Name))
             .ToList();
 
         // Assert

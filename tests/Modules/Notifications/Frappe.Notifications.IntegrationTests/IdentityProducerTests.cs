@@ -3,7 +3,7 @@ using Frappe.IntegrationEvents;
 using Frappe.Messaging.Abstractions;
 using Frappe.Notifications.Infrastructure.Messaging;
 using Frappe.Notifications.Infrastructure.Persistence;
-using Frappe.Notifications.Producers.Identity;
+using Frappe.Notifications.Triggers.Identity;
 using Frappe.Testing.Containers;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -26,7 +26,7 @@ public sealed class IdentityProducerTests(PostgresServer server)
         {
             services.AddSingleton<Microsoft.Extensions.Hosting.IHostEnvironment>(
                 new Microsoft.Extensions.Hosting.Internal.HostingEnvironment { EnvironmentName = "Production" });
-            new IdentityProducerModule().AddServices(services);
+            new IdentityTriggersModule().AddServices(services);
         });
 
     private static async Task ConsumeAsync<TEvent>(DispatchWorld worker, Guid messageId, TEvent fact)

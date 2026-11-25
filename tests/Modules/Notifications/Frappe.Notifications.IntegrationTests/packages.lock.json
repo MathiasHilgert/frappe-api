@@ -610,17 +610,6 @@
           "Frappe.UseCases": "[1.0.0, )"
         }
       },
-      "frappe.notifications.channels.email": {
-        "type": "Project",
-        "dependencies": {
-          "Frappe.Localization": "[1.0.0, )",
-          "Frappe.Modules": "[1.0.0, )",
-          "Frappe.Notifications.Application": "[1.0.0, )",
-          "Frappe.Notifications.Domain": "[1.0.0, )",
-          "Microsoft.AspNetCore.Components.Web": "[11.0.0, )",
-          "Microsoft.Extensions.Http.Resilience": "[11.0.0, )"
-        }
-      },
       "frappe.notifications.contracts": {
         "type": "Project",
         "dependencies": {
@@ -649,32 +638,43 @@
           "Frappe.Scheduling": "[1.0.0, )"
         }
       },
-      "frappe.notifications.kinds.account": {
+      "frappe.notifications.messages.account": {
         "type": "Project",
         "dependencies": {
           "Frappe.Modules": "[1.0.0, )",
           "Frappe.Notifications.Application": "[1.0.0, )",
-          "Frappe.Notifications.Channels.Email": "[1.0.0, )",
-          "Frappe.Notifications.Domain": "[1.0.0, )"
+          "Frappe.Notifications.Domain": "[1.0.0, )",
+          "Frappe.Notifications.Senders.Email": "[1.0.0, )"
         }
       },
-      "frappe.notifications.kinds.marketing": {
+      "frappe.notifications.messages.marketing": {
         "type": "Project",
         "dependencies": {
           "Frappe.Modules": "[1.0.0, )",
           "Frappe.Notifications.Application": "[1.0.0, )",
-          "Frappe.Notifications.Channels.Email": "[1.0.0, )",
-          "Frappe.Notifications.Domain": "[1.0.0, )"
+          "Frappe.Notifications.Domain": "[1.0.0, )",
+          "Frappe.Notifications.Senders.Email": "[1.0.0, )"
         }
       },
-      "frappe.notifications.producers.identity": {
+      "frappe.notifications.senders.email": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Localization": "[1.0.0, )",
+          "Frappe.Modules": "[1.0.0, )",
+          "Frappe.Notifications.Application": "[1.0.0, )",
+          "Frappe.Notifications.Domain": "[1.0.0, )",
+          "Microsoft.AspNetCore.Components.Web": "[11.0.0, )",
+          "Microsoft.Extensions.Http.Resilience": "[11.0.0, )"
+        }
+      },
+      "frappe.notifications.triggers.identity": {
         "type": "Project",
         "dependencies": {
           "Frappe.Identity.Contracts": "[1.0.0, )",
           "Frappe.Modules": "[1.0.0, )",
           "Frappe.Notifications.Application": "[1.0.0, )",
           "Frappe.Notifications.Infrastructure": "[1.0.0, )",
-          "Frappe.Notifications.Kinds.Account": "[1.0.0, )"
+          "Frappe.Notifications.Messages.Account": "[1.0.0, )"
         }
       },
       "frappe.observability": {

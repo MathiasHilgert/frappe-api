@@ -1,6 +1,6 @@
 using Frappe.Notifications.Application.Feedback;
-using Frappe.Notifications.Channels.Email;
 using Frappe.Notifications.Domain.Deliveries;
+using Frappe.Notifications.Senders.Email;
 using NodaTime;
 
 namespace Frappe.Notifications.UnitTests.Emails;

@@ -1,10 +1,10 @@
 using Frappe.Localization;
 using Frappe.Notifications.Application.Channels;
 using Frappe.Notifications.Application.Kinds;
-using Frappe.Notifications.Channels.Email;
 using Frappe.Notifications.Domain.Deliveries;
-using Frappe.Notifications.Kinds.Account;
-using Frappe.Notifications.Kinds.Marketing;
+using Frappe.Notifications.Messages.Account;
+using Frappe.Notifications.Messages.Marketing;
+using Frappe.Notifications.Senders.Email;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 

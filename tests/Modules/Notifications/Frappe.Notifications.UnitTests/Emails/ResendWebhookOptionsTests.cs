@@ -1,4 +1,4 @@
-using Frappe.Notifications.Channels.Email;
+using Frappe.Notifications.Senders.Email;
 
 // S6418: the values are a published documentation vector and local-only placeholders; they protect nothing.
 #pragma warning disable S6418

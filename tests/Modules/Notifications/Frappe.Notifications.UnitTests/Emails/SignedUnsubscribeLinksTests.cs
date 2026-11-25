@@ -1,7 +1,7 @@
 using Frappe.Notifications.Application.Channels;
 using Frappe.Notifications.Application.Ports;
-using Frappe.Notifications.Channels.Email;
 using Frappe.Notifications.Domain.Deliveries;
+using Frappe.Notifications.Senders.Email;
 using Frappe.Notifications.UnitTests.Preferences;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;

@@ -1,7 +1,7 @@
 using Frappe.Identity.Contracts.Owners;
 using Frappe.Notifications.Application.Producers;
-using Frappe.Notifications.Kinds.Account;
-using Frappe.Notifications.Producers.Identity;
+using Frappe.Notifications.Messages.Account;
+using Frappe.Notifications.Triggers.Identity;
 
 namespace Frappe.Notifications.UnitTests.Producers;
 
@@ -151,11 +151,11 @@ public sealed class IdentityProducerMappersTests
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
 
         // Act
-        new IdentityProducerModule().AddServices(services);
+        new IdentityTriggersModule().AddServices(services);
         string[] consumers =
         [
-            IdentityProducerModule.CodesConsumer, IdentityProducerModule.RegistrationAttemptedConsumer,
-            IdentityProducerModule.EmailChangeRequestedConsumer, IdentityProducerModule.EmailChangedConsumer,
+            IdentityTriggersModule.CodesConsumer, IdentityTriggersModule.RegistrationAttemptedConsumer,
+            IdentityTriggersModule.EmailChangeRequestedConsumer, IdentityTriggersModule.EmailChangedConsumer,
         ];
 
         // Assert
@@ -165,12 +165,12 @@ public sealed class IdentityProducerMappersTests
             await Assert.That(services.Any(d => d.ServiceType == typeof(INotificationProducer<OwnerRegistrationAttempted>))).IsTrue();
             await Assert.That(services.Any(d => d.ServiceType == typeof(INotificationProducer<OwnerEmailChangeRequested>))).IsTrue();
             await Assert.That(consumers.Distinct().Count()).IsEqualTo(4);
-            await Assert.That(RegisteredConsumer<OwnerCodeIssued>(services)).IsEqualTo(IdentityProducerModule.CodesConsumer);
+            await Assert.That(RegisteredConsumer<OwnerCodeIssued>(services)).IsEqualTo(IdentityTriggersModule.CodesConsumer);
             await Assert.That(RegisteredConsumer<OwnerRegistrationAttempted>(services))
-                .IsEqualTo(IdentityProducerModule.RegistrationAttemptedConsumer);
+                .IsEqualTo(IdentityTriggersModule.RegistrationAttemptedConsumer);
             await Assert.That(RegisteredConsumer<OwnerEmailChangeRequested>(services))
-                .IsEqualTo(IdentityProducerModule.EmailChangeRequestedConsumer);
-            await Assert.That(RegisteredConsumer<OwnerEmailChanged>(services)).IsEqualTo(IdentityProducerModule.EmailChangedConsumer);
+                .IsEqualTo(IdentityTriggersModule.EmailChangeRequestedConsumer);
+            await Assert.That(RegisteredConsumer<OwnerEmailChanged>(services)).IsEqualTo(IdentityTriggersModule.EmailChangedConsumer);
             await Assert.That(consumers).All().Satisfy(name => name.StartsWith("notifications-identity-", StringComparison.Ordinal));
         }
     }

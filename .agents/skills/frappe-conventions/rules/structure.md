@@ -23,8 +23,10 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 - **Why:** one shape to navigate; ArchTests and tools target every module the same way (same model for all: see `domain`, `cqrs`).
 - **Enforced by:** `ModuleDoorTests` (the door); module project-set ArchTest over `Frappe.slnx` (planned).
 - **Good:** `src/Modules/Access/` with `Frappe.Access` and its five layer projects; `src/Modules/Identity/` with `Frappe.Identity`, its five layer
-  projects and the plug-in `Limits/Frappe.Identity.Limits.Valkey`; `src/Modules/Notifications/` with `Frappe.Notifications`, its five layer
-  projects and the plug-ins under `Channels/`, `Kinds/` and `Producers/`. **Bad:** a module with no Contracts or Http project, or no door.
+  projects and the plug-in `Extensions/Frappe.Identity.Limits.Valkey`; `src/Modules/Notifications/` with `Frappe.Notifications`, its five layer
+  projects and the plug-ins under `Extensions/`
+  (`Frappe.Notifications.Senders.Email`, `.Messages.Account`, `.Messages.Marketing`,
+  `.Triggers.Identity`). **Bad:** a module with no Contracts or Http project, or no door.
 - **Status:** in force.
 
 ## STR-02 · Application is organized by feature, then one folder per use case
@@ -49,14 +51,16 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
   `<M>.Infrastructure/Configuration/<M>DatabaseOptions.cs` (belongs in `Persistence/`).
 - **Status:** in force.
 
-## STR-04 · Plug-in packages are named `Frappe.<Module>.<Kind>.<Name>`
+## STR-04 · Plug-in packages live in `Extensions/` as `Frappe.<Module>.<Kind>.<Name>`
 
-- **Rule:** a package that plugs into a module's core is `Frappe.<Module>.<Kind>.<Name>` in `src/Modules/<Module>/<Kind>/`, with `<Kind>` plural
-  (`Regions`, `Sources`, `Producers`). Dependency direction: ARCH-14.
-- **Why:** the name says what the package plugs in and where its siblings live.
+- **Rule:** a package that plugs into a module's core is `Frappe.<Module>.<Kind>.<Name>` in `src/Modules/<Module>/Extensions/`, with `<Kind>` plural
+  and naming what the package does (`Messages`, `Senders`, `Triggers`). Dependency direction: ARCH-14.
+- **Why:** the name says what the package plugs in, and one folder lists every plug-in of the module.
 - **Enforced by:** `PlugInNamingTests` (planned) (tests/Frappe.Architecture.Tests); review.
-- **Good:** `Frappe.Orders.Regions.Argentina`. **Bad:** `Frappe.Orders.Global` (→ `Frappe.Orders.Sources.Global`), `Frappe.Mailing.Billing` (→
-  `Frappe.Mailing.Producers.Billing`).
+- **Good:** `src/Modules/Notifications/Extensions/Frappe.Notifications.Senders.Email`, `Frappe.Notifications.Messages.Account`,
+  `Frappe.Notifications.Triggers.Identity`, `src/Modules/Identity/Extensions/Frappe.Identity.Limits.Valkey`. **Bad:**
+  `src/Modules/Notifications/Channels/Frappe.Notifications.Channels.Email` (a kind folder beside the module), `Frappe.Mailing.Billing` (→
+  `Frappe.Mailing.Triggers.Billing`).
 - **Status:** in force.
 
 ## STR-05 · Use cases are named for intent; handlers add `Handler`
@@ -131,9 +135,9 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 - **Enforced by:** `ModuleDoorTests`, `LayeringTests`; review.
 - **Good:** `AccessModule.Worker = new ComposedModule(new AccessCoreServices(), new AccessWorkerServices())`; `IdentityModule.Api` composing
   `IdentityCoreServices`, `IdentityApiServices` and the plug-in `IdentityLimitsValkeyModule` before `IdentityHttp`; `NotificationsModule.Worker`
-  composing `NotificationsCoreServices`, `NotificationsWorkerServices`, the kinds, `IdentityProducerModule`, `EmailChannelWorkerModule` and its
+  composing `NotificationsCoreServices`, `NotificationsWorkerServices`, the kinds, `IdentityTriggersModule`, `EmailSenderWorkerModule` and its
   internal message purge. **Bad:** a host registering
-  `AccessGate` itself, or listing `AccessCoreServices` next to `AccessModule.Api`, or `new AccountKindsModule()` next to `NotificationsModule.Api`.
+  `AccessGate` itself, or listing `AccessCoreServices` next to `AccessModule.Api`, or `new AccountMessagesModule()` next to `NotificationsModule.Api`.
 - **Status:** in force.
 
 ## STR-12 · No module rewrites the composed handler graph

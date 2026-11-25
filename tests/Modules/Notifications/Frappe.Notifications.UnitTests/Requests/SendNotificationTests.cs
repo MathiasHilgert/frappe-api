@@ -1,10 +1,10 @@
 using System.Text.Json;
 using Frappe.Notifications.Application.Kinds;
 using Frappe.Notifications.Application.Requests.SendNotification;
-using Frappe.Notifications.Channels.Email;
 using Frappe.Notifications.Domain.Requests;
-using Frappe.Notifications.Kinds.Account;
-using Frappe.Notifications.Kinds.Marketing;
+using Frappe.Notifications.Messages.Account;
+using Frappe.Notifications.Messages.Marketing;
+using Frappe.Notifications.Senders.Email;
 using Frappe.Results;
 using NodaTime;
 

@@ -29,8 +29,8 @@ public sealed class CategoryPolicyTests
         // Assert
         using (Assert.Multiple())
         {
-            await Assert.That(Frappe.Notifications.Kinds.Account.EmailChanged.Category).IsEqualTo(NotificationCategory.Transactional);
-            await Assert.That(Frappe.Notifications.Kinds.Account.EmailChanged.Category.CanOptOut).IsFalse();
+            await Assert.That(Frappe.Notifications.Messages.Account.EmailChanged.Category).IsEqualTo(NotificationCategory.Transactional);
+            await Assert.That(Frappe.Notifications.Messages.Account.EmailChanged.Category.CanOptOut).IsFalse();
         }
     }
 

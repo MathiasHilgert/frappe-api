@@ -10,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Frappe.Notifications.Infrastructure;
 
-/// <summary>How a producer plug-in (<c>Frappe.Notifications.Producers.&lt;Module&gt;</c>) joins the Worker (S2a).</summary>
+/// <summary>How a producer plug-in (<c>Frappe.Notifications.Triggers.&lt;Module&gt;</c>) joins the Worker (S2a).</summary>
 public static class NotificationProducerRegistration
 {
     /// <param name="services">The producer plug-in's Worker services.</param>

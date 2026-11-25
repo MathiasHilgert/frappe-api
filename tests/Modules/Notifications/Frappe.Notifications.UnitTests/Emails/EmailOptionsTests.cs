@@ -1,4 +1,4 @@
-using Frappe.Notifications.Channels.Email;
+using Frappe.Notifications.Senders.Email;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;

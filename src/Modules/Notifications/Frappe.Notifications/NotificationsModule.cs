@@ -1,11 +1,11 @@
 using Frappe.Http;
 using Frappe.Modules;
-using Frappe.Notifications.Channels.Email;
 using Frappe.Notifications.Http;
 using Frappe.Notifications.Infrastructure;
-using Frappe.Notifications.Kinds.Account;
-using Frappe.Notifications.Kinds.Marketing;
-using Frappe.Notifications.Producers.Identity;
+using Frappe.Notifications.Messages.Account;
+using Frappe.Notifications.Messages.Marketing;
+using Frappe.Notifications.Senders.Email;
+using Frappe.Notifications.Triggers.Identity;
 
 namespace Frappe.Notifications;
 
@@ -17,28 +17,28 @@ namespace Frappe.Notifications;
 public static class NotificationsModule
 {
     /// <summary>
-    /// Notifications in the Api: the shared services, the kinds (<see cref="AccountKindsModule"/>, <see cref="MarketingKindsModule"/>), the
-    /// email channel's provider webhooks and payload check (<see cref="EmailChannelApiModule"/>), then its HTTP facet
+    /// Notifications in the Api: the shared services, the kinds (<see cref="AccountMessagesModule"/>, <see cref="MarketingMessagesModule"/>), the
+    /// email channel's provider webhooks and payload check (<see cref="EmailSenderApiModule"/>), then its HTTP facet
     /// (<see cref="NotificationsHttp"/>): the webhook, unsubscribe and Development-only send routes under <c>/v1</c>.
     /// </summary>
     public static IHttpModule Api { get; } =
         new ComposedHttpModule(
-            [new NotificationsCoreServices(), new AccountKindsModule(), new MarketingKindsModule(), new EmailChannelApiModule()],
+            [new NotificationsCoreServices(), new AccountMessagesModule(), new MarketingMessagesModule(), new EmailSenderApiModule()],
             new NotificationsHttp());
 
     /// <summary>
     /// Notifications in the Worker: the shared services, the dispatch consumer and the nightly purge (<see cref="NotificationsWorkerServices"/>),
-    /// the kinds, the consumers of Identity's facts (<see cref="IdentityProducerModule"/>), the email channel and its sender
-    /// (<see cref="EmailChannelWorkerModule"/>), and the purge of its outbox and inbox messages the nightly purge runs
+    /// the kinds, the consumers of Identity's facts (<see cref="IdentityTriggersModule"/>), the email channel and its sender
+    /// (<see cref="EmailSenderWorkerModule"/>), and the purge of its outbox and inbox messages the nightly purge runs
     /// (<see cref="NotificationsMessagePurgeServices"/>).
     /// </summary>
     public static IModule Worker { get; } =
         new ComposedModule(
             new NotificationsCoreServices(),
             new NotificationsWorkerServices(),
-            new AccountKindsModule(),
-            new MarketingKindsModule(),
-            new IdentityProducerModule(),
-            new EmailChannelWorkerModule(),
+            new AccountMessagesModule(),
+            new MarketingMessagesModule(),
+            new IdentityTriggersModule(),
+            new EmailSenderWorkerModule(),
             new NotificationsMessagePurgeServices());
 }

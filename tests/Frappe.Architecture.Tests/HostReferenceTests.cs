@@ -131,8 +131,8 @@ public sealed class HostReferenceTests
         {
             await Assert.That(closure).Contains("Frappe.Notifications.Infrastructure");
             await Assert.That(closure).DoesNotContain("Frappe.Notifications.Http");
-            await Assert.That(closure.Where(name => name.StartsWith("Frappe.Notifications.Channels", StringComparison.Ordinal))).IsEmpty();
-            await Assert.That(closure.Where(name => name.StartsWith("Frappe.Notifications.Kinds", StringComparison.Ordinal))).IsEmpty();
+            await Assert.That(closure.Where(name => name.StartsWith("Frappe.Notifications.Senders", StringComparison.Ordinal))).IsEmpty();
+            await Assert.That(closure.Where(name => name.StartsWith("Frappe.Notifications.Messages", StringComparison.Ordinal))).IsEmpty();
         }
     }
 
