@@ -173,6 +173,10 @@ function select(paths, contract, profile, kinds, signals, risk) {
   for (const lens of SHAPES[shape].critics) add(mandatory, lens, `shape ${shape}`)
   for (const k of kinds || []) for (const lens of KIND_LENSES[k] || []) add(mandatory, lens, `kind ${k}`)
   if (critical) for (const lens of CRITICAL_LENSES) add(mandatory, lens, 'critical')
+  // Safety net for a grill that missed the security kind: security evidence in the changed lines always brings the
+  // security critic, at any risk. It does not make the task critical (that stays a kind's call).
+  const securityEvidence = ((signals && signals.lenses) || {}).security || []
+  if (securityEvidence.length && shape !== 'docs') add(mandatory, 'security', `content: ${securityEvidence[0]}`)
   const content = new Set()
   const set = new Set()
   // docs and tests keep their own small caps, filled by content and path as before.

@@ -12,10 +12,14 @@ const HTTP = ['src/M/Http/Endpoints.cs']
 const ALL = [...HTTP, ...UC, 'tests/M/T.cs']
 const noisy = { lenses: { security: ['src/M/Http/Endpoints.cs:4 +AuthorizeAsync'], observability: ['x:1 +LogWarning'] } }
 
-// Shapes: at standard risk each shape runs exactly its own critics, whatever the paths or the content say.
-check('fix runs correctness only', sel(ALL, false, 'fix', [], noisy).kept, ['correctness'])
+// Shapes: at standard risk each shape runs exactly its own critics, whatever the paths say; security evidence in the
+// changed lines always adds the security critic (a grill that missed the kind still gets one).
+check('fix runs correctness only', sel(ALL, false, 'fix', [], null).kept, ['correctness'])
+check('security content adds security to fix', sel(ALL, false, 'fix', [], noisy).kept, ['correctness', 'security'])
+check('security content does not make it critical', sel(ALL, false, 'fix', [], noisy).critical, false)
 check('refactor runs craft and architecture', sel([...HTTP, ...UC], false, 'refactor', [], null).kept, ['architecture', 'craft'])
-check('crud runs correctness and contracts', sel(ALL, false, 'crud', ['feature'], noisy).kept, ['correctness', 'contracts'])
+check('crud runs correctness and contracts', sel(ALL, false, 'crud', ['feature'], null).kept, ['correctness', 'contracts'])
+check('security content adds security to crud', sel(ALL, false, 'crud', ['feature'], noisy).kept, ['correctness', 'security', 'contracts'])
 check('shape critics are mandatory', sel(UC, false, 'refactor', [], null).mandatory, ['architecture', 'craft'])
 check('standard risk is not critical', sel(UC, false, 'crud', [], null).critical, false)
 

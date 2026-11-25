@@ -191,7 +191,9 @@ The selector lives in `assets/forge.workflow.js` and is tested by `node scripts/
 1. **Mandatory:** the shape's critics, the lenses each kind calls for (`security` → security; `data` and `data-migration` → data + performance;
    `money` → tests; `contract` → contracts + dx; `cross-module` → architecture + contracts; `operational` → performance + observability) and, when
    critical, security + data. Nothing ever drops a mandatory critic, and one that fails twice stops the task.
-2. **Standard risk:** nothing else runs. A `crud` that only touches use cases still gets exactly `correctness` + `contracts`.
+2. **Standard risk:** nothing else runs, with one safety net: security evidence from `signals.py` in the changed lines always adds the
+   security critic, in case the grill missed the `security` kind. It does not make the task critical. A `crud` that only touches use cases still
+   gets exactly `correctness` + `contracts`.
 3. **Critical:** optional critics fill the room up to 6. The writer's last step runs `scripts/review/signals.py`, which scans the changed lines
    (authorization calls, migrations, locks and transactions, routes, metrics and logs, removed assertions…) and returns evidence per lens; a lens
    with evidence in the content outranks one triggered only by a path. `lensStats` (from Engram `forge/metrics/critics`) demotes a lens with 30+
