@@ -535,7 +535,11 @@ jobs:
   image:
     name: Image is built
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.has_image != 'false' }}
+    # Built only when a job that uses it runs (end to end, dependencies, scan, migrations, Bruno): a change to docs or agent
+    # skills skips it. A missing output counts as "runs", so when in doubt the image is built.
+    if: >-
+      ${{ !cancelled() && needs.changes.outputs.has_image != 'false' && (needs.changes.outputs.image != 'false' ||
+      needs.changes.outputs.scan != 'false' || needs.changes.outputs.migrations != 'false' || needs.changes.outputs.bruno != 'false') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
