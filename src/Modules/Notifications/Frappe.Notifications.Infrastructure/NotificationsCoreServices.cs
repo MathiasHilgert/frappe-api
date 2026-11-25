@@ -29,7 +29,7 @@ namespace Frappe.Notifications.Infrastructure;
 /// the module's integration events in the same transaction as its data, and the declarations of its relay and purge, which only
 /// the Worker's transport materializes.
 /// </summary>
-public sealed class NotificationsModule : IModule
+public sealed class NotificationsCoreServices : IModule
 {
     /// <summary>The lower-case module name of its namespaces (<c>Frappe.Notifications.*</c>), also its connection string name.</summary>
     internal const string Name = "notifications";

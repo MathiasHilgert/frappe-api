@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The door of Notifications (S1): the only project a host names from the module. It composes the module's plug-ins and joins its purge
+       to the broker side of messaging (Frappe.Messaging), which the Migrator may not load and so the Infrastructure project may not reference. -->
+  <ItemGroup>
+    <ProjectReference Include="../Frappe.Notifications.Infrastructure/Frappe.Notifications.Infrastructure.csproj" />
+    <ProjectReference Include="../Frappe.Notifications.Http/Frappe.Notifications.Http.csproj" />
+    <ProjectReference Include="../Channels/Frappe.Notifications.Channels.Email/Frappe.Notifications.Channels.Email.csproj" />
+    <ProjectReference Include="../Kinds/Frappe.Notifications.Kinds.Account/Frappe.Notifications.Kinds.Account.csproj" />
+    <ProjectReference Include="../Kinds/Frappe.Notifications.Kinds.Marketing/Frappe.Notifications.Kinds.Marketing.csproj" />
+    <ProjectReference Include="../Producers/Frappe.Notifications.Producers.Identity/Frappe.Notifications.Producers.Identity.csproj" />
+    <ProjectReference Include="../../../Platform/Frappe.Messaging/Frappe.Messaging.csproj" />
+  </ItemGroup>
+</Project>

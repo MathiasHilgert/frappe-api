@@ -2,6 +2,7 @@
   <ItemGroup>
     <ProjectReference Include="../../Modules/Access/Frappe.Access/Frappe.Access.csproj" />
     <ProjectReference Include="../../Modules/Identity/Frappe.Identity/Frappe.Identity.csproj" />
+    <ProjectReference Include="../../Modules/Notifications/Frappe.Notifications/Frappe.Notifications.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Caching/Frappe.Caching.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Health/Frappe.Health.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Modules/Frappe.Modules.csproj" />
@@ -9,11 +10,6 @@
     <ProjectReference Include="../../Platform/Frappe.Observability.Hosting/Frappe.Observability.Hosting.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Messaging/Frappe.Messaging.csproj" />
     <ProjectReference Include="../../Platform/Frappe.Scheduling/Frappe.Scheduling.csproj" />
-    <ProjectReference Include="../../Modules/Notifications/Frappe.Notifications.Infrastructure/Frappe.Notifications.Infrastructure.csproj" />
-    <ProjectReference Include="../../Modules/Notifications/Channels/Frappe.Notifications.Channels.Email/Frappe.Notifications.Channels.Email.csproj" />
-    <ProjectReference Include="../../Modules/Notifications/Kinds/Frappe.Notifications.Kinds.Account/Frappe.Notifications.Kinds.Account.csproj" />
-    <ProjectReference Include="../../Modules/Notifications/Kinds/Frappe.Notifications.Kinds.Marketing/Frappe.Notifications.Kinds.Marketing.csproj" />
-    <ProjectReference Include="../../Modules/Notifications/Producers/Frappe.Notifications.Producers.Identity/Frappe.Notifications.Producers.Identity.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" />

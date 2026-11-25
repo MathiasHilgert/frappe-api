@@ -24,7 +24,7 @@ public sealed class LayeringTests
     private static readonly Assembly Scheduling = typeof(Frappe.Scheduling.SchedulingRegistration).Assembly;
     private static readonly Assembly Worker = typeof(Frappe.Worker.WorkerComposition).Assembly;
     private static readonly Assembly NotificationsHttp = typeof(Frappe.Notifications.Http.NotificationsHttp).Assembly;
-    private static readonly Assembly NotificationsInfrastructure = typeof(Frappe.Notifications.Infrastructure.NotificationsModule).Assembly;
+    private static readonly Assembly NotificationsInfrastructure = typeof(Frappe.Notifications.Infrastructure.NotificationsCoreServices).Assembly;
     private static readonly Assembly IdentityHttp = typeof(Frappe.Identity.Http.IdentityHttp).Assembly;
     private static readonly Assembly IdentityInfrastructure = typeof(Frappe.Identity.Infrastructure.IdentityCoreServices).Assembly;
     private static readonly Assembly AccessHttp = typeof(Frappe.Access.Http.AccessHttp).Assembly;

@@ -1,4 +1,5 @@
 using Frappe.Notifications.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace Frappe.Notifications.UnitTests;
 
@@ -21,6 +22,21 @@ public sealed class NotificationsDatabaseTests
             await Assert.That(database.Schema).IsEqualTo("notifications");
             await Assert.That(roles).IsEquivalentTo(
                 [("frappe_notifications", "Notifications"), ("frappe_notifications_worker", "NotificationsWorker")]);
+        }
+    }
+
+    [Test]
+    public async Task The_design_time_context_maps_the_notifications_schema_with_its_outbox()
+    {
+        // Act
+        using var context = new NotificationsDbContextFactory().CreateDbContext([]);
+        var tables = context.Model.GetEntityTypes().Select(entity => entity.GetTableName()).ToArray();
+
+        // Assert
+        using (Assert.Multiple())
+        {
+            await Assert.That(context.Model.GetDefaultSchema()).IsEqualTo("notifications");
+            await Assert.That(tables).Contains("outbox_messages");
         }
     }
 

@@ -23,7 +23,8 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 - **Why:** one shape to navigate; ArchTests and tools target every module the same way (same model for all: see `domain`, `cqrs`).
 - **Enforced by:** `ModuleDoorTests` (the door); module project-set ArchTest over `Frappe.slnx` (planned).
 - **Good:** `src/Modules/Access/` with `Frappe.Access` and its five layer projects; `src/Modules/Identity/` with `Frappe.Identity`, its five layer
-  projects and the plug-in `Limits/Frappe.Identity.Limits.Valkey`. **Bad:** a module with no Contracts or Http project, or no door.
+  projects and the plug-in `Limits/Frappe.Identity.Limits.Valkey`; `src/Modules/Notifications/` with `Frappe.Notifications`, its five layer
+  projects and the plug-ins under `Channels/`, `Kinds/` and `Producers/`. **Bad:** a module with no Contracts or Http project, or no door.
 - **Status:** in force.
 
 ## STR-02 · Application is organized by feature, then one folder per use case
@@ -113,7 +114,8 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 - **Why:** internals stay internal; a production consumer must go through a public contract, and the door is part of the module.
 - **Enforced by:** csproj ArchTest (planned).
 - **Good:** `Frappe.Identity.Infrastructure.csproj` → `Frappe.Identity.UnitTests`, `Frappe.Identity.IntegrationTests` and `Frappe.Identity` (its
-  `IdentityMessagePurge` implements the internal `IMessagePurge`). **Bad:** `Frappe.Identity.Infrastructure` → `Frappe.Worker`.
+  `IdentityMessagePurge` implements the internal `IMessagePurge`); `Frappe.Notifications.Infrastructure.csproj` → `Frappe.Notifications` for
+  `NotificationsMessagePurge`. **Bad:** `Frappe.Notifications.Infrastructure` → `Frappe.Worker`.
 - **Status:** in force.
 
 ## STR-11 · Each layer exposes its host facet from one fixed class
@@ -128,8 +130,10 @@ Where files go and what they are called. Layer dependencies: `architecture`. Use
 - **Why:** a module is read from one file, composition is found in one place per layer, and hosts list one entry per module (ARCH-11).
 - **Enforced by:** `ModuleDoorTests`, `LayeringTests`; review.
 - **Good:** `AccessModule.Worker = new ComposedModule(new AccessCoreServices(), new AccessWorkerServices())`; `IdentityModule.Api` composing
-  `IdentityCoreServices`, `IdentityApiServices` and the plug-in `IdentityLimitsValkeyModule` before `IdentityHttp`. **Bad:** a host registering
-  `AccessGate` itself, or listing `AccessCoreServices` next to `AccessModule.Api`.
+  `IdentityCoreServices`, `IdentityApiServices` and the plug-in `IdentityLimitsValkeyModule` before `IdentityHttp`; `NotificationsModule.Worker`
+  composing `NotificationsCoreServices`, `NotificationsWorkerServices`, the kinds, `IdentityProducerModule`, `EmailChannelWorkerModule` and its
+  internal message purge. **Bad:** a host registering
+  `AccessGate` itself, or listing `AccessCoreServices` next to `AccessModule.Api`, or `new AccountKindsModule()` next to `NotificationsModule.Api`.
 - **Status:** in force.
 
 ## STR-12 · No module rewrites the composed handler graph

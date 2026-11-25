@@ -41,11 +41,11 @@ internal sealed class DispatchWorld : IAsyncDisposable
         services.AddLogging(logging => logging.AddProvider(Logs));
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection(settings).Build());
         services.AddSingleton<IUseCaseGate, AllowAllUseCaseGate>();
-        new NotificationsModule().AddServices(services);
+        new NotificationsCoreServices().AddServices(services);
         new AccountKindsModule().AddServices(services);
         if (worker)
         {
-            new NotificationsWorkerModule().AddServices(services);
+            new NotificationsWorkerServices().AddServices(services);
             new EmailChannelWorkerModule().AddServices(services);
         }
 

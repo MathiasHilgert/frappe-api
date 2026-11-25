@@ -2,7 +2,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Frappe.Notifications.UnitTests" />
     <InternalsVisibleTo Include="Frappe.Notifications.IntegrationTests" />
-    <InternalsVisibleTo Include="Frappe.Worker" />
+    <InternalsVisibleTo Include="Frappe.Notifications" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Frappe.Notifications.Domain/Frappe.Notifications.Domain.csproj" />

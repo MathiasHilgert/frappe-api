@@ -14,7 +14,7 @@ using Scalar.AspNetCore;
 namespace Frappe.Api;
 
 /// <summary>
-/// Everything the public API serves: the modules <see cref="Modules.Services"/> and <see cref="Modules.Endpoints"/> list, under
+/// Everything the public API serves: the modules <see cref="Modules.Endpoints"/> lists, under
 /// <c>/v1</c> with the platform's conventions (negotiated language, anonymous rate limiting counted in Valkey across replicas, and
 /// each replica counting on its own while Valkey is down), the health probes, and the OpenAPI document with its Scalar reference.
 /// Every setting is bound to an options type and validated when the host starts, before it serves anything: a missing or invalid
@@ -29,10 +29,13 @@ public static class ApiComposition
 {
     extension(WebApplicationBuilder builder)
     {
-        /// <summary>Composes the Api with the modules of <see cref="Modules"/>.</summary>
-        public WebApplicationBuilder AddFrappeApi() => builder.AddFrappeApi(Modules.Services, Modules.Endpoints);
+        /// <summary>Composes the Api with the doors of <see cref="Modules.Endpoints"/>, which register every service the Api runs.</summary>
+        public WebApplicationBuilder AddFrappeApi() => builder.AddFrappeApi([], Modules.Endpoints);
 
-        /// <summary>Composes the Api with the given modules, which tests replace to prove the composition.</summary>
+        /// <summary>
+        /// Composes the Api with the given services and endpoints, which tests replace to prove the composition: <paramref name="modules"/>
+        /// register before <paramref name="endpoints"/>.
+        /// </summary>
         public WebApplicationBuilder AddFrappeApi(IReadOnlyCollection<IModule> modules, IReadOnlyCollection<IHttpModule> endpoints)
         {
             ArgumentNullException.ThrowIfNull(builder);

@@ -123,14 +123,17 @@ module's data: see `criteria`.
   `ComposedHttpModule`. Modules are never discovered by assembly scanning (`AddHandlers(assembly)` inside a module stays allowed). A door never
   names another module's door, a module never registers another module, nor reads host configuration outside its own section.
 - **Why:** each host decides what runs where and reads a module from one file; adding a module is one line per host. The Worker loads the door's
-  Http project without mapping it.
-- **Enforced by:** `ModuleDoorTests` (hosts name only doors, a door exposes only `<M>Module`, no door references another door; Notifications
-  allow-listed until it gets its door), `WorkerCompositionTests` (the Worker maps no endpoint and registers no attempt limiter),
-  `HostReferenceTests` (the Migrator never references ASP.NET Core), `<M>ModuleTests` (a door registers what its facets did); review.
-- **Good:** `Endpoints = [AccessModule.Api, IdentityModule.Api, ...]` in the Api and `All = [AccessModule.Worker, IdentityModule.Worker, ...]` in
-  the Worker; the Api's console origin check asks the `IBrowserCredential`s the modules registered (`IdentityHttp` registers the session
-  cookie), so the host names no module's credential. **Bad:** a host listing `new AccessCoreServices(), new AccessWorkerServices()` itself, or
-  registering a module's adapter (`IdentityMessagePurge` in `WorkerComposition`); `AccessModule` calling `IdentityModule.Worker.AddServices()`.
+  Http project without mapping it. Each host registers its doors in list order, so a module's services register right before its routes;
+  hosted services start in that order (Access's startup check before the Notifications catalog check), which no module may rely on.
+- **Enforced by:** `ModuleDoorTests` (hosts name only doors, a door exposes only `<M>Module`, no door references another door),
+  `WorkerCompositionTests` (the Worker maps no endpoint, registers no attempt limiter and gets each purge from its door), `HostReferenceTests`
+  (the Migrator never references ASP.NET Core), `<M>ModuleTests` and `ApiHostTests` (a door registers what its facets did); review.
+- **Good:** `Endpoints = [AccessModule.Api, IdentityModule.Api, NotificationsModule.Api]` in the Api and
+  `All = [AccessModule.Worker, IdentityModule.Worker, NotificationsModule.Worker]` in the Worker; the Api's console origin check asks the
+  `IBrowserCredential`s the modules registered (`IdentityHttp` registers the session cookie), so the host names no module's credential.
+  **Bad:** a host listing `new AccessCoreServices(), new AccessWorkerServices()` itself, or registering a module's adapter
+  (`NotificationsMessagePurge` in `WorkerComposition`) or plug-in (`new EmailChannelWorkerModule()` in `All`); `AccessModule` calling
+  `IdentityModule.Worker.AddServices()`.
 - **Status:** in force.
 
 ## ARCH-12 · Modules emit no spans or exporters; business metrics only

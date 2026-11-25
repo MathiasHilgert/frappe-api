@@ -48,6 +48,7 @@
     <Project Path="src/Modules/Identity/Limits/Frappe.Identity.Limits.Valkey/Frappe.Identity.Limits.Valkey.csproj" />
   </Folder>
   <Folder Name="/src/Modules/Notifications/">
+    <Project Path="src/Modules/Notifications/Frappe.Notifications/Frappe.Notifications.csproj" />
     <Project Path="src/Modules/Notifications/Frappe.Notifications.Domain/Frappe.Notifications.Domain.csproj" />
     <Project Path="src/Modules/Notifications/Frappe.Notifications.Application/Frappe.Notifications.Application.csproj" />
     <Project Path="src/Modules/Notifications/Frappe.Notifications.Contracts/Frappe.Notifications.Contracts.csproj" />

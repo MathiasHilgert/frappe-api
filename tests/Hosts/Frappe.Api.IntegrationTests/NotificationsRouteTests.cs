@@ -165,7 +165,7 @@ public sealed class NotificationsRouteTests
     {
         // Arrange
         await using var app = await ApiHost.StartAsync(
-            [.. Frappe.Api.Modules.Services, new OpenStoreModule()], Frappe.Api.Modules.Endpoints, ApiHost.Deployed, "Development");
+            [new OpenStoreModule()], Frappe.Api.Modules.Endpoints, ApiHost.Deployed, "Development");
         using var client = app.GetTestClient();
         using var request = new HttpRequestMessage(HttpMethod.Post, Route)
         {

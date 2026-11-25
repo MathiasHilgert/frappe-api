@@ -685,10 +685,7 @@
           "Frappe.Http": "[1.0.0, )",
           "Frappe.Identity": "[1.0.0, )",
           "Frappe.Modules": "[1.0.0, )",
-          "Frappe.Notifications.Http": "[1.0.0, )",
-          "Frappe.Notifications.Infrastructure": "[1.0.0, )",
-          "Frappe.Notifications.Kinds.Account": "[1.0.0, )",
-          "Frappe.Notifications.Kinds.Marketing": "[1.0.0, )",
+          "Frappe.Notifications": "[1.0.0, )",
           "Frappe.Observability": "[1.0.0, )",
           "Frappe.Observability.Hosting": "[1.0.0, )",
           "Microsoft.AspNetCore.OpenApi": "[11.0.0, )",
@@ -842,6 +839,18 @@
       "frappe.modules": {
         "type": "Project"
       },
+      "frappe.notifications": {
+        "type": "Project",
+        "dependencies": {
+          "Frappe.Messaging": "[1.0.0, )",
+          "Frappe.Notifications.Channels.Email": "[1.0.0, )",
+          "Frappe.Notifications.Http": "[1.0.0, )",
+          "Frappe.Notifications.Infrastructure": "[1.0.0, )",
+          "Frappe.Notifications.Kinds.Account": "[1.0.0, )",
+          "Frappe.Notifications.Kinds.Marketing": "[1.0.0, )",
+          "Frappe.Notifications.Producers.Identity": "[1.0.0, )"
+        }
+      },
       "frappe.notifications.application": {
         "type": "Project",
         "dependencies": {
@@ -992,11 +1001,7 @@
           "Frappe.Identity": "[1.0.0, )",
           "Frappe.Messaging": "[1.0.0, )",
           "Frappe.Modules": "[1.0.0, )",
-          "Frappe.Notifications.Channels.Email": "[1.0.0, )",
-          "Frappe.Notifications.Infrastructure": "[1.0.0, )",
-          "Frappe.Notifications.Kinds.Account": "[1.0.0, )",
-          "Frappe.Notifications.Kinds.Marketing": "[1.0.0, )",
-          "Frappe.Notifications.Producers.Identity": "[1.0.0, )",
+          "Frappe.Notifications": "[1.0.0, )",
           "Frappe.Observability": "[1.0.0, )",
           "Frappe.Observability.Hosting": "[1.0.0, )",
           "Frappe.Scheduling": "[1.0.0, )",
