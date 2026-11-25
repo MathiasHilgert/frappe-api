@@ -15,11 +15,12 @@
 - **Rule:** Each module registers one unit of work over its own context with `AddUnitOfWork<TContext>(Module)`, keyed by the module name. Handlers and
   Application ports stage changes (`Add`, aggregate transitions) and never save; the pipeline commits once per command.
 - **Why:** One commit per command keeps aggregates, outbox rows and events atomic; a port that saves splits the command into partial commits.
-- **Enforced by:** LayeringTests `Application_ports_leave_saving_to_the_unit_of_work` (planned); `UnitOfWorkPipelineTests`
+- **Enforced by:** review only for ports that save; `UnitOfWorkPipelineTests`
   `A_succeeding_command_is_committed_once`, `A_command_of_a_module_without_a_unit_of_work_fails_naming_the_module_instead_of_saving_nothing`.
-- **Good:** `.AddUnitOfWork<OrdersDbContext>(OrdersDbContext.Module)`; `void Add(ShipmentCalendar calendar); // the unit of work saves it`. **Bad:**
+- **Good:** `.AddUnitOfWork<TContext>(module)` through `AddModuleDatabase<IdentityDbContext>`; `void Add(Owner owner); // the unit of work saves
+  it`. **Bad:**
   `Task
-  SaveAsync(...)` on an Application port; Mailing with no unit of work.
+  SaveAsync(...)` on an Application port; Notifications with no unit of work.
 - **Status:** in force.
 
 ## UOW-02 · The transaction opens at commit, in a fixed order
@@ -56,12 +57,13 @@
   session lock names who releases it), marked `// Exception to UOW-04: <reason>` and tested with parallel commits.
 - **Why:** One optimistic token per aggregate, the convention Npgsql documents, catches every lost update with no schema column and no hand-kept list
   of fields.
-- **Enforced by:** ArchTest (planned) over the EF model: every `AggregateRoot` that is ever updated has a row-version property; insert-only
+- **Enforced by:** review only over the EF model: every `AggregateRoot` that is ever updated has a row-version property; insert-only
   aggregates are skipped by a named marker.
-- **Good:** `builder.Property<uint>("xmin").HasColumnName("xmin").IsRowVersion();` (`ShipmentCalendarConfiguration`). **Bad:** `owner.Property(o =>
-  o.PasswordChangedAt).IsConcurrencyToken();` with no `xmin` and no justification; `FOR UPDATE` fences in `BillingDbContext`.
-- **Exception: a counted limit under concurrency (Shipping cap, D10 "Candado + excepción anotada"):** `xmin` protects a row that exists; a limit over
-  a count of rows ("at most N shipments per customer") has no row to version, and two commits that each read `N-1` would both pass. The one allowed
+- **Good:** `builder.Property<uint>("xmin").HasColumnName("xmin").IsRowVersion();` (`OwnerConfiguration`). **Bad:** `owner.Property(o =>
+  o.PasswordChangedAt).IsConcurrencyToken();` with no `xmin` and no justification; `FOR UPDATE` fences in an `IdentityDbContext` method.
+- **Exception: a counted limit under concurrency (Notifications cap, D10 "Candado + excepción anotada"):** `xmin` protects a row that exists; a
+  limit over
+  a count of rows ("at most N deliveries per recipient") has no row to version, and two commits that each read `N-1` would both pass. The one allowed
   lock is a **transaction-scoped advisory lock** (`pg_advisory_xact_lock(<module namespace int>, hashtext(<owner key>))`) taken inside the commit's
   transaction by an in-unit `IDomainEventHandler` (UOW-02), then the count in a second statement, rejecting with an `ICommitRejection`. It is not
   `SELECT … FOR UPDATE` on rows, it releases itself when the transaction ends, and it serializes only the creations of one owner. Each use is marked
@@ -81,19 +83,20 @@
   the owner keeps its deferral). A deferrable constraint with no `OnDeferred` rule answers 500 when it fails: register the rule, or keep the
   constraint `INITIALLY IMMEDIATE`. DbContexts never override `SaveChanges`/`SaveChangesAsync`.
 - **Why:** Race translation stays declarative, one line per constraint, instead of hundreds of lines of exception sniffing per context.
-- **Enforced by:** ArchTest (planned): no `DbContext` subclass overrides `SaveChanges*`.
-- **Good:** (planned API) `.AddCommitRejections<OrdersDbContext>(map => map.On("ux_subdivision_aliases_region_alias", e => new
-  SubdivisionAliasRaceLostException(...)))`. **Bad:** `public override async Task<int> SaveChangesAsync(...)` with `catch (DbUpdateException ...)` in
-  `BillingDbContext` and `OrdersDbContext`.
+- **Enforced by:** review only: no `DbContext` subclass overrides `SaveChanges*`.
+- **Good:** `services.AddCommitRejections<IdentityDbContext>(rejections => { OwnerRejections.Register(rejections);
+  SessionRejections.Register(rejections); })`
+  (`IdentityCoreServices`): one rule per constraint, mapped to an `ICommitRejection`. **Bad:** `public override async Task<int> SaveChangesAsync(...)`
+  with `catch (DbUpdateException ...)` in an `IdentityDbContext` or `NotificationsDbContext`.
 - **Status:** in force.
 
 ## UOW-06 · DbContexts are stateless and pooled
 
 - **Rule:** A DbContext holds mapping only: no instance fields, no per-request state. Every module registers it with `AddDbContextPool`.
 - **Why:** Pooling cuts allocation on every request, and it is only safe when nothing leaks from one use to the next.
-- **Enforced by:** ArchTest (planned): `DbContext` subclasses declare no instance fields; review of `ModuleDatabaseRegistration`.
+- **Enforced by:** review only: `DbContext` subclasses declare no instance fields; review of `ModuleDatabaseRegistration`.
 - **Good:** `services.AddDbContextPool<TContext>((provider, options) => configure(...))`. **Bad:** `.AddDbContext<TContext>(...)`
-  (`ModuleDatabaseRegistration`); `private readonly List<...> _profileFences = [];` in `BillingDbContext`.
+  (`ModuleDatabaseRegistration`); a `private readonly List<...> _fences = [];` field in `IdentityDbContext`.
 - **Status:** in force.
 
 ## UOW-07 · No `EnableRetryOnFailure`
@@ -102,7 +105,7 @@
   the client running the command again.
 - **Why:** An execution strategy replays a user-initiated transaction outside the pipeline and conflicts with the unit's own transaction and
   savepoints.
-- **Enforced by:** BannedApiAnalyzers (planned): `NpgsqlDbContextOptionsBuilder.EnableRetryOnFailure`.
+- **Enforced by:** review only (candidate for BannedApiAnalyzers): `NpgsqlDbContextOptionsBuilder.EnableRetryOnFailure`.
 - **Good:** `options.UseNpgsql(connectionString, npgsql => npgsql.UseNodaTime())`. **Bad:** `npgsql.EnableRetryOnFailure(3)`.
 - **Status:** in force.
 
@@ -125,7 +128,7 @@
 
 - **Rule:** `IAfterCommitDomainEventHandler` runs only effects the system can lose: metrics, a quick local cache eviction. It finishes within the
   unit's 10 s bound and never fails the command. Anything that must happen goes through the outbox, or the handler's XML doc states its durable
-  backstop. Business-success counters are counted after commit (`CountOnCommit`, planned).
+  backstop. Business-success counters are counted after commit (`CountOnCommit`, `CountOnCommitRegistration`).
 - **Why:** After commit there is no transaction to roll back; a crash or timeout there loses the effect silently.
 - **Enforced by:** review.
 - **Good:** an after-commit handler evicting the territory cache, with integration-event eviction as the backstop. **Bad:** an after-commit handler

@@ -41,7 +41,7 @@
 - **Rule:** A class whose constructor only receives dependencies uses a primary constructor and reads the parameters directly; no field-copying
   constructors. Keep an explicit constructor only when it validates or computes.
 - **Why:** Removes boilerplate that hides what a class depends on.
-- **Enforced by:** IDE0290 (`csharp_style_prefer_primary_constructors`) raised to warning (planned).
+- **Enforced by:** review only (IDE0290 `csharp_style_prefer_primary_constructors` is a candidate for warning).
 - **Good:** `internal sealed class TransactionalCommandHandler<TCommand, TResult>(ICommandHandler<TCommand, TResult> inner, IServiceProvider
   services)`. **Bad:** `private readonly IClock _clock; public X(IClock clock) { _clock = clock; }`.
 - **Status:** in force.
@@ -61,7 +61,7 @@
 - **Rule:** Every file declares `namespace X;` matching its folder.
 - **Why:** One indentation level less in every file, and one namespace per file.
 - **Enforced by:** IDE0161 (`csharp_style_namespace_declarations = file_scoped:warning`); IDE0130.
-- **Good:** `namespace Frappe.Billing.Domain.Owners;`. **Bad:** `namespace Frappe.Billing.Domain.Owners { ... }`.
+- **Good:** `namespace Frappe.Identity.Domain.Owners;`. **Bad:** `namespace Frappe.Identity.Domain.Owners { ... }`.
 - **Status:** in force.
 
 ## CS-06 · Pattern matching over casts and null checks
@@ -69,7 +69,7 @@
 - **Rule:** Use `is`/`switch` patterns (type, property, relational, list, `not`, `is { } x`) instead of `as` + null checks, chained `&&` member checks
   or casts.
 - **Why:** The condition reads as the shape it tests, and the binding is scoped and non-null.
-- **Enforced by:** IDE0019, IDE0020, IDE0078, IDE0083 raised to warning (planned).
+- **Enforced by:** review only (IDE0019, IDE0020, IDE0078, IDE0083 are candidates for warning).
 - **Good:** `if (Owner is not { Status: OwnerStatus.Active })`; `if (proof.Code is not { Purpose: CodePurpose.EmailChange, NewEmail: { } newEmail })`.
   **Bad:** `if (Owner == null || Owner.Status != OwnerStatus.Active)` followed by `var code = proof.Code as EmailChangeCode;`.
 - **Status:** in force.
@@ -113,8 +113,8 @@
 - **Why:** One source of time that tests control with one `FakeTimeProvider`, so instants and timers move together.
 - **Enforced by:** BannedApiAnalyzers (`eng/BannedSymbols.txt`); `DesignTimeFactoryTests`.
 - **Good:** `public sealed class TimeProviderClock(TimeProvider time) : IClock { public Instant GetCurrentInstant() =>
-  Instant.FromDateTimeOffset(time.GetUtcNow()); }`. **Bad:** `SystemClock.Instance` in `OrdersDesignTimeDbContextFactory` and
-  `BillingDesignTimeDbContextFactory`.
+  Instant.FromDateTimeOffset(time.GetUtcNow()); }`. **Bad:** `SystemClock.Instance` in `IdentityDesignTimeDbContextFactory` and
+  `NotificationsDesignTimeDbContextFactory`.
 - **Status:** in force.
 
 ## CS-11 · Async all the way, with the caller's `CancellationToken`
@@ -122,7 +122,7 @@
 - **Rule:** Every method that does I/O is async, takes a `CancellationToken` as its last parameter and passes it to every call that accepts one. Never
   block on a task (`.Result`, `.Wait()`, `GetAwaiter().GetResult()`). Use `CancellationToken.None` only on purpose, with a comment.
 - **Why:** Blocking starves the thread pool; a dropped token keeps working for a client that already left.
-- **Enforced by:** CA2016; Meziantou MA0040 and MA0042 (planned).
+- **Enforced by:** CA2016; review only for Meziantou MA0040 and MA0042.
 - **Good:** `// Not the caller's token: a cancelled command still has to give its changes back. await
   unitOfWork.RollbackAsync(CancellationToken.None);`. **Bad:** `var user = repo.FindAsync(id, default).Result;`.
 - **Status:** in force.
@@ -131,7 +131,7 @@
 
 - **Rule:** Do not write `ConfigureAwait(false)` (or `true`) in `src/` or `tests/`; CA2007 stays off.
 - **Why:** ASP.NET Core and the generic host have no `SynchronizationContext`, so it changes nothing and only adds noise.
-- **Enforced by:** BannedApiAnalyzers (planned): `Task.ConfigureAwait`, `Task<T>.ConfigureAwait`, `ValueTask.ConfigureAwait`.
+- **Enforced by:** review only (candidate for BannedApiAnalyzers): `Task.ConfigureAwait`, `Task<T>.ConfigureAwait`, `ValueTask.ConfigureAwait`.
 - **Good:** `result = await inner.HandleAsync(command, cancellationToken);`. **Bad:** `await
   unitOfWork.BeginAsync(cancellationToken).ConfigureAwait(false);` (`TransactionalCommandHandler`, `Instrumentation`).
 - **Status:** in force.

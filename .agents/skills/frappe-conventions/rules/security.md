@@ -23,7 +23,8 @@
 - **Rule:** Authenticate only routes that call `RequireSession()`; register no default scheme; anonymous routes never touch the session module.
 - **Why:** anonymous traffic never costs a session lookup, and a session-module outage cannot break public routes.
 - **Enforced by:** SessionEndpointsTests + review.
-- **Good:** `billing.MapGet("/me", GetMeAsync).RequireSession()`. **Bad:** `AddAuthentication(defaultScheme)` applied to every route.
+- **Good:** `.WithName("ChangePassword")...` on a route in `PasswordChangeEndpoints` behind the session scheme. **Bad:**
+  `AddAuthentication(defaultScheme)` applied to every route.
 - **Status:** in force.
 
 ## SEC-02 · Sessions travel in the `__Host-` cookie or Bearer, never both ambiguously
@@ -106,12 +107,13 @@
 ## SEC-11 · One least-privilege database role per module and process
 
 - **Rule:** Each module has one login role with data-only grants on its own schema, PUBLIC revoked, no access to the migrations history; the Worker
-  connects with the full module role only where it is the module's runtime home (Orders's syncs, Mailing's mails, Ledger's consumers); where it only
-  relays and purges a module's messages it uses `<module>_relay`, granted by `RelayRoles` (MIG-12); DDL only in the Migrator.
+  connects as the narrow `<module>_worker` role, never the full module role: `RelayRoles` grants (relay and purge, MIG-12) plus table- or
+  column-scoped extras only where it does more (`NotificationsDatabase.WorkerStatements`, `IdentityDatabase.GrantWorkerAsync`); DDL only in the
+  Migrator.
 - **Why:** a compromised or buggy module cannot read others' data or change schemas.
 - **Enforced by:** review (`ModuleRoles`, `RelayRoles`) + `MigratorTests` + `WorkerCompositionTests`.
-- **Good:** `frappe_billing` with DML on `billing` only; the Worker relaying Billing as `frappe_billing_relay`; Shipping runs as
-  `frappe_shipping` because the Worker is its runtime home (the daily purge). **Bad:** the Api connecting as the owner role.
+- **Good:** `frappe_identity` with DML on `identity` only; the Worker connecting as `frappe_identity_worker` and `frappe_notifications_worker`
+  (compose.yaml). **Bad:** the Worker connecting as the full `frappe_identity` role, or the Api as the owner role.
 - **Status:** in force.
 
 ## SEC-12 · Secrets are verifiers or env values, never logged or committed
@@ -120,7 +122,7 @@
   missing one stops startup.
 - **Why:** leaked repos and logs must not leak credentials; a missing secret must fail loudly.
 - **Enforced by:** gitleaks (`security.yml`) + options validation at startup.
-- **Good:** `Roles__Orders__Password: ${FRAPPE_ORDERS_PASSWORD:?set it in .env}` in compose. **Bad:** a default key in `appsettings.json`.
+- **Good:** `Roles__Identity__Password: ${FRAPPE_IDENTITY_PASSWORD:?set it in .env}` in compose. **Bad:** a default key in `appsettings.json`.
 - **Status:** in force.
 
 ## SEC-13 · `/v1` is rate limited per client; costly routes add a named policy

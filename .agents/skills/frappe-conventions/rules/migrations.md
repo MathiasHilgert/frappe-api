@@ -21,7 +21,7 @@
   and snapshot included.
 - **Why:** A model ahead of its schema fails at runtime on the first query that touches the difference.
 - **Enforced by:** `dotnet ef migrations has-pending-model-changes` (Compatibility workflow).
-- **Good:** `20261116143839_IndexParkedOutboxRows.cs` beside the `OutboxModel` change. **Bad:** a new `HasIndex` with no migration.
+- **Good:** `CreateIdentitySchema` shipping the `ix_outbox_messages_parked` index with the outbox model. **Bad:** a new `HasIndex` with no migration.
 - **Status:** in force.
 
 ## MIG-02 · New migration SQL passes squawk
@@ -37,22 +37,23 @@
 ## MIG-03 · DDL on a live table starts with `lock_timeout`
 
 - **Rule:** Every transactional DDL on an existing table starts with `SET LOCAL lock_timeout = '5s';` (`'2s'` for an ACCESS EXCLUSIVE lock on a hot
-  table: outbox, inbox, sessions, localities).
+  table: outbox, inbox, sessions).
 - **Why:** A DDL waiting for its lock queues every reader and writer behind it; failing fast and retrying beats an outage.
 - **Enforced by:** review (squawk's `require-timeout-settings` is excluded in `eng/squawk.toml`).
-- **Good:** `migrationBuilder.Sql("SET LOCAL lock_timeout = '2s';");` first in `RequireSessionPasswordStamp.Up` (sessions, hot). **Bad:** `ALTER TABLE
-  billing.sessions ADD CONSTRAINT ...` with no lock timeout.
+- **Good:** `migrationBuilder.Sql("SET LOCAL lock_timeout = '2s';");` first in a migration on `identity.sessions` (hot; illustrative). **Bad:**
+  `ALTER TABLE
+  identity.sessions ADD CONSTRAINT ...` with no lock timeout.
 - **Status:** in force.
 
 ## MIG-04 · CHECK constraints are added NOT VALID, then validated
 
 - **Rule:** Add a CHECK `NOT VALID` inside the transaction (`DROP CONSTRAINT IF EXISTS` + `ADD` in one `ALTER`), then `VALIDATE CONSTRAINT` in its own
   statement with `suppressTransaction: true`, in the same migration by default. Use two migrations when existing rows may break it and need cleanup
-  first, or on a hot or large table (outbox, inbox, sessions, localities, or more than ~1M rows expected).
+  first, or on a hot or large table (outbox, inbox, sessions, or more than ~1M rows expected).
 - **Why:** `NOT VALID` takes a short lock; the validating scan then runs without the ALTER's lock held.
 - **Enforced by:** `MigratorTests` (invariants validated; a breaking row fails the migration naming it) | review.
-- **Good:** hot table, two migrations: `StampSessionsWithPassword` adds `ck_sessions_password_stamp ... NOT VALID`, `ValidateSessionPasswordStamp`
-  validates it. **Bad:** `ADD CONSTRAINT ck_x CHECK (...)` validated under the ALTER's lock.
+- **Good:** (illustrative) hot table, two migrations: the first adds `ck_x ... NOT VALID`, the second validates it. **Bad:** `ADD CONSTRAINT ck_x
+  CHECK (...)` validated under the ALTER's lock.
 - **Status:** in force.
 
 ## MIG-05 · Indexes are built and dropped CONCURRENTLY
@@ -63,7 +64,8 @@
   carries the `risky migration approved` label with the reason).
 - **Why:** A plain build blocks writes for the whole build; a concurrent one cannot share a transaction or a batch.
 - **Enforced by:** squawk (`require-concurrent-index-creation`, `ban-concurrent-index-creation-in-transaction`) | review.
-- **Good:** `IndexParkedOutboxRows.Up`. **Bad:** `migrationBuilder.CreateIndex(...)` on `sessions`; `CREATE UNIQUE INDEX CONCURRENTLY` with no `DROP
+- **Good:** (illustrative) a migration issuing `DROP INDEX CONCURRENTLY IF EXISTS` then `CREATE INDEX CONCURRENTLY`. **Bad:**
+  `migrationBuilder.CreateIndex(...)` on `sessions`; `CREATE UNIQUE INDEX CONCURRENTLY` with no `DROP
   INDEX CONCURRENTLY IF EXISTS` before it.
 - **Status:** in force.
 
@@ -72,10 +74,11 @@
 - **Rule:** A migration writes table names, constraint names, predicates and index definitions as literals. It never references configuration, model
   or platform types (`SessionConfiguration`, `OutboxModel`), not even for a name.
 - **Why:** A migration is frozen history; reading a constant rewrites what an old migration does when the model later changes.
-- **Enforced by:** `MigrationTests` (planned) (a source scan of the hand-written migration files, comments included; C# inlines constants, so an
+- **Enforced by:** review only (a source scan of the hand-written migration files, comments included; C# inlines constants, so an
   assembly check cannot see them).
-- **Good:** `IndexParkedOutboxRows`: `"CREATE INDEX CONCURRENTLY ix_outbox_messages_parked ON orders.outbox_messages (sequence) WHERE ..."`. **Bad:**
-  `private const string Table = "orders." + OutboxModel.Table;`, `{SessionConfiguration.PasswordStampCheck}`.
+- **Good:** `CreateIdentitySchema`: `"CREATE INDEX ix_outbox_messages_parked ON identity.outbox_messages (sequence) WHERE ..."`.
+  **Bad:**
+  `private const string Table = "identity." + OutboxModel.Table;`, `{SessionConfiguration.PasswordStampCheck}`.
 - **Status:** in force.
 
 ## MIG-07 · Breaking column changes go expand/contract
@@ -84,7 +87,8 @@
   NOT NULL` in a later migration. Renames and drops add the new shape first and remove the old one only after no running binary reads it.
 - **Why:** Each step is compatible with the binary before and after it, so replicas can roll.
 - **Enforced by:** review.
-- **Good:** `StampSessionsWithPassword` → `ValidateSessionPasswordStamp` → `RequireSessionPasswordStamp`. **Bad:** `AddColumn(nullable: false,
+- **Good:** (illustrative) add nullable → backfill and `NOT VALID` check → validate and `SET NOT NULL`, one migration each. **Bad:**
+  `AddColumn(nullable: false,
   defaultValue: ...)` on a live table in one step.
 - **Status:** in force.
 
@@ -96,7 +100,7 @@
   to the CHANGELOG.
 - **Why:** The operator deploying it reads the migration and the CHANGELOG, not the PR thread.
 - **Enforced by:** review.
-- **Good:** `StampSessionsWithPassword` summary: locks, backfill cost, "ships as a coordinated cutover (stop the Api, migrate, start the new binary)".
+- **Good:** (illustrative) a summary stating locks, backfill cost, "ships as a coordinated cutover (stop the Api, migrate, start the new binary)".
   **Bad:** `/// <summary>Adds a column.</summary>`; a summary with no rollout class.
 - **Status:** in force.
 
@@ -106,8 +110,8 @@
   rows itself. The check and the build are rerunnable (`IF EXISTS` in Up and Down).
 - **Why:** Which duplicate to keep is a business decision; a failed concurrent build otherwise leaves an invalid index.
 - **Enforced by:** review.
-- **Good:** the check in `AddManualAliasRegionUniqueness`: `RAISE EXCEPTION 'Manual subdivision aliases shared by two subdivisions of a region: %.
-  ...'`. **Bad:** `DELETE FROM ... WHERE ctid NOT IN (SELECT min(ctid) ...)`; that same migration's build and `Down` without `IF EXISTS`.
+- **Good:** (illustrative) a check such as `RAISE EXCEPTION 'Manual subdivision aliases shared by two subdivisions of a region: %.
+  ...'`. **Bad:** `DELETE FROM ... WHERE ctid NOT IN (SELECT min(ctid) ...)`; a build and `Down` without `IF EXISTS`.
 - **Status:** in force.
 
 ## MIG-10 · The Migrator owns DDL; login roles are narrow
@@ -115,8 +119,7 @@
 - **Rule:** Only the Migrator runs DDL, as the schema owner, under an advisory lock. It creates every login role `NOINHERIT NOCREATEDB NOCREATEROLE`
   with a SCRAM verifier, and sets `statement_timeout` and `idle_in_transaction_session_timeout` on each from `DatabaseOptions`.
 - **Why:** A compromised or buggy Api cannot change the schema; two Migrators started together cannot race.
-- **Enforced by:** `MigratorTests` (`Only_a_SCRAM_verifier_reaches_the_server...`, `Two_Migrators_started_together_both_succeed` (planned),
-  `Every_login_role_gets_the_configured_session_timeouts` (planned)).
+- **Enforced by:** `MigratorTests` (`Only_a_SCRAM_verifier_reaches_the_server...`) + review only for the advisory lock and the session timeouts.
 - **Good:** `ModuleRoles`. **Bad:** the Api calling `Database.MigrateAsync()`.
 - **Status:** in force.
 
@@ -126,7 +129,7 @@
   `PUBLIC` loses access to the schema.
 - **Why:** Least privilege: a module cannot read another's data or rewrite its own history.
 - **Enforced by:** `MigratorTests` (`The_<Module>_role_reads_and_writes_<Module>_data_and_nothing_else`).
-- **Good:** `ModuleRoles` grants. **Bad:** `GRANT ALL ON SCHEMA billing TO billing_app`.
+- **Good:** `ModuleRoles` grants. **Bad:** `GRANT ALL ON SCHEMA identity TO frappe_identity`.
 - **Status:** in force.
 
 ## MIG-12 · Narrower roles get column grants and pinned SECURITY DEFINER functions
@@ -134,8 +137,9 @@
 - **Rule:** A role that needs less than its module's DML (a relay, a purge) gets column-level `UPDATE` and `EXECUTE` on `SECURITY DEFINER` functions
   with `search_path` pinned and `EXECUTE` revoked from `PUBLIC`.
 - **Why:** The relay can publish and purge but cannot read or change business rows.
-- **Enforced by:** `MigratorTests` (Billing and Shipping relay roles) | `CredentialPurgeTests` (planned) | the `RelayRoles` statement test.
-- **Good:** `RelayRoles.GrantAsync` (Frappe.Messaging.Storage) called by `BillingMigration` and `ShippingMigration`; the module passes only its
+- **Enforced by:** `MigratorTests` (Identity and Notifications worker roles) | `RetentionTests` and `PurgeTests` for the purges | the `RelayRoles`
+  statement test.
+- **Good:** `RelayRoles.GrantAsync` (Frappe.Messaging.Storage) called by `IdentityDatabase` and `NotificationsDatabase`; the module passes only its
   schema, role and purge functions. **Bad:** the relay logging in as the module role.
 - **Status:** in force.
 
@@ -153,6 +157,6 @@
 - **Rule:** Lint locally with `.github/scripts/migration-sql.sh <base-branch> "$(mktemp -d)"` and `npx --yes squawk-cli@2.72.0 --config
   eng/squawk.toml <files>`; the SQL directory never lives in the worktree.
 - **Why:** Same script and version as CI, and no generated SQL left in the change.
-- **Enforced by:** review (a just recipe is a candidate, not planned).
+- **Enforced by:** review (a just recipe is a candidate).
 - **Good:** `out="$(mktemp -d)"; .github/scripts/migration-sql.sh main "$out"`. **Bad:** `migration-sql.sh main ./tmp-sql`.
 - **Status:** in force.

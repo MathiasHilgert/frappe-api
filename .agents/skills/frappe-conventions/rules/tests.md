@@ -41,7 +41,7 @@
   connection-string builder) are allowed. Anything that needs one is an integration test or higher.
 - **Why:** unit suites stay fast and runnable anywhere; a hidden container makes them neither.
 - **Enforced by:** `UnitTestsStayInProcess` in `tests/Directory.Build.props` (direct references); review (connections).
-- **Good:** `BillingFakes` in-memory ports in `Frappe.Billing.UnitTests` **Bad:** `Testcontainers.PostgreSql` in a project that holds unit tests.
+- **Good:** `FakeAuthorizer` and `FakeCaller` in `Frappe.Identity.UnitTests` **Bad:** `Testcontainers.PostgreSql` in a project that holds unit tests.
 - **Status:** in force.
 
 ## TEST-03 · tests/ mirrors src/, with unit and integration projects per module and for Platform
@@ -99,7 +99,7 @@
 - **Rule:** Fake ports in memory, one fakes object per module (`<Module>Fakes`); assert on the fake's state, not on calls. HTTP goes through
   `RecordingHandler`. Moq and NSubstitute are banned.
 - **Why:** state-based fakes survive refactors and behave like the real port; interaction mocks pin the implementation.
-- **Enforced by:** BannedApiAnalyzers (`eng/BannedSymbols.txt`, planned).
+- **Enforced by:** BannedApiAnalyzers (`eng/BannedSymbols.txt`) for what is already banned; the rest is review only.
 - **Good:** `fakes.Sessions.Added` **Bad:** `sessions.Verify(s => s.Add(It.IsAny<Session>()), Times.Once)`.
 - **Status:** in force.
 
@@ -128,7 +128,7 @@
 - **Rule:** Fake time with `Microsoft.Extensions.Time.Testing.FakeTimeProvider`; the NodaTime `IClock` comes from it through `TimeProviderClock`. No
   hand-written clock classes, no wall clock.
 - **Why:** one fake moves both clocks together; copies of `FixedClock` drift apart.
-- **Enforced by:** BannedApiAnalyzers on `DateTime.Now`, `DateTime.UtcNow`, `SystemClock.Instance` in tests (planned); review.
+- **Enforced by:** BannedApiAnalyzers on `DateTime.Now`, `DateTime.UtcNow`, `SystemClock.Instance` in tests (review only until banned); review.
 - **Good:** `var time = new FakeTimeProvider(start); var clock = new TimeProviderClock(time);` **Bad:** `private sealed class FixedClock(Instant now)
   : IClock`.
 - **Status:** in force.
@@ -138,7 +138,8 @@
 - **Rule:** Compare timestamps as NodaTime `Instant`, never as formatted strings or `DateTime` with a kind.
 - **Why:** Postgres rounds to microseconds and `DateTime` kinds compare wrong across zones.
 - **Enforced by:** review.
-- **Good:** `await Assert.That(row.CreatedAt).IsEqualTo(BillingFakes.Now);` **Bad:** `IsEqualTo(now.ToString("O"))`.
+- **Good:** `await Assert.That(row.CreatedAt).IsEqualTo(time.GetUtcNow());` with `time` the test's `FakeTimeProvider`. **Bad:**
+  `IsEqualTo(now.ToString("O"))`.
 - **Status:** in force.
 
 ## TEST-13 · Waits go through the shared `WaitUntil`; no `Task.Delay` or `Thread.Sleep`
@@ -146,7 +147,7 @@
 - **Rule:** Poll an eventual effect only through `WaitUntil` in `Frappe.Testing` (timeout plus a failure message saying what never happened).
   `Task.Delay` and `Thread.Sleep` are banned in tests except inside it; a handler that must hang awaits a `TaskCompletionSource` with the token.
 - **Why:** hand-rolled loops either flake or wait too long, and fail with no message.
-- **Enforced by:** BannedApiAnalyzers in tests (planned).
+- **Enforced by:** review only.
 - **Good:** `await WaitUntil.TrueAsync(() => outbox.HasPublished(type), "the event never left the outbox");` **Bad:** `await
   Task.Delay(TimeSpan.FromMilliseconds(500));` in a loop.
 - **Status:** in force.
@@ -193,7 +194,7 @@
   review the diff.
 - **Why:** the diff of the golden file is the review of the change.
 - **Enforced by:** `Snapshot` (fails on mismatch).
-- **Good:** `await Snapshot.MatchesAsync(mail.Content.Html, $"Billing/registration_attempted.{locale}.html");` **Bad:** `Contains("Hola")` on a whole
+- **Good:** `await Snapshot.MatchesAsync(mail.Content.Html, $"Account/activation_code.{locale}.html");` **Bad:** `Contains("Hola")` on a whole
   HTML mail.
 - **Status:** in force.
 

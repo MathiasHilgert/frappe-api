@@ -27,7 +27,7 @@
   `IMeterFactory`. Hosts subscribe to `Frappe.*`.
 - **Why:** one place configures telemetry; a module that exports on its own duplicates or loses signals.
 - **Enforced by:** `LayeringTests` (Architecture tests).
-- **Good:** `Meter = meters.Create(MeterName); // "Frappe.Orders"` **Bad:** `static readonly ActivitySource Source = new("Frappe.Orders");` in a
+- **Good:** `Meter = meters.Create(MeterName); // "Frappe.Identity"` **Bad:** `static readonly ActivitySource Source = new("Frappe.Identity");` in a
   module.
 - **Status:** in force.
 
@@ -45,7 +45,7 @@
 - **Good:** `Identity.Application/Telemetry/{IdentityTelemetry,SessionsMetrics,OwnersMetrics}.cs`, with
   `public const string SessionsOpenedMetric = "frappe.identity.sessions.opened";` on `SessionsMetrics`. **Bad:** one
   `<M>Metrics` class with every feature's instruments; `"frappe.outcome"` repeated as a literal in each metrics class;
-  `meter.CreateCounter<long>("OrdersSyncRuns")` inline in a handler.
+  `meter.CreateCounter<long>("SessionsOpened")` inline in a handler.
 - **Platform features:** a platform piece that answers instead of the handler (idempotency replay, paging refusals) counts its outcomes on the
   `Frappe.Http` meter as `frappe.http.<feature>.requests` tagged `frappe.outcome`.
 - **Status:** in force.
@@ -94,7 +94,7 @@
   A feature that changes business behavior without one says why in the plan.
 - **Why:** metrics added after an incident arrive too late to explain it.
 - **Enforced by:** review (critic-observability); dashboard test (OBS-19).
-- **Good:** plan line `frappe.billing.owners.verified {owner}: how many registrations finish` **Bad:** a new use case with no metric and no reason.
+- **Good:** plan line `frappe.identity.verifications {outcome}: how many registrations finish` **Bad:** a new use case with no metric and no reason.
 - **Status:** in force.
 
 ## OBS-08 · New instruments use the metrics source generator and `CountOnCommit`
@@ -104,8 +104,8 @@
   TInstrument>(e => tags)` instead of one-off handlers. A platform test walks every `Frappe.*` meter: name `frappe.<module>.*`, unit, description,
   tags from an allow-list. Existing metric names are kept.
 - **Why:** typed tags remove misspelled or unbounded tags at compile time; one helper keeps OBS-06 uniform.
-- **Enforced by:** `MeterConventionTests` (planned) in `tests/Frappe.Architecture.Tests`; `CountOnCommit` (`CountOnCommitRegistration.cs`).
-- **Good:** `[Counter<long>(typeof(SyncRunTags), Name = "frappe.orders.sync.runs")] public static partial SyncRuns CreateSyncRuns(Meter meter);`
+- **Enforced by:** `MeterConventionTests` (planned, OBS-08) in `tests/Frappe.Architecture.Tests`; `CountOnCommit` (`CountOnCommitRegistration.cs`).
+- **Good:** `public const string DeliveriesMetric = "frappe.notifications.deliveries";` on `NotificationsMetrics`
   **Bad:**
   `_syncRuns.Add(1, new("frappe.outcome", name), new("source", s));` with hand-typed keys.
 - **Status:** in force.
@@ -171,7 +171,7 @@
   Grafana rule in `deploy/observability/grafana/provisioning/alerting/frappe-alerts.yaml`: datasource `loki` or `mimir` only, no `$$`, `noDataState:
   OK`, its `uid` listed in `AlertProvisioningTests`.
 - **Why:** a failure metric nobody alerts on is discovered by users.
-- **Enforced by:** `AlertProvisioningTests` (planned).
+- **Enforced by:** review only.
 - **Good:** `- uid: frappe-mail-failed-configuration` plus the uid in the test's expected list **Bad:** `frappe.messaging.outbox.parked` with no rule.
 - **Status:** in force.
 
@@ -180,7 +180,7 @@
 - **Rule:** Each rule has `summary`, `description` and `runbook` annotations; `runbook` says what to look at, what to do, and the exact SQL or
   command. Operational knowledge with no alert to hang on is dropped.
 - **Why:** the runbook is read at the moment the alert fires, not searched for in a wiki.
-- **Enforced by:** `AlertProvisioningTests.Every_rule_carries_a_summary_a_description_and_a_runbook` (planned).
+- **Enforced by:** `AlertProvisioningTests.Every_rule_carries_a_summary_a_description_and_a_runbook`.
 - **Good:** `runbook: Read the failure in the Worker's logs ... replay them to their stream once the fix is live.` **Bad:** an alert with only
   `summary`.
 - **Status:** in force.
@@ -199,11 +199,12 @@
 - **Rule:** Each module defines an availability SLO and a latency SLO over the existing HTTP server metrics, filtered by its routes, and ships
   multi-window, multi-burn-rate alerts as code (fast: 1 h and 5 m at 14.4×; slow: 6 h and 30 m at 6×) in the provisioned alert file.
 - **Why:** burn-rate alerts page on budget at risk, not on every blip.
-- **Enforced by:** `AlertProvisioningTests` (planned) (expected rules list an availability and a latency fast/slow pair for each module with
-  routes: Billing and Orders by `/v1/{module}/`, Shipping by its flat prefix `/v1/business.*` in its own test;
+- **Enforced by:** `AlertProvisioningTests.The_provisioned_rules_are_exactly_the_expected_ones` (expected rules list an availability and a latency
+  fast/slow pair for each module with
+  routes: Identity by `/v1/identity/`, Notifications by its own prefix in its own test;
   a module with flat routes selects its route prefix, see
   HTTP-02).
-- **Good:** `uid: frappe-orders-availability-fast-burn` **Bad:** `5xx > 0` as the only HTTP alert.
+- **Good:** `uid: frappe-notifications-failed-bounced-ratio` **Bad:** `5xx > 0` as the only HTTP alert.
 - **Status:** in force.
 
 ## OBS-19 · Every module has a dashboard as code that shows each business metric
@@ -211,8 +212,8 @@
 - **Rule:** Each module has a versioned Grafana JSON under `deploy/observability/grafana/provisioning/dashboards/` with traffic, errors, latency,
   business metrics and messaging rows, provisioned at startup. A test fails when a business metric of the module appears in no panel query.
 - **Why:** a metric no panel shows is not watched.
-- **Enforced by:** `DashboardProvisioningTests.Every_business_metric_of_the_module_is_in_a_panel_query` (planned).
-- **Good:** `dashboards/billing.json` querying `frappe_billing_owners_registered_total` **Bad:** a dashboard built by hand in the UI.
+- **Enforced by:** `DashboardProvisioningTests.Every_business_metric_of_Notifications_is_in_a_panel_query`.
+- **Good:** `dashboards/notifications.json` querying `frappe_notifications_deliveries_total` **Bad:** a dashboard built by hand in the UI.
 - **Status:** in force.
 
 ## OBS-20 · Liveness checks the process; readiness checks each capability
