@@ -35,22 +35,22 @@
   the declared 429.
 - **Why:** a route outside the group silently loses rate limiting, CORS and language handling.
 - **Enforced by:** HttpConventionsTests.
-- **Good:** `var v1 = app.MapGroup("/v1")...; v1.MapOrdersEndpoints();` **Bad:** `app.MapGet("/regions", ...)`.
+- **Good:** `var v1 = app.MapGroup("/v1")...; identityHttp.MapEndpoints(v1);` (`IdentityHttp.MapEndpoints`). **Bad:** `app.MapGet("/me", ...)`.
 - **Status:** in force.
 
 ## HTTP-02 · Each module maps its own routes and OpenAPI tag; supporting areas keep a namespace, business resources are flat
 
 - **Rule:** A module exposes `Map<Module>Endpoints` in `<Module>Http.cs`, maps its own routes and sets one OpenAPI tag. The area decides, not the
-  resource: a supporting module (a reference-data module like Orders, or one whose nouns are generic like Billing) keeps a module namespace
-  (`/v1/orders`,
-  `/v1/billing`); every resource of the business domain, its own catalogs included, is a flat plural noun at `/v1` (`/v1/shipping`,
+  resource: a supporting module (a reference-data module like Access, or one whose nouns are generic like Identity) keeps a module namespace
+  (`/v1/identity`, `/v1/access` (hypothetical));
+  every resource of the business domain, its own catalogs included, is a flat plural noun at `/v1` (`/v1/shipping`,
   `/v1/business-types`). A collection's children are only its items; a catalog is a sibling collection (`/v1/business-types`, never
   `/v1/shipping/types`; AIP-122). No two modules own routes under the same first segment.
 - **Why:** hosts compose modules without knowing their routes; the document groups operations by module; a namespace disambiguates generic nouns
-  (`/v1/billing/sessions`, like Stripe's `/v1/checkout/sessions`) while domain nouns are already unambiguous.
+  (`/v1/identity/sessions`, like Stripe's `/v1/checkout/sessions`) while domain nouns are already unambiguous.
 - **Enforced by:** `RouteOwnershipTests` (Api integration tests: fails when two OpenAPI tags own routes under the same first segment after `/v1`) +
   review for the namespace-or-flat choice.
-- **Good:** `OrdersHttp.MapOrdersEndpoints(v1)` → `/v1/orders/...` tagged `Orders`; `ShippingHttp.MapShippingEndpoints(v1)` → `/v1/business-types`
+- **Good:** `IdentityHttp` → `/v1/identity/...` tagged `Identity`; a hypothetical business module → `/v1/business-types`
   tagged
   `Business`. **Bad:** a module adding routes to another module's group or first segment; `/v1/shipping/types`.
 - **Status:** in force.
@@ -69,7 +69,7 @@
 - **Rule:** Chain `WithName` (PascalCase operationId), `WithSummary`, `WithDescription` and `ProducesProblem` for every non-default status.
   The OpenAPI contract is generated from the hosts' real module lists, so a module route missing from it fails OpenApiContractTests.
 - **Why:** the OpenAPI document is the client's only manual; clients generate code from operationIds.
-- **Enforced by:** Spectral (planned) + OpenApiContractTests.
+- **Enforced by:** Spectral (`eng/spectral.yaml`) + OpenApiContractTests.
 - **Good:** `.WithName("LogIn").WithSummary("Log in").WithDescription(...).ProducesProblem(401)`. **Bad:** a `MapGet` with no metadata.
 - **Status:** in force.
 
@@ -95,7 +95,7 @@
 
 - **Rule:** Paths are kebab-case plural nouns; an action is a sub-resource noun, never a verb.
 - **Why:** predictable URLs; verbs belong to HTTP methods.
-- **Enforced by:** Spectral (planned).
+- **Enforced by:** Spectral (`eng/spectral.yaml`).
 - **Good:** `POST /owners/{id}/verification`, `POST /shipment-syncs/{sourceId}/runs`. **Bad:** `POST /owners/{id}/verify`.
 - **Status:** in force.
 
@@ -106,8 +106,8 @@
   The ids of the caller's own sub-resources under `/me/...` are allowed when another principal's id answers 404 (SEC-05).
 - **Why:** an id in the URL invites one caller to address another's data.
 - **Enforced by:** review.
-- **Good:** `PATCH /v1/billing/me`; `DELETE /v1/identity/me/sessions/{sessionId}` (a foreign session id answers 404).
-  **Bad:** `PATCH /v1/billing/owners/{ownerId}` for the caller's own profile.
+- **Good:** `GET /v1/identity/me`; `DELETE /v1/identity/me/sessions/{sessionId}` (a foreign session id answers 404).
+  **Bad:** `GET /v1/identity/owners/{ownerId}` for the caller's own profile.
 - **Status:** in force.
 
 ## HTTP-09 · Status codes per verb: 201/202 + Location, 204, 200 PATCH
@@ -139,9 +139,9 @@
 
 ## HTTP-12 · Every endpoint declares `CacheFor` or `NoStore`
 
-- **Rule:** Each endpoint states `CacheFor(lifetime)` or `NoStore()`; personal, administrative and Billing answers are `no-store`; errors, 429 and
+- **Rule:** Each endpoint states `CacheFor(lifetime)` or `NoStore()`; personal, administrative and Identity answers are `no-store`; errors, 429 and
   health are never cached. A `no-store` answer may still carry an opaque strong `ETag` (not a cache validator, no 304): compute it with
-  `RepresentationTag.Of` over the bytes sent and declare it with `SendsNoStoreETag`; a domain version used for `If-Match` (Billing's profile) stays
+  `RepresentationTag.Of` over the bytes sent and declare it with `SendsNoStoreETag`; a domain version used for `If-Match` (an owner profile) stays
   the module's own concept.
 - **Why:** an undeclared endpoint gets whatever a proxy guesses, including personal data.
 - **Enforced by:** HttpConventionsTests + OpenAPI caching transformer.
@@ -164,7 +164,7 @@
 - **Why:** an unpaged list that grows becomes a slow, unbounded answer; one shape and one set of codes for every client.
 - **Enforced by:** review.
 - **Good:** `GET .../localities?limit=50&cursor=...` → `{"localities":[...],"nextCursor":"..."}`. **Bad:** `{"runs":[...]}` with every sync run;
-  `orders.page_limit.invalid`.
+  `identity.password.too_short`.
 - **Embedded collections:** a collection embedded in its parent's answer is bounded by a per-parent cap, never paged.
 - **Status:** in force.
 
@@ -172,8 +172,8 @@
 
 - **Rule:** A list answer is an object whose single array member is the resource's plural; never a bare array.
 - **Why:** the wrapper can gain `nextCursor` or metadata without a breaking change.
-- **Enforced by:** Spectral (planned).
-- **Good:** `RegionListResponse(IReadOnlyList<RegionResponse> Regions)`. **Bad:** `Ok<IReadOnlyList<RegionResponse>>`.
+- **Enforced by:** Spectral (`eng/spectral.yaml`).
+- **Good:** `SessionListResponse(IReadOnlyList<SessionResponse> Sessions)` (hypothetical). **Bad:** `Ok<IReadOnlyList<SessionResponse>>`.
 - **Status:** in force.
 
 ## HTTP-16 · Query parameters bind as `string?` with `[DocumentedParameter]`
@@ -190,7 +190,7 @@
 
 - **Rule:** JSON is camelCase with strict number handling; every enumerated code on the wire is a snake_case string inside `{code, name}` (HTTP-25).
 - **Why:** one serialization contract for every client; numeric enums break when reordered.
-- **Enforced by:** Spectral (planned) + OpenApiContractTests.
+- **Enforced by:** Spectral (`eng/spectral.yaml`) + OpenApiContractTests.
 - **Good:** `"status": {"code": "pending_verification", "name": "..."}`. **Bad:** `"Status": 1`.
 - **Status:** in force.
 
@@ -200,7 +200,7 @@
   `traceId`.
 - **Why:** clients branch on `type` and `code`, never on prose.
 - **Enforced by:** ProblemDetailsMappingTests.
-- **Good:** `{"type":"urn:frappe:problem:not-found","errors":[{"code":"orders.region.not_found",...}]}`. **Bad:** `{"error":"Not found"}`.
+- **Good:** `{"type":"urn:frappe:problem:not-found","errors":[{"code":"access.resource.not_found",...}]}`. **Bad:** `{"error":"Not found"}`.
 - **Status:** in force.
 
 ## HTTP-19 · Error codes `<module>.<subject>.<reason>`, texts per language
@@ -209,7 +209,7 @@
   code has `en`), limits in `parameters`.
 - **Why:** codes are a contract; texts change without breaking clients.
 - **Enforced by:** ProblemDetailsMappingTests + review.
-- **Good:** `OrdersErrorCodes.RegionNotFound = "orders.region.not_found"`. **Bad:** a code built inline or a limit baked into the message.
+- **Good:** `AccessErrorCodes.ResourceNotFound = "access.resource.not_found"`. **Bad:** a code built inline or a limit baked into the message.
 - **Status:** in force.
 
 ## HTTP-20 · One fixed category precedence decides the status
@@ -273,7 +273,7 @@
 
 - **Rule:** A creation command a client may retry enables the platform `Idempotency-Key` piece per endpoint: the first answer is stored 24 h and
   replayed for the same key; the header is documented in OpenAPI.
-  A name-based request identity (derived from stable input rather than random) uses a shared UUIDv5 helper in the platform (planned); SHA-1 is
+  A name-based request identity (derived from stable input rather than random) uses a shared UUIDv5 helper in the platform (review only); SHA-1 is
   acceptable there because it names, not protects.
 - **Why:** a retried POST after a timeout must not create twice.
 - **Enforced by:** review.
