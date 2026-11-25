@@ -1,5 +1,5 @@
 using System.Diagnostics.Metrics;
-using Frappe.Identity.Application.Credentials;
+using Frappe.Identity.Application.Telemetry;
 using Frappe.Identity.Domain.Credentials;
 using Frappe.Identity.Infrastructure.Credentials;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,12 +14,12 @@ public sealed class Argon2idPasswordHasherTests
 
     private static Password Pass(string text = Text) => Password.Create(text).Value;
 
-    private static Argon2idPasswordHasher Hasher(PasswordOptions? options = null, IdentityMetrics? metrics = null)
+    private static Argon2idPasswordHasher Hasher(PasswordOptions? options = null, CredentialsMetrics? metrics = null)
     {
         using var provider = new ServiceCollection().AddMetrics().BuildServiceProvider();
         return new Argon2idPasswordHasher(
             Options.Create(options ?? new PasswordOptions()),
-            metrics ?? new IdentityMetrics(provider.GetRequiredService<IMeterFactory>()),
+            metrics ?? new CredentialsMetrics(provider.GetRequiredService<IMeterFactory>()),
             TimeProvider.System);
     }
 
@@ -164,7 +164,7 @@ public sealed class Argon2idPasswordHasherTests
         };
         listener.SetMeasurementEventCallback<double>((instrument, value, _, _) => recorded.Add((instrument.Name, instrument.Unit!, value)));
         listener.Start();
-        var hasher = Hasher(metrics: new IdentityMetrics(factory));
+        var hasher = Hasher(metrics: new CredentialsMetrics(factory));
 
         // Act
         var hash = hasher.Hash(Pass());

@@ -1,3 +1,4 @@
+using Frappe.Identity.Application.Telemetry;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Credentials;
 using Frappe.Results;
@@ -8,7 +9,7 @@ namespace Frappe.Identity.Application.Credentials;
 /// What a new password must be (S4): 10 to 128 characters and not in a public breach list. A list that cannot answer lets the password
 /// through ("si cae, dejar pasar"), counted as <see cref="BreachCheckOutcome.Unavailable"/>.
 /// </summary>
-public sealed class PasswordPolicy(IBreachedPasswords breached, IdentityMetrics metrics, TimeProvider time)
+public sealed class PasswordPolicy(IBreachedPasswords breached, CredentialsMetrics metrics, TimeProvider time)
 {
     /// <summary>The password <paramref name="raw"/> spells when it meets the policy, or why it does not.</summary>
     public async Task<Result<Password>> AcceptAsync(string? raw, CancellationToken cancellationToken)

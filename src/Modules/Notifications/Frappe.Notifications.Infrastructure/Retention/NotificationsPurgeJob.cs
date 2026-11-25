@@ -1,4 +1,4 @@
-using Frappe.Notifications.Application.Dispatching;
+using Frappe.Notifications.Application.Telemetry;
 using Quartz;
 
 namespace Frappe.Notifications.Infrastructure.Retention;
@@ -9,7 +9,7 @@ namespace Frappe.Notifications.Infrastructure.Retention;
 /// the second; the job fails with the first error so the scheduler records it.
 /// </summary>
 [DisallowConcurrentExecution]
-internal sealed class NotificationsPurgeJob(NotificationsPurger purger, IEnumerable<IMessagePurge> messages, NotificationsMetrics metrics) : IJob
+internal sealed class NotificationsPurgeJob(NotificationsPurger purger, IEnumerable<IMessagePurge> messages, RetentionMetrics metrics) : IJob
 {
     /// <summary>The job's key.</summary>
     public static readonly JobKey Key = new("purge", "notifications");

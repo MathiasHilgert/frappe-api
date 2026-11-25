@@ -1,3 +1,4 @@
+using Frappe.Aggregates;
 using Frappe.Identity.Http;
 using Frappe.Identity.Infrastructure;
 using Frappe.Identity.Limits.Valkey;
@@ -72,5 +73,50 @@ public sealed class IdentityModuleTests
 
         // Assert
         await Assert.That(door).IsEquivalentTo([.. facets.Append(MessagePurge).Order(StringComparer.Ordinal)]);
+    }
+
+    /// <summary>How many <c>IAfterCommitDomainEventHandler</c> registrations <paramref name="register"/> adds, by event type.</summary>
+    private static string[] AfterCommitHandlers(Action<IServiceCollection> register)
+    {
+        var services = new ServiceCollection();
+        register(services);
+        return [.. services
+            .Where(descriptor => descriptor.ServiceType is { IsGenericType: true }
+                && descriptor.ServiceType.GetGenericTypeDefinition() == typeof(IAfterCommitDomainEventHandler<>))
+            .GroupBy(descriptor => descriptor.ServiceType.GetGenericArguments()[0].Name)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .Select(group => $"{group.Key} x{group.Count()}")];
+    }
+
+    [Test]
+    public async Task The_Api_door_counts_after_the_commit_exactly_the_events_it_always_did()
+    {
+        // Act
+        var handlers = AfterCommitHandlers(IdentityModule.Api.AddServices);
+
+        // Assert
+        await Assert.That(handlers).IsEquivalentTo(
+            [
+                "OwnerCodeIssued x1",
+                "OwnerLoggedIn x1",
+                "OwnerRegistered x1",
+                "OwnerRegistrationAttempted x1",
+                "OwnerVerified x1",
+                "PasswordChanged x1",
+                "PasswordReset x1",
+                "SessionOpened x1",
+                "SessionRevoked x1",
+                "StepUpCompleted x1",
+            ], TUnit.Assertions.Enums.CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task The_Worker_door_counts_after_the_commit_exactly_the_events_it_always_did()
+    {
+        // Act
+        var handlers = AfterCommitHandlers(IdentityModule.Worker.AddServices);
+
+        // Assert
+        await Assert.That(handlers).IsEmpty();
     }
 }

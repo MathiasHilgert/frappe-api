@@ -1,5 +1,6 @@
 using System.Diagnostics.Metrics;
 using Frappe.Identity.Application.Credentials;
+using Frappe.Identity.Application.Telemetry;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Credentials;
 using Frappe.Results;
@@ -110,7 +111,7 @@ public sealed class PasswordPolicyTests
     public async Task The_tag_of_every_outcome_is_named()
     {
         // Act
-        var names = Enum.GetValues<BreachCheckOutcome>().Select(IdentityMetrics.OutcomeName);
+        var names = Enum.GetValues<BreachCheckOutcome>().Select(CredentialsMetrics.OutcomeName);
 
         // Assert
         await Assert.That(names).IsEquivalentTo(["clean", "breached", "unavailable"]);
@@ -141,7 +142,7 @@ public sealed class PasswordPolicyTests
                 Outcomes.Add((string)tags.ToArray().Single(tag => tag.Key == "frappe.outcome").Value!);
             });
             _listener.Start();
-            Policy = new PasswordPolicy(Breached, new IdentityMetrics(factory), time);
+            Policy = new PasswordPolicy(Breached, new CredentialsMetrics(factory), time);
         }
 
         public PasswordPolicy Policy { get; }

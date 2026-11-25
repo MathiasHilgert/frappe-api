@@ -1,8 +1,8 @@
 using System.Diagnostics.Metrics;
 using Frappe.Caching;
 using Frappe.Identity.Application.Codes;
-using Frappe.Identity.Application.Credentials;
 using Frappe.Identity.Application.Limits;
+using Frappe.Identity.Application.Telemetry;
 using Frappe.Identity.Limits.Valkey;
 using Frappe.Testing;
 using Microsoft.Extensions.Configuration;
@@ -26,7 +26,7 @@ public sealed class ValkeyAttemptLimiterTests(ValkeyServer server)
         services.AddMetrics();
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection(settings ?? []).Build());
         services.AddFrappeCaching(connectionString, instance);
-        services.AddSingleton<IdentityMetrics>();
+        services.AddSingleton<LimitsMetrics>();
         new IdentityLimitsValkeyModule().AddServices(services);
         return services.BuildServiceProvider();
     }
@@ -155,13 +155,13 @@ public sealed class ValkeyAttemptLimiterTests(ValkeyServer server)
         var second = await limiter.HitAsync(CodeLimits.Guess, "any", default);
 
         // Assert
-        var counted = metrics.Of(IdentityMetrics.LimiterUnavailableMetric);
+        var counted = metrics.Of(LimitsMetrics.LimiterUnavailableMetric);
         using (Assert.Multiple())
         {
             await Assert.That(first.Outcome).IsEqualTo(AttemptOutcome.Unavailable);
             await Assert.That(second.Outcome).IsEqualTo(AttemptOutcome.Unavailable);
             await Assert.That(counted.Count).IsEqualTo(2);
-            await Assert.That(counted[0].Tags[IdentityMetrics.FlowTag]).IsEqualTo("code.guess");
+            await Assert.That(counted[0].Tags[LimitsMetrics.FlowTag]).IsEqualTo("code.guess");
         }
     }
 
@@ -179,13 +179,13 @@ public sealed class ValkeyAttemptLimiterTests(ValkeyServer server)
         var guess = await limiter.HitAsync(CodeLimits.Guess, "any", default);
 
         // Assert
-        var counted = metrics.Of(IdentityMetrics.LimiterUnavailableMetric);
+        var counted = metrics.Of(LimitsMetrics.LimiterUnavailableMetric);
         using (Assert.Multiple())
         {
             await Assert.That(first.Outcome).IsEqualTo(AttemptOutcome.Allowed);
             await Assert.That(second.Outcome).IsEqualTo(AttemptOutcome.Allowed);
             await Assert.That(guess.Outcome).IsEqualTo(AttemptOutcome.Unavailable);
-            await Assert.That(counted.Select(m => (string)m.Tags[IdentityMetrics.FlowTag]!)).IsEquivalentTo(["code.send", "code.guess"]);
+            await Assert.That(counted.Select(m => (string)m.Tags[LimitsMetrics.FlowTag]!)).IsEquivalentTo(["code.send", "code.guess"]);
         }
     }
 

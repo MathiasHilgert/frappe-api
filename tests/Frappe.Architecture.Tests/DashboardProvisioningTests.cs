@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Frappe.Notifications.Application.Dispatching;
+using Frappe.Notifications.Application.Telemetry;
 using Frappe.Testing;
 
 namespace Frappe.Architecture.Tests;
@@ -20,8 +20,8 @@ public sealed class DashboardProvisioningTests
         yield return Prometheus(ProviderFeedbackMetrics.SuppressionsMetric) + "_total";
         yield return Prometheus(PreferenceMetrics.UnsubscribesMetric) + "_total";
         yield return Prometheus(ProviderFeedbackMetrics.TimeToDeliveredMetric) + "_seconds_bucket";
-        yield return Prometheus(NotificationsMetrics.PurgedMetric) + "_total";
-        yield return Prometheus(NotificationsMetrics.PurgeRunsMetric) + "_total";
+        yield return Prometheus(RetentionMetrics.PurgedMetric) + "_total";
+        yield return Prometheus(RetentionMetrics.PurgeRunsMetric) + "_total";
         yield return Prometheus("frappe.notifications.provider_requests") + "_total";
     }
 

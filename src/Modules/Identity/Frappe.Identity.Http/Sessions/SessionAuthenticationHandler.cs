@@ -1,9 +1,9 @@
 using System.Text.Encodings.Web;
 using Frappe.Http;
-using Frappe.Identity.Application.Credentials;
 using Frappe.Identity.Application.Sessions;
 using Frappe.Identity.Application.Sessions.AuthenticateSession;
 using Frappe.Identity.Application.Sessions.TouchSession;
+using Frappe.Identity.Application.Telemetry;
 using Frappe.Identity.Domain;
 using Frappe.Results;
 using Frappe.UseCases;
@@ -78,7 +78,7 @@ internal sealed partial class SessionAuthenticationHandler(
         var touched = await touch.HandleAsync(new TouchSession(sessionId), Context.RequestAborted);
         if (!touched.IsSuccess)
         {
-            services.GetRequiredService<IdentityMetrics>().SessionTouchLost();
+            services.GetRequiredService<SessionsMetrics>().SessionTouchLost();
             LogTouchLost(Logger);
         }
     }

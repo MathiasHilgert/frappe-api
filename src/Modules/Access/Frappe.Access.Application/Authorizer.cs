@@ -1,3 +1,4 @@
+using Frappe.Access.Application.Telemetry;
 using Frappe.Access.Contracts;
 using Frappe.Results;
 using Microsoft.Extensions.Logging;

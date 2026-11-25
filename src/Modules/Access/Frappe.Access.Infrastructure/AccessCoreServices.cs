@@ -1,4 +1,5 @@
 using Frappe.Access.Application;
+using Frappe.Access.Application.Telemetry;
 using Frappe.Access.Contracts;
 using Frappe.Modules;
 using Frappe.UseCases;

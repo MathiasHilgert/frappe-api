@@ -3,8 +3,8 @@ using System.Net;
 using Frappe.Access.Contracts;
 using Frappe.Access.Infrastructure;
 using Frappe.Http;
-using Frappe.Identity.Application.Credentials;
 using Frappe.Identity.Application.Sessions;
+using Frappe.Identity.Application.Telemetry;
 using Frappe.Identity.Domain.Principals;
 using Frappe.Identity.Domain.Sessions;
 using Frappe.Identity.Http;
@@ -128,7 +128,7 @@ internal sealed class IdentitySessionHost : IAsyncDisposable
             services.AddMetrics();
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(time);
-            services.TryAddSingleton<IdentityMetrics>();
+            services.TryAddSingleton<SessionsMetrics>();
             services.AddSingleton(new SessionLifetimes(Duration.FromHours(12), Duration.FromDays(30)));
             services.AddSingleton<ISessionTokens, SessionTokens>();
             services.AddSingleton<ISessions>(store);

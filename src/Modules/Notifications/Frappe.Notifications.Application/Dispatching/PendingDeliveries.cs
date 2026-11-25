@@ -1,3 +1,5 @@
+using Frappe.Notifications.Application.Telemetry;
+
 namespace Frappe.Notifications.Application.Dispatching;
 
 /// <summary>

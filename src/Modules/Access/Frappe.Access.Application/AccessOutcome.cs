@@ -1,3 +1,5 @@
+using Frappe.Access.Application.Telemetry;
+
 namespace Frappe.Access.Application;
 
 /// <summary>How an access decision ended: the closed set of the <c>frappe.outcome</c> tag of <see cref="AccessMetrics.DecisionsMetric"/>.</summary>

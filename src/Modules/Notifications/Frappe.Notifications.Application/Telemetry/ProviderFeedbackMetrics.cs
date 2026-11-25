@@ -3,7 +3,7 @@ using System.Diagnostics.Metrics;
 using Frappe.Notifications.Domain.Deliveries;
 using Frappe.Notifications.Domain.Suppressions;
 
-namespace Frappe.Notifications.Application.Dispatching;
+namespace Frappe.Notifications.Application.Telemetry;
 
 /// <summary>
 /// The instruments the provider's feedback feeds, on the module's meter <c>Frappe.Notifications</c> (OBS-01, OBS-02). They are counted once
@@ -35,7 +35,7 @@ public sealed class ProviderFeedbackMetrics
     public ProviderFeedbackMetrics(IMeterFactory meters)
     {
         ArgumentNullException.ThrowIfNull(meters);
-        var meter = meters.Create(NotificationsMetrics.MeterName);
+        var meter = meters.Create(NotificationsTelemetry.MeterName);
         _providerEvents = meter.CreateCounter<long>(
             ProviderEventsMetric, unit: "{event}", description: "Provider events recorded, by type and whether their delivery was found.");
         _suppressions = meter.CreateCounter<long>(
@@ -53,8 +53,8 @@ public sealed class ProviderFeedbackMetrics
     public void CountSuppression(SuppressionReason reason) => _suppressions.Add(1, new KeyValuePair<string, object?>(ReasonTag, ReasonName(reason)));
 
     public void RecordTimeToDelivered(string kind, string channel, TimeSpan elapsed) =>
-        _timeToDelivered.Record(elapsed.TotalSeconds, new KeyValuePair<string, object?>(NotificationsMetrics.KindTag, kind),
-            new KeyValuePair<string, object?>(NotificationsMetrics.ChannelTag, channel));
+        _timeToDelivered.Record(elapsed.TotalSeconds, new KeyValuePair<string, object?>(NotificationsTelemetry.KindTag, kind),
+            new KeyValuePair<string, object?>(NotificationsTelemetry.ChannelTag, channel));
 
     /// <summary>The tag value of what a provider said; each is named, none falls back (OBS-05).</summary>
     internal static string TypeName(DeliveryFeedback feedback) => feedback switch

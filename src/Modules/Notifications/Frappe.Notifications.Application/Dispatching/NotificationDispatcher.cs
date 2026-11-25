@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Frappe.Notifications.Application.Channels;
+using Frappe.Notifications.Application.Telemetry;
 using Frappe.Notifications.Domain.Deliveries;
 using Microsoft.Extensions.Logging;
 
@@ -118,7 +119,7 @@ public sealed partial class NotificationDispatcher(
     {
         outcomes.Add(outcome);
         pending.Add(request.Kind.Name, channel, outcome);
-        activity?.SetTag(NotificationsMetrics.OutcomeTag, NotificationsMetrics.OutcomeName(outcome));
+        activity?.SetTag(NotificationsTelemetry.OutcomeTag, NotificationsMetrics.OutcomeName(outcome));
         Log(request.Kind.Name, channel, outcome);
     }
 

@@ -1,5 +1,5 @@
 using System.Diagnostics.Metrics;
-using Frappe.Identity.Application.Credentials;
+using Frappe.Identity.Application.Telemetry;
 using Frappe.Identity.Infrastructure;
 using Frappe.Identity.Infrastructure.Owners;
 using Frappe.Identity.Infrastructure.Persistence;
@@ -152,9 +152,9 @@ public sealed class RetentionTests(PostgresServer server)
                 await Assert.That(events.Count(e => e.Contains(idledNow.ToString()) && e.Contains("\"reason\": \"idle\""))).IsEqualTo(1);
                 await Assert.That(events.Count(e => e.Contains(absoluteNow.ToString()) && e.Contains("\"reason\": \"absolute\""))).IsEqualTo(1);
                 await Assert.That(events.All(e => e.Contains(principal.ToString()))).IsTrue();
-                await Assert.That(worker.Counts.Of(IdentityMetrics.SessionsEndedMetric, "idle")).IsEqualTo(1);
-                await Assert.That(worker.Counts.Of(IdentityMetrics.SessionsEndedMetric, "absolute")).IsEqualTo(1);
-                await Assert.That(worker.Counts.Of(IdentityMetrics.SessionsEndedMetric, "revoked")).IsEqualTo(1);
+                await Assert.That(worker.Counts.Of(SessionsMetrics.SessionsEndedMetric, "idle")).IsEqualTo(1);
+                await Assert.That(worker.Counts.Of(SessionsMetrics.SessionsEndedMetric, "absolute")).IsEqualTo(1);
+                await Assert.That(worker.Counts.Of(SessionsMetrics.SessionsEndedMetric, "revoked")).IsEqualTo(1);
             }
         });
     }
@@ -256,7 +256,7 @@ public sealed class RetentionTests(PostgresServer server)
                 await Assert.That(await ExistsAsync(owner, "sessions", "id", exactly)).IsTrue();
                 await Assert.That(await ExistsAsync(owner, "sessions", "id", inside)).IsTrue();
                 await Assert.That(await ExistsAsync(owner, "sessions", "id", live)).IsTrue();
-                await Assert.That(worker.Counts.Of(IdentityMetrics.PurgedMetric, "sessions")).IsEqualTo(3);
+                await Assert.That(worker.Counts.Of(RetentionMetrics.PurgedMetric, "sessions")).IsEqualTo(3);
             }
         });
     }
@@ -287,7 +287,7 @@ public sealed class RetentionTests(PostgresServer server)
                 await Assert.That(codes).IsEqualTo(3);
                 await Assert.That(await CountAsync(owner, "one_time_codes")).IsEqualTo(3);
                 await Assert.That(await CountAsync(owner, "one_time_codes", $"WHERE expires_at < {At("-7 days")}")).IsEqualTo(0);
-                await Assert.That(worker.Counts.Of(IdentityMetrics.PurgedMetric, "codes")).IsEqualTo(3);
+                await Assert.That(worker.Counts.Of(RetentionMetrics.PurgedMetric, "codes")).IsEqualTo(3);
             }
         });
     }
@@ -317,7 +317,7 @@ public sealed class RetentionTests(PostgresServer server)
             {
                 await Assert.That(undos).IsEqualTo(3);
                 await Assert.That(await CountAsync(owner, "email_change_undos")).IsEqualTo(4);
-                await Assert.That(worker.Counts.Of(IdentityMetrics.PurgedMetric, "email_change_undos")).IsEqualTo(3);
+                await Assert.That(worker.Counts.Of(RetentionMetrics.PurgedMetric, "email_change_undos")).IsEqualTo(3);
             }
         });
     }
@@ -367,7 +367,7 @@ public sealed class RetentionTests(PostgresServer server)
                 }
 
                 await Assert.That(events.Count).IsEqualTo(3);
-                await Assert.That(worker.Counts.Of(IdentityMetrics.PurgedMetric, "owners")).IsEqualTo(3);
+                await Assert.That(worker.Counts.Of(RetentionMetrics.PurgedMetric, "owners")).IsEqualTo(3);
             }
         });
     }
@@ -513,7 +513,7 @@ public sealed class RetentionTests(PostgresServer server)
         {
             _listener.InstrumentPublished = (instrument, listener) =>
             {
-                if (instrument.Meter.Name == IdentityMetrics.MeterName)
+                if (instrument.Meter.Name == IdentityTelemetry.MeterName)
                 {
                     listener.EnableMeasurementEvents(instrument);
                 }

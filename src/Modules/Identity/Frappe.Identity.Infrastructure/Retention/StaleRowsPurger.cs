@@ -1,4 +1,4 @@
-using Frappe.Identity.Application.Credentials;
+using Frappe.Identity.Application.Telemetry;
 using Frappe.Identity.Infrastructure.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -12,13 +12,13 @@ namespace Frappe.Identity.Infrastructure.Retention;
 /// <see cref="IdentityRetentionOptions.EndedSessionDays"/>, and codes and email change undo links expired (or, for a link, used) for longer than
 /// <see cref="IdentityRetentionOptions.CodeDays"/>: a link keeps two addresses, so it goes as soon as the window of a code would.
 /// Rows go in batches of <see cref="IdentityRetentionOptions.BatchSize"/>, each its own short statement. Counted on
-/// <see cref="IdentityMetrics"/> once committed. The pending owners are the Owners feature's own step.
+/// <see cref="RetentionMetrics"/> once committed. The pending owners are the Owners feature's own step.
 /// </summary>
 internal sealed partial class StaleRowsPurger(
     IServiceScopeFactory scopes,
     IOptions<IdentityRetentionOptions> options,
     TimeProvider time,
-    IdentityMetrics metrics,
+    RetentionMetrics metrics,
     ILogger<StaleRowsPurger> logger) : IRetentionStep
 {
     private const string SessionsTarget = "sessions";

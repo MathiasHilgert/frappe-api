@@ -1,6 +1,6 @@
 using Frappe.Caching;
-using Frappe.Identity.Application.Credentials;
 using Frappe.Identity.Application.Limits;
+using Frappe.Identity.Application.Telemetry;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -16,7 +16,7 @@ namespace Frappe.Identity.Limits.Valkey;
 internal sealed partial class ValkeyAttemptLimiter(
     ValkeyWindowCounter counter,
     IOptions<AttemptLimitOptions> options,
-    IdentityMetrics metrics,
+    LimitsMetrics metrics,
     TimeProvider time,
     ILogger<ValkeyAttemptLimiter> logger)
     : IAttemptLimiter

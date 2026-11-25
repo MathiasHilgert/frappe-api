@@ -1,6 +1,7 @@
 using Frappe.Access.Contracts;
 using Frappe.Identity.Application.Credentials;
 using Frappe.Identity.Application.Principals;
+using Frappe.Identity.Application.Telemetry;
 using Frappe.Identity.Domain;
 using Frappe.Identity.Domain.Credentials;
 using Frappe.Results;
@@ -19,7 +20,7 @@ internal sealed class StepUpHandler(
     IPrincipals principals,
     IPasswordCredentials credentials,
     PasswordRecheck recheck,
-    IdentityMetrics metrics,
+    SessionsMetrics metrics,
     TimeProvider time,
     ICaller caller) : ICommandHandler<StepUp, SteppedUp>
 {
