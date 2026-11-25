@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The repository's own Roslyn analyzers: conventions a tool can check, so review no longer has to. Directory.Build.props
+       hands them to every project as an analyzer; eng/analyzers.globalconfig sets how hard each rule fails. -->
+  <PropertyGroup>
+    <!-- The compiler loads analyzers as netstandard2.0 assemblies. -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <!-- Runtime Async needs the .NET 11 runtime; the compiler that loads this assembly may run on another one. -->
+    <Features>$(Features.Replace('runtime-async=on', ''))</Features>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Compiled against, never shipped: the compiler that loads the analyzer brings its own Roslyn. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- RS2008: every diagnostic id is recorded in the release tracking files. -->
+    <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+</Project>

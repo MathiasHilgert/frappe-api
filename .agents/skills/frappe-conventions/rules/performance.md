@@ -28,7 +28,8 @@
 - **Rule:** Never call `EnableRetryOnFailure` or a custom `IExecutionStrategy`. Retries come from message redelivery, outbound HTTP resilience or the
   client rerunning an idempotent request.
 - **Why:** An execution strategy replays the whole unit, including effects that already left the process, and it forbids user transactions.
-- **Enforced by:** review.
+- **Enforced by:** FRP002 (`eng/analyzers/Frappe.Analyzers`) at warning in `eng/analyzers.globalconfig`: calls to EF Core's or Npgsql's
+  `EnableRetryOnFailure` and types implementing `IExecutionStrategy`.
 - **Good:** `ModuleDatabase`: `builder.UseNpgsql(connectionString, npgsql => npgsql.UseNodaTime()...)`, no strategy. **Bad:**
   `npgsql.EnableRetryOnFailure(3)`.
 - **Status:** in force.

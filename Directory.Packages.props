@@ -87,5 +87,9 @@
     <PackageVersion Include="Meziantou.Analyzer" Version="3.0.341" />
     <!-- Off by default (roslynator_analyzers.enabled_by_default); a rule runs only when a convention enables it. -->
     <PackageVersion Include="Roslynator.Analyzers" Version="5.0.1" />
+    <!-- The Roslyn API eng/analyzers/Frappe.Analyzers is built against, and the compiler its tests run samples through. At
+         or below the compiler of the SDK in global.json, or that compiler refuses to load the analyzers; at or above what
+         Microsoft.EntityFrameworkCore.Design asks for, since central pinning applies this version to it too (NU1109). -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
   </ItemGroup>
 </Project>

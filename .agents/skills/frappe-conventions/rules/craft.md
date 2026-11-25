@@ -103,7 +103,8 @@
 - **Rule:** Suppress one diagnostic at the narrowest scope with a reason; when it breaks a convention, the reason starts with the rule id. A
   folder-wide relaxation lives in `.editorconfig` with a comment.
 - **Why:** an unexplained suppression cannot be reviewed or removed later.
-- **Enforced by:** review.
+- **Enforced by:** FRP003 (`eng/analyzers/Frappe.Analyzers`) at warning in `eng/analyzers.globalconfig`: a `Justification` on every
+  `SuppressMessage`, a comment on or right above every `#pragma warning disable`. Review for the scope and the rule id.
 - **Good:** `[SuppressMessage("Design", "CA1031", Justification = "Exception to OBS-10: metrics never fail the business path.")]` **Bad:** `#pragma
   warning disable` at the top of a file with no reason.
 - **Status:** in force.
