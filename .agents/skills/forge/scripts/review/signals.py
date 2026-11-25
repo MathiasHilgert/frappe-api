@@ -49,6 +49,7 @@ RULES = {
     ],
 }
 
+REMOVED = re.compile(r"^\S+(?: \(removed\))? -")
 GENERATED = re.compile(r"\.Designer\.cs$|ModelSnapshot\.cs$|packages\.lock\.json$|^contracts/|/schema\.sql$")
 
 
@@ -101,7 +102,9 @@ def main():
             continue
         files.add(path)
         for lens, rules in compiled.items():
-            if len(found.get(lens, [])) >= MAX_EVIDENCE:
+            # A removed assertion always gets recorded, even after added skips filled the tests lens: it is what turns a
+            # refactor into a crud in the Workflow.
+            if len(found.get(lens, [])) >= MAX_EVIDENCE and not (lens == "tests" and side == "-" and not any(REMOVED.match(e) for e in found[lens])):
                 continue
             for rx, sides, pf in rules:
                 if side in sides and (pf is None or pf.search(path)) and rx.search(text):

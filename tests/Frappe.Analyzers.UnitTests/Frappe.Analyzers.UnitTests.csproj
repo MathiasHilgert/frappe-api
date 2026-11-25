@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The repository's own analyzers (eng/analyzers/Frappe.Analyzers), run on small in-memory compilations. -->
+  <ItemGroup>
+    <ProjectReference Include="../../eng/analyzers/Frappe.Analyzers/Frappe.Analyzers.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+</Project>

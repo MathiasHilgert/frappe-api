@@ -1,0 +1,7 @@
+# Frappe.Analyzers rules that apply to production code only. Directory.Build.props adds this file to the projects under
+# tests/; its higher global_level wins over eng/analyzers.globalconfig.
+is_global = true
+global_level = 101
+
+# SEC-07 · EVT-20 · DOM-06 guard what production code logs. Sample events and fixtures in tests hold made-up data (FRP001).
+dotnet_diagnostic.FRP001.severity = none

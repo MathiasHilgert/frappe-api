@@ -44,6 +44,12 @@
     <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
     <PackageReference Include="Roslynator.Analyzers" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
   </ItemGroup>
+  <!-- The repository's own analyzers: conventions a tool checks so review does not have to. Not for the analyzer project itself,
+       nor for its tests, which reference it as a library. The image build copies only src/ and builds without analyzers, so
+       the reference is skipped where eng/analyzers is absent. -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'Frappe.Analyzers' And '$(MSBuildProjectName)' != 'Frappe.Analyzers.UnitTests' And Exists('$(MSBuildThisFileDirectory)eng/analyzers/Frappe.Analyzers/Frappe.Analyzers.csproj')">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)eng/analyzers/Frappe.Analyzers/Frappe.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
   <ItemGroup>
     <!-- Thresholds of the code metrics rules (CA1502 cyclomatic complexity). -->
     <AdditionalFiles Include="$(MSBuildThisFileDirectory)eng/CodeMetricsConfig.txt" Link="CodeMetricsConfig.txt" />
@@ -55,5 +61,6 @@
     <!-- A module's Http project answers a Result with ToTypedHttpResult only (HTTP-06); the platform keeps its own uses of ErrorsProblemHttpResult.Of. -->
     <AdditionalFiles Condition="$(MSBuildProjectName.EndsWith('.Http')) And '$(MSBuildProjectName)' != 'Frappe.Http'" Include="$(MSBuildThisFileDirectory)eng/BannedSymbols.Http.txt" Link="BannedSymbols.Http.txt" />
     <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory)eng/analyzers.globalconfig" />
+    <GlobalAnalyzerConfigFiles Condition="$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(MSBuildProjectDirectory)').Replace('\','/').StartsWith('tests/'))" Include="$(MSBuildThisFileDirectory)eng/analyzers/tests.globalconfig" />
   </ItemGroup>
 </Project>

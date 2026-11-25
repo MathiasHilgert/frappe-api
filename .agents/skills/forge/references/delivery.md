@@ -5,6 +5,12 @@ open the PRs below (CI starts), and immediately launch the Workflow again with `
 resume). Merge only when both CI and QA pass. A QA defect lands as `fixup!` commits: fold them, push with `--force-with-lease` (CI reruns once) and
 continue. Without runtime changes nothing is pending and delivery is as below.
 
+## One PR per slice, stacked
+
+Every slice is delivered as its own PR, stacked on the one before it: never one branch and one PR for the whole feature. A reviewer reads one slice
+at a time, within its shape's size (`references/plan.md`), and each slice can be reverted alone. The Workflow still builds a chain on one branch;
+delivery cuts it into one branch per slice.
+
 For a chain the Workflow returned `done`:
 
 1. Fold the fixups with `GIT_SEQUENCE_EDITOR="python3 -I <repo>/.agents/skills/forge/scripts/delivery/fold-todo.py" git -C <wt> rebase -i
@@ -12,16 +18,33 @@ For a chain the Workflow returned `done`:
    conflicts. The script moves a fixup under its slice only when no commit it would jump over touched one of its files, and keeps the others in
    place as `fix(<scope>): follow up on <slice>` commits (they land in the PR whose range holds them; its Summary says so). It also amends every
    commit once so the local commit-msg hook strips AI trailers. Check the final tree equals the head's (`git diff <old head> HEAD` is empty).
-2. Run `just pr-check` on the head, then on **every slice commit**: a stacked PR merges alone, so each slice must build and pass CI alone. A slice
-   that does not gets joined with the next one into one PR (say so in its Summary) instead of being fixed slice by slice. `pr-check` checks one
-   commit type per range: run it per type range when a chain mixes `refactor` and `feat` slices.
+2. Make every slice's CI meaningful. Run `just pr-check` on the head, then on **every slice commit** (`pr-check` checks one commit type per range:
+   run it per type range when a chain mixes `refactor` and `feat` slices). A stacked slice is often not green alone: it uses a seam the next slice
+   adds, or its tests only pass once the next slice lands. For each slice that fails alone, pick one and write it in its Summary:
+   - **join it** with the next slice into one PR (the default when the pair still fits the size budget);
+   - **scope it explicitly**: the Summary names the checks expected to fail, why, and the slice whose PR makes them pass, and the PR says "do not
+     merge alone". A red check nobody explained is never acceptable, and a scoped PR merges only together with the slice that turns it green.
+   CI runs on every PR whatever its base (`.github/workflows/ci.yml` triggers on `pull_request` with no branch filter), and its change detection
+   and changed-line coverage diff against the PR's base (`github.base_ref`), so a stacked PR is checked as its own slice on top of its parent.
 3. Cut one branch per slice at its last commit (`git branch <type>/<topic>-<nn>-<slug> <sha>`), push them atomically, open the PRs (PR 1 targets
    main, PR k targets PR k-1's branch; title = the slice's `feat(...)` header, never the first commit of the range), then link them as a native
    GitHub stack: `gh stack link <pr1> ... <prN>` (extension `github/gh-stack`). Each Summary lists the chain.
    The branch type must equal the title type (a `fix(...)` slice goes on `fix/...`; the conventions check fails otherwise). Never rename a
    branch that has an open PR: GitHub closes the PR. If a stack needs a PR replaced, `gh stack unstack <n>` and link the full list again.
-4. Merge the whole stack at once with `gh stack merge <top pr> --yes` once every PR is green and QA passed: GitHub merges the stack atomically (all
-   or nothing), so there is no retargeting or rebasing between merges. PRs added later go on top with `gh stack link <stack#> <pr>`.
+4. Merge the whole stack at once with `gh stack merge <top pr> --yes` once every PR is green (or scoped, step 2) and QA passed: GitHub merges the
+   stack atomically (all or nothing), so there is no retargeting or rebasing between merges. PRs added later go on top with
+   `gh stack link <stack#> <pr>`.
+5. **Never delete a base branch while a PR still targets it.** Deleting PR k's branch on merge closes PR k+1, which targets it. When a stack
+   merges one PR at a time instead of with `gh stack merge`:
+   - first retarget the next PR to main (`gh pr edit <next> --base main`), then merge, then delete the merged branch;
+   - never merge a base PR with `--delete-branch`, so not with `scripts/delivery/merge-queue.sh`, which passes it: merge base PRs by hand
+     (`gh pr merge <pr> --squash`), and use the queue only for PRs that nothing targets;
+   - check the repository does not delete head branches on merge (`gh api repos/{owner}/{repo} --jq .delete_branch_on_merge` is `false`); if it
+     is `true`, the retarget must come before every merge.
+   After a squash merge, rebase the next branch onto main (`git rebase --onto origin/main <old base sha> <next branch>`), push with
+   `--force-with-lease`, and let its CI run again before merging it.
+
+## A single task
 
 For each task the Workflow returned `done` (verdict pass or blockers resolved, QA pass or not required):
 
@@ -35,9 +58,10 @@ For each task the Workflow returned `done` (verdict pass or blockers resolved, Q
    costing a full CI round.
 3a. Rebase on `origin/main` when other PRs merged meanwhile; regenerate any EF migration whose snapshot conflicts (`dotnet ef migrations add`, rename
 the generated `_<timestamp>_` class, restore hand-written `Up`/`Down`), rerun the touched suites.
-4. One PR per slice of the planned budget (`references/plan.md`); for a chain, load the `chained-pr` skill and open them in dependency order with the
-   chain in each Summary. Push and open each PR with `.github/pull_request_template.md`; delete the template sections that do not apply instead of
-   filling them. Put the critics run, the arbiter verdict, advisories, follow-ups and the QA scenarios in Summary / Pending decisions / How to verify.
+4. One PR per slice of the planned budget (`references/plan.md`); for a chain, load the `chained-pr` skill and open them stacked in dependency
+   order with the chain in each Summary (One PR per slice, stacked, above). Push and open each PR with `.github/pull_request_template.md`; delete
+   the template sections that do not apply instead of filling them. Put the critics run, the arbiter verdict, advisories, follow-ups and the QA
+   scenarios in Summary / Pending decisions / How to verify.
 4a. The body follows the template fully: the TL;DR story (situation, bold one-sentence change, The problem, What we built, How, Why this way), then
    every section that applies, and the ones that do not deleted. Architecture holds real Mermaid diagrams of what exists after merge (module
    boundaries and dependency direction as a flowchart, runtime flows as a sequenceDiagram, data as an erDiagram), written from the diff and not
@@ -49,9 +73,10 @@ the generated `_<timestamp>_` class, restore hand-written `Up`/`Down`), rerun th
    branch and checks, based on the previous branch) or other pending work. On a failure read the failed log, fix in the worktree, push, and rebase the
    chain above it.
 6. Merge (squash, with the PR body as the commit body: never pass `--body ""`) only when CI is green and the user has authorized merging; otherwise
-   ask once with the PR list. Merge with `scripts/delivery/merge-queue.sh <pr>...`: PRs that touch different modules merge back to back and main's CI
-   is watched once at the end; it watches main between two PRs only when they share an area, and stops when a PR is behind or conflicting (rebase it,
-   `just pr-check`, push, rerun the queue from it).
+   ask once with the PR list. Merge with `scripts/delivery/merge-queue.sh <pr>...` (never a PR another PR targets: it deletes the branch; see
+   One PR per slice, stacked, step 5): PRs that touch different modules merge back to back and main's CI is watched once at the end; it watches
+   main between two PRs only when they share an area, and stops when a PR is behind or conflicting (rebase it, `just pr-check`, push, rerun the
+   queue from it).
 6a. Release PRs. release-please opens its PR as the Actions bot, and a PR opened by that bot does not start the CI workflows. The orchestrator adds
    an assignee and a type label (the metadata check asks for them), then closes and reopens the PR as a user, which triggers CI, and merges when
    it is green. When the user asks for a joint release, the open PRs merge only once all of them are green, and the release PR comes last.

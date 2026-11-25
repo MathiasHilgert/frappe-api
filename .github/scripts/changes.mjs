@@ -45,7 +45,7 @@ export const CHECKS = {
   dotnet: ['dotnet'],
   // Unit tests pass · Architecture rules hold · Integration tests pass · Changed lines are covered
   tests: ['dotnet', 'contracts', 'observability'],
-  // App starts and responds · No vulnerable dependencies
+  // App starts and responds (pushes to main only) · No vulnerable dependencies
   image: ['dotnet', 'container'],
   // Container image is clean (it scans the image: only its Dockerfile, compose stack or dependencies change what it finds)
   scan: ['container', 'packages'],
