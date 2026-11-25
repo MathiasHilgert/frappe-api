@@ -13,7 +13,7 @@ public sealed class HostReferenceTests
     private static readonly Assembly Worker = typeof(Frappe.Worker.WorkerComposition).Assembly;
 
     /// <summary>The names of every <c>Frappe.*</c> assembly <paramref name="host"/> reaches, itself included, and what each references.</summary>
-    private static Dictionary<string, string[]> Closure(Assembly host)
+    internal static Dictionary<string, string[]> Closure(Assembly host)
     {
         var closure = new Dictionary<string, string[]>(StringComparer.Ordinal);
         var pending = new Stack<Assembly>([host]);

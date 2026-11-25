@@ -48,7 +48,7 @@ module's data: see `criteria`.
 
 - **Rule:** Domain never references its Application project nor `Frappe.UseCases`.
 - **Why:** the model must not depend on how it is orchestrated.
-- **Enforced by:** `LayeringTests.The_domain_does_not_depend_on_its_use_cases` (planned).
+- **Enforced by:** `LayeringTests.The_domain_does_not_depend_on_its_use_cases`.
 - **Good:** `Owner.Verify(Instant now)` returns `Result<Unit>`
   (`Frappe.Identity.Domain/Owners/Owner.cs`). **Bad:** an aggregate taking an `ICommand` or a handler.
 - **Status:** in force.
@@ -58,8 +58,8 @@ module's data: see `criteria`.
 - **Rule:** `*.Infrastructure` never depends on ASP.NET Core. `*.Http` dispatches commands and queries through Application ports and never references
   Infrastructure, EF, Npgsql, `Frappe.Persistence`, `Frappe.Caching` or Redis.
 - **Why:** transport and storage change independently; an endpoint that reads a table bypasses the use case's rules.
-- **Enforced by:** `LayeringTests.Infrastructure_adapters_do_not_serve_http` (planned),
-  `LayeringTests.The_http_adapter_reaches_use_cases_only_through_the_application_layer` (planned; over every `*.Http`).
+- **Enforced by:** `LayeringTests.Infrastructure_adapters_do_not_serve_http`,
+  `LayeringTests.The_http_adapter_reaches_use_cases_only_through_the_application_layer` (over every `*.Http`).
 - **Good:** `PasswordChangeEndpoints` takes `ICommandHandler<ChangePassword, Unit>`. **Bad (hypothetical):** an endpoint injecting
   `IdentityDbContext`.
 - **Status:** in force.
@@ -70,7 +70,10 @@ module's data: see `criteria`.
   isolation allow-list. Never another module's Domain, Application, Infrastructure, Http, tables or services.
 - **Why:** each module can change its internals, schema and deployment without breaking others; the allow-list makes every new dependency a reviewed
   decision.
-- **Enforced by:** one generic module-isolation ArchTest with an allow-list over every production assembly (planned); review meanwhile.
+- **Enforced by:** `LayeringTests.A_module_reaches_another_only_through_an_allow_listed_contracts_reference_ARCH_05`
+  (one generic test with an allow-list over every production assembly).
+- **Allow-list:** `Frappe.Access.Contracts` (the rule vocabulary) is allow-listed for `Identity.{Application,Http,Infrastructure}` and
+  `Notifications.Application`.
 - **Good:** `Frappe.Notifications.Triggers.Identity` → `Frappe.Identity.Contracts` (allow-listed). **Bad (hypothetical):**
   `Frappe.Notifications.Application` → `Frappe.Identity.Application`.
 - **Status:** in force.
@@ -81,8 +84,8 @@ module's data: see `criteria`.
   records in and out, implemented over the owner's own query handlers, and missing data is an answer, never an exception or a silent default. Reacting
   to another module's change uses its integration events (see `events`). A local copy fed by events is allowed only under CRIT-05.
 - **Why:** the owner keeps its rules and its model private; a query port answers with current data without a second source of truth.
-- **Enforced by:** `LayeringTests.A_module_contract_exposes_nothing_but_its_public_types` (planned) + ARCH-05 test
-  (both planned); review for read-only and "missing is an answer".
+- **Enforced by:** `LayeringTests.A_module_contract_exposes_nothing_but_its_public_types` (Access.Contracts, the rule vocabulary, is checked for
+  isolation only) + the ARCH-05 test; review for read-only and "missing is an answer".
 - **Good (hypothetical, no `I<Module>Queries` exists yet):** `IIdentityQueries.FindOwnerStatusAsync(...)` answers `OwnerStatus.NotFound` for an
   owner Identity does not hold. **Bad (hypothetical):** a port method that writes, returns the `Owner` aggregate, or answers "verified" when
   Identity has no data.
@@ -139,8 +142,8 @@ module's data: see `criteria`.
 
 - **Rule:** tracing and exporters are platform work; modules declare business metrics through `IMeterFactory` only (see `observability`).
 - **Why:** one telemetry pipeline, configured once.
-- **Enforced by:** `LayeringTests.Modules_contain_no_tracing_or_exporter_code` (planned; cover every module project, Http and plug-in packages
-  included).
+- **Enforced by:** `LayeringTests.Modules_contain_no_tracing_or_exporter_code`
+  (every module project, Http and plug-in packages included; a type marked `// Exception to OBS-01` is allowed).
 - **Good:** `OwnersMetrics` (`Frappe.Identity.Application/Telemetry`) over `IMeterFactory`. **Bad (hypothetical):**
   `new ActivitySource("Frappe.Identity")` in a handler.
 - **Status:** in force.
@@ -149,7 +152,7 @@ module's data: see `criteria`.
 
 - **Rule:** no Application port declares `SaveChangesAsync`; the unit of work commits each command once (see `uow`).
 - **Why:** a port that saves commits half a command.
-- **Enforced by:** `LayeringTests.Application_ports_leave_saving_to_the_unit_of_work` (planned).
+- **Enforced by:** `LayeringTests.Application_ports_leave_saving_to_the_unit_of_work`.
 - **Good:** `IOwners.Add(Owner owner)`, which stages and never saves. **Bad (hypothetical):** `IOwners.SaveAsync()`.
 - **Status:** in force.
 
@@ -193,6 +196,6 @@ module's data: see `criteria`.
 - **Rule:** `src/Platform/*` holds technical capabilities with no business vocabulary and never references `src/Modules/*`. A piece moves there only
   under CRIT-02.
 - **Why:** a business rule in platform couples every module to one module's domain.
-- **Enforced by:** ArchTest "platform never references a module" (planned); review for business vocabulary.
+- **Enforced by:** `LayeringTests.Platform_never_references_a_module_ARCH_18`; review for business vocabulary.
 - **Good:** `Frappe.Caching.CacheInvalidator`. **Bad (hypothetical):** an `OwnerHelper` in `Frappe.UseCases`.
 - **Status:** in force.

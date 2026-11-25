@@ -12,7 +12,7 @@ namespace Frappe.Architecture.Tests;
 public sealed class ModuleDoorTests
 {
     /// <summary>Every module of the solution: one folder per module under <c>src/Modules</c>.</summary>
-    private static readonly string[] AllModules =
+    internal static readonly string[] AllModules =
     [
         .. new DirectoryInfo(Path.Combine(RepositoryRoot.FullPath, "src", "Modules")).GetDirectories()
             .Select(folder => folder.Name)
