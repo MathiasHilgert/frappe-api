@@ -148,6 +148,7 @@ The details, and every CI check, are in [CONTRIBUTING.md](CONTRIBUTING.md).
 | [`docs/roadmap.md`](docs/roadmap.md) | The modules in order, what each delivers, and the deferred engineering work |
 | [`.agents/skills/forge`](.agents/skills/forge/SKILL.md) | How a change goes from idea to merged PR: planning, writers, critics, QA |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Commands, testing, conventions, CI and the repository layout |
+| [`src/Modules/*/README.md`](src/Modules/) | One map per module (Access, Identity, Notifications): doors, features, metrics, events, extensions |
 
 ## License
 
