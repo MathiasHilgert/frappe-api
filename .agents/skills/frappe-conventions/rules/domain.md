@@ -69,7 +69,8 @@
 - **Rule:** Every value object, command, event or view that holds personal data or a secret overrides `ToString` to print only what is safe (a masked
   form, ids, timestamps).
 - **Why:** Records print every member by default; one interpolation into a log or exception message leaks the data.
-- **Enforced by:** review.
+- **Enforced by:** FRP001 (`eng/analyzers/Frappe.Analyzers`) at warning in `eng/analyzers.globalconfig` for records with a secret- or
+  email-named public string member (SEC-07); review for the rest.
 - **Good:** `public override string ToString() => "***" + Value[Value.IndexOf('@', StringComparison.Ordinal)..];` (`Email`), `=> "***"` (`Password`).
   **Bad:** a `sealed record RegisterOwner(string? Email, string? Password)` with the generated `ToString`.
 - **Status:** in force.

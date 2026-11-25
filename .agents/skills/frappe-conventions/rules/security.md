@@ -73,7 +73,9 @@
 - **Rule:** A session token appears only in the log-in answer and the cookie; types holding secrets, tokens, passwords, codes or names override
   `ToString` to mask; never log request or message payloads.
 - **Why:** logs, traces and exceptions are where secrets leak.
-- **Enforced by:** review.
+- **Enforced by:** FRP001 (`eng/analyzers/Frappe.Analyzers`) at warning in `eng/analyzers.globalconfig`: a record outside `tests/` with a public
+  string member named `*Password`, `*Passphrase`, `*Secret`, `*Token`, `*Plaintext` or `*Email` overrides `ToString`. Review for codes, names, other types and
+  logging.
 - **Good:** `Password.ToString() => "***"`. **Bad:** a record with a token printed by `{@Command}`.
 - **Status:** in force.
 

@@ -16,3 +16,12 @@ MA0053.exceptions_should_be_sealed = true
 
 # Banned APIs (eng/BannedSymbols*.txt).
 dotnet_diagnostic.RS0030.severity = warning
+
+# Frappe.Analyzers (eng/analyzers/Frappe.Analyzers), the repository's own rules.
+# SEC-07 · EVT-20 · DOM-06 · A record with a public string member named *Password, *Passphrase, *Secret, *Token,
+# *Plaintext or *Email overrides ToString to mask it (FRP001).
+dotnet_diagnostic.FRP001.severity = warning
+# EVT-21 · PERF-02 · No EF Core EnableRetryOnFailure and no IExecutionStrategy of our own (FRP002).
+dotnet_diagnostic.FRP002.severity = warning
+# CRAFT-10 · A SuppressMessage has a Justification; a #pragma warning disable has a comment on its line or the one above (FRP003).
+dotnet_diagnostic.FRP003.severity = warning

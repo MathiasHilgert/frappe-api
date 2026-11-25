@@ -199,7 +199,8 @@
 
 - **Rule:** Never log message payloads; an event carrying secrets or PII overrides `ToString` to mask them.
 - **Why:** logs are widely readable and long-lived.
-- **Enforced by:** review.
+- **Enforced by:** FRP001 (`eng/analyzers/Frappe.Analyzers`) at warning in `eng/analyzers.globalconfig` for events with a secret- or
+  email-named public string member (SEC-07); review for other PII and for logging.
 - **Good:** `VerificationCodeIssued.ToString()` masks the code. **Bad:** `logger.LogInformation("{Event}", evt)` on a record with an email.
 - **Status:** in force.
 
@@ -207,7 +208,7 @@
 
 - **Rule:** Never enable EF's retrying execution strategy; retries belong to the relay, the inbox and the client.
 - **Why:** the strategy replays user transactions and breaks the unit of work and inbox atomicity.
-- **Enforced by:** review.
+- **Enforced by:** FRP002 (`eng/analyzers/Frappe.Analyzers`) at warning in `eng/analyzers.globalconfig`.
 - **Good:** `UseNpgsql(cs)` without retry. **Bad:** `o.EnableRetryOnFailure()`.
 - **Status:** in force.
 
