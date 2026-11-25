@@ -4,7 +4,8 @@
 # parallel, one log per step: format of the changed C# files, typos on the changed files, line length (150), Markdown lint of the changed
 # .md files (the CI's markdownlint-cli2 version and config), the branch's commit messages against the repository conventions, squawk on
 # changed migrations,
-# pending EF model changes of the touched modules, and every test app the change can break (affected.py). Prints one
+# pending EF model changes of the touched modules, and every test app the change can break (.github/scripts/affected.mjs,
+# shared with CI). Prints one
 # line per step and, for a failure, its first relevant lines and log path. Exit 0 only when every step passed.
 #   --coverage  also check changed-line coverage (CI's 80% bar): the affected test apps collect coverage in their one run, then
 #            diff-cover reads the reports. Use it once before the final commit when production code changed.
@@ -90,7 +91,7 @@ while read -r factory; do
   while [ ! -f "$project/$(basename "$project").csproj" ] && [ "$project" != "src" ]; do project=$(dirname "$project"); done
   cmd["ef:$(basename "$project")"]="dotnet tool restore >/dev/null && dotnet ef migrations has-pending-model-changes --project $(printf '%q' "$project") --no-build"
 done < <(grep -rl --include='*.cs' 'IDesignTimeDbContextFactory' src 2>/dev/null || true)
-mapfile -t apps < <(python3 -I "$here/affected.py" "$root" "${changed[@]}")
+mapfile -t apps < <(node "$root/.github/scripts/affected.mjs" "$root" "${changed[@]}")
 # The end-to-end tests build the Docker image (about 2.5 minutes). CI always runs them; the gate runs them only when what the image
 # packs or how it is deployed changed.
 if ! printf '%s\n' "${changed[@]}" | grep -qE '^deploy/|^src/Hosts/|Dockerfile|^Directory\.(Build|Packages)\.props$|^global\.json$'; then
@@ -111,7 +112,7 @@ done
 selected=("${!cmd[@]}")
 if $rerun && [ -f "$stamp" ]; then
   mapfile -t since < <(printf '%s\n' "${changed[@]}" | while read -r f; do [ "$f" -nt "$stamp" ] && echo "$f"; done)
-  mapfile -t again < <(python3 -I "$here/affected.py" "$root" "${since[@]}" | sed 's#.*/#tests:#')
+  mapfile -t again < <(node "$root/.github/scripts/affected.mjs" "$root" "${since[@]}" | sed 's#.*/#tests:#')
   selected=()
   for step in "${!cmd[@]}"; do
     failed=false; [ -f "$state/$step.rc" ] && [ "$(cat "$state/$step.rc")" != "0" ] && failed=true
